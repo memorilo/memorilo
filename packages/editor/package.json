@@ -1,0 +1,7 @@
+{
+  "name": "@memorilo/editor",
+  "version": "0.0.1",
+  "author": "Memorilo Team",
+  "license": "AGLP-3.0-only",
+  "packageManager": "pnpm@10.17.0"
+}

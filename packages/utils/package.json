@@ -1,0 +1,17 @@
+{
+  "name": "@memorilo/utils",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.4.0"
+  }
+}

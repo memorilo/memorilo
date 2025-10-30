@@ -1,0 +1,25 @@
+{
+  "name": "@memorilo/components",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "exports": {
+    "./ui/*": "./src/ui/*",
+    "./lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memorilo/utils": "workspace:*",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.554.0",
+    "motion": "^12.23.24",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
+  }
+}

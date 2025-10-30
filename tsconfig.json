@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "exclude": ["apps", "packages"]
+}
