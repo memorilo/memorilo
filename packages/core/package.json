@@ -1,0 +1,14 @@
+{
+  "name": "@memorilo/core",
+  "packageManager": "pnpm@10.17.0",
+  "license": "AGPL-3.0-only",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "dependencies": {
+    "mitt": "^3.0.1"
+  }
+}

@@ -8,9 +8,18 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
+import { createFileRoute } from '@tanstack/react-router'
+
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 
+const AllNotesLazyRouteImport = createFileRoute('/all-notes')()
+
+const AllNotesLazyRoute = AllNotesLazyRouteImport.update({
+  id: '/all-notes',
+  path: '/all-notes',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/all-notes.lazy').then((d) => d.Route))
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +28,39 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/all-notes': typeof AllNotesLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/all-notes': typeof AllNotesLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/all-notes': typeof AllNotesLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/all-notes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/all-notes'
+  id: '__root__' | '/' | '/all-notes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AllNotesLazyRoute: typeof AllNotesLazyRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/all-notes': {
+      id: '/all-notes'
+      path: '/all-notes'
+      fullPath: '/all-notes'
+      preLoaderRoute: typeof AllNotesLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +73,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AllNotesLazyRoute: AllNotesLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
