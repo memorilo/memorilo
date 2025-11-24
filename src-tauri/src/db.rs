@@ -1,12 +1,19 @@
-use crate::error::Result;
+mod folder;
+
 use sqlite_vec::sqlite3_vec_init;
 use rusqlite::ffi::sqlite3_auto_extension;
+use crate::error::Result;
+
+pub use folder::*;
 
 static DATABASE_MIGRATIONS: &[&str] = &[
     include_str!("../migrations/00-init-folder.sql"),
 ];
-static FOLDER_ROOT_UUID: &str = "00000000-0000-0000-0000-000000000000";
 
+/// Establishes a connection to the SQLite database at the specified URL.
+///
+/// This function also initializes the `sqlite-vec` extension, sets up foreign keys,
+/// creates the `versions` table if it doesn't exist, and applies any pending migrations.
 pub fn get_connection(url: &str) -> Result<rusqlite::Connection> {
     let mut conn = rusqlite::Connection::open(url)?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
@@ -41,25 +48,4 @@ pub fn get_connection(url: &str) -> Result<rusqlite::Connection> {
         tx.commit()?;
     }
     Ok(conn)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    pub fn get_memory_connection() -> rusqlite::Connection {
-        get_connection(":memory:").unwrap()
-    }
-
-    #[test]
-    pub fn test_database() {
-        let conn = get_memory_connection();
-        conn.query_one("SELECT name FROM folder_nodes WHERE uuid = ?;", [FOLDER_ROOT_UUID], |r| {
-            let name: String = r.get(0)?;
-            assert_eq!(name, "<ROOT>");
-            Ok(())
-        }).unwrap();
-    }
-
-
-
 }

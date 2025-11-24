@@ -2319,6 +2319,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "thiserror 2.0.17",
+ "uuid",
 ]
 
 [[package]]
