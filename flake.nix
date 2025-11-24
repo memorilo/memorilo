@@ -51,10 +51,12 @@
           ])
         ])
         ++ (pkgs.lib.optional pkgs.stdenv.isLinux (with pkgs; [
-          gtk3
-          webkitgtk
           dbus
+          gtk3.dev
+          glib.dev
+          libsoup_3.dev
           libayatana-appindicator.dev
+          webkitgtk_4_1.dev
           alsa-lib.dev
         ]))
         ++ (pkgs.lib.optional pkgs.stdenv.isDarwin (with pkgs; [
