@@ -36,3 +36,6 @@ rusqlite = { version = "0.37.0", features = ["bundled"] }
 sqlite-vec = "0.1.6"
 thiserror = "2.0.17"
 uuid = { version = "1.18.1", features = ["v7", "serde"] }
+specta = { version = "=2.0.0-rc.22", features = ["chrono", "serde", "uuid"] }
+specta-typescript = "0.0.9"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }

@@ -1,26 +1,27 @@
-use serde::{Serialize, ser::SerializeStruct};
-use thiserror::Error;
+use serde::Serialize;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] rusqlite::Error),
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, specta::Type, Serialize)]
+pub enum ErrorKind {
+    DatabaseError
 }
 
-impl Serialize for Error {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut s = serializer.serialize_struct("Error", 2)?;
-        match self {
-            Error::DatabaseError(error) => {
-                s.serialize_field("code", &0)?;
-                s.serialize_field("message", &error.to_string())?;
-                // s.serialize_field("error", error)?;
-            },
+#[derive(Debug, specta::Type, Serialize, thiserror::Error)]
+#[error("{message}: {inner_message}")]
+pub struct Error {
+    #[serde(rename = "_tag")]
+    kind: ErrorKind,
+    message: String,
+    inner_message: String
+}
+
+impl From<rusqlite::Error> for Error {
+    fn from(err: rusqlite::Error) -> Self {
+        Error {
+            kind: ErrorKind::DatabaseError,
+            message: "Database error occurred".to_string(),
+            inner_message: err.to_string()
         }
-        s.end()
     }
 }
 

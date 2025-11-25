@@ -6,6 +6,10 @@ use crate::error::Result;
 
 pub use folder::*;
 
+pub struct DbState {
+    pub conn: std::sync::Mutex<rusqlite::Connection>,
+}
+
 static DATABASE_MIGRATIONS: &[&str] = &[
     include_str!("../migrations/00-init-folder.sql"),
 ];

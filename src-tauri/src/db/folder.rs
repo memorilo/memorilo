@@ -4,7 +4,7 @@ use std::str::FromStr;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 
 /// Represents the type of a folder node in the hierarchy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub enum FolderNodeType {
     Folder,
     Topic,
@@ -62,7 +62,7 @@ impl ToSql for FolderNodeType {
 }
 
 /// Represents a folder node with all its properties.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct FolderNode {
     pub uuid: String,
     pub typ: FolderNodeType,
@@ -76,7 +76,7 @@ pub struct FolderNode {
 static FOLDER_ROOT_UUID: &str = "00000000-0000-0000-0000-000000000000";
 
 /// Returns the UUID of the root folder node.
-pub fn get_folder_root_uuid() -> &'static str {
+pub fn get_root_folder_uuid() -> &'static str {
     FOLDER_ROOT_UUID
 }
 
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     pub fn test_folder_operations() {
         let mut conn = get_memory_connection();
-        let root = get_folder_root_uuid();
+        let root = get_root_folder_uuid();
         
         // Create
         let folder_uuid = "11111111-1111-1111-1111-111111111111";
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     pub fn test_folder_query() {
         let mut conn = get_memory_connection();
-        let root = get_folder_root_uuid();
+        let root = get_root_folder_uuid();
         
         let folder_uuid = "11111111-1111-1111-1111-111111111111";
         create_folder_node(&mut conn, root, folder_uuid, FolderNodeType::Folder, "My Folder", None).unwrap();

@@ -6,7 +6,8 @@
     "moduleResolution": "Bundler",
 
     "paths": {
-      "@memorilo/ui/*": ["./src/*"]
+      "@memorilo/ui/*": ["./src/*"],
+      "@memorilo/utils/*": ["../utils/src/*"]
     },
     "resolveJsonModule": true,
     "allowJs": true,
