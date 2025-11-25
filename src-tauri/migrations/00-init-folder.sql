@@ -105,3 +105,41 @@ BEGIN
         SELECT 1 FROM ancestors WHERE id = NEW.child_uuid
     ) OR NEW.parent_uuid = NEW.child_uuid;
 END;
+
+-- Trigger: Enforce node type hierarchy on insert
+CREATE TRIGGER IF NOT EXISTS enforce_node_type_hierarchy_insert
+BEFORE INSERT ON folder_node_hierarchy
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid parent-child relationship based on node types')
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM folder_nodes parent, folder_nodes child
+        WHERE parent.uuid = NEW.parent_uuid
+          AND child.uuid = NEW.child_uuid
+          AND (
+              (parent.typ = 'folder' AND child.typ IN ('folder', 'topic')) OR
+              (parent.typ = 'topic' AND child.typ IN ('highlight', 'item')) OR
+              (parent.typ = 'highlight' AND child.typ IN ('highlight', 'item')) OR
+              (parent.typ = 'item' AND child.typ = 'item')
+          )
+    );
+END;
+
+-- Trigger: Enforce node type hierarchy on update
+CREATE TRIGGER IF NOT EXISTS enforce_node_type_hierarchy_update
+BEFORE UPDATE ON folder_node_hierarchy
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid parent-child relationship based on node types')
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM folder_nodes parent, folder_nodes child
+        WHERE parent.uuid = NEW.parent_uuid
+          AND child.uuid = NEW.child_uuid
+          AND (
+              (parent.typ = 'folder' AND child.typ IN ('folder', 'topic')) OR
+              (parent.typ = 'topic' AND child.typ IN ('highlight', 'item')) OR
+              (parent.typ = 'highlight' AND child.typ IN ('highlight', 'item')) OR
+              (parent.typ = 'item' AND child.typ = 'item')
+          )
+    );
+END;

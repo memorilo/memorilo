@@ -261,7 +261,7 @@ mod tests {
         create_folder_node(&mut conn, folder_uuid, child1_uuid, FolderNodeType::Topic, "Topic 1", Some("ref-topic")).unwrap();
         
         let child2_uuid = "33333333-3333-3333-3333-333333333333";
-        create_folder_node(&mut conn, folder_uuid, child2_uuid, FolderNodeType::Item, "Item 1", Some("ref-item")).unwrap();
+        create_folder_node(&mut conn, folder_uuid, child2_uuid, FolderNodeType::Topic, "Topic 2", Some("ref-topic-2")).unwrap();
 
         // Test get_folder_node
         let node = get_folder_node(&conn, folder_uuid).unwrap();
@@ -278,7 +278,53 @@ mod tests {
         assert_eq!(child1.typ, FolderNodeType::Topic);
         
         let child2 = children.iter().find(|c| c.uuid == child2_uuid).unwrap();
-        assert_eq!(child2.name, "Item 1");
-        assert_eq!(child2.typ, FolderNodeType::Item);
+        assert_eq!(child2.name, "Topic 2");
+        assert_eq!(child2.typ, FolderNodeType::Topic);
+    }
+
+    #[test]
+    pub fn test_folder_hierarchy_constraints() {
+        let mut conn = get_memory_connection();
+        let root = get_root_folder_uuid();
+
+        // 1. Folder -> Folder
+        let folder1_uuid = "10000000-0000-0000-0000-000000000001";
+        create_folder_node(&mut conn, root, folder1_uuid, FolderNodeType::Folder, "Folder 1", None).unwrap();
+
+        // 2. Folder -> Topic
+        let topic1_uuid = "20000000-0000-0000-0000-000000000001";
+        create_folder_node(&mut conn, folder1_uuid, topic1_uuid, FolderNodeType::Topic, "Topic 1", Some("ref-topic")).unwrap();
+
+        // 3. Topic -> Item
+        let item1_uuid = "30000000-0000-0000-0000-000000000001";
+        create_folder_node(&mut conn, topic1_uuid, item1_uuid, FolderNodeType::Item, "Item 1", Some("ref-item")).unwrap();
+
+        // 4. Topic -> Highlight
+        let highlight1_uuid = "40000000-0000-0000-0000-000000000001";
+        create_folder_node(&mut conn, topic1_uuid, highlight1_uuid, FolderNodeType::Highlight, "Highlight 1", Some("ref-hl")).unwrap();
+
+        // 5. Highlight -> Item
+        let item2_uuid = "30000000-0000-0000-0000-000000000002";
+        create_folder_node(&mut conn, highlight1_uuid, item2_uuid, FolderNodeType::Item, "Item 2", Some("ref-item-2")).unwrap();
+
+        // 6. Highlight -> Highlight
+        let highlight2_uuid = "40000000-0000-0000-0000-000000000002";
+        create_folder_node(&mut conn, highlight1_uuid, highlight2_uuid, FolderNodeType::Highlight, "Highlight 2", Some("ref-hl-2")).unwrap();
+
+        // 7. Item -> Item
+        let item3_uuid = "30000000-0000-0000-0000-000000000003";
+        create_folder_node(&mut conn, item1_uuid, item3_uuid, FolderNodeType::Item, "Item 3", Some("ref-item-3")).unwrap();
+
+        // Invalid relationships (should fail)
+        
+        // Folder -> Item (Invalid)
+        let invalid_item_uuid = "90000000-0000-0000-0000-000000000001";
+        let res = create_folder_node(&mut conn, folder1_uuid, invalid_item_uuid, FolderNodeType::Item, "Invalid Item", Some("ref"));
+        assert!(res.is_err());
+
+        // Topic -> Folder (Invalid)
+        let invalid_folder_uuid = "90000000-0000-0000-0000-000000000002";
+        let res = create_folder_node(&mut conn, topic1_uuid, invalid_folder_uuid, FolderNodeType::Folder, "Invalid Folder", None);
+        assert!(res.is_err());
     }
 }
