@@ -8,8 +8,6 @@ import { FiFile, FiFolder } from 'react-icons/fi'
 interface NotesTreeContextValue {
   selectedIds: string[]
   setSelectedIds: (ids: string[]) => void
-  onNodeClick?: (node: FolderNode, e: React.MouseEvent) => void
-  onNodeContextMenu?: (node: FolderNode, e: React.MouseEvent) => void
 }
 
 const NotesTreeContext = React.createContext<NotesTreeContextValue | null>(null)
@@ -24,42 +22,19 @@ export function useNotesTree() {
 
 interface NotesTreeProviderProps {
   children: React.ReactNode
-  selectedIds?: string[]
-  onSelect?: (ids: string[]) => void
-  onNodeClick?: (node: FolderNode, e: React.MouseEvent) => void
-  onNodeContextMenu?: (node: FolderNode, e: React.MouseEvent) => void
 }
 
 export function NotesTreeProvider({
   children,
-  selectedIds: controlledSelectedIds,
-  onSelect,
-  onNodeClick,
-  onNodeContextMenu,
 }: NotesTreeProviderProps) {
-  const [internalSelectedIds, setInternalSelectedIds] = React.useState<string[]>([])
-
-  const isControlled = controlledSelectedIds !== undefined
-  const selectedIds = isControlled ? controlledSelectedIds : internalSelectedIds
-
-  const setSelectedIds = React.useCallback(
-    (ids: string[]) => {
-      if (!isControlled) {
-        setInternalSelectedIds(ids)
-      }
-      onSelect?.(ids)
-    },
-    [isControlled, onSelect],
-  )
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
 
   const value = React.useMemo(
     () => ({
       selectedIds,
       setSelectedIds,
-      onNodeClick,
-      onNodeContextMenu,
     }),
-    [selectedIds, setSelectedIds, onNodeClick, onNodeContextMenu],
+    [selectedIds],
   )
 
   return (
@@ -69,7 +44,12 @@ export function NotesTreeProvider({
   )
 }
 
-export function NotesFolderTree() {
+interface NotesFolderTreeProps {
+  onNodeClick?: (node: FolderNode, e: React.MouseEvent) => void
+  onNodeContextMenu?: (node: FolderNode, e: React.MouseEvent) => void
+}
+
+export function NotesFolderTree({ onNodeClick, onNodeContextMenu }: NotesFolderTreeProps) {
   const { data: rootUuid, status, error } = useRootFolderNodeUUID()
   const { selectedIds, setSelectedIds } = useNotesTree()
 
@@ -86,13 +66,12 @@ export function NotesFolderTree() {
   }
   return (
     <Tree value={selectedIds} onValueChange={setSelectedIds}>
-      <FolderNodeChildren parentUuid={rootUuid} />
+      <FolderNodeChildren parentUuid={rootUuid} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />
     </Tree>
   )
 }
 
-function FolderTreeNode({ node }: { node: FolderNode }) {
-  const { onNodeClick, onNodeContextMenu } = useNotesTree()
+function FolderTreeNode({ node, onNodeClick, onNodeContextMenu }: { node: FolderNode } & NotesFolderTreeProps) {
   const isFolder = node.typ === 'Folder' || node.typ === 'Topic'
 
   return (
@@ -104,12 +83,12 @@ function FolderTreeNode({ node }: { node: FolderNode }) {
       onClick={e => onNodeClick?.(node, e)}
       onContextMenu={e => onNodeContextMenu?.(node, e)}
     >
-      {isFolder && <FolderNodeChildren parentUuid={node.uuid} />}
+      {isFolder && <FolderNodeChildren parentUuid={node.uuid} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />}
     </TreeItem>
   )
 }
 
-function FolderNodeChildren({ parentUuid }: { parentUuid: string }) {
+function FolderNodeChildren({ parentUuid, onNodeClick, onNodeContextMenu }: { parentUuid: string } & NotesFolderTreeProps) {
   const { data: children, isLoading } = useFolderNodeChildren(parentUuid)
 
   if (isLoading)
@@ -121,7 +100,7 @@ function FolderNodeChildren({ parentUuid }: { parentUuid: string }) {
   return (
     <>
       {children.map(child => (
-        <FolderTreeNode key={child.uuid} node={child} />
+        <FolderTreeNode key={child.uuid} node={child} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />
       ))}
     </>
   )

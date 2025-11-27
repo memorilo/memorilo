@@ -1,5 +1,5 @@
 import type { Effect } from 'effect'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { eq } from '.'
 import { effectCommands } from './command'
 
@@ -28,5 +28,19 @@ export function useRootFolderNodeUUID() {
   return useQuery(eq.queryOptions({
     queryKey: ['rootFolderNode'],
     queryFn: () => effectCommands.getRootFolderUuid() as Effect.Effect<string, never>,
+  }))
+}
+
+export function useMutateCreateFolderNode() {
+  const client = useQueryClient()
+  return useMutation(eq.mutationOptions({
+    mutationKey: ['createFolderNode'],
+    mutationFn: (vars: { parentUUID: string, uuid: string, name: string }) =>
+      effectCommands.createFolderNode(vars.parentUUID, vars.uuid, 'Folder', vars.name, null),
+    onSuccess: (_, vars) => {
+      client.invalidateQueries({
+        queryKey: ['folderNodeChildren', vars.parentUUID],
+      })
+    },
   }))
 }
