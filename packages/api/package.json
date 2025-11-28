@@ -11,6 +11,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "react": "catalog:"
+  },
   "dependencies": {
     "@tanstack/react-query": "^5.90.10",
     "@tauri-apps/api": "^2.9.0",

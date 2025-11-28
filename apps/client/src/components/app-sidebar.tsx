@@ -2,7 +2,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
 import { LuBook, LuClock, LuFlag, LuNotebookPen } from 'react-icons/lu'
-import { NotesFolderTree, NotesTreeProvider } from './notes-folder-tree'
+import { NotesFolderTreeContent, NotesFolderTreeProvider } from './notes-folder-tree'
 import { NotesFolderTreeToolbar } from './notes-folder-tree-toolbar'
 
 export function AppSidebar() {
@@ -56,10 +56,10 @@ export function AppSidebar() {
         })}
         >
           <SidebarGroupContent>
-            <NotesTreeProvider>
+            <NotesFolderTreeProvider>
               <NotesFolderTreeToolbar />
-              <NotesFolderTree />
-            </NotesTreeProvider>
+              <NotesFolderTreeContent />
+            </NotesFolderTreeProvider>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

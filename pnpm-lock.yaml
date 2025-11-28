@@ -156,6 +156,9 @@ importers:
       effect-query:
         specifier: ^0.2.1
         version: 0.2.1(@tanstack/react-query@5.90.10(react@19.2.0))(effect@3.19.5)(react@19.2.0)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.0
 
   packages/components:
     dependencies:

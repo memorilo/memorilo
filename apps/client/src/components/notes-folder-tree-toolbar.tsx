@@ -1,12 +1,12 @@
 import { useMutateCreateFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { useTree } from '@memorilo/components/ui/tree'
 import { cn } from '@memorilo/utils/utils'
 import { Match } from 'effect'
-import { LuFilePlus, LuFolderPlus, LuIndentDecrease, LuListCollapse, LuRefreshCcw } from 'react-icons/lu'
+import { LuFilePlus, LuFolderPlus, LuListCollapse, LuRefreshCcw } from 'react-icons/lu'
 import { v7 as uuidV7 } from 'uuid'
-import { useNotesTree } from './notes-folder-tree'
 
 export function NotesFolderTreeToolbar() {
-  const { selectedIds, setSelectedIds } = useNotesTree()
+  const { selectedIds, setSelectedIds } = useTree()
   const { data: rootUUID, status } = useRootFolderNodeUUID()
   const createFolderMutation = useMutateCreateFolderNode()
 
@@ -15,6 +15,7 @@ export function NotesFolderTreeToolbar() {
     Match.when(1, () => selectedIds[0]),
     Match.orElse(() => null),
   )
+
   function handleCreateFolder() {
     if (targetUUID === null)
       return
@@ -33,6 +34,7 @@ export function NotesFolderTreeToolbar() {
       },
     })
   }
+
   return (
     <div className="w-full flex gap-1 border-y">
       <span className="flex-1" />
