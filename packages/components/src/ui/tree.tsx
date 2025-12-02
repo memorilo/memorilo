@@ -1,339 +1,454 @@
-import type { VariantProps } from 'class-variance-authority'
-import { cn } from '@memorilo/utils/utils'
-import { cva } from 'class-variance-authority'
-import { ChevronRight, Loader2 } from 'lucide-react'
-import * as React from 'react'
+'use client'
 
-/**
- * Style variant configuration for tree items
- */
-const treeItemVariants = cva(
-  'group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer select-none',
-  {
-    variants: {
-      selected: {
-        true: 'bg-accent/80 text-accent-foreground',
-        false: '',
-      },
-    },
-    defaultVariants: {
-      selected: false,
-    },
-  },
-)
+import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
+import { cn } from '@memorilo/utils'
+import { ChevronRight, File, Folder, FolderOpen } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import {
 
-/**
- * Context props for the Tree component
- */
-interface TreeContextProps {
-  /** Currently selected node IDs */
-  selectedIds: readonly string[]
-  /** Handler for node selection */
-  onSelect: (id: string, event: React.MouseEvent) => void
-  /** Set the selected node IDs directly */
-  setSelectedIds: (ids: readonly string[]) => void
-  /** Currently expanded node IDs */
-  expandedIds: readonly string[]
-  /** Toggle a node's expanded/collapsed state */
-  onToggleExpand: (id: string, event?: React.MouseEvent) => void
-  /** Set the expanded node IDs directly */
-  setExpandedIds: (ids: readonly string[]) => void
+  createContext,
+
+  use,
+  useCallback,
+  useId,
+  useState,
+} from 'react'
+
+interface TreeContextType {
+  expandedIds: Set<string>
+  selectedIds: string[]
+  toggleExpanded: (nodeId: string) => void
+  handleSelection: (nodeId: string, ctrlKey: boolean) => void
+  showLines?: boolean
+  showIcons?: boolean
+  selectable?: boolean
+  multiSelect?: boolean
+  indent?: number
+  animateExpand?: boolean
 }
 
-const TreeContext = React.createContext<TreeContextProps | null>(null)
+const TreeContext = createContext<TreeContextType | undefined>(undefined)
 
-/**
- * Get the Tree component context
- * Must be used inside a Tree or TreeProvider
- * @returns TreeContextProps
- * @throws if used outside of a Tree or TreeProvider
- * @example
- * ```tsx
- * function MyComponent() {
- *   const { expandedIds, setExpandedIds } = useTree()
- *   // ...
- * }
- * ```
- */
-export function useTree(): TreeContextProps {
-  const context = React.use(TreeContext)
+function useTree() {
+  const context = use(TreeContext)
   if (!context) {
-    throw new Error('useTree must be used within a Tree or TreeProvider')
+    throw new Error('Tree components must be used within a TreeProvider')
   }
   return context
 }
 
-/**
- * Props for the TreeProvider component
- */
-interface TreeProviderProps {
-  /** Selected node IDs in controlled mode */
-  value?: readonly string[]
-  /** Callback invoked when selected IDs change */
-  onValueChange?: (value: readonly string[]) => void
-  children: React.ReactNode
-  /** Expanded node IDs in controlled mode */
-  expanded?: readonly string[]
-  /** Callback invoked when expanded IDs change */
-  onExpandedChange?: (value: readonly string[]) => void
+interface TreeNodeContextType {
+  nodeId: string
+  level: number
+  isLast: boolean
+  parentPath: boolean[]
 }
 
-/**
- * TreeProvider - provides selection and expansion state management for a tree
- * (does not render any UI container).
- *
- * Supports both controlled and uncontrolled modes:
- * - Controlled: state is driven via `value`/`expanded` and notified via
- *   `onValueChange`/`onExpandedChange`.
- * - Uncontrolled: component manages internal state.
- *
- * @example
- * ```tsx
- * // Provide context only, render custom UI inside
- * <TreeProvider value={selected} onValueChange={setSelected}>
- *   <CustomTreeUI />
- * </TreeProvider>
- * ```
- */
-export function TreeProvider({ value, onValueChange, children, expanded, onExpandedChange }: TreeProviderProps) {
-  const [internalSelectedIds, setInternalSelectedIds] = React.useState<readonly string[]>([])
-  const [internalExpandedIds, setInternalExpandedIds] = React.useState<readonly string[]>([])
+const TreeNodeContext = createContext<TreeNodeContextType | undefined>(
+  undefined,
+)
 
-  const isExpandedControlled = expanded !== undefined
-  const isControlled = value !== undefined
+function useTreeNode() {
+  const context = use(TreeNodeContext)
+  if (!context) {
+    throw new Error('TreeNode components must be used within a TreeNode')
+  }
+  return context
+}
 
-  const selectedIds = isControlled ? value : internalSelectedIds
-  const expandedIds = isExpandedControlled ? expanded : internalExpandedIds
+export interface TreeProviderProps {
+  children: ReactNode
+  defaultExpandedIds?: string[]
+  showLines?: boolean
+  showIcons?: boolean
+  selectable?: boolean
+  multiSelect?: boolean
+  selectedIds?: string[]
+  onSelectionChange?: (selectedIds: string[]) => void
+  indent?: number
+  animateExpand?: boolean
+  className?: string
+}
 
-  /**
-   * Handle node selection.
-   * Supports multi-select with Ctrl/Cmd + click.
-   */
-  const handleSelect = React.useCallback(
-    (id: string, event: React.MouseEvent) => {
-      const isMultiSelect = event.metaKey || event.ctrlKey
-      let newSelectedIds: readonly string[]
+export function TreeProvider({
+  children,
+  defaultExpandedIds = [],
+  showLines = true,
+  showIcons = true,
+  selectable = true,
+  multiSelect = false,
+  selectedIds,
+  onSelectionChange,
+  indent = 20,
+  animateExpand = true,
+  className,
+}: TreeProviderProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    new Set(defaultExpandedIds),
+  )
+  const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>(
+    selectedIds ?? [],
+  )
 
-      if (isMultiSelect) {
-        // Multi-select: toggle the selection state of the current node
-        newSelectedIds = selectedIds.includes(id)
-          ? selectedIds.filter(item => item !== id)
-          : [...selectedIds, id]
+  const isControlled
+    = selectedIds !== undefined && onSelectionChange !== undefined
+  const currentSelectedIds = isControlled ? selectedIds : internalSelectedIds
+
+  const toggleExpanded = useCallback((nodeId: string) => {
+    setExpandedIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId)
       }
       else {
-        // Single-select: only select the current node
-        newSelectedIds = [id]
+        newSet.add(nodeId)
+      }
+      return newSet
+    })
+  }, [])
+
+  const handleSelection = useCallback(
+    (nodeId: string, ctrlKey = false) => {
+      if (!selectable) {
+        return
       }
 
-      if (!isControlled) {
-        setInternalSelectedIds(newSelectedIds)
+      let newSelection: string[]
+
+      if (multiSelect && ctrlKey) {
+        newSelection = currentSelectedIds.includes(nodeId)
+          ? currentSelectedIds.filter(id => id !== nodeId)
+          : [...currentSelectedIds, nodeId]
       }
-      onValueChange?.(newSelectedIds)
+      else {
+        newSelection = currentSelectedIds.includes(nodeId) ? [] : [nodeId]
+      }
+
+      if (isControlled) {
+        onSelectionChange?.(newSelection)
+      }
+      else {
+        setInternalSelectedIds(newSelection)
+      }
     },
-    [selectedIds, isControlled, onValueChange],
+    [
+      selectable,
+      multiSelect,
+      currentSelectedIds,
+      isControlled,
+      onSelectionChange,
+    ],
   )
-
-  const setSelectedIds = React.useCallback((ids: readonly string[]) => {
-    if (!isControlled) {
-      setInternalSelectedIds(ids)
-    }
-    onValueChange?.(ids)
-  }, [isControlled, onValueChange])
-
-  /**
-   * Toggle a node's expanded/collapsed state
-   */
-  const handleToggleExpand = React.useCallback(
-    (id: string, _event?: React.MouseEvent) => {
-      const newExpandedIds = expandedIds.includes(id)
-        ? expandedIds.filter(item => item !== id)
-        : [...expandedIds, id]
-
-      if (!isExpandedControlled) {
-        setInternalExpandedIds(newExpandedIds)
-      }
-      onExpandedChange?.(newExpandedIds)
-    },
-    [expandedIds, isExpandedControlled, onExpandedChange],
-  )
-
-  /**
-   * Directly set the list of expanded node IDs
-   */
-  const setExpandedIds = React.useCallback((ids: readonly string[]) => {
-    if (!isExpandedControlled) {
-      setInternalExpandedIds(ids)
-    }
-    onExpandedChange?.(ids)
-  }, [isExpandedControlled, onExpandedChange])
-
-  const contextValue = React.useMemo(() => ({
-    selectedIds,
-    onSelect: handleSelect,
-    expandedIds,
-    onToggleExpand: handleToggleExpand,
-    setSelectedIds,
-    setExpandedIds,
-  }), [selectedIds, handleSelect, expandedIds, handleToggleExpand, setExpandedIds, setSelectedIds])
 
   return (
-    <TreeContext value={contextValue}>
-      {children}
+    <TreeContext
+      value={{
+        expandedIds,
+        selectedIds: currentSelectedIds,
+        toggleExpanded,
+        handleSelection,
+        showLines,
+        showIcons,
+        selectable,
+        multiSelect,
+        indent,
+        animateExpand,
+      }}
+    >
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className={cn('w-full', className)}
+        initial={{ opacity: 0, y: 10 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+      >
+        {children}
+      </motion.div>
     </TreeContext>
   )
 }
 
-/**
- * Props for the Tree component
- */
-interface TreeProps extends TreeProviderProps {
-  className?: string
-}
+export type TreeViewProps = HTMLAttributes<HTMLDivElement>
 
-/**
- * Tree - a UI wrapper that provides tree selection and expansion state
- * management to its children.
- *
- * Supports controlled and uncontrolled modes:
- * - Controlled: pass `value`/`expanded` and handlers `onValueChange`/
- *   `onExpandedChange` to manage state externally.
- * - Uncontrolled: Tree maintains its own internal state.
- *
- * @example
- * ```tsx
- * // Uncontrolled usage
- * <Tree>
- *   <TreeItem id="1" label="Item 1" />
- * </Tree>
- *
- * // Controlled usage
- * <Tree value={selected} onValueChange={setSelected} expanded={expanded} onExpandedChange={setExpanded}>
- *   <TreeItem id="1" label="Item 1" />
- * </Tree>
- * ```
- */
-export function Tree({ className, children, ...providerProps }: TreeProps) {
+export function TreeView({ className, children, ...props }: TreeViewProps) {
   return (
-    <TreeProvider {...providerProps}>
-      <div className={cn('space-y-1', className)}>{children}</div>
-    </TreeProvider>
+    <div className={cn('p-2', className)} {...props}>
+      {children}
+    </div>
   )
 }
 
-/**
- * Props for TreeItem component
- */
-interface TreeItemProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof treeItemVariants> {
-  /** Node unique identifier */
-  id: string
-  /** Node label to render */
-  label: React.ReactNode
-  /** Node icon */
-  icon?: React.ReactNode
-  /** Child nodes */
-  children?: React.ReactNode
-  /** Default expanded state in uncontrolled mode */
-  defaultExpanded?: boolean
-  /** Controlled expanded state (highest priority) */
-  expanded?: boolean
-  /** Callback when expanded state changes */
-  onExpandChange?: (expanded: boolean) => void
-  /** Whether the node has children (used to show expand icon for lazy load) */
-  hasChildren?: boolean
-  /** Whether children are loading */
-  isLoading?: boolean
+export type TreeNodeProps = HTMLAttributes<HTMLDivElement> & {
+  nodeId?: string
+  level?: number
+  isLast?: boolean
+  parentPath?: boolean[]
+  children?: ReactNode
 }
 
-/**
- * TreeItem - a single node in the tree UI
- *
- * Expansion priority: props.expanded > context.expandedIds > defaultExpanded
- *
- * @example
- * ```tsx
- * <TreeItem id="1" label="Folder" icon={<FolderIcon />} hasChildren>
- *   <TreeItem id="1-1" label="File" />
- * </TreeItem>
- * ```
- */
-export function TreeItem({
-  id,
-  label,
-  icon,
+export function TreeNode({
+  nodeId: providedNodeId,
+  level = 0,
+  isLast = false,
+  parentPath = [],
   children,
-  defaultExpanded = false,
-  expanded: controlledExpanded,
-  onExpandChange,
-  hasChildren = false,
-  isLoading = false,
   className,
   onClick,
   ...props
-}: TreeItemProps) {
-  const context = React.use(TreeContext)
-  if (!context) {
-    throw new Error('TreeItem must be used within a Tree')
-  }
+}: TreeNodeProps) {
+  const generatedId = useId()
+  const nodeId = providedNodeId ?? generatedId
 
-  const [isExpandedLocal, _setIsExpandedLocal] = React.useState(defaultExpanded)
-
-  // Expansion priority: props.expanded > context.expandedIds > local state
-  const isExpandedFromContext = context.expandedIds.includes(id)
-  const expanded = controlledExpanded ?? (isExpandedFromContext || isExpandedLocal)
-
-  /**
-   * Handle expand/collapse click
-   */
-  const handleExpand = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const newExpanded = !expanded
-    if (controlledExpanded === undefined) {
-      // use context to manage expanded state
-      context.onToggleExpand(id, e)
+  // Build the parent path - mark positions where the parent was the last child
+  const currentPath = level === 0 ? [] : [...parentPath]
+  if (level > 0 && parentPath.length < level - 1) {
+    // Fill in missing levels with false (not last)
+    while (currentPath.length < level - 1) {
+      currentPath.push(false)
     }
-    onExpandChange?.(newExpanded)
   }
-
-  const isSelected = context.selectedIds.includes(id)
-  const showExpandIcon = hasChildren || (children != null && children !== false)
-
-  const handleSelect = (e: React.MouseEvent<HTMLDivElement>) => {
-    context.onSelect(id, e)
-    onClick?.(e)
+  if (level > 0) {
+    currentPath[level - 1] = isLast
   }
 
   return (
-    <div className="w-full">
-      <div
-        className={cn(treeItemVariants({ selected: isSelected }), className)}
-        {...props}
-        onClick={handleSelect}
-      >
-        <div
-          className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm hover:bg-muted/80',
-            showExpandIcon ? 'cursor-pointer' : 'opacity-0 pointer-events-none',
-          )}
-          onClick={handleExpand}
-        >
-          {isLoading
-            ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              )
-            : (
-                <ChevronRight
-                  className={cn('h-4 w-4 transition-transform', expanded && 'rotate-90')}
-                />
-              )}
-        </div>
-        {icon && <div className="mr-2 h-4 w-4 shrink-0">{icon}</div>}
-        <span className="truncate">{label}</span>
+    <TreeNodeContext
+      value={{
+        nodeId,
+        level,
+        isLast,
+        parentPath: currentPath,
+      }}
+    >
+      <div className={cn('select-none', className)} {...props}>
+        {children}
       </div>
-      {expanded && (
-        <div className="ml-4 border-l pl-2">
-          {children}
-        </div>
+    </TreeNodeContext>
+  )
+}
+
+export type TreeNodeTriggerProps = ComponentProps<typeof motion.div>
+
+export function TreeNodeTrigger({
+  children,
+  className,
+  onClick,
+  ...props
+}: TreeNodeTriggerProps) {
+  const { selectedIds, toggleExpanded, handleSelection, indent } = useTree()
+  const { nodeId, level } = useTreeNode()
+  const isSelected = selectedIds.includes(nodeId)
+
+  return (
+    <motion.div
+      className={cn(
+        'group relative mx-1 flex cursor-pointer items-center rounded-md px-3 py-2 transition-all duration-200',
+        'hover:bg-accent/50',
+        isSelected && 'bg-accent/80',
+        className,
+      )}
+      onClick={(e) => {
+        toggleExpanded(nodeId)
+        handleSelection(nodeId, e.ctrlKey || e.metaKey)
+        onClick?.(e)
+      }}
+      style={{ paddingLeft: level * (indent ?? 0) + 8 }}
+      whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
+      {...props}
+    >
+      <TreeLines />
+      {children as ReactNode}
+    </motion.div>
+  )
+}
+
+export function TreeLines() {
+  const { showLines, indent } = useTree()
+  const { level, isLast, parentPath } = useTreeNode()
+
+  if (!showLines || level === 0) {
+    return null
+  }
+
+  return (
+    <div className="pointer-events-none absolute top-0 bottom-0 left-0">
+      {/* Render vertical lines for all parent levels */}
+      {Array.from({ length: level }, (_, index) => {
+        const shouldHideLine = parentPath[index] === true
+        if (shouldHideLine && index === level - 1) {
+          return null
+        }
+
+        return (
+          <div
+            className="absolute top-0 bottom-0 border-border/40 border-l"
+            key={index.toString()}
+            style={{
+              left: index * (indent ?? 0) + 12,
+              display: shouldHideLine ? 'none' : 'block',
+            }}
+          />
+        )
+      })}
+
+      {/* Horizontal connector line */}
+      <div
+        className="absolute top-1/2 border-border/40 border-t"
+        style={{
+          left: (level - 1) * (indent ?? 0) + 12,
+          width: (indent ?? 0) - 4,
+          transform: 'translateY(-1px)',
+        }}
+      />
+
+      {/* Vertical line to midpoint for last items */}
+      {isLast && (
+        <div
+          className="absolute top-0 border-border/40 border-l"
+          style={{
+            left: (level - 1) * (indent ?? 0) + 12,
+            height: '50%',
+          }}
+        />
       )}
     </div>
   )
+}
+
+export type TreeNodeContentProps = ComponentProps<typeof motion.div> & {
+  hasChildren?: boolean
+}
+
+export function TreeNodeContent({
+  children,
+  hasChildren = false,
+  className,
+  ...props
+}: TreeNodeContentProps) {
+  const { animateExpand, expandedIds } = useTree()
+  const { nodeId } = useTreeNode()
+  const isExpanded = expandedIds.has(nodeId)
+
+  return (
+    <AnimatePresence>
+      {hasChildren && isExpanded && (
+        <motion.div
+          animate={{ height: 'auto', opacity: 1 }}
+          className="overflow-hidden"
+          exit={{ height: 0, opacity: 0 }}
+          initial={{ height: 0, opacity: 0 }}
+          transition={{
+            duration: animateExpand ? 0.3 : 0,
+            ease: 'easeInOut',
+          }}
+        >
+          <motion.div
+            animate={{ y: 0 }}
+            className={className}
+            exit={{ y: -10 }}
+            initial={{ y: -10 }}
+            transition={{
+              duration: animateExpand ? 0.2 : 0,
+              delay: animateExpand ? 0.1 : 0,
+            }}
+            {...props}
+          >
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+export type TreeExpanderProps = ComponentProps<typeof motion.div> & {
+  hasChildren?: boolean
+}
+
+export function TreeExpander({
+  hasChildren = false,
+  className,
+  onClick,
+  ...props
+}: TreeExpanderProps) {
+  const { expandedIds, toggleExpanded } = useTree()
+  const { nodeId } = useTreeNode()
+  const isExpanded = expandedIds.has(nodeId)
+
+  if (!hasChildren) {
+    return <div className="mr-1 h-4 w-4" />
+  }
+
+  return (
+    <motion.div
+      animate={{ rotate: isExpanded ? 90 : 0 }}
+      className={cn(
+        'mr-1 flex h-4 w-4 cursor-pointer items-center justify-center',
+        className,
+      )}
+      onClick={(e) => {
+        e.stopPropagation()
+        toggleExpanded(nodeId)
+        onClick?.(e)
+      }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      {...props}
+    >
+      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+    </motion.div>
+  )
+}
+
+export type TreeIconProps = ComponentProps<typeof motion.div> & {
+  icon?: ReactNode
+  hasChildren?: boolean
+}
+
+export function TreeIcon({
+  icon,
+  hasChildren = false,
+  className,
+  ...props
+}: TreeIconProps) {
+  const { showIcons, expandedIds } = useTree()
+  const { nodeId } = useTreeNode()
+  const isExpanded = expandedIds.has(nodeId)
+
+  if (!showIcons) {
+    return null
+  }
+
+  const getDefaultIcon = () =>
+    hasChildren
+      ? (
+          isExpanded
+            ? (
+                <FolderOpen className="h-4 w-4" />
+              )
+            : (
+                <Folder className="h-4 w-4" />
+              )
+        )
+      : (
+          <File className="h-4 w-4" />
+        )
+
+  return (
+    <motion.div
+      className={cn(
+        'mr-2 flex h-4 w-4 items-center justify-center text-muted-foreground',
+        className,
+      )}
+      transition={{ duration: 0.15 }}
+      whileHover={{ scale: 1.1 }}
+      {...props}
+    >
+      {icon || getDefaultIcon()}
+    </motion.div>
+  )
+}
+
+export type TreeLabelProps = HTMLAttributes<HTMLSpanElement>
+
+export function TreeLabel({ className, ...props }: TreeLabelProps) {
+  return <span className={cn('font flex-1 truncate text-sm', className)} {...props} />
 }

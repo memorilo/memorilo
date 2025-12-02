@@ -1,12 +1,13 @@
 import { useMutateCreateFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
-import { useTree } from '@memorilo/components/ui/tree'
+
 import { cn } from '@memorilo/utils/utils'
 import { Match } from 'effect'
 import { LuFilePlus, LuFolderPlus, LuListCollapse, LuRefreshCcw } from 'react-icons/lu'
 import { v7 as uuidV7 } from 'uuid'
+import { useNoteFolderTree } from './note-folder-tree'
 
-export function NotesFolderTreeToolbar() {
-  const { selectedIds, setSelectedIds } = useTree()
+export function NoteFolderTreeToolbar() {
+  const { selectedIds } = useNoteFolderTree()
   const { data: rootUUID, status } = useRootFolderNodeUUID()
   const createFolderMutation = useMutateCreateFolderNode()
 
@@ -25,9 +26,7 @@ export function NotesFolderTreeToolbar() {
       uuid,
       name: 'New Folder',
     }, {
-      onSuccess: () => {
-        setSelectedIds([uuid])
-      },
+      onSuccess: () => {},
       onError: (error) => {
         // TODO: Show i18n message notification
         console.error('Failed to create folder:', error)

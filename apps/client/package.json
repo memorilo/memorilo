@@ -23,6 +23,7 @@
     "@tauri-apps/plugin-opener": "^2.5.2",
     "effect": "^3.19.5",
     "effect-query": "^0.2.1",
+    "immer": "^11.0.1",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "^5.5.0",
