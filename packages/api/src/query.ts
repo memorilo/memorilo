@@ -71,3 +71,23 @@ export function useMutateDeleteFolderNode() {
     },
   }))
 }
+
+export function useMutateRenameFolderNode() {
+  const invalidate = useFolderChildrenInvalidate()
+  return useMutation(eq.mutationOptions({
+    mutationKey: ['renameFolderNode'],
+    mutationFn: (vars: { uuid: string, newName: string }) => {
+      const result = effectCommands.renameFolderNode(vars.uuid, vars.newName)
+      return Effect.zipWith(
+        effectCommands.getParentFolderNodeUuid(vars.uuid),
+        result,
+        (parentUUID, _) => parentUUID,
+      )
+    },
+    onSuccess: (parent) => {
+      if (parent) {
+        invalidate(parent)
+      }
+    },
+  }))
+}

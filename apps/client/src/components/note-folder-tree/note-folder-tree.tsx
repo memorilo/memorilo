@@ -1,9 +1,10 @@
 import type { FolderNode } from '@memorilo/api'
 import { dialog } from '@memorilo/api/command'
-import { useFolderNodeChildren, useMutateDeleteFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
+import { useFolderNodeChildren, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
 import { Match } from 'effect'
+import { useRef, useState } from 'react'
 import { LuFolder, LuHighlighter, LuNotebook, LuRefreshCcw, LuStickyNote } from 'react-icons/lu'
 import { useNoteFolderTree } from './note-folder-tree-provider'
 
@@ -60,7 +61,10 @@ type NoteFolderTreeNodeProps = NoteFolderTreeNodeBaseProps & FolderNode & {
  */
 function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   const { selectedIds, setSelectedIds } = useNoteFolderTree()
+  const [isRenaming, setIsRenaming] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement>(null)
   const mutateDeleteFolderNode = useMutateDeleteFolderNode()
+  const mutateRenameFolderNode = useMutateRenameFolderNode()
 
   async function handleDelete() {
     const isConfirm = await dialog.ask(`Are you sure you want to delete "${props.name}"?`, {
@@ -79,6 +83,30 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
     }
   }
 
+  function handleStartRename() {
+    setIsRenaming(true)
+    setTimeout(() => {
+      if (renameInputRef.current) {
+        const input = renameInputRef.current
+        input.value = props.name
+        input.select()
+        const applyRename = () => {
+          setIsRenaming(false)
+          mutateRenameFolderNode.mutate({
+            uuid: props.uuid,
+            newName: input.value,
+          })
+        }
+        input.addEventListener('blur', applyRename)
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            applyRename()
+          }
+        })
+      }
+    }, 0)
+  }
+
   const treeNodeIcon = Match.value(props.typ).pipe(
     Match.when('Folder', () => <LuFolder />),
     Match.when('Topic', () => <LuNotebook />),
@@ -87,12 +115,15 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
     Match.exhaustive,
   )
 
+  const treeNodeLabelWithRename
+    = isRenaming ? <input ref={renameInputRef} type="text" className="ml-1 font flex-1 text-sm" /> : <TreeLabel className="pl-1">{props.name}</TreeLabel>
+
   const treeNode = (
     <TreeNode level={props.level} isLast={props.isLast} nodeId={props.uuid}>
       <TreeNodeTrigger>
         {props.hasChildren ? <TreeExpander hasChildren /> : null}
         {treeNodeIcon}
-        <TreeLabel className="pl-1">{props.name}</TreeLabel>
+        {treeNodeLabelWithRename}
       </TreeNodeTrigger>
       {
         props.hasChildren
@@ -109,7 +140,14 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{treeNode}</ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent onCloseAutoFocus={(e) => {
+        if (isRenaming) {
+          e.preventDefault()
+        }
+      }}
+      >
+        <ContextMenuItem onClick={handleStartRename}>Rename</ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem onClick={handleDelete}>Delete</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
