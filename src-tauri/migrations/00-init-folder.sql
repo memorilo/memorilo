@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS folder_node_pending_ops (
     new_name TEXT NULL DEFAULT NULL,
     new_uuid TEXT NULL DEFAULT NULL,
     new_ref TEXT NULL DEFAULT NULL,
-    execuation_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    execution_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     CHECK ((new_name IS NULL AND new_uuid IS NULL) OR (new_name IS NOT NULL AND new_uuid IS NOT NULL))
 );
 
