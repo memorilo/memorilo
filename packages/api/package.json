@@ -1,0 +1,24 @@
+{
+  "name": "@memorilo/api",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./command": "./src/command.ts",
+    "./query": "./src/query.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.10",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
+    "effect": "^3.19.5",
+    "effect-query": "^0.2.1"
+  }
+}

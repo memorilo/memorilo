@@ -1,8 +1,12 @@
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger } from '@memorilo/components/ui/sidebar'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
+import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
 import { LuBook, LuClock, LuFlag, LuNotebookPen } from 'react-icons/lu'
+import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
+import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 
 export function AppSidebar() {
+  const { state: sidebarState } = useSidebar()
   return (
     <Sidebar collapsible="icon" className="select-none">
       <SidebarHeader></SidebarHeader>
@@ -45,6 +49,17 @@ export function AppSidebar() {
                 <SidebarMenuBadge>0</SidebarMenuBadge>
               </SidebarMenuItem>
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup className={cn({
+          invisible: sidebarState === 'collapsed',
+        })}
+        >
+          <SidebarGroupContent>
+            <NoteFolderTreeProvider>
+              <NoteFolderTreeToolbar />
+              <NoteFolderTree />
+            </NoteFolderTreeProvider>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
