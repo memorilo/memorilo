@@ -1,0 +1,347 @@
+name: Build on PR Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  check-trigger:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
+    outputs:
+      build_windows: ${{ steps.check.outputs.build_windows }}
+      build_macos: ${{ steps.check.outputs.build_macos }}
+      build_ubuntu: ${{ steps.check.outputs.build_ubuntu }}
+      build_android: ${{ steps.check.outputs.build_android }}
+      head_ref: ${{ steps.get-ref.outputs.head_ref }}
+    steps:
+      - name: Get PR Branch
+        id: get-ref
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('head_ref', pr.data.head.ref);
+
+      - name: Check Command
+        id: check
+        run: |
+          BODY="${{ github.event.comment.body }}"
+          echo "Comment body: $BODY"
+
+          if [[ "$BODY" == *"/build all"* ]]; then
+            echo "build_windows=true" >> $GITHUB_OUTPUT
+            echo "build_macos=true" >> $GITHUB_OUTPUT
+            echo "build_ubuntu=true" >> $GITHUB_OUTPUT
+            echo "build_android=true" >> $GITHUB_OUTPUT
+          else
+            if [[ "$BODY" == *"/build windows"* ]]; then echo "build_windows=true" >> $GITHUB_OUTPUT; fi
+            if [[ "$BODY" == *"/build macos"* ]]; then echo "build_macos=true" >> $GITHUB_OUTPUT; fi
+            if [[ "$BODY" == *"/build ubuntu"* ]]; then echo "build_ubuntu=true" >> $GITHUB_OUTPUT; fi
+            if [[ "$BODY" == *"/build android"* ]]; then echo "build_android=true" >> $GITHUB_OUTPUT; fi
+          fi
+
+      - name: Acknowledge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+  build-ubuntu:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.build_ubuntu == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-trigger.outputs.head_ref }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Refresh certificates
+        run: |
+          sudo apt update
+          sudo apt install --reinstall ca-certificates
+          sudo update-ca-certificates -f
+
+      - name: Install node dependencies
+        run: |
+          nix develop --command bash -c "pnpm install"
+
+      - name: Setup Tauri LinuxDeploy Plugins
+        run: |
+          # Pre-download and patch linuxdeploy-plugin-gtk.sh to fix permission issues with Nix
+          mkdir -p ~/.cache/tauri
+          wget https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/raw/refs/heads/master/linuxdeploy-plugin-gtk.sh -O ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          chmod +x ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          # Inject chmod to make AppDir writable before the plugin tries to modify it
+          sed -i '2i chmod -R u+w "$APPDIR" || true' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          # Inject wrappers to prevent system binaries from crashing due to Nix environment
+          sed -i '2i cp() { (unset LD_LIBRARY_PATH; command cp "$@"); }; export -f cp' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          sed -i '2i realpath() { (unset LD_LIBRARY_PATH; command realpath "$@"); }; export -f realpath' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          # Filter LIBRARIES to only include valid ELF files (prevents passing linker scripts to linuxdeploy)
+          sed -i 's/LIBRARIES+=( "--library=\$file" )/if od -t x1 -N 4 "\$file" | grep -q "7f 45 4c 46"; then LIBRARIES+=( "--library=\$file" ); fi/g' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          # Fix for Nix linker scripts (libc.so, libpthread.so, etc.) causing "Invalid magic bytes" or "No such file"
+          # We create symlinks to the SYSTEM ELF files (e.g. /lib/x86_64-linux-gnu/libc.so.6) so linuxdeploy sees them as valid ELFs but doesn't crash due to Nix glibc mismatch.
+          # We also create wrappers for Nix tools (patchelf, strip) to unset LD_LIBRARY_PATH so they don't crash when linuxdeploy invokes them with the System glibc environment.
+          sed -i '/env LINUXDEPLOY_PLUGIN_MODE=1/i \            mkdir -p "$APPDIR/lib-fix"; \
+            mkdir -p "$APPDIR/wrappers"; \
+            for tool in patchelf strip ldd objdump file readelf desktop-file-validate; do \
+                real_tool=$(which $tool); \
+                if [ -n "$real_tool" ]; then \
+                    echo "#!/bin/sh" > "$APPDIR/wrappers/$tool"; \
+                    echo "unset LD_LIBRARY_PATH" >> "$APPDIR/wrappers/$tool"; \
+                    echo "exec \"$real_tool\" \"\$@\"" >> "$APPDIR/wrappers/$tool"; \
+                    chmod +x "$APPDIR/wrappers/$tool"; \
+                fi; \
+            done; \
+            echo "DEBUG: Finding system libraries for linuxdeploy compatibility..."; \
+            find_sys_lib() { find /usr/lib /lib -name "$1" -type f -print -quit 2>/dev/null; }; \
+            LIBC=$(find_sys_lib "libc.so.6"); \
+            LIBPTHREAD=$(find_sys_lib "libpthread.so.0"); \
+            LIBM=$(find_sys_lib "libm.so.6"); \
+            LIBDL=$(find_sys_lib "libdl.so.2"); \
+            LIBZ=$(find_sys_lib "libz.so.1"); \
+            SYS_STDC=$(find_sys_lib "libstdc++.so.6"); \
+            echo "DEBUG: System LIBC=$LIBC"; \
+            if [ -n "$LIBC" ]; then ln -sf "$LIBC" "$APPDIR/lib-fix/libc.so"; ln -sf "$LIBC" "$APPDIR/lib-fix/libc.so.6"; fi; \
+            if [ -n "$LIBPTHREAD" ]; then ln -sf "$LIBPTHREAD" "$APPDIR/lib-fix/libpthread.so"; ln -sf "$LIBPTHREAD" "$APPDIR/lib-fix/libpthread.so.0"; fi; \
+            if [ -n "$LIBM" ]; then ln -sf "$LIBM" "$APPDIR/lib-fix/libm.so"; ln -sf "$LIBM" "$APPDIR/lib-fix/libm.so.6"; fi; \
+            if [ -n "$LIBDL" ]; then ln -sf "$LIBDL" "$APPDIR/lib-fix/libdl.so"; ln -sf "$LIBDL" "$APPDIR/lib-fix/libdl.so.2"; fi; \
+            if [ -n "$LIBZ" ]; then ln -sf "$LIBZ" "$APPDIR/lib-fix/libz.so"; ln -sf "$LIBZ" "$APPDIR/lib-fix/libz.so.1"; fi; \
+            if [ -n "$SYS_STDC" ]; then ln -sf "$SYS_STDC" "$APPDIR/lib-fix/libstdc++.so"; ln -sf "$SYS_STDC" "$APPDIR/lib-fix/libstdc++.so.6"; fi; \
+            NIX_STDC=$(find $(echo $LD_LIBRARY_PATH | tr ":" " ") -name "libstdc++.so.6" -print -quit 2>/dev/null); \
+            if [ -n "$NIX_STDC" ]; then mkdir -p "$APPDIR/usr/lib"; rm -f "$APPDIR/usr/lib/libstdc++.so.6"; cp -L "$NIX_STDC" "$APPDIR/usr/lib/"; chmod u+w "$APPDIR/usr/lib/libstdc++.so.6"; echo "Manually bundled Nix libstdc++: $NIX_STDC"; fi;' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          # Patch the main execution line to:
+          # 1. Filter LD_LIBRARY_PATH to remove glibc (prevents crash) and non-existent dirs (prevents find errors).
+          # 2. Exclude problematic system libraries from bundling.
+          # 3. Prepend wrappers to PATH so linuxdeploy uses them.
+          sed -i 's#env LINUXDEPLOY_PLUGIN_MODE=1 "\$LINUXDEPLOY" --appdir="\$APPDIR" "\${LIBRARIES\[@\]}"#env LINUXDEPLOY_PLUGIN_MODE=1 PATH="$APPDIR/wrappers:$PATH" LD_LIBRARY_PATH="$APPDIR/lib-fix:$(echo "\$LD_LIBRARY_PATH" | tr ":" "\\n" | grep -vE "/nix/store/.*-glibc-" | while read -r p; do if [ -d "$p" ]; then echo "$p"; fi; done | tr "\\n" ":")" "\$LINUXDEPLOY" --appdir="\$APPDIR" -e libc.so -e libc.so.6 -e libpthread.so -e libpthread.so.0 -e libm.so -e libm.so.6 -e libdl.so -e libdl.so.2 -e libstdc++.so.6 -e libz.so "${LIBRARIES[@]}"#g' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          # Ensure the directory for immodules.cache exists
+          sed -i '/Updating immodules cache in/a \            mkdir -p "$(dirname "$APPDIR/${gtk3_immodules_cache_file/$LD_GTK_LIBRARY_PATH//usr/lib}")"' ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+
+      - name: Build Ubuntu
+        run: |
+          nix develop --command bash -c "NO_STRIP=true cargo tauri build --verbose"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-bundle
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/appimage/*.AppImage
+
+  build-macos:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.build_macos == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-trigger.outputs.head_ref }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Build MacOS
+        run: nix develop --command bash -c "pnpm install && cargo tauri build"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-bundle
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
+
+  build-windows:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.build_windows == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-trigger.outputs.head_ref }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install Tauri CLI
+        run: cargo binstall tauri-cli --no-confirm
+
+      - name: Install Frontend Dependencies
+        run: pnpm install
+
+      - name: Build Windows
+        run: cargo tauri build
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundle
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+
+  build-android:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.build_android == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-trigger.outputs.head_ref }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-android-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-android-
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Build Android
+        run: |
+          nix develop ".#android" --command bash -c "pnpm install && cargo tauri android build && cargo tauri android build --split-per-abi"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-bundle
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+
+  report:
+    needs: [check-trigger, build-ubuntu, build-macos, build-windows, build-android]
+    if: always() && needs.check-trigger.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run_id = context.runId;
+            const run_url = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${run_id}`;
+
+            const statuses = {
+              ubuntu: '${{ needs.build-ubuntu.result }}',
+              macos: '${{ needs.build-macos.result }}',
+              windows: '${{ needs.build-windows.result }}',
+              android: '${{ needs.build-android.result }}'
+            };
+
+            let body = `### Build Result 🚀\n\n[View Workflow Run](${run_url})\n\n`;
+
+            for (const [platform, status] of Object.entries(statuses)) {
+              if (status === 'success') {
+                body += `- ✅ **${platform}**: Build Success\n`;
+              } else if (status === 'failure') {
+                body += `- ❌ **${platform}**: Build Failed\n`;
+              }
+            }
+
+            body += `\nArtifacts should be available in the workflow run summary.`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
