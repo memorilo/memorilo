@@ -1,13 +1,22 @@
-import type { Effect } from 'effect'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Effect } from 'effect'
 import { eq } from '.'
 import { effectCommands } from './command'
 
-export function useInvalidateFolderNodeChildren(parentUuid: string) {
+export function useFolderChildrenInvalidate() {
   const client = useQueryClient()
-  return () => client.invalidateQueries({
-    queryKey: ['folderNodeChildren', parentUuid],
-  })
+  return (uuid?: string) => {
+    if (uuid) {
+      client.invalidateQueries({
+        queryKey: ['folderNodeChildren', uuid],
+      })
+    }
+    else {
+      client.invalidateQueries({
+        queryKey: ['folderNodeChildren'],
+      })
+    }
+  }
 }
 
 export function useFolderNodeChildren(parentUuid: string) {
@@ -32,15 +41,33 @@ export function useRootFolderNodeUUID() {
 }
 
 export function useMutateCreateFolderNode() {
-  const client = useQueryClient()
+  const invalidate = useFolderChildrenInvalidate()
   return useMutation(eq.mutationOptions({
     mutationKey: ['createFolderNode'],
-    mutationFn: (vars: { parentUUID: string, uuid: string, name: string }) =>
-      effectCommands.createFolderNode(vars.parentUUID, vars.uuid, 'Folder', vars.name, null),
-    onSuccess: (_, vars) => {
-      client.invalidateQueries({
-        queryKey: ['folderNodeChildren', vars.parentUUID],
-      })
+    mutationFn: (vars: { parentUUID: string, uuid: string, name: string }) => {
+      const grandparent = effectCommands.getParentFolderNodeUuid(vars.parentUUID)
+      const result = effectCommands.createFolderNode(vars.parentUUID, vars.uuid, 'Folder', vars.name, null)
+      return Effect.zipWith(grandparent, result, (gp, _) => gp)
+    },
+    onSuccess: (grandParentUUID, vars) => {
+      if (grandParentUUID) {
+        invalidate(grandParentUUID)
+      }
+      invalidate(vars.parentUUID)
+    },
+  }))
+}
+
+export function useMutateDeleteFolderNode() {
+  const invalidate = useFolderChildrenInvalidate()
+  return useMutation(eq.mutationOptions({
+    mutationKey: ['deleteFolderNode'],
+    mutationFn: (vars: { uuid: string }) =>
+      effectCommands.deleteFolderNodeRetParent(vars.uuid),
+    onSuccess: (parentUUID) => {
+      if (parentUUID) {
+        invalidate(parentUUID)
+      }
     },
   }))
 }

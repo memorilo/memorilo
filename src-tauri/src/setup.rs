@@ -9,7 +9,8 @@ pub fn get_specta_builder() -> tauri_specta::Builder {
             crate::cmd::get_folder_node_children,
             crate::cmd::create_folder_node,
             crate::cmd::rename_folder_node,
-            crate::cmd::delete_folder_node
+            crate::cmd::delete_folder_node_ret_parent,
+            crate::cmd::get_parent_folder_node_uuid,
         ]);
 
     #[cfg(debug_assertions)]

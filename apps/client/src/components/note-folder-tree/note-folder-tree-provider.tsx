@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { TreeProvider } from '@memorilo/components/ui/tree'
+import { TreeProvider, useTree } from '@memorilo/components/ui/tree'
 import { createContext, use, useMemo, useState } from 'react'
 
 interface NodeFolderTreeProviderProps {
@@ -9,6 +9,8 @@ interface NodeFolderTreeProviderProps {
 interface NoteFolderTreeContextValue {
   selectedIds: string[]
   setSelectedIds: (ids: string[]) => void
+  expandedIds: Set<string>
+  toggleExpanded: (id: string) => void
 }
 
 const NoteFolderTreeContext = createContext<NoteFolderTreeContextValue | undefined>(undefined)
@@ -16,20 +18,40 @@ const NoteFolderTreeContext = createContext<NoteFolderTreeContextValue | undefin
 export function NoteFolderTreeProvider({ children }: NodeFolderTreeProviderProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  const contextValue = useMemo(() => ({ selectedIds, setSelectedIds }), [selectedIds])
+  return (
+    <TreeProvider
+      animateExpand
+      selectable
+      showIcons
+      showLines
+      multiSelect
+      selectedIds={selectedIds}
+      onSelectionChange={setSelectedIds}
+    >
+      <NoteFolderTreeInnerProvider selectedIds={selectedIds} setSelectedIds={setSelectedIds}>
+        {children}
+      </NoteFolderTreeInnerProvider>
+    </TreeProvider>
+  )
+}
+
+function NoteFolderTreeInnerProvider({ children, selectedIds, setSelectedIds}: {
+  children: ReactNode
+  selectedIds: string[]
+  setSelectedIds: (ids: string[]) => void
+}) {
+  const tree = useTree()
+  const contextValue = useMemo<NoteFolderTreeContextValue>(() => (
+    {
+      selectedIds,
+      setSelectedIds,
+      expandedIds: tree.expandedIds,
+      toggleExpanded: tree.toggleExpanded,
+    }), [selectedIds, setSelectedIds, tree])
+
   return (
     <NoteFolderTreeContext value={contextValue}>
-      <TreeProvider
-        animateExpand
-        selectable
-        showIcons
-        showLines
-        multiSelect
-        selectedIds={selectedIds}
-        onSelectionChange={setSelectedIds}
-      >
-        {children}
-      </TreeProvider>
+      {children}
     </NoteFolderTreeContext>
   )
 }

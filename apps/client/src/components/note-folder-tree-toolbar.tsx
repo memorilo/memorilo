@@ -1,4 +1,4 @@
-import { useMutateCreateFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { useFolderChildrenInvalidate, useMutateCreateFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
 
 import { cn } from '@memorilo/utils/utils'
 import { Match } from 'effect'
@@ -10,6 +10,8 @@ export function NoteFolderTreeToolbar() {
   const { selectedIds } = useNoteFolderTree()
   const { data: rootUUID, status } = useRootFolderNodeUUID()
   const createFolderMutation = useMutateCreateFolderNode()
+  const handleInvalidate = useFolderChildrenInvalidate()
+  const tree = useNoteFolderTree()
 
   const targetUUID = Match.value(selectedIds.length).pipe(
     Match.when(0, () => rootUUID ?? null),
@@ -32,6 +34,9 @@ export function NoteFolderTreeToolbar() {
         console.error('Failed to create folder:', error)
       },
     })
+  }
+  function handleDeexpandAll() {
+    tree.expandedIds.forEach(tree.toggleExpanded)
   }
 
   return (
@@ -58,10 +63,14 @@ export function NoteFolderTreeToolbar() {
       >
         <LuFolderPlus />
       </button>
-      <button type="button" className="p-1.5 hover:bg-secondary">
+      <button
+        type="button"
+        className="p-1.5 hover:bg-secondary"
+        onClick={() => handleInvalidate()}
+      >
         <LuRefreshCcw />
       </button>
-      <button type="button" className="p-1.5 hover:bg-secondary">
+      <button type="button" className="p-1.5 hover:bg-secondary" onClick={handleDeexpandAll}>
         <LuListCollapse />
       </button>
     </div>

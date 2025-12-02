@@ -1,8 +1,11 @@
 import type { FolderNode } from '@memorilo/api'
-import { useFolderNodeChildren, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { dialog } from '@memorilo/api/command'
+import { useFolderNodeChildren, useMutateDeleteFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
 import { Match } from 'effect'
 import { LuFolder, LuHighlighter, LuNotebook, LuRefreshCcw, LuStickyNote } from 'react-icons/lu'
+import { useNoteFolderTree } from './note-folder-tree-provider'
 
 /**
  * Root component for the note folder tree view.
@@ -56,54 +59,61 @@ type NoteFolderTreeNodeProps = NoteFolderTreeNodeBaseProps & FolderNode & {
  * delegates child rendering to `NoteFolderTreeNodeChildren` for folders.
  */
 function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
-  const node = Match.value(props).pipe(
-    Match.when({ typ: 'Folder' }, (node) => {
-      return (
-        <TreeNode level={node.level} isLast={node.isLast} nodeId={node.uuid}>
-          <TreeNodeTrigger>
-            <TreeExpander hasChildren />
-            <TreeIcon icon={<LuFolder />} />
-            <TreeLabel>{node.name}</TreeLabel>
-          </TreeNodeTrigger>
-          <TreeNodeContent hasChildren>
-            <NoteFolderTreeNodeChildren parentUUID={node.uuid} level={node.level + 1} />
-          </TreeNodeContent>
-        </TreeNode>
-      )
-    }),
-    Match.when({ typ: 'Topic' }, (node) => {
-      return (
-        <TreeNode level={node.level} isLast={node.isLast} nodeId={node.uuid}>
-          <TreeNodeTrigger>
-            <TreeIcon icon={<LuNotebook />} />
-            <TreeLabel>{node.name}</TreeLabel>
-          </TreeNodeTrigger>
-        </TreeNode>
-      )
-    }),
-    Match.when({ typ: 'Highlight' }, (node) => {
-      return (
-        <TreeNode level={node.level} isLast={node.isLast} nodeId={node.uuid}>
-          <TreeNodeTrigger>
-            <TreeIcon icon={<LuHighlighter />} />
-            <TreeLabel>{node.name}</TreeLabel>
-          </TreeNodeTrigger>
-        </TreeNode>
-      )
-    }),
-    Match.when({ typ: 'Item' }, (node) => {
-      return (
-        <TreeNode level={node.level} isLast={node.isLast} nodeId={node.uuid}>
-          <TreeNodeTrigger>
-            <TreeIcon icon={<LuStickyNote />} />
-            <TreeLabel>{node.name}</TreeLabel>
-          </TreeNodeTrigger>
-        </TreeNode>
-      )
-    }),
+  const { selectedIds, setSelectedIds } = useNoteFolderTree()
+  const mutateDeleteFolderNode = useMutateDeleteFolderNode()
+
+  async function handleDelete() {
+    const isConfirm = await dialog.ask(`Are you sure you want to delete "${props.name}"?`, {
+      kind: 'warning',
+      okLabel: 'Delete',
+    })
+    if (isConfirm) {
+      mutateDeleteFolderNode.mutate({
+        uuid: props.uuid,
+      }, {
+        onSuccess: () => {
+          // Deselect the deleted node if it was selected and was deleted successfully
+          setSelectedIds(selectedIds.filter(id => id !== props.uuid))
+        },
+      })
+    }
+  }
+
+  const treeNodeIcon = Match.value(props.typ).pipe(
+    Match.when('Folder', () => <LuFolder />),
+    Match.when('Topic', () => <LuNotebook />),
+    Match.when('Highlight', () => <LuHighlighter />),
+    Match.when('Item', () => <LuStickyNote />),
     Match.exhaustive,
   )
-  return node
+
+  const treeNode = (
+    <TreeNode level={props.level} isLast={props.isLast} nodeId={props.uuid}>
+      <TreeNodeTrigger>
+        {props.hasChildren ? <TreeExpander hasChildren /> : null}
+        {treeNodeIcon}
+        <TreeLabel className="pl-1">{props.name}</TreeLabel>
+      </TreeNodeTrigger>
+      {
+        props.hasChildren
+          ? (
+
+              <TreeNodeContent hasChildren>
+                <NoteFolderTreeNodeChildren parentUUID={props.uuid} level={props.level + 1} />
+              </TreeNodeContent>
+            )
+          : null
+      }
+    </TreeNode>
+  )
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{treeNode}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={handleDelete}>Delete</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
 }
 
 interface NoteFolderTreeNodeChildrenProps extends NoteFolderTreeNodeBaseProps {

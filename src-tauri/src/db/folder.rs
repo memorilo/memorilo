@@ -1,7 +1,7 @@
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+use rusqlite::{OptionalExtension, types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef}};
 
 /// Represents the type of a folder node in the hierarchy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -63,6 +63,7 @@ impl ToSql for FolderNodeType {
 
 /// Represents a folder node with all its properties.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct FolderNode {
     pub uuid: String,
     pub typ: FolderNodeType,
@@ -71,6 +72,7 @@ pub struct FolderNode {
     pub reference: Option<String>,
     pub created_at: String,
     pub children_updated_at: String,
+    pub has_children: bool,
 }
 
 static FOLDER_ROOT_UUID: &str = "00000000-0000-0000-0000-000000000000";
@@ -96,7 +98,9 @@ pub fn is_folder_node_exist(conn: &rusqlite::Connection, uuid: &str) -> Result<b
 /// Retrieves a folder node by its UUID.
 pub fn get_folder_node(conn: &rusqlite::Connection, uuid: &str) -> Result<FolderNode> {
     conn.query_row(
-        "SELECT uuid, typ, name, ref, created_at, children_updated_at FROM folder_nodes WHERE uuid = ?",
+        "SELECT uuid, typ, name, ref, created_at, children_updated_at, 
+        (SELECT COUNT(1) > 0 FROM folder_node_hierarchy WHERE parent_uuid = folder_nodes.uuid) as has_children 
+        FROM folder_nodes WHERE uuid = ?",
         [uuid],
         |row| {
             Ok(FolderNode {
@@ -106,6 +110,7 @@ pub fn get_folder_node(conn: &rusqlite::Connection, uuid: &str) -> Result<Folder
                 reference: row.get(3)?,
                 created_at: row.get(4)?,
                 children_updated_at: row.get(5)?,
+                has_children: row.get(6)?,
             })
         }
     ).map_err(Into::into)
@@ -114,7 +119,8 @@ pub fn get_folder_node(conn: &rusqlite::Connection, uuid: &str) -> Result<Folder
 /// Retrieves all children of a folder node.
 pub fn get_folder_node_children(conn: &rusqlite::Connection, parent_uuid: &str) -> Result<Vec<FolderNode>> {
     let mut stmt = conn.prepare(
-        "SELECT n.uuid, n.typ, n.name, n.ref, n.created_at, n.children_updated_at 
+        "SELECT n.uuid, n.typ, n.name, n.ref, n.created_at, n.children_updated_at,
+         (SELECT COUNT(1) > 0 FROM folder_node_hierarchy WHERE parent_uuid = n.uuid) as has_children
          FROM folder_nodes n
          JOIN folder_node_hierarchy h ON n.uuid = h.child_uuid
          WHERE h.parent_uuid = ?"
@@ -128,6 +134,7 @@ pub fn get_folder_node_children(conn: &rusqlite::Connection, parent_uuid: &str) 
             reference: row.get(3)?,
             created_at: row.get(4)?,
             children_updated_at: row.get(5)?,
+            has_children: row.get(6)?,
         })
     })?;
 
@@ -137,6 +144,16 @@ pub fn get_folder_node_children(conn: &rusqlite::Connection, parent_uuid: &str) 
     }
     Ok(children)
 }
+
+pub fn get_parent_folder_node_uuid(conn: &rusqlite::Connection, child_uuid: &str) -> Result<Option<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT parent_uuid FROM folder_node_hierarchy WHERE child_uuid = ?"
+    )?;
+    
+    let parent_uuid: Option<String> = stmt.query_row([child_uuid], |row| row.get(0)).optional()?;
+    Ok(parent_uuid)
+}
+
 
 /// Creates a new folder node and adds it to the hierarchy under the specified parent.
 ///
@@ -268,6 +285,7 @@ mod tests {
         assert_eq!(node.uuid, folder_uuid);
         assert_eq!(node.name, "My Folder");
         assert_eq!(node.typ, FolderNodeType::Folder);
+        assert!(node.has_children);
 
         // Test get_folder_node_children
         let children = get_folder_node_children(&conn, folder_uuid).unwrap();
@@ -276,10 +294,12 @@ mod tests {
         let child1 = children.iter().find(|c| c.uuid == child1_uuid).unwrap();
         assert_eq!(child1.name, "Topic 1");
         assert_eq!(child1.typ, FolderNodeType::Topic);
+        assert!(!child1.has_children);
         
         let child2 = children.iter().find(|c| c.uuid == child2_uuid).unwrap();
         assert_eq!(child2.name, "Topic 2");
         assert_eq!(child2.typ, FolderNodeType::Topic);
+        assert!(!child2.has_children);
     }
 
     #[test]

@@ -29,7 +29,7 @@ interface TreeContextType {
 
 const TreeContext = createContext<TreeContextType | undefined>(undefined)
 
-function useTree() {
+export function useTree() {
   const context = use(TreeContext)
   if (!context) {
     throw new Error('Tree components must be used within a TreeProvider')

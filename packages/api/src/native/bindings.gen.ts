@@ -5,9 +5,25 @@
 
 
 export const commands = {
+/**
+ * Return the UUID of the root folder.
+ * 
+ * This returns a static string slice representing the application's root
+ * folder UUID.
+ */
 async getRootFolderUuid() : Promise<string> {
     return await TAURI_INVOKE("get_root_folder_uuid");
 },
+/**
+ * Check whether a folder node exists by UUID.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `uuid`: The UUID of the folder node to check.
+ * 
+ * Returns `Ok(true)` if the folder node exists, `Ok(false)` if not,
+ * or an error on failure.
+ */
 async isFolderNodeExist(uuid: string) : Promise<Result<boolean, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("is_folder_node_exist", { uuid }) };
@@ -16,6 +32,15 @@ async isFolderNodeExist(uuid: string) : Promise<Result<boolean, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Retrieve a folder node by UUID.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `uuid`: The UUID of the folder node to retrieve.
+ * 
+ * Returns the `FolderNode` on success or an error if not found.
+ */
 async getFolderNode(uuid: string) : Promise<Result<FolderNode, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_folder_node", { uuid }) };
@@ -24,6 +49,15 @@ async getFolderNode(uuid: string) : Promise<Result<FolderNode, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Get immediate children of a folder node.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `parent_uuid`: UUID of the parent folder node.
+ * 
+ * Returns a vector of `FolderNode` representing the children.
+ */
 async getFolderNodeChildren(parentUuid: string) : Promise<Result<FolderNode[], Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_folder_node_children", { parentUuid }) };
@@ -32,6 +66,19 @@ async getFolderNodeChildren(parentUuid: string) : Promise<Result<FolderNode[], E
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Create a new folder node.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `parent_uuid`: UUID of the parent folder under which to create the node.
+ * - `uuid`: UUID for the new folder node.
+ * - `typ`: The `FolderNodeType` describing the node type.
+ * - `name`: Display name for the folder node.
+ * - `reference`: Optional reference string associated with the node.
+ * 
+ * Returns `Ok(())` on success or an error on failure.
+ */
 async createFolderNode(parentUuid: string, uuid: string, typ: FolderNodeType, name: string, reference: string | null) : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_folder_node", { parentUuid, uuid, typ, name, reference }) };
@@ -40,6 +87,16 @@ async createFolderNode(parentUuid: string, uuid: string, typ: FolderNodeType, na
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Rename an existing folder node.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `uuid`: UUID of the folder node to rename.
+ * - `new_name`: The new display name for the node.
+ * 
+ * Returns `Ok(())` on success or an error on failure.
+ */
 async renameFolderNode(uuid: string, newName: string) : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("rename_folder_node", { uuid, newName }) };
@@ -48,9 +105,37 @@ async renameFolderNode(uuid: string, newName: string) : Promise<Result<null, Err
     else return { status: "error", error: e  as any };
 }
 },
-async deleteFolderNode(uuid: string) : Promise<Result<null, Error>> {
+/**
+ * Delete a folder node and return its parent's UUID.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `uuid`: UUID of the folder node to delete.
+ * 
+ * Returns `Ok(Some(parent_uuid))` if the deleted node had a parent,
+ * `Ok(None)` if it had no parent, or an error on failure.
+ */
+async deleteFolderNodeRetParent(uuid: string) : Promise<Result<string | null, Error>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("delete_folder_node", { uuid }) };
+    return { status: "ok", data: await TAURI_INVOKE("delete_folder_node_ret_parent", { uuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Get the parent folder node UUID for a given child UUID.
+ * 
+ * Arguments:
+ * - `state`: Shared database state provided by Tauri.
+ * - `child_uuid`: UUID of the child node to query.
+ * 
+ * Returns `Ok(Some(parent_uuid))` if the parent exists, `Ok(None)` if the
+ * node has no parent, or an error on failure.
+ */
+async getParentFolderNodeUuid(childUuid: string) : Promise<Result<string | null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_parent_folder_node_uuid", { childUuid }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -73,7 +158,7 @@ export type ErrorKind = "DatabaseError"
 /**
  * Represents a folder node with all its properties.
  */
-export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref: string | null; created_at: string; children_updated_at: string }
+export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref: string | null; createdAt: string; childrenUpdatedAt: string; hasChildren: boolean }
 /**
  * Represents the type of a folder node in the hierarchy.
  */
