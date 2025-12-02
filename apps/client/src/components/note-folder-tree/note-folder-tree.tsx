@@ -116,7 +116,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   )
 
   const treeNodeLabelWithRename
-    = isRenaming ? <input ref={renameInputRef} type="text" className="ml-1 font flex-1 text-sm" /> : <TreeLabel className="pl-1">{props.name}</TreeLabel>
+    = isRenaming ? <input ref={renameInputRef} type="text" className="ml-1 min-w-0 font flex-1 text-sm" /> : <TreeLabel className="pl-1">{props.name}</TreeLabel>
 
   const treeNode = (
     <TreeNode level={props.level} isLast={props.isLast} nodeId={props.uuid}>
