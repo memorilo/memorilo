@@ -1,7 +1,26 @@
 {
   "name": "@memorilo/editor",
-  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
   "author": "Memorilo Team",
   "license": "AGLP-3.0-only",
-  "packageManager": "pnpm@10.17.0"
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "scripts": {
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memorilo/components": "workspace:*",
+    "@memorilo/utils": "workspace:*",
+    "jotai": "catalog:",
+    "react": "catalog:",
+    "slate": "^0.120.0",
+    "slate-react": "^0.120.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
+  }
 }
