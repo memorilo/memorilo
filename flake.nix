@@ -68,7 +68,6 @@
           cairo
           gdk-pixbuf
           glib
-          glib.dev
           glib-networking
           gtk3
           librsvg
@@ -77,27 +76,6 @@
           webkitgtk_4_1
           dbus
           libayatana-appindicator
-          gobject-introspection
-          gsettings-desktop-schemas
-
-          # this is needed for appimage
-          stdenv.cc.cc.lib
-          zlib
-          libgpg-error 
-          xorg.libX11
-          xorg.libSM
-          xorg.libICE
-          xorg.libxcb
-          fribidi
-          fontconfig
-          libthai
-          harfbuzz
-          freetype
-          libglvnd
-          mesa
-          libgbm
-          libdrm
-          expat
         ]))
         ++ (pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
           libiconv
@@ -146,15 +124,6 @@
 
           shellHook = ''
             export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath desktopBuildInputs}:$LD_LIBRARY_PATH
-            export XDG_DATA_DIRS=${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS
-
-            mkdir -p $TMPDIR/pkgconfig
-            cp $(pkg-config --variable=pcfiledir gio-2.0)/gio-2.0.pc $TMPDIR/pkgconfig/gio-2.0.pc
-
-            # Replace the schemasdir path
-            substituteInPlace $TMPDIR/pkgconfig/gio-2.0.pc \
-            --replace 'schemasdir=''${datadir}/glib-2.0/schemas' 'schemasdir=${pkgs.glib.dev}/share/glib-2.0/schemas'
-            export PKG_CONFIG_PATH="$TMPDIR/pkgconfig:$PKG_CONFIG_PATH"
           '';
         };
         default = desktop;
