@@ -9,7 +9,7 @@ export const Route = createRootRoute({
 
 function RouteComponent() {
   return (
-    <DebugInfo>
+    <DebugInfo scan={false} query={false} router={false}>
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>

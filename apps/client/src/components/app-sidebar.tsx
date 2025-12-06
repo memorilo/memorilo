@@ -1,7 +1,9 @@
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
+import { Avatar, AvatarFallback, AvatarImage } from '@memorilo/components/ui/avatar'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSubButton, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
-import { LuBook, LuClock, LuFlag, LuNotebookPen } from 'react-icons/lu'
+import { LuBook, LuChevronDown, LuClock, LuFlag, LuNotebookPen, LuSettings, LuUser } from 'react-icons/lu'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 
@@ -9,7 +11,52 @@ export function AppSidebar() {
   const { state: sidebarState } = useSidebar()
   return (
     <Sidebar collapsible="icon" className="select-none">
-      <SidebarHeader></SidebarHeader>
+      <SidebarHeader>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              asChild
+              className={cn(
+                {
+                  hidden: sidebarState === 'collapsed',
+                },
+              )}
+            >
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <Avatar className="flex aspect-square size-8 items-center justify-center rounded-lg border">
+                  <AvatarImage className="size-4" />
+                  <AvatarFallback className="size-4"><LuUser className="size-4" /></AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">Library Name</span>
+                  <span className="truncate text-xs">User Name</span>
+                </div>
+                <LuChevronDown className="ml-auto" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+              align="start"
+              side="bottom"
+              sideOffset={4}
+            >
+              <DropdownMenuItem>
+                <div className="flex size-6 items-center justify-center rounded-md">
+                  <LuSettings className="size-3.5 shrink-0" />
+                </div>
+                Settings
+                <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <SidebarMenuButton asChild>
+            <SidebarTrigger className="size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+          </SidebarMenuButton>
+        </div>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -63,15 +110,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Toggle Sidebar">
-              <SidebarTrigger className="justify-start" />
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
