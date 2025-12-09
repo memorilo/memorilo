@@ -16,7 +16,7 @@ export function AppSidebar() {
   return (
     <>
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>Settings</DialogHeader>
           <Settings />
         </DialogContent>

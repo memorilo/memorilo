@@ -253,6 +253,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.1.13
+    devDependencies:
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.6
 
   packages/editor: {}
 

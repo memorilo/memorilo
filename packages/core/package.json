@@ -13,5 +13,8 @@
     "effect": "catalog:",
     "mitt": "catalog:",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
   }
 }

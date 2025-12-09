@@ -1,117 +1,184 @@
-import type { ZodObject } from 'zod'
+import type { ReactNode } from 'react'
+import type { ZodType } from 'zod'
 import { Either, Option } from 'effect'
 import mitt from 'mitt'
 import { Disposable } from '../utils/disposable'
 
 // eslint-disable-next-line ts/consistent-type-definitions
 type SettingStoreEvents = {
-  settingChanged: { key: `${string}::${string}` }
+  settingChanged: { key: string }
+}
+
+export interface SettingItem<T = any> {
+  key: string
+  label: string
+  schema: ZodType<T>
+  defaultValue?: T
+  // Should return ReactNode, but using any to avoid dependency issues in core
+  component?: (props: { value: T, onChange: (value: T) => void }) => ReactNode
 }
 
 export class SettingStore {
-  private prototype = new Map<string, ZodObject> ()
-  private store = new Map<string, Record<string, unknown>> ()
+  private definitions = new Map<string, Map<string, SettingItem>>()
+  private values = new Map<string, Record<string, any>>()
   private event = mitt<SettingStoreEvents>()
 
-  public register<T extends ZodObject>(catalogKey: string, schema: T): Either.Either<void, Error> {
-    if (this.prototype.has(catalogKey)) {
-      return Either.left(new Error(`Setting with key "${catalogKey}" is already registered.`))
+  public register(catalogKey: string, items: SettingItem[]): Either.Either<void, Error> {
+    if (this.definitions.has(catalogKey)) {
+      return Either.left(new Error(`Catalog with key "${catalogKey}" is already registered.`))
     }
-    this.prototype.set(catalogKey, schema)
+    const itemMap = new Map<string, SettingItem>()
+    for (const item of items) {
+      if (itemMap.has(item.key)) {
+        return Either.left(new Error(`Item with key "${item.key}" is duplicated in catalog "${catalogKey}".`))
+      }
+      itemMap.set(item.key, item)
+    }
+    this.definitions.set(catalogKey, itemMap)
+
+    // Initialize default values if not present
+    if (!this.values.has(catalogKey)) {
+      this.values.set(catalogKey, {})
+    }
+    const catalogValues = this.values.get(catalogKey)!
+    for (const item of items) {
+      if (item.defaultValue !== undefined && !(item.key in catalogValues)) {
+        catalogValues[item.key] = item.defaultValue
+      }
+    }
+
     return Either.right(void 0)
   }
 
-  public getSchema<T extends ZodObject>(catalogKey: string): Either.Either<T, Error> {
-    const schema = this.prototype.get(catalogKey)
-    if (!schema) {
-      return Either.left(new Error(`Setting with key "${catalogKey}" is not registered.`))
+  public getDefinition(catalogKey: string, itemKey: string): Option.Option<SettingItem> {
+    const catalog = this.definitions.get(catalogKey)
+    if (!catalog)
+      return Option.none()
+    return Option.fromNullable(catalog.get(itemKey))
+  }
+
+  public getCatalogs(): string[] {
+    return Array.from(this.definitions.keys())
+  }
+
+  public getCatalogItems(catalogKey: string): SettingItem[] {
+    const catalog = this.definitions.get(catalogKey)
+    return catalog ? Array.from(catalog.values()) : []
+  }
+
+  public set<T>(key: string, value: T): Either.Either<void, Error> {
+    const parts = key.split('::')
+    if (parts.length !== 2) {
+      return Either.left(new Error(`Invalid key format: ${key}. Expected "catalogKey::itemKey"`))
     }
-    return Either.right(schema as T)
-  }
+    const catalogKey = parts[0] as string
+    const itemKey = parts[1] as string
 
-  public getRegisteredCatalogKeys(): string[] {
-    return Array.from(this.prototype.keys())
-  }
-
-  public set<T>(key: `${string}::${string}`, value: T): Either.Either<void, Error> {
-    return Either.right(key.split('::')).pipe(
-      // Validate that the split resulted in exactly two parts
-      Either.filterOrLeft(
-        (parts: string[]): parts is [string, string] => parts.length === 2,
-        () => new Error(`Invalid key format: ${key}`),
-      ),
-      // Validate and set the value
-      Either.flatMap(([catalogKey, itemKey]) => {
-        if (!this.prototype.has(catalogKey)) {
-          return Either.left(new Error(`Setting with key "${catalogKey}" is not registered.`))
-        }
-        return this.getSchema<ZodObject<any>>(catalogKey).pipe(
-          // Validate the new value against the schema
-          Either.flatMap((schema) => {
-            const initialValue = this.store.get(catalogKey) ?? {}
-            initialValue[itemKey] = value
-            const parsed = schema.safeParse(initialValue)
-            if (parsed.success) {
-              return Either.right(parsed.data)
-            }
-            else {
-              return Either.left(parsed.error)
-            }
-          }),
-          // Set the validated value in the store
-          Either.map((val) => {
-            this.store.set(catalogKey, val)
-            this.event.emit('settingChanged', { key })
-            return void 0
-          }),
-        )
-      }),
-    )
-  }
-
-  public get<T>(key: `${string}::${string}`): Either.Either<Option.Option<T>, Error> {
-    return Either.right(key.split('::')).pipe(
-      // Validate that the split resulted in exactly two parts
-      Either.filterOrLeft(
-        (parts): parts is [string, string] => parts.length === 2,
-        () => new Error(`Invalid key format: ${key}`),
-      ),
-      // Retrieve and return the value
-      Either.flatMap(([catalogKey, itemKey]) => {
-        if (!this.prototype.has(catalogKey)) {
-          return Either.left(new Error(`Setting with key "${catalogKey}" is not registered.`))
-        }
-        const catalog = this.store.get(catalogKey) ?? {}
-        const value = catalog[itemKey] as T | undefined
-        return Either.right(Option.fromNullable(value))
-      }),
-    )
-  }
-
-  public with(catalogKey: string) {
-    return {
-      set: <T>(itemKey: string, value: T) => this.set<T>(`${catalogKey}::${itemKey}`, value),
-      get: <T>(itemKey: string) => this.get<T>(`${catalogKey}::${itemKey}`),
-      watch: <T>(itemKey: string, callback: (value: Option.Option<T>) => void) => this.watch<T>(`${catalogKey}::${itemKey}`, callback),
+    const definitionOpt = this.getDefinition(catalogKey, itemKey)
+    if (Option.isNone(definitionOpt)) {
+      return Either.left(new Error(`Setting item "${key}" is not registered.`))
     }
+    const definition = definitionOpt.value
+
+    const parsed = definition.schema.safeParse(value)
+    if (!parsed.success) {
+      return Either.left(parsed.error)
+    }
+
+    const catalogValues = this.values.get(catalogKey) ?? {}
+    catalogValues[itemKey] = parsed.data
+    this.values.set(catalogKey, catalogValues)
+
+    this.event.emit('settingChanged', { key })
+    return Either.right(void 0)
   }
 
-  public watch<T>(key: `${string}::${string}`, callback: (value: Option.Option<T>) => void) {
+  public get<T>(key: string): Either.Either<Option.Option<T>, Error> {
+    const parts = key.split('::')
+    if (parts.length !== 2) {
+      return Either.left(new Error(`Invalid key format: ${key}. Expected "catalogKey::itemKey"`))
+    }
+    const catalogKey = parts[0] as string
+    const itemKey = parts[1] as string
+
+    if (!this.definitions.has(catalogKey)) {
+      return Either.left(new Error(`Catalog "${catalogKey}" is not registered.`))
+    }
+
+    const definitionOpt = this.getDefinition(catalogKey, itemKey)
+    if (Option.isNone(definitionOpt)) {
+      return Either.left(new Error(`Setting item "${key}" is not registered.`))
+    }
+
+    const catalogValues = this.values.get(catalogKey)
+    const value = catalogValues?.[itemKey]
+
+    return Either.right(Option.fromNullable(value as T))
+  }
+
+  public watch<T>(key: string, callback: (value: Option.Option<T>) => void): Disposable {
     return Disposable.fromExternal((event: SettingStoreEvents['settingChanged']) => {
-      const [catalogKey, itemKey] = key.split('::', 2)
-      if (catalogKey === undefined || itemKey === undefined) {
-        // This should not happen due to the type constraint, but we check anyway to make TypeScript Compiler happy
-        throw new Error(`Invalid key format: ${key}`)
-      }
       if (event.key === key) {
-        const catalog = this.store.get(catalogKey) ?? {}
-        const value = catalog[itemKey] as T | undefined
-        callback(Option.fromNullable(value))
+        const result = this.get<T>(key)
+        if (Either.isRight(result)) {
+          callback(result.right)
+        }
       }
     }, (cb) => {
       this.event.on('settingChanged', cb)
     }, (cb) => {
       this.event.off('settingChanged', cb)
     })
+  }
+
+  public toJSON(): string {
+    const obj: Record<string, Record<string, any>> = {}
+    for (const [catalogKey, catalogValues] of this.values) {
+      obj[catalogKey] = catalogValues
+    }
+    return JSON.stringify(obj)
+  }
+
+  public fromJSON(json: string): Either.Either<void, Error> {
+    try {
+      const obj = JSON.parse(json)
+      if (typeof obj !== 'object' || obj === null) {
+        return Either.left(new Error('Invalid JSON: root must be an object'))
+      }
+
+      for (const [catalogKey, catalogValues] of Object.entries(obj)) {
+        if (typeof catalogValues !== 'object' || catalogValues === null)
+          continue
+
+        const definitionMap = this.definitions.get(catalogKey)
+        const currentValues = this.values.get(catalogKey) ?? {}
+
+        for (const [itemKey, value] of Object.entries(catalogValues as Record<string, any>)) {
+          if (definitionMap) {
+            const itemDef = definitionMap.get(itemKey)
+            if (itemDef) {
+              const parsed = itemDef.schema.safeParse(value)
+              if (parsed.success) {
+                currentValues[itemKey] = parsed.data
+              }
+              else {
+                console.warn(`Invalid value for ${catalogKey}::${itemKey} in JSON`, parsed.error)
+              }
+            }
+            else {
+              currentValues[itemKey] = value
+            }
+          }
+          else {
+            currentValues[itemKey] = value
+          }
+        }
+        this.values.set(catalogKey, currentValues)
+      }
+      return Either.right(void 0)
+    }
+    catch (e) {
+      return Either.left(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 }
