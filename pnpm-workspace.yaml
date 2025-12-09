@@ -5,8 +5,11 @@ packages:
 catalog:
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
+  effect: ^3.19.9
+  mitt: ^3.0.1
   react: ^19.2.1
   react-dom: ^19.2.1
+  zod: ^4.1.13
 
 onlyBuiltDependencies:
   - esbuild
