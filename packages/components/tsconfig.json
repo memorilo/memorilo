@@ -24,6 +24,6 @@
     "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "../utils/src/cn.ts"]
+  "include": ["src/**/*", "../utils/src/cn.ts", "../../apps/client/src/components/auto-form"]
 
 }

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "mitt": "catalog:",
     "tailwind-merge": "^3.4.0"
   }
 }

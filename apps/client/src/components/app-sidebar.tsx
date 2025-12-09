@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@memorilo/components/ui/avatar'
-import { Dialog, DialogContent, DialogHeader } from '@memorilo/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@memorilo/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
 import { cn } from '@memorilo/utils/utils'
@@ -16,8 +16,10 @@ export function AppSidebar() {
   return (
     <>
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>Settings</DialogHeader>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+          </DialogHeader>
           <Settings />
         </DialogContent>
       </Dialog>

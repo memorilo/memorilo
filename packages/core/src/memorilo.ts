@@ -1,4 +1,3 @@
-import { registerMemoriloSettings } from './settings'
 import { SettingStore } from './utils/settings'
 
 export class Memorilo {
@@ -15,7 +14,6 @@ export class Memorilo {
   }
 
   async initialize() {
-    registerMemoriloSettings(this)
     await Promise.all(Array.from(this.initializeFunctions).map(func => func(this)))
     this.ready = true
   }

@@ -1,13 +1,15 @@
-import { AutoForm } from '@memorilo/components/ui/auto-form/index'
 import { Button } from '@memorilo/components/ui/button'
 import { ScrollArea } from '@memorilo/components/ui/scroll-area'
 import { Scrollspy } from '@memorilo/components/ui/scrollspy'
 import { memorilo } from '@memorilo/core'
 import { Either, Option } from 'effect'
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import { AutoForm } from './auto-form'
 
 export function Settings() {
   const parentRef = useRef<HTMLDivElement | null>(null)
+  const { t } = useTranslation('settings')
 
   const catalogs = memorilo.settings.getCatalogs().map(key => ({
     key,
@@ -36,7 +38,7 @@ export function Settings() {
 
   return (
     <div className="flex flex-col md:flex-row gap-6 h-full">
-      <aside className="w-full md:w-48 lg:w-64 shrink-0">
+      <aside className="w-full md:w-48 lg:w-64 shrink-0 border-0 md:pr-2 md:border-r">
         <Scrollspy
           offset={20}
           targetRef={parentRef}
@@ -49,7 +51,7 @@ export function Settings() {
               className="justify-start w-auto md:w-full whitespace-nowrap data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
               data-scrollspy-anchor={catalog.key}
             >
-              {catalog.key}
+              {t(`${catalog.key}.title`, `${catalog.key}.title`)}
             </Button>
           ))}
         </Scrollspy>

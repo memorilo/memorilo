@@ -1,7 +1,8 @@
 import type { z } from 'zod'
 import type { AutoFormProps } from './types'
+import { Button } from '@memorilo/components/ui/button'
 import * as React from 'react'
-import { Button } from '../button'
+import { useTranslation } from 'react-i18next'
 import { FormInput } from './form-input'
 
 export type { AutoFormProps, Catalog, SettingItem } from './types'
@@ -9,6 +10,7 @@ export type { AutoFormProps, Catalog, SettingItem } from './types'
 export function AutoForm({ catalogs, defaultValues, onSave }: AutoFormProps) {
   const [values, setValues] = React.useState(defaultValues)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
+  const { t } = useTranslation('settings')
 
   const handleChange = (key: string, value: any, schema: z.ZodType<any>) => {
     setValues(prev => ({ ...prev, [key]: value }))
@@ -32,7 +34,7 @@ export function AutoForm({ catalogs, defaultValues, onSave }: AutoFormProps) {
         <div key={catalog.key} id={catalog.key} className="space-y-2 rounded-lg scroll-mt-4">
           <div className="flex items-center gap-4">
             <div className="h-px w-8 bg-border" />
-            <h3 className="text-lg font-semibold">{catalog.key}</h3>
+            <h3 className="text-lg font-semibold">{t(`${catalog.key}.title`, `${catalog.key}.title`)}</h3>
             <div className="h-px flex-1 bg-border" />
           </div>
           <div className="grid gap-4">
@@ -41,9 +43,11 @@ export function AutoForm({ catalogs, defaultValues, onSave }: AutoFormProps) {
               return (
                 <div key={item.key} className="grid gap-2 p-4 rounded hover:bg-secondary">
                   <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    {item.label}
+                    {t(`${catalog.key}.${item.key}`, `${catalog.key}.${item.key}`)}
                   </label>
                   <FormInput
+                    catalogKey={catalog.key}
+                    itemKey={item.key}
                     schema={item.schema}
                     value={values[fullKey]}
                     onChange={val => handleChange(fullKey, val, item.schema)}

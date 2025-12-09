@@ -11,11 +11,9 @@ type SettingStoreEvents = {
 
 export interface SettingItem<T = any> {
   key: string
-  label: string
   schema: ZodType<T>
   defaultValue?: T
-  // Should return ReactNode, but using any to avoid dependency issues in core
-  component?: (props: { value: T, onChange: (value: T) => void }) => ReactNode
+  component?: (props: { value: T, onChange: (value: T) => void, schema: ZodType<T> }) => ReactNode
 }
 
 export class SettingStore {

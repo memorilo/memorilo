@@ -48,3 +48,17 @@ export function getZodType(schema: z.ZodType<any>): string {
 
   return 'unknown'
 }
+
+export function getEnumOptions(schema: z.ZodType<any>): string[] {
+  const unwrapped = unwrapSchema(schema)
+  const def = (unwrapped as any)._def
+  let options: any[] = []
+
+  if (def.typeName === 'ZodEnum' || Array.isArray((unwrapped as any).options)) {
+    options = (unwrapped as any).options
+  }
+  else if (def.typeName === 'ZodNativeEnum' || (unwrapped as any).enum) {
+    options = Object.values((unwrapped as any).enum).filter(val => typeof val === 'string')
+  }
+  return options.filter(v => typeof v === 'string' && !v.startsWith('_'))
+}

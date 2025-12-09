@@ -12,7 +12,8 @@
     "moduleResolution": "bundler",
 
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "@locales/*": ["../../locales/*"]
     },
     "types": ["vite/client"],
     "allowImportingTsExtensions": true,
