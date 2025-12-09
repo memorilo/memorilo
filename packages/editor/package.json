@@ -15,9 +15,13 @@
   "dependencies": {
     "@memorilo/components": "workspace:*",
     "@memorilo/utils": "workspace:*",
+    "effect": "catalog:",
+    "image-extensions": "^1.1.0",
     "jotai": "catalog:",
     "react": "catalog:",
     "slate": "^0.120.0",
+    "slate-history": "^0.113.1",
+    "slate-hotkeys": "^0.2.11",
     "slate-react": "^0.120.0"
   },
   "devDependencies": {

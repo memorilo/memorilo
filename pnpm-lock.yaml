@@ -311,6 +311,12 @@ importers:
       '@memorilo/utils':
         specifier: workspace:*
         version: link:../utils
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.9
+      image-extensions:
+        specifier: ^1.1.0
+        version: 1.1.0
       jotai:
         specifier: 'catalog:'
         version: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.6)(react@19.2.1)
@@ -320,6 +326,12 @@ importers:
       slate:
         specifier: ^0.120.0
         version: 0.120.0
+      slate-history:
+        specifier: ^0.113.1
+        version: 0.113.1(slate@0.120.0)
+      slate-hotkeys:
+        specifier: ^0.2.11
+        version: 0.2.11
       slate-react:
         specifier: ^0.120.0
         version: 0.120.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0)
@@ -2911,6 +2923,10 @@ packages:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
 
+  image-extensions@1.1.0:
+    resolution: {integrity: sha512-P0t7ByhK8Jk9TU05ct/7+f7h8dNuXq5OY4m0IO/T+1aga/qHkpC0Wf472x3FLdq/zFDG17pgapCM3JDTxwZzow==}
+    engines: {node: '>=0.10.0'}
+
   immer@11.0.1:
     resolution: {integrity: sha512-naDCyggtcBWANtIrjQEajhhBEuL9b0Zg4zmlWK2CzS6xCWSE39/vvf4LqnMjUAWHBhot4m9MHCM/Z+mfWhUkiA==}
 
@@ -2942,6 +2958,9 @@ packages:
     resolution: {integrity: sha512-xelSayHH36ZgE7ZWhli7pW34hNbNl8Ojv5KVmkJD4hBdD3th8Tfk9vYasLM+mXWOZhFkgZfxhLSnrwRr4elSSg==}
     engines: {node: '>=0.10.0'}
 
+  is-hotkey@0.1.4:
+    resolution: {integrity: sha512-Py+aW4r5mBBY18TGzGz286/gKS+fCQ0Hee3qkaiSmEPiD0PqFpe0wuA3l7rTOUKyeXl8Mxf3XzJxIoTlSv+kxA==}
+
   is-hotkey@0.2.0:
     resolution: {integrity: sha512-UknnZK4RakDmTgz4PI1wIph5yxSs/mvChWs9ifnlXsKuXgWmOkY/hAE0H/k2MIqH0RlRye0i1oC07MCRSD28Mw==}
 
@@ -2950,6 +2969,9 @@ packages:
     peerDependencies:
       eslint: '*'
       typescript: '>=4.7.4'
+
+  is-in-browser@1.1.3:
+    resolution: {integrity: sha512-FeXIBgG/CPGd/WUxuEyvgGTEfwiG9Z4EKGxjNMRqviiIIfsmgrpnHLffEDdwUHqNva1VEW91o3xBT/m8Elgl9g==}
 
   is-number@7.0.0:
     resolution: {integrity: sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==}
@@ -3657,10 +3679,21 @@ packages:
   sisteransi@1.0.5:
     resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
 
+  slate-dev-environment@0.2.5:
+    resolution: {integrity: sha512-oLD8Fclv/RqrDv6RYfN2CRzNcRXsUB99Qgcw5L/njTjxAdDPguV6edQ3DgUG9Q2pLFLhI15DwsKClzVfFzfwGQ==}
+
   slate-dom@0.119.0:
     resolution: {integrity: sha512-foc8a2NkE+1SldDIYaoqjhVKupt8RSuvHI868rfYOcypD4we5TT7qunjRKJ852EIRh/Ql8sSTepXgXKOUJnt1w==}
     peerDependencies:
       slate: '>=0.99.0'
+
+  slate-history@0.113.1:
+    resolution: {integrity: sha512-J9NSJ+UG2GxoW0lw5mloaKcN0JI0x2IA5M5FxyGiInpn+QEutxT1WK7S/JneZCMFJBoHs1uu7S7e6pxQjubHmQ==}
+    peerDependencies:
+      slate: '>=0.65.3'
+
+  slate-hotkeys@0.2.11:
+    resolution: {integrity: sha512-xhq/TlI74dRbO57O4ulGsvCcV4eaQ5nEEz9noZjeNLtNzFRd6lSgExRqAJqKGGIeJw+FnJ3OcqGvdb5CEc9/Ew==}
 
   slate-react@0.120.0:
     resolution: {integrity: sha512-CMEJzozriddBjVmbxNvc2erCkXUuEkgdXIdM+jEMvxWMb51z0zhIVzgoxbGprVpzwBXY8Kv7aZOUDVMomzWH/g==}
@@ -6775,6 +6808,8 @@ snapshots:
 
   ignore@7.0.5: {}
 
+  image-extensions@1.1.0: {}
+
   immer@11.0.1: {}
 
   import-fresh@3.3.1:
@@ -6800,6 +6835,8 @@ snapshots:
     dependencies:
       is-extglob: 2.1.1
 
+  is-hotkey@0.1.4: {}
+
   is-hotkey@0.2.0: {}
 
   is-immutable-type@5.0.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3):
@@ -6811,6 +6848,8 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
+
+  is-in-browser@1.1.3: {}
 
   is-number@7.0.0: {}
 
@@ -7637,6 +7676,10 @@ snapshots:
 
   sisteransi@1.0.5: {}
 
+  slate-dev-environment@0.2.5:
+    dependencies:
+      is-in-browser: 1.1.3
+
   slate-dom@0.119.0(slate@0.120.0):
     dependencies:
       '@juggle/resize-observer': 3.4.0
@@ -7647,6 +7690,16 @@ snapshots:
       scroll-into-view-if-needed: 3.1.0
       slate: 0.120.0
       tiny-invariant: 1.3.1
+
+  slate-history@0.113.1(slate@0.120.0):
+    dependencies:
+      is-plain-object: 5.0.0
+      slate: 0.120.0
+
+  slate-hotkeys@0.2.11:
+    dependencies:
+      is-hotkey: 0.1.4
+      slate-dev-environment: 0.2.5
 
   slate-react@0.120.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0):
     dependencies:
