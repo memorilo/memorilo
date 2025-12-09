@@ -14,6 +14,14 @@ build-android:
     cargo tauri android build --split-per-abi
   fi
 
+build-ios:
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#ios" --command cargo tauri ios build
+  else
+    cargo tauri ios build
+  fi
+
 clean:
   if [[ -d ./apps/client/dist ]]; then rm -rf ./apps/client/dist; fi
   cd ./src-tauri/ && cargo clean

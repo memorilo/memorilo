@@ -1,4 +1,5 @@
 import path from 'node:path'
+import process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
@@ -8,8 +9,13 @@ import { localesPlugin } from './plugins/locales'
 import { localesJsonPlugin } from './plugins/locales-json'
 import i18nCompleteness from './plugins/utils/i18n-completeness'
 
+const HOST = process.env.TAURI_DEV_HOST ?? '0.0.0.0'
+
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: HOST,
+  },
   plugins: [
     tailwindcss(),
     tanstackRouter({
