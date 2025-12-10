@@ -5,6 +5,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
 import { Match } from 'effect'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuFolder, LuHighlighter, LuNotebook, LuRefreshCcw, LuStickyNote } from 'react-icons/lu'
 import { useNoteFolderTree } from './note-folder-tree-provider'
 
@@ -21,12 +22,13 @@ import { useNoteFolderTree } from './note-folder-tree-provider'
  * `NoteFolderTreeNodeChildren`.
  */
 export function NoteFolderTree() {
+  const { t } = useTranslation('app')
   const treeNodes = Match.value(useRootFolderNodeUUID())
     .pipe(
       Match.when({ status: 'pending' }, () => <NoteFolderTreeSkeleton level={0} />),
       Match.when({ status: 'error' }, ({ error }) => (
         <span>
-          Error:
+          {t('note_folder_tree.error')}
           {error.name}
         </span>
       )),
@@ -60,6 +62,7 @@ type NoteFolderTreeNodeProps = NoteFolderTreeNodeBaseProps & FolderNode & {
  * delegates child rendering to `NoteFolderTreeNodeChildren` for folders.
  */
 function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
+  const { t } = useTranslation('app')
   const { selectedIds, setSelectedIds } = useNoteFolderTree()
   const [isRenaming, setIsRenaming] = useState(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
@@ -67,9 +70,9 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   const mutateRenameFolderNode = useMutateRenameFolderNode()
 
   async function handleDelete() {
-    const isConfirm = await dialog.ask(`Are you sure you want to delete "${props.name}"?`, {
+    const isConfirm = await dialog.ask(t('note_folder_tree.delete_confirm', { name: props.name }), {
       kind: 'warning',
-      okLabel: 'Delete',
+      okLabel: t('note_folder_tree.delete'),
     })
     if (isConfirm) {
       mutateDeleteFolderNode.mutate({

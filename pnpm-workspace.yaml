@@ -1,3 +1,9 @@
+catalogMode: prefer
+cleanupUnusedCatalogs: true
+
+shellEmulator: true
+trustPolicy: no-downgrade
+
 packages:
   - apps/*
   - packages/*
@@ -5,8 +11,15 @@ packages:
 catalog:
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
+  dayjs: ^1.11.19
+  effect: ^3.19.9
+  i18next: ^25.7.2
+  jotai: ^2.16.0
+  mitt: ^3.0.1
   react: ^19.2.1
   react-dom: ^19.2.1
+  react-i18next: ^16.4.0
+  zod: ^4.1.13
 
 onlyBuiltDependencies:
   - esbuild

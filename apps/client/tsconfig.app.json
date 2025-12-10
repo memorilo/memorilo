@@ -12,7 +12,8 @@
     "moduleResolution": "bundler",
 
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "@locales/*": ["../../locales/*"]
     },
     "types": ["vite/client"],
     "allowImportingTsExtensions": true,
@@ -24,7 +25,6 @@
     "noUnusedParameters": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
-    "erasableSyntaxOnly": true,
     "skipLibCheck": true,
     "noUncheckedSideEffectImports": true
   },

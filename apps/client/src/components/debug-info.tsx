@@ -52,13 +52,14 @@ function RouterDevtools({ children, enable }: { children: ReactNode, enable?: bo
 interface DebugInfoProps {
   scan?: boolean
   query?: boolean
+  router?: boolean
   children: ReactNode
 }
 
-export function DebugInfo({ children, scan = true, query = true }: DebugInfoProps) {
+export function DebugInfo({ children, scan = true, query = true, router = true }: DebugInfoProps) {
   return (
     <QueryDevtools enable={query}>
-      <RouterDevtools enable={query}>
+      <RouterDevtools enable={router}>
         <ReactScan enable={scan}>
           {children}
         </ReactScan>

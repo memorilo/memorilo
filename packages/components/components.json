@@ -4,18 +4,18 @@
   "rsc": false,
   "tsx": true,
   "tailwind": {
-    "config": "",
+    "config": "tailwind.config.ts",
     "css": "../../apps/client/src/globals.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
   },
   "aliases": {
-    "components": "./src/ui",
+    "components": "@memorilo/ui/ui",
     "utils": "@memorilo/utils/utils",
-    "ui": "./src/ui",
-    "lib": "@memorilo/utils/",
-    "hooks": "./src/hooks"
+    "ui": "@memorilo/ui/ui",
+    "lib": "@memorilo/ui/lib",
+    "hooks": "@memorilo/ui/hooks"
   },
   "iconLibrary": "lucide"
 }

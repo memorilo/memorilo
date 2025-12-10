@@ -140,6 +140,30 @@ async getParentFolderNodeUuid(childUuid: string) : Promise<Result<string | null,
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async readSettings() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("read_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateSettings(content: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_settings", { content }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async saveSettings() : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -154,7 +178,7 @@ async getParentFolderNodeUuid(childUuid: string) : Promise<Result<string | null,
 /** user-defined types **/
 
 export type Error = { _tag: ErrorKind; message: string; inner_message: string }
-export type ErrorKind = "DatabaseError"
+export type ErrorKind = "DatabaseError" | "IoError" | "SerializationError"
 /**
  * Represents a folder node with all its properties.
  */

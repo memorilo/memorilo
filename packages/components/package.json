@@ -5,6 +5,7 @@
   "packageManager": "pnpm@10.17.0",
   "exports": {
     "./ui/*": "./src/ui/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts"
   },
   "scripts": {
@@ -13,8 +14,10 @@
   "dependencies": {
     "@memorilo/utils": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
@@ -24,7 +27,9 @@
     "lucide-react": "^0.554.0",
     "motion": "^12.23.25",
     "react": "catalog:",
-    "tailwind-merge": "^3.4.0"
+    "react-i18next": "catalog:",
+    "tailwind-merge": "^3.4.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:"

@@ -1,0 +1,18 @@
+{
+  "sidebar.settings": "Settings",
+  "sidebar.library_name": "Library Name",
+  "sidebar.user_name": "User Name",
+  "sidebar.journal": "Journal",
+  "sidebar.all_notes": "All Notes",
+  "sidebar.flashcards": "Flashcards",
+  "sidebar.edit_later": "Edit Later",
+  "notes_empty.title": "No Topic Yet",
+  "notes_empty.description": "You haven't created any topics yet. Get started by creating your first topic.",
+  "notes_empty.create_topic": "Create Topic",
+  "notes_empty.import_topic": "Import Topic",
+  "notes_empty.learn_more": "Learn More",
+  "note_folder_tree.new_folder": "New Folder",
+  "note_folder_tree.error": "Error:",
+  "note_folder_tree.delete_confirm": "Are you sure you want to delete \"{{name}}\"?",
+  "note_folder_tree.delete": "Delete"
+}

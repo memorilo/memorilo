@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "jotai": "catalog:",
+    "mitt": "catalog:",
     "tailwind-merge": "^3.4.0"
   }
 }
