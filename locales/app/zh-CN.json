@@ -1,2 +1,18 @@
 {
+  "sidebar.settings": "设置",
+  "sidebar.library_name": "资料库名称",
+  "sidebar.user_name": "用户名",
+  "sidebar.journal": "日志",
+  "sidebar.all_notes": "所有笔记",
+  "sidebar.flashcards": "闪卡",
+  "sidebar.edit_later": "稍后编辑",
+  "notes_empty.title": "暂无主题",
+  "notes_empty.description": "您还没有创建任何主题。开始创建您的第一个主题吧。",
+  "notes_empty.create_topic": "创建主题",
+  "notes_empty.import_topic": "导入主题",
+  "notes_empty.learn_more": "了解更多",
+  "note_folder_tree.new_folder": "新建文件夹",
+  "note_folder_tree.error": "错误：",
+  "note_folder_tree.delete_confirm": "您确定要删除 \"{{name}}\" 吗？",
+  "note_folder_tree.delete": "删除"
 }

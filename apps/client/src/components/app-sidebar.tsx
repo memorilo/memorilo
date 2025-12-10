@@ -5,12 +5,14 @@ import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHead
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuBook, LuChevronDown, LuClock, LuFlag, LuNotebookPen, LuSettings, LuUser } from 'react-icons/lu'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 import { Settings } from './settings'
 
 export function AppSidebar() {
+  const { t } = useTranslation('app')
   const { state: sidebarState } = useSidebar()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   return (
@@ -18,7 +20,7 @@ export function AppSidebar() {
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Settings</DialogTitle>
+            <DialogTitle>{t('sidebar.settings')}</DialogTitle>
           </DialogHeader>
           <Settings />
         </DialogContent>
@@ -45,8 +47,8 @@ export function AppSidebar() {
                     <AvatarFallback className="size-4"><LuUser className="size-4" /></AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">Library Name</span>
-                    <span className="truncate text-xs">User Name</span>
+                    <span className="truncate font-medium">{t('sidebar.library_name')}</span>
+                    <span className="truncate text-xs">{t('sidebar.user_name')}</span>
                   </div>
                   <LuChevronDown className="ml-auto" />
                 </SidebarMenuButton>
@@ -61,7 +63,7 @@ export function AppSidebar() {
                   <div className="flex size-6 items-center justify-center rounded-md">
                     <LuSettings className="size-3.5 shrink-0" />
                   </div>
-                  Settings
+                  {t('sidebar.settings')}
                   <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -76,35 +78,35 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Journal">
+                  <SidebarMenuButton asChild tooltip={t('sidebar.journal')}>
                     <a>
                       <LuNotebookPen />
-                      Journal
+                      {t('sidebar.journal')}
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="All Notes">
+                  <SidebarMenuButton asChild tooltip={t('sidebar.all_notes')}>
                     <Link to="/all-notes">
                       <LuBook />
-                      All Notes
+                      {t('sidebar.all_notes')}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Flashcards">
+                  <SidebarMenuButton asChild tooltip={t('sidebar.flashcards')}>
                     <a>
                       <LuFlag />
-                      Flashcards
+                      {t('sidebar.flashcards')}
                     </a>
                   </SidebarMenuButton>
                   <SidebarMenuBadge>0</SidebarMenuBadge>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Edit later">
+                  <SidebarMenuButton asChild tooltip={t('sidebar.edit_later')}>
                     <a>
                       <LuClock />
-                      Edit later
+                      {t('sidebar.edit_later')}
                     </a>
                   </SidebarMenuButton>
                   <SidebarMenuBadge>0</SidebarMenuBadge>

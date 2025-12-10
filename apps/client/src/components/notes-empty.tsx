@@ -1,8 +1,10 @@
 import { Button } from '@memorilo/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@memorilo/components/ui/empty'
+import { useTranslation } from 'react-i18next'
 import { LuArrowUpRight, LuFolderCode } from 'react-icons/lu'
 
 export function NotesEmpty() {
+  const { t } = useTranslation('app')
   return (
     (
       <Empty>
@@ -10,16 +12,15 @@ export function NotesEmpty() {
           <EmptyMedia variant="icon">
             <LuFolderCode />
           </EmptyMedia>
-          <EmptyTitle>No Topic Yet</EmptyTitle>
+          <EmptyTitle>{t('notes_empty.title')}</EmptyTitle>
           <EmptyDescription>
-            You haven&apos;t created any topics yet. Get started by creating
-            your first topic.
+            {t('notes_empty.description')}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <div className="flex gap-2">
-            <Button>Create Topic</Button>
-            <Button variant="outline">Import Topic</Button>
+            <Button>{t('notes_empty.create_topic')}</Button>
+            <Button variant="outline">{t('notes_empty.import_topic')}</Button>
           </div>
         </EmptyContent>
         <Button
@@ -29,7 +30,7 @@ export function NotesEmpty() {
           size="sm"
         >
           <a href="#">
-            Learn More
+            {t('notes_empty.learn_more')}
             {' '}
             <LuArrowUpRight />
           </a>
