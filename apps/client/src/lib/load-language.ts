@@ -40,10 +40,6 @@ export async function loadLanguageAndApply(newLang: string) {
 
   if (loadingLangLock.has(lang))
     return
-  const isSupport = currentSupportedLanguages.includes(lang)
-  if (!isSupport) {
-    return
-  }
   const loaded = loadedLangs.has(lang)
 
   if (loaded) {

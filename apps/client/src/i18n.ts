@@ -3,14 +3,21 @@ import { memorilo } from '@memorilo/core'
 import { Chain } from '@memorilo/utils/chain'
 import { DEV } from '@memorilo/utils/constants'
 import { EventBus } from '@memorilo/utils/event-bus'
+import { jotaiStore } from '@memorilo/utils/jotai'
 import { getStorageNS } from '@memorilo/utils/ns'
 import * as log from '@tauri-apps/plugin-log'
 import { Either, Option } from 'effect'
-
 import i18next from 'i18next'
+import { atom } from 'jotai'
 import { initReactI18next } from 'react-i18next'
 import { defaultNS, ns } from './@types/constants'
 import { defaultResources } from './@types/default-resource'
+
+export const i18nAtom = atom(i18next)
+
+export function getI18n() {
+  return jotaiStore.get(i18nAtom)
+}
 
 export const langChain = new Chain()
 
@@ -42,6 +49,8 @@ export class LocaleCache {
 export const fallbackLanguage = 'en'
 
 export async function initI18n() {
+  const i18next = getI18n()
+
   const lang = memorilo.settings.get<string>('core::lang').pipe(
     Either.getOrElse(() => Option.some(fallbackLanguage)),
   ).pipe(
@@ -82,6 +91,7 @@ if (import.meta.hot) {
     'i18n-update',
     async ({ file, content }: { file: string, content: string }) => {
       const resources = JSON.parse(content)
+      const i18next = getI18n()
 
       const nsName = file.match(/locales\/(.+?)\//)?.[1]
 

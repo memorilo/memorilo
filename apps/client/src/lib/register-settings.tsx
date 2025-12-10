@@ -2,10 +2,10 @@ import type { Memorilo } from '@memorilo/core'
 
 import * as log from '@tauri-apps/plugin-log'
 import { Effect, Either, Option } from 'effect'
-import i18next, { t } from 'i18next'
 import { z } from 'zod'
 import { currentSupportedLanguages } from '~/@types/constants'
 import { EnumInput, EnumInputOption } from '~/components/settings/inputs'
+import { getI18n } from '~/i18n'
 import { loadLanguageAndApply } from './load-language'
 import { loadSettings, saveSettings } from './settings'
 import { getEnumOptions } from './zod'
@@ -18,6 +18,8 @@ export async function loadSettingsAtStartup() {
 }
 
 export function registerMemoriloSettings(memorilo: Memorilo) {
+  const i18next = getI18n()
+  const { t } = i18next
   memorilo.settings.watch('*', () => {
     Effect.runPromise(saveSettings())
   })
@@ -47,19 +49,4 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
 
     },
   ])
-
-  memorilo.settings.watch<string>('core::lang', (newLang) => {
-    Effect.try(() =>
-      newLang.pipe(
-        Option.map((lang) => {
-          log.info(`Load language: ${lang}`)
-          loadLanguageAndApply(lang).then(() => {
-            i18next.changeLanguage(lang)
-          })
-          return Effect.succeed(void 0)
-        }),
-        Option.getOrElse(() => Effect.fail('Target language is empty')),
-      ),
-    )
-  })
 }

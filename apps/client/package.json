@@ -28,6 +28,7 @@
     "effect-query": "^0.2.1",
     "i18next": "catalog:",
     "immer": "^11.0.1",
+    "jotai": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-i18next": "catalog:",
