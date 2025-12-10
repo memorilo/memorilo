@@ -10,7 +10,7 @@ export class Disposable {
   static fromExternal<T extends (...args: any[]) => any>(func: T, subscribe: (cb: T) => any, unsubscribe?: (cb: T) => any): Disposable {
     const unsubscribeFunc = subscribe(func)
     return new Disposable(() => {
-      if (typeof unsubscribe === 'function') {
+      if (typeof unsubscribeFunc === 'function') {
         unsubscribeFunc()
       }
       if (unsubscribe) {

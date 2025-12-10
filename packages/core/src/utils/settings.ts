@@ -114,10 +114,13 @@ export class SettingStore {
     return Either.right(Option.fromNullable(value as T))
   }
 
-  public watch<T>(key: string, callback: (value: Option.Option<T>) => void): Disposable {
+  public watch<T>(key: string | `${string}::*` | `*`, callback: (value: Option.Option<T>) => void): Disposable {
     return Disposable.fromExternal((event: SettingStoreEvents['settingChanged']) => {
-      if (event.key === key) {
-        const result = this.get<T>(key)
+      const isWildcard = key === '*' || key === '*::*'
+      const isCatalogWildcard = key.endsWith('::*') && event.key.startsWith(key.slice(0, -1))
+
+      if (isWildcard || isCatalogWildcard || event.key === key) {
+        const result = this.get<T>(event.key)
         if (Either.isRight(result)) {
           callback(result.right)
         }

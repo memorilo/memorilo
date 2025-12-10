@@ -2,8 +2,9 @@ import { Button } from '@memorilo/components/ui/button'
 import { ScrollArea } from '@memorilo/components/ui/scroll-area'
 import { Scrollspy } from '@memorilo/components/ui/scrollspy'
 import { memorilo } from '@memorilo/core'
+import * as log from '@tauri-apps/plugin-log'
 import { Either, Option } from 'effect'
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AutoForm } from './auto-form'
 
@@ -11,10 +12,10 @@ export function Settings() {
   const parentRef = useRef<HTMLDivElement | null>(null)
   const { t } = useTranslation('settings')
 
-  const catalogs = memorilo.settings.getCatalogs().map(key => ({
+  const catalogs = useMemo(() => memorilo.settings.getCatalogs().map(key => ({
     key,
     items: memorilo.settings.getCatalogItems(key),
-  }))
+  })), [])
 
   const defaultValues: Record<string, any> = {}
   catalogs.forEach((catalog) => {
@@ -32,6 +33,7 @@ export function Settings() {
 
   const handleSave = (values: Record<string, any>) => {
     Object.entries(values).forEach(([key, value]) => {
+      log.info(`Set setting ${key} = ${JSON.stringify(value)}`)
       memorilo.settings.set(key, value)
     })
   }
@@ -58,11 +60,17 @@ export function Settings() {
       </aside>
       <main className="flex-1 min-w-0 h-full overflow-hidden">
         <ScrollArea className="h-full pe-4" viewportRef={parentRef}>
-          <AutoForm
-            catalogs={catalogs}
-            defaultValues={defaultValues}
-            onSave={handleSave}
-          />
+          {
+            catalogs.map(catalog => (
+              <AutoForm
+                key={catalog.key}
+                catalog={catalog}
+                defaultValues={defaultValues}
+                onChange={handleSave}
+              />
+            ),
+            )
+          }
         </ScrollArea>
       </main>
     </div>

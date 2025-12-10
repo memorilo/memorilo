@@ -8,7 +8,7 @@ export interface Catalog {
 }
 
 export interface AutoFormProps {
-  catalogs: Catalog[]
+  catalog: Catalog
   defaultValues: Record<string, any>
-  onSave: (values: Record<string, any>) => void
+  onChange: (values: Record<string, any>) => void
 }

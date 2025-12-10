@@ -39,7 +39,7 @@ export class LocaleCache {
   }
 }
 
-const fallbackLanguage = 'en'
+export const fallbackLanguage = 'en'
 
 export async function initI18n() {
   const lang = memorilo.settings.get<string>('core::lang').pipe(
@@ -48,7 +48,6 @@ export async function initI18n() {
     Option.map(lang => lang === '_auto' ? navigator.language : lang),
     Option.getOrElse(() => fallbackLanguage),
   )
-  log.info(`init i18n with lang: ${lang}`)
 
   const mergedResources = {
     ...defaultResources,
@@ -63,9 +62,11 @@ export async function initI18n() {
     }
   }
 
+  const lng = cache ? lang : fallbackLanguage
+  log.info(`init i18n with lang: ${lng}`)
   await i18next.use(initReactI18next).init({
     ns,
-    lng: cache ? lang : fallbackLanguage,
+    lng,
     fallbackLng: {
       'default': [fallbackLanguage],
       'zh-TW': ['zh-CN', fallbackLanguage],

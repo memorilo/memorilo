@@ -3,6 +3,9 @@ pub mod cmd;
 pub mod setup;
 pub mod error;
 
+use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let specta_builder = setup::get_specta_builder();
@@ -35,18 +38,30 @@ pub fn run() {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             specta_builder.mount_events(app);
-
-            use tauri::Manager;
-            let app_data_dir = app.path().app_local_data_dir().expect("failed to get app local data dir");
-            std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
-            let db_path = app_data_dir.join("memorilo.db");
-            let conn = db::get_connection(db_path.to_str().unwrap()).expect("failed to open database");
-            app.manage(db::DbState {
-                conn: std::sync::Mutex::new(conn),
-            });
+            setup::setup_settings(app);
+            setup::setup_database(app);
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                let state = app_handle.state::<cmd::SettingsState>().clone();
+                
+                if let Err(e) = tauri::async_runtime::block_on(async move {
+                    cmd::save_settings(state).await
+                }) {
+                    api.prevent_exit();
+                    
+                    app_handle.dialog()
+                        .message(format!("Error saving settings: {}", e))
+                        .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                        .title("Error saving settings")
+                        .show(|_| {
+                            std::process::exit(1);
+                        });
+                }
+            }
+        });
 }
