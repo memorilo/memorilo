@@ -49,15 +49,17 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
   ])
 
   memorilo.settings.watch<string>('core::lang', (newLang) => {
-    newLang.pipe(
-      Option.map((lang) => {
-        log.info(`Load language: ${lang}`)
-        loadLanguageAndApply(lang).then(() => {
-          i18next.changeLanguage(lang)
-        })
-        return Effect.succeed(void 0)
-      }),
-      Option.getOrElse(() => Effect.fail('Target language is empty')),
+    Effect.try(() =>
+      newLang.pipe(
+        Option.map((lang) => {
+          log.info(`Load language: ${lang}`)
+          loadLanguageAndApply(lang).then(() => {
+            i18next.changeLanguage(lang)
+          })
+          return Effect.succeed(void 0)
+        }),
+        Option.getOrElse(() => Effect.fail('Target language is empty')),
+      ),
     )
   })
 }

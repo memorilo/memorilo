@@ -1,7 +1,7 @@
+use crate::db;
 use tauri::App;
 use tauri::Manager;
 use tauri_specta::collect_commands;
-use crate::db;
 
 use crate::cmd::SettingsState;
 
@@ -44,22 +44,19 @@ pub fn setup_database(app: &App) {
     });
 }
 
-pub fn setup_settings(app: &App){
+pub fn setup_settings(app: &App) {
     let app_data_dir = app
         .path()
         .app_local_data_dir()
         .expect("failed to get app local data dir");
     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
     let settings_path = app_data_dir.join("settings.toml");
-    app.manage(SettingsState{
+    app.manage(SettingsState {
         path: tokio::sync::Mutex::new(settings_path),
-        value: tokio::sync::RwLock::new(None)
+        value: tokio::sync::RwLock::new(None),
     });
 
     let state = app.state::<SettingsState>();
-    tauri::async_runtime::block_on(async move {
-        crate::cmd::read_settings(state).await
-    }).expect("failed to read settings");
-
-    
+    tauri::async_runtime::block_on(async move { crate::cmd::read_settings(state).await })
+        .expect("failed to read settings");
 }

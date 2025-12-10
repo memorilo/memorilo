@@ -52,12 +52,10 @@ pub fn run() {
                 if let Err(e) = tauri::async_runtime::block_on(async move {
                     cmd::save_settings(state).await
                 }) {
-                    api.prevent_exit();
-                    
                     app_handle.dialog()
                         .message(format!("Error saving settings: {}", e))
                         .kind(tauri_plugin_dialog::MessageDialogKind::Error)
-                        .title("Error saving settings")
+                        .title("Save Error")
                         .show(|_| {
                             std::process::exit(1);
                         });

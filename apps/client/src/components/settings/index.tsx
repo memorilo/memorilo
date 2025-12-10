@@ -17,19 +17,22 @@ export function Settings() {
     items: memorilo.settings.getCatalogItems(key),
   })), [])
 
-  const defaultValues: Record<string, any> = {}
-  catalogs.forEach((catalog) => {
-    catalog.items.forEach((item) => {
-      const fullKey = `${catalog.key}::${item.key}`
-      const result = memorilo.settings.get(fullKey)
-      if (Either.isRight(result) && Option.isSome(result.right)) {
-        defaultValues[fullKey] = result.right.value
-      }
-      else {
-        defaultValues[fullKey] = item.defaultValue
-      }
+  const defaultValues = useMemo(() => {
+    const values: Record<string, any> = {}
+    catalogs.forEach((catalog) => {
+      catalog.items.forEach((item) => {
+        const fullKey = `${catalog.key}::${item.key}`
+        const result = memorilo.settings.get(fullKey)
+        if (Either.isRight(result) && Option.isSome(result.right)) {
+          values[fullKey] = result.right.value
+        }
+        else {
+          values[fullKey] = item.defaultValue
+        }
+      })
     })
-  })
+    return values
+  }, [catalogs])
 
   const handleSave = (values: Record<string, any>) => {
     Object.entries(values).forEach(([key, value]) => {

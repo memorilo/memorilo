@@ -26,8 +26,13 @@ export function EnumInput({ value, onChange, children }: EnumInputProps) {
       )}
       value={value || ''}
       onChange={e => onChange(e.target.value)}
+      aria-label="Select an option"
     >
-      <option value="" disabled>Select an option</option>
+      {
+        (!value || value === '') && (
+          <option value="" disabled>Select an option</option>
+        )
+      }
       {children}
     </select>
   )
@@ -114,6 +119,7 @@ export function ArrayInput({ schema, value, onChange, catalogKey, itemKey, rende
           <Button
             variant="outline"
             size="sm"
+            aria-label="Remove Item"
             onClick={() => {
               const newList = list.filter((_: any, i: number) => i !== index)
               onChange(newList)
@@ -126,6 +132,7 @@ export function ArrayInput({ schema, value, onChange, catalogKey, itemKey, rende
       <Button
         variant="outline"
         size="sm"
+        aria-label="Add item to list"
         onClick={() => {
           onChange([...list, undefined])
         }}

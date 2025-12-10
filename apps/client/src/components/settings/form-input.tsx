@@ -33,7 +33,7 @@ export function FormInput({ schema, catalogKey, itemKey, value, onChange, compon
             {options
               .map((opt: any) => (
                 <EnumInputOption key={opt} value={opt}>
-                  {t(`settings.${catalogKey}.${itemKey}.${opt}`, opt)}
+                  {t(`${catalogKey}.${itemKey}.options.${opt}`, opt)}
                 </EnumInputOption>
               ))}
           </EnumInput>

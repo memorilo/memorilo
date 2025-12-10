@@ -12,6 +12,7 @@ export class Chain {
       }
       return fn() || Promise.resolve()
     })
+    return this
   }
 
   wait(ms: number): this {

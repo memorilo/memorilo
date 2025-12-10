@@ -9,6 +9,31 @@ type SettingStoreEvents = {
   settingChanged: { key: string }
 }
 
+/**
+ * Describes a single configurable setting used by the application.
+ *
+ * @template T - The TypeScript type of the setting's value. Defaults to `any`.
+ *
+ * @remarks
+ * Each setting is identified by a stable `key`, validated/parsed by a Zod schema,
+ * and may provide a default value and an optional UI component to render and edit the value.
+ *
+ * @property key - A unique string identifier for the setting. Should remain stable to preserve persisted values.
+ * @property schema - A Zod schema (ZodType<T>) that validates and parses the setting's value.
+ * @property defaultValue - Optional fallback value used when no persisted value exists.
+ * @property component - Optional React rendering/editing component for this setting. Receives an object:
+ *   - value: current value of type `T`
+ *   - onChange: callback to update the value (`(value: T) => void`)
+ *   - schema: the same Zod schema used for validation
+ *
+ * @example
+ * const fontSizeSetting: SettingItem<number> = {
+ *   key: "editor.fontSize",
+ *   schema: z.number().min(8).max(72),
+ *   defaultValue: 14,
+ *   component: ({ value, onChange }) => <NumberInput value={value} onChange={onChange} />
+ * };
+ */
 export interface SettingItem<T = any> {
   key: string
   schema: ZodType<T>

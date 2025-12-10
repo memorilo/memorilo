@@ -18,7 +18,7 @@ pub async fn read_settings(settings_state: tauri::State<'_, SettingsState>) -> R
         if path_guard.exists() {
             let content = tokio::fs::read_to_string(&*path_guard).await?;
             let toml_value: toml::Value = toml::from_str(&content)?;
-            let json_value: serde_json::Value = serde_json::to_value(toml_value).map_err(serde_json::Error::from)?;
+            let json_value: serde_json::Value = serde_json::to_value(toml_value)?;
             *value_guard = Some(json_value);
         } else {
             *value_guard = Some(serde_json::json!({}));

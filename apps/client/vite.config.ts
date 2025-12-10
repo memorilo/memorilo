@@ -32,7 +32,7 @@ export default defineConfig({
     },
   },
   define: {
-    TAURI: 'true',
+    TAURI: true,
     I18N_COMPLETENESS_MAP: JSON.stringify({ ...i18nCompleteness, en: 100 }),
   },
 })
