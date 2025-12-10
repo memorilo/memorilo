@@ -1,7 +1,7 @@
 import type { RendererSupportedLanguages } from '~/@types/constants'
 import { EventBus } from '@memorilo/utils/event-bus'
 import { isEmptyObject } from '@memorilo/utils/utils'
-import * as appLog from '@tauri-apps/plugin-log'
+import * as log from '@tauri-apps/plugin-log'
 import dayjs from 'dayjs'
 
 import i18next from 'i18next'
@@ -25,11 +25,11 @@ export async function loadLanguageAndApply(newLang: string) {
   if (dayjsImport) {
     const [locale, loader] = dayjsImport
     if (typeof locale !== 'string' || typeof loader !== 'function') {
-      appLog.error(`dayjs locale or loader is invalid: ${lang}`)
+      log.error(`dayjs locale or loader is invalid: ${lang}`)
       return
     }
     loader().then(() => {
-      appLog.info(`dayjs loaded: ${locale}`)
+      log.info(`dayjs loaded: ${locale}`)
       langChain.next(() => {
         return dayjs.locale(locale)
       })
@@ -52,20 +52,21 @@ export async function loadLanguageAndApply(newLang: string) {
   loadingLangLock.add(lang)
 
   if (import.meta.env.DEV) {
-    appLog.info(`Loading language resources for: ${lang} in DEV mode`)
+    log.info(`Loading language resources for: ${lang} in DEV mode`)
     const nsGlobbyMap = import.meta.glob('@locales/*/*.json')
-    appLog.info(`nsGlobbyMap:${JSON.stringify(Object.keys(nsGlobbyMap))}`)
 
     const namespaces = Object.keys(defaultResources.en)
 
     const res = await Promise.allSettled(
       namespaces.map(async (ns) => {
-        const loader = nsGlobbyMap[`../../locales/${ns}/${lang}.json`]
+        const localeFileName = `../../locales/${ns}/${lang}.json`
+        const loader = nsGlobbyMap[localeFileName]
 
         if (!loader)
           return
         const nsResources = await loader().then((m: any) => m.default)
 
+        log.info(`add locale ns ${localeFileName}`)
         i18next.addResourceBundle(lang, ns, nsResources, true, true)
       }),
     )
@@ -73,8 +74,8 @@ export async function loadLanguageAndApply(newLang: string) {
     for (const r of res) {
       if (r.status === 'rejected') {
         // toast.error(`${t('common:tips.load-lng-error')}: ${lang}`)
+        log.error(`language ${lang} loader rejected`)
         loadingLangLock.delete(lang)
-
         return
       }
     }
@@ -87,7 +88,7 @@ export async function loadLanguageAndApply(newLang: string) {
       .then((res: any) => res?.default || res)
       .catch(() => {
         // toast.error(`${t('common:tips.load-lng-error')}: ${lang}`)
-        appLog.error(`Failed to load language file: ${importFilePath}`)
+        log.error(`Failed to load language file: ${importFilePath}`)
         loadingLangLock.delete(lang)
         return {}
       })

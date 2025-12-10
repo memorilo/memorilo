@@ -1,12 +1,11 @@
 import type { Memorilo } from '@memorilo/core'
 
 import * as log from '@tauri-apps/plugin-log'
-import { Effect, Either, Option } from 'effect'
+import { Effect, Either } from 'effect'
 import { z } from 'zod'
 import { currentSupportedLanguages } from '~/@types/constants'
 import { EnumInput, EnumInputOption } from '~/components/settings/inputs'
 import { getI18n } from '~/i18n'
-import { loadLanguageAndApply } from './load-language'
 import { loadSettings, saveSettings } from './settings'
 import { getEnumOptions } from './zod'
 
@@ -46,7 +45,6 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
           </EnumInput>
         )
       },
-
     },
   ])
 }

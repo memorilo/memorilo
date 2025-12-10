@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react'
 import { memorilo } from '@memorilo/core'
+import { Disposable } from '@memorilo/core/utils/disposable'
 import { EventBus } from '@memorilo/utils/event-bus'
 import * as log from '@tauri-apps/plugin-log'
 import { Either, Option } from 'effect'
@@ -15,8 +16,8 @@ export function I18nProvider({ children }: PropsWithChildren) {
   if (import.meta.env.DEV) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(
-      () =>
-        EventBus.on('I18N_UPDATE', () => {
+      () => {
+        const disposable = Disposable.fromExternal(() => {
           const lang = memorilo.settings.get<string>('core::lang').pipe(
             Either.getOrElse(() => Option.some(fallbackLanguage)),
           ).pipe(
@@ -30,7 +31,9 @@ export function I18nProvider({ children }: PropsWithChildren) {
           log.info(`I18nProvider detected I18N_UPDATE event, refresh language ${lang}`)
 
           update(nextI18n)
-        }),
+        }, cb => EventBus.on('I18N_UPDATE', cb), cb => EventBus.off('I18N_UPDATE', cb))
+        return () => disposable.dispose()
+      },
       [update],
     )
   }
