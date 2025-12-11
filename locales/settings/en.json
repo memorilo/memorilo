@@ -1,4 +1,8 @@
 {
   "core.title": "Memorilo General",
-  "core.lang": "Language"
+  "core.lang": "Language",
+  "dev.title": "Developer",
+  "dev.scan": "Show view updates (react-scan)",
+  "dev.router": "Show router debug (tanstack-router)",
+  "dev.query": "Show query debug (tanstack-query)"
 }

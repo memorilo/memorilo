@@ -14,5 +14,6 @@
   "note_folder_tree.new_folder": "New Folder",
   "note_folder_tree.error": "Error:",
   "note_folder_tree.delete_confirm": "Are you sure you want to delete \"{{name}}\"?",
-  "note_folder_tree.delete": "Delete"
+  "note_folder_tree.delete": "Delete",
+  "note_folder_tree.rename": "Rename"
 }

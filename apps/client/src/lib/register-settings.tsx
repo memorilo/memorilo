@@ -47,4 +47,22 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
       },
     },
   ])
+
+  memorilo.settings.register('dev', [
+    {
+      key: 'scan',
+      schema: z.boolean(),
+      defaultValue: false,
+    },
+    {
+      key: 'router',
+      schema: z.boolean(),
+      defaultValue: false,
+    },
+    {
+      key: 'query',
+      schema: z.boolean(),
+      defaultValue: false,
+    },
+  ])
 }

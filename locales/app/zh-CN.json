@@ -14,5 +14,6 @@
   "note_folder_tree.new_folder": "新建文件夹",
   "note_folder_tree.error": "错误：",
   "note_folder_tree.delete_confirm": "您确定要删除 \"{{name}}\" 吗？",
-  "note_folder_tree.delete": "删除"
+  "note_folder_tree.delete": "删除",
+  "note_folder_tree.rename": "重命名"
 }

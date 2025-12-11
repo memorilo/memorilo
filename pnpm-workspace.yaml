@@ -1,14 +1,9 @@
-catalogMode: prefer
-cleanupUnusedCatalogs: true
-
-shellEmulator: true
-trustPolicy: no-downgrade
-
 packages:
   - apps/*
   - packages/*
 
 catalog:
+  '@radix-ui/react-switch': ^1.2.6
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
   dayjs: ^1.11.19
@@ -21,5 +16,13 @@ catalog:
   react-i18next: ^16.4.0
   zod: ^4.1.13
 
+catalogMode: prefer
+
+cleanupUnusedCatalogs: true
+
 onlyBuiltDependencies:
   - esbuild
+
+shellEmulator: true
+
+trustPolicy: no-downgrade

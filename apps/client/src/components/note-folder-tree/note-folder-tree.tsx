@@ -149,9 +149,9 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
         }
       }}
       >
-        <ContextMenuItem onClick={handleStartRename}>Rename</ContextMenuItem>
+        <ContextMenuItem onClick={handleStartRename}>{t('note_folder_tree.rename')}</ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleDelete}>Delete</ContextMenuItem>
+        <ContextMenuItem onClick={handleDelete}>{t('note_folder_tree.delete')}</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   )

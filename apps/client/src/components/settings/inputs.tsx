@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import { Button } from '@memorilo/components/ui/button'
 import { Input } from '@memorilo/components/ui/input'
+import { Switch } from '@memorilo/components/ui/switch'
 import { cn } from '@memorilo/utils/utils'
 import * as React from 'react'
 import { unwrapSchema } from '~/lib/zod'
@@ -48,12 +49,10 @@ export function NumberInput({ value, onChange }: BaseInputProps) {
 
 export function BooleanInput({ value, onChange }: BaseInputProps) {
   return (
-    <div className="flex items-center space-x-2">
-      <Input
-        type="checkbox"
-        className="h-4 w-4"
+    <div className="flex items-center space-x-2 justify-end">
+      <Switch
         checked={!!value}
-        onChange={e => onChange(e.target.checked)}
+        onCheckedChange={onChange}
       />
     </div>
   )

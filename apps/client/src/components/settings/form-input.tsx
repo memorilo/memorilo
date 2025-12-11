@@ -62,6 +62,12 @@ export function FormInput({ schema, catalogKey, itemKey, value, onChange, compon
           renderInput={props => <FormInput {...props} />}
         />
       )),
-      Match.orElse(() => <div>Unsupported type</div>),
+      Match.orElse(() => (
+        <div>
+          Unsupported type:
+          {' '}
+          {type}
+        </div>
+      )),
     )
 }
