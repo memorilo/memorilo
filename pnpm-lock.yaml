@@ -30,6 +30,9 @@ catalogs:
     mitt:
       specifier: ^3.0.1
       version: 3.0.1
+    motion:
+      specifier: 12.23.25
+      version: 12.23.25
     react:
       specifier: ^19.2.1
       version: 19.2.1
@@ -39,6 +42,9 @@ catalogs:
     react-i18next:
       specifier: ^16.4.0
       version: 16.4.0
+    react-icons:
+      specifier: ^5.5.0
+      version: 5.5.0
     zod:
       specifier: ^4.1.13
       version: 4.1.13
@@ -265,7 +271,7 @@ importers:
         specifier: ^0.554.0
         version: 0.554.0(react@19.2.1)
       motion:
-        specifier: ^12.23.25
+        specifier: 'catalog:'
         version: 12.23.25(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       react:
         specifier: 'catalog:'
@@ -323,6 +329,9 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.1
+      react-icons:
+        specifier: 'catalog:'
+        version: 5.5.0(react@19.2.1)
       slate:
         specifier: ^0.120.0
         version: 0.120.0
