@@ -1,4 +1,6 @@
 import type { RenderElementProps } from 'slate-react'
+import { Array, Match, pipe } from 'effect'
+
 import { Editor, Transforms } from 'slate'
 import { ReactEditor, useSlate } from 'slate-react'
 import { UtilButton } from './util-button'
@@ -14,10 +16,19 @@ export function ElementWrapper({ children, element }: RenderElementProps) {
           contentEditable={false}
           title="Click to add element below"
           onClick={() => {
-            const path = ReactEditor.findPath(editor, element)
-            Transforms.insertNodes(editor, { type: 'plain', children: [{ text: '' }] }, { at: [path[0] + 1] })
+            const path = Match.value(ReactEditor.findPath(editor, element)).pipe(
+              Match.when(
+                p => p.length > 1,
+                p => pipe(
+                  Array.initNonEmpty(p as Array.NonEmptyArray<number>),
+                  Array.append(Array.lastNonEmpty(p as Array.NonEmptyArray<number>) + 1),
+                ),
+              ),
+              Match.orElse(p => [Array.headNonEmpty(p as Array.NonEmptyArray<number>) + 1]),
+            )
+            Transforms.insertNodes(editor, { type: 'plain', children: [{ text: '' }] }, { at: path })
             ReactEditor.focus(editor)
-            Transforms.select(editor, { path: [path[0] + 1, 0], offset: 0 })
+            Transforms.select(editor, { path, offset: 0 })
           }}
           tabIndex={-1}
         >
