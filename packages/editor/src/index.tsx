@@ -17,15 +17,22 @@ import { MARKUPS } from './components/markups'
 import { isBlockActive, toggleCurrentBlock, toggleMark } from './lib/editorHelper'
 import { withImages } from './lib/withImages'
 
+import './globals.css'
+
 const initialValue: Descendant[] = [
   { type: 'h1', children: [{ text: 'Memorilo Editor Demo' }] },
   {
     type: 'plain',
     children: [
       {
-        strikethrough: true,
-        bold: true,
-        text: 'Here is a bug, see the left of the node. The button is duplicated when hovering.',
+        type: 'plain',
+        children: [
+          {
+            strikethrough: true,
+            bold: true,
+            text: 'Here is a bug, see the left of the node. The button is duplicated when hovering.',
+          },
+        ],
       },
       {
         type: 'image',
@@ -250,11 +257,14 @@ export function MemoriloEditor({ className }: MemoriloEditorProps) {
   )
   return (
     <ToolbarProvider>
-      <Slate editor={editor} initialValue={initialValue}>
+      <Slate
+        editor={editor}
+        initialValue={initialValue}
+      >
         <FormatToolbar />
         <Editable
           autoFocus
-          className={cn('h-full w-full space-y-3 py-8 px-2 md:p-8', className)}
+          className={cn('w-full space-y-3 py-8 px-2 md:p-8 memorilo-editor', className)}
           renderElement={renderElement}
           renderLeaf={renderLeaf}
           onKeyDown={handleKeyDown as unknown as KeyboardEventHandler<HTMLDivElement>}

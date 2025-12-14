@@ -1,0 +1,3 @@
+.memorilo-editor[contenteditable="true"]:focus {
+  outline: none;
+}
