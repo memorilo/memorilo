@@ -12,15 +12,18 @@ export function Todo(props: RenderElementProps) {
   }, [props.element, editor])
 
   return (
-    <div className="mb-4 flex items-center">
-      <input
-        type="checkbox"
-        className="mr-2 h-5 w-5 cursor-pointer accent-blue-300 checked:border-0"
-        checked={(props.element as TodoElementType).checked}
-        onChange={e => toggleChecked(e.target.checked)}
-        {...props.attributes}
-      />
-      {props.children}
+    <div {...props.attributes} className="mb-4 flex items-start">
+      <span contentEditable={false} className="mr-2 mt-1 select-none">
+        <input
+          type="checkbox"
+          className="size-4 cursor-pointer accent-blue-300 checked:border-0"
+          checked={(props.element as TodoElementType).checked}
+          onChange={e => toggleChecked(e.target.checked)}
+        />
+      </span>
+      <div className="flex-1 min-w-0 break-words">
+        {props.children}
+      </div>
     </div>
   )
 }
