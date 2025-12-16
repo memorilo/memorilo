@@ -1,28 +1,44 @@
+packages:
+  - apps/*
+  - packages/*
+
+catalog:
+  '@radix-ui/react-popover': ^1.1.15
+  '@radix-ui/react-select': ^2.2.6
+  '@radix-ui/react-switch': ^1.2.6
+  '@tauri-apps/plugin-fs': ^2.4.4
+  '@tauri-apps/plugin-log': 2.7.1
+  '@types/is-hotkey': ^0.1.10
+  '@types/prismjs': ^1.26.5
+  '@types/react': ^19.2.7
+  '@types/react-dom': ^19.2.3
+  '@vscode/vscode-languagedetection': ^1.0.22
+  cmdk: ^1.1.1
+  dayjs: ^1.11.19
+  effect: ^3.19.12
+  i18next: ^25.7.3
+  is-hotkey: ^0.2.0
+  jotai: ^2.16.0
+  mitt: ^3.0.1
+  motion: 12.23.25
+  prismjs: ^1.30.0
+  react: ^19.2.3
+  react-dom: ^19.2.3
+  react-i18next: ^16.5.0
+  react-icons: ^5.5.0
+  tailwindcss: ^4.1.18
+  typescript: ^5.9.3
+  vite: ^7.3.0
+  vitest: ^4.0.15
+  zod: ^4.2.0
+
 catalogMode: prefer
 
 cleanupUnusedCatalogs: true
 
+onlyBuiltDependencies:
+  - esbuild
+
 shellEmulator: true
 
 trustPolicy: no-downgrade
-packages:
-  - apps/*
-  - packages/*
-catalog:
-  '@radix-ui/react-switch': ^1.2.6
-  '@types/react': ^19.2.7
-  '@types/react-dom': ^19.2.3
-  dayjs: ^1.11.19
-  effect: ^3.19.9
-  i18next: ^25.7.2
-  jotai: ^2.16.0
-  mitt: ^3.0.1
-  motion: 12.23.25
-  react: ^19.2.1
-  react-dom: ^19.2.1
-  react-i18next: ^16.4.0
-  react-icons: ^5.5.0
-  zod: ^4.1.13
-
-onlyBuiltDependencies:
-  - esbuild

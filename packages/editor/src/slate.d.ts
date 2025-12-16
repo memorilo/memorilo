@@ -1,4 +1,4 @@
-import type { BaseEditor, Descendant } from 'slate'
+import type { BaseEditor, BaseRange, Descendant } from 'slate'
 import type { HistoryEditor } from 'slate-history'
 import type { ReactEditor } from 'slate-react'
 
@@ -43,7 +43,14 @@ export interface QuoteElementType {
 }
 
 export interface CodeBlockElementType {
-  type: 'code'
+  type: 'codeblock'
+  language?: string
+  guessLanguage?: string
+  children: Descendant[]
+}
+
+export interface CodeLineElementType {
+  type: 'code-line'
   children: Descendant[]
 }
 
@@ -74,6 +81,7 @@ type MemoriloElement
     | H6ElementType
     | QuoteElementType
     | CodeBlockElementType
+    | CodeLineElementType
     | DividerElementType
     | TodoElementType
     | ImageElementType
@@ -102,6 +110,9 @@ declare module 'slate' {
     Editor: MemoriloEditor
     Element: MemoriloElement
     Text: MemoriloText
+    Range: BaseRange & {
+      [key: string]: unknown
+    }
   }
 
   export interface BaseElement {

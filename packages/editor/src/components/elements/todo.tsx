@@ -21,7 +21,7 @@ export function Todo(props: RenderElementProps) {
           onChange={e => toggleChecked(e.target.checked)}
         />
       </span>
-      <div className="flex-1 min-w-0 break-words">
+      <div className="flex-1 min-w-0 wrap-break-word">
         {props.children}
       </div>
     </div>

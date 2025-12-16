@@ -1,3 +1,25 @@
+@reference "tailwindcss"
+
 .memorilo-editor[contenteditable="true"]:focus {
   outline: none;
+}
+
+.memorilo-editor .codesnippet {
+  @apply font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded;
+}
+
+.memorilo-editor .strikethrough {
+  @apply line-through
+}
+
+.memorilo-editor .underline {
+  @apply underline
+}
+
+.memorilo-editor .bold {
+  @apply font-bold
+}
+
+.memorilo-editor .italic {
+  @apply italic
 }

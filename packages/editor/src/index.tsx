@@ -1,22 +1,18 @@
-import type { KeyboardEventHandler } from 'react'
+import type { RefAttributes, TextareaHTMLAttributes } from 'react'
 import type { Descendant } from 'slate'
-import type { RenderElementProps, RenderLeafProps } from 'slate-react'
-import type { MemoriloElementStrings, MemoriloMarkupStrings } from './slate'
 import { cn } from '@memorilo/utils'
-import { useCallback, useMemo } from 'react'
-import { createEditor, Editor, Range, Transforms } from 'slate'
+import { useMemo } from 'react'
+import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
-import { DefaultLeaf, Editable, Slate, withReact } from 'slate-react'
-
-import { ElementWrapper } from './components/element-wrapper'
-
-import { ELEMENTS } from './components/elements'
+import { Editable, Slate, withReact } from 'slate-react'
 import { FormatToolbar, ToolbarProvider } from './components/format-toolbar'
-
-import { MARKUPS } from './components/markups'
-import { isBlockActive, toggleCurrentBlock, toggleMark } from './lib/editorHelper'
-import { withImages } from './lib/withImages'
-
+import { useDecorate } from './hooks/use-decorate'
+import { useKeyDownHandler } from './hooks/use-key-down-handler'
+import { useRenderElement } from './hooks/use-render-element'
+import { useRenderLeaf } from './hooks/use-render-leaf'
+import { toCodeLines } from './lib/code'
+import { withCodeblock } from './lib/with-codeblock'
+import { withImages } from './lib/with-image'
 import './globals.css'
 
 const initialValue: Descendant[] = [
@@ -163,130 +159,45 @@ const initialValue: Descendant[] = [
     ],
   },
   { type: 'h3', children: [{ text: 'Code block example:' }] },
-  { type: 'code', children: [{ text: 'console.log("Noshon 🫶")' }] },
+  { type: 'codeblock', children: toCodeLines(`
+function ciallo(){
+    console.log('Ciallo～(∠・ω< )')
+}
+    `.trim()) },
   { type: 'plain', children: [{ text: '' }] },
 ]
 
-interface MemoriloEditorProps {
-  className?: string
-}
-export function MemoriloEditor({ className }: MemoriloEditorProps) {
-  const editor = useMemo(() => withImages(withHistory(withReact(createEditor()))), [])
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    // Handle arrow up and arrow left and focus to title
-    if (
-      (event.key === 'ArrowUp' || event.key === 'ArrowLeft')
-      && editor.selection?.anchor.path[0] === 0
-      && editor.selection?.anchor.offset === 0
-    ) {
-      event.preventDefault()
-      // TODO: focus title
-      return
-    }
-
-    // Handle Ctrl keys
-    if (event.ctrlKey) {
-      // Match key combination for elements
-      const match = Object.entries(ELEMENTS).find(([, { key }]) => key[0] === 'ctrl' && key[1] === event.key)
-      if (match) {
-        event.preventDefault()
-        toggleCurrentBlock(editor, match[0] as MemoriloElementStrings)
-        return
-      }
-
-      // Match key combination for markups
-      const match_m = Object.entries(MARKUPS).find(([, { key }]) => key[0] === 'ctrl' && key[1] === event.key)
-      if (match_m) {
-        event.preventDefault()
-        toggleMark(editor, match_m[0] as MemoriloMarkupStrings)
-        return
-      }
-    }
-
-    // Handle soft line breaks (So Shift + Enter won't create new paragraph)
-    if (event.shiftKey && event.key === 'Enter') {
-      event.preventDefault()
-      Transforms.insertText(editor, '\n')
-    }
-  }
-
-  const renderElement = useCallback((props: RenderElementProps) => {
-    const Element
-      = props.element.type === undefined ? ELEMENTS.plain.component : ELEMENTS[props.element.type].component
-
-    return (
-      <ElementWrapper {...props}>
-        <Element {...props} />
-      </ElementWrapper>
-    )
-  }, [])
-
-  const renderLeaf = useCallback(
-    (props: RenderLeafProps) => {
-      if (props.leaf.placeholder && isBlockActive(editor, 'plain')) {
-        return (
-          <>
-            <span className="pointer-events-none absolute top-0 bg-transparent opacity-30" contentEditable={false}>
-              Type &apos;/&apos; for commands
-            </span>
-            <DefaultLeaf {...props} />
-          </>
-        )
-      }
-
-      return (
-        <span
-          className={Object.entries(MARKUPS)
-            .map(([name, value]) => {
-              if (props.leaf[name as MemoriloMarkupStrings]) {
-                return value.className
-              }
-              else {
-                return ''
-              }
-            })
-            .join(' ')}
-          {...props.attributes}
-        >
-          {props.children}
-        </span>
-      )
-    },
-    [editor],
+function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>) {
+  const decorate = useDecorate()
+  const renderElement = useRenderElement()
+  const renderLeaf = useRenderLeaf()
+  const handleKeyDown = useKeyDownHandler()
+  return (
+    <>
+      <FormatToolbar />
+      <Editable
+        autoFocus
+        className={cn('w-full space-y-3 py-8 px-2 md:p-8 memorilo-editor', className)}
+        renderElement={renderElement}
+        renderLeaf={renderLeaf}
+        onKeyDown={handleKeyDown}
+        decorate={decorate}
+        {...props}
+      />
+    </>
   )
+}
+
+export function MemoriloEditor(props: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>) {
+  const editor = useMemo(() => withCodeblock(withImages(withHistory(withReact(createEditor())))), [])
+
   return (
     <ToolbarProvider>
       <Slate
         editor={editor}
         initialValue={initialValue}
       >
-        <FormatToolbar />
-        <Editable
-          autoFocus
-          className={cn('w-full space-y-3 py-8 px-2 md:p-8 memorilo-editor', className)}
-          renderElement={renderElement}
-          renderLeaf={renderLeaf}
-          onKeyDown={handleKeyDown as unknown as KeyboardEventHandler<HTMLDivElement>}
-          decorate={([node, path]) => {
-            if (editor.selection != null) {
-              if (
-                !Editor.isEditor(node)
-                && Editor.string(editor, [path[0]]) === ''
-                && Range.includes(editor.selection, path)
-                && Range.isCollapsed(editor.selection)
-              ) {
-                return [
-                  {
-                    ...editor.selection,
-                    placeholder: true,
-                  },
-                ]
-              }
-            }
-            return []
-          }}
-        />
+        <MemoriloEditable {...props} />
       </Slate>
     </ToolbarProvider>
   )

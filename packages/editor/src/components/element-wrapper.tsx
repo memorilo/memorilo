@@ -39,7 +39,7 @@ export function ElementWrapper({ children, element }: RenderElementProps) {
 
   const toolbar = enable
     ? (
-        <div className="absolute -left-6 -top-1 inline scale-75 !select-none opacity-0 transition group-hover:opacity-100 group-focus:opacity-100 group-active:opacity-100">
+        <div className="absolute -left-6 -top-1 inline scale-75 select-none! opacity-0 transition group-hover:opacity-100 group-focus:opacity-100 group-active:opacity-100">
           <UtilButton
             contentEditable={false}
             title="Click to add element below"
