@@ -4,10 +4,10 @@ import log from '@memorilo/api/log'
 import { useIsMobile } from '@memorilo/components/hooks/use-mobile'
 import { Button } from '@memorilo/components/ui/button'
 import { Command, CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from '@memorilo/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
+import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
 import { Array, Effect } from 'effect'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LuChevronDown } from 'react-icons/lu'
 import { Node, Transforms } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateStatic } from 'slate-react'
@@ -24,6 +24,7 @@ export function CodeBlock(props: RenderElementProps) {
   const wasFocused = useRef(false)
   const path = useMemo(() => ReactEditor.findPath(editor, element), [editor, element])
   const isMobile = useIsMobile()
+  const [languageOptionDialogOpen, setLanguageOptionDialogOpen] = useState(false)
 
   // detect language when code block is blurred and language is not set
   useEffect(() => {
@@ -46,6 +47,11 @@ export function CodeBlock(props: RenderElementProps) {
   }, [selected, focused, editor, element, path])
   const language = element.language ?? element.guessLanguage ?? 'text'
 
+  const applyLanguageCmd = useCallback((id?: string) => {
+    Transforms.setNodes(editor, { language: id }, { at: path })
+    setLanguageOptionDialogOpen(false)
+  }, [editor, path])
+
   const commandContent = useMemo(() => (
     <>
       <CommandInput />
@@ -53,7 +59,7 @@ export function CodeBlock(props: RenderElementProps) {
         <CommandEmpty>
           No language found.
         </CommandEmpty>
-        <CommandItem value={undefined} onClick={() => Transforms.setNodes(editor, { language: undefined }, { at: path })}>
+        <CommandItem value={undefined} onClick={() => applyLanguageCmd(undefined)}>
           <span>Auto Detect</span>
         </CommandItem>
         {
@@ -61,7 +67,7 @@ export function CodeBlock(props: RenderElementProps) {
             <CommandItem
               value={item.id}
               key={item.id}
-              onSelect={() => Transforms.setNodes(editor, { language: item.id }, { at: path })}
+              onSelect={() => applyLanguageCmd(item.id)}
             >
               <span>{item.label}</span>
             </CommandItem>
@@ -69,41 +75,42 @@ export function CodeBlock(props: RenderElementProps) {
         }
       </CommandList>
     </>
-  ), [editor, path])
+  ), [applyLanguageCmd])
 
-  const [mobileDialogOpen, setMobileDialogOpen] = useState(false)
+  const languageSelectButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn(
+        'absolute right-2 top-2 p-2 z-50 group-hover:visible',
+        {
+          // Show button when code block is hovered or language option dialog is open
+          invisible: !languageOptionDialogOpen,
+        },
+      )}
+      contentEditable={false}
+      onClick={() => setLanguageOptionDialogOpen(true)}
+    >
+      {element.language ?? 'Auto'}
+      <LuChevronDown />
+    </Button>
+  )
+
   const languageSelect = isMobile
     ? (
         <>
-          <CommandDialog open={mobileDialogOpen} onOpenChange={setMobileDialogOpen}>
+          <CommandDialog open={languageOptionDialogOpen} onOpenChange={setLanguageOptionDialogOpen}>
             {commandContent}
           </CommandDialog>
-          <Button
-            variant="outline"
-            size="sm"
-            className="absolute right-2 top-2 p-2 z-50 group-hover:visible invisible"
-            contentEditable={false}
-            onClick={() => setMobileDialogOpen(true)}
-          >
-            {element.language ?? 'Auto'}
-            <LuChevronDown />
-          </Button>
+          {languageSelectButton}
         </>
       )
     : (
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute right-2 top-2 p-2 z-50 group-hover:visible invisible"
-              contentEditable={false}
-            >
-              {element.language ?? 'Auto'}
-              <LuChevronDown />
-            </Button>
-          </PopoverTrigger>
+        <Popover open={languageOptionDialogOpen} onOpenChange={setLanguageOptionDialogOpen}>
+          <PopoverAnchor asChild>
+            {languageSelectButton}
+          </PopoverAnchor>
           <PopoverContent className="p-0">
             <Command>
               {commandContent}
