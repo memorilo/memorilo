@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import type { FC, JSX } from 'react'
 import type { RenderElementProps } from 'slate-react'
 import type { MemoriloElementStrings } from '../../slate'
 import { LuFileImage } from 'react-icons/lu'
@@ -16,7 +16,7 @@ interface ElementMetadata {
   symbol: string | JSX.Element
   showUtil?: boolean
   afterClick?: (editor: Editor) => void
-  component: (x: RenderElementProps) => JSX.Element
+  component: FC<RenderElementProps>
 }
 
 type ElementMap = Record<MemoriloElementStrings, ElementMetadata>
