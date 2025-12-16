@@ -59,7 +59,7 @@ export function CodeBlock(props: RenderElementProps) {
         <CommandEmpty>
           No language found.
         </CommandEmpty>
-        <CommandItem value={undefined} onClick={() => applyLanguageCmd(undefined)}>
+        <CommandItem value="auto-detect" onSelect={() => applyLanguageCmd(undefined)}>
           <span>Auto Detect</span>
         </CommandItem>
         {
@@ -82,7 +82,7 @@ export function CodeBlock(props: RenderElementProps) {
       variant="outline"
       size="sm"
       className={cn(
-        'absolute right-2 top-2 p-2 z-50 group-hover:visible',
+        'p-2 group-hover:visible',
         {
           // Show button when code block is hovered or language option dialog is open
           invisible: !languageOptionDialogOpen,
@@ -120,15 +120,20 @@ export function CodeBlock(props: RenderElementProps) {
       )
 
   return (
-    <pre
-      className={cn('group rounded px-3 py-2 font-mono text-sm border bg-secondary/20 relative', `language-${language}`)}
-      ref={codeRef}
-    >
-      {languageSelect}
-      <code {...props.attributes}>
-        {props.children}
-      </code>
-    </pre>
+    <div className='group relative'>
+      <div className="absolute right-2 top-2 z-50">
+        {languageSelect}
+      </div>
+      <pre
+        className={cn('rounded px-3 py-2 font-mono text-sm border bg-secondary/20', `language-${language}`)}
+        ref={codeRef}
+      >
+        <code {...props.attributes}>
+          {props.children}
+        </code>
+      </pre>
+    </div>
+    
   )
 }
 
