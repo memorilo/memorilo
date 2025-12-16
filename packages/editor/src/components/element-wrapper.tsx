@@ -1,6 +1,7 @@
 import type { RenderElementProps } from 'slate-react'
-import { Array, Match, pipe } from 'effect'
+import { cn } from '@memorilo/utils'
 
+import { Array, Match, pipe } from 'effect'
 import { createContext, use, useEffect, useMemo, useState } from 'react'
 import { Editor, Transforms } from 'slate'
 import { ReactEditor, useSlate } from 'slate-react'
@@ -83,7 +84,12 @@ export function ElementWrapper({ children, element }: RenderElementProps) {
     : null
 
   return (
-    <div className="group relative pl-12" data-toolbar={enable}>
+    <div
+      className={cn('relative pl-12', {
+        group: enable,
+      })}
+      data-toolbar={enable}
+    >
       <ElementWrapperUtilButtonEnableContext value={contextValue}>
         {children}
       </ElementWrapperUtilButtonEnableContext>
