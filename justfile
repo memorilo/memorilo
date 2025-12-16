@@ -50,10 +50,20 @@ _download target url:
 
 
 dev-desktop: download-model download-resource
-  cargo tauri dev
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command cargo tauri dev
+  else
+    cargo tauri dev
+  fi
 
 build-desktop: download-model download-resource
-  cargo tauri build
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command cargo tauri build
+  else
+    cargo tauri build
+  fi
 
 build-android: download-model download-resource
   #!/usr/bin/env bash
