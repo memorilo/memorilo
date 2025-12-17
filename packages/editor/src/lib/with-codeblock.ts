@@ -51,12 +51,14 @@ export function withCodeblock(editor: Editor) {
     if (isCodeLine(node)) {
       // Remove all markups from the text node
       // The highlighter will be handling the formatting with decorations
+      let changed = false
       for (let i = 0; i < node.children.length; i++) {
         const baseText = node.children[i]
         if (!isText(baseText)) {
           break
         }
         if (Object.keys(baseText).length > 1) {
+          changed = true
           const text = baseText.text
           Transforms.setNodes(editor, {
             text,
@@ -70,6 +72,8 @@ export function withCodeblock(editor: Editor) {
           })
         }
       }
+      if (changed)
+        return
     } // End isCodeLine check
     normalizeNode(entry, options)
   }

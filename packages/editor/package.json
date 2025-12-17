@@ -22,6 +22,7 @@
     "image-extensions": "^1.1.0",
     "is-hotkey": "catalog:",
     "jotai": "catalog:",
+    "katex": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
     "react-icons": "catalog:",

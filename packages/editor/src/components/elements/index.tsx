@@ -8,6 +8,7 @@ import { CodeBlock as CodeBlockElement, CodeLine as CodeLineElement } from './co
 import { Divider as DividerElement } from './divider'
 import { Heading as HeadingElement } from './heading'
 import { Image as ImageElement } from './image'
+import { MathBlock as MathBlockElement, MathInline as MathInlineElement } from './math'
 import { Quote as QuoteElement } from './quote'
 import { Todo as TodoElement } from './todo'
 
@@ -104,5 +105,15 @@ export const ELEMENTS: ElementMap = {
     showUtil: true,
     symbol: <LuFileImage size={16} />,
     component: ImageElement,
+  },
+  'math-inline': {
+    key: ['ctrl', 'm'],
+    symbol: 'M',
+    component: MathInlineElement,
+  },
+  'math-block': {
+    key: ['ctrl', 'shift', 'm'],
+    symbol: 'MB',
+    component: MathBlockElement,
   },
 }

@@ -71,6 +71,16 @@ export interface ImageElementType {
   children: Descendant[]
 }
 
+export interface MathInlineElementType {
+  type: 'math-inline'
+  children: Descendant[]
+}
+
+export interface MathBlockElementType {
+  type: 'math-block'
+  children: Descendant[]
+}
+
 type MemoriloElement
   = | PlainElementType
     | H1ElementType
@@ -85,6 +95,8 @@ type MemoriloElement
     | DividerElementType
     | TodoElementType
     | ImageElementType
+    | MathInlineElementType
+    | MathBlockElementType
 
 export type MemoriloElementStrings = MemoriloElement['type']
 

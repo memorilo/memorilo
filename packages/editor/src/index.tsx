@@ -13,6 +13,7 @@ import { useRenderLeaf } from './hooks/use-render-leaf'
 import { toCodeLines } from './lib/code'
 import { withCodeblock } from './lib/with-codeblock'
 import { withImages } from './lib/with-image'
+import { withMath } from './lib/with-math'
 import './globals.css'
 
 const initialValue: Descendant[] = [
@@ -115,8 +116,31 @@ const initialValue: Descendant[] = [
     type: 'todo',
     checked: false,
     children: [
+      { text: '🧮 Inline Math Equation Support' },
       {
-        text: 'No Math Equation too',
+        type: 'math-inline',
+        children: [{ text: `
+          \\frac{
+            \\Gamma \\vdash \\phi \\vee \\psi \\; true \\quad \\Gamma, \\phi \\vdash \\chi \\; true \\quad \\Gamma, \\psi \\vdash \\chi \\; true
+          }{
+            \\Gamma \\vdash \\chi \\; true
+          }
+          `.trim() }],
+      },
+      {
+        text: 'That is Disjunction Elimination',
+      },
+    ],
+  },
+  {
+    type: 'todo',
+    checked: false,
+    children: [
+      {
+        type: 'math-block',
+        children: [{ text: `
+          \\frac{\\Gamma \\vdash_W e_0 : \\tau, S_0 \\qquad S_0\\Gamma, x : \\overline{S_0\\Gamma}(\\tau) \\vdash_W e_1 : \\tau', S_1}{\\Gamma \\vdash_W \\mathbf{let}\\ x = e_0\\ \\mathbf{in}\\ e_1 : \\tau', S_1 S_0}
+          `.trim() }],
       },
     ],
   },
@@ -189,7 +213,7 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
 }
 
 export function MemoriloEditor(props: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>) {
-  const editor = useMemo(() => withCodeblock(withImages(withHistory(withReact(createEditor())))), [])
+  const editor = useMemo(() => withMath(withCodeblock(withImages(withHistory(withReact(createEditor()))))), [])
 
   return (
     <ToolbarProvider>
