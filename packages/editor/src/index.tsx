@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
 import { Editable, Slate, withReact } from 'slate-react'
+import { RootIndentEnableContext } from './components/elements/indent'
 import { FormatToolbar, ToolbarProvider } from './components/format-toolbar'
 import { useDecorate } from './hooks/use-decorate'
 import { useKeyDownHandler } from './hooks/use-key-down-handler'
@@ -17,20 +18,85 @@ import { withMath } from './lib/with-math'
 import './globals.css'
 
 const initialValue: Descendant[] = [
-  { type: 'h1', children: [{ text: 'Memorilo Editor Demo' }] },
   {
-    type: 'plain',
+    type: 'indent',
     children: [
+      { type: 'h1', children: [{ text: 'Memorilo Editor Demo' }] },
       {
-        type: 'plain',
+        type: 'indent',
+        children: [
+          { text: '君不见，' },
+          { text: '左纳言，右纳史', italic: true },
+          { text: '，' },
+          { text: '朝承恩，暮赐死', strikethrough: true },
+          { text: '。' },
+          { text: '行路难', italic: true },
+          { text: '，不在水，不在山，' },
+          { text: '只在人情反覆间', strikethrough: true },
+          { text: '！' },
+        ],
+      },
+      {
+        type: 'indent',
         children: [
           {
-            strikethrough: true,
+            text: '君',
             bold: true,
-            text: 'Here is a bug, see the left of the node. The button is duplicated when hovering.',
+          },
+          {
+            text: 'のような',
+          },
+          {
+            text: 'ひと',
+            bold: true,
+          },
+          {
+            text: 'になりたいな，「',
+          },
+          {
+            text: '僕らしいひと',
+            bold: true,
+          },
+          {
+            text: '」になりたいな',
           },
         ],
       },
+      {
+        type: 'indent',
+        children: [
+          {
+            text: 'Benu min per ',
+          },
+          {
+            underline: true,
+            text: 'koro milda',
+          },
+          {
+            text: ',  ',
+          },
+          {
+            underline: true,
+            text: 'animo libera',
+          },
+          {
+            text: ' kaj ',
+
+          },
+          {
+            underline: true,
+            text: 'vivo feliĉa',
+          },
+          {
+            text: '; regu surtere amo kaj paco',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'indent',
+    children: [
       {
         type: 'image',
         url: 'https://github.com/mslxl/wallpapers/blob/main/pixiv-100312789.jpg?raw=true',
@@ -48,31 +114,46 @@ const initialValue: Descendant[] = [
       },
     ],
   },
-  { type: 'quote', children: [{ text: 'A Notion-style rich text editor, still under active development and polishing.' }] },
   {
-    type: 'plain',
+    type: 'indent',
+    children: [
+      { type: 'quote', children: [{ text: 'A Notion-style rich text editor, still under active development and polishing.' }] },
+    ],
+  },
+  {
+    type: 'indent',
     children: [
       {
         text: 'This project aims to replicate key features of Notion, the popular productivity tool. This page demonstrates the capabilities of this rich text editor.',
       },
     ],
   },
-  { type: 'h2', children: [{ text: 'Features' }] },
   {
-    type: 'todo',
-    checked: true,
+    type: 'indent',
     children: [
-      { text: '✍️ Essential formatting (' },
-      { text: 'bold', bold: true },
-      { text: ', ' },
-      { italic: true, text: 'italic' },
-      { text: ', ' },
-      { text: 'underline', underline: true },
-      { text: ', ' },
-      { text: 'strikethrough', strikethrough: true },
-      { text: ', ' },
-      { text: 'code snippet', codesnippet: true },
-      { text: ')' },
+      { type: 'h2', children: [{ text: 'Features' }] },
+    ],
+  },
+  {
+    type: 'indent',
+    children: [
+      {
+        type: 'todo',
+        checked: true,
+        children: [
+          { text: '✍️ Essential formatting (' },
+          { text: 'bold', bold: true },
+          { text: ', ' },
+          { italic: true, text: 'italic' },
+          { text: ', ' },
+          { text: 'underline', underline: true },
+          { text: ', ' },
+          { text: 'strikethrough', strikethrough: true },
+          { text: ', ' },
+          { text: 'code snippet', codesnippet: true },
+          { text: ')' },
+        ],
+      },
     ],
   },
   {
@@ -201,7 +282,7 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
       <FormatToolbar />
       <Editable
         autoFocus
-        className={cn('w-full space-y-3 py-8 px-2 md:p-8 memorilo-editor', className)}
+        className={cn('w-full py-8 px-2 md:p-8 memorilo-editor', className)}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
         onKeyDown={handleKeyDown}
@@ -217,12 +298,14 @@ export function MemoriloEditor(props: TextareaHTMLAttributes<HTMLDivElement> & R
 
   return (
     <ToolbarProvider>
-      <Slate
-        editor={editor}
-        initialValue={initialValue}
-      >
-        <MemoriloEditable {...props} />
-      </Slate>
+      <RootIndentEnableContext enable={true}>
+        <Slate
+          editor={editor}
+          initialValue={initialValue}
+        >
+          <MemoriloEditable {...props} />
+        </Slate>
+      </RootIndentEnableContext>
     </ToolbarProvider>
   )
 }

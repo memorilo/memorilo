@@ -81,6 +81,11 @@ export interface MathBlockElementType {
   children: Descendant[]
 }
 
+export interface IndentElementType {
+  type: 'indent'
+  children: Descendant[]
+}
+
 type MemoriloElement
   = | PlainElementType
     | H1ElementType
@@ -97,6 +102,7 @@ type MemoriloElement
     | ImageElementType
     | MathInlineElementType
     | MathBlockElementType
+    | IndentElementType
 
 export type MemoriloElementStrings = MemoriloElement['type']
 

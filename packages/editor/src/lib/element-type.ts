@@ -1,4 +1,4 @@
-import type { CodeBlockElementType, CodeLineElementType, MathBlockElementType, MathInlineElementType, MemoriloText } from '../slate'
+import type { CodeBlockElementType, CodeLineElementType, IndentElementType, MathBlockElementType, MathInlineElementType, MemoriloText } from '../slate'
 import { Text } from 'slate'
 
 export function isCodeblock(element: any): element is CodeBlockElementType {
@@ -23,4 +23,8 @@ export function isMathBlock(element: any): element is MathBlockElementType {
 
 export function isMath(element: any): element is MathInlineElementType | MathBlockElementType {
   return isMathInline(element) || isMathBlock(element)
+}
+
+export function isIndent(element: any): element is IndentElementType {
+  return element && element.type === 'indent'
 }

@@ -8,6 +8,7 @@ import { CodeBlock as CodeBlockElement, CodeLine as CodeLineElement } from './co
 import { Divider as DividerElement } from './divider'
 import { Heading as HeadingElement } from './heading'
 import { Image as ImageElement } from './image'
+import { Indent as IndentElement } from './indent'
 import { MathBlock as MathBlockElement, MathInline as MathInlineElement } from './math'
 import { Quote as QuoteElement } from './quote'
 import { Todo as TodoElement } from './todo'
@@ -115,5 +116,10 @@ export const ELEMENTS: ElementMap = {
     key: ['ctrl', 'shift', 'm'],
     symbol: 'MB',
     component: MathBlockElement,
+  },
+  'indent': {
+    key: ['tab'],
+    symbol: 'O',
+    component: IndentElement,
   },
 }

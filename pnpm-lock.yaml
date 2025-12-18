@@ -355,6 +355,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@memorilo/utils':
+        specifier: workspace:*
+        version: link:../utils
       effect:
         specifier: 'catalog:'
         version: 3.19.12
