@@ -20,6 +20,7 @@ import { withImages } from './lib/with-image'
 import { withIndent } from './lib/with-indent'
 import { withLink } from './lib/with-link'
 import { withMath } from './lib/with-math'
+import { withTable } from './lib/with-table'
 import { withTodo } from './lib/with-todo'
 import './globals.css'
 
@@ -49,18 +50,180 @@ const initialValue: Descendant[] = [
     type: 'indent',
     children: [
       { type: 'quote', children: [{ text: 'A Notion-style rich text editor, still under active development and polishing.' }] },
+      {
+        text: '🔲 Table support is partially implemented! Try the table below and play with the toolbar. Note: Mobile design is pending, some bugs exist, and nested cells/containers will be refined in future updates.',
+      },
+    ],
+  },
+  {
+    type: 'indent',
+    children: [
+      {
+        type: 'table',
+        children: [
+          {
+            type: 'table-head',
+            children: [
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-header',
+                    children: [{ type: 'table-content', children: [{ text: 'Feature' }] }],
+                  },
+                  {
+                    type: 'table-header',
+                    children: [{ type: 'table-content', children: [{ text: 'Status' }] }],
+                  },
+                  {
+                    type: 'table-header',
+                    children: [{ type: 'table-content', children: [{ text: 'Example' }] }],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'table-body',
+            children: [
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Tables' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Basic CRUD operations supported' }] }],
+                  },
+                ],
+              },
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Inline Math' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'table-content',
+                        children: [
+                          { text: 'Pythagorean theorem: ' },
+                          {
+                            type: 'math-inline',
+                            children: [{ text: 'a^2 + b^2 = c^2' }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Code Snippets' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'table-content',
+                        children: [
+                          { text: 'Use ' },
+                          { text: 'console.log()', codesnippet: true },
+                          { text: ' for debugging' },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Block Math' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: '⚠️ Testing' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'table-content',
+                        children: [
+                          {
+                            type: 'math-block',
+                            children: [{ text: '\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}' }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
     type: 'indent',
     children: [
       { type: 'plain', children: [{ text: 'This project aims to replicate key features of Notion, the popular productivity tool. This page demonstrates the capabilities of this rich text editor.' }] },
+      { text: '🧮 Inline Math Equation Support' },
+      {
+        type: 'math-inline',
+        children: [{
+          text: `
+          \\frac{
+            \\Gamma \\vdash \\phi \\vee \\psi \\; true \\quad \\Gamma, \\phi \\vdash \\chi \\; true \\quad \\Gamma, \\psi \\vdash \\chi \\; true
+          }{
+            \\Gamma \\vdash \\chi \\; true
+          }
+          `.trim(),
+        }],
+      },
+      {
+        text: 'That is Disjunction Elimination',
+      },
     ],
   },
   {
     type: 'indent',
     children: [
       { type: 'h2', children: [{ text: 'Features' }] },
+      {
+        type: 'math-block',
+        children: [{
+          text: `
+          \\frac{\\Gamma \\vdash_W e_0 : \\tau, S_0 \\qquad S_0\\Gamma, x : \\overline{S_0\\Gamma}(\\tau) \\vdash_W e_1 : \\tau', S_1}{\\Gamma \\vdash_W \\mathbf{let}\\ x = e_0\\ \\mathbf{in}\\ e_1 : \\tau', S_1 S_0}
+          `.trim(),
+        }],
+      },
     ],
   },
   {
@@ -160,7 +323,14 @@ primes = filterPrime [2..] where
   {
     type: 'indent',
     children: [
-      { type: 'plain', children: [{ text: '' }] },
+      {
+        type: 'codeblock',
+        children: toCodeLines(`
+function ciallo(){
+    console.log('Ciallo～(∠・ω< )')
+}
+    `.trim()),
+      },
     ],
   },
 ]
@@ -213,6 +383,7 @@ export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: Memo
       withTodo,
       withIndent,
       withLink,
+      withTable,
     ] as const
     return plugins.reduce((editor, plugin) => plugin(editor), baseEditor)
   }, [])

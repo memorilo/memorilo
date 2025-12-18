@@ -1,5 +1,24 @@
-import type { CodeBlockElementType, CodeLineElementType, IndentElementType, LinkElementType, MathBlockElementType, MathInlineElementType, MemoriloText, TodoElementType } from '../slate'
+import type {
+  CodeBlockElementType,
+  CodeLineElementType,
+  IndentElementType,
+  LinkElementType,
+  MathBlockElementType,
+  MathInlineElementType,
+  MemoriloText,
+  TableBodyElementType,
+  TableCellElementType,
+  TableContentElementType,
+  TableElementType,
+  TableFooterElementType,
+  TableHeadElementType,
+  TableHeaderCellElementType,
+  TableRowElementType,
+  TodoElementType,
+} from '../slate'
+
 import { Text } from 'slate'
+import { TABLE_BLOCKS } from './with-table'
 
 function hasElementType(value: unknown): value is { type: unknown } {
   return typeof value === 'object' && value !== null && 'type' in value
@@ -84,4 +103,24 @@ export type HeadingOrPlainType = typeof HEADING_AND_PLAIN_TYPES[number]
  */
 export function isHeadingOrPlainType(type: unknown): type is HeadingOrPlainType {
   return typeof type === 'string' && (HEADING_AND_PLAIN_TYPES as readonly string[]).includes(type)
+}
+
+export function isTable(element: any): element is TableElementType {
+  return element && element.type === TABLE_BLOCKS.table
+}
+
+export function isTableSection(element: any): element is TableHeadElementType | TableBodyElementType | TableFooterElementType {
+  return element && [TABLE_BLOCKS.thead, TABLE_BLOCKS.tbody, TABLE_BLOCKS.tfoot].includes(element.type)
+}
+
+export function isTableRow(element: any): element is TableRowElementType {
+  return element && element.type === TABLE_BLOCKS.tr
+}
+
+export function isTableCell(element: any): element is TableCellElementType | TableHeaderCellElementType {
+  return element && (element.type === TABLE_BLOCKS.td || element.type === TABLE_BLOCKS.th)
+}
+
+export function isTableContent(element: any): element is TableContentElementType {
+  return element && element.type === TABLE_BLOCKS.content
 }
