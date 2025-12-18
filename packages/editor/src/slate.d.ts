@@ -88,6 +88,50 @@ export interface LinkElementType {
   url: string
   children: Descendant[]
 }
+export interface TableElementType {
+  type: 'table'
+  children: Array<TableHeadElementType | TableBodyElementType | TableFooterElementType>
+}
+
+export interface TableHeadElementType {
+  type: 'table-head'
+  children: TableRowElementType[]
+}
+
+export interface TableBodyElementType {
+  type: 'table-body'
+  children: TableRowElementType[]
+}
+
+export interface TableFooterElementType {
+  type: 'table-footer'
+  children: TableRowElementType[]
+}
+
+export interface TableRowElementType {
+  type: 'table-row'
+  children: Array<TableCellElementType | TableHeaderCellElementType>
+}
+
+interface TableCellBase {
+  rowSpan?: number
+  colSpan?: number
+  align?: 'left' | 'center' | 'right'
+  children: TableContentElementType[]
+}
+
+export interface TableCellElementType extends TableCellBase {
+  type: 'table-cell'
+}
+
+export interface TableHeaderCellElementType extends TableCellBase {
+  type: 'table-header'
+}
+
+export interface TableContentElementType {
+  type: 'table-content'
+  children: Descendant[]
+}
 
 type MemoriloElement
   = | PlainElementType
@@ -106,6 +150,14 @@ type MemoriloElement
     | MathBlockElementType
     | IndentElementType
     | LinkElementType
+    | TableElementType
+    | TableHeadElementType
+    | TableBodyElementType
+    | TableFooterElementType
+    | TableRowElementType
+    | TableCellElementType
+    | TableHeaderCellElementType
+    | TableContentElementType
 
 export type MemoriloElementStrings = MemoriloElement['type']
 

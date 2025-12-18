@@ -9,6 +9,16 @@ import { Indent as IndentElement } from './indent'
 import { Link as LinkElement } from './link'
 import { MathBlock as MathBlockElement, MathInline as MathInlineElement } from './math'
 import { Quote as QuoteElement } from './quote'
+import {
+  TableBody as TableBodyElement,
+  TableCell as TableCellElement,
+  TableContent as TableContentElement,
+  Table as TableElement,
+  TableFooter as TableFooterElement,
+  TableHead as TableHeadElement,
+  TableHeaderCell as TableHeaderCellElement,
+  TableRow as TableRowElement,
+} from './table'
 import { Todo as TodoElement } from './todo'
 
 type ElementMap = Record<MemoriloElementStrings, FC<RenderElementProps>>
@@ -30,4 +40,12 @@ export const ELEMENTS: ElementMap = {
   'math-block': MathBlockElement,
   'indent': IndentElement,
   'link': LinkElement,
+  'table': TableElement,
+  'table-head': TableHeadElement,
+  'table-body': TableBodyElement,
+  'table-footer': TableFooterElement,
+  'table-row': TableRowElement,
+  'table-header': TableHeaderCellElement,
+  'table-cell': TableCellElement,
+  'table-content': TableContentElement,
 }

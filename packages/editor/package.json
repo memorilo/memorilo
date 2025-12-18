@@ -34,7 +34,8 @@
     "slate": "catalog:",
     "slate-history": "catalog:",
     "slate-hotkeys": "catalog:",
-    "slate-react": "catalog:"
+    "slate-react": "catalog:",
+    "slate-table": "catalog:"
   },
   "devDependencies": {
     "@types/prismjs": "catalog:",

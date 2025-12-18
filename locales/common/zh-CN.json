@@ -1,1 +1,21 @@
-{}
+{
+  "table": {
+    "toolbar": {
+      "resizeTitle": "调整表格尺寸",
+      "deleteTitle": "删除表格",
+      "settingsTitle": "表格设置",
+      "apply": "应用"
+    },
+    "menu": {
+      "alignLeft": "左对齐",
+      "alignCenter": "居中",
+      "alignRight": "右对齐",
+      "insertRowAbove": "在上方插入行",
+      "insertRowBelow": "在下方插入行",
+      "deleteRow": "删除当前行",
+      "insertColLeft": "在左侧插入列",
+      "insertColRight": "在右侧插入列",
+      "deleteCol": "删除当前列"
+    }
+  }
+}
