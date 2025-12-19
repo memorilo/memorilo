@@ -1,7 +1,7 @@
 import type { RenderElementProps } from 'slate-react'
-import { createContext, use, useMemo } from 'react'
+import { createContext, use } from 'react'
 import { Node, Path, Element as SlateElement } from 'slate'
-import { ReactEditor, useSlateStatic } from 'slate-react'
+import { ReactEditor, useSlateSelector } from 'slate-react'
 
 const IndentEnableContext = createContext(false)
 
@@ -14,44 +14,40 @@ export function RootIndentEnableContext(props: { children: React.ReactNode, enab
 }
 
 function useIndentConnections(element: SlateElement) {
-  const editor = useSlateStatic()
-
-  return useMemo(() => {
-    let hasIndentAbove = false
-    let hasIndentBelow = false
-    const path = ReactEditor.findPath(editor, element)
-
+  const hasIndentAbove = useSlateSelector((editor) => {
     try {
+      const path = ReactEditor.findPath(editor, element)
+
       if (path[path.length - 1] > 0) {
         const prevPath = Path.previous(path)
         if (Node.has(editor, prevPath)) {
           const prevNode = Node.get(editor, prevPath)
           if (SlateElement.isElement(prevNode) && (prevNode as any).type === 'indent') {
-            hasIndentAbove = true
+            return true
           }
         }
       }
     }
-    catch {
-      hasIndentAbove = false
-    }
+    catch {}
+    return false
+  })
 
+  const hasIndentBelow = useSlateSelector((editor) => {
     try {
+      const path = ReactEditor.findPath(editor, element)
       const nextPath = Path.next(path)
       if (Node.has(editor, nextPath)) {
         const nextNode = Node.get(editor, nextPath)
         if (SlateElement.isElement(nextNode) && (nextNode as any).type === 'indent') {
-          hasIndentBelow = true
+          return true
         }
       }
     }
-    catch {
-      hasIndentBelow = false
-    }
+    catch {}
+    return false
+  })
 
-    return { hasIndentAbove, hasIndentBelow }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, element, editor.children])
+  return { hasIndentAbove, hasIndentBelow }
 }
 
 export function Indent(props: RenderElementProps) {

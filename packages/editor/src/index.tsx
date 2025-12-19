@@ -14,6 +14,7 @@ import { useRenderLeaf } from './hooks/use-render-leaf'
 import { toCodeLines } from './lib/code'
 import { withCodeblock } from './lib/with-codeblock'
 import { withImages } from './lib/with-image'
+import { withIndent } from './lib/with-indent'
 import { withMath } from './lib/with-math'
 import './globals.css'
 
@@ -40,25 +41,39 @@ const initialValue: Descendant[] = [
         type: 'indent',
         children: [
           {
-            text: '君',
-            bold: true,
+            type: 'plain',
+            children: [
+              {
+                text: '君',
+                bold: true,
+              },
+              {
+                text: 'のような',
+              },
+              {
+                text: 'ひと',
+                bold: true,
+              },
+              {
+                text: 'になりたいな，「',
+              },
+              {
+                text: '僕らしいひと',
+                bold: true,
+              },
+              {
+                text: '」になりたいな',
+              },
+
+            ],
           },
           {
-            text: 'のような',
-          },
-          {
-            text: 'ひと',
-            bold: true,
-          },
-          {
-            text: 'になりたいな，「',
-          },
-          {
-            text: '僕らしいひと',
-            bold: true,
-          },
-          {
-            text: '」になりたいな',
+            type: 'indent',
+            children: [
+              {
+                text: 'CJK 字形: 门上插刀 直字拐弯 天上平板 船顶漏雨',
+              },
+            ],
           },
         ],
       },
@@ -293,12 +308,16 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
   )
 }
 
-export function MemoriloEditor(props: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>) {
-  const editor = useMemo(() => withMath(withCodeblock(withImages(withHistory(withReact(createEditor()))))), [])
+interface MemoriloEditorProps extends TextareaHTMLAttributes<HTMLDivElement>, RefAttributes<HTMLDivElement> {
+  outline?: boolean
+}
+
+export function MemoriloEditor({ outline, ...props }: MemoriloEditorProps) {
+  const editor = useMemo(() => withIndent(withMath(withCodeblock(withImages(withHistory(withReact(createEditor())))))), [])
 
   return (
     <ToolbarProvider>
-      <RootIndentEnableContext enable={true}>
+      <RootIndentEnableContext enable={outline ?? true}>
         <Slate
           editor={editor}
           initialValue={initialValue}

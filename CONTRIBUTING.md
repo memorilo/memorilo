@@ -44,3 +44,14 @@ Code blocks in this project consist of `CodeBlock` and `CodeLine`, both of which
 #### Math Constraints
 
 **`MathBlock` and `MathInline` can only contain `Text` elements.** If the element contains non-`Text` nodes, they will be replaced with a `Text` element, and all text content will be concatenated and copied to the new `Text`.
+
+#### Indent Constraints
+
+`Indent` is the fundamental structural block in this editor, representing a node in the outline tree.
+
+1. **Root nodes must be `Indent`.** All top-level nodes in the editor must be `Indent` elements. If a non-`Indent` node exists at the root, it will be wrapped in an `Indent`.
+2. **`Indent` can only contain block elements.** If an `Indent` contains inline nodes or text nodes, they will be wrapped in a `plain` block. Consecutive inline/text nodes are grouped into a single `plain` block.
+3. **First child of `Indent` cannot be `Indent`.** The first child represents the content of the current outline node. If the first child is an `Indent`, it will be unwrapped.
+4. **Siblings structure enforcement.**
+    *   If an `Indent` has multiple children, and any child after the first one is an `Indent`, then **all** subsequent children must be `Indent` nodes. Non-`Indent` siblings in this position will be wrapped in `Indent`.
+    *   If an `Indent` has multiple children but none of the subsequent children are `Indent`, those subsequent children are lifted out to become siblings of the current `Indent` node.
