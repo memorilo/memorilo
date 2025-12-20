@@ -1,10 +1,11 @@
 import type { RefAttributes, TextareaHTMLAttributes } from 'react'
 import type { Descendant } from 'slate'
 import { cn } from '@memorilo/utils'
-import { useMemo } from 'react'
+import { DEV } from '@memorilo/utils/constants'
+import { useEffect, useMemo } from 'react'
 import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
-import { Editable, Slate, withReact } from 'slate-react'
+import { Editable, Slate, useSlateStatic, withReact } from 'slate-react'
 import { RootIndentEnableContext } from './components/elements/indent'
 import { FormatToolbar, ToolbarProvider } from './components/format-toolbar'
 import { useDecorate } from './hooks/use-decorate'
@@ -288,10 +289,20 @@ function ciallo(){
 ]
 
 function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>) {
+  const editor = useSlateStatic()
   const decorate = useDecorate()
   const renderElement = useRenderElement()
   const renderLeaf = useRenderLeaf()
   const handleKeyDown = useKeyDownHandler()
+  if (DEV) {
+    // DEV is a constant replaced at build time, it never changes at runtime
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+      editor.normalize({
+        force: true,
+      })
+    }, [editor])
+  }
   return (
     <>
       <FormatToolbar />
