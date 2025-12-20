@@ -68,6 +68,8 @@ export interface TodoElementType {
 export interface ImageElementType {
   type: 'image'
   url: string
+  width?: number
+  height?: number
   children: Descendant[]
 }
 
