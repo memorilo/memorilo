@@ -1,4 +1,4 @@
-const langs = ['en', 'zh-CN'] as const
+const langs = ['en', 'zh-CN', 'ja'] as const
 
 export const currentSupportedLanguages = langs as readonly string[]
 export type RendererSupportedLanguages = (typeof langs)[number]
@@ -9,4 +9,5 @@ export const defaultNS = 'app' as const
 export const dayjsLocaleImportMap = {
   'en': ['en', () => import('dayjs/locale/en')],
   'zh-CN': ['zh-cn', () => import('dayjs/locale/zh-cn')],
+  'ja': ['ja', () => import ('dayjs/locale/ja')],
 }
