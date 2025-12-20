@@ -120,12 +120,15 @@ export function CodeBlock(props: RenderElementProps) {
       )
 
   return (
-    <div className='group relative'>
+    <div className="group relative py-2">
       <div className="absolute right-2 top-2 z-50">
         {languageSelect}
       </div>
       <pre
         className={cn('rounded px-3 py-2 font-mono text-sm border bg-secondary/20', `language-${language}`)}
+        style={{
+          margin: 0, // override margin from prism cs
+        }}
         ref={codeRef}
       >
         <code {...props.attributes}>
@@ -133,7 +136,7 @@ export function CodeBlock(props: RenderElementProps) {
         </code>
       </pre>
     </div>
-    
+
   )
 }
 

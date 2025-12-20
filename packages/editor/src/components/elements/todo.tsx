@@ -12,7 +12,7 @@ export function Todo(props: RenderElementProps) {
   }, [props.element, editor])
 
   return (
-    <div {...props.attributes} className="mb-4 flex items-start">
+    <div {...props.attributes} className="pb-4 flex items-start">
       <span contentEditable={false} className="mr-2 mt-1 select-none">
         <input
           type="checkbox"
