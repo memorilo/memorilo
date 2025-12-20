@@ -59,5 +59,19 @@
 
   "editor.codeBlock.language.noneFound": "No language found.",
   "editor.codeBlock.language.autoDetect": "Auto Detect",
-  "editor.codeBlock.language.auto": "Auto"
+  "editor.codeBlock.language.auto": "Auto",
+
+  "table.toolbar.resizeTitle": "Resize table",
+  "table.toolbar.deleteTitle": "Delete table",
+  "table.toolbar.settingsTitle": "Table settings",
+  "table.toolbar.apply": "Apply",
+  "table.menu.alignLeft": "Align left",
+  "table.menu.alignCenter": "Center",
+  "table.menu.alignRight": "Align right",
+  "table.menu.insertRowAbove": "Insert row above",
+  "table.menu.insertRowBelow": "Insert row below",
+  "table.menu.deleteRow": "Delete row",
+  "table.menu.insertColLeft": "Insert column left",
+  "table.menu.insertColRight": "Insert column right",
+  "table.menu.deleteCol": "Delete column"
 }

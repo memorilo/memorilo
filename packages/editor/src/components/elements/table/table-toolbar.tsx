@@ -23,7 +23,7 @@ const MAX_ROWS = 20
 const MAX_COLS = 10
 
 export function TableToolbar({ element, isActive, setLoading }: TableToolbarProps) {
-  const { t } = useTranslation('common')
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
   const selection = useSlateSelection()
   const tablePath = useMemo(

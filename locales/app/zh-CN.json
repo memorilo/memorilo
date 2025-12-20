@@ -59,5 +59,19 @@
 
   "editor.codeBlock.language.noneFound": "未找到语言。",
   "editor.codeBlock.language.autoDetect": "自动检测",
-  "editor.codeBlock.language.auto": "自动"
+  "editor.codeBlock.language.auto": "自动",
+
+  "table.toolbar.resizeTitle": "调整表格尺寸",
+  "table.toolbar.deleteTitle": "删除表格",
+  "table.toolbar.settingsTitle": "表格设置",
+  "table.toolbar.apply": "应用",
+  "table.menu.alignLeft": "左对齐",
+  "table.menu.alignCenter": "居中",
+  "table.menu.alignRight": "右对齐",
+  "table.menu.insertRowAbove": "在上方插入行",
+  "table.menu.insertRowBelow": "在下方插入行",
+  "table.menu.deleteRow": "删除当前行",
+  "table.menu.insertColLeft": "在左侧插入列",
+  "table.menu.insertColRight": "在右侧插入列",
+  "table.menu.deleteCol": "删除当前列"
 }
