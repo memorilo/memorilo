@@ -47,7 +47,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^5.1.2",
     "babel-plugin-react-compiler": "^1.0.0",
-    "es-toolkit": "^1.43.0",
+    "es-toolkit": "catalog:",
     "globals": "^16.5.0",
     "pathe": "^2.0.3",
     "tailwindcss": "catalog:"

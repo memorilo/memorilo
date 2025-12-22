@@ -48,6 +48,9 @@ catalogs:
     effect:
       specifier: ^3.19.12
       version: 3.19.12
+    es-toolkit:
+      specifier: ^1.43.0
+      version: 1.43.0
     i18next:
       specifier: ^25.7.3
       version: 25.7.3
@@ -241,7 +244,7 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       es-toolkit:
-        specifier: ^1.43.0
+        specifier: 'catalog:'
         version: 1.43.0
       globals:
         specifier: ^16.5.0
@@ -395,6 +398,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 3.19.12
+      es-toolkit:
+        specifier: 'catalog:'
+        version: 1.43.0
       image-extensions:
         specifier: ^1.1.0
         version: 1.1.0

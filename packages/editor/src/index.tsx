@@ -6,7 +6,7 @@ import { useEffect, useMemo } from 'react'
 import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
 import { Editable, Slate, useSlateStatic, withReact } from 'slate-react'
-import { RootIndentEnableContext } from './components/elements/indent'
+import { IndentDragProvider, RootIndentEnableContext } from './components/elements/indent'
 import { FormatToolbar, ToolbarProvider } from './components/format-toolbar'
 import { useDecorate } from './hooks/use-decorate'
 import { useKeyDownHandler } from './hooks/use-key-down-handler'
@@ -304,7 +304,7 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
     }, [editor])
   }
   return (
-    <>
+    <IndentDragProvider>
       <FormatToolbar />
       <Editable
         autoFocus
@@ -315,7 +315,7 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
         decorate={decorate}
         {...props}
       />
-    </>
+    </IndentDragProvider>
   )
 }
 

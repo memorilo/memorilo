@@ -19,6 +19,7 @@
     "@types/is-hotkey": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "effect": "catalog:",
+    "es-toolkit": "catalog:",
     "image-extensions": "^1.1.0",
     "is-hotkey": "catalog:",
     "jotai": "catalog:",

@@ -3,36 +3,20 @@ import { ChevronDownIcon } from '@memorilo/components/ui/animiated-icons/chevron
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { Button } from '@memorilo/components/ui/button'
 import { AnimatePresence, motion } from 'motion/react'
-import { createContext, use, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { Node, Path, Element as SlateElement } from 'slate'
-import { ReactEditor, useFocused, useSelected, useSlateSelector } from 'slate-react'
+import { ReactEditor, useFocused, useSelected, useSlateSelector, useSlateStatic } from 'slate-react'
+import { IndentChildCollapseContext, IndentDragContext, IndentEnableContext } from './contexts'
 
 const MotionButton = motion(Button)
-
-const IndentEnableContext = createContext(false)
-interface IndentChildCollapseContextValueType {
-  collapsed: boolean
-  setCollapsed: (collapsed: boolean) => void
-}
-const IndentChildCollapseContext = createContext<IndentChildCollapseContextValueType>({
-  collapsed: false,
-  setCollapsed: () => {},
-})
-
-export function RootIndentEnableContext(props: { children: React.ReactNode, enable: boolean }) {
-  return (
-    <IndentEnableContext value={props.enable}>
-      { props.children }
-    </IndentEnableContext>
-  )
-}
 
 function useIndentConnections(element: SlateElement) {
   const hasIndentAbove = useSlateSelector((editor) => {
     try {
       const path = ReactEditor.findPath(editor, element)
 
-      if (path[path.length - 1] > 0) {
+      const index = path[path.length - 1]
+      if (index !== undefined && index > 0) {
         const prevPath = Path.previous(path)
         if (Node.has(editor, prevPath)) {
           const prevNode = Node.get(editor, prevPath)
@@ -67,12 +51,14 @@ function useIndentConnections(element: SlateElement) {
 export function Indent(props: RenderElementProps) {
   const { collapsed, setCollapsed } = use(IndentChildCollapseContext)
   const enabled = use(IndentEnableContext)
+  const drag = use(IndentDragContext)
   const { hasIndentAbove, hasIndentBelow } = useIndentConnections(props.element)
   const [childExpanded, setChildExpanded] = useState(true)
   const expandable = props.element.children.length > 1
   const contentGap = '1em'
   const isFocused = useFocused()
   const isSelected = useSelected()
+  const editor = useSlateStatic()
 
   const childCollapsed = useMemo(() => ({
     collapsed: !childExpanded,
@@ -103,8 +89,66 @@ export function Indent(props: RenderElementProps) {
     setChildExpanded(!childExpanded)
   }
 
+  const isDragSource = drag.isDragging && drag.dragging?.element === props.element
+  const isDropTarget = drag.isDragging && drag.over?.targetElement === props.element
+
+  const dropIndicator = useMemo(() => {
+    if (!isDropTarget || !drag.over)
+      return null
+
+    const { targetPath, position } = drag.over
+
+    let containerDomNode: HTMLElement
+    let containerRect: DOMRect
+    try {
+      containerDomNode = ReactEditor.toDOMNode(editor, props.element)
+      containerRect = containerDomNode.getBoundingClientRect()
+    }
+    catch {
+      return null
+    }
+
+    let headerRect: DOMRect | null = null
+    try {
+      const headerNode = Node.get(editor, targetPath.concat(0))
+      if (SlateElement.isElement(headerNode)) {
+        const headerDomNode = ReactEditor.toDOMNode(editor, headerNode) as HTMLElement
+        headerRect = headerDomNode.getBoundingClientRect()
+      }
+    }
+    catch {}
+
+    const topOffset = (headerRect ?? containerRect).top - containerRect.top
+    const bottomOffset = (headerRect ?? containerRect).bottom - containerRect.top
+
+    if (position === 'before')
+      return { y: topOffset, kind: 'before' as const }
+    if (position === 'after')
+      return { y: bottomOffset, kind: 'after' as const }
+    return { y: bottomOffset, kind: 'inside' as const }
+  }, [drag.over, editor, isDropTarget, props.element])
+
+  const onPointerDownHandle = useCallback((event: React.PointerEvent) => {
+    if (!enabled)
+      return
+    if (event.button !== 0)
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+    }
+    catch {}
+    try {
+      const sourcePath = ReactEditor.findPath(editor, props.element)
+      drag.startDrag(sourcePath, props.element, event.pointerId)
+    }
+    catch {
+      drag.endDrag()
+    }
+  }, [drag, editor, enabled, props.element])
+
   if (!enabled) {
-    // TODO: test this branch
     return (
       <div {...props.attributes}>
         {props.children}
@@ -114,7 +158,7 @@ export function Indent(props: RenderElementProps) {
 
   return (
     <motion.div
-      className="relative"
+      className={`relative ${isDragSource ? 'opacity-60' : ''}`}
       initial={false}
       animate={{
         height: collapsed ? 0 : 'auto',
@@ -130,8 +174,31 @@ export function Indent(props: RenderElementProps) {
         paddingLeft: `calc(1.625rem + ${contentGap})`,
       }}
       data-collapsed={collapsed}
+      data-drop-target={isDropTarget || undefined}
+      data-drop-position={isDropTarget ? drag.over?.position : undefined}
       {...props.attributes}
     >
+      {dropIndicator?.kind === 'before' && (
+        <div
+          contentEditable={false}
+          className="absolute -translate-y-1/2 left-8 right-2 h-0.5 bg-primary pointer-events-none"
+          style={{ top: dropIndicator.y }}
+        />
+      )}
+      {dropIndicator?.kind === 'after' && (
+        <div
+          contentEditable={false}
+          className="absolute -translate-y-1/2 left-8 right-2 h-0.5 bg-primary pointer-events-none"
+          style={{ top: dropIndicator.y }}
+        />
+      )}
+      {dropIndicator?.kind === 'inside' && (
+        <div
+          contentEditable={false}
+          className="absolute -translate-y-1/2 left-12 right-2 h-0.5 bg-primary pointer-events-none"
+          style={{ top: dropIndicator.y }}
+        />
+      )}
       <span
         contentEditable={false}
         className="absolute left-4 top-0 bottom-0 flex w-1 justify-center select-none"
@@ -152,7 +219,10 @@ export function Indent(props: RenderElementProps) {
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  className="w-4"
+                  className="w-4 cursor-grab active:cursor-grabbing"
+                  aria-label="拖动节点"
+                  title="拖动节点"
+                  onPointerDown={onPointerDownHandle}
                 >
                   <GripVerticalIcon />
                 </Button>
