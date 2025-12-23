@@ -41,4 +41,3 @@ export function ImageActions({ isResizing, canReset, onResetMouseDown, onDeleteM
     </div>
   )
 }
-

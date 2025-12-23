@@ -20,7 +20,7 @@
     "@vscode/vscode-languagedetection": "catalog:",
     "effect": "catalog:",
     "es-toolkit": "catalog:",
-    "image-extensions": "^1.1.0",
+    "image-extensions": "catalog:",
     "is-hotkey": "catalog:",
     "jotai": "catalog:",
     "katex": "catalog:",
@@ -28,10 +28,10 @@
     "prismjs": "catalog:",
     "react": "catalog:",
     "react-icons": "catalog:",
-    "slate": "^0.120.0",
-    "slate-history": "^0.113.1",
-    "slate-hotkeys": "^0.2.11",
-    "slate-react": "^0.120.0"
+    "slate": "catalog:",
+    "slate-history": "catalog:",
+    "slate-hotkeys": "catalog:",
+    "slate-react": "catalog:"
   },
   "devDependencies": {
     "@types/prismjs": "catalog:",

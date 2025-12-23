@@ -48,6 +48,32 @@ function useIndentConnections(element: SlateElement) {
   return { hasIndentAbove, hasIndentBelow }
 }
 
+function getOutlineMetrics(element: SlateElement) {
+  const header = element.children[0] as any
+  switch (header?.type) {
+    case 'h1':
+      return { firstLineHeight: '2.25rem', topOffset: '0rem' }
+    case 'h2':
+      return { firstLineHeight: '2rem', topOffset: '0rem' }
+    case 'h3':
+      return { firstLineHeight: '1.75rem', topOffset: '0rem' }
+    case 'h4':
+      return { firstLineHeight: '1.75rem', topOffset: '0rem' }
+    case 'h5':
+      return { firstLineHeight: '1.5rem', topOffset: '0rem' }
+    case 'h6':
+      return { firstLineHeight: '1.5rem', topOffset: '0rem' }
+    case 'codeblock':
+      return { firstLineHeight: '1.25rem', topOffset: '0.5rem' }
+    case 'divider':
+      return { firstLineHeight: '1.5rem', topOffset: '0.5rem' }
+    case 'todo':
+      return { firstLineHeight: '1.5rem', topOffset: '0.25rem' }
+    default:
+      return { firstLineHeight: '1.5rem', topOffset: '0rem' }
+  }
+}
+
 export function Indent(props: RenderElementProps) {
   const { collapsed, setCollapsed } = use(IndentChildCollapseContext)
   const enabled = use(IndentEnableContext)
@@ -55,7 +81,6 @@ export function Indent(props: RenderElementProps) {
   const { hasIndentAbove, hasIndentBelow } = useIndentConnections(props.element)
   const [childExpanded, setChildExpanded] = useState(true)
   const expandable = props.element.children.length > 1
-  const contentGap = '1em'
   const isFocused = useFocused()
   const isSelected = useSelected()
   const editor = useSlateStatic()
@@ -156,6 +181,8 @@ export function Indent(props: RenderElementProps) {
     )
   }
 
+  const metrics = getOutlineMetrics(props.element as any)
+
   return (
     <motion.div
       className={`relative ${isDragSource ? 'opacity-60' : ''}`}
@@ -171,7 +198,9 @@ export function Indent(props: RenderElementProps) {
         duration: 0.2,
       }}
       style={{
-        paddingLeft: `calc(1.625rem + ${contentGap})`,
+        paddingLeft: 'var(--memorilo-outline-indent)',
+        ['--memorilo-outline-first-line' as any]: metrics.firstLineHeight,
+        ['--memorilo-outline-top-offset' as any]: metrics.topOffset,
       }}
       data-collapsed={collapsed}
       data-drop-target={isDropTarget || undefined}
@@ -181,32 +210,38 @@ export function Indent(props: RenderElementProps) {
       {dropIndicator?.kind === 'before' && (
         <div
           contentEditable={false}
-          className="absolute -translate-y-1/2 left-8 right-2 h-0.5 bg-primary pointer-events-none"
-          style={{ top: dropIndicator.y }}
+          className="absolute -translate-y-1/2 right-2 h-0.5 bg-primary pointer-events-none"
+          style={{ top: dropIndicator.y, left: 'var(--memorilo-outline-indent)' }}
         />
       )}
       {dropIndicator?.kind === 'after' && (
         <div
           contentEditable={false}
-          className="absolute -translate-y-1/2 left-8 right-2 h-0.5 bg-primary pointer-events-none"
-          style={{ top: dropIndicator.y }}
+          className="absolute -translate-y-1/2 right-2 h-0.5 bg-primary pointer-events-none"
+          style={{ top: dropIndicator.y, left: 'var(--memorilo-outline-indent)' }}
         />
       )}
       {dropIndicator?.kind === 'inside' && (
         <div
           contentEditable={false}
-          className="absolute -translate-y-1/2 left-12 right-2 h-0.5 bg-primary pointer-events-none"
-          style={{ top: dropIndicator.y }}
+          className="absolute -translate-y-1/2 right-2 h-0.5 bg-primary pointer-events-none"
+          style={{ top: dropIndicator.y, left: 'calc(var(--memorilo-outline-indent) + 1rem)' }}
         />
       )}
-      <span
+      <div
         contentEditable={false}
-        className="absolute left-4 top-0 bottom-0 flex w-1 justify-center select-none"
+        className="absolute left-0 top-0 bottom-0 w-(--memorilo-outline-indent) select-none pointer-events-none"
       >
         {hasIndentAbove && (
-          <span className="absolute top-0 h-[0.5lh] w-px bg-border" />
+          <span
+            className="absolute left-(--memorilo-outline-line-x) w-px bg-border/70"
+            style={{
+              top: 0,
+              height: 'calc(var(--memorilo-outline-top-offset) + var(--memorilo-outline-first-line)/2 - var(--memorilo-outline-dot-size)/2)',
+            }}
+          />
         )}
-        <span className="absolute top-[0.5lh] -translate-y-1/2 right-[calc(50%-0.5rem)] flex items-center z-10 gap-1">
+        <span className="absolute top-[calc(var(--memorilo-outline-top-offset)+var(--memorilo-outline-first-line)/2)] left-(--memorilo-outline-dot-x) -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto">
           <AnimatePresence>
             {showButtons && (
               <motion.div
@@ -214,7 +249,7 @@ export function Indent(props: RenderElementProps) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                className="flex gap-1 items-center"
+                className="absolute right-full top-1/2 -translate-y-1/2 mr-2 flex gap-1 items-center"
               >
                 <Button
                   variant="outline"
@@ -245,12 +280,18 @@ export function Indent(props: RenderElementProps) {
             )}
           </AnimatePresence>
           <span className="flex items-center justify-center size-4">
-            <span className="h-1.25 w-1.25 rounded-full bg-foreground" />
+            <span className="rounded-full bg-foreground" style={{ width: 'var(--memorilo-outline-dot-size)', height: 'var(--memorilo-outline-dot-size)' }} />
           </span>
         </span>
 
-        <span className={`absolute top-[0.5lh] w-px bg-border ${hasIndentBelow ? 'bottom-0' : 'bottom-2'}`} />
-      </span>
+        <span
+          className="absolute left-(--memorilo-outline-line-x) w-px bg-border/70"
+          style={{
+            top: 'calc(var(--memorilo-outline-top-offset) + var(--memorilo-outline-first-line)/2 + var(--memorilo-outline-dot-size)/2)',
+            bottom: hasIndentBelow ? 0 : '0.5rem',
+          }}
+        />
+      </div>
       <IndentChildCollapseContext value={childCollapsed}>
         {props.children}
       </IndentChildCollapseContext>

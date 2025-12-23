@@ -10,7 +10,7 @@ export function Heading(props: RenderElementProps & { className?: string, headin
     <div
       {...props.attributes}
       className={cn(
-        'font-blod',
+        'font-bold tracking-tight',
         Match.value(props.headingSize).pipe(
           Match.when(1, () => 'text-3xl'),
           Match.when(2, () => 'text-2xl'),
@@ -23,7 +23,7 @@ export function Heading(props: RenderElementProps & { className?: string, headin
         props.className,
       )}
     >
-      <HeadingTag>{props.children}</HeadingTag>
+      <HeadingTag className="m-0">{props.children}</HeadingTag>
     </div>
   )
 }

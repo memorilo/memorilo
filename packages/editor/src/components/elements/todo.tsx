@@ -12,8 +12,8 @@ export function Todo(props: RenderElementProps) {
   }, [props.element, editor])
 
   return (
-    <div {...props.attributes} className="pb-4 flex items-start">
-      <span contentEditable={false} className="mr-2 mt-1 select-none">
+    <div {...props.attributes} className="py-1 flex items-start gap-2 leading-6">
+      <span contentEditable={false} className="h-lh flex items-center select-none">
         <input
           type="checkbox"
           className="size-4 cursor-pointer accent-blue-300 checked:border-0"

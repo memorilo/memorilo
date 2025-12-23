@@ -33,4 +33,3 @@ export function ResizeHandles({ isResizing, onPointerDown }: ResizeHandlesProps)
     </>
   )
 }
-

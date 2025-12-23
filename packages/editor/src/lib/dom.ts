@@ -17,4 +17,3 @@ export function getEditorMaxWidthPx(fromEl: HTMLElement | null) {
 
   return maxWidth
 }
-
