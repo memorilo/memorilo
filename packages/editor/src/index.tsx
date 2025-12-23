@@ -6,7 +6,7 @@ import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
 import { Editable, Slate, withReact } from 'slate-react'
 import { IndentDragProvider, RootIndentEnableContext } from './components/elements/indent'
-import { FormatToolbar, ToolbarProvider } from './components/format-toolbar'
+import { FormatToolbar, ToolbarProvider } from './components/toolbar'
 import { useDecorate } from './hooks/use-decorate'
 import { useKeyDownHandler } from './hooks/use-key-down-handler'
 import { useRenderElement } from './hooks/use-render-element'
@@ -176,7 +176,7 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
       <FormatToolbar />
       <Editable
         autoFocus
-        className={cn('w-full py-8 px-2 md:p-8 md:pl-2 memorilo-editor', className)}
+        className={cn('w-full py-8 px-2 md:p-8 memorilo-editor', className)}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
         onKeyDown={handleKeyDown}

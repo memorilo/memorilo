@@ -5,7 +5,7 @@ import { ELEMENTS } from '../components/elements'
 export function useRenderElement() {
   return useCallback((props: RenderElementProps) => {
     const Element
-      = props.element.type === undefined ? ELEMENTS.plain.component : ELEMENTS[props.element.type].component
+      = props.element.type === undefined ? ELEMENTS.plain : ELEMENTS[props.element.type]
     return <Element {...props} />
   }, [])
 }

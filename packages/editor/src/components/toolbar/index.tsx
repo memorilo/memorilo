@@ -1,12 +1,11 @@
 import type { PropsWithChildren } from 'react'
-import type { MemoriloElementStrings, MemoriloMarkupStrings } from '../slate'
+import type { MemoriloMarkupStrings } from '../../slate'
 import { cn } from '@memorilo/utils'
 import { createContext, use, useEffect, useMemo, useRef, useState } from 'react'
-import { Editor, Range } from 'slate'
-import { useFocused, useSlate, useSlateSelection } from 'slate-react'
-import { ELEMENTS } from './elements'
-import FormatButton from './format-button'
-import { MARKUPS } from './markups'
+import { ReactEditor, useFocused, useSlate, useSlateSelection } from 'slate-react'
+import { MARKUPS } from '../markups'
+import { BlockTypeSelect } from './block-type-select'
+import MarkupFormatButton from './markup-format-button'
 
 interface ToolbarShowContextType {
   isShowToolbar: boolean
@@ -53,30 +52,39 @@ export function FormatToolbar() {
     if (!toolbar)
       return
 
-    if (
-      !selection
-      || !isFocused
-      || Range.isCollapsed(selection)
-      || Editor.string(editor, selection) === ''
-    ) {
+    if (!selection || !isFocused) {
       setShowToolbar(false)
       return
     }
 
-    const domSelection = window.getSelection()
-    if (!domSelection) {
+    let domRange: globalThis.Range
+    try {
+      domRange = ReactEditor.toDOMRange(editor, selection)
+    }
+    catch {
       setShowToolbar(false)
       return
     }
 
-    const domRange = domSelection.getRangeAt(0)
-    const rect = domRange.getClientRects()
+    let rect: DOMRect | undefined
+    const clientRect = domRange.getClientRects()[0]
+    if (clientRect) {
+      rect = clientRect
+    }
+    else {
+      const boundingRect = domRange.getBoundingClientRect()
+      if (boundingRect && (boundingRect.width !== 0 || boundingRect.height !== 0)) {
+        rect = boundingRect
+      }
+    }
 
-    if (rect[0] == null)
+    if (!rect) {
+      setShowToolbar(false)
       return
+    }
 
-    toolbar.style.top = `${Math.max(10, rect[0].top + window.pageYOffset - 48)}px`
-    toolbar.style.left = `${Math.max(96, rect[0].left + window.scrollX - 96)}px`
+    toolbar.style.top = `${Math.max(10, rect.top + window.pageYOffset - 48)}px`
+    toolbar.style.left = `${Math.max(96, rect.left + window.scrollX - 96)}px`
 
     setShowToolbar(true)
   }, [editor, selection, isFocused, setShowToolbar])
@@ -92,24 +100,15 @@ export function FormatToolbar() {
         e.preventDefault()
       }}
     >
+      <BlockTypeSelect />
+
       {/* Markup buttons (bold, italic, etc) */}
       {Object.entries(MARKUPS).map(([name, value]) => {
         return (
-          <FormatButton
+          <MarkupFormatButton
             key={name}
             symbol={value.symbol}
             markup={name as MemoriloMarkupStrings}
-          />
-        )
-      })}
-
-      {/* Elements button */}
-      {Object.entries(ELEMENTS).filter(([name]) => name !== 'plain').map(([name, value]) => {
-        return (
-          <FormatButton
-            key={name}
-            symbol={value.symbol}
-            element={name as MemoriloElementStrings}
           />
         )
       })}
