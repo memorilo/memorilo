@@ -54,11 +54,6 @@ export interface CodeLineElementType {
   children: Descendant[]
 }
 
-export interface DividerElementType {
-  type: 'divider'
-  children: Descendant[]
-}
-
 export interface TodoElementType {
   type: 'todo'
   checked: boolean
@@ -99,7 +94,6 @@ type MemoriloElement
     | QuoteElementType
     | CodeBlockElementType
     | CodeLineElementType
-    | DividerElementType
     | TodoElementType
     | ImageElementType
     | MathInlineElementType

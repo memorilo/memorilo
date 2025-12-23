@@ -1,11 +1,10 @@
 import type { FC, JSX } from 'react'
+import type { Editor } from 'slate'
 import type { RenderElementProps } from 'slate-react'
 import type { MemoriloElementStrings } from '../../slate'
 import { LuFileImage } from 'react-icons/lu'
-import { Editor, Transforms } from 'slate'
 import { DefaultElement } from 'slate-react'
 import { CodeBlock as CodeBlockElement, CodeLine as CodeLineElement } from './code-block'
-import { Divider as DividerElement } from './divider'
 import { Heading as HeadingElement } from './heading'
 import { Image as ImageElement } from './image'
 import { Indent as IndentElement } from './indent'
@@ -82,18 +81,6 @@ export const ELEMENTS: ElementMap = {
     showUtil: true,
     symbol: '❝',
     component: QuoteElement,
-  },
-  'divider': {
-    key: ['ctrl', 'd'],
-    symbol: '―',
-    showUtil: true,
-    component: DividerElement,
-    afterClick: (editor: Editor) => {
-      if (!editor.selection)
-        return
-      const currentSelection = Editor.unhangRange(editor, editor.selection)
-      Transforms.select(editor, { path: [currentSelection.anchor.path[0] + 1, 0], offset: 0 })
-    },
   },
   'todo': {
     key: ['ctrl', 't'],
