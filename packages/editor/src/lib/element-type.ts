@@ -18,7 +18,7 @@ import type {
 } from '../slate'
 
 import { Text } from 'slate'
-import { TABLE_BLOCKS } from './with-table'
+import { TABLE_BLOCKS } from './table-operations'
 
 function hasElementType(value: unknown): value is { type: unknown } {
   return typeof value === 'object' && value !== null && 'type' in value

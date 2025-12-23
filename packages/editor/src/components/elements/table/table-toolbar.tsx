@@ -8,7 +8,7 @@ import { LuEllipsisVertical, LuTable2, LuTrash2 } from 'react-icons/lu'
 import { Editor, Element, Node, Path, Transforms } from 'slate'
 import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { TableEditor } from 'slate-table'
-import { rebuildTablePreserveContent } from '../../../lib/with-table'
+import { resizeTablePreserveContent } from '../../../lib/table-operations'
 import { UtilButton } from '../../util-button'
 
 interface TableToolbarProps {
@@ -113,7 +113,7 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     setLoading(true)
     requestAnimationFrame(() => {
       try {
-        rebuildTablePreserveContent(editor, targetPath, nextRows, nextCols)
+        resizeTablePreserveContent(editor, targetPath, nextRows, nextCols)
         Transforms.select(editor, { path: firstTextPath, offset: 0 })
       }
       catch (error) {

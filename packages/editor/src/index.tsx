@@ -49,9 +49,25 @@ const initialValue: Descendant[] = [
   {
     type: 'indent',
     children: [
-      { type: 'quote', children: [{ text: 'A Notion-style rich text editor, still under active development and polishing.' }] },
       {
-        text: '🔲 Table support is partially implemented! Try the table below and play with the toolbar. Note: Mobile design is pending, some bugs exist, and nested cells/containers will be refined in future updates.',
+        type: 'todo',
+        checked: true,
+        children: [
+          { type: 'quote', children: [{ text: 'A Notion-style rich text editor, still under active development and polishing.' }] },
+          {
+            text: '🔲 Table support is partially implemented! Try the table below and play with the toolbar.',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'indent',
+    children: [
+      {
+        type: 'todo',
+        checked: false,
+        children: [{ text: '🛠️ Table UI on mobile hasn’t been designed yet, and there may still be some potential issues. These will be addressed in future updates.' }],
       },
     ],
   },
@@ -100,6 +116,64 @@ const initialValue: Descendant[] = [
                   {
                     type: 'table-cell',
                     children: [{ type: 'table-content', children: [{ text: 'Basic CRUD operations supported' }] }],
+                  },
+                ],
+              },
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Image' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'table-content',
+                        children: [
+                          {
+                            type: 'image',
+                            url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true',
+                            children: [{ text: '' }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: 'Mixed Content' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'table-content',
+                        children: [
+                          { text: 'Text with image:' },
+                          {
+                            type: 'image',
+                            url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true',
+                            children: [{ text: '' }],
+                          },
+                          { text: 'Caption after image.' },
+                        ],
+                      },
+                    ],
                   },
                 ],
               },
@@ -216,14 +290,6 @@ const initialValue: Descendant[] = [
     type: 'indent',
     children: [
       { type: 'h2', children: [{ text: 'Features' }] },
-      {
-        type: 'math-block',
-        children: [{
-          text: `
-          \\frac{\\Gamma \\vdash_W e_0 : \\tau, S_0 \\qquad S_0\\Gamma, x : \\overline{S_0\\Gamma}(\\tau) \\vdash_W e_1 : \\tau', S_1}{\\Gamma \\vdash_W \\mathbf{let}\\ x = e_0\\ \\mathbf{in}\\ e_1 : \\tau', S_1 S_0}
-          `.trim(),
-        }],
-      },
     ],
   },
   {
@@ -254,12 +320,6 @@ const initialValue: Descendant[] = [
     type: 'indent',
     children: [
       { type: 'todo', checked: true, children: [{ text: '⌨️ Keyboard shortcuts (hover over toolbar buttons to view shortcuts)' }] },
-    ],
-  },
-  {
-    type: 'indent',
-    children: [
-      { type: 'todo', checked: false, children: [{ text: 'Table is not supported!!! The feature will be impl later' }] },
     ],
   },
   {
@@ -329,7 +389,7 @@ primes = filterPrime [2..] where
 function ciallo(){
     console.log('Ciallo～(∠・ω< )')
 }
-    `.trim()),
+        `.trim()),
       },
     ],
   },
