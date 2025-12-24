@@ -1,4 +1,4 @@
-import type { CodeBlockElementType, CodeLineElementType, IndentElementType, MathBlockElementType, MathInlineElementType, MemoriloText } from '../slate'
+import type { CodeBlockElementType, CodeLineElementType, IndentElementType, MathBlockElementType, MathInlineElementType, MemoriloText, TodoElementType } from '../slate'
 import { Text } from 'slate'
 
 export function isCodeblock(element: any): element is CodeBlockElementType {
@@ -7,6 +7,10 @@ export function isCodeblock(element: any): element is CodeBlockElementType {
 
 export function isCodeLine(element: any): element is CodeLineElementType {
   return element && element.type === 'code-line'
+}
+
+export function isTodo(element: any): element is TodoElementType {
+  return element && element.type === 'todo'
 }
 
 export function isText(element: any): element is MemoriloText {

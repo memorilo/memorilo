@@ -6,6 +6,7 @@ import { ReactEditor, useFocused, useSlate, useSlateSelection } from 'slate-reac
 import { MARKUPS } from '../markups'
 import { BlockTypeSelect } from './block-type-select'
 import MarkupFormatButton from './markup-format-button'
+import { TodoToggleButton } from './todo-toggle-button'
 
 interface ToolbarShowContextType {
   isShowToolbar: boolean
@@ -101,7 +102,6 @@ export function FormatToolbar() {
       }}
     >
       <BlockTypeSelect />
-
       {/* Markup buttons (bold, italic, etc) */}
       {Object.entries(MARKUPS).map(([name, value]) => {
         return (
@@ -112,6 +112,7 @@ export function FormatToolbar() {
           />
         )
       })}
+      <TodoToggleButton />
     </aside>
   )
 }

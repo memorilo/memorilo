@@ -1,7 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@memorilo/components/ui/select'
-import { useMemo } from 'react'
 import { Editor, Element as SlateElement, Transforms } from 'slate'
-import { ReactEditor, useSlate, useSlateSelection } from 'slate-react'
+import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 
 const BLOCK_TYPES = ['plain', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
 type BlockType = typeof BLOCK_TYPES[number]
@@ -31,20 +30,20 @@ function isBlockType(type: unknown): type is BlockType {
 }
 
 export function BlockTypeSelect() {
-  const editor = useSlate()
-  const selection = useSlateSelection()
+  const editor = useSlateStatic()
 
-  const { blockTypeValue, canChangeBlockType } = useMemo(() => {
-    if (!selection) {
+  const { blockTypeValue, canChangeBlockType } = useSlateSelector((editor) => {
+    if (!editor.selection) {
       return { blockTypeValue: undefined, canChangeBlockType: false }
     }
 
-    const at = Editor.unhangRange(editor, selection)
+    const at = Editor.unhangRange(editor, editor.selection)
     const foundTypes = new Set<BlockType>()
 
     for (const [node] of Editor.nodes(editor, {
       at,
-      match: n => SlateElement.isElement(n) && isBlockType((n as any).type),
+      match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) && isBlockType(n.type),
+      mode: 'lowest',
     })) {
       foundTypes.add((node as any).type)
     }
@@ -58,7 +57,7 @@ export function BlockTypeSelect() {
     }
 
     return { blockTypeValue: undefined, canChangeBlockType: true }
-  }, [editor, selection])
+  })
 
   return (
     <Select
@@ -72,7 +71,7 @@ export function BlockTypeSelect() {
         Editor.withoutNormalizing(editor, () => {
           const paths = Array.from(Editor.nodes(editor, {
             at,
-            match: n => SlateElement.isElement(n) && isBlockType((n as any).type),
+            match: n => SlateElement.isElement(n) && isBlockType(n.type),
           }), ([, path]) => path)
 
           for (const path of paths) {

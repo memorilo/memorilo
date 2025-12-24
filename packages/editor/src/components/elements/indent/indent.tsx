@@ -3,7 +3,7 @@ import { ChevronDownIcon } from '@memorilo/components/ui/animiated-icons/chevron
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { Button } from '@memorilo/components/ui/button'
 import { AnimatePresence, motion } from 'motion/react'
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { Node, Path, Element as SlateElement } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateSelector, useSlateStatic } from 'slate-react'
 import { IndentChildCollapseContext, IndentDragContext, IndentEnableContext } from './contexts'
@@ -84,6 +84,7 @@ export function Indent(props: RenderElementProps) {
   const isFocused = useFocused()
   const isSelected = useSelected()
   const editor = useSlateStatic()
+  const [measuredFirstLineHeight, setMeasuredFirstLineHeight] = useState<string>()
 
   const childCollapsed = useMemo(() => ({
     collapsed: !childExpanded,
@@ -97,6 +98,41 @@ export function Indent(props: RenderElementProps) {
       setCollapsed(false)
     }
   }, [isFocused, isSelected, setCollapsed])
+
+  useLayoutEffect(() => {
+    if (!enabled) {
+      return
+    }
+
+    try {
+      const header = (props.element as any).children?.[0]
+      if (!SlateElement.isElement(header)) {
+        setMeasuredFirstLineHeight(undefined)
+        return
+      }
+
+      const domNode = ReactEditor.toDOMNode(editor, header) as HTMLElement
+      const style = window.getComputedStyle(domNode)
+
+      let lineHeight = Number.parseFloat(style.lineHeight)
+      if (Number.isNaN(lineHeight)) {
+        const fontSize = Number.parseFloat(style.fontSize)
+        if (!Number.isNaN(fontSize)) {
+          lineHeight = fontSize * 1.2
+        }
+      }
+
+      if (!Number.isNaN(lineHeight) && lineHeight > 0) {
+        setMeasuredFirstLineHeight(`${lineHeight}px`)
+      }
+      else {
+        setMeasuredFirstLineHeight(undefined)
+      }
+    }
+    catch {
+      setMeasuredFirstLineHeight(undefined)
+    }
+  }, [editor, enabled, props.element])
 
   const showButtons = useSlateSelector((editor) => {
     if (!editor.selection || !ReactEditor.isFocused(editor))
@@ -173,6 +209,13 @@ export function Indent(props: RenderElementProps) {
     }
   }, [drag, editor, enabled, props.element])
 
+  const metrics = useMemo(() => {
+    const base = getOutlineMetrics(props.element as any)
+    return measuredFirstLineHeight
+      ? { ...base, firstLineHeight: measuredFirstLineHeight }
+      : base
+  }, [measuredFirstLineHeight, props.element])
+
   if (!enabled) {
     return (
       <div {...props.attributes}>
@@ -180,8 +223,6 @@ export function Indent(props: RenderElementProps) {
       </div>
     )
   }
-
-  const metrics = getOutlineMetrics(props.element as any)
 
   return (
     <motion.div

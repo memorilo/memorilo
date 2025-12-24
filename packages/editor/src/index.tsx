@@ -16,6 +16,7 @@ import { withCodeblock } from './lib/with-codeblock'
 import { withImages } from './lib/with-image'
 import { withIndent } from './lib/with-indent'
 import { withMath } from './lib/with-math'
+import { withTodo } from './lib/with-todo'
 import './globals.css'
 
 const initialValue: Descendant[] = [
@@ -67,19 +68,19 @@ const initialValue: Descendant[] = [
   {
     type: 'indent',
     children: [
-      { type: 'todo', checked: true, children: [{ text: '✍️ Essential formatting (' }, { text: 'bold', bold: true }, { text: ', ' }, { italic: true, text: 'italic' }, { text: ', ' }, { text: 'underline', underline: true }, { text: ', ' }, { text: 'strikethrough', strikethrough: true }, { text: ', ' }, { text: 'code snippet', codesnippet: true }, { text: ')' }] },
+      { type: 'plain', children: [{ type: 'todo', checked: true, children: [{ text: '✍️ Essential formatting (' }, { text: 'bold', bold: true }, { text: ', ' }, { italic: true, text: 'italic' }, { text: ', ' }, { text: 'underline', underline: true }, { text: ', ' }, { text: 'strikethrough', strikethrough: true }, { text: ', ' }, { text: 'code snippet', codesnippet: true }, { text: ')' }] }] },
     ],
   },
   {
     type: 'indent',
     children: [
-      { type: 'todo', checked: true, children: [{ text: '📄 Fundamental blocks (headings, code blocks, quotes, checklists, dividers)' }] },
+      { type: 'plain', children: [{ type: 'todo', checked: true, children: [{ text: '📄 Fundamental blocks (headings, code blocks, quotes, checklists, dividers)' }] }] },
     ],
   },
   {
     type: 'indent',
     children: [
-      { type: 'todo', checked: true, children: [{ text: '🖼️ Image handling (insert via URL paste 🔗 or drag-and-drop)' }] },
+      { type: 'plain', children: [{ type: 'todo', checked: true, children: [{ text: '🖼️ Image handling (insert via URL paste 🔗 or drag-and-drop)' }] }] },
     ],
   },
   {
@@ -192,7 +193,18 @@ interface MemoriloEditorProps extends TextareaHTMLAttributes<HTMLDivElement>, Re
 }
 
 export function MemoriloEditor({ outline, ...props }: MemoriloEditorProps) {
-  const editor = useMemo(() => withIndent(withMath(withCodeblock(withImages(withHistory(withReact(createEditor())))))), [])
+  const editor = useMemo(() => {
+    const baseEditor = withReact(createEditor())
+    const plugins = [
+      withHistory,
+      withImages,
+      withCodeblock,
+      withMath,
+      withTodo,
+      withIndent,
+    ] as const
+    return plugins.reduce((editor, plugin) => plugin(editor), baseEditor)
+  }, [])
 
   return (
     <ToolbarProvider>
