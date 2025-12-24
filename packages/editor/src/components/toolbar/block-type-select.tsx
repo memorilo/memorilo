@@ -1,9 +1,10 @@
+import type { HeadingOrPlainType as BlockType } from '../../lib/element-type'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@memorilo/components/ui/select'
+import { Array, pipe } from 'effect'
 import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
-
-const BLOCK_TYPES = ['plain', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
-type BlockType = typeof BLOCK_TYPES[number]
+import { HEADING_AND_PLAIN_TYPES as BLOCK_TYPES, isHeadingOrPlainType as isBlockType } from '../../lib/element-type'
+import { getLowestIndentEntriesInRange, wrapIndentHeaderInBlock } from '../../lib/transforms/indent'
 
 const BLOCK_TYPE_LABEL: Record<BlockType, string> = {
   plain: 'Plain',
@@ -25,10 +26,14 @@ const BLOCK_TYLE_ICON: Record<BlockType, string> = {
   h6: 'H6',
 }
 
-function isBlockType(type: unknown): type is BlockType {
-  return typeof type === 'string' && (BLOCK_TYPES as readonly string[]).includes(type)
-}
-
+/**
+ * Toolbar control for converting the current selection into a different block type.
+ *
+ * Primary behavior: changes the `type` of selected heading/plain blocks.
+ *
+ * Fallback behavior: if the selection intersects `indent` containers but does not include any
+ * heading/plain blocks directly, wraps the indent header portion into the chosen block type.
+ */
 export function BlockTypeSelect() {
   const editor = useSlateStatic()
 
@@ -40,16 +45,26 @@ export function BlockTypeSelect() {
     const at = Editor.unhangRange(editor, editor.selection)
     const foundTypes = new Set<BlockType>()
 
+    // Primary path: selection directly hits heading/plain blocks.
     for (const [node] of Editor.nodes(editor, {
       at,
       match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) && isBlockType(n.type),
       mode: 'lowest',
     })) {
-      foundTypes.add((node as any).type)
+      foundTypes.add((node as SlateElement).type as BlockType)
     }
 
     if (foundTypes.size === 0) {
-      return { blockTypeValue: undefined, canChangeBlockType: false }
+      // Fallback: selection only hits outline `indent` containers.
+      const indentEntries = getLowestIndentEntriesInRange(editor, at)
+      if (indentEntries.length === 0)
+        return { blockTypeValue: undefined, canChangeBlockType: false }
+
+      /**
+       * When selection hits `indent` containers without explicit heading/plain blocks,
+       * show `plain` as the default value so the control stays usable.
+       */
+      return { blockTypeValue: 'plain', canChangeBlockType: true }
     }
 
     if (foundTypes.size === 1) {
@@ -69,13 +84,26 @@ export function BlockTypeSelect() {
 
         const at = Editor.unhangRange(editor, editor.selection)
         Editor.withoutNormalizing(editor, () => {
-          const paths = Array.from(Editor.nodes(editor, {
-            at,
-            match: n => SlateElement.isElement(n) && isBlockType(n.type),
-          }), ([, path]) => path)
+          const blockPaths = pipe(
+            Array.fromIterable(Editor.nodes(editor, {
+              at,
+              match: n => SlateElement.isElement(n) && isBlockType(n.type),
+            })),
+            Array.map(([, path]) => path),
+          )
 
-          for (const path of paths) {
-            Transforms.setNodes(editor, { type: value }, { at: path })
+          // Primary path: mutate existing heading/plain blocks in-place.
+          if (blockPaths.length > 0) {
+            for (const path of blockPaths) {
+              Transforms.setNodes(editor, { type: value }, { at: path })
+            }
+            return
+          }
+
+          // Fallback: selection only hits `indent` containers => wrap indent header directly.
+          const indentEntries = getLowestIndentEntriesInRange(editor, at)
+          for (const [, indentPath] of indentEntries) {
+            wrapIndentHeaderInBlock(editor, indentPath, value)
           }
         })
         ReactEditor.focus(editor)

@@ -1,23 +1,18 @@
 import type { Path } from 'slate'
+import type { TodoElementType } from '../../slate'
 import { CalendarCheckIcon } from '@memorilo/components/ui/animiated-icons/calendar-check'
 import { cn } from '@memorilo/utils'
+import { Array as Arr, pipe } from 'effect'
 import { Editor, Node, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
-import { isTodo } from '../../lib/element-type'
-import { findTodoParentPath, flipTodoContainingHeading } from '../../lib/todo-transforms'
+import { isHeadingOrPlainType, isTodo } from '../../lib/element-type'
+import { getLowestIndentEntriesInRange, indentHeaderHasTodoWrapper, unwrapIndentHeaderTodo, wrapIndentHeaderInTodo } from '../../lib/transforms/indent'
+import { findTodoParentPath, flipTodoContainingHeading } from '../../lib/transforms/todo'
 import { UtilButton } from '../util-button'
 
-const HEADING_AND_PLAIN_TYPES = ['plain', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
-type HeadingOrPlainType = typeof HEADING_AND_PLAIN_TYPES[number]
-
-function isHeadingOrPlainType(type: unknown): type is HeadingOrPlainType {
-  return typeof type === 'string' && (HEADING_AND_PLAIN_TYPES as readonly string[]).includes(type)
-}
-
 function hasTodoChild(element: SlateElement) {
-  const children = (element as any).children as any[] | undefined
-  return Array.isArray(children)
-    && children.length === 1
+  const children = element.children
+  return children.length === 1
     && SlateElement.isElement(children[0])
     && isTodo(children[0])
 }
@@ -26,12 +21,13 @@ function hasTodoWrapper(editor: Editor, path: Path, node: SlateElement) {
   return hasTodoChild(node) || findTodoParentPath(editor, path) !== null
 }
 
-function wrapBlockInTodo(editor: Editor, blockPath: number[], checked: boolean) {
+function wrapBlockInTodo(editor: Editor, blockPath: Path, checked: boolean) {
   const block = Node.get(editor, blockPath)
   if (!SlateElement.isElement(block))
     return
   const children = Array.isArray(block.children) ? block.children : []
 
+  // Clear nested todo wrappers directly under the block to avoid stacking todos.
   for (let index = children.length - 1; index >= 0; index--) {
     const child = children[index]
     if (!SlateElement.isElement(child) || !isTodo(child))
@@ -39,9 +35,12 @@ function wrapBlockInTodo(editor: Editor, blockPath: number[], checked: boolean) 
     Transforms.unwrapNodes(editor, { at: blockPath.concat(index) })
   }
 
-  Transforms.insertNodes(editor, { type: 'todo', checked, children: [] } as any, { at: blockPath.concat(0) })
+  // Insert a new todo wrapper as the first child and move all remaining siblings into it.
+  const todo: TodoElementType = { type: 'todo', checked, children: [] }
+  Transforms.insertNodes(editor, todo, { at: blockPath.concat(0) })
   const todoPath = blockPath.concat(0)
 
+  // Keep moving siblings until the block only contains the todo wrapper.
   while (true) {
     const currentBlock = Node.get(editor, blockPath)
     if (!SlateElement.isElement(currentBlock))
@@ -57,6 +56,14 @@ function wrapBlockInTodo(editor: Editor, blockPath: number[], checked: boolean) 
   }
 }
 
+/**
+ * Toolbar button that toggles todo wrapper for the current selection.
+ *
+ * Primary behavior: toggles a todo wrapper on selected heading/plain blocks.
+ *
+ * Fallback behavior: if the selection intersects `indent` containers but does not include any
+ * heading/plain blocks directly, the toggle applies to the indent header portion.
+ */
 export function TodoToggleButton() {
   const editor = useSlateStatic()
 
@@ -68,12 +75,25 @@ export function TodoToggleButton() {
     const at = Editor.unhangRange(editor, editor.selection)
     const entries = Array.from(Editor.nodes(editor, {
       at,
-      match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) && isHeadingOrPlainType((n as any).type),
+      match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) && isHeadingOrPlainType(n.type),
       mode: 'lowest',
     }))
 
     if (entries.length === 0) {
-      return { canToggle: false, isActive: false }
+      const indentEntries = getLowestIndentEntriesInRange(editor, at)
+
+      if (indentEntries.length === 0)
+        return { canToggle: false, isActive: false }
+
+      /**
+       * When selection hits `indent` containers without explicit heading/plain blocks,
+       * compute active state by checking whether each indent header is wrapped in a todo.
+       */
+      const allActive = pipe(
+        indentEntries,
+        Arr.every(([node]) => indentHeaderHasTodoWrapper(node)),
+      )
+      return { canToggle: true, isActive: allActive }
     }
 
     const allActive = entries.every(([node, path]) => hasTodoWrapper(editor, path, node as SlateElement))
@@ -85,7 +105,7 @@ export function TodoToggleButton() {
       disabled={!canToggle}
       title="Todo"
       className={cn(isActive ? 'text-blue-600 font-bold' : '')}
-      onMouseDown={(e: any) => {
+      onMouseDown={(e) => {
         e.preventDefault()
         if (!editor.selection)
           return
@@ -95,13 +115,33 @@ export function TodoToggleButton() {
         Editor.withoutNormalizing(editor, () => {
           const entries = Array.from(Editor.nodes(editor, {
             at,
-            match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) && isHeadingOrPlainType((n as any).type),
+            match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) && isHeadingOrPlainType(n.type),
             mode: 'lowest',
           }), ([node, path]) => ({ node: node as SlateElement, path }))
 
-          if (entries.length === 0)
-            return
+          if (entries.length === 0) {
+            const indentEntries = getLowestIndentEntriesInRange(editor, at)
 
+            if (indentEntries.length === 0)
+              return
+
+            // Apply toggle to each indent header (bottom-up to keep paths stable).
+            const allActive = pipe(
+              indentEntries,
+              Arr.every(([node]) => indentHeaderHasTodoWrapper(node)),
+            )
+            for (const [, path] of Arr.reverse(indentEntries)) {
+              if (allActive) {
+                unwrapIndentHeaderTodo(editor, path)
+              }
+              else {
+                wrapIndentHeaderInTodo(editor, path, false)
+              }
+            }
+            return
+          }
+
+          // Regular mode: apply toggle to heading/plain blocks.
           const allActive = entries.every(({ node, path }) => hasTodoWrapper(editor, path, node))
           const handledTodoParents = new Set<string>()
 

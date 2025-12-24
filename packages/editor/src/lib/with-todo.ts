@@ -1,7 +1,7 @@
 import type { Editor } from 'slate'
 import { Element as SlateElement } from 'slate'
 import { isTodo } from './element-type'
-import { flipTodoContainingHeading } from './todo-transforms'
+import { flipTodoContainingHeading } from './transforms/todo'
 
 export function withTodo(editor: Editor) {
   const { normalizeNode } = editor
@@ -19,4 +19,3 @@ export function withTodo(editor: Editor) {
 
   return editor
 }
-
