@@ -60,43 +60,86 @@ export function FormatToolbar() {
       return
     }
 
-    let domRange: globalThis.Range
-    try {
-      domRange = ReactEditor.toDOMRange(editor, selection)
-    }
-    catch {
-      setShowToolbar(false)
-      return
+    const clamp = (value: number, min: number, max: number) => {
+      if (max < min)
+        return min
+      return Math.min(max, Math.max(min, value))
     }
 
-    let rect: DOMRect | undefined
-    const clientRect = domRange.getClientRects()[0]
-    if (clientRect) {
-      rect = clientRect
-    }
-    else {
-      const boundingRect = domRange.getBoundingClientRect()
-      if (boundingRect && (boundingRect.width !== 0 || boundingRect.height !== 0)) {
-        rect = boundingRect
+    const getSelectionRect = (): DOMRect | undefined => {
+      try {
+        const domRange = ReactEditor.toDOMRange(editor, selection)
+        const clientRect = domRange.getClientRects()[0]
+        if (clientRect)
+          return clientRect
+
+        const boundingRect = domRange.getBoundingClientRect()
+        if (boundingRect && (boundingRect.width !== 0 || boundingRect.height !== 0))
+          return boundingRect
       }
+      catch {}
+
+      try {
+        const [node, offset] = ReactEditor.toDOMPoint(editor, selection.anchor)
+        const range = document.createRange()
+        range.setStart(node, offset)
+        range.setEnd(node, offset)
+        return range.getClientRects()[0] ?? range.getBoundingClientRect()
+      }
+      catch {}
+
+      return undefined
     }
 
-    if (!rect) {
-      setShowToolbar(false)
-      return
+    const updatePosition = () => {
+      const rect = getSelectionRect()
+      if (!rect) {
+        setShowToolbar(false)
+        return
+      }
+
+      const VIEWPORT_MARGIN = 8
+      const GAP = 8
+
+      toolbar.style.maxWidth = `calc(100vw - ${VIEWPORT_MARGIN * 2}px)`
+
+      const { width: toolbarWidth, height: toolbarHeight } = toolbar.getBoundingClientRect()
+
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+
+      const safeToolbarWidth = Math.min(toolbarWidth, viewportWidth - VIEWPORT_MARGIN * 2)
+      const safeToolbarHeight = Math.min(toolbarHeight, viewportHeight - VIEWPORT_MARGIN * 2)
+
+      let left = rect.left
+      left = clamp(left, VIEWPORT_MARGIN, viewportWidth - safeToolbarWidth - VIEWPORT_MARGIN)
+
+      let top = rect.bottom + GAP
+      const overflowsBottom = top + safeToolbarHeight + VIEWPORT_MARGIN > viewportHeight
+      if (overflowsBottom)
+        top = rect.top - safeToolbarHeight - GAP
+      top = clamp(top, VIEWPORT_MARGIN, viewportHeight - safeToolbarHeight - VIEWPORT_MARGIN)
+
+      toolbar.style.left = `${left}px`
+      toolbar.style.top = `${top}px`
+
+      setShowToolbar(true)
     }
 
-    toolbar.style.top = `${Math.max(10, rect.top + window.pageYOffset - 48)}px`
-    toolbar.style.left = `${Math.max(96, rect.left + window.scrollX - 96)}px`
-
-    setShowToolbar(true)
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
   }, [editor, selection, isFocused, setShowToolbar])
 
   return (
     <aside
       ref={ref}
       className={cn(
-        'absolute z-50 flex items-center space-x-1 rounded-lg border border-gray-300 bg-white px-3 py-1 shadow-[0_0_30px_0px_rgba(0,0,0,0.3)] transition-opacity duration-300',
+        'fixed z-50 flex max-w-[calc(100vw-16px)] items-center space-x-1 overflow-x-auto rounded-lg border border-gray-300 bg-white px-1 py-1 shadow-[0_0_30px_0px_rgba(0,0,0,0.3)] transition-opacity duration-300',
         isShowToolbar ? 'opacity-100' : 'opacity-0 pointer-events-none',
       )}
       onMouseDown={(e: any) => {
