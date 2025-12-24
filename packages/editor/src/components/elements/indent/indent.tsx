@@ -104,33 +104,50 @@ export function Indent(props: RenderElementProps) {
       return
     }
 
+    let cancelled = false
+    let nextMeasuredFirstLineHeight: string | undefined
+
     try {
       const header = (props.element as any).children?.[0]
       if (!SlateElement.isElement(header)) {
-        setMeasuredFirstLineHeight(undefined)
-        return
-      }
-
-      const domNode = ReactEditor.toDOMNode(editor, header) as HTMLElement
-      const style = window.getComputedStyle(domNode)
-
-      let lineHeight = Number.parseFloat(style.lineHeight)
-      if (Number.isNaN(lineHeight)) {
-        const fontSize = Number.parseFloat(style.fontSize)
-        if (!Number.isNaN(fontSize)) {
-          lineHeight = fontSize * 1.2
-        }
-      }
-
-      if (!Number.isNaN(lineHeight) && lineHeight > 0) {
-        setMeasuredFirstLineHeight(`${lineHeight}px`)
+        nextMeasuredFirstLineHeight = undefined
       }
       else {
-        setMeasuredFirstLineHeight(undefined)
+        const domNode = ReactEditor.toDOMNode(editor, header) as HTMLElement
+        const style = window.getComputedStyle(domNode)
+
+        let lineHeight = Number.parseFloat(style.lineHeight)
+        if (Number.isNaN(lineHeight)) {
+          const fontSize = Number.parseFloat(style.fontSize)
+          if (!Number.isNaN(fontSize)) {
+            lineHeight = fontSize * 1.2
+          }
+        }
+
+        if (!Number.isNaN(lineHeight) && lineHeight > 0) {
+          nextMeasuredFirstLineHeight = `${lineHeight}px`
+        }
+        else {
+          nextMeasuredFirstLineHeight = undefined
+        }
       }
     }
     catch {
-      setMeasuredFirstLineHeight(undefined)
+      nextMeasuredFirstLineHeight = undefined
+    }
+
+    queueMicrotask(() => {
+      if (cancelled)
+        return
+      setMeasuredFirstLineHeight((prev) => {
+        if (prev === nextMeasuredFirstLineHeight)
+          return prev
+        return nextMeasuredFirstLineHeight
+      })
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [editor, enabled, props.element])
 
