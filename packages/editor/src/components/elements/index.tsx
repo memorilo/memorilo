@@ -6,6 +6,7 @@ import { CodeBlock as CodeBlockElement, CodeLine as CodeLineElement } from './co
 import { Heading as HeadingElement } from './heading'
 import { Image as ImageElement } from './image'
 import { Indent as IndentElement } from './indent'
+import { Link as LinkElement } from './link'
 import { MathBlock as MathBlockElement, MathInline as MathInlineElement } from './math'
 import { Quote as QuoteElement } from './quote'
 import { Todo as TodoElement } from './todo'
@@ -28,4 +29,5 @@ export const ELEMENTS: ElementMap = {
   'math-inline': MathInlineElement,
   'math-block': MathBlockElement,
   'indent': IndentElement,
+  'link': LinkElement,
 }

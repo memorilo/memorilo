@@ -9,6 +9,7 @@ catalog:
   '@radix-ui/react-tooltip': ^1.2.8
   '@tauri-apps/plugin-fs': ^2.4.4
   '@tauri-apps/plugin-log': 2.7.1
+  '@tauri-apps/plugin-opener': ^2.5.2
   '@types/is-hotkey': ^0.1.10
   '@types/prismjs': ^1.26.5
   '@types/react': ^19.2.7
@@ -30,6 +31,7 @@ catalog:
   react-dom: ^19.2.3
   react-i18next: ^16.5.0
   react-icons: ^5.5.0
+  react-use: ^17.6.0
   slate: ^0.120.0
   slate-history: ^0.113.1
   slate-hotkeys: ^0.2.11

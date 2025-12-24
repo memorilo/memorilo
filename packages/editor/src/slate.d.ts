@@ -83,6 +83,12 @@ export interface IndentElementType {
   children: Descendant[]
 }
 
+export interface LinkElementType {
+  type: 'link'
+  url: string
+  children: Descendant[]
+}
+
 type MemoriloElement
   = | PlainElementType
     | H1ElementType
@@ -99,6 +105,7 @@ type MemoriloElement
     | MathInlineElementType
     | MathBlockElementType
     | IndentElementType
+    | LinkElementType
 
 export type MemoriloElementStrings = MemoriloElement['type']
 

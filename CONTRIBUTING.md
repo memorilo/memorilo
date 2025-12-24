@@ -55,3 +55,7 @@ Code blocks in this project consist of `CodeBlock` and `CodeLine`, both of which
 4. **Siblings structure enforcement.**
     *   If an `Indent` has multiple children, and any child after the first one is an `Indent`, then **all** subsequent children must be `Indent` nodes. Non-`Indent` siblings in this position will be wrapped in `Indent`.
     *   If an `Indent` has multiple children but none of the subsequent children are `Indent`, those subsequent children are lifted out to become siblings of the current `Indent` node.
+
+#### Link Constraints
+
+Link can not have any block element as chilren. If a block element exists, it will be removed

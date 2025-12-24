@@ -1,10 +1,12 @@
 import type { PropsWithChildren } from 'react'
 import type { MemoriloMarkupStrings } from '../../slate'
+import { Separator } from '@memorilo/components/ui/separator'
 import { cn } from '@memorilo/utils'
 import { createContext, use, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactEditor, useFocused, useSlate, useSlateSelection } from 'slate-react'
 import { MARKUPS } from '../markups'
 import { BlockTypeSelect } from './block-type-select'
+import { LinkToggleButton } from './link-toggle-button'
 import MarkupFormatButton from './markup-format-button'
 import { TodoToggleButton } from './todo-toggle-button'
 
@@ -102,6 +104,9 @@ export function FormatToolbar() {
       }}
     >
       <BlockTypeSelect />
+      <Separator orientation="vertical" />
+      <LinkToggleButton />
+      <Separator orientation="vertical" />
       {/* Markup buttons (bold, italic, etc) */}
       {Object.entries(MARKUPS).map(([name, value]) => {
         return (
@@ -112,6 +117,7 @@ export function FormatToolbar() {
           />
         )
       })}
+      <Separator orientation="vertical" />
       <TodoToggleButton />
     </aside>
   )

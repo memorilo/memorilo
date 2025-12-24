@@ -19,6 +19,7 @@
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-fs": "catalog:",
     "@tauri-apps/plugin-log": "catalog:",
+    "@tauri-apps/plugin-opener": "catalog:",
     "effect": "^3.19.9",
     "effect-query": "^0.2.1"
   }

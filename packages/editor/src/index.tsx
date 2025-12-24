@@ -15,6 +15,7 @@ import { toCodeLines } from './lib/code'
 import { withCodeblock } from './lib/with-codeblock'
 import { withImages } from './lib/with-image'
 import { withIndent } from './lib/with-indent'
+import { withLink } from './lib/with-link'
 import { withMath } from './lib/with-math'
 import { withTodo } from './lib/with-todo'
 import './globals.css'
@@ -32,19 +33,13 @@ const initialValue: Descendant[] = [
   {
     type: 'indent',
     children: [
-      { type: 'image', url: 'https://github.com/mslxl/wallpapers/blob/main/pixiv-100312789.jpg?raw=true', children: [{ text: 'Image' }], width: 430, height: 258 },
-    ],
-  },
-  {
-    type: 'indent',
-    children: [
       { type: 'image', url: 'https://github.com/mslxl/wallpapers/blob/main/twitter-1774762746007204094.jpg?raw=true', children: [{ text: '' }], width: 430, height: 242 },
     ],
   },
   {
     type: 'indent',
     children: [
-      { type: 'image', url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true', children: [{ text: '' }], width: 430, height: 257 },
+      { type: 'plain', children: [{ text: 'Welcome to the Memorilo Editor demo! Visit ' }, { type: 'link', children: [{ text: 'memorilo/memorilo' }], url: 'https://github.com/memorilo/memorilo' }, { text: ' on GitHub for more information.' }] },
     ],
   },
   {
@@ -202,6 +197,7 @@ export function MemoriloEditor({ outline, ...props }: MemoriloEditorProps) {
       withMath,
       withTodo,
       withIndent,
+      withLink,
     ] as const
     return plugins.reduce((editor, plugin) => plugin(editor), baseEditor)
   }, [])
