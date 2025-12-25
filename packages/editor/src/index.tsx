@@ -1,17 +1,20 @@
 import type { RefAttributes, TextareaHTMLAttributes } from 'react'
 import type { Descendant } from 'slate'
+import type { SlashCommandRegistry } from './lib/slash-commands/types'
 import { cn } from '@memorilo/utils'
 import { useMemo } from 'react'
 import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
 import { Editable, Slate, withReact } from 'slate-react'
 import { IndentDragProvider, RootIndentEnableContext } from './components/elements/indent'
+import { useSlashCommands } from './components/slash-commands/use-slash-commands'
 import { FormatToolbar, ToolbarProvider } from './components/toolbar'
 import { useDecorate } from './hooks/use-decorate'
 import { useKeyDownHandler } from './hooks/use-key-down-handler'
 import { useRenderElement } from './hooks/use-render-element'
 import { useRenderLeaf } from './hooks/use-render-leaf'
 import { toCodeLines } from './lib/code'
+import { createDefaultSlashCommandRegistry } from './lib/slash-commands/registry'
 import { withCodeblock } from './lib/with-codeblock'
 import { withImages } from './lib/with-image'
 import { withIndent } from './lib/with-indent'
@@ -162,20 +165,31 @@ primes = filterPrime [2..] where
   },
 ]
 
-function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>) {
+function MemoriloEditable({
+  className,
+  slashCommandRegistry,
+  ...props
+}: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement> & { slashCommandRegistry?: Partial<SlashCommandRegistry> }) {
   const decorate = useDecorate()
   const renderElement = useRenderElement()
   const renderLeaf = useRenderLeaf()
   const handleKeyDown = useKeyDownHandler()
+  const defaultRegistry = useMemo(() => createDefaultSlashCommandRegistry(), [])
+  const slashCommands = useSlashCommands({ registry: defaultRegistry, extraRegistry: slashCommandRegistry })
   return (
     <IndentDragProvider>
       <FormatToolbar />
+      {slashCommands.menu}
       <Editable
         autoFocus
         className={cn('w-full py-8 px-2 md:p-8 memorilo-editor', className)}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(event) => {
+          if (slashCommands.onKeyDown(event))
+            return
+          handleKeyDown(event)
+        }}
         decorate={decorate}
         {...props}
       />
@@ -185,9 +199,10 @@ function MemoriloEditable({ className, ...props }: TextareaHTMLAttributes<HTMLDi
 
 interface MemoriloEditorProps extends TextareaHTMLAttributes<HTMLDivElement>, RefAttributes<HTMLDivElement> {
   outline?: boolean
+  slashCommandRegistry?: Partial<SlashCommandRegistry>
 }
 
-export function MemoriloEditor({ outline, ...props }: MemoriloEditorProps) {
+export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: MemoriloEditorProps) {
   const editor = useMemo(() => {
     const baseEditor = withReact(createEditor())
     const plugins = [
@@ -209,7 +224,7 @@ export function MemoriloEditor({ outline, ...props }: MemoriloEditorProps) {
           editor={editor}
           initialValue={initialValue}
         >
-          <MemoriloEditable {...props} />
+          <MemoriloEditable {...props} slashCommandRegistry={slashCommandRegistry} />
         </Slate>
       </RootIndentEnableContext>
     </ToolbarProvider>
