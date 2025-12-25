@@ -1,0 +1,8 @@
+{
+  "core.title": "Memorilo – Einstellungen",
+  "core.lang": "Sprache",
+  "dev.title": "Entwickler",
+  "dev.scan": "View-Updates",
+  "dev.router": "Router-Debug",
+  "dev.query": "Query-Debug"
+}

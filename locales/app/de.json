@@ -1,0 +1,19 @@
+{
+  "sidebar.settings": "Einstellungen",
+  "sidebar.library_name": "Name der Bibliothek",
+  "sidebar.user_name": "Benutzername",
+  "sidebar.journal": "Journal",
+  "sidebar.all_notes": "Alle Notizen",
+  "sidebar.flashcards": "Lernkarten",
+  "sidebar.edit_later": "Später bearbeiten",
+  "notes_empty.title": "Keine Themen vorhanden",
+  "notes_empty.description": "Sie haben noch keine Themen erstellt. Beginnen Sie mit der Erstellung Ihres ersten Themas.",
+  "notes_empty.create_topic": "Thema erstellen",
+  "notes_empty.import_topic": "Thema importieren",
+  "notes_empty.learn_more": "Mehr erfahren",
+  "note_folder_tree.new_folder": "Neuer Ordner",
+  "note_folder_tree.error": "Fehler:",
+  "note_folder_tree.delete_confirm": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten?",
+  "note_folder_tree.delete": "Löschen",
+  "note_folder_tree.rename": "Umbenennen"
+}
