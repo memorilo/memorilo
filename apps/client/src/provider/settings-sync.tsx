@@ -32,6 +32,7 @@ function useLanguageSync() {
     loadLanguageAndApply(lang as string).then(() => {
       langChain.next(() => {
         log.info(`i18next language config switched to: ${lang}`)
+        document.documentElement.lang = lang
         return i18next.changeLanguage(lang)
       })
     })
