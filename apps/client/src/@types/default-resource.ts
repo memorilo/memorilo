@@ -1,10 +1,12 @@
 import type { ns, RendererSupportedLanguages } from './constants'
 import en from '@locales/app/en.json'
 import common_en from '@locales/common/en.json'
+import common_eo from '@locales/common/eo.json'
 import common_ja from '@locales/common/ja.json'
 import common_zhCN from '@locales/common/zh-CN.json'
 import errors_en from '@locales/errors/en.json'
 import lang_en from '@locales/lang/en.json'
+import lang_eo from '@locales/lang/eo.json'
 import lang_ja from '@locales/lang/ja.json'
 import lang_zhCN from '@locales/lang/zh-CN.json'
 import settings_en from '@locales/settings/en.json'
@@ -31,6 +33,10 @@ export const defaultResources = {
   'ja': {
     lang: lang_ja,
     common: common_ja,
+  },
+  'eo': {
+    lang: lang_eo,
+    common: common_eo,
   },
 } satisfies Record<
   RendererSupportedLanguages,
