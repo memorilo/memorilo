@@ -164,13 +164,28 @@ const initialValue: Descendant[] = [
                       {
                         type: 'table-content',
                         children: [
-                          { text: 'Text with image:' },
+                          { type: 'quote', children: [{ text: 'Text with image:' }] },
+                        ],
+                      },
+                      {
+                        type: 'table-content',
+                        children: [
                           {
                             type: 'image',
                             url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true',
                             children: [{ text: '' }],
                           },
-                          { text: 'Caption after image.' },
+                        ],
+                      },
+                      {
+                        type: 'table-content',
+                        children: [
+                          {
+                            type: 'table-content',
+                            children: [
+                              { text: 'Caption after image.' },
+                            ],
+                          },
                         ],
                       },
                     ],
@@ -240,7 +255,7 @@ const initialValue: Descendant[] = [
                   },
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '⚠️ Testing' }] }],
+                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
                   },
                   {
                     type: 'table-cell',
@@ -373,11 +388,14 @@ const initialValue: Descendant[] = [
   {
     type: 'indent',
     children: [
-      { type: 'codeblock', children: toCodeLines(`
+      {
+        type: 'codeblock',
+        children: toCodeLines(`
 primes = filterPrime [2..] where
   filterPrime (p:xs) =
     p : filterPrime [x | x <- xs, x \`mod\` p /= 0]
-        `.trim()) },
+        `.trim()),
+      },
     ],
   },
   {
