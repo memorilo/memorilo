@@ -2,7 +2,7 @@ import type { KeyboardEvent } from 'react'
 import type { SlashCommandContext, SlashCommandItem, SlashCommandRegistry } from '../../lib/slash-commands/types'
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandSeparator, CommandShortcut } from '@memorilo/components/ui/command'
 import { cn } from '@memorilo/utils'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Editor } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { getEditorMaxWidthPx } from '../../lib/dom'
@@ -80,8 +80,17 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
    * When the user presses `Esc`, dismiss the palette for the current trigger location.
    * We intentionally keep the typed trigger text in the editor.
    */
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
-  const open = !!trigger && trigger.key !== dismissedKey
+  const dismissedKeyRef = useRef<string | null>(null)
+  const forceRender = useReducer(x => x + 1, 0)[1]
+
+  // Reset dismissal once the trigger disappears, so re-typing can open the palette again.
+  useLayoutEffect(() => {
+    if (!trigger) {
+      dismissedKeyRef.current = null
+    }
+  }, [trigger])
+
+  const open = !!trigger && trigger.key !== dismissedKeyRef.current
 
   const ctx: SlashCommandContext = useMemo(() => ({ editor }), [editor])
 
@@ -130,39 +139,65 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setSelectedId(null)
-      return
-    }
+  /**
+   * Keep selection purely event-driven:
+   * - keyboard navigation updates {@link selectedId}
+   * - mouse hover/click updates {@link selectedId}
+   *
+   * When filtering changes and the previously selected item no longer exists,
+   * we fall back to the first available command for display without syncing state.
+   */
+  const allCommandIds = useMemo(() => filtered.flat.map(cmd => cmd.id), [filtered.flat])
+  const enabledCommandIds = useMemo(
+    () => items.filter(item => !item.disabled).map(item => item.command.id),
+    [items],
+  )
+  const displaySelectedId = useMemo(() => {
+    if (!open)
+      return null
 
-    if (items.length === 0) {
-      setSelectedId(null)
-      return
-    }
+    if (selectedId && allCommandIds.includes(selectedId))
+      return selectedId
 
-    const selectedStillExists = !!selectedId && items.some(item => item.command.id === selectedId)
-    const selectedIsDisabled = !!selectedId && items.some(item => item.command.id === selectedId && item.disabled)
-    if (selectedStillExists && !selectedIsDisabled)
-      return
-
-    const firstEnabled = items.find(item => !item.disabled)?.command.id ?? null
-    setSelectedId(firstEnabled)
-  }, [items, open, selectedId])
-
-  useEffect(() => {
-    if (!trigger)
-      setDismissedKey(null)
-  }, [trigger])
+    return enabledCommandIds[0] ?? allCommandIds[0] ?? null
+  }, [allCommandIds, enabledCommandIds, open, selectedId])
 
   const selectedCommand = useMemo(() => {
-    if (!selectedId)
+    if (!displaySelectedId)
       return null
-    return items.find(item => item.command.id === selectedId)?.command ?? null
-  }, [items, selectedId])
+    return items.find(item => item.command.id === displaySelectedId)?.command ?? null
+  }, [displaySelectedId, items])
 
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [position, setPosition] = useState<{ top: number, left: number } | null>(null)
+
+  /**
+   * Ensure the currently selected command item stays visible when navigating
+   * with keyboard (ArrowUp/ArrowDown/Cmd+J/Cmd+K).
+   */
+  const scrollSelectedIntoView = useCallback(() => {
+    const root = menuRef.current
+    if (!root)
+      return
+
+    const list = root.querySelector('[data-slot="command-list"]') as HTMLElement | null
+    const selected = root.querySelector('[data-slot="command-item"][data-selected="true"]') as HTMLElement | null
+    if (!list || !selected)
+      return
+
+    const padding = 8
+    const itemTop = selected.offsetTop
+    const itemBottom = itemTop + selected.offsetHeight
+    const viewTop = list.scrollTop
+    const viewBottom = viewTop + list.clientHeight
+
+    if (itemTop - padding < viewTop) {
+      list.scrollTop = Math.max(0, itemTop - padding)
+    }
+    else if (itemBottom + padding > viewBottom) {
+      list.scrollTop = itemBottom + padding - list.clientHeight
+    }
+  }, [])
 
   useLayoutEffect(() => {
     if (!open) {
@@ -178,6 +213,15 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
 
     setPosition({ top: caretRect.bottom + 8, left: caretRect.left })
   }, [editor, open, trigger?.key])
+
+  useLayoutEffect(() => {
+    if (!open)
+      return
+
+    // Wait one frame so cmdk applies `data-selected="true"` to the DOM node.
+    const raf = requestAnimationFrame(scrollSelectedIntoView)
+    return () => cancelAnimationFrame(raf)
+  }, [displaySelectedId, filtered.groupTitles.length, items.length, open, scrollSelectedIntoView])
 
   const reposition = useCallback(() => {
     if (!open)
@@ -240,7 +284,7 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
       command.run(ctx)
     })
 
-    setDismissedKey(null)
+    dismissedKeyRef.current = null
     ReactEditor.focus(editor)
   }, [ctx, editor, trigger])
 
@@ -248,17 +292,13 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
    * Keyboard navigation always skips disabled commands.
    */
   const moveSelection = useCallback((delta: 1 | -1) => {
-    if (items.length === 0)
+    if (enabledCommandIds.length === 0)
       return
 
-    const enabledIds = items.filter(item => !item.disabled).map(item => item.command.id)
-    if (enabledIds.length === 0)
-      return
-
-    const currentIndex = selectedId ? enabledIds.indexOf(selectedId) : -1
-    const nextIndex = (currentIndex + delta + enabledIds.length) % enabledIds.length
-    setSelectedId(enabledIds[nextIndex])
-  }, [items, selectedId])
+    const currentIndex = displaySelectedId ? enabledCommandIds.indexOf(displaySelectedId) : -1
+    const nextIndex = (currentIndex + delta + enabledCommandIds.length) % enabledCommandIds.length
+    setSelectedId(enabledCommandIds[nextIndex])
+  }, [displaySelectedId, enabledCommandIds])
 
   const onKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     if (!open)
@@ -266,7 +306,8 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
 
     if (event.key === 'Escape') {
       event.preventDefault()
-      setDismissedKey(trigger?.key ?? null)
+      dismissedKeyRef.current = trigger?.key ?? null
+      forceRender()
       return true
     }
 
@@ -297,7 +338,7 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
     }
 
     return false
-  }, [applyCommand, moveSelection, open, selectedCommand, trigger?.key])
+  }, [applyCommand, forceRender, moveSelection, open, selectedCommand, trigger?.key])
 
   const menu = useMemo(() => {
     if (!open || !position)
@@ -327,7 +368,7 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
         }}
       >
         <Command
-          value={selectedId ?? undefined}
+          value={displaySelectedId ?? undefined}
           onValueChange={(value) => {
             setSelectedId(value)
           }}
@@ -393,7 +434,7 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
         </Command>
       </div>
     )
-  }, [applyCommand, ctx, filtered.groupTitles, filtered.grouped, open, position, selectedId])
+  }, [applyCommand, ctx, displaySelectedId, filtered.groupTitles, filtered.grouped, open, position])
 
   return { open, onKeyDown, menu, query: trigger?.query ?? '' }
 }
