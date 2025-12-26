@@ -1,0 +1,8 @@
+{
+  "core.title": "Memorilo 一般",
+  "core.lang": "言語",
+  "dev.title": "開発者",
+  "dev.scan": "ビューの更新を表示 (react-scan)",
+  "dev.router": "ルーターデバッグを表示 (tanstack-router)",
+  "dev.query": "クエリデバッグを表示 (tanstack-query)"
+}

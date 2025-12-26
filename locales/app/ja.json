@@ -1,0 +1,19 @@
+{
+  "sidebar.settings": "設定",
+  "sidebar.library_name": "ライブラリ名",
+  "sidebar.user_name": "ユーザー名",
+  "sidebar.journal": "ジャーナル",
+  "sidebar.all_notes": "すべてのノート",
+  "sidebar.flashcards": "フラッシュカード",
+  "sidebar.edit_later": "後で編集",
+  "notes_empty.title": "トピックはまだありません",
+  "notes_empty.description": "まだトピックを作成していません。最初のトピックを作成して始めましょう。",
+  "notes_empty.create_topic": "トピックを作成",
+  "notes_empty.import_topic": "トピックをインポート",
+  "notes_empty.learn_more": "詳細",
+  "note_folder_tree.new_folder": "新しいフォルダ",
+  "note_folder_tree.error": "エラー:",
+  "note_folder_tree.delete_confirm": "\"{{name}}\" を削除してもよろしいですか？",
+  "note_folder_tree.delete": "削除",
+  "note_folder_tree.rename": "名前を変更"
+}

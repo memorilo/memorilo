@@ -1,0 +1,19 @@
+{
+  "sidebar.settings": "Agordoj",
+  "sidebar.library_name": "Biblioteka nomo",
+  "sidebar.user_name": "Uzantnomo",
+  "sidebar.journal": "Taglibro",
+  "sidebar.all_notes": "Ĉiuj notoj",
+  "sidebar.flashcards": "Fulmokartoj",
+  "sidebar.edit_later": "Redakti poste",
+  "notes_empty.title": "Neniu temo",
+  "notes_empty.description": "Vi ankoraŭ ne kreis temojn. Komencu per kreo de via unua temo.",
+  "notes_empty.create_topic": "Krei temon",
+  "notes_empty.import_topic": "Enporti temon",
+  "notes_empty.learn_more": "Pliaj informoj",
+  "note_folder_tree.new_folder": "Nova dosierujo",
+  "note_folder_tree.error": "Eraro: ",
+  "note_folder_tree.delete_confirm": "Ĉu vi certas, ke vi volas forigi \"{{name}}\"?",
+  "note_folder_tree.delete": "Forigi",
+  "note_folder_tree.rename": "Alinomigi"
+}

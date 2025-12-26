@@ -1,0 +1,8 @@
+{
+  "core.title": "Memorilo - Ĝenerala",
+  "core.lang": "Lingvo",
+  "dev.title": "Programistaj opcioj",
+  "dev.scan": "Montri ĝisdatigojn de vido (react-scan)",
+  "dev.router": "Montri sencimigon de vojigilo (tanstack-router)",
+  "dev.query": "Montri sencimigon de informpetoj (tanstack-query)"
+}
