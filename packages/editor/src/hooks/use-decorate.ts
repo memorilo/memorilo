@@ -1,10 +1,14 @@
 import type { NodeEntry } from 'slate'
 import { useCallback, useState } from 'react'
-import { Editor, Element, Range } from 'slate'
+import { Editor, Element, Range, Text } from 'slate'
 import { useSlateStatic } from 'slate-react'
 import { decorateCodeBlock } from '../lib/decorate'
 
-export function useDecorate() {
+export interface UseDecorateOptions {
+  slashTriggerRange?: Range | null
+}
+
+export function useDecorate(options?: UseDecorateOptions) {
   const editor = useSlateStatic()
   const [forceUpdate, setForceUpdate] = useState(0)
 
@@ -24,9 +28,23 @@ export function useDecorate() {
         ]
       }
     }
+
+    if (options?.slashTriggerRange && Text.isText(node)) {
+      const nodeRange = Editor.range(editor, path)
+      const intersection = Range.intersection(nodeRange, options.slashTriggerRange)
+      if (intersection) {
+        return [
+          {
+            ...intersection,
+            slashTrigger: true,
+          },
+        ]
+      }
+    }
+
     if (Element.isElement(node) && node.type === 'codeblock') {
       return decorateCodeBlock([node, path], () => setForceUpdate(forceUpdate + 1))
     }
     return []
-  }, [editor, forceUpdate, setForceUpdate])
+  }, [editor, forceUpdate, options?.slashTriggerRange, setForceUpdate])
 }

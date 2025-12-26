@@ -170,5 +170,11 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
     )
   }, [applyCommand, ctx, displaySelectedId, filtered.groupTitles, filtered.grouped, itemStateById, open, position, menuRef])
 
-  return { open, onKeyDown, menu, query: trigger?.query ?? '' }
+  return {
+    open,
+    onKeyDown,
+    menu,
+    query: trigger?.query ?? '',
+    triggerRange: open ? (trigger?.range ?? null) : null,
+  }
 }

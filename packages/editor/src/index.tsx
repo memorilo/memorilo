@@ -170,12 +170,12 @@ function MemoriloEditable({
   slashCommandRegistry,
   ...props
 }: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement> & { slashCommandRegistry?: Partial<SlashCommandRegistry> }) {
-  const decorate = useDecorate()
   const renderElement = useRenderElement()
   const renderLeaf = useRenderLeaf()
   const handleKeyDown = useKeyDownHandler()
   const defaultRegistry = useMemo(() => createDefaultSlashCommandRegistry(), [])
   const slashCommands = useSlashCommands({ registry: defaultRegistry, extraRegistry: slashCommandRegistry })
+  const decorate = useDecorate({ slashTriggerRange: slashCommands.triggerRange })
   return (
     <IndentDragProvider>
       <FormatToolbar />

@@ -35,3 +35,7 @@
 .memorilo-editor .italic {
   @apply italic
 }
+
+.memorilo-editor .slashTrigger {
+  @apply rounded bg-blue-50 text-blue-600 font-mono;
+}
