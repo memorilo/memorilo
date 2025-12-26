@@ -2,6 +2,7 @@ import type { Path } from 'slate'
 import { CalendarCheckIcon } from '@memorilo/components/ui/animiated-icons/calendar-check'
 import { cn } from '@memorilo/utils'
 import { Array as Arr, pipe } from 'effect'
+import { useTranslation } from 'react-i18next'
 import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { isHeadingOrPlainType, isTodo } from '../../lib/element-type'
@@ -30,6 +31,7 @@ function hasTodoWrapper(editor: Editor, path: Path, node: SlateElement) {
  * heading/plain blocks directly, the toggle applies to the indent header portion.
  */
 export function TodoToggleButton() {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
 
   const { canToggle, isActive } = useSlateSelector((editor) => {
@@ -68,7 +70,7 @@ export function TodoToggleButton() {
   return (
     <UtilButton
       disabled={!canToggle}
-      title="Todo"
+      title={t('editor.toolbar.todo.title')}
       className={cn(isActive ? 'text-blue-600 font-bold' : '')}
       onMouseDown={(e) => {
         e.preventDefault()

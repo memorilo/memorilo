@@ -1,29 +1,9 @@
-import type { SlashCommandContext, SlashCommandItem, SlashCommandRegistry } from '../../lib/slash-commands/types'
+import type { SlashCommandItem, SlashCommandRegistry } from '../../lib/slash-commands/types'
 
 export interface FilteredSlashCommands {
   groupTitles: string[]
   grouped: Map<string, SlashCommandItem[]>
   flat: SlashCommandItem[]
-}
-
-function normalizeQuery(query: string) {
-  return query.trim().toLowerCase()
-}
-
-function commandMatches(command: SlashCommandItem, query: string) {
-  const q = normalizeQuery(query)
-  if (!q)
-    return true
-
-  const haystacks = [
-    command.title,
-    command.titleEn,
-    command.description ?? '',
-    command.id,
-    ...(command.keywords ?? []),
-  ].map(v => v.toLowerCase())
-
-  return haystacks.some(value => value.includes(q))
 }
 
 export function mergeSlashCommandRegistries(base: SlashCommandRegistry, extra?: Partial<SlashCommandRegistry>): SlashCommandRegistry {
@@ -33,13 +13,7 @@ export function mergeSlashCommandRegistries(base: SlashCommandRegistry, extra?: 
   }
 }
 
-export function filterSlashCommands(registry: SlashCommandRegistry, ctx: SlashCommandContext, query: string): FilteredSlashCommands {
-  const visible = registry.commands.filter((command) => {
-    if (command.hidden?.(ctx))
-      return false
-    return commandMatches(command, query)
-  })
-
+export function groupSlashCommands(registry: SlashCommandRegistry, commands: SlashCommandItem[]): FilteredSlashCommands {
   const groupsById = new Map(registry.groups.map(g => [g.id, g]))
   const groupOrder = new Map<string, number>()
   for (const group of registry.groups) {
@@ -48,7 +22,7 @@ export function filterSlashCommands(registry: SlashCommandRegistry, ctx: SlashCo
   }
 
   const grouped = new Map<string, SlashCommandItem[]>()
-  for (const command of visible) {
+  for (const command of commands) {
     const groupTitle = groupsById.get(command.group)?.title ?? command.group
     if (!grouped.has(groupTitle))
       grouped.set(groupTitle, [])
@@ -64,4 +38,3 @@ export function filterSlashCommands(registry: SlashCommandRegistry, ctx: SlashCo
   const flat = groupTitles.flatMap(title => grouped.get(title) ?? [])
   return { groupTitles, grouped, flat }
 }
-

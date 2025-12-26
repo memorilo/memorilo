@@ -1,11 +1,12 @@
 import type { KeyboardEvent } from 'react'
 import type { SlashCommandContext, SlashCommandItem, SlashCommandRegistry } from '../../lib/slash-commands/types'
 import { useCallback, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Editor } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { deleteSlashTrigger } from '../../lib/slash-commands/transforms'
 import { getSlashTrigger } from '../../lib/slash-commands/trigger'
-import { filterSlashCommands, mergeSlashCommandRegistries } from './slash-command-filtering'
+import { groupSlashCommands, mergeSlashCommandRegistries } from './slash-command-grouping'
 import { SlashCommandMenu } from './slash-command-menu'
 import { useSlashCommandMenuPosition } from './use-slash-command-menu-position'
 
@@ -16,6 +17,7 @@ export interface UseSlashCommandsOptions {
 
 export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOptions) {
   const editor = useSlateStatic()
+  const { t, i18n } = useTranslation('app')
   const trigger = useSlateSelector(editor => getSlashTrigger(editor))
 
   const mergedRegistry = useMemo(
@@ -35,10 +37,38 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
   const open = !!trigger && trigger.key !== dismissedKeyRef.current
   const ctx: SlashCommandContext = useMemo(() => ({ editor }), [editor])
 
-  const filtered = useMemo(
-    () => filterSlashCommands(mergedRegistry, ctx, trigger?.query ?? ''),
-    [ctx, mergedRegistry, trigger?.query],
-  )
+  const tEn = useMemo(() => i18n.getFixedT('en', 'app'), [i18n])
+  const tKey = useCallback((key: string) => t(key as any, { defaultValue: key }) as string, [t])
+  const tEnKey = useCallback((key: string) => tEn(key as any, { defaultValue: key }) as string, [tEn])
+  const filtered = useMemo(() => {
+    const q = (trigger?.query ?? '').trim().toLowerCase()
+    const visible = mergedRegistry.commands.filter((command) => {
+      if (command.hidden?.(ctx))
+        return false
+      if (!q)
+        return true
+
+      const titleCurrent = tKey(command.title)
+      const titleEnglish = tEnKey(command.title)
+      const descriptionKey = command.description
+      const descriptionCurrent = descriptionKey ? tKey(descriptionKey) : ''
+      const descriptionEnglish = descriptionKey ? tEnKey(descriptionKey) : ''
+
+      const haystacks = [
+        command.title,
+        titleCurrent,
+        titleEnglish,
+        command.description ?? '',
+        descriptionCurrent,
+        descriptionEnglish,
+        command.id,
+      ].map(v => String(v).toLowerCase())
+
+      return haystacks.some(value => value.includes(q))
+    })
+
+    return groupSlashCommands(mergedRegistry, visible)
+  }, [ctx, mergedRegistry, tEnKey, tKey, trigger?.query])
 
   const items = useMemo(() => {
     return filtered.flat.map((command) => {
@@ -157,7 +187,6 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
         open={open}
         position={position}
         rootRef={menuRef}
-        ctx={ctx}
         groupTitles={filtered.groupTitles}
         grouped={filtered.grouped}
         itemStateById={itemStateById}
@@ -168,7 +197,7 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
         onSelectCommand={applyCommand}
       />
     )
-  }, [applyCommand, ctx, displaySelectedId, filtered.groupTitles, filtered.grouped, itemStateById, open, position, menuRef])
+  }, [applyCommand, displaySelectedId, filtered.groupTitles, filtered.grouped, itemStateById, open, position, menuRef])
 
   return {
     open,

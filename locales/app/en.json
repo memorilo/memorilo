@@ -15,5 +15,49 @@
   "note_folder_tree.error": "Error:",
   "note_folder_tree.delete_confirm": "Are you sure you want to delete \"{{name}}\"?",
   "note_folder_tree.delete": "Delete",
-  "note_folder_tree.rename": "Rename"
+  "note_folder_tree.rename": "Rename",
+
+  "editor.toolbar.link.title": "Link",
+  "editor.toolbar.link.remove": "Remove",
+  "editor.toolbar.link.apply": "Apply",
+  "editor.toolbar.todo.title": "Todo",
+
+  "editor.todo.switch.done": "DONE",
+  "editor.todo.switch.todo": "TODO",
+  "editor.todo.switch.toggleAriaLabel": "Toggle TODO",
+
+  "editor.image.actions.resetTooltip": "Reset to default size",
+  "editor.image.actions.reset": "Reset",
+  "editor.image.actions.deleteTooltip": "Delete",
+
+  "editor.indent.dragNode": "Drag node",
+
+  "editor.slashCommands.empty": "No commands found.",
+  "editor.slashCommands.group.text": "Text",
+  "editor.slashCommands.group.todo": "Todo",
+  "editor.slashCommands.group.insert": "Insert",
+  "editor.slashCommands.block.plain": "Plain",
+  "editor.slashCommands.block.h1": "Heading 1",
+  "editor.slashCommands.block.h2": "Heading 2",
+  "editor.slashCommands.block.h3": "Heading 3",
+  "editor.slashCommands.block.h4": "Heading 4",
+  "editor.slashCommands.block.h5": "Heading 5",
+  "editor.slashCommands.block.h6": "Heading 6",
+  "editor.slashCommands.todo.set.title": "Todo",
+  "editor.slashCommands.todo.set.description": "Convert current block to a todo",
+  "editor.slashCommands.todo.toggleChecked.title": "Toggle todo",
+  "editor.slashCommands.todo.toggleChecked.description": "Toggle checked/unchecked",
+  "editor.slashCommands.todo.toggleChecked.disabledReason": "Only available in todo blocks",
+  "editor.slashCommands.insert.codeBlock.title": "Code Block",
+  "editor.slashCommands.insert.codeBlock.description": "Convert current block to a code block",
+  "editor.slashCommands.insert.mathInline.title": "Inline Equation",
+  "editor.slashCommands.insert.mathInline.description": "Insert inline equation ($...$)",
+  "editor.slashCommands.insert.mathBlock.title": "Equation Block",
+  "editor.slashCommands.insert.mathBlock.description": "Convert current block to an equation block ($$...$$)",
+  "editor.slashCommands.insert.link.title": "Link",
+  "editor.slashCommands.insert.link.description": "Insert link",
+
+  "editor.codeBlock.language.noneFound": "No language found.",
+  "editor.codeBlock.language.autoDetect": "Auto Detect",
+  "editor.codeBlock.language.auto": "Auto"
 }

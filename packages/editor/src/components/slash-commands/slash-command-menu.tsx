@@ -1,8 +1,9 @@
 import type { RefObject } from 'react'
-import type { SlashCommandContext, SlashCommandItem } from '../../lib/slash-commands/types'
+import type { SlashCommandItem } from '../../lib/slash-commands/types'
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandSeparator, CommandShortcut } from '@memorilo/components/ui/command'
 import { cn } from '@memorilo/utils'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getEditorMaxWidthPx } from '../../lib/dom'
 
 export interface SlashCommandItemState {
@@ -15,7 +16,6 @@ export interface SlashCommandMenuProps {
   open: boolean
   position: { top: number, left: number } | null
   rootRef: RefObject<HTMLDivElement | null>
-  ctx: SlashCommandContext
   groupTitles: string[]
   grouped: Map<string, SlashCommandItem[]>
   itemStateById: Map<string, SlashCommandItemState>
@@ -35,6 +35,11 @@ export function SlashCommandMenu({
   onSelectedIdChange,
   onSelectCommand,
 }: SlashCommandMenuProps) {
+  const { t, i18n } = useTranslation('app')
+  const tEn = useMemo(() => i18n.getFixedT('en', 'app'), [i18n])
+  const resolvedLanguage = i18n.resolvedLanguage ?? i18n.language
+  const tKey = (key: string) => t(key as any, { defaultValue: key }) as string
+  const tEnKey = (key: string) => tEn(key as any, { defaultValue: key }) as string
   const maxWidthPx = useMemo(() => {
     const activeEl = typeof document !== 'undefined'
       ? (document.activeElement as HTMLElement | null)
@@ -70,7 +75,7 @@ export function SlashCommandMenu({
         className="rounded-none"
       >
         <CommandList className="max-h-[min(360px,calc(100vh-120px))]">
-          <CommandEmpty>没有匹配的命令</CommandEmpty>
+          <CommandEmpty>{t('editor.slashCommands.empty')}</CommandEmpty>
           {groupTitles.map((title, index) => {
             const groupItems = grouped.get(title) ?? []
             if (groupItems.length === 0)
@@ -79,9 +84,13 @@ export function SlashCommandMenu({
             return (
               <div key={title}>
                 {index > 0 && <CommandSeparator />}
-                <CommandGroup heading={title}>
+                <CommandGroup heading={tKey(title)}>
                   {groupItems.map((command) => {
                     const state = itemStateById.get(command.id) ?? { command, disabled: false }
+                    const descriptionKey = state.disabledReason ?? command.description
+                    const titleCurrent = tKey(command.title)
+                    const titleEnglish = tEnKey(command.title)
+                    const showEnglishSubtitle = resolvedLanguage !== 'en' && titleEnglish !== titleCurrent
                     return (
                       <CommandItem
                         key={command.id}
@@ -98,18 +107,20 @@ export function SlashCommandMenu({
                         <span className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="truncate">
-                              {command.title}
-                              <span className="text-muted-foreground">
-                                {' '}
-                                (
-                                {command.titleEn}
-                                )
-                              </span>
+                              {titleCurrent}
+                              {showEnglishSubtitle && (
+                                <span className="text-muted-foreground">
+                                  {' '}
+                                  (
+                                  {titleEnglish}
+                                  )
+                                </span>
+                              )}
                             </span>
                           </div>
-                          {(state.disabledReason || command.description) && (
+                          {descriptionKey && (
                             <div className="text-xs text-muted-foreground truncate">
-                              {state.disabledReason ?? command.description}
+                              {tKey(descriptionKey)}
                             </div>
                           )}
                         </span>

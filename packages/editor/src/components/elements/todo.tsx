@@ -3,12 +3,14 @@ import type { TodoElementType } from '../../slate'
 import { TodoSwitch } from '@memorilo/components/ui/todo-switch'
 import { cn } from '@memorilo/utils'
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Transforms } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 
 export function Todo(props: RenderElementProps) {
   const DONE_WITH_LINE_THROUGH = true // TODO: make this a user setting
 
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
   const toggleChecked = useCallback((value: boolean) => {
     const path = ReactEditor.findPath(editor, props.element)
@@ -23,11 +25,11 @@ export function Todo(props: RenderElementProps) {
           onCheckedChange={toggleChecked}
           checkedTrackClassName="bg-green-500"
           uncheckedTrackClassName="bg-blue-300"
-          checkedLabel="DONE"
-          uncheckedLabel="TODO"
+          checkedLabel={t('editor.todo.switch.done')}
+          uncheckedLabel={t('editor.todo.switch.todo')}
           checkedLabelClassName="text-white"
           uncheckedLabelClassName="text-slate-900"
-          aria-label="Toggle TODO"
+          aria-label={t('editor.todo.switch.toggleAriaLabel')}
         />
       </span>
       <div className={cn('flex-1 min-w-0 wrap-break-word', {

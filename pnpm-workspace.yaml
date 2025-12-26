@@ -19,7 +19,7 @@ catalog:
   dayjs: ^1.11.19
   effect: ^3.19.12
   es-toolkit: ^1.43.0
-  i18next: ^25.7.3
+  i18next: 25.7.3
   image-extensions: ^1.1.0
   is-hotkey: ^0.2.0
   jotai: ^2.16.0
@@ -29,7 +29,7 @@ catalog:
   prismjs: ^1.30.0
   react: ^19.2.3
   react-dom: ^19.2.3
-  react-i18next: ^16.5.0
+  react-i18next: 16.5.0
   react-icons: ^5.5.0
   react-use: ^17.6.0
   slate: ^0.120.0

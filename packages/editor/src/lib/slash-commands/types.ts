@@ -8,13 +8,12 @@ export interface SlashCommandContext {
 export interface SlashCommandItem {
   id: string
   /**
-   * Display name (typically Chinese in this project).
+   * Display name key (i18n, ns=app).
    */
   title: string
   /**
-   * English name, always shown as `(English)` after {@link title}.
+   * i18n key (ns=app).
    */
-  titleEn: string
   description?: string
   group: string
   keywords?: string[]
@@ -23,7 +22,7 @@ export interface SlashCommandItem {
   hidden?: (ctx: SlashCommandContext) => boolean
   disabled?: (ctx: SlashCommandContext) => boolean
   /**
-   * Optional reason shown when a command is disabled.
+   * Optional reason key (ns=app) shown when a command is disabled.
    */
   disabledReason?: (ctx: SlashCommandContext) => string | undefined
   run: (ctx: SlashCommandContext) => void

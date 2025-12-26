@@ -15,5 +15,49 @@
   "note_folder_tree.error": "错误：",
   "note_folder_tree.delete_confirm": "您确定要删除 \"{{name}}\" 吗？",
   "note_folder_tree.delete": "删除",
-  "note_folder_tree.rename": "重命名"
+  "note_folder_tree.rename": "重命名",
+
+  "editor.toolbar.link.title": "链接",
+  "editor.toolbar.link.remove": "移除",
+  "editor.toolbar.link.apply": "应用",
+  "editor.toolbar.todo.title": "待办",
+
+  "editor.todo.switch.done": "完成",
+  "editor.todo.switch.todo": "待办",
+  "editor.todo.switch.toggleAriaLabel": "切换待办状态",
+
+  "editor.image.actions.resetTooltip": "重置默认大小",
+  "editor.image.actions.reset": "重置",
+  "editor.image.actions.deleteTooltip": "删除",
+
+  "editor.indent.dragNode": "拖动节点",
+
+  "editor.slashCommands.empty": "没有匹配的命令",
+  "editor.slashCommands.group.text": "文本",
+  "editor.slashCommands.group.todo": "待办",
+  "editor.slashCommands.group.insert": "插入",
+  "editor.slashCommands.block.plain": "普通文本",
+  "editor.slashCommands.block.h1": "标题 1",
+  "editor.slashCommands.block.h2": "标题 2",
+  "editor.slashCommands.block.h3": "标题 3",
+  "editor.slashCommands.block.h4": "标题 4",
+  "editor.slashCommands.block.h5": "标题 5",
+  "editor.slashCommands.block.h6": "标题 6",
+  "editor.slashCommands.todo.set.title": "待办",
+  "editor.slashCommands.todo.set.description": "将当前块转换为待办",
+  "editor.slashCommands.todo.toggleChecked.title": "切换待办状态",
+  "editor.slashCommands.todo.toggleChecked.description": "切换勾选/未勾选",
+  "editor.slashCommands.todo.toggleChecked.disabledReason": "仅在待办块中可用",
+  "editor.slashCommands.insert.codeBlock.title": "代码块",
+  "editor.slashCommands.insert.codeBlock.description": "将当前块转换为代码块",
+  "editor.slashCommands.insert.mathInline.title": "行内公式",
+  "editor.slashCommands.insert.mathInline.description": "插入行内公式（$...$）",
+  "editor.slashCommands.insert.mathBlock.title": "公式块",
+  "editor.slashCommands.insert.mathBlock.description": "将当前块转换为公式块（$$...$$）",
+  "editor.slashCommands.insert.link.title": "链接",
+  "editor.slashCommands.insert.link.description": "插入链接",
+
+  "editor.codeBlock.language.noneFound": "未找到语言。",
+  "editor.codeBlock.language.autoDetect": "自动检测",
+  "editor.codeBlock.language.auto": "自动"
 }

@@ -4,6 +4,7 @@ import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-v
 import { Button } from '@memorilo/components/ui/button'
 import { AnimatePresence, motion } from 'motion/react'
 import { use, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Node, Path, Element as SlateElement } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateSelector, useSlateStatic } from 'slate-react'
 import { IndentChildCollapseContext, IndentDragContext, IndentEnableContext } from './contexts'
@@ -75,6 +76,7 @@ function getOutlineMetrics(element: SlateElement) {
 }
 
 export function Indent(props: RenderElementProps) {
+  const { t } = useTranslation('app')
   const { collapsed, setCollapsed } = use(IndentChildCollapseContext)
   const enabled = use(IndentEnableContext)
   const drag = use(IndentDragContext)
@@ -313,8 +315,8 @@ export function Indent(props: RenderElementProps) {
                   variant="outline"
                   size="icon-sm"
                   className="w-4 cursor-grab active:cursor-grabbing"
-                  aria-label="拖动节点"
-                  title="拖动节点"
+                  aria-label={t('editor.indent.dragNode')}
+                  title={t('editor.indent.dragNode')}
                   onPointerDown={onPointerDownHandle}
                 >
                   <GripVerticalIcon />

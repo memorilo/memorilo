@@ -8,6 +8,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/
 import { cn } from '@memorilo/utils'
 import { Array, Effect } from 'effect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuChevronDown } from 'react-icons/lu'
 import { Node, Transforms } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateStatic } from 'slate-react'
@@ -16,6 +17,7 @@ import { guessLanguage } from '../../../lib/guess-language'
 import './theme-tomorrownight.css'
 
 export function CodeBlock(props: RenderElementProps) {
+  const { t } = useTranslation('app')
   const element = props.element as CodeBlockElementType
   const editor = useSlateStatic()
   const codeRef = useRef<HTMLPreElement>(null)
@@ -57,10 +59,10 @@ export function CodeBlock(props: RenderElementProps) {
       <CommandInput />
       <CommandList>
         <CommandEmpty>
-          No language found.
+          {t('editor.codeBlock.language.noneFound')}
         </CommandEmpty>
         <CommandItem value="auto-detect" onSelect={() => applyLanguageCmd(undefined)}>
-          <span>Auto Detect</span>
+          <span>{t('editor.codeBlock.language.autoDetect')}</span>
         </CommandItem>
         {
           supportedLanguages.map(item => (
@@ -91,7 +93,7 @@ export function CodeBlock(props: RenderElementProps) {
       contentEditable={false}
       onClick={() => setLanguageOptionDialogOpen(true)}
     >
-      {element.language ?? 'Auto'}
+      {element.language ?? t('editor.codeBlock.language.auto')}
       <LuChevronDown />
     </Button>
   )

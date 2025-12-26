@@ -5,12 +5,14 @@ import { Input } from '@memorilo/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Editor, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { getLinkUrlInRange, insertLink, setLinkUrlInRange, unwrapLink } from '../../lib/transforms/link'
 import { UtilButton } from '../util-button'
 
 export function LinkToggleButton() {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
 
   const selectionRef = useRef<RangeRef | null>(null)
@@ -88,7 +90,7 @@ export function LinkToggleButton() {
       <PopoverTrigger asChild>
         <UtilButton
           disabled={!canToggle}
-          title="Link"
+          title={t('editor.toolbar.link.title')}
           className={cn(isActive ? 'text-blue-600 font-bold' : '')}
           contentEditable={false}
           onMouseDown={(e: any) => {
@@ -152,7 +154,7 @@ export function LinkToggleButton() {
                 remove()
               }}
             >
-              Remove
+              {t('editor.toolbar.link.remove')}
             </Button>
           )}
           <Button
@@ -161,7 +163,7 @@ export function LinkToggleButton() {
               apply()
             }}
           >
-            Apply
+            {t('editor.toolbar.link.apply')}
           </Button>
         </div>
       </PopoverContent>
