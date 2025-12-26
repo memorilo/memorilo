@@ -4,50 +4,11 @@ import { Button } from '@memorilo/components/ui/button'
 import { Input } from '@memorilo/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
-import { Array, Option, pipe, Tuple } from 'effect'
 import { useRef, useState } from 'react'
-import { Editor, Range, Element as SlateElement, Transforms } from 'slate'
+import { Editor, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
-import { isLink } from '../../lib/element-type'
+import { getLinkUrlInRange, insertLink, setLinkUrlInRange, unwrapLink } from '../../lib/transforms/link'
 import { UtilButton } from '../util-button'
-
-function unwrapLink(editor: Editor, at: Range) {
-  Transforms.unwrapNodes(editor, {
-    at,
-    match: n => SlateElement.isElement(n) && isLink(n),
-    split: true,
-  })
-}
-
-function wrapLink(editor: Editor, at: Range, url: string) {
-  unwrapLink(editor, at)
-
-  if (Range.isCollapsed(at)) {
-    Transforms.insertNodes(editor, {
-      type: 'link',
-      url,
-      children: [{ text: url }],
-    } as any)
-    return
-  }
-
-  Transforms.wrapNodes(editor, { type: 'link', url, children: [] } as any, { split: true })
-  Transforms.collapse(editor, { edge: 'end' })
-}
-
-function getLinkUrlInRange(editor: Editor, at: Range): string | undefined {
-  return pipe(
-    Array.fromIterable(Editor.nodes(editor, {
-      at,
-      match: n => SlateElement.isElement(n) && isLink(n),
-      mode: 'lowest',
-    })),
-    Array.head,
-    Option.map(Tuple.getFirst),
-    Option.map(node => node.url),
-    Option.getOrUndefined,
-  )
-}
 
 export function LinkToggleButton() {
   const editor = useSlateStatic()
@@ -84,18 +45,10 @@ export function LinkToggleButton() {
 
     Editor.withoutNormalizing(editor, () => {
       if (hasLink) {
-        Transforms.setNodes(
-          editor,
-          { url: url.trim() } as any,
-          {
-            at,
-            match: n => SlateElement.isElement(n) && isLink(n),
-            split: true,
-          },
-        )
+        setLinkUrlInRange(editor, at, url.trim())
       }
       else {
-        wrapLink(editor, at, url.trim())
+        insertLink(editor, url.trim(), { unwrapExisting: true })
       }
     })
 

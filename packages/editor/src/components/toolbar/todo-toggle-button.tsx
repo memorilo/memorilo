@@ -1,13 +1,13 @@
 import type { Path } from 'slate'
-import type { TodoElementType } from '../../slate'
 import { CalendarCheckIcon } from '@memorilo/components/ui/animiated-icons/calendar-check'
 import { cn } from '@memorilo/utils'
 import { Array as Arr, pipe } from 'effect'
-import { Editor, Node, Element as SlateElement, Transforms } from 'slate'
+import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { isHeadingOrPlainType, isTodo } from '../../lib/element-type'
 import { getLowestIndentEntriesInRange, indentHeaderHasTodoWrapper, unwrapIndentHeaderTodo, wrapIndentHeaderInTodo } from '../../lib/transforms/indent'
 import { findTodoParentPath, flipTodoContainingHeading } from '../../lib/transforms/todo'
+import { wrapBlockInTodo } from '../../lib/transforms/todo-wrapper'
 import { UtilButton } from '../util-button'
 
 function hasTodoChild(element: SlateElement) {
@@ -19,41 +19,6 @@ function hasTodoChild(element: SlateElement) {
 
 function hasTodoWrapper(editor: Editor, path: Path, node: SlateElement) {
   return hasTodoChild(node) || findTodoParentPath(editor, path) !== null
-}
-
-function wrapBlockInTodo(editor: Editor, blockPath: Path, checked: boolean) {
-  const block = Node.get(editor, blockPath)
-  if (!SlateElement.isElement(block))
-    return
-  const children = Array.isArray(block.children) ? block.children : []
-
-  // Clear nested todo wrappers directly under the block to avoid stacking todos.
-  for (let index = children.length - 1; index >= 0; index--) {
-    const child = children[index]
-    if (!SlateElement.isElement(child) || !isTodo(child))
-      continue
-    Transforms.unwrapNodes(editor, { at: blockPath.concat(index) })
-  }
-
-  // Insert a new todo wrapper as the first child and move all remaining siblings into it.
-  const todo: TodoElementType = { type: 'todo', checked, children: [] }
-  Transforms.insertNodes(editor, todo, { at: blockPath.concat(0) })
-  const todoPath = blockPath.concat(0)
-
-  // Keep moving siblings until the block only contains the todo wrapper.
-  while (true) {
-    const currentBlock = Node.get(editor, blockPath)
-    if (!SlateElement.isElement(currentBlock))
-      continue
-    if (!Array.isArray(currentBlock.children) || currentBlock.children.length <= 1)
-      break
-
-    const currentTodo = Node.get(editor, todoPath)
-    if (!SlateElement.isElement(currentTodo))
-      continue
-    const toIndex = Array.isArray(currentTodo.children) ? currentTodo.children.length : 0
-    Transforms.moveNodes(editor, { at: blockPath.concat(1), to: todoPath.concat(toIndex) })
-  }
 }
 
 /**

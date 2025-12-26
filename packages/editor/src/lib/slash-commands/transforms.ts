@@ -4,15 +4,10 @@ import { toCodeLines } from '../code'
 import { isHeadingOrPlainType, isTodo } from '../element-type'
 import { wrapBlockInTodo } from '../transforms/todo-wrapper'
 
+export { insertLink } from '../transforms/link'
+
 type TextBlockType
-  = | 'plain'
-    | 'quote'
-    | 'h1'
-    | 'h2'
-    | 'h3'
-    | 'h4'
-    | 'h5'
-    | 'h6'
+  = 'plain' | 'quote' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
 
 type ConvertibleBlockType = TextBlockType | 'codeblock' | 'math-block'
 
@@ -201,21 +196,4 @@ export function insertInlineMath(editor: Editor) {
     return
 
   Transforms.insertNodes(editor, { type: 'math-inline', children: [{ text: '' }] } as any)
-}
-
-/**
- * Insert or wrap the selection with a link element.
- * If selection is collapsed, inserts a link node with the URL as its text.
- */
-export function insertLink(editor: Editor, url: string) {
-  if (!editor.selection)
-    return
-
-  if (Editor.string(editor, editor.selection).length === 0) {
-    Transforms.insertNodes(editor, { type: 'link', url, children: [{ text: url }] } as any)
-    return
-  }
-
-  Transforms.wrapNodes(editor, { type: 'link', url, children: [] } as any, { split: true })
-  Transforms.collapse(editor, { edge: 'end' })
 }
