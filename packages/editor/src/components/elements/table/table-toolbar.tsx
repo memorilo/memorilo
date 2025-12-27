@@ -1,26 +1,21 @@
 import type { MouseEvent } from 'react'
 import type { RenderElementProps } from 'slate-react'
-import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
-import { cn } from '@memorilo/utils'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuEllipsisVertical, LuTable2, LuTrash2 } from 'react-icons/lu'
+import { LuTrash2 } from 'react-icons/lu'
 import { Editor, Element, Node, Path, Transforms } from 'slate'
 import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { TableEditor } from 'slate-table'
 import { resizeTablePreserveContent } from '../../../lib/table-operations'
-import { UtilButton } from '../../util-button'
+import { TableToolbarButton } from './table-toolbar-button'
+import { TableToolbarMenu } from './table-toolbar-menu'
+import { TableToolbarResizePopover } from './table-toolbar-resize'
 
 interface TableToolbarProps {
   element: RenderElementProps['element']
   isActive: boolean
   setLoading: (loading: boolean) => void
 }
-
-const GRID_ROWS_VISIBLE = 10
-const GRID_COLS_VISIBLE = 6
-const MAX_ROWS = 20
-const MAX_COLS = 10
 
 export function TableToolbar({ element, isActive, setLoading }: TableToolbarProps) {
   const { t } = useTranslation('app')
@@ -30,7 +25,6 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     () => ReactEditor.findPath(editor, element),
     [editor, element],
   )
-  const [activeCellPath, setActiveCellPath] = useState<Path | null>(null)
 
   const selectionInTable = useMemo(() => {
     if (!selection || !isActive)
@@ -38,15 +32,19 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     return Path.isAncestor(tablePath, selection.anchor.path) && Path.isAncestor(tablePath, selection.focus.path)
   }, [selection, isActive, tablePath])
 
+  const [cellPathFromSelection, setCellPathFromSelection] = useState<Path | null>(null)
+
   useEffect(() => {
-    if (!selectionInTable)
+    if (!selectionInTable) {
+      setCellPathFromSelection(null)
       return
+    }
     const entry = Editor.above(editor, {
       at: selection!,
       match: n => Element.isElement(n) && (n.type === 'table-cell' || n.type === 'table-header'),
     })
     if (entry)
-      setActiveCellPath(entry[1])
+      setCellPathFromSelection(entry[1])
   }, [editor, selection, selectionInTable])
 
   const inCurrentTable = isActive && selectionInTable
@@ -61,14 +59,18 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
 
   const [designOpen, setDesignOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [gridHover, setGridHover] = useState({
-    rows: Math.min(currentSize.rows || 1, GRID_ROWS_VISIBLE),
-    cols: Math.min(currentSize.cols || 1, GRID_COLS_VISIBLE),
-  })
-  const [rowInput, setRowInput] = useState(Math.min(currentSize.rows || 1, MAX_ROWS))
-  const [colInput, setColInput] = useState(Math.min(currentSize.cols || 1, MAX_COLS))
   const defaultCellPath = useMemo(() => [...tablePath, 0, 0, 0] as Path, [tablePath])
   const firstTextPath = useMemo(() => [...tablePath, 0, 0, 0, 0, 0] as Path, [tablePath])
+
+  const activeCellPath = useMemo(() => {
+    if ((designOpen || menuOpen) && !cellPathFromSelection) {
+      return defaultCellPath
+    }
+    if (!selectionInTable && !designOpen && !menuOpen) {
+      return null
+    }
+    return cellPathFromSelection
+  }, [designOpen, menuOpen, cellPathFromSelection, defaultCellPath, selectionInTable])
 
   const activeCellEntry = useMemo(() => {
     if (!inCurrentTable || !activeCellPath)
@@ -84,15 +86,6 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     return null
   }, [activeCellPath, editor, inCurrentTable])
 
-  useEffect(() => {
-    if ((designOpen || menuOpen) && !activeCellPath) {
-      setActiveCellPath(defaultCellPath)
-    }
-    if (!selectionInTable && !designOpen && !menuOpen) {
-      setActiveCellPath(null)
-    }
-  }, [designOpen, menuOpen, activeCellPath, defaultCellPath, selectionInTable])
-
   const toolbarVisible = (inCurrentTable || designOpen || menuOpen) && isActive
 
   if (!toolbarVisible)
@@ -100,20 +93,12 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
 
   const focusEditor = () => ReactEditor.focus(editor)
 
-  const clampRows = (value: number) => Math.max(1, Math.min(MAX_ROWS, value))
-  const clampCols = (value: number) => Math.max(1, Math.min(MAX_COLS, value))
-
   const resizeTable = (rows: number, cols: number) => {
     const targetPath = tablePath
-    const nextRows = clampRows(rows)
-    const nextCols = clampCols(cols)
-    setRowInput(nextRows)
-    setColInput(nextCols)
-    setGridHover({ rows: nextRows, cols: nextCols })
     setLoading(true)
     requestAnimationFrame(() => {
       try {
-        resizeTablePreserveContent(editor, targetPath, nextRows, nextCols)
+        resizeTablePreserveContent(editor, targetPath, rows, cols)
         Transforms.select(editor, { path: firstTextPath, offset: 0 })
       }
       catch (error) {
@@ -144,6 +129,11 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     }
     focusEditor()
     setMenuOpen(false)
+  }
+
+  const handleAlign = (align: 'left' | 'center' | 'right') => (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    applyColumnAlign(align)
   }
 
   const handleRow = (options: { before?: boolean, remove?: boolean }) => (event: MouseEvent<HTMLButtonElement>) => {
@@ -233,173 +223,39 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     focusEditor()
   }
 
-  const gridCells = Array.from({ length: GRID_ROWS_VISIBLE * GRID_COLS_VISIBLE }, (_, idx) => {
-    const row = Math.floor(idx / GRID_COLS_VISIBLE) + 1
-    const col = (idx % GRID_COLS_VISIBLE) + 1
-    const isActiveCell = row <= gridHover.rows && col <= gridHover.cols
-    return (
-      <button
-        key={`${row}-${col}`}
-        type="button"
-        className={cn(
-          'table-grid-button',
-          isActiveCell && 'is-active',
-        )}
-        onMouseEnter={() => {
-          setGridHover({ rows: row, cols: col })
-          setRowInput(row)
-          setColInput(col)
-        }}
-        onClick={(e) => {
-          e.preventDefault()
-          resizeTable(row, col)
-        }}
-      />
-    )
-  })
-
-  const iconButtonClass = 'table-toolbar-icon'
-
   return (
     <div
       contentEditable={false}
       className="table-toolbar-surface"
     >
-      <Popover open={designOpen} onOpenChange={setDesignOpen}>
-        <PopoverTrigger asChild>
-          <UtilButton
-            className={iconButtonClass}
-            title={t('table.toolbar.resizeTitle')}
-            tabIndex={-1}
-            onMouseDown={e => e.preventDefault()}
-          >
-            <LuTable2 />
-          </UtilButton>
-        </PopoverTrigger>
-        <PopoverContent className="table-design-popover" side="bottom" align="start">
-          <div className="table-grid">
-            {gridCells}
-          </div>
-          <div className="table-design-controls">
-            <div className="table-size-inputs">
-              <input
-                type="number"
-                min={1}
-                max={MAX_ROWS}
-                value={rowInput}
-                onChange={(e) => {
-                  const val = clampRows(Number(e.target.value) || 1)
-                  setRowInput(val)
-                  setGridHover(prev => ({ ...prev, rows: val }))
-                }}
-                className="table-size-input"
-              />
-              <span className="table-size-separator">x</span>
-              <input
-                type="number"
-                min={1}
-                max={MAX_COLS}
-                value={colInput}
-                onChange={(e) => {
-                  const val = clampCols(Number(e.target.value) || 1)
-                  setColInput(val)
-                  setGridHover(prev => ({ ...prev, cols: val }))
-                }}
-                className="table-size-input"
-              />
-            </div>
-            <UtilButton
-              className="table-apply-button"
-              tabIndex={-1}
-              onMouseDown={e => e.preventDefault()}
-              onClick={(e) => {
-                e.preventDefault()
-                resizeTable(rowInput, colInput)
-              }}
-            >
-              {t('table.toolbar.apply')}
-            </UtilButton>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <TableToolbarResizePopover
+        open={designOpen}
+        onOpenChange={setDesignOpen}
+        currentSize={currentSize}
+        onResize={resizeTable}
+      />
 
-      <UtilButton
-        className={iconButtonClass}
+      <TableToolbarButton
+        variant="icon"
         title={t('table.toolbar.deleteTitle')}
-        tabIndex={-1}
         onMouseDown={handleDeleteTable}
       >
         <LuTrash2 />
-      </UtilButton>
+      </TableToolbarButton>
 
-      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-        <PopoverTrigger asChild>
-          <UtilButton
-            className={iconButtonClass}
-            title={t('table.toolbar.settingsTitle')}
-            tabIndex={-1}
-            onMouseDown={e => e.preventDefault()}
-          >
-            <LuEllipsisVertical />
-          </UtilButton>
-        </PopoverTrigger>
-        <PopoverContent className="table-menu-popover" side="bottom" align="start">
-          <UtilButton
-            className="table-menu-item"
-            tabIndex={-1}
-            onMouseDown={(e) => {
-              e.preventDefault()
-              applyColumnAlign('left')
-            }}
-          >
-            {t('table.menu.alignLeft')}
-          </UtilButton>
-          <UtilButton
-            className="table-menu-item"
-            tabIndex={-1}
-            onMouseDown={(e) => {
-              e.preventDefault()
-              applyColumnAlign('center')
-            }}
-          >
-            {t('table.menu.alignCenter')}
-          </UtilButton>
-          <UtilButton
-            className="table-menu-item"
-            tabIndex={-1}
-            onMouseDown={(e) => {
-              e.preventDefault()
-              applyColumnAlign('right')
-            }}
-          >
-            {t('table.menu.alignRight')}
-          </UtilButton>
-
-          <div className="table-menu-divider" />
-
-          <UtilButton className="table-menu-item" tabIndex={-1} onMouseDown={handleRow({ before: true })}>
-            {t('table.menu.insertRowAbove')}
-          </UtilButton>
-          <UtilButton className="table-menu-item" tabIndex={-1} onMouseDown={handleRow({ before: false })}>
-            {t('table.menu.insertRowBelow')}
-          </UtilButton>
-          <UtilButton className={cn('table-menu-item', 'danger')} tabIndex={-1} onMouseDown={handleRow({ remove: true })}>
-            {t('table.menu.deleteRow')}
-          </UtilButton>
-
-          <div className="table-menu-divider" />
-
-          <UtilButton className="table-menu-item" tabIndex={-1} onMouseDown={handleColumn({ before: true })}>
-            {t('table.menu.insertColLeft')}
-          </UtilButton>
-          <UtilButton className="table-menu-item" tabIndex={-1} onMouseDown={handleColumn({ before: false })}>
-            {t('table.menu.insertColRight')}
-          </UtilButton>
-          <UtilButton className={cn('table-menu-item', 'danger')} tabIndex={-1} onMouseDown={handleColumn({ remove: true })}>
-            {t('table.menu.deleteCol')}
-          </UtilButton>
-        </PopoverContent>
-      </Popover>
+      <TableToolbarMenu
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onAlignLeft={handleAlign('left')}
+        onAlignCenter={handleAlign('center')}
+        onAlignRight={handleAlign('right')}
+        onInsertRowAbove={handleRow({ before: true })}
+        onInsertRowBelow={handleRow({ before: false })}
+        onDeleteRow={handleRow({ remove: true })}
+        onInsertColLeft={handleColumn({ before: true })}
+        onInsertColRight={handleColumn({ before: false })}
+        onDeleteCol={handleColumn({ remove: true })}
+      />
     </div>
   )
 }

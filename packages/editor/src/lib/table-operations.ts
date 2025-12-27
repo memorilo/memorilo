@@ -153,6 +153,9 @@ function createRow(cols: number, cellType: string) {
   }
 }
 
+/**
+ * Build a table node with a header row and body rows.
+ */
 export function buildTableNode(rows = 1, cols = 1, headerText = '') {
   const safeRows = Math.max(1, rows)
   const safeCols = Math.max(1, cols)
@@ -182,6 +185,9 @@ export function buildTableNode(rows = 1, cols = 1, headerText = '') {
   }
 }
 
+/**
+ * Insert a new table node at the given location.
+ */
 export function insertTableWithHeader(
   editor: Editor,
   options?: { rows?: number, cols?: number, at?: any, headerText?: string },
@@ -190,6 +196,9 @@ export function insertTableWithHeader(
   Transforms.insertNodes(editor, tableNode, { at: options?.at })
 }
 
+/**
+ * Rebuild the table to the given size while preserving existing cell content.
+ */
 export function rebuildTablePreserveContent(editor: Editor, tablePath: Path, rows: number, cols: number) {
   const safeRows = Math.max(1, rows)
   const safeCols = Math.max(1, cols)
@@ -257,6 +266,9 @@ export function rebuildTablePreserveContent(editor: Editor, tablePath: Path, row
   Transforms.insertNodes(editor, newTable, { at: tablePath })
 }
 
+/**
+ * Resize a table in-place while keeping existing cell content.
+ */
 export function resizeTablePreserveContent(editor: Editor, tablePath: Path, rows: number, cols: number) {
   const safeRows = Math.max(1, rows)
   const safeCols = Math.max(1, cols)

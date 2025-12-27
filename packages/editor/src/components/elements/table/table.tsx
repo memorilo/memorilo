@@ -1,5 +1,6 @@
 import type { RenderElementProps } from 'slate-react'
 import type { TableCellElementType, TableContentElementType, TableHeaderCellElementType } from '../../../slate'
+import { Skeleton } from '@memorilo/components/ui/skeleton'
 import { cn } from '@memorilo/utils'
 import { useMemo, useState } from 'react'
 import { Path } from 'slate'
@@ -41,7 +42,7 @@ export function Table(props: RenderElementProps) {
       <div className="table-classic-wrapper">
         {loading && (
           <div className="table-loading-overlay">
-            <div className="table-loading-spinner" />
+            <Skeleton className="table-loading-skeleton" />
           </div>
         )}
         <table
@@ -108,7 +109,11 @@ export function TableHeaderCell(props: RenderElementProps) {
       colSpan={element.colSpan}
       className={cn(
         'table-header-cell',
-        align === 'center' ? 'table-align-center' : align === 'right' ? 'table-align-right' : 'table-align-left',
+        {
+          'table-align-center': align === 'center',
+          'table-align-right': align === 'right',
+          'table-align-left': align === 'left',
+        },
       )}
     >
       {props.children}
@@ -128,7 +133,11 @@ export function TableCell(props: RenderElementProps) {
       colSpan={element.colSpan}
       className={cn(
         'table-cell',
-        align === 'center' ? 'table-align-center' : align === 'right' ? 'table-align-right' : 'table-align-left',
+        {
+          'table-align-center': align === 'center',
+          'table-align-right': align === 'right',
+          'table-align-left': align === 'left',
+        },
       )}
     >
       {props.children}
