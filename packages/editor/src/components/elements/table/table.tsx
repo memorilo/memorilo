@@ -32,7 +32,7 @@ export function Table(props: RenderElementProps) {
       return false
     const iter = TableCursor.selection(editor).next()
     return !iter.done
-  }, [editor, isActive, selection])
+  }, [editor, isActive])
 
   return (
     <div className="table-classic-container">
@@ -40,11 +40,7 @@ export function Table(props: RenderElementProps) {
         <TableToolbar element={props.element} isActive={isActive} setLoading={setLoading} />
       </div>
       <div className="table-classic-wrapper">
-        {loading && (
-          <div className="table-loading-overlay">
-            <Skeleton className="table-loading-skeleton" />
-          </div>
-        )}
+        {loading && <Skeleton className="absolute inset-0 z-30 size-full" />}
         <table
           {...props.attributes}
           className={cn(
