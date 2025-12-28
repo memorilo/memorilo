@@ -4,7 +4,7 @@ import type { RenderElementProps } from 'slate-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2 } from 'react-icons/lu'
-import { Editor, Node, Path, Transforms } from 'slate'
+import { Editor, Node, Path, Range, Transforms } from 'slate'
 import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { TableEditor } from 'slate-table'
 import { isTableBody, isTableCell, isTableHead, isTableHeaderCell, isTableRow } from '../../../lib/element-type'
@@ -115,20 +115,49 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
   }
 
   const applyColumnAlign = (align: 'left' | 'center' | 'right') => {
-    const cellPath = activeCellEntry?.[1] ?? defaultCellPath
-    const columnIndex = cellPath[cellPath.length - 1]
-    for (const [, rowPath] of Editor.nodes(editor, {
-      at: tablePath,
-      match: n => isTableRow(n),
-    })) {
-      const targetPath = [...rowPath, columnIndex]
-      if (Editor.hasPath(editor, targetPath)) {
-        const node = Node.get(editor, targetPath)
-        if (isTableCell(node)) {
-          Transforms.setNodes(editor, { align }, { at: targetPath })
+    const selectedCells: Path[] = []
+    
+    if (selection && Range.isExpanded(selection)) {
+      const [start, end] = Range.edges(selection)
+      try {
+        for (const [, path] of Editor.nodes(editor, {
+          at: { anchor: start, focus: end },
+          match: n => isTableCell(n) || isTableHeaderCell(n),
+          mode: 'all',
+        })) {
+          if (Path.isDescendant(path, tablePath)) {
+            selectedCells.push(path)
+          }
+        }
+      } catch {}
+    }
+    
+    Editor.withoutNormalizing(editor, () => {
+      if (selectedCells.length > 0) {
+        selectedCells.forEach(cellPath => {
+          if (Editor.hasPath(editor, cellPath)) {
+            Transforms.setNodes(editor, { align }, { at: cellPath })
+          }
+        })
+      } else {
+        const cellPath = activeCellEntry?.[1] ?? defaultCellPath
+        const columnIndex = cellPath[cellPath.length - 1]
+        
+        for (const [, rowPath] of Editor.nodes(editor, {
+          at: tablePath,
+          match: n => isTableRow(n),
+        })) {
+          const targetPath = [...rowPath, columnIndex]
+          if (Editor.hasPath(editor, targetPath)) {
+            const node = Node.get(editor, targetPath)
+            if (isTableCell(node) || isTableHeaderCell(node)) {
+              Transforms.setNodes(editor, { align }, { at: targetPath })
+            }
+          }
         }
       }
-    }
+    })
+    
     focusEditor()
     setMenuOpen(false)
   }
