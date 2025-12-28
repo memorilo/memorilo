@@ -1,18 +1,31 @@
 :root {
-  --color-white: #fff;
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-600: #6b7280;
-  --color-gray-700: #374151;
-  --color-gray-900: #1f2937;
-  --color-blue-400: #60a5fa;
-  --color-blue-500: #3b82f6;
-  --color-blue-100: #dbeafe;
-  --color-slate-50: #f8fafc;
-  --color-slate-100: #f1f5f9;
-  --color-red-600: #dc2626;
+  --table-bg-primary: #fff;
+  --table-bg-secondary: #f9fafb;
+  --table-bg-header: #f3f4f6;
+  --table-bg-cell: rgba(243, 244, 246, 0.3);
+  --table-bg-footer: #f9fafb;
+  --table-bg-toolbar: rgba(255, 255, 255, 0.9);
+  
+  --table-border-default: #e5e7eb;
+  --table-border-light: #d1d5db;
+  --table-border-header: #f1f5f9;
+  --table-border-accent: #60a5fa;
+  
+  --table-text-primary: #1f2937;
+  --table-text-secondary: #374151;
+  --table-text-muted: #6b7280;
+  --table-text-danger: #dc2626;
+  --table-text-header: #374151;
+  
+  --table-accent-primary: #3b82f6;
+  --table-accent-light: #dbeafe;
+  --table-accent-hover: #60a5fa;
+  
+  --table-hover-bg: #f8fafc;
+  --table-hover-border: #d1d5db;
+  
+  --table-shadow-toolbar: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --table-shadow-button: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .table-classic-container {
@@ -32,20 +45,8 @@
   position: relative;
   overflow: hidden;
   border-radius: 0.5rem;
-  border: 1px solid var(--color-gray-300);
-  background: var(--color-white);
-}
-
-.table-loading-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(1px);
-  pointer-events: auto;
+  border: 1px solid var(--table-border-light);
+  background: var(--table-bg-primary);
 }
 
 .table-loading-skeleton {
@@ -67,35 +68,35 @@
 }
 
 .table-head {
-  background: var(--color-gray-100);
+  background: var(--table-bg-header);
   font-size: 0.875rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--color-gray-700);
+  color: var(--table-text-header);
 }
 
 .table-body {
-  color: var(--color-gray-900);
+  color: var(--table-text-primary);
   font-size: 0.875rem;
 }
 
 .table-footer {
-  background: var(--color-gray-50);
+  background: var(--table-bg-footer);
   font-size: 0.875rem;
-  color: var(--color-gray-700);
+  color: var(--table-text-secondary);
 }
 
 .table-header-cell {
-  border: 1px solid var(--color-gray-200);
-  background: var(--color-slate-100);
+  border: 1px solid var(--table-border-default);
+  background: var(--table-border-header);
   padding: 0.5rem 0.75rem;
   vertical-align: top;
   font-weight: 600;
 }
 
 .table-cell {
-  border: 1px solid var(--color-gray-200);
-  background: rgba(243, 244, 246, 0.3);
+  border: 1px solid var(--table-border-default);
+  background: var(--table-bg-cell);
   padding: 0.5rem 0.75rem;
   vertical-align: top;
 }
@@ -127,24 +128,24 @@
   align-items: center;
   gap: 0.5rem;
   border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--table-bg-toolbar);
   padding: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--table-shadow-toolbar);
 }
 
 .table-toolbar-icon {
   height: 2.5rem;
   width: 2.5rem;
   border-radius: 0.75rem;
-  border: 1px solid var(--color-gray-200);
-  background: var(--color-white);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--table-border-default);
+  background: var(--table-bg-primary);
+  box-shadow: var(--table-shadow-button);
   transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
 
 .table-toolbar-icon:hover {
-  border-color: var(--color-gray-300);
-  background: var(--color-gray-50);
+  border-color: var(--table-hover-border);
+  background: var(--table-hover-bg);
 }
 
 .table-design-popover {
@@ -153,10 +154,10 @@
   flex-direction: column;
   gap: 0.75rem;
   border-radius: 1rem;
-  border: 1px solid var(--color-gray-200);
-  background: var(--color-white);
+  border: 1px solid var(--table-border-default);
+  background: var(--table-bg-primary);
   padding: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--table-shadow-toolbar);
 }
 
 .table-grid {
@@ -169,14 +170,14 @@
   height: 20px;
   width: 20px;
   border-radius: 2px;
-  border: 1px solid var(--color-gray-200);
-  background: var(--color-slate-50);
+  border: 1px solid var(--table-border-default);
+  background: var(--table-hover-bg);
   transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 .table-grid-button.is-active {
-  border-color: var(--color-blue-400);
-  background: var(--color-blue-100);
+  border-color: var(--table-border-accent);
+  background: var(--table-accent-light);
 }
 
 .table-design-controls {
@@ -185,7 +186,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
-  color: var(--color-gray-700);
+  color: var(--table-text-secondary);
 }
 
 .table-size-inputs {
@@ -197,7 +198,7 @@
 .table-size-input {
   width: 3.25rem;
   border-radius: 0.375rem;
-  border: 1px solid var(--color-gray-300);
+  border: 1px solid var(--table-border-light);
   padding: 0.25rem 0.5rem;
   font-size: 0.875rem;
   text-align: center;
@@ -205,7 +206,7 @@
 
 .table-size-separator {
   padding: 0 0.25rem;
-  color: var(--color-gray-600);
+  color: var(--table-text-muted);
 }
 
 .table-apply-button {
@@ -216,12 +217,12 @@
 .table-menu-popover {
   width: 9.5rem;
   border-radius: 0.75rem;
-  border: 1px solid var(--color-gray-200);
-  background: var(--color-white);
+  border: 1px solid var(--table-border-default);
+  background: var(--table-bg-primary);
   padding: 0.25rem 0;
   font-size: 0.75rem;
-  color: var(--color-gray-700);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  color: var(--table-text-secondary);
+  box-shadow: var(--table-shadow-toolbar);
 }
 
 .table-menu-item {
@@ -234,11 +235,11 @@
 }
 
 .table-menu-item.danger {
-  color: var(--color-red-600);
+  color: var(--table-text-danger);
 }
 
 .table-menu-divider {
   margin: 0.25rem 0;
   height: 1px;
-  background: var(--color-gray-200);
+  background: var(--table-border-default);
 }

@@ -1,11 +1,13 @@
 import type { MouseEvent } from 'react'
+import type { Element } from 'slate'
 import type { RenderElementProps } from 'slate-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2 } from 'react-icons/lu'
-import { Editor, Element, Node, Path, Transforms } from 'slate'
+import { Editor, Node, Path, Transforms } from 'slate'
 import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { TableEditor } from 'slate-table'
+import { isTableBody, isTableCell, isTableHead, isTableHeaderCell, isTableRow } from '../../../lib/element-type'
 import { resizeTablePreserveContent } from '../../../lib/table-operations'
 import { TableToolbarButton } from './table-toolbar-button'
 import { TableToolbarMenu } from './table-toolbar-menu'
@@ -32,19 +34,19 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     return Path.isAncestor(tablePath, selection.anchor.path) && Path.isAncestor(tablePath, selection.focus.path)
   }, [selection, isActive, tablePath])
 
-  const [cellPathFromSelection, setCellPathFromSelection] = useState<Path | null>(null)
-
-  useEffect(() => {
-    if (!selectionInTable) {
-      setCellPathFromSelection(null)
-      return
+  const cellPathFromSelection = useMemo(() => {
+    if (!selectionInTable)
+      return null
+    try {
+      const entry = Editor.above(editor, {
+        at: selection!,
+        match: n => isTableCell(n),
+      })
+      return entry ? entry[1] : null
     }
-    const entry = Editor.above(editor, {
-      at: selection!,
-      match: n => Element.isElement(n) && (n.type === 'table-cell' || n.type === 'table-header'),
-    })
-    if (entry)
-      setCellPathFromSelection(entry[1])
+    catch {
+      return null
+    }
   }, [editor, selection, selectionInTable])
 
   const inCurrentTable = isActive && selectionInTable
@@ -77,7 +79,7 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
       return null
     try {
       const node = Node.get(editor, activeCellPath)
-      if (Element.isElement(node) && (node.type === 'table-cell' || node.type === 'table-header'))
+      if (isTableCell(node))
         return [node, activeCellPath] as const
     }
     catch {
@@ -117,12 +119,12 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
     const columnIndex = cellPath[cellPath.length - 1]
     for (const [, rowPath] of Editor.nodes(editor, {
       at: tablePath,
-      match: n => Element.isElement(n) && n.type === 'table-row',
+      match: n => isTableRow(n),
     })) {
       const targetPath = [...rowPath, columnIndex]
       if (Editor.hasPath(editor, targetPath)) {
         const node = Node.get(editor, targetPath)
-        if (Element.isElement(node) && (node.type === 'table-cell' || node.type === 'table-header')) {
+        if (isTableCell(node)) {
           Transforms.setNodes(editor, { align }, { at: targetPath })
         }
       }
@@ -147,13 +149,13 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
       TableEditor.removeRow(editor, { at: cellPath })
     }
     else {
-      const isHeader = Element.isElement(sectionNode) && sectionNode.type === 'table-head'
+      const isHeader = isTableHead(sectionNode)
 
       if (isHeader) {
         const bodyPath = Path.next(sectionPath)
         const ensureBodyExists = () => {
           const hasBody = Editor.hasPath(editor, bodyPath)
-            && (Node.get(editor, bodyPath) as any).type === 'table-body'
+            && isTableBody(Node.get(editor, bodyPath))
           if (!hasBody) {
             Transforms.insertNodes(editor, { type: 'table-body', children: [] } as any, { at: bodyPath })
           }
@@ -177,7 +179,7 @@ export function TableToolbar({ element, isActive, setLoading }: TableToolbarProp
             { type: 'table-cell' } as Partial<Element>,
             {
               at: [...bodyPath, 0],
-              match: n => Element.isElement(n) && n.type === 'table-header',
+              match: n => isTableHeaderCell(n),
               mode: 'all',
             },
           )
