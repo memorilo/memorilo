@@ -20,8 +20,6 @@ interface TableToolbarResizePopoverProps {
 
 const GRID_ROWS_VISIBLE = 10
 const GRID_COLS_VISIBLE = 6
-const MAX_ROWS = 20
-const MAX_COLS = 10
 
 export function TableToolbarResizePopover({
   open,
@@ -34,18 +32,18 @@ export function TableToolbarResizePopover({
     rows: Math.min(currentSize.rows || 1, GRID_ROWS_VISIBLE),
     cols: Math.min(currentSize.cols || 1, GRID_COLS_VISIBLE),
   })
-  const [rowInput, setRowInput] = useState(Math.min(currentSize.rows || 1, MAX_ROWS))
-  const [colInput, setColInput] = useState(Math.min(currentSize.cols || 1, MAX_COLS))
+  const [rowInput, setRowInput] = useState<number | ''>(currentSize.rows || 1)
+  const [colInput, setColInput] = useState<number | ''>(currentSize.cols || 1)
 
-  const clampRows = (value: number) => Math.max(1, Math.min(MAX_ROWS, value))
-  const clampCols = (value: number) => Math.max(1, Math.min(MAX_COLS, value))
+  const clampRows = (value: number | '') => value === '' ? '' : Math.max(1, value)
+  const clampCols = (value: number | '') => value === '' ? '' : Math.max(1, value)
 
-  const commitResize = (rows: number, cols: number) => {
-    const nextRows = clampRows(rows)
-    const nextCols = clampCols(cols)
+  const commitResize = (rows: number | '', cols: number | '') => {
+    const nextRows = typeof rows === 'number' ? Math.max(1, rows) : 1
+    const nextCols = typeof cols === 'number' ? Math.max(1, cols) : 1
     setRowInput(nextRows)
     setColInput(nextCols)
-    setGridHover({ rows: nextRows, cols: nextCols })
+    setGridHover({ rows: Math.min(nextRows, GRID_ROWS_VISIBLE), cols: Math.min(nextCols, GRID_COLS_VISIBLE) })
     onResize(nextRows, nextCols)
   }
 
@@ -94,12 +92,18 @@ export function TableToolbarResizePopover({
             <input
               type="number"
               min={1}
-              max={MAX_ROWS}
               value={rowInput}
               onChange={(e) => {
-                const val = clampRows(Number(e.target.value) || 1)
+                const inputValue = e.target.value
+                if (inputValue === '') {
+                  setRowInput('')
+                  return
+                }
+                const val = clampRows(Number(inputValue))
                 setRowInput(val)
-                setGridHover(prev => ({ ...prev, rows: val }))
+                if (typeof val === 'number') {
+                  setGridHover(prev => ({ ...prev, rows: Math.min(val, GRID_ROWS_VISIBLE) }))
+                }
               }}
               className="table-size-input"
             />
@@ -107,12 +111,18 @@ export function TableToolbarResizePopover({
             <input
               type="number"
               min={1}
-              max={MAX_COLS}
               value={colInput}
               onChange={(e) => {
-                const val = clampCols(Number(e.target.value) || 1)
+                const inputValue = e.target.value
+                if (inputValue === '') {
+                  setColInput('')
+                  return
+                }
+                const val = clampCols(Number(inputValue))
                 setColInput(val)
-                setGridHover(prev => ({ ...prev, cols: val }))
+                if (typeof val === 'number') {
+                  setGridHover(prev => ({ ...prev, cols: Math.min(val, GRID_COLS_VISIBLE) }))
+                }
               }}
               className="table-size-input"
             />
