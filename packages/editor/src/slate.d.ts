@@ -116,8 +116,7 @@ export interface TableRowElementType {
 interface TableCellBase {
   rowSpan?: number
   colSpan?: number
-  align?: 'left' | 'center' | 'right'
-  children: TableContentElementType[]
+  children: Array<MemoriloElement | MemoriloText>
 }
 
 export interface TableCellElementType extends TableCellBase {
@@ -125,12 +124,7 @@ export interface TableCellElementType extends TableCellBase {
 }
 
 export interface TableHeaderCellElementType extends TableCellBase {
-  type: 'table-header'
-}
-
-export interface TableContentElementType {
-  type: 'table-content'
-  children: Descendant[]
+  type: 'table-header-cell'
 }
 
 type MemoriloElement

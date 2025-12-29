@@ -8,8 +8,8 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Editor, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
-import { getLinkUrlInRange, insertLink, setLinkUrlInRange, unwrapLink } from '../../lib/transforms/link'
-import { UtilButton } from '../util-button'
+import { getLinkUrlInRange, insertLink, setLinkUrlInRange, unwrapLink } from '../../../lib/transforms/link'
+import { UtilButton } from '../../util-button'
 
 export function LinkToggleButton() {
   const { t } = useTranslation('app')

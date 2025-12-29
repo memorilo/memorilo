@@ -2,13 +2,16 @@ import type { RefAttributes, TextareaHTMLAttributes } from 'react'
 import type { Descendant } from 'slate'
 import type { SlashCommandRegistry } from './lib/slash-commands/types'
 import { cn } from '@memorilo/utils'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
-import { Editable, Slate, withReact } from 'slate-react'
+import { Editable, Slate, useSlateStatic, withReact } from 'slate-react'
+import { TableCursor, TableEditor } from 'slate-table'
 import { IndentDragProvider, RootIndentEnableContext } from './components/elements/indent'
+import { TableProvider } from './components/elements/table/table-provider'
 import { useSlashCommands } from './components/slash-commands/use-slash-commands'
-import { FormatToolbar, ToolbarProvider } from './components/toolbar'
+import { FormatToolbar } from './components/toolbar'
+import { ToolbarProvider } from './components/toolbar/toolbar'
 import { useDecorate } from './hooks/use-decorate'
 import { useKeyDownHandler } from './hooks/use-key-down-handler'
 import { useRenderElement } from './hooks/use-render-element'
@@ -84,16 +87,37 @@ const initialValue: Descendant[] = [
                 type: 'table-row',
                 children: [
                   {
-                    type: 'table-header',
-                    children: [{ type: 'table-content', children: [{ text: 'Feature' }] }],
+                    type: 'table-header-cell',
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: 'Feature' },
+                        ],
+                      },
+                    ],
                   },
                   {
-                    type: 'table-header',
-                    children: [{ type: 'table-content', children: [{ text: 'Status' }] }],
+                    type: 'table-header-cell',
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: 'Status' },
+                        ],
+                      },
+                    ],
                   },
                   {
-                    type: 'table-header',
-                    children: [{ type: 'table-content', children: [{ text: 'Example' }] }],
+                    type: 'table-header-cell',
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: 'Examples' },
+                        ],
+                      },
+                    ],
                   },
                 ],
               },
@@ -107,40 +131,33 @@ const initialValue: Descendant[] = [
                 children: [
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Tables' }] }],
-                  },
-                  {
-                    type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
-                  },
-                  {
-                    type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Basic CRUD operations supported' }] }],
-                  },
-                ],
-              },
-              {
-                type: 'table-row',
-                children: [
-                  {
-                    type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Image' }] }],
-                  },
-                  {
-                    type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: 'Tables' },
+                        ],
+                      },
+                    ],
                   },
                   {
                     type: 'table-cell',
                     children: [
                       {
-                        type: 'table-content',
+                        type: 'plain',
                         children: [
-                          {
-                            type: 'image',
-                            url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true',
-                            children: [{ text: '' }],
-                          },
+                          { text: '✅ Working' },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: 'Basic CRUD operations supported' },
                         ],
                       },
                     ],
@@ -152,39 +169,58 @@ const initialValue: Descendant[] = [
                 children: [
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Mixed Content' }] }],
+                    children: [{ text: 'Image' }],
                   },
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                    children: [{ text: '✅ Working' }],
                   },
                   {
                     type: 'table-cell',
                     children: [
                       {
-                        type: 'table-content',
+                        type: 'image',
+                        url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true',
+                        children: [{ text: '' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'table-row',
+                children: [
+                  {
+                    type: 'table-cell',
+                    children: [{
+                      type: 'plain',
+                      children: [
+                        { text: 'Mixed Content' },
+                      ],
+                    }],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: '✅ Working' },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'plain',
                         children: [
                           { type: 'quote', children: [{ text: 'Text with image:' }] },
-                        ],
-                      },
-                      {
-                        type: 'table-content',
-                        children: [
                           {
                             type: 'image',
                             url: 'https://github.com/mslxl/wallpapers/blob/main/121308490_p0.jpg?raw=true',
                             children: [{ text: '' }],
-                          },
-                        ],
-                      },
-                      {
-                        type: 'table-content',
-                        children: [
-                          {
-                            type: 'table-content',
-                            children: [
-                              { text: 'Caption after image.' },
-                            ],
                           },
                         ],
                       },
@@ -197,17 +233,27 @@ const initialValue: Descendant[] = [
                 children: [
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Inline Math' }] }],
+                    children: [{
+                      type: 'plain',
+                      children: [
+                        { text: 'Inline Math' },
+                      ],
+                    }],
                   },
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                    children: [{
+                      type: 'plain',
+                      children: [
+                        { text: '✅ Working' },
+                      ],
+                    }],
                   },
                   {
                     type: 'table-cell',
                     children: [
                       {
-                        type: 'table-content',
+                        type: 'plain',
                         children: [
                           { text: 'Pythagorean theorem: ' },
                           {
@@ -225,17 +271,29 @@ const initialValue: Descendant[] = [
                 children: [
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Code Snippets' }] }],
-                  },
-                  {
-                    type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                    children: [{
+                      type: 'plain',
+                      children: [
+                        { text: 'Code Snippets' },
+                      ],
+                    }],
                   },
                   {
                     type: 'table-cell',
                     children: [
                       {
-                        type: 'table-content',
+                        type: 'plain',
+                        children: [
+                          { text: '✅ Working' },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: 'table-cell',
+                    children: [
+                      {
+                        type: 'plain',
                         children: [
                           { text: 'Use ' },
                           { text: 'console.log()', codesnippet: true },
@@ -251,17 +309,29 @@ const initialValue: Descendant[] = [
                 children: [
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: 'Block Math' }] }],
+                    children: [
+                      {
+                        type: 'plain',
+                        children: [
+                          { text: 'Block Math' },
+                        ],
+                      },
+                    ],
                   },
                   {
                     type: 'table-cell',
-                    children: [{ type: 'table-content', children: [{ text: '✅ Working' }] }],
+                    children: [{
+                      type: 'plain',
+                      children: [
+                        { text: '✅ Working' },
+                      ],
+                    }],
                   },
                   {
                     type: 'table-cell',
                     children: [
                       {
-                        type: 'table-content',
+                        type: 'plain',
                         children: [
                           {
                             type: 'math-block',
@@ -418,6 +488,7 @@ function MemoriloEditable({
   slashCommandRegistry,
   ...props
 }: TextareaHTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement> & { slashCommandRegistry?: Partial<SlashCommandRegistry> }) {
+  const editor = useSlateStatic()
   const renderElement = useRenderElement()
   const renderLeaf = useRenderLeaf()
   const handleKeyDown = useKeyDownHandler()
@@ -439,6 +510,11 @@ function MemoriloEditable({
           handleKeyDown(event)
         }}
         decorate={decorate}
+        onDragStart={() => {
+          if (TableCursor.isInTable(editor))
+            return true
+          return false
+        }}
         {...props}
       />
     </IndentDragProvider>
@@ -451,6 +527,7 @@ interface MemoriloEditorProps extends TextareaHTMLAttributes<HTMLDivElement>, Re
 }
 
 export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: MemoriloEditorProps) {
+  const [canMerge, setCanMerge] = useState(false)
   const editor = useMemo(() => {
     const baseEditor = withReact(createEditor())
     const plugins = [
@@ -467,15 +544,18 @@ export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: Memo
   }, [])
 
   return (
-    <ToolbarProvider>
-      <RootIndentEnableContext enable={outline ?? true}>
-        <Slate
-          editor={editor}
-          initialValue={initialValue}
-        >
-          <MemoriloEditable {...props} slashCommandRegistry={slashCommandRegistry} />
-        </Slate>
-      </RootIndentEnableContext>
-    </ToolbarProvider>
+    <TableProvider canMerge={canMerge}>
+      <ToolbarProvider>
+        <RootIndentEnableContext enable={outline ?? true}>
+          <Slate
+            editor={editor}
+            initialValue={initialValue}
+            onSelectionChange={() => setCanMerge(TableEditor.canMerge(editor))}
+          >
+            <MemoriloEditable {...props} slashCommandRegistry={slashCommandRegistry} />
+          </Slate>
+        </RootIndentEnableContext>
+      </ToolbarProvider>
+    </TableProvider>
   )
 }

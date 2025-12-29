@@ -1,13 +1,13 @@
 import type { JSX } from 'react'
 
-import type { MemoriloMarkupStrings } from '../../slate'
+import type { MemoriloMarkupStrings } from '../../../slate'
 import { cn } from '@memorilo/utils'
 
 import { ReactEditor, useSlateStatic } from 'slate-react'
-import { isMarkActive, toggleMark } from '../../lib/editorHelper'
+import { isMarkActive, toggleMark } from '../../../lib/editorHelper'
 
-import { MARKUPS } from '../markups'
-import { UtilButton } from '../util-button'
+import { MARKUPS } from '../../markups'
+import { UtilButton } from '../../util-button'
 
 interface FormatButtonProps {
   symbol: string | JSX.Element

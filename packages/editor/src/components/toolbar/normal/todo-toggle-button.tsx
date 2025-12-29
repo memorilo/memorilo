@@ -5,11 +5,11 @@ import { Array as Arr, pipe } from 'effect'
 import { useTranslation } from 'react-i18next'
 import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
-import { isHeadingOrPlainType, isTodo } from '../../lib/element-type'
-import { getLowestIndentEntriesInRange, indentHeaderHasTodoWrapper, unwrapIndentHeaderTodo, wrapIndentHeaderInTodo } from '../../lib/transforms/indent'
-import { findTodoParentPath, flipTodoContainingHeading } from '../../lib/transforms/todo'
-import { wrapBlockInTodo } from '../../lib/transforms/todo-wrapper'
-import { UtilButton } from '../util-button'
+import { isHeadingOrPlainType, isTodo } from '../../../lib/element-type'
+import { getLowestIndentEntriesInRange, indentHeaderHasTodoWrapper, unwrapIndentHeaderTodo, wrapIndentHeaderInTodo } from '../../../lib/transforms/indent'
+import { findTodoParentPath, flipTodoContainingHeading } from '../../../lib/transforms/todo'
+import { wrapBlockInTodo } from '../../../lib/transforms/todo-wrapper'
+import { UtilButton } from '../../util-button'
 
 function hasTodoChild(element: SlateElement) {
   const children = element.children

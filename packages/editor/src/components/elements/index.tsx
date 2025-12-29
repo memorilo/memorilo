@@ -12,7 +12,6 @@ import { Quote as QuoteElement } from './quote'
 import {
   TableBody as TableBodyElement,
   TableCell as TableCellElement,
-  TableContent as TableContentElement,
   Table as TableElement,
   TableFooter as TableFooterElement,
   TableHead as TableHeadElement,
@@ -45,7 +44,6 @@ export const ELEMENTS: ElementMap = {
   'table-body': TableBodyElement,
   'table-footer': TableFooterElement,
   'table-row': TableRowElement,
-  'table-header': TableHeaderCellElement,
+  'table-header-cell': TableHeaderCellElement,
   'table-cell': TableCellElement,
-  'table-content': TableContentElement,
 }
