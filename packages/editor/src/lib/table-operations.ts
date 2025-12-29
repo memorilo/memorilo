@@ -9,9 +9,9 @@ export const TABLE_BLOCKS = {
   tbody: 'table-body',
   tfoot: 'table-footer',
   tr: 'table-row',
-  th: 'table-header',
+  th: 'table-header-cell',
   td: 'table-cell',
-  content: 'table-content',
+  content: 'plain',
 } as const
 
 const TABLE_SECTION_TYPES = [TABLE_BLOCKS.thead, TABLE_BLOCKS.tbody, TABLE_BLOCKS.tfoot] as const

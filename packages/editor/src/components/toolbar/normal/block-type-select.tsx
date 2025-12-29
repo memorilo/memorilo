@@ -1,10 +1,10 @@
-import type { HeadingOrPlainType as BlockType } from '../../lib/element-type'
+import type { HeadingOrPlainType as BlockType } from '../../../lib/element-type'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@memorilo/components/ui/select'
 import { Array, pipe } from 'effect'
 import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
-import { HEADING_AND_PLAIN_TYPES as BLOCK_TYPES, isHeadingOrPlainType as isBlockType } from '../../lib/element-type'
-import { getLowestIndentEntriesInRange, wrapIndentHeaderInBlock } from '../../lib/transforms/indent'
+import { HEADING_AND_PLAIN_TYPES as BLOCK_TYPES, isHeadingOrPlainType as isBlockType } from '../../../lib/element-type'
+import { getLowestIndentEntriesInRange, wrapIndentHeaderInBlock } from '../../../lib/transforms/indent'
 
 const BLOCK_TYPE_LABEL: Record<BlockType, string> = {
   plain: 'Plain',
