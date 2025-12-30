@@ -151,7 +151,6 @@ type MemoriloElement
     | TableRowElementType
     | TableCellElementType
     | TableHeaderCellElementType
-    | TableContentElementType
 
 export type MemoriloElementStrings = MemoriloElement['type']
 

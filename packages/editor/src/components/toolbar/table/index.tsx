@@ -1,10 +1,10 @@
-import { DeleteIcon } from '@memorilo/components/ui/animiated-icons/delete'
 import { useCallback } from 'react'
 import { LuGrid2X2X, LuTableCellsSplit } from 'react-icons/lu'
 import { useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor, TableEditor } from 'slate-table'
-import { useTable } from '../elements/table/table-provider'
-import { UtilButton } from '../util-button'
+import { useTable } from '../../elements/table/table-provider'
+import { UtilButton } from '../../util-button'
+import { TableSettingsButton } from './table-settings'
 
 export function TableToolbarButtons() {
   const { canMerge } = useTable()
@@ -13,6 +13,8 @@ export function TableToolbarButtons() {
 
   return (
     <>
+      <TableSettingsButton />
+
       <UtilButton
         disabled={!isInTable && !canMerge}
         onClick={() => TableEditor.split(editor)}

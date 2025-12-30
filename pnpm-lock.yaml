@@ -489,6 +489,12 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.12
+      es-toolkit:
+        specifier: 'catalog:'
+        version: 1.43.0
       jotai:
         specifier: 'catalog:'
         version: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)

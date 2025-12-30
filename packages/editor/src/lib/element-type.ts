@@ -8,7 +8,6 @@ import type {
   MemoriloText,
   TableBodyElementType,
   TableCellElementType,
-  TableContentElementType,
   TableElementType,
   TableFooterElementType,
   TableHeadElementType,
@@ -16,9 +15,9 @@ import type {
   TableRowElementType,
   TodoElementType,
 } from '../slate'
-
 import { Text } from 'slate'
-import { TABLE_BLOCKS } from './table-operations'
+
+import { TABLE_BLOCKS } from '../components/elements/table/type'
 
 function hasElementType(value: unknown): value is { type: unknown } {
   return typeof value === 'object' && value !== null && 'type' in value
@@ -129,6 +128,13 @@ export function isTableHead(element: any): element is TableHeadElementType {
 }
 
 /**
+ * Type guard for a hidden table-head section (custom `hidden` flag).
+ */
+export function isHiddenTableHead(element: any): element is TableHeadElementType & { hidden?: boolean } {
+  return isTableHead(element) && Boolean((element as any).hidden)
+}
+
+/**
  * Type guard for table-body section elements.
  * The body section contains the main data rows.
  */
@@ -174,12 +180,4 @@ export function isTableHeaderCell(element: any): element is TableHeaderCellEleme
  */
 export function isTableDataCell(element: any): element is TableCellElementType {
   return element && element.type === TABLE_BLOCKS.td
-}
-
-/**
- * Type guard for table content elements.
- * Content elements are the containers for text within table cells.
- */
-export function isTableContent(element: any): element is TableContentElementType {
-  return element && element.type === TABLE_BLOCKS.content
 }

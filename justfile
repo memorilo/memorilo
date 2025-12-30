@@ -83,6 +83,14 @@ build-ios: download-model download-resource
     cargo tauri ios build
   fi
 
+build-web: 
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command bash -c "cd apps/client && pnpm build"
+  else
+    cd apps/client && pnpm build
+  fi
+
 clean:
   if [[ -d ./apps/client/dist ]]; then rm -rf ./apps/client/dist; fi
   cd ./src-tauri/ && cargo clean
