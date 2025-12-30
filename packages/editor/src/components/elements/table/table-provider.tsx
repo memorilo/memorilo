@@ -1,8 +1,16 @@
-import type { ReactNode } from 'react'
-import { createContext, use, useMemo } from 'react'
+import type { Dispatch, ReactNode, SetStateAction } from 'react'
+import type { Path } from 'slate'
+import { createContext, use, useMemo, useState } from 'react'
+
+export type TableDragTarget
+  = | { type: 'row', tablePath: Path, rowPath: Path }
+    | { type: 'column', tablePath: Path, columnIndex: number }
+    | null
 
 interface TableContextType {
   canMerge: boolean
+  dragTarget: TableDragTarget
+  setDragTarget: Dispatch<SetStateAction<TableDragTarget>>
 }
 const TableContext = createContext<TableContextType | undefined>(undefined)
 
@@ -16,9 +24,12 @@ export function useTable() {
 }
 
 export function TableProvider({ children, canMerge}: { children: ReactNode, canMerge: boolean }) {
+  const [dragTarget, setDragTarget] = useState<TableDragTarget>(null)
   const contextValue = useMemo(() => ({
     canMerge,
-  }), [canMerge])
+    dragTarget,
+    setDragTarget,
+  }), [canMerge, dragTarget])
   return (
     <TableContext value={contextValue}>
       {children}

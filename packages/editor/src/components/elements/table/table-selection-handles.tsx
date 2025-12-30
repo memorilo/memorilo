@@ -1,19 +1,27 @@
 import type { MouseEvent } from 'react'
-import type { MemoriloEditor, TableCellElementType, TableHeaderCellElementType } from '../../../slate'
+import type { TableColumnDragItem, TableRowDragItem } from '../../../lib/table-reorder'
+import type { MemoriloEditor } from '../../../slate'
+import type { TableSelectableCell } from './table-utils'
 import { cn } from '@memorilo/utils'
-import { useCallback } from 'react'
-import { Editor, Node, Path, Transforms } from 'slate'
+import { useCallback, useEffect, useMemo } from 'react'
+import { useDrag, useDragLayer } from 'react-dnd'
+import { Editor, Path, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor } from 'slate-table'
 import {
-  isHiddenTableHead,
   isTable,
   isTableCell,
   isTableRow,
-  isTableSection,
 } from '../../../lib/element-type'
-
-type TableSelectableCell = TableCellElementType | TableHeaderCellElementType
+import {
+  createColumnDragData,
+  createRowDragData,
+  getTablePathFromCellPath,
+  TABLE_DND_COLUMN,
+  TABLE_DND_ROW,
+} from '../../../lib/table-reorder'
+import { useTable } from './table-provider'
+import { isFirstColumn, isTopRow } from './table-utils'
 
 function getSelectionTablePath(editor: MemoriloEditor): Path | null {
   if (!editor.selection)
@@ -29,12 +37,7 @@ function getSelectionTablePath(editor: MemoriloEditor): Path | null {
 
 function getCellTablePath(editor: MemoriloEditor, element: TableSelectableCell): Path | null {
   const cellPath = ReactEditor.findPath(editor, element)
-  const tableEntry = Editor.above(editor, {
-    at: cellPath,
-    match: node => isTable(node),
-  })
-
-  return tableEntry ? tableEntry[1] : null
+  return getTablePathFromCellPath(editor, cellPath)
 }
 
 function isSameTableAsSelection(editor: MemoriloEditor, element: TableSelectableCell): boolean {
@@ -48,48 +51,6 @@ function isSameTableAsSelection(editor: MemoriloEditor, element: TableSelectable
     return false
 
   return Path.equals(selectionTablePath, cellTablePath)
-}
-
-function isFirstColumn(editor: MemoriloEditor, element: TableSelectableCell): boolean {
-  const cellPath = ReactEditor.findPath(editor, element)
-  return cellPath[cellPath.length - 1] === 0
-}
-
-function getFirstVisibleRowPath(editor: MemoriloEditor, tablePath: Path): Path | null {
-  for (const [section, sectionPath] of Node.children(editor, tablePath)) {
-    if (!isTableSection(section))
-      continue
-    if (isHiddenTableHead(section))
-      continue
-    for (const [row, rowPath] of Node.children(editor, sectionPath)) {
-      if (isTableRow(row))
-        return rowPath
-    }
-  }
-  return null
-}
-
-function isTopRow(editor: MemoriloEditor, element: TableSelectableCell): boolean {
-  const cellPath = ReactEditor.findPath(editor, element)
-  const rowEntry = Editor.above(editor, {
-    at: cellPath,
-    match: node => isTableRow(node),
-  })
-  if (!rowEntry)
-    return false
-
-  const [, rowPath] = rowEntry
-  const tableEntry = Editor.above(editor, {
-    at: rowPath,
-    match: node => isTable(node),
-  })
-  if (!tableEntry)
-    return false
-
-  const [, tablePath] = tableEntry
-  const firstRowPath = getFirstVisibleRowPath(editor, tablePath)
-
-  return Boolean(firstRowPath && Path.equals(rowPath, firstRowPath))
 }
 
 function getCellEntryAtSelection(editor: MemoriloEditor) {
@@ -164,10 +125,27 @@ function selectColumn(editor: MemoriloEditor, element: TableSelectableCell) {
 
 export function TableCellSelectionHandles({ element }: { element: TableSelectableCell }) {
   const editor = useSlateStatic()
+  const { dragTarget, setDragTarget } = useTable()
   const showHandlers = useSlateSelector(useCallback(
     nextEditor => isSameTableAsSelection(nextEditor, element),
     [element],
   ))
+  const cellTablePath = useMemo(() => getCellTablePath(editor, element), [editor, element])
+  const { dragItemType, dragItem, isDragging } = useDragLayer(monitor => ({
+    dragItemType: monitor.getItemType(),
+    dragItem: monitor.getItem(),
+    isDragging: monitor.isDragging(),
+  }))
+  const isDraggingSameTable = useMemo(() => {
+    if (!dragItemType || !dragItem || !cellTablePath)
+      return false
+    if (dragItemType === TABLE_DND_ROW)
+      return Path.equals((dragItem as TableRowDragItem).tablePath, cellTablePath)
+    if (dragItemType === TABLE_DND_COLUMN)
+      return Path.equals((dragItem as TableColumnDragItem).tablePath, cellTablePath)
+    return false
+  }, [cellTablePath, dragItem, dragItemType])
+  const shouldRenderHandles = showHandlers || isDraggingSameTable
   const showColumnHandle = useSlateSelector(useCallback(
     nextEditor => isTopRow(nextEditor, element),
     [element],
@@ -177,21 +155,66 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
     [element],
   ))
 
-  const handleRowMouseDown = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+  // Use click handlers so dragstart isn't canceled by a prevented mousedown.
+  const handleRowClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
     selectRow(editor, element)
     ReactEditor.focus(editor)
   }, [editor, element])
 
-  const handleColumnMouseDown = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+  const handleColumnClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
     selectColumn(editor, element)
     ReactEditor.focus(editor)
   }, [editor, element])
 
-  if (!showHandlers)
+  const [{ isDragging: isRowDragging }, rowDragRef] = useDrag(() => ({
+    type: TABLE_DND_ROW,
+    item: () => {
+      const cellPath = ReactEditor.findPath(editor, element)
+      return createRowDragData(editor, cellPath) ?? { tablePath: [], rowPath: [] }
+    },
+    canDrag: () => {
+      const cellPath = ReactEditor.findPath(editor, element)
+      return Boolean(createRowDragData(editor, cellPath))
+    },
+    collect: monitor => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }), [editor, element])
+
+  const [{ isDragging: isColumnDragging }, columnDragRef] = useDrag(() => ({
+    type: TABLE_DND_COLUMN,
+    item: () => {
+      const cellPath = ReactEditor.findPath(editor, element)
+      return createColumnDragData(editor, cellPath) ?? { tablePath: [], columnIndex: 0 }
+    },
+    canDrag: () => {
+      const cellPath = ReactEditor.findPath(editor, element)
+      return Boolean(createColumnDragData(editor, cellPath))
+    },
+    collect: monitor => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }), [editor, element])
+
+  useEffect(() => {
+    if (!isDragging && dragTarget)
+      setDragTarget(null)
+  }, [dragTarget, isDragging, setDragTarget])
+
+  const setRowHandleRef = useCallback((node: HTMLButtonElement | null) => {
+    rowDragRef(node)
+  }, [rowDragRef])
+
+  const setColumnHandleRef = useCallback((node: HTMLButtonElement | null) => {
+    columnDragRef(node)
+  }, [columnDragRef])
+
+  // Keep handles available during drag even if Slate clears the selection.
+  if (!shouldRenderHandles)
     return null
 
   return (
@@ -202,11 +225,13 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
           tabIndex={-1}
           contentEditable={false}
           aria-label="Select column"
+          ref={setColumnHandleRef}
           className={cn(
             'absolute -top-2 left-0 right-0 z-10 h-2 cursor-pointer',
             'flex items-center justify-center opacity-40 transition-opacity hover:opacity-80',
+            isColumnDragging && 'opacity-80',
           )}
-          onMouseDown={handleColumnMouseDown}
+          onClick={handleColumnClick}
         >
           <span className="block h-1 w-8 rounded-full bg-slate-400" />
         </button>
@@ -217,11 +242,13 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
           tabIndex={-1}
           contentEditable={false}
           aria-label="Select row"
+          ref={setRowHandleRef}
           className={cn(
             'absolute -left-2 top-0 bottom-0 z-10 w-2 cursor-pointer',
             'flex items-center justify-center opacity-40 transition-opacity hover:opacity-80',
+            isRowDragging && 'opacity-80',
           )}
-          onMouseDown={handleRowMouseDown}
+          onClick={handleRowClick}
         >
           <span className="block h-8 w-1 rounded-full bg-slate-400" />
         </button>

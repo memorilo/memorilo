@@ -28,6 +28,8 @@
     "motion": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
+    "react-dnd": "catalog:",
+    "react-dnd-html5-backend": "catalog:",
     "react-i18next": "catalog:",
     "react-icons": "catalog:",
     "react-use": "catalog:",
