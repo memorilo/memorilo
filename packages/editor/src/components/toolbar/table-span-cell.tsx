@@ -3,7 +3,7 @@ import { LuTableCellsMerge } from 'react-icons/lu'
 import { useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor, TableEditor } from 'slate-table'
 import { useTable } from '../elements/table/table-provider'
-import { UtilButton } from '../util-button'
+import { ToolbarIconButton } from './icon-button'
 
 export function TableSpanCellToolbarButtons() {
   const { canMerge } = useTable()
@@ -13,13 +13,13 @@ export function TableSpanCellToolbarButtons() {
   return (
     <>
 
-      <UtilButton
+      <ToolbarIconButton
         disabled={!isInTable && !canMerge}
         onClick={() => TableEditor.merge(editor)}
-        aria-label="Merge Cell"
+        label="Merge cell"
       >
         <LuTableCellsMerge />
-      </UtilButton>
+      </ToolbarIconButton>
     </>
   )
 }
