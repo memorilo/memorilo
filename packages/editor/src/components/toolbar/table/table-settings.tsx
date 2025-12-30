@@ -6,7 +6,7 @@ import { Switch } from '@memorilo/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { parsePositiveInt } from '@memorilo/utils'
 import { useCallback, useMemo, useState } from 'react'
-import { LuTableProperties } from 'react-icons/lu'
+import { TbTableOptions } from 'react-icons/tb'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { UtilButton } from '../../util-button'
 import { applyTableSettings, getTableState } from './table-settings-utils'
@@ -78,7 +78,7 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
                 aria-label="Table settings"
                 title="Table settings"
               >
-                <LuTableProperties />
+                <TbTableOptions />
               </UtilButton>
             </span>
           </TooltipTrigger>
