@@ -4,8 +4,9 @@ import { ELEMENTS } from '../components/elements'
 
 export function useRenderElement() {
   return useCallback((props: RenderElementProps) => {
-    const Element
-      = props.element.type === undefined ? ELEMENTS.plain : ELEMENTS[props.element.type]
+    const Element = props.element.type && ELEMENTS[props.element.type]
+      ? ELEMENTS[props.element.type]
+      : ELEMENTS.plain
     return <Element {...props} />
   }, [])
 }
