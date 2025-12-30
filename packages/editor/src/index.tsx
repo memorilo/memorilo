@@ -3,6 +3,8 @@ import type { Descendant } from 'slate'
 import type { SlashCommandRegistry } from './lib/slash-commands/types'
 import { cn } from '@memorilo/utils'
 import { useMemo, useState } from 'react'
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
 import { createEditor } from 'slate'
 import { withHistory } from 'slate-history'
 import { Editable, Slate, useSlateStatic, withReact } from 'slate-react'
@@ -552,7 +554,9 @@ export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: Memo
             initialValue={initialValue}
             onSelectionChange={() => setCanMerge(TableEditor.canMerge(editor))}
           >
-            <MemoriloEditable {...props} slashCommandRegistry={slashCommandRegistry} />
+            <DndProvider backend={HTML5Backend}>
+              <MemoriloEditable {...props} slashCommandRegistry={slashCommandRegistry} />
+            </DndProvider>
           </Slate>
         </RootIndentEnableContext>
       </ToolbarProvider>
