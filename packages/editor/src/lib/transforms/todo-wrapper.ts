@@ -9,6 +9,9 @@ import { isTodo } from '../element-type'
  * This is extracted so both toolbar and slash-commands can reuse identical behavior.
  */
 export function wrapBlockInTodo(editor: Editor, blockPath: Path, checked: boolean) {
+  if (!Node.has(editor, blockPath))
+    return
+
   const block = Node.get(editor, blockPath)
   if (!SlateElement.isElement(block))
     return
@@ -32,13 +35,13 @@ export function wrapBlockInTodo(editor: Editor, blockPath: Path, checked: boolea
   while (true) {
     const currentBlock = Node.get(editor, blockPath)
     if (!SlateElement.isElement(currentBlock))
-      continue
+      break
     if (!Array.isArray(currentBlock.children) || currentBlock.children.length <= 1)
       break
 
     const currentTodo = Node.get(editor, todoPath)
     if (!SlateElement.isElement(currentTodo))
-      continue
+      break
     const toIndex = Array.isArray(currentTodo.children) ? currentTodo.children.length : 0
     Transforms.moveNodes(editor, { at: blockPath.concat(1), to: todoPath.concat(toIndex) })
   }

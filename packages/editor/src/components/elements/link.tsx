@@ -3,7 +3,7 @@ import type { LinkElementType } from '../../slate'
 import { openURL } from '@memorilo/api/open'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { cn } from '@memorilo/utils'
-import { useMemo } from 'react'
+import { useCallback } from 'react'
 import { useKeyPress } from 'react-use'
 
 export function Link(pprops: RenderElementProps) {
@@ -11,27 +11,28 @@ export function Link(pprops: RenderElementProps) {
 
   const openWithCtrl = true // TODO: maybe make this configurable?
 
-  const [isCtrlPressed] = useKeyPress('Meta') // Cmd on Mac, Ctrl on Windows/Linux
+  const [isMetaPressed] = useKeyPress('Meta') // Cmd on Mac
+  const [isCtrlPressed] = useKeyPress('Control') // Ctrl on Windows/Linux
+  const isModifierPressed = isMetaPressed || isCtrlPressed
 
-  const handleClick = useMemo(() => {
-    if (openWithCtrl && !isCtrlPressed) {
-      return undefined
-    }
-    return (event: React.MouseEvent) => {
-      openURL(props.element.url)
+  const handleClick = useCallback((event: React.MouseEvent) => {
+    if (openWithCtrl && !isModifierPressed) {
       event.preventDefault()
+      return
     }
-  }, [openWithCtrl, isCtrlPressed, props.element.url])
+    event.preventDefault()
+    openURL(props.element.url)
+  }, [isModifierPressed, openWithCtrl, props.element.url])
 
   const element = (
     <a
       {...props.attributes}
       href={props.element.url}
-      target="__blank"
+      target="_blank"
       className={cn(
         'text-blue-500 underline',
         {
-          'cursor-pointer': !openWithCtrl || isCtrlPressed,
+          'cursor-pointer': !openWithCtrl || isModifierPressed,
         },
       )}
       onClick={handleClick}
@@ -41,7 +42,7 @@ export function Link(pprops: RenderElementProps) {
     </a>
   )
 
-  if (openWithCtrl && !isCtrlPressed) {
+  if (openWithCtrl && !isModifierPressed) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
