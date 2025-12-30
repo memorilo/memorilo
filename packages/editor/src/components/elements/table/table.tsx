@@ -84,6 +84,9 @@ export function TableHeaderCell(props: RenderElementProps) {
       className={cn(
         {
           'bg-sky-200': selected,
+          'text-left': element.align === 'left',
+          'text-center': element.align === 'center',
+          'text-right': element.align === 'right',
         },
         'border border-gray-400 p-2 align-middle',
       )}
@@ -105,6 +108,9 @@ export function TableCell(props: RenderElementProps) {
       className={cn(
         {
           'bg-sky-200': selected,
+          'text-left': element.align === 'left',
+          'text-center': element.align === 'center',
+          'text-right': element.align === 'right',
         },
         'border border-gray-400 p-2 align-middle',
       )}

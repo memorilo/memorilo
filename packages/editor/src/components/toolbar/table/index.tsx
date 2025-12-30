@@ -1,5 +1,9 @@
+import { cn } from '@memorilo/utils'
 import { useCallback } from 'react'
 import {
+  LuAlignCenter,
+  LuAlignLeft,
+  LuAlignRight,
   LuArrowDownToLine,
   LuArrowLeftToLine,
   LuArrowRightToLine,
@@ -12,6 +16,7 @@ import {
 } from 'react-icons/lu'
 import { useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor, TableEditor } from 'slate-table'
+import { getTableSelectionAlignment, setTableCellAlignment } from '../../../lib/transforms/table-align'
 import { useTable } from '../../elements/table/table-provider'
 import {
   ToolbarActionPopover,
@@ -32,6 +37,7 @@ export function TableToolbarButtons() {
       <TableSettingsButton />
       <TableRowActions disabled={!isInTable} />
       <TableColumnActions disabled={!isInTable} />
+      <TableAlignmentButtons disabled={!isInTable} />
 
       <ToolbarIconButton
         label="Split cells"
@@ -124,5 +130,51 @@ function TableColumnActions({ disabled }: { disabled: boolean }) {
         </ToolbarActionPopoverItem>
       </ToolbarActionPopoverContent>
     </ToolbarActionPopover>
+  )
+}
+
+function TableAlignmentButtons({ disabled }: { disabled: boolean }) {
+  const editor = useSlateStatic()
+  const alignment = useSlateSelector(useCallback(getTableSelectionAlignment, []))
+
+  const alignLeft = useCallback(() => {
+    setTableCellAlignment(editor, 'left')
+  }, [editor])
+
+  const alignCenter = useCallback(() => {
+    setTableCellAlignment(editor, 'center')
+  }, [editor])
+
+  const alignRight = useCallback(() => {
+    setTableCellAlignment(editor, 'right')
+  }, [editor])
+
+  return (
+    <>
+      <ToolbarIconButton
+        label="Align left"
+        disabled={disabled}
+        onClick={alignLeft}
+        className={cn(alignment === 'left' && 'text-blue-600 font-bold')}
+      >
+        <LuAlignLeft />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Align center"
+        disabled={disabled}
+        onClick={alignCenter}
+        className={cn(alignment === 'center' && 'text-blue-600 font-bold')}
+      >
+        <LuAlignCenter />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Align right"
+        disabled={disabled}
+        onClick={alignRight}
+        className={cn(alignment === 'right' && 'text-blue-600 font-bold')}
+      >
+        <LuAlignRight />
+      </ToolbarIconButton>
+    </>
   )
 }
