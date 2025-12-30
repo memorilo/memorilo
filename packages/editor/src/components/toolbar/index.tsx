@@ -1,4 +1,3 @@
-import { Separator } from '@memorilo/components/ui/separator'
 import { Match } from 'effect'
 import { useCallback, useMemo } from 'react'
 import { useSlateSelector } from 'slate-react'
@@ -8,7 +7,7 @@ import { InsertTableToolbarButton } from './insert-table'
 import { NormalToolbarButtons } from './normal'
 import { TableToolbarButtons } from './table'
 import { TableSpanCellToolbarButtons } from './table-span-cell'
-import { Toolbar } from './toolbar'
+import { Toolbar, ToolbarRow } from './toolbar'
 
 export function FormatToolbar() {
   const isInTable = useSlateSelector(useCallback(editor => TableCursor.isInTable(editor), []))
@@ -20,23 +19,26 @@ export function FormatToolbar() {
       canMerge,
     }).pipe(
       Match.when({ isInTable: true, canMerge: true }, () => (
-        <>
+        <ToolbarRow>
           <TableSpanCellToolbarButtons />
           <TableToolbarButtons />
-        </>
+        </ToolbarRow>
       )),
       Match.when({ isInTable: true, canMerge: false }, () => (
         <>
-          <TableToolbarButtons />
-          <Separator orientation="vertical" />
-          <NormalToolbarButtons />
+          <ToolbarRow>
+            <TableToolbarButtons />
+          </ToolbarRow>
+          <ToolbarRow>
+            <NormalToolbarButtons />
+          </ToolbarRow>
         </>
       )),
       Match.orElse(() => (
-        <>
+        <ToolbarRow>
           <NormalToolbarButtons />
           <InsertTableToolbarButton />
-        </>
+        </ToolbarRow>
       )),
     ), [isInTable, canMerge])
 

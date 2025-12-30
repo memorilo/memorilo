@@ -136,7 +136,7 @@ export function Toolbar({ children }: ToolbarProps) {
     <aside
       ref={ref}
       className={cn(
-        'fixed z-50 flex max-w-[calc(100vw-16px)] items-center space-x-1 overflow-x-auto rounded-lg border border-gray-300 bg-white px-1 py-1 shadow-[0_0_30px_0px_rgba(0,0,0,0.3)] transition-opacity duration-300',
+        'fixed z-50 flex max-w-[calc(100vw-16px)] flex-col items-stretch gap-1 overflow-hidden rounded-lg border border-gray-300 bg-white px-1 py-1 shadow-[0_0_30px_0px_rgba(0,0,0,0.3)] transition-opacity duration-300',
         isShowToolbar ? 'opacity-100' : 'opacity-0 pointer-events-none',
       )}
       onMouseDown={(e: any) => {
@@ -145,5 +145,18 @@ export function Toolbar({ children }: ToolbarProps) {
     >
       {children}
     </aside>
+  )
+}
+
+interface ToolbarRowProps {
+  children: ReactNode
+  className?: string
+}
+
+export function ToolbarRow({ children, className }: ToolbarRowProps) {
+  return (
+    <div className={cn('flex w-full min-w-0 items-center gap-1 overflow-x-auto', className)}>
+      {children}
+    </div>
   )
 }
