@@ -4,6 +4,7 @@ import { cn } from '@memorilo/utils'
 import { useCallback } from 'react'
 import { useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor } from 'slate-table'
+import { TableCellSelectionHandles } from './table-selection-handles'
 
 export function Table(props: RenderElementProps) {
   const editor = useSlateStatic()
@@ -88,10 +89,11 @@ export function TableHeaderCell(props: RenderElementProps) {
           'text-center': element.align === 'center',
           'text-right': element.align === 'right',
         },
-        'border border-gray-400 p-2 align-middle',
+        'relative border border-gray-400 p-2 align-middle',
       )}
       {...props.attributes}
     >
+      <TableCellSelectionHandles element={element} />
       {props.children}
     </th>
   )
@@ -112,10 +114,11 @@ export function TableCell(props: RenderElementProps) {
           'text-center': element.align === 'center',
           'text-right': element.align === 'right',
         },
-        'border border-gray-400 p-2 align-middle',
+        'relative border border-gray-400 p-2 align-middle',
       )}
       {...props.attributes}
     >
+      <TableCellSelectionHandles element={element} />
       {props.children}
     </td>
   )
