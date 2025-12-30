@@ -4,6 +4,7 @@ import { cn } from '@memorilo/utils'
 import { useMemo } from 'react'
 import { Node, Transforms } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateStatic } from 'slate-react'
+import { useTableSelectionActive } from '../../../hooks/use-table-selection'
 import { renderKatex } from './renderer'
 import 'katex/dist/katex.min.css'
 
@@ -11,6 +12,7 @@ export function MathInline(props: RenderElementProps) {
   const editor = useSlateStatic()
   const selected = useSelected()
   const focused = useFocused()
+  const isTableSelecting = useTableSelectionActive()
   const equation = useMemo(() => Node.string(props.element), [props.element])
 
   const renderedEquationBlock = useMemo(
@@ -29,7 +31,8 @@ export function MathInline(props: RenderElementProps) {
     ReactEditor.focus(editor)
   }
 
-  const isEditing = selected && focused
+  // Table multi-cell selection is a virtual selection; avoid entering edit mode.
+  const isEditing = selected && focused && !isTableSelecting
 
   return isEditing
     ? (
