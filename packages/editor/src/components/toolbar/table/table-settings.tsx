@@ -3,6 +3,7 @@ import { Button } from '@memorilo/components/ui/button'
 import { Input } from '@memorilo/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { Switch } from '@memorilo/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { parsePositiveInt } from '@memorilo/utils'
 import { useCallback, useMemo, useState } from 'react'
 import { LuTableProperties } from 'react-icons/lu'
@@ -70,12 +71,21 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
       }}
     >
       <PopoverTrigger asChild>
-        <UtilButton
-          aria-label="Table settings"
-          title="Table settings"
-        >
-          <LuTableProperties />
-        </UtilButton>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">
+              <UtilButton
+                aria-label="Table settings"
+                title="Table settings"
+              >
+                <LuTableProperties />
+              </UtilButton>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent sideOffset={6}>
+            Table settings
+          </TooltipContent>
+        </Tooltip>
       </PopoverTrigger>
       <PopoverContent
         align="start"
