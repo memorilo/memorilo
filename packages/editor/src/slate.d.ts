@@ -113,9 +113,12 @@ export interface TableRowElementType {
   children: Array<TableCellElementType | TableHeaderCellElementType>
 }
 
+export type TableCellAlignment = 'left' | 'center' | 'right'
+
 interface TableCellBase {
   rowSpan?: number
   colSpan?: number
+  align?: TableCellAlignment
   children: Array<MemoriloElement | MemoriloText>
 }
 
