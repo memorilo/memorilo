@@ -1,17 +1,14 @@
 import type { RenderElementProps } from 'slate-react'
 import type { TableCellElementType, TableHeadElementType, TableHeaderCellElementType } from '../../../slate'
 import { cn } from '@memorilo/utils'
-import { useCallback } from 'react'
-import { useSlateSelector, useSlateStatic } from 'slate-react'
+import { useSlateSelector } from 'slate-react'
 import { TableCursor } from 'slate-table'
+import { useTableSelectionActive } from '../../../hooks/use-table-selection'
 import { TableCellSelectionHandles } from './table-selection-handles'
 
 export function Table(props: RenderElementProps) {
-  const editor = useSlateStatic()
   // Turn the selection generator into a boolean so it stays stable across renders.
-  const isSelecting = useSlateSelector(
-    useCallback(() => !TableCursor.selection(editor).next().done, [editor]),
-  )
+  const isSelecting = useTableSelectionActive()
 
   return (
     <table
