@@ -8,12 +8,10 @@ import {
   LuArrowLeftToLine,
   LuArrowRightToLine,
   LuArrowUpToLine,
-  LuColumns2,
-  LuGrid2X2X,
-  LuRows2,
   LuTableCellsSplit,
   LuTrash2,
 } from 'react-icons/lu'
+import { TbTableColumn, TbTableOff, TbTableRow } from 'react-icons/tb'
 import { useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor, TableEditor } from 'slate-table'
 import { getTableSelectionAlignment, setTableCellAlignment } from '../../../lib/transforms/table-align'
@@ -37,8 +35,6 @@ export function TableToolbarButtons() {
       <TableSettingsButton />
       <TableRowActions disabled={!isInTable} />
       <TableColumnActions disabled={!isInTable} />
-      <TableAlignmentButtons disabled={!isInTable} />
-
       <ToolbarIconButton
         label="Split cells"
         disabled={!isInTable && !canMerge}
@@ -46,11 +42,13 @@ export function TableToolbarButtons() {
       >
         <LuTableCellsSplit />
       </ToolbarIconButton>
+      <TableAlignmentButtons disabled={!isInTable} />
+
       <ToolbarIconButton
         label="Remove table"
         onClick={() => TableEditor.removeTable(editor)}
       >
-        <LuGrid2X2X className="text-red-500" />
+        <TbTableOff className="text-red-500" />
       </ToolbarIconButton>
     </>
 
@@ -75,7 +73,7 @@ function TableRowActions({ disabled }: { disabled: boolean }) {
   return (
     <ToolbarActionPopover disabled={disabled}>
       <ToolbarActionPopoverTrigger label="Row actions">
-        <LuRows2 />
+        <TbTableRow />
       </ToolbarActionPopoverTrigger>
       <ToolbarActionPopoverContent>
         <ToolbarActionPopoverItem onSelect={insertRowAbove}>
@@ -113,7 +111,7 @@ function TableColumnActions({ disabled }: { disabled: boolean }) {
   return (
     <ToolbarActionPopover disabled={disabled}>
       <ToolbarActionPopoverTrigger label="Column actions">
-        <LuColumns2 />
+        <TbTableColumn />
       </ToolbarActionPopoverTrigger>
       <ToolbarActionPopoverContent>
         <ToolbarActionPopoverItem onSelect={insertColumnLeft}>
