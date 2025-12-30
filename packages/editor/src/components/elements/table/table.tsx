@@ -1,5 +1,5 @@
 import type { RenderElementProps } from 'slate-react'
-import type { TableCellElementType, TableHeaderCellElementType } from '../../../slate'
+import type { TableCellElementType, TableHeadElementType, TableHeaderCellElementType } from '../../../slate'
 import { cn } from '@memorilo/utils'
 import { useCallback } from 'react'
 import { useSlateSelector, useSlateStatic } from 'slate-react'
@@ -30,6 +30,10 @@ export function Table(props: RenderElementProps) {
 }
 
 export function TableHead(props: RenderElementProps) {
+  const element = props.element as TableHeadElementType & { hidden?: boolean }
+  if (element.hidden)
+    return null
+
   return (
     <thead
       {...props.attributes}

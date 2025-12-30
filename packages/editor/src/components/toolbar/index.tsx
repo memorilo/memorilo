@@ -1,9 +1,9 @@
-import type { PropsWithChildren } from 'react'
-import { cn } from '@memorilo/utils'
-import { Iterable, Match, Option } from 'effect'
-import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Separator } from '@memorilo/components/ui/separator'
+import { Match } from 'effect'
+import { useCallback, useMemo } from 'react'
 import { useSlateSelector } from 'slate-react'
 import { TableCursor } from 'slate-table'
+import { useTable } from '../elements/table/table-provider'
 import { InsertTableToolbarButton } from './insert-table'
 import { NormalToolbarButtons } from './normal'
 import { TableToolbarButtons } from './table'
@@ -12,27 +12,24 @@ import { Toolbar } from './toolbar'
 
 export function FormatToolbar() {
   const isInTable = useSlateSelector(useCallback(editor => TableCursor.isInTable(editor), []))
-  const isSpanTable = Iterable.head(useSlateSelector(useCallback(editor => TableCursor.selection(editor), [])))
-    .pipe(
-      Option.map(() => true),
-      Option.getOrElse(() => false),
-    )
+  const { canMerge } = useTable()
 
   const buttons = useMemo(() =>
     Match.value({
       isInTable,
-      isSpanTable,
+      canMerge,
     }).pipe(
-      Match.when({ isInTable: true, isSpanTable: true }, () => (
+      Match.when({ isInTable: true, canMerge: true }, () => (
         <>
           <TableSpanCellToolbarButtons />
           <TableToolbarButtons />
         </>
       )),
-      Match.when({ isInTable: true, isSpanTable: false }, () => (
+      Match.when({ isInTable: true, canMerge: false }, () => (
         <>
-          <NormalToolbarButtons />
           <TableToolbarButtons />
+          <Separator orientation="vertical" />
+          <NormalToolbarButtons />
         </>
       )),
       Match.orElse(() => (
@@ -41,7 +38,7 @@ export function FormatToolbar() {
           <InsertTableToolbarButton />
         </>
       )),
-    ), [isInTable, isSpanTable])
+    ), [isInTable, canMerge])
 
   return (
     <Toolbar>
