@@ -126,10 +126,7 @@ function selectColumn(editor: MemoriloEditor, element: TableSelectableCell) {
 export function TableCellSelectionHandles({ element }: { element: TableSelectableCell }) {
   const editor = useSlateStatic()
   const { dragTarget, setDragTarget } = useTable()
-  const showHandlers = useSlateSelector(useCallback(
-    nextEditor => isSameTableAsSelection(nextEditor, element),
-    [element],
-  ))
+  const showHandlers = useSlateSelector(nextEditor => isSameTableAsSelection(nextEditor, element))
   const cellTablePath = useMemo(() => getCellTablePath(editor, element), [editor, element])
   const { dragItemType, dragItem, isDragging } = useDragLayer(monitor => ({
     dragItemType: monitor.getItemType(),
@@ -146,14 +143,8 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
     return false
   }, [cellTablePath, dragItem, dragItemType])
   const shouldRenderHandles = showHandlers || isDraggingSameTable
-  const showColumnHandle = useSlateSelector(useCallback(
-    nextEditor => isTopRow(nextEditor, element),
-    [element],
-  ))
-  const showRowHandle = useSlateSelector(useCallback(
-    nextEditor => isFirstColumn(nextEditor, element),
-    [element],
-  ))
+  const showColumnHandle = useSlateSelector(nextEditor => isTopRow(nextEditor, element))
+  const showRowHandle = useSlateSelector(nextEditor => isFirstColumn(nextEditor, element))
 
   // Use click handlers so dragstart isn't canceled by a prevented mousedown.
   const handleRowClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -205,14 +196,6 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
       setDragTarget(null)
   }, [dragTarget, isDragging, setDragTarget])
 
-  const setRowHandleRef = useCallback((node: HTMLButtonElement | null) => {
-    rowDragRef(node)
-  }, [rowDragRef])
-
-  const setColumnHandleRef = useCallback((node: HTMLButtonElement | null) => {
-    columnDragRef(node)
-  }, [columnDragRef])
-
   // Keep handles available during drag even if Slate clears the selection.
   if (!shouldRenderHandles)
     return null
@@ -225,7 +208,9 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
           tabIndex={-1}
           contentEditable={false}
           aria-label="Select column"
-          ref={setColumnHandleRef}
+          ref={(node) => {
+            columnDragRef(node)
+          }}
           className={cn(
             'absolute -top-2 left-0 right-0 z-10 h-2 cursor-pointer',
             'flex items-center justify-center opacity-40 transition-opacity hover:opacity-80',
@@ -242,7 +227,9 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
           tabIndex={-1}
           contentEditable={false}
           aria-label="Select row"
-          ref={setRowHandleRef}
+          ref={(node) => {
+            rowDragRef(node)
+          }}
           className={cn(
             'absolute -left-2 top-0 bottom-0 z-10 w-2 cursor-pointer',
             'flex items-center justify-center opacity-40 transition-opacity hover:opacity-80',
