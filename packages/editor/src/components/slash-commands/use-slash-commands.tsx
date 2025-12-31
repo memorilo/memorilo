@@ -38,9 +38,9 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
   const ctx: SlashCommandContext = useMemo(() => ({ editor }), [editor])
 
   const tEn = useMemo(() => i18n.getFixedT('en', 'app'), [i18n])
-  const tKey = useCallback((key: string) => t(key as any, { defaultValue: key }) as string, [t])
-  const tEnKey = useCallback((key: string) => tEn(key as any, { defaultValue: key }) as string, [tEn])
   const filtered = useMemo(() => {
+    const tKey = (key: string) => t(key as any, { defaultValue: key }) as string
+    const tEnKey = (key: string) => tEn(key as any, { defaultValue: key }) as string
     const q = (trigger?.query ?? '').trim().toLowerCase()
     const visible = mergedRegistry.commands.filter((command) => {
       if (command.hidden?.(ctx))
@@ -68,7 +68,7 @@ export function useSlashCommands({ registry, extraRegistry }: UseSlashCommandsOp
     })
 
     return groupSlashCommands(mergedRegistry, visible)
-  }, [ctx, mergedRegistry, tEnKey, tKey, trigger?.query])
+  }, [ctx, mergedRegistry, t, tEn, trigger?.query])
 
   const items = useMemo(() => {
     return filtered.flat.map((command) => {

@@ -130,7 +130,7 @@ export function LinkToggleButton() {
         <Input
           ref={inputRef}
           value={url}
-          placeholder="https://example.com"
+          placeholder={t('editor.toolbar.link.placeholder')}
           onChange={(e) => {
             setUrl(e.target.value)
           }}

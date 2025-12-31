@@ -1,19 +1,20 @@
 import type { HeadingOrPlainType as BlockType } from '../../../lib/element-type'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@memorilo/components/ui/select'
 import { Array, pipe } from 'effect'
+import { useTranslation } from 'react-i18next'
 import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { HEADING_AND_PLAIN_TYPES as BLOCK_TYPES, isHeadingOrPlainType as isBlockType } from '../../../lib/element-type'
 import { getLowestIndentEntriesInRange, wrapIndentHeaderInBlock } from '../../../lib/transforms/indent'
 
-const BLOCK_TYPE_LABEL: Record<BlockType, string> = {
-  plain: 'Plain',
-  h1: 'Heading 1',
-  h2: 'Heading 2',
-  h3: 'Heading 3',
-  h4: 'Heading 4',
-  h5: 'Heading 5',
-  h6: 'Heading 6',
+const BLOCK_TYPE_LABEL_KEYS: Record<BlockType, string> = {
+  plain: 'editor.slashCommands.block.plain',
+  h1: 'editor.slashCommands.block.h1',
+  h2: 'editor.slashCommands.block.h2',
+  h3: 'editor.slashCommands.block.h3',
+  h4: 'editor.slashCommands.block.h4',
+  h5: 'editor.slashCommands.block.h5',
+  h6: 'editor.slashCommands.block.h6',
 }
 
 const BLOCK_TYLE_ICON: Record<BlockType, string> = {
@@ -35,6 +36,7 @@ const BLOCK_TYLE_ICON: Record<BlockType, string> = {
  * heading/plain blocks directly, wraps the indent header portion into the chosen block type.
  */
 export function BlockTypeSelect() {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
 
   const { blockTypeValue, canChangeBlockType } = useSlateSelector((editor) => {
@@ -110,7 +112,7 @@ export function BlockTypeSelect() {
       }}
     >
       <SelectTrigger size="sm" className="h-8 px-2 border-0 shadow-none">
-        <SelectValue placeholder={canChangeBlockType ? 'Multiple' : 'Block'} />
+        <SelectValue placeholder={canChangeBlockType ? t('editor.blockType.placeholderMultiple') : t('editor.blockType.placeholderBlock')} />
       </SelectTrigger>
       <SelectContent>
         {BLOCK_TYPES.map(type => (
@@ -118,7 +120,7 @@ export function BlockTypeSelect() {
             <span className="w-[2em] text-center font-bold">
               {BLOCK_TYLE_ICON[type]}
             </span>
-            {BLOCK_TYPE_LABEL[type]}
+            {t(BLOCK_TYPE_LABEL_KEYS[type])}
           </SelectItem>
         ))}
       </SelectContent>
