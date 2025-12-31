@@ -97,7 +97,7 @@ function TodoSwitch({
         <span
           data-slot="todo-switch-checked-label"
           className={cn(
-            'col-start-1 row-start-1 flex w-full items-center justify-center px-0.5 text-[10px] font-semibold leading-none tracking-wide transition-opacity duration-150 ease-in-out',
+            'col-start-1 row-start-1 flex w-full items-center justify-center px-0.5 text-[10px] font-semibold leading-none tracking-wide whitespace-nowrap transition-opacity duration-150 ease-in-out',
             'pl-[calc(var(--todo-switch-inset)+var(--todo-switch-side))] pr-[calc(var(--todo-switch-inset)+var(--todo-switch-thumb)+var(--todo-switch-gap))]',
             currentChecked ? 'opacity-100' : 'opacity-0',
             checkedLabelClassName,
@@ -108,7 +108,7 @@ function TodoSwitch({
         <span
           data-slot="todo-switch-unchecked-label"
           className={cn(
-            'col-start-1 row-start-1 flex w-full items-center justify-center px-0.5 text-[10px] font-semibold leading-none tracking-wide transition-opacity duration-150 ease-in-out',
+            'col-start-1 row-start-1 flex w-full items-center justify-center px-0.5 text-[10px] font-semibold leading-none tracking-wide whitespace-nowrap transition-opacity duration-150 ease-in-out',
             'pl-[calc(var(--todo-switch-inset)+var(--todo-switch-thumb)+var(--todo-switch-gap))] pr-[calc(var(--todo-switch-inset)+var(--todo-switch-side))]',
             currentChecked ? 'opacity-0' : 'opacity-100',
             uncheckedLabelClassName,
