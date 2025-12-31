@@ -4,10 +4,12 @@ import { openURL } from '@memorilo/api/open'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { cn } from '@memorilo/utils'
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useKeyPress } from 'react-use'
 
 export function Link(pprops: RenderElementProps) {
   const props = pprops as RenderElementProps & { element: LinkElementType }
+  const { t } = useTranslation('app')
 
   const openWithCtrl = true // TODO: maybe make this configurable?
 
@@ -49,7 +51,7 @@ export function Link(pprops: RenderElementProps) {
           {element}
         </TooltipTrigger>
         <TooltipContent>
-          Press Cmd/Ctrl and click to open link
+          {t('editor.link.openWithModifier')}
         </TooltipContent>
       </Tooltip>
     )

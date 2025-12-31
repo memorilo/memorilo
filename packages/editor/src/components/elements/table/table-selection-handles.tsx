@@ -5,6 +5,7 @@ import type { TableSelectableCell } from './table-utils'
 import { cn } from '@memorilo/utils'
 import { useCallback, useEffect, useMemo } from 'react'
 import { useDrag, useDragLayer } from 'react-dnd'
+import { useTranslation } from 'react-i18next'
 import { Editor, Path, Transforms } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor } from 'slate-table'
@@ -124,6 +125,7 @@ function selectColumn(editor: MemoriloEditor, element: TableSelectableCell) {
 }
 
 export function TableCellSelectionHandles({ element }: { element: TableSelectableCell }) {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
   const { dragTarget, setDragTarget } = useTable()
   const showHandlers = useSlateSelector(nextEditor => isSameTableAsSelection(nextEditor, element))
@@ -207,7 +209,7 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
           type="button"
           tabIndex={-1}
           contentEditable={false}
-          aria-label="Select column"
+          aria-label={t('editor.table.selection.selectColumn')}
           ref={(node) => {
             columnDragRef(node)
           }}
@@ -226,7 +228,7 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
           type="button"
           tabIndex={-1}
           contentEditable={false}
-          aria-label="Select row"
+          aria-label={t('editor.table.selection.selectRow')}
           ref={(node) => {
             rowDragRef(node)
           }}

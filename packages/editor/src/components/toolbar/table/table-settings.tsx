@@ -6,6 +6,7 @@ import { Switch } from '@memorilo/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { parsePositiveInt } from '@memorilo/utils'
 import { useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TbTableOptions } from 'react-icons/tb'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { UtilButton } from '../../util-button'
@@ -26,6 +27,7 @@ export function TableSettingsButton() {
 }
 
 function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
   const [open, setOpen] = useState(false)
   const [rowInput, setRowInput] = useState(() => String(tableState.rowCount))
@@ -75,8 +77,8 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
           <PopoverTrigger asChild>
             <span className="inline-flex">
               <UtilButton
-                aria-label="Table settings"
-                title="Table settings"
+                aria-label={t('editor.table.toolbar.settingsTitle')}
+                title={t('editor.table.toolbar.settingsTitle')}
               >
                 <TbTableOptions />
               </UtilButton>
@@ -84,7 +86,7 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent sideOffset={6}>
-          Table settings
+          {t('editor.table.toolbar.settingsTitle')}
         </TooltipContent>
       </Tooltip>
       <PopoverContent
@@ -101,7 +103,7 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
         }}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">Rows</span>
+          <span className="text-xs text-muted-foreground">{t('editor.table.settings.rows')}</span>
           <Input
             type="number"
             min={1}
@@ -111,7 +113,7 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
           />
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">Columns</span>
+          <span className="text-xs text-muted-foreground">{t('editor.table.settings.columns')}</span>
           <Input
             type="number"
             min={1}
@@ -121,7 +123,7 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
           />
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">Hide header</span>
+          <span className="text-xs text-muted-foreground">{t('editor.table.settings.hideHeader')}</span>
           <Switch checked={hideHeader} onCheckedChange={setHideHeader} />
         </div>
         <div className="flex justify-end gap-2">
@@ -130,17 +132,17 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
             size="sm"
             onClick={resetForm}
           >
-            Reset
+            {t('editor.table.settings.reset')}
           </Button>
           <Button
             size="sm"
             disabled={!isDirty}
-            onClick={(e: any) => {
-              e.preventDefault()
+            onClick={(event) => {
+              event.preventDefault()
               apply()
             }}
           >
-            Apply
+            {t('editor.table.toolbar.apply')}
           </Button>
         </div>
       </PopoverContent>

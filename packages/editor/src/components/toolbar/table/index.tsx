@@ -1,5 +1,5 @@
 import { cn } from '@memorilo/utils'
-import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   LuAlignCenter,
   LuAlignLeft,
@@ -16,6 +16,7 @@ import { useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor, TableEditor } from 'slate-table'
 import { getTableSelectionAlignment, setTableCellAlignment } from '../../../lib/transforms/table-align'
 import { useTable } from '../../elements/table/table-provider'
+import { insertTableColumn, insertTableRow } from '../../elements/table/table-utils'
 import {
   ToolbarActionPopover,
   ToolbarActionPopoverContent,
@@ -26,8 +27,9 @@ import { ToolbarIconButton } from '../icon-button'
 import { TableSettingsButton } from './table-settings'
 
 export function TableToolbarButtons() {
+  const { t } = useTranslation('app')
   const { canMerge } = useTable()
-  const isInTable = useSlateSelector(useCallback(editor => TableCursor.isInTable(editor), []))
+  const isInTable = useSlateSelector(editor => TableCursor.isInTable(editor))
   const editor = useSlateStatic()
 
   return (
@@ -36,7 +38,7 @@ export function TableToolbarButtons() {
       <TableRowActions disabled={!isInTable} />
       <TableColumnActions disabled={!isInTable} />
       <ToolbarIconButton
-        label="Split cells"
+        label={t('editor.table.toolbar.splitCells')}
         disabled={!isInTable && !canMerge}
         onClick={() => TableEditor.split(editor)}
       >
@@ -45,7 +47,7 @@ export function TableToolbarButtons() {
       <TableAlignmentButtons disabled={!isInTable} />
 
       <ToolbarIconButton
-        label="Remove table"
+        label={t('editor.table.toolbar.deleteTitle')}
         onClick={() => TableEditor.removeTable(editor)}
       >
         <TbTableOff className="text-red-500" />
@@ -56,37 +58,26 @@ export function TableToolbarButtons() {
 }
 
 function TableRowActions({ disabled }: { disabled: boolean }) {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
-
-  const insertRowAbove = useCallback(() => {
-    TableEditor.insertRow(editor, { before: true })
-  }, [editor])
-
-  const insertRowBelow = useCallback(() => {
-    TableEditor.insertRow(editor, { before: false })
-  }, [editor])
-
-  const removeRow = useCallback(() => {
-    TableEditor.removeRow(editor)
-  }, [editor])
 
   return (
     <ToolbarActionPopover disabled={disabled}>
-      <ToolbarActionPopoverTrigger label="Row actions">
+      <ToolbarActionPopoverTrigger label={t('editor.table.toolbar.rowActions')}>
         <TbTableRow />
       </ToolbarActionPopoverTrigger>
       <ToolbarActionPopoverContent>
-        <ToolbarActionPopoverItem onSelect={insertRowAbove}>
+        <ToolbarActionPopoverItem onSelect={() => insertTableRow(editor, 'before')}>
           <LuArrowUpToLine />
-          <span>Insert row above</span>
+          <span>{t('editor.table.menu.insertRowAbove')}</span>
         </ToolbarActionPopoverItem>
-        <ToolbarActionPopoverItem onSelect={insertRowBelow}>
+        <ToolbarActionPopoverItem onSelect={() => insertTableRow(editor, 'after')}>
           <LuArrowDownToLine />
-          <span>Insert row below</span>
+          <span>{t('editor.table.menu.insertRowBelow')}</span>
         </ToolbarActionPopoverItem>
-        <ToolbarActionPopoverItem onSelect={removeRow} destructive>
+        <ToolbarActionPopoverItem onSelect={() => TableEditor.removeRow(editor)} destructive>
           <LuTrash2 />
-          <span>Delete row</span>
+          <span>{t('editor.table.menu.deleteRow')}</span>
         </ToolbarActionPopoverItem>
       </ToolbarActionPopoverContent>
     </ToolbarActionPopover>
@@ -94,37 +85,26 @@ function TableRowActions({ disabled }: { disabled: boolean }) {
 }
 
 function TableColumnActions({ disabled }: { disabled: boolean }) {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
-
-  const insertColumnLeft = useCallback(() => {
-    TableEditor.insertColumn(editor, { before: true })
-  }, [editor])
-
-  const insertColumnRight = useCallback(() => {
-    TableEditor.insertColumn(editor, { before: false })
-  }, [editor])
-
-  const removeColumn = useCallback(() => {
-    TableEditor.removeColumn(editor)
-  }, [editor])
 
   return (
     <ToolbarActionPopover disabled={disabled}>
-      <ToolbarActionPopoverTrigger label="Column actions">
+      <ToolbarActionPopoverTrigger label={t('editor.table.toolbar.columnActions')}>
         <TbTableColumn />
       </ToolbarActionPopoverTrigger>
       <ToolbarActionPopoverContent>
-        <ToolbarActionPopoverItem onSelect={insertColumnLeft}>
+        <ToolbarActionPopoverItem onSelect={() => insertTableColumn(editor, 'before')}>
           <LuArrowLeftToLine />
-          <span>Insert column left</span>
+          <span>{t('editor.table.menu.insertColLeft')}</span>
         </ToolbarActionPopoverItem>
-        <ToolbarActionPopoverItem onSelect={insertColumnRight}>
+        <ToolbarActionPopoverItem onSelect={() => insertTableColumn(editor, 'after')}>
           <LuArrowRightToLine />
-          <span>Insert column right</span>
+          <span>{t('editor.table.menu.insertColRight')}</span>
         </ToolbarActionPopoverItem>
-        <ToolbarActionPopoverItem onSelect={removeColumn} destructive>
+        <ToolbarActionPopoverItem onSelect={() => TableEditor.removeColumn(editor)} destructive>
           <LuTrash2 />
-          <span>Delete column</span>
+          <span>{t('editor.table.menu.deleteCol')}</span>
         </ToolbarActionPopoverItem>
       </ToolbarActionPopoverContent>
     </ToolbarActionPopover>
@@ -132,43 +112,32 @@ function TableColumnActions({ disabled }: { disabled: boolean }) {
 }
 
 function TableAlignmentButtons({ disabled }: { disabled: boolean }) {
+  const { t } = useTranslation('app')
   const editor = useSlateStatic()
-  const alignment = useSlateSelector(useCallback(getTableSelectionAlignment, []))
-
-  const alignLeft = useCallback(() => {
-    setTableCellAlignment(editor, 'left')
-  }, [editor])
-
-  const alignCenter = useCallback(() => {
-    setTableCellAlignment(editor, 'center')
-  }, [editor])
-
-  const alignRight = useCallback(() => {
-    setTableCellAlignment(editor, 'right')
-  }, [editor])
+  const alignment = useSlateSelector(getTableSelectionAlignment)
 
   return (
     <>
       <ToolbarIconButton
-        label="Align left"
+        label={t('editor.table.menu.alignLeft')}
         disabled={disabled}
-        onClick={alignLeft}
+        onClick={() => setTableCellAlignment(editor, 'left')}
         className={cn(alignment === 'left' && 'text-blue-600 font-bold')}
       >
         <LuAlignLeft />
       </ToolbarIconButton>
       <ToolbarIconButton
-        label="Align center"
+        label={t('editor.table.menu.alignCenter')}
         disabled={disabled}
-        onClick={alignCenter}
+        onClick={() => setTableCellAlignment(editor, 'center')}
         className={cn(alignment === 'center' && 'text-blue-600 font-bold')}
       >
         <LuAlignCenter />
       </ToolbarIconButton>
       <ToolbarIconButton
-        label="Align right"
+        label={t('editor.table.menu.alignRight')}
         disabled={disabled}
-        onClick={alignRight}
+        onClick={() => setTableCellAlignment(editor, 'right')}
         className={cn(alignment === 'right' && 'text-blue-600 font-bold')}
       >
         <LuAlignRight />
