@@ -2,10 +2,7 @@ import type { Path, Element as SlateElement } from 'slate'
 import type {
   MemoriloElementStrings,
   TableBodyElementType,
-  TableCellElementType,
   TableHeadElementType,
-  TableHeaderCellElementType,
-  TableRowElementType,
 } from '../../../slate'
 import { Iterable, Option, Tuple } from 'effect'
 import { Editor, Node, Transforms } from 'slate'
@@ -20,6 +17,7 @@ import {
   isTableRow,
   isTableSection,
 } from '../../../lib/element-type'
+import { createTableRow } from '../../elements/table/table-structure'
 import { TABLE_BLOCKS } from '../../elements/table/type'
 
 type HiddenTableHead = TableHeadElementType & { hidden?: boolean }
@@ -112,7 +110,7 @@ function syncHeaderVisibility(editor: Editor, tablePath: Path, columnCount: numb
   }
 
   if (!headerEntry) {
-    const headerRow = createRow(TABLE_BLOCKS.th, columnCount)
+    const headerRow = createTableRow(TABLE_BLOCKS.th, columnCount)
     const headerNode: HiddenTableHead = {
       type: TABLE_BLOCKS.thead,
       hidden: false,
@@ -128,7 +126,7 @@ function syncHeaderVisibility(editor: Editor, tablePath: Path, columnCount: numb
 
   const rows = getRowEntries(editor, headerPath)
   if (rows.length === 0) {
-    Transforms.insertNodes(editor, createRow(TABLE_BLOCKS.th, columnCount), { at: [...headerPath, 0] })
+    Transforms.insertNodes(editor, createTableRow(TABLE_BLOCKS.th, columnCount), { at: [...headerPath, 0] })
   }
   ensureSectionCells(editor, headerPath, TABLE_BLOCKS.th)
 }
@@ -183,7 +181,7 @@ function ensureBody(editor: Editor, tablePath: Path, columnCount: number): Path 
   if (bodyEntry) {
     const rows = getRowEntries(editor, bodyEntry[1])
     if (rows.length === 0) {
-      const row = createRow(TABLE_BLOCKS.td, columnCount)
+      const row = createTableRow(TABLE_BLOCKS.td, columnCount)
       Transforms.insertNodes(editor, row, { at: [...bodyEntry[1], 0] })
     }
     return bodyEntry[1]
@@ -191,7 +189,7 @@ function ensureBody(editor: Editor, tablePath: Path, columnCount: number): Path 
 
   const body: TableBodyElementType = {
     type: TABLE_BLOCKS.tbody,
-    children: [createRow(TABLE_BLOCKS.td, columnCount)],
+    children: [createTableRow(TABLE_BLOCKS.td, columnCount)],
   }
 
   const insertPath = getBodyInsertPath(editor, tablePath)
@@ -272,23 +270,4 @@ function findLastCellPath(editor: Editor, tablePath: Path): Path | null {
     Option.map(Tuple.getSecond),
     Option.getOrNull,
   )
-}
-
-function createRow(cellType: MemoriloElementStrings, columnCount: number): TableRowElementType {
-  const safeColumnCount = Math.max(1, columnCount)
-  return {
-    type: TABLE_BLOCKS.tr,
-    children: Array.from({ length: safeColumnCount }).map(() => createCell(cellType)),
-  } satisfies TableRowElementType
-}
-
-function createCell(cellType: MemoriloElementStrings): TableCellElementType | TableHeaderCellElementType {
-  const type = cellType === TABLE_BLOCKS.th ? TABLE_BLOCKS.th : TABLE_BLOCKS.td
-  return {
-    type,
-    children: [{
-      type: TABLE_BLOCKS.content,
-      children: [{ text: '' }],
-    }],
-  }
 }

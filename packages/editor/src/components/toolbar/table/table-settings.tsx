@@ -70,9 +70,9 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
           ReactEditor.focus(editor)
       }}
     >
-      <PopoverTrigger asChild>
-        <Tooltip>
-          <TooltipTrigger asChild>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
             <span className="inline-flex">
               <UtilButton
                 aria-label="Table settings"
@@ -81,12 +81,12 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
                 <TbTableOptions />
               </UtilButton>
             </span>
-          </TooltipTrigger>
-          <TooltipContent sideOffset={6}>
-            Table settings
-          </TooltipContent>
-        </Tooltip>
-      </PopoverTrigger>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent sideOffset={6}>
+          Table settings
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent
         align="start"
         className="w-64 space-y-3"

@@ -4,6 +4,12 @@ import { CalendarCheckIcon } from '@memorilo/components/ui/animiated-icons/calen
 import { LinkIcon } from '@memorilo/components/ui/animiated-icons/link'
 import { TerminalIcon } from '@memorilo/components/ui/animiated-icons/terminal'
 import { Editor, Element as SlateElement } from 'slate'
+import {
+  canEditTable,
+  insertDefaultTable,
+  insertTableColumn,
+  insertTableRow,
+} from '../../components/elements/table/table-utils'
 import { ensureTodoAtSelection, insertInlineMath, insertLink, setCurrentCodeblock, setCurrentMathBlock, setCurrentTextBlockType, toggleNearestTodoChecked } from './transforms'
 
 const HEADING_ITEMS: Array<{ type: HeadingOrPlainType, title: string }> = [
@@ -14,6 +20,65 @@ const HEADING_ITEMS: Array<{ type: HeadingOrPlainType, title: string }> = [
   { type: 'h4', title: 'editor.slashCommands.block.h4' },
   { type: 'h5', title: 'editor.slashCommands.block.h5' },
   { type: 'h6', title: 'editor.slashCommands.block.h6' },
+]
+
+const TABLE_DISABLED_REASON = 'editor.slashCommands.table.disabledReason'
+
+const isTableCommandDisabled = ({ editor }: SlashCommandContext) => !canEditTable(editor)
+
+interface TableCommandConfig {
+  id: string
+  title: string
+  description?: string
+  requiresTable?: boolean
+  run: (editor: SlashCommandContext['editor']) => void
+}
+
+function createTableCommand({ run, requiresTable = false, ...command }: TableCommandConfig) {
+  return {
+    ...command,
+    group: 'insert',
+    disabled: requiresTable ? isTableCommandDisabled : undefined,
+    disabledReason: requiresTable ? () => TABLE_DISABLED_REASON : undefined,
+    run: ({ editor }: SlashCommandContext) => run(editor),
+  }
+}
+
+const TABLE_INSERT_COMMANDS: TableCommandConfig[] = [
+  {
+    id: 'insert:table-row-above',
+    title: 'editor.slashCommands.insert.tableRowAbove.title',
+    description: 'editor.slashCommands.insert.tableRowAbove.description',
+    run: editor => insertTableRow(editor, 'before'),
+  },
+  {
+    id: 'insert:table-row-below',
+    title: 'editor.slashCommands.insert.tableRowBelow.title',
+    description: 'editor.slashCommands.insert.tableRowBelow.description',
+    run: editor => insertTableRow(editor, 'after'),
+  },
+  {
+    id: 'insert:table-column-left',
+    title: 'editor.slashCommands.insert.tableColumnLeft.title',
+    description: 'editor.slashCommands.insert.tableColumnLeft.description',
+    run: editor => insertTableColumn(editor, 'before'),
+  },
+  {
+    id: 'insert:table-column-right',
+    title: 'editor.slashCommands.insert.tableColumnRight.title',
+    description: 'editor.slashCommands.insert.tableColumnRight.description',
+    run: editor => insertTableColumn(editor, 'after'),
+  },
+]
+
+const TABLE_COMMANDS = [
+  createTableCommand({
+    id: 'insert:table',
+    title: 'editor.slashCommands.insert.table.title',
+    description: 'editor.slashCommands.insert.table.description',
+    run: insertDefaultTable,
+  }),
+  ...TABLE_INSERT_COMMANDS.map(command => createTableCommand({ ...command, requiresTable: true })),
 ]
 
 export function createDefaultSlashCommandRegistry(): SlashCommandRegistry {
@@ -87,6 +152,7 @@ export function createDefaultSlashCommandRegistry(): SlashCommandRegistry {
         icon: <LinkIcon size={16} />,
         run: ({ editor }) => insertLink(editor, 'https://'),
       },
+      ...TABLE_COMMANDS,
     ],
   }
 }
