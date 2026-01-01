@@ -3,6 +3,7 @@ import type { TableCellAlignment, TableCellElementType, TableHeaderCellElementTy
 import { Editor as SlateEditor, Transforms } from 'slate'
 import { TableCursor } from 'slate-table'
 import { isTableCell } from '../element-type'
+import { isTableSelectionActive, restoreTableSelection, snapshotTableSelection } from '../table-selection'
 
 type TableCellEntry = [TableCellElementType | TableHeaderCellElementType, Path]
 
@@ -57,9 +58,15 @@ export function setTableCellAlignment(editor: Editor, alignment: TableCellAlignm
   if (entries.length === 0)
     return
 
+  const shouldRestoreSelection = isTableSelectionActive(editor)
+  const selectionSnapshot = shouldRestoreSelection ? snapshotTableSelection(editor) : null
+
   SlateEditor.withoutNormalizing(editor, () => {
     for (const [, path] of entries) {
       Transforms.setNodes(editor, { align: alignment }, { at: path })
     }
   })
+
+  if (shouldRestoreSelection)
+    restoreTableSelection(editor, selectionSnapshot)
 }
