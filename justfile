@@ -49,6 +49,8 @@ _download target url:
   curl -L {{url}} -o {{target}}
 
 
+[linux]
+[macos]
 dev-desktop: download-model download-resource
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
@@ -57,6 +59,12 @@ dev-desktop: download-model download-resource
     cargo tauri dev
   fi
 
+[windows]
+dev-desktop: download-model download-resource
+  cargo tauri dev
+
+[linux]
+[macos]
 build-desktop: download-model download-resource
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
@@ -64,6 +72,10 @@ build-desktop: download-model download-resource
   else
     cargo tauri build
   fi
+
+[windows]
+build-desktop: download-model download-resource
+  cargo tauri build
 
 build-android: download-model download-resource
   #!/usr/bin/env bash
@@ -83,6 +95,8 @@ build-ios: download-model download-resource
     cargo tauri ios build
   fi
 
+[linux]
+[macos]
 build-web: 
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
@@ -90,6 +104,10 @@ build-web:
   else
     cd apps/client && pnpm build
   fi
+
+[windows]
+build-web:
+  cd apps/client && pnpm build
 
 clean:
   if [[ -d ./apps/client/dist ]]; then rm -rf ./apps/client/dist; fi
