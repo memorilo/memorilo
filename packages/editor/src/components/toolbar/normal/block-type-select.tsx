@@ -7,7 +7,7 @@ import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { HEADING_AND_PLAIN_TYPES as BLOCK_TYPES, isHeadingOrPlainType as isBlockType } from '../../../lib/element-type'
 import { getLowestIndentEntriesInRange, wrapIndentHeaderInBlock } from '../../../lib/transforms/indent'
 
-const BLOCK_TYPE_LABEL_KEYS: Record<BlockType, string> = {
+const BLOCK_TYPE_LABEL_KEYS = {
   plain: 'editor.slashCommands.block.plain',
   h1: 'editor.slashCommands.block.h1',
   h2: 'editor.slashCommands.block.h2',
@@ -15,7 +15,7 @@ const BLOCK_TYPE_LABEL_KEYS: Record<BlockType, string> = {
   h4: 'editor.slashCommands.block.h4',
   h5: 'editor.slashCommands.block.h5',
   h6: 'editor.slashCommands.block.h6',
-}
+} as const satisfies Record<BlockType, string>
 
 const BLOCK_TYLE_ICON: Record<BlockType, string> = {
   plain: '¶ ',
