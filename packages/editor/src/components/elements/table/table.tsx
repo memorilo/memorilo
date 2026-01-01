@@ -37,7 +37,7 @@ export function Table(props: RenderElementProps) {
         cn(
           'table-fixed text-center',
           {
-            '[&_*::selection]:bg-none': isSelecting,
+            '[&_*::selection]:bg-transparent': isSelecting,
           },
         )
       }
