@@ -44,7 +44,7 @@ export function FormatToolbar() {
 
   return (
     <Toolbar>
-      { buttons}
+      {buttons}
     </Toolbar>
   )
 }
