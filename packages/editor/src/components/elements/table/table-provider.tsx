@@ -23,7 +23,7 @@ export function useTable() {
   return table
 }
 
-export function TableProvider({ children, canMerge}: { children: ReactNode, canMerge: boolean }) {
+export function TableProvider({ children, canMerge }: { children: ReactNode, canMerge: boolean }) {
   const [dragTarget, setDragTarget] = useState<TableDragTarget>(null)
   const contextValue = useMemo(() => ({
     canMerge,

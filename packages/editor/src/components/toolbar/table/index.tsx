@@ -39,7 +39,7 @@ export function TableToolbarButtons() {
       <TableColumnActions disabled={!isInTable} />
       <ToolbarIconButton
         label={t('editor.table.toolbar.splitCells')}
-        disabled={!isInTable && !canMerge}
+        disabled={!canMerge}
         onClick={() => TableEditor.split(editor)}
       >
         <LuTableCellsSplit />
