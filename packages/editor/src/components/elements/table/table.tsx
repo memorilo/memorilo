@@ -50,13 +50,16 @@ export function Table(props: RenderElementProps) {
 
 export function TableHead(props: RenderElementProps) {
   const element = props.element as TableHeadElementType & { hidden?: boolean }
-  if (element.hidden)
-    return null
 
   return (
     <thead
       {...props.attributes}
-      className="border-b text-sm bg-slate-100"
+      className={cn(
+        'border-b text-sm bg-slate-100',
+        {
+          hidden: element.hidden,
+        },
+      )}
     >
       {props.children}
     </thead>
