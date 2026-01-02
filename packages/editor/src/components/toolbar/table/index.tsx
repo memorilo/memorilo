@@ -28,7 +28,7 @@ import { TableSettingsButton } from './table-settings'
 
 export function TableToolbarButtons() {
   const { t } = useTranslation('app')
-  const { canMerge } = useTable()
+  const { canSplit } = useTable()
   const isInTable = useSlateSelector(editor => TableCursor.isInTable(editor))
   const editor = useSlateStatic()
 
@@ -39,7 +39,7 @@ export function TableToolbarButtons() {
       <TableColumnActions disabled={!isInTable} />
       <ToolbarIconButton
         label={t('editor.table.toolbar.splitCells')}
-        disabled={!canMerge}
+        disabled={!canSplit}
         onClick={() => TableEditor.split(editor)}
       >
         <LuTableCellsSplit />

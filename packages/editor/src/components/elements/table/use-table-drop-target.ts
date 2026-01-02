@@ -6,6 +6,9 @@ import { useDrop } from 'react-dnd'
 import { Path } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import {
+  canReorderTableColumn,
+  canReorderTableRow,
+  getCellColumnIndex,
   getRowPathFromCellPath,
   getTablePathFromCellPath,
   moveTableColumn,
@@ -23,11 +26,18 @@ export function useTableDropTarget(element: TableSelectableCell) {
   const getCellContext = useCallback(() => {
     try {
       const cellPath = ReactEditor.findPath(editor, element)
+      const tablePath = getTablePathFromCellPath(editor, cellPath)
+      const columnIndex = tablePath ? getCellColumnIndex(editor, cellPath) : null
+      const rowPath = getRowPathFromCellPath(editor, cellPath)
       return {
         cellPath,
-        rowPath: getRowPathFromCellPath(editor, cellPath),
-        tablePath: getTablePathFromCellPath(editor, cellPath),
-        columnIndex: cellPath[cellPath.length - 1],
+        rowPath,
+        tablePath,
+        columnIndex,
+        canReorderRow: rowPath ? canReorderTableRow(editor, rowPath) : false,
+        canReorderColumn: tablePath && columnIndex !== null
+          ? canReorderTableColumn(editor, tablePath, columnIndex)
+          : false,
       }
     }
     catch {
@@ -36,6 +46,8 @@ export function useTableDropTarget(element: TableSelectableCell) {
         rowPath: null,
         tablePath: null,
         columnIndex: null,
+        canReorderRow: false,
+        canReorderColumn: false,
       }
     }
   }, [editor, element])
@@ -43,24 +55,30 @@ export function useTableDropTarget(element: TableSelectableCell) {
     () => ({
       accept: [TABLE_DND_ROW, TABLE_DND_COLUMN],
       canDrop: (item, monitor) => {
-        const { tablePath, rowPath } = getCellContext()
+        const { tablePath, rowPath, columnIndex, canReorderRow, canReorderColumn } = getCellContext()
         const type = monitor.getItemType()
         if (!tablePath)
           return false
         if (type === TABLE_DND_ROW) {
-          if (!rowPath)
+          if (!rowPath || !canReorderRow)
+            return false
+          if (!canReorderTableRow(editor, (item as TableRowDragItem).rowPath))
             return false
           return Path.equals((item as TableRowDragItem).tablePath, tablePath)
             && Path.isSibling((item as TableRowDragItem).rowPath, rowPath)
         }
         if (type === TABLE_DND_COLUMN) {
+          if (columnIndex === null || !canReorderColumn)
+            return false
+          if (!canReorderTableColumn(editor, tablePath, (item as TableColumnDragItem).columnIndex))
+            return false
           return Path.equals((item as TableColumnDragItem).tablePath, tablePath)
         }
         return false
       },
       hover: (_, monitor) => {
         const { tablePath, rowPath, columnIndex } = getCellContext()
-        if (!monitor.isOver({ shallow: true }) || !tablePath || columnIndex === null || !monitor.canDrop())
+        if (!monitor.isOver({ shallow: true }) || !tablePath || !monitor.canDrop())
           return
         const type = monitor.getItemType()
         if (type === TABLE_DND_ROW && rowPath) {
@@ -77,6 +95,8 @@ export function useTableDropTarget(element: TableSelectableCell) {
           return
         }
         if (type === TABLE_DND_COLUMN) {
+          if (columnIndex === null)
+            return
           setDragTarget((current) => {
             if (
               current?.type === 'column'
@@ -91,6 +111,8 @@ export function useTableDropTarget(element: TableSelectableCell) {
       },
       drop: (item, monitor) => {
         const { tablePath, rowPath, columnIndex } = getCellContext()
+        if (!monitor.canDrop())
+          return
         const type = monitor.getItemType()
         if (type === TABLE_DND_ROW && rowPath && tablePath) {
           moveTableRow(editor, (item as TableRowDragItem).rowPath, rowPath)

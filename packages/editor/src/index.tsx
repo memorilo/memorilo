@@ -11,6 +11,7 @@ import { Editable, Slate, useSlateStatic, withReact } from 'slate-react'
 import { TableCursor, TableEditor } from 'slate-table'
 import { IndentDragProvider, RootIndentEnableContext } from './components/elements/indent'
 import { TableProvider } from './components/elements/table/table-provider'
+import { canSplitTableSelection } from './components/elements/table/table-utils'
 import { useSlashCommands } from './components/slash-commands/use-slash-commands'
 import { FormatToolbar } from './components/toolbar'
 import { ToolbarProvider } from './components/toolbar/toolbar'
@@ -530,6 +531,7 @@ interface MemoriloEditorProps extends TextareaHTMLAttributes<HTMLDivElement>, Re
 
 export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: MemoriloEditorProps) {
   const [canMerge, setCanMerge] = useState(false)
+  const [canSplit, setCanSplit] = useState(false)
   const editor = useMemo(() => {
     const baseEditor = withReact(createEditor())
     const plugins = [
@@ -546,13 +548,16 @@ export function MemoriloEditor({ outline, slashCommandRegistry, ...props }: Memo
   }, [])
 
   return (
-    <TableProvider canMerge={canMerge}>
+    <TableProvider canMerge={canMerge} canSplit={canSplit}>
       <ToolbarProvider>
         <RootIndentEnableContext enable={outline ?? true}>
           <Slate
             editor={editor}
             initialValue={initialValue}
-            onSelectionChange={() => setCanMerge(TableEditor.canMerge(editor))}
+            onSelectionChange={() => {
+              setCanMerge(TableEditor.canMerge(editor))
+              setCanSplit(canSplitTableSelection(editor))
+            }}
           >
             <DndProvider backend={HTML5Backend}>
               <MemoriloEditable {...props} slashCommandRegistry={slashCommandRegistry} />

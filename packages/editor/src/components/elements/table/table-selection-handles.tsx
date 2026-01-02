@@ -163,35 +163,41 @@ export function TableCellSelectionHandles({ element }: { element: TableSelectabl
     ReactEditor.focus(editor)
   }, [editor, element])
 
+  const getRowDragItem = useCallback(() => {
+    const cellPath = ReactEditor.findPath(editor, element)
+    return createRowDragData(editor, cellPath)
+  }, [editor, element])
+
+  const getColumnDragItem = useCallback(() => {
+    const cellPath = ReactEditor.findPath(editor, element)
+    return createColumnDragData(editor, cellPath)
+  }, [editor, element])
+
   const [{ isDragging: isRowDragging }, rowDragRef] = useDrag(() => ({
     type: TABLE_DND_ROW,
     item: () => {
-      const cellPath = ReactEditor.findPath(editor, element)
-      return createRowDragData(editor, cellPath) ?? { tablePath: [], rowPath: [] }
+      return getRowDragItem() ?? { tablePath: [], rowPath: [] }
     },
     canDrag: () => {
-      const cellPath = ReactEditor.findPath(editor, element)
-      return Boolean(createRowDragData(editor, cellPath))
+      return Boolean(getRowDragItem())
     },
     collect: monitor => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [editor, element])
+  }), [getRowDragItem])
 
   const [{ isDragging: isColumnDragging }, columnDragRef] = useDrag(() => ({
     type: TABLE_DND_COLUMN,
     item: () => {
-      const cellPath = ReactEditor.findPath(editor, element)
-      return createColumnDragData(editor, cellPath) ?? { tablePath: [], columnIndex: 0 }
+      return getColumnDragItem() ?? { tablePath: [], columnIndex: 0 }
     },
     canDrag: () => {
-      const cellPath = ReactEditor.findPath(editor, element)
-      return Boolean(createColumnDragData(editor, cellPath))
+      return Boolean(getColumnDragItem())
     },
     collect: monitor => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [editor, element])
+  }), [getColumnDragItem])
 
   useEffect(() => {
     if (!isDragging && dragTarget)
