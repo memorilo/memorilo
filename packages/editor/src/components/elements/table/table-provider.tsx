@@ -9,6 +9,7 @@ export type TableDragTarget
 
 interface TableContextType {
   canMerge: boolean
+  canSplit: boolean
   dragTarget: TableDragTarget
   setDragTarget: Dispatch<SetStateAction<TableDragTarget>>
 }
@@ -23,13 +24,14 @@ export function useTable() {
   return table
 }
 
-export function TableProvider({ children, canMerge }: { children: ReactNode, canMerge: boolean }) {
+export function TableProvider({ children, canMerge, canSplit }: { children: ReactNode, canMerge: boolean, canSplit: boolean }) {
   const [dragTarget, setDragTarget] = useState<TableDragTarget>(null)
   const contextValue = useMemo(() => ({
     canMerge,
+    canSplit,
     dragTarget,
     setDragTarget,
-  }), [canMerge, dragTarget])
+  }), [canMerge, canSplit, dragTarget])
   return (
     <TableContext value={contextValue}>
       {children}

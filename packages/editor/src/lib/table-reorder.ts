@@ -1,5 +1,8 @@
+import { Array, Option, pipe } from 'effect'
+import { cloneDeep } from 'es-toolkit'
 import { Editor, Node, Path, Transforms } from 'slate'
 import {
+  isHiddenTableHead,
   isTable,
   isTableCell,
   isTableRow,
@@ -35,25 +38,213 @@ export function getRowPathFromCellPath(editor: Editor, cellPath: Path): Path | n
   return rowEntry ? rowEntry[1] : null
 }
 
+/**
+ * Normalized layout for a table cell with resolved column positioning.
+ */
+interface TableCellLayout {
+  cellPath: Path
+  cellIndex: number
+  columnIndex: number
+  colSpan: number
+  rowSpan: number
+}
+
+/**
+ * Layout metadata for a table row, including spans that flow into it.
+ */
+interface TableRowLayout {
+  rowPath: Path
+  cells: TableCellLayout[]
+  hasIncomingRowSpan: boolean
+}
+
+function getSectionRowLayouts(editor: Editor, sectionPath: Path): TableRowLayout[] {
+  // Track open row spans so we can resolve the logical column positions per row.
+  const rowSpanTracker: number[] = []
+  const layouts: TableRowLayout[] = []
+
+  for (const [row, rowPath] of Node.children(editor, sectionPath)) {
+    if (!isTableRow(row))
+      continue
+
+    const hasIncomingRowSpan = pipe(
+      rowSpanTracker,
+      Array.findFirst(span => span > 0),
+      Option.getOrElse(() => null),
+    ) !== null
+    const cells: TableCellLayout[] = []
+    let columnIndex = 0
+
+    for (const [cell, cellPath] of Node.children(editor, rowPath)) {
+      if (!isTableCell(cell))
+        continue
+
+      // Skip columns covered by row spans from previous rows.
+      while ((rowSpanTracker[columnIndex] ?? 0) > 0)
+        columnIndex += 1
+
+      const colSpan = cell.colSpan ?? 1
+      const rowSpan = cell.rowSpan ?? 1
+
+      cells.push({
+        cellPath,
+        cellIndex: cellPath[cellPath.length - 1],
+        columnIndex,
+        colSpan,
+        rowSpan,
+      })
+
+      // Mark the span range so following rows can skip covered columns.
+      for (let offset = 0; offset < colSpan; offset += 1) {
+        const index = columnIndex + offset
+        rowSpanTracker[index] = Math.max(rowSpanTracker[index] ?? 0, rowSpan)
+      }
+
+      columnIndex += colSpan
+    }
+
+    layouts.push({ rowPath, cells, hasIncomingRowSpan })
+
+    // Decrement the remaining span height as we advance to the next row.
+    for (let index = 0; index < rowSpanTracker.length; index += 1) {
+      if (rowSpanTracker[index] > 0)
+        rowSpanTracker[index] -= 1
+    }
+  }
+
+  return layouts
+}
+
+function getTableRowLayouts(
+  editor: Editor,
+  tablePath: Path,
+  { includeHiddenHead = true }: { includeHiddenHead?: boolean } = {},
+): TableRowLayout[] {
+  const layouts: TableRowLayout[] = []
+  for (const [section, sectionPath] of Node.children(editor, tablePath)) {
+    if (!isTableSection(section))
+      continue
+    if (!includeHiddenHead && isHiddenTableHead(section))
+      continue
+    layouts.push(...getSectionRowLayouts(editor, sectionPath))
+  }
+  return layouts
+}
+
+function getRowLayout(editor: Editor, rowPath: Path): TableRowLayout | null {
+  const sectionPath = Path.parent(rowPath)
+  if (!Node.has(editor, sectionPath))
+    return null
+  return pipe(
+    getSectionRowLayouts(editor, sectionPath),
+    Array.findFirst(layout => Path.equals(layout.rowPath, rowPath)),
+    Option.getOrNull,
+  )
+}
+
+function getCellCoveringColumn(rowLayout: TableRowLayout, columnIndex: number): TableCellLayout | null {
+  return pipe(
+    rowLayout.cells,
+    Array.findFirst((cell) => {
+      const endIndex = cell.columnIndex + cell.colSpan
+      return columnIndex >= cell.columnIndex && columnIndex < endIndex
+    }),
+    Option.getOrNull,
+  )
+}
+
+function getColumnCells(rowLayouts: TableRowLayout[], columnIndex: number): TableCellLayout[] | null {
+  const cells: TableCellLayout[] = []
+  for (const layout of rowLayouts) {
+    const coveringCell = getCellCoveringColumn(layout, columnIndex)
+    if (!coveringCell)
+      return null
+    // A reorderable column must map to a single cell per row with no spans.
+    if (coveringCell.columnIndex !== columnIndex)
+      return null
+    if (coveringCell.colSpan > 1 || coveringCell.rowSpan > 1)
+      return null
+    cells.push(coveringCell)
+  }
+  return cells
+}
+
+/**
+ * Returns the logical column index for a cell path, accounting for spans.
+ */
+export function getCellColumnIndex(editor: Editor, cellPath: Path): number | null {
+  const rowPath = getRowPathFromCellPath(editor, cellPath)
+  if (!rowPath)
+    return null
+
+  const layout = getRowLayout(editor, rowPath)
+  if (!layout)
+    return null
+
+  const match = pipe(
+    layout.cells,
+    Array.findFirst(cell => Path.equals(cell.cellPath, cellPath)),
+    Option.getOrNull,
+  )
+  return match ? match.columnIndex : null
+}
+
+/**
+ * Returns whether a row can be reordered without intersecting merges.
+ */
+export function canReorderTableRow(editor: Editor, rowPath: Path): boolean {
+  const layout = getRowLayout(editor, rowPath)
+  if (!layout)
+    return false
+
+  const rowHasMergedCell = pipe(
+    layout.cells,
+    Array.findFirst(cell => cell.colSpan > 1 || cell.rowSpan > 1),
+    Option.getOrElse(() => null),
+  ) !== null
+
+  return !(layout.hasIncomingRowSpan || rowHasMergedCell)
+}
+
+/**
+ * Returns whether a column can be reordered without intersecting merges.
+ */
+export function canReorderTableColumn(editor: Editor, tablePath: Path, columnIndex: number): boolean {
+  const rowLayouts = getTableRowLayouts(editor, tablePath, { includeHiddenHead: true })
+  if (!rowLayouts.length)
+    return false
+
+  return Boolean(getColumnCells(rowLayouts, columnIndex))
+}
+
 export function createRowDragData(editor: Editor, cellPath: Path): TableRowDragItem | null {
   const tablePath = getTablePathFromCellPath(editor, cellPath)
   const rowPath = getRowPathFromCellPath(editor, cellPath)
-
-  if (!tablePath || !rowPath)
+  if (!tablePath || !rowPath || !canReorderTableRow(editor, rowPath))
     return null
 
-  return { tablePath, rowPath }
+  return {
+    tablePath: cloneDeep(tablePath),
+    rowPath: cloneDeep(rowPath),
+  }
 }
 
 export function createColumnDragData(editor: Editor, cellPath: Path): TableColumnDragItem | null {
   const tablePath = getTablePathFromCellPath(editor, cellPath)
-  if (!tablePath)
+  const columnIndex = tablePath ? getCellColumnIndex(editor, cellPath) : null
+  if (!tablePath || columnIndex === null || !canReorderTableColumn(editor, tablePath, columnIndex))
     return null
 
-  return { tablePath, columnIndex: cellPath[cellPath.length - 1] }
+  return {
+    tablePath: cloneDeep(tablePath),
+    columnIndex,
+  }
 }
 
 export function moveTableRow(editor: Editor, sourceRowPath: Path, targetRowPath: Path) {
+  if (!canReorderTableRow(editor, sourceRowPath) || !canReorderTableRow(editor, targetRowPath))
+    return
+
   const nextPath = getMovedRowPath(sourceRowPath, targetRowPath)
   if (!nextPath || Path.equals(sourceRowPath, nextPath))
     return
@@ -75,58 +266,37 @@ export function getMovedRowPath(sourceRowPath: Path, targetRowPath: Path): Path 
   return targetRowPath
 }
 
-function tableHasSpans(editor: Editor, tablePath: Path): boolean {
-  const tableNode = Node.get(editor, tablePath)
-  for (const [node] of Node.descendants(tableNode)) {
-    if (!isTableCell(node))
-      continue
-    const rowSpan = node.rowSpan ?? 1
-    const colSpan = node.colSpan ?? 1
-    if (rowSpan > 1 || colSpan > 1)
-      return true
-  }
-  return false
-}
-
-function getRowPaths(editor: Editor, tablePath: Path): Path[] {
-  const rows: Path[] = []
-  for (const [section, sectionPath] of Node.children(editor, tablePath)) {
-    if (!isTableSection(section))
-      continue
-    for (const [row, rowPath] of Node.children(editor, sectionPath)) {
-      if (isTableRow(row))
-        rows.push(rowPath)
-    }
-  }
-  return rows
-}
-
 export function moveTableColumn(editor: Editor, tablePath: Path, sourceIndex: number, targetIndex: number) {
   if (sourceIndex === targetIndex)
     return
 
-  // Column reordering with merged cells is ambiguous, bail out safely.
-  if (tableHasSpans(editor, tablePath))
+  if (
+    !canReorderTableColumn(editor, tablePath, sourceIndex)
+    || !canReorderTableColumn(editor, tablePath, targetIndex)
+  ) {
     return
-
-  const rows = getRowPaths(editor, tablePath)
-  if (!rows.length)
-    return
-
-  for (const rowPath of rows) {
-    const row = Node.get(editor, rowPath)
-    if (!row || !('children' in row))
-      return
-    const cellCount = row.children.length
-    if (sourceIndex >= cellCount || targetIndex >= cellCount)
-      return
   }
 
+  const rowLayouts = getTableRowLayouts(editor, tablePath, { includeHiddenHead: true })
+  if (!rowLayouts.length)
+    return
+
+  const sourceCells = getColumnCells(rowLayouts, sourceIndex)
+  const targetCells = getColumnCells(rowLayouts, targetIndex)
+  if (!sourceCells || !targetCells)
+    return
+
+  // Map each row's source cell to the target index in the same row.
+  const moves = sourceCells.map((sourceCell, index) => ({
+    from: sourceCell.cellPath,
+    toIndex: targetCells[index].cellIndex,
+  }))
+
   Editor.withoutNormalizing(editor, () => {
-    for (const rowPath of rows) {
+    for (const move of moves) {
       Transforms.moveNodes(editor, {
-        at: [...rowPath, sourceIndex],
-        to: [...rowPath, targetIndex],
+        at: move.from,
+        to: Path.parent(move.from).concat(move.toIndex),
       })
     }
   })

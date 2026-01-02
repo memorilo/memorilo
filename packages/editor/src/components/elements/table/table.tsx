@@ -7,7 +7,7 @@ import { Path } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { TableCursor } from 'slate-table'
 import { useTableSelectionActive } from '../../../hooks/use-table-selection'
-import { getTablePathFromCellPath } from '../../../lib/table-reorder'
+import { getCellColumnIndex, getTablePathFromCellPath } from '../../../lib/table-reorder'
 import { useTable } from './table-provider'
 import { TableCellSelectionHandles } from './table-selection-handles'
 import { useTableDropTarget } from './use-table-drop-target'
@@ -25,6 +25,30 @@ function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
       }
     })
   }
+}
+
+type TableCellContext = { path: Path, columnIndex: number | null } | null
+
+function useTableCellContext(element: TableCellElementType | TableHeaderCellElementType) {
+  return useSlateSelector(
+    useCallback((nextEditor) => {
+      try {
+        const path = ReactEditor.findPath(nextEditor, element)
+        return {
+          path,
+          columnIndex: getCellColumnIndex(nextEditor, path),
+        }
+      }
+      catch {
+        return null
+      }
+    }, [element]),
+    (prev, next) => {
+      if (!prev || !next)
+        return prev === next
+      return Path.equals(prev.path, next.path) && prev.columnIndex === next.columnIndex
+    },
+  ) as TableCellContext
 }
 
 export function Table(props: RenderElementProps) {
@@ -103,21 +127,9 @@ export function TableHeaderCell(props: RenderElementProps) {
   const dropRef = useTableDropTarget(element)
   const { ref: slateRef, ...attributes } = props.attributes
   const composedRef = useCallback(mergeRefs<HTMLTableCellElement>(slateRef, dropRef), [dropRef, slateRef])
-  const cellPath = useSlateSelector(
-    useCallback((nextEditor) => {
-      try {
-        return ReactEditor.findPath(nextEditor, element)
-      }
-      catch {
-        return null
-      }
-    }, [element]),
-    (prev, next) => {
-      if (prev && next)
-        return Path.equals(prev, next)
-      return prev === next
-    },
-  )
+  const cellContext = useTableCellContext(element)
+  const cellPath = cellContext?.path ?? null
+  const columnIndex = cellContext?.columnIndex ?? null
   const tablePath = cellPath ? getTablePathFromCellPath(editor, cellPath) : null
   const isRowTarget = Boolean(
     dragTarget?.type === 'row'
@@ -129,9 +141,9 @@ export function TableHeaderCell(props: RenderElementProps) {
   const isColumnTarget = Boolean(
     dragTarget?.type === 'column'
     && tablePath
-    && cellPath
+    && columnIndex !== null
     && Path.equals(dragTarget.tablePath, tablePath)
-    && dragTarget.columnIndex === cellPath[cellPath.length - 1],
+    && dragTarget.columnIndex === columnIndex,
   )
   const dragHighlight = (isRowTarget || isColumnTarget) && !selected
 
@@ -166,21 +178,9 @@ export function TableCell(props: RenderElementProps) {
   const dropRef = useTableDropTarget(element)
   const { ref: slateRef, ...attributes } = props.attributes
   const composedRef = useCallback(mergeRefs<HTMLTableCellElement>(slateRef, dropRef), [dropRef, slateRef])
-  const cellPath = useSlateSelector(
-    useCallback((nextEditor) => {
-      try {
-        return ReactEditor.findPath(nextEditor, element)
-      }
-      catch {
-        return null
-      }
-    }, [element]),
-    (prev, next) => {
-      if (prev && next)
-        return Path.equals(prev, next)
-      return prev === next
-    },
-  )
+  const cellContext = useTableCellContext(element)
+  const cellPath = cellContext?.path ?? null
+  const columnIndex = cellContext?.columnIndex ?? null
   const tablePath = cellPath ? getTablePathFromCellPath(editor, cellPath) : null
   const isRowTarget = Boolean(
     dragTarget?.type === 'row'
@@ -192,9 +192,9 @@ export function TableCell(props: RenderElementProps) {
   const isColumnTarget = Boolean(
     dragTarget?.type === 'column'
     && tablePath
-    && cellPath
+    && columnIndex !== null
     && Path.equals(dragTarget.tablePath, tablePath)
-    && dragTarget.columnIndex === cellPath[cellPath.length - 1],
+    && dragTarget.columnIndex === columnIndex,
   )
   const dragHighlight = (isRowTarget || isColumnTarget) && !selected
 
