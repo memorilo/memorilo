@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react'
+import type { MouseEvent, PropsWithChildren, ReactNode } from 'react'
 import { cn } from '@memorilo/utils'
 import { createContext, use, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactEditor, useFocused, useSlate, useSlateSelection } from 'slate-react'
@@ -139,7 +139,7 @@ export function Toolbar({ children }: ToolbarProps) {
         'fixed z-50 flex max-w-[calc(100vw-16px)] flex-col items-stretch gap-1 overflow-hidden rounded-lg border border-gray-300 bg-white px-1 py-1 shadow-[0_0_30px_0px_rgba(0,0,0,0.3)] transition-opacity duration-300',
         isShowToolbar ? 'opacity-100' : 'opacity-0 pointer-events-none',
       )}
-      onMouseDown={(e: any) => {
+      onMouseDown={(e: MouseEvent) => {
         e.preventDefault()
       }}
     >
