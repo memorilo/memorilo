@@ -20,8 +20,52 @@ export type TableInsertAxis = 'row' | 'column'
 
 const DEFAULT_TABLE_SIZE = { rows: 3, cols: 3 } as const
 
+/*
+See https://github.com/Memorilo/memorilo/pull/14#issuecomment-3705593784
+
+When user reorder rows/columns, Slate can briefly return a stale path for a cell element via ReactEditor.findPath.
+The handle logic (isFirstColumn/isTopRow) uses that path to decide where to render handles.
+If the path is stale, a non-first cell can be misidentified as the first column/row, so an extra handle appears.
+By resolving a stable path (first validating the cached path, then re‑finding the element within its current row, and finally falling back to a full node scan), the handle checks always use the cell’s actual,
+current position, so the “phantom” handle disappears immediately after the reorder.
+*/
+function getStableCellPath(editor: MemoriloEditor, element: TableSelectableCell): Path | null {
+  try {
+    // Fast path: try to get the path directly.
+    const path = ReactEditor.findPath(editor, element)
+    if (Node.get(editor, path) === element)
+      return path
+
+    // Slate path cache can lag after row/column reorders; re-resolve within the row.
+    const rowPath = Path.parent(path)
+    const rowNode = Node.get(editor, rowPath)
+    if (isTableRow(rowNode)) {
+      const cellIndex = rowNode.children.findIndex(child => child === element)
+      if (cellIndex >= 0)
+        return rowPath.concat(cellIndex)
+    }
+  }
+  catch {
+    // Fall through to a full lookup.
+    // Just leave here empty.
+  }
+
+  // Slow path: search the entire document.
+  return pipe(
+    Editor.nodes(editor, { at: [], match: node => node === element }),
+    Iterable.head,
+    Option.getOrNull,
+    entry => (entry ? entry[1] : null),
+  )
+}
+
 export function isFirstColumn(editor: MemoriloEditor, element: TableSelectableCell): boolean {
-  const cellPath = ReactEditor.findPath(editor, element)
+  const cellPath = getStableCellPath(editor, element)
+  if (!cellPath) {
+    // Unable to find the cell path; assume not first column.
+    // If it is true, the phontom handle will appear only briefly until the next render. So just leave it.
+    return false
+  }
   const columnIndex = getCellColumnIndex(editor, cellPath)
   if (columnIndex === null)
     return cellPath[cellPath.length - 1] === 0
@@ -43,7 +87,12 @@ export function getFirstVisibleRowPath(editor: MemoriloEditor, tablePath: Path):
 }
 
 export function isTopRow(editor: MemoriloEditor, element: TableSelectableCell): boolean {
-  const cellPath = ReactEditor.findPath(editor, element)
+  const cellPath = getStableCellPath(editor, element)
+  if (!cellPath) {
+    // Unable to find the cell path; assume not first column.
+    // If it is true, the phontom handle will appear only briefly until the next render. So just leave it.
+    return false
+  }
   const rowEntry = Editor.above(editor, {
     at: cellPath,
     match: node => isTableRow(node),
