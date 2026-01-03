@@ -3,7 +3,7 @@ import type { IndentDragContextValueType, IndentDragOverState } from './contexts
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Path } from 'slate'
 import { useSlateStatic } from 'slate-react'
-import { IndentDragContext, IndentEnableContext } from './contexts'
+import { IndentDragContext, IndentEnableContext, IndentHoverContext } from './contexts'
 import { getDropPosition, moveIndentSubtree, pickIndentTargetFromPoint } from './dnd'
 
 export function RootIndentEnableContext(props: { children: React.ReactNode, enable: boolean }) {
@@ -18,6 +18,7 @@ export function IndentDragProvider(props: { children: React.ReactNode }) {
   const editor = useSlateStatic()
   const [dragging, setDragging] = useState<IndentDragContextValueType['dragging']>(null)
   const [over, setOver] = useState<IndentDragOverState | null>(null)
+  const [hoveredPath, setHoveredPathState] = useState<string | null>(null)
   const draggingRef = useRef(dragging)
   const overRef = useRef(over)
   const restoreRef = useRef<{ cursor: string, userSelect: string }>({ cursor: '', userSelect: '' })
@@ -28,7 +29,6 @@ export function IndentDragProvider(props: { children: React.ReactNode }) {
   useEffect(() => {
     overRef.current = over
   }, [over])
-
   const endDrag = useCallback(() => {
     const restore = restoreRef.current
     if (restore.userSelect)
@@ -42,6 +42,10 @@ export function IndentDragProvider(props: { children: React.ReactNode }) {
 
     setDragging(null)
     setOver(null)
+  }, [])
+
+  const setHoveredPath = useCallback((nextPath: string | null) => {
+    setHoveredPathState(prev => (prev === nextPath ? prev : nextPath))
   }, [])
 
   const startDrag = useCallback((path: Path, element: SlateElement, pointerId: number) => {
@@ -108,9 +112,16 @@ export function IndentDragProvider(props: { children: React.ReactNode }) {
     startDrag,
   }), [dragging, endDrag, over, startDrag])
 
+  const hoverValue = useMemo(() => ({
+    hoveredPath,
+    setHoveredPath,
+  }), [hoveredPath, setHoveredPath])
+
   return (
-    <IndentDragContext value={value}>
-      {props.children}
-    </IndentDragContext>
+    <IndentHoverContext value={hoverValue}>
+      <IndentDragContext value={value}>
+        {props.children}
+      </IndentDragContext>
+    </IndentHoverContext>
   )
 }

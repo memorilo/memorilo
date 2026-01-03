@@ -9,10 +9,10 @@ import { attempt } from 'es-toolkit'
 import { AnimatePresence, motion } from 'motion/react'
 import { use, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Node, Path, Element as SlateElement } from 'slate'
+import { Node, Element as SlateElement } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateSelector, useSlateStatic } from 'slate-react'
 import { isIndent } from '../../../lib/element-type'
-import { IndentChildCollapseContext, IndentDragContext, IndentEnableContext } from './contexts'
+import { IndentChildCollapseContext, IndentDragContext, IndentEnableContext, IndentHoverContext } from './contexts'
 
 const MotionButton = motion(Button)
 
@@ -84,6 +84,7 @@ export function Indent(props: RenderElementProps) {
   const { collapsed, setCollapsed } = use(IndentChildCollapseContext)
   const enabled = use(IndentEnableContext)
   const drag = use(IndentDragContext)
+  const { hoveredPath, setHoveredPath } = use(IndentHoverContext)
   const [childExpanded, setChildExpanded] = useState(true)
   const expandable = props.element.children.length > 1
   const isFocused = useFocused()
@@ -134,18 +135,15 @@ export function Indent(props: RenderElementProps) {
     }
   }, [editor, enabled, props.element])
 
-  const showButtons = useSlateSelector((editor) => {
-    if (!editor.selection || !ReactEditor.isFocused(editor))
-      return false
+  const indentPathKey = useSlateSelector((editor) => {
     try {
-      const path = ReactEditor.findPath(editor, props.element)
-      const firstChildPath = path.concat([0])
-      return Path.isAncestor(firstChildPath, editor.selection.anchor.path) || Path.equals(firstChildPath, editor.selection.anchor.path)
+      return ReactEditor.findPath(editor, props.element).join(',')
     }
     catch {
-      return false
+      return null
     }
   })
+  const showButtons = hoveredPath === indentPathKey
   const toggleExpanded = () => {
     setChildExpanded(!childExpanded)
   }
@@ -221,6 +219,27 @@ export function Indent(props: RenderElementProps) {
 
   const showLines = hasIndentChildren
 
+  const getClosestIndentPath = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement))
+      return null
+    return target.closest('[data-indent-path]')?.getAttribute('data-indent-path') ?? null
+  }, [])
+
+  const onPointerMove = useCallback((event: React.PointerEvent) => {
+    if (!indentPathKey)
+      return
+    const closestPath = getClosestIndentPath(event.target)
+    if (closestPath === indentPathKey)
+      setHoveredPath(indentPathKey)
+  }, [getClosestIndentPath, indentPathKey, setHoveredPath])
+
+  const onPointerLeave = useCallback((event: React.PointerEvent) => {
+    if (!indentPathKey || hoveredPath !== indentPathKey)
+      return
+    const nextPath = getClosestIndentPath(event.relatedTarget)
+    setHoveredPath(nextPath)
+  }, [getClosestIndentPath, hoveredPath, indentPathKey, setHoveredPath])
+
   if (!enabled) {
     return (
       <div {...props.attributes}>
@@ -228,7 +247,6 @@ export function Indent(props: RenderElementProps) {
       </div>
     )
   }
-
   return (
     <motion.div
       className={`relative ${isDragSource ? 'opacity-60' : ''}`}
@@ -249,6 +267,9 @@ export function Indent(props: RenderElementProps) {
         '--memorilo-outline-header-height': metrics.headerHeight,
         '--memorilo-outline-top-offset': metrics.topOffset,
       } as CSSProperties}
+      data-indent-path={indentPathKey ?? undefined}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
       data-collapsed={collapsed}
       data-drop-target={isDropTarget || undefined}
       data-drop-position={isDropTarget ? drag.over?.position : undefined}

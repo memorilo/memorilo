@@ -36,3 +36,13 @@ export const IndentDragContext = createContext<IndentDragContextValueType>({
   endDrag: () => {},
   startDrag: () => {},
 })
+
+export interface IndentHoverContextValueType {
+  hoveredPath: string | null
+  setHoveredPath: (path: string | null) => void
+}
+
+export const IndentHoverContext = createContext<IndentHoverContextValueType>({
+  hoveredPath: null,
+  setHoveredPath: () => {},
+})
