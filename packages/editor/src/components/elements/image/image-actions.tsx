@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from 'react'
-import { DeleteIcon } from '@memorilo/components/ui/animiated-icons/delete'
+import { DeleteIcon } from '@memorilo/components/ui/animated-icons/delete'
 import { Button } from '@memorilo/components/ui/button'
 import { useTranslation } from 'react-i18next'
 

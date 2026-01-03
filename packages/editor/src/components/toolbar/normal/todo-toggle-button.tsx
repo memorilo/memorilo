@@ -1,5 +1,5 @@
 import type { Path } from 'slate'
-import { CalendarCheckIcon } from '@memorilo/components/ui/animiated-icons/calendar-check'
+import { CalendarCheckIcon } from '@memorilo/components/ui/animated-icons/calendar-check'
 import { cn } from '@memorilo/utils'
 import { Array as Arr, pipe } from 'effect'
 import { useTranslation } from 'react-i18next'

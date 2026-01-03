@@ -1,8 +1,8 @@
 import type { HeadingOrPlainType } from '../element-type'
 import type { SlashCommandContext, SlashCommandRegistry } from './types'
-import { CalendarCheckIcon } from '@memorilo/components/ui/animiated-icons/calendar-check'
-import { LinkIcon } from '@memorilo/components/ui/animiated-icons/link'
-import { TerminalIcon } from '@memorilo/components/ui/animiated-icons/terminal'
+import { CalendarCheckIcon } from '@memorilo/components/ui/animated-icons/calendar-check'
+import { LinkIcon } from '@memorilo/components/ui/animated-icons/link'
+import { TerminalIcon } from '@memorilo/components/ui/animated-icons/terminal'
 import { Editor, Element as SlateElement } from 'slate'
 import {
   canEditTable,

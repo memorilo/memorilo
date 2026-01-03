@@ -1,5 +1,5 @@
 import type { RangeRef } from 'slate'
-import { LinkIcon } from '@memorilo/components/ui/animiated-icons/link'
+import { LinkIcon } from '@memorilo/components/ui/animated-icons/link'
 import { Button } from '@memorilo/components/ui/button'
 import { Input } from '@memorilo/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
