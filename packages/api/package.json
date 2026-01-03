@@ -14,13 +14,13 @@
     "react": "catalog:"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.90.12",
-    "@tauri-apps/api": "^2.9.1",
-    "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tanstack/react-query": "catalog:",
+    "@tauri-apps/api": "catalog:",
+    "@tauri-apps/plugin-dialog": "catalog:",
     "@tauri-apps/plugin-fs": "catalog:",
     "@tauri-apps/plugin-log": "catalog:",
     "@tauri-apps/plugin-opener": "catalog:",
-    "effect": "^3.19.9",
-    "effect-query": "^0.2.1"
+    "effect": "catalog:",
+    "effect-query": "catalog:"
   }
 }

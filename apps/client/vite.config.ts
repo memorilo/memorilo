@@ -3,6 +3,7 @@ import process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig } from 'vite'
 import { customI18nHmrPlugin } from './plugins/i18n-hmr'
 import { localesPlugin } from './plugins/locales'
@@ -31,6 +32,7 @@ export default defineConfig({
     localesPlugin(),
     localesJsonPlugin(),
     customI18nHmrPlugin(),
+    visualizer(),
   ],
   resolve: {
     alias: {
