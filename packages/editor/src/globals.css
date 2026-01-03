@@ -1,0 +1,41 @@
+@reference "tailwindcss"
+
+.memorilo-editor[contenteditable="true"]:focus {
+  outline: none;
+}
+
+.memorilo-editor {
+  --memorilo-outline-indent: 3rem;
+  --memorilo-outline-line-x: 1rem;
+  --memorilo-outline-dot-x: var(--memorilo-outline-line-x);
+  --memorilo-outline-first-line: 1.5rem;
+  --memorilo-outline-dot-size: 0.4rem;
+}
+
+.memorilo-editor :is(h1, h2, h3, h4, h5, h6, blockquote, pre, hr, p) {
+  margin: 0;
+}
+
+.memorilo-editor .codesnippet {
+  @apply font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded;
+}
+
+.memorilo-editor .strikethrough {
+  @apply line-through
+}
+
+.memorilo-editor .underline {
+  @apply underline
+}
+
+.memorilo-editor .bold {
+  @apply font-bold
+}
+
+.memorilo-editor .italic {
+  @apply italic
+}
+
+.memorilo-editor .slashTrigger {
+  @apply rounded bg-blue-50 text-blue-600 font-mono;
+}

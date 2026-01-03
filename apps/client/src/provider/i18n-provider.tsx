@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react'
 import { memorilo } from '@memorilo/core'
-import { Disposable } from '@memorilo/core/utils/disposable'
+import { Disposable } from '@memorilo/utils/disposable'
 import { EventBus } from '@memorilo/utils/event-bus'
 import * as log from '@tauri-apps/plugin-log'
 import { Either, Option } from 'effect'
