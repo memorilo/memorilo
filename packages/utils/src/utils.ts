@@ -11,10 +11,9 @@ export const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(res
 
 export const isEmptyObject = (obj: Record<string, any>) => Object.keys(obj).length === 0
 
-export function parsePositiveInt(value: string, fallback: number) {
+export function parsePositiveInt(value: string) {
   return pipe(
     Option.fromNullable(Number.parseInt(value, 10)),
     Option.filter(n => Number.isFinite(n) && n > 0),
-    Option.getOrElse(() => Math.max(1, fallback)),
   )
 }

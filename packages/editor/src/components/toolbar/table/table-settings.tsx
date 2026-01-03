@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui
 import { Switch } from '@memorilo/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { parsePositiveInt } from '@memorilo/utils'
+import { Option, pipe } from 'effect'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TbTableOptions } from 'react-icons/tb'
@@ -35,11 +36,17 @@ function TableSettingsButtonInner({ tableState }: { tableState: TableState }) {
   const [hideHeader, setHideHeader] = useState(() => !tableState.hasHeader)
 
   const parsedRows = useMemo(
-    () => parsePositiveInt(rowInput, tableState.rowCount),
+    () => pipe(
+      parsePositiveInt(rowInput),
+      Option.getOrElse(() => tableState.rowCount),
+    ),
     [rowInput, tableState.rowCount],
   )
   const parsedColumns = useMemo(
-    () => parsePositiveInt(colInput, tableState.columnCount),
+    () => pipe(
+      parsePositiveInt(colInput),
+      Option.getOrElse(() => tableState.columnCount),
+    ),
     [colInput, tableState.columnCount],
   )
 

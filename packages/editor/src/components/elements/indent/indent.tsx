@@ -1,78 +1,82 @@
+import type { CSSProperties } from 'react'
 import type { RenderElementProps } from 'slate-react'
 import { ChevronDownIcon } from '@memorilo/components/ui/animiated-icons/chevron-down'
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { Button } from '@memorilo/components/ui/button'
+import { parsePositiveInt } from '@memorilo/utils'
+import { Array as Arr, Match, Option, pipe } from 'effect'
+import { attempt } from 'es-toolkit'
 import { AnimatePresence, motion } from 'motion/react'
 import { use, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Node, Path, Element as SlateElement } from 'slate'
 import { ReactEditor, useFocused, useSelected, useSlateSelector, useSlateStatic } from 'slate-react'
+import { isIndent } from '../../../lib/element-type'
 import { IndentChildCollapseContext, IndentDragContext, IndentEnableContext } from './contexts'
 
 const MotionButton = motion(Button)
 
-function useIndentConnections(element: SlateElement) {
-  const hasIndentAbove = useSlateSelector((editor) => {
-    try {
-      const path = ReactEditor.findPath(editor, element)
+interface HeaderMeasurements {
+  firstLineHeight?: string
+  headerHeight?: string
+}
 
-      const index = path[path.length - 1]
-      if (index !== undefined && index > 0) {
-        const prevPath = Path.previous(path)
-        if (Node.has(editor, prevPath)) {
-          const prevNode = Node.get(editor, prevPath)
-          if (SlateElement.isElement(prevNode) && (prevNode as any).type === 'indent') {
-            return true
-          }
-        }
-      }
-    }
-    catch {}
-    return false
-  })
+function getHeaderElement(element: SlateElement) {
+  return pipe(element.children, Arr.head, Option.filter(SlateElement.isElement))
+}
 
-  const hasIndentBelow = useSlateSelector((editor) => {
-    try {
-      const path = ReactEditor.findPath(editor, element)
-      const nextPath = Path.next(path)
-      if (Node.has(editor, nextPath)) {
-        const nextNode = Node.get(editor, nextPath)
-        if (SlateElement.isElement(nextNode) && (nextNode as any).type === 'indent') {
-          return true
-        }
-      }
-    }
-    catch {}
-    return false
-  })
-
-  return { hasIndentAbove, hasIndentBelow }
+function hasIndentChild(element: SlateElement): boolean {
+  return Arr.some(
+    element.children,
+    child => SlateElement.isElement(child) && isIndent(child),
+  )
 }
 
 function getOutlineMetrics(element: SlateElement) {
-  const header = element.children[0] as any
-  switch (header?.type) {
-    case 'h1':
-      return { firstLineHeight: '2.25rem', topOffset: '0rem' }
-    case 'h2':
-      return { firstLineHeight: '2rem', topOffset: '0rem' }
-    case 'h3':
-      return { firstLineHeight: '1.75rem', topOffset: '0rem' }
-    case 'h4':
-      return { firstLineHeight: '1.75rem', topOffset: '0rem' }
-    case 'h5':
-      return { firstLineHeight: '1.5rem', topOffset: '0rem' }
-    case 'h6':
-      return { firstLineHeight: '1.5rem', topOffset: '0rem' }
-    case 'codeblock':
-      return { firstLineHeight: '1.25rem', topOffset: '0.5rem' }
-    case 'divider':
-      return { firstLineHeight: '1.5rem', topOffset: '0.5rem' }
-    case 'todo':
-      return { firstLineHeight: '1.5rem', topOffset: '0.25rem' }
-    default:
-      return { firstLineHeight: '1.5rem', topOffset: '0rem' }
-  }
+  return pipe(
+    getHeaderElement(element),
+    Option.map(header => Match.value(header.type).pipe(
+      Match.when('h1', () => ({ firstLineHeight: '2.25rem', topOffset: '0rem' })),
+      Match.when('h2', () => ({ firstLineHeight: '2rem', topOffset: '0rem' })),
+      Match.when('h3', () => ({ firstLineHeight: '1.75rem', topOffset: '0rem' })),
+      Match.when('h4', () => ({ firstLineHeight: '1.75rem', topOffset: '0rem' })),
+      Match.when('h5', () => ({ firstLineHeight: '1.5rem', topOffset: '0rem' })),
+      Match.when('h6', () => ({ firstLineHeight: '1.5rem', topOffset: '0rem' })),
+      Match.when('codeblock', () => ({ firstLineHeight: '1.25rem', topOffset: '0.5rem' })),
+      Match.when('todo', () => ({ firstLineHeight: '1.5rem', topOffset: '0.25rem' })),
+      Match.orElse(() => ({ firstLineHeight: '1.5rem', topOffset: '0rem' })),
+    )),
+    Option.getOrElse(() => ({ firstLineHeight: '1.5rem', topOffset: '0rem' })),
+  )
+}
+
+function measureHeaderMetrics(editor: ReactEditor, element: SlateElement): HeaderMeasurements {
+  return pipe(
+    getHeaderElement(element),
+    Option.flatMap((header) => {
+      const [domError, domNode] = attempt(() => ReactEditor.toDOMNode(editor, header))
+      if (domError || !(domNode instanceof HTMLElement))
+        return Option.none()
+
+      const style = window.getComputedStyle(domNode)
+      const lineHeight = pipe(
+        parsePositiveInt(style.lineHeight),
+        Option.orElse(() =>
+          pipe(
+            parsePositiveInt(style.fontSize),
+            Option.map(fontSize => fontSize * 1.2),
+          ),
+        ),
+      )
+      const headerHeight = parsePositiveInt(String(domNode.getBoundingClientRect().height))
+
+      return Option.some({
+        firstLineHeight: Option.getOrUndefined(pipe(lineHeight, Option.map(value => `${value}px`))),
+        headerHeight: Option.getOrUndefined(pipe(headerHeight, Option.map(value => `${value}px`))),
+      })
+    }),
+    Option.getOrElse(() => ({})),
+  )
 }
 
 export function Indent(props: RenderElementProps) {
@@ -80,13 +84,14 @@ export function Indent(props: RenderElementProps) {
   const { collapsed, setCollapsed } = use(IndentChildCollapseContext)
   const enabled = use(IndentEnableContext)
   const drag = use(IndentDragContext)
-  const { hasIndentAbove, hasIndentBelow } = useIndentConnections(props.element)
   const [childExpanded, setChildExpanded] = useState(true)
   const expandable = props.element.children.length > 1
   const isFocused = useFocused()
   const isSelected = useSelected()
   const editor = useSlateStatic()
   const [measuredFirstLineHeight, setMeasuredFirstLineHeight] = useState<string>()
+  const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<string>()
+  const hasIndentChildren = useMemo(() => hasIndentChild(props.element), [props.element])
 
   const childCollapsed = useMemo(() => ({
     collapsed: !childExpanded,
@@ -107,36 +112,7 @@ export function Indent(props: RenderElementProps) {
     }
 
     let cancelled = false
-    let nextMeasuredFirstLineHeight: string | undefined
-
-    try {
-      const header = (props.element as any).children?.[0]
-      if (!SlateElement.isElement(header)) {
-        nextMeasuredFirstLineHeight = undefined
-      }
-      else {
-        const domNode = ReactEditor.toDOMNode(editor, header) as HTMLElement
-        const style = window.getComputedStyle(domNode)
-
-        let lineHeight = Number.parseFloat(style.lineHeight)
-        if (Number.isNaN(lineHeight)) {
-          const fontSize = Number.parseFloat(style.fontSize)
-          if (!Number.isNaN(fontSize)) {
-            lineHeight = fontSize * 1.2
-          }
-        }
-
-        if (!Number.isNaN(lineHeight) && lineHeight > 0) {
-          nextMeasuredFirstLineHeight = `${lineHeight}px`
-        }
-        else {
-          nextMeasuredFirstLineHeight = undefined
-        }
-      }
-    }
-    catch {
-      nextMeasuredFirstLineHeight = undefined
-    }
+    const { firstLineHeight: nextMeasuredFirstLineHeight, headerHeight: nextMeasuredHeaderHeight } = measureHeaderMetrics(editor, props.element)
 
     queueMicrotask(() => {
       if (cancelled)
@@ -145,6 +121,11 @@ export function Indent(props: RenderElementProps) {
         if (prev === nextMeasuredFirstLineHeight)
           return prev
         return nextMeasuredFirstLineHeight
+      })
+      setMeasuredHeaderHeight((prev) => {
+        if (prev === nextMeasuredHeaderHeight)
+          return prev
+        return nextMeasuredHeaderHeight
       })
     })
 
@@ -229,11 +210,16 @@ export function Indent(props: RenderElementProps) {
   }, [drag, editor, enabled, props.element])
 
   const metrics = useMemo(() => {
-    const base = getOutlineMetrics(props.element as any)
-    return measuredFirstLineHeight
-      ? { ...base, firstLineHeight: measuredFirstLineHeight }
-      : base
-  }, [measuredFirstLineHeight, props.element])
+    const base = getOutlineMetrics(props.element)
+    const firstLineHeight = measuredFirstLineHeight ?? base.firstLineHeight
+    return {
+      ...base,
+      firstLineHeight,
+      headerHeight: measuredHeaderHeight ?? firstLineHeight,
+    }
+  }, [measuredFirstLineHeight, measuredHeaderHeight, props.element])
+
+  const showLines = hasIndentChildren
 
   if (!enabled) {
     return (
@@ -258,10 +244,11 @@ export function Indent(props: RenderElementProps) {
         duration: 0.2,
       }}
       style={{
-        paddingLeft: 'var(--memorilo-outline-indent)',
-        ['--memorilo-outline-first-line' as any]: metrics.firstLineHeight,
-        ['--memorilo-outline-top-offset' as any]: metrics.topOffset,
-      }}
+        'paddingLeft': 'var(--memorilo-outline-indent)',
+        '--memorilo-outline-first-line': metrics.firstLineHeight,
+        '--memorilo-outline-header-height': metrics.headerHeight,
+        '--memorilo-outline-top-offset': metrics.topOffset,
+      } as CSSProperties}
       data-collapsed={collapsed}
       data-drop-target={isDropTarget || undefined}
       data-drop-position={isDropTarget ? drag.over?.position : undefined}
@@ -292,12 +279,11 @@ export function Indent(props: RenderElementProps) {
         contentEditable={false}
         className="absolute left-0 top-0 bottom-0 w-(--memorilo-outline-indent) select-none pointer-events-none"
       >
-        {hasIndentAbove && (
+        {showLines && (
           <span
-            className="absolute left-(--memorilo-outline-line-x) w-px bg-border/70"
+            className="absolute left-(--memorilo-outline-line-x) bottom-0 w-px bg-border/70"
             style={{
-              top: 0,
-              height: 'calc(var(--memorilo-outline-top-offset) + var(--memorilo-outline-first-line)/2 - var(--memorilo-outline-dot-size)/2)',
+              top: 'calc(var(--memorilo-outline-top-offset) + var(--memorilo-outline-header-height))',
             }}
           />
         )}
@@ -340,17 +326,13 @@ export function Indent(props: RenderElementProps) {
             )}
           </AnimatePresence>
           <span className="flex items-center justify-center size-4">
-            <span className="rounded-full bg-foreground" style={{ width: 'var(--memorilo-outline-dot-size)', height: 'var(--memorilo-outline-dot-size)' }} />
+            <span
+              className="rounded-full bg-foreground transition-shadow hover:shadow-[0_0_0_4px_rgba(0,0,0,0.2)]"
+              style={{ width: 'var(--memorilo-outline-dot-size)', height: 'var(--memorilo-outline-dot-size)' }}
+            />
           </span>
         </span>
 
-        <span
-          className="absolute left-(--memorilo-outline-line-x) w-px bg-border/70"
-          style={{
-            top: 'calc(var(--memorilo-outline-top-offset) + var(--memorilo-outline-first-line)/2 + var(--memorilo-outline-dot-size)/2)',
-            bottom: hasIndentBelow ? 0 : '0.5rem',
-          }}
-        />
       </div>
       <IndentChildCollapseContext value={childCollapsed}>
         {props.children}
