@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@floating-ui/react": "catalog:",
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/utils": "workspace:*",
