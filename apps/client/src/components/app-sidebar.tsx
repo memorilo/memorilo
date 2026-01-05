@@ -4,12 +4,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortc
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBook, LuChevronDown, LuClock, LuFlag, LuNotebookPen, LuSettings, LuUser } from 'react-icons/lu'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
-import { Settings } from './settings'
+
+const LazySettings = lazy(() => import('./settings').then(module => ({ default: module.Settings })))
 
 export function AppSidebar() {
   const { t } = useTranslation('app')
@@ -17,14 +18,16 @@ export function AppSidebar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   return (
     <>
-      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t('sidebar.settings')}</DialogTitle>
-          </DialogHeader>
-          <Settings />
-        </DialogContent>
-      </Dialog>
+      <Suspense>
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{t('sidebar.settings')}</DialogTitle>
+            </DialogHeader>
+            <LazySettings />
+          </DialogContent>
+        </Dialog>
+      </Suspense>
 
       <Sidebar collapsible="icon" className="select-none">
         <SidebarHeader>
