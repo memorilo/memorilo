@@ -1,7 +1,35 @@
 {
   "name": "@memorilo/editor",
-  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
   "author": "Memorilo Team",
-  "license": "AGLP-3.0-only",
-  "packageManager": "pnpm@10.17.0"
+  "license": "AGPL-3.0-only",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "scripts": {
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memorilo/utils": "workspace:*",
+    "@tiptap/core": "catalog:",
+    "@tiptap/react": "catalog:",
+    "@tiptap/starter-kit": "catalog:",
+    "effect": "catalog:",
+    "es-toolkit": "catalog:",
+    "katex": "catalog:",
+    "loro-crdt": "catalog:",
+    "loro-prosemirror": "catalog:",
+    "prosemirror-model": "catalog:",
+    "prosemirror-state": "catalog:",
+    "prosemirror-view": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "tailwindcss": "catalog:"
+  }
 }

@@ -13,6 +13,7 @@
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/core": "workspace:*",
+    "@memorilo/editor": "workspace:*",
     "@memorilo/utils": "workspace:*",
     "@tanstack/devtools-vite": "^0.3.11",
     "@tanstack/react-devtools": "^0.8.2",
@@ -29,6 +30,7 @@
     "i18next": "catalog:",
     "immer": "^11.0.1",
     "jotai": "catalog:",
+    "loro-crdt": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-i18next": "catalog:",
@@ -49,6 +51,8 @@
     "es-toolkit": "^1.42.0",
     "globals": "^16.5.0",
     "pathe": "^2.0.3",
-    "tailwindcss": "^4.1.17"
+    "tailwindcss": "^4.1.17",
+    "vite-plugin-top-level-await": "catalog:",
+    "vite-plugin-wasm": "catalog:"
   }
 }

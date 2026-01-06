@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import topLevelAwait from 'vite-plugin-top-level-await'
+import wasm from 'vite-plugin-wasm'
 import { customI18nHmrPlugin } from './plugins/i18n-hmr'
 import { localesPlugin } from './plugins/locales'
 import { localesJsonPlugin } from './plugins/locales-json'
@@ -17,6 +19,8 @@ export default defineConfig({
     host: HOST,
   },
   plugins: [
+    wasm(),
+    topLevelAwait(),
     tailwindcss(),
     tanstackRouter({
       target: 'react',
@@ -31,6 +35,12 @@ export default defineConfig({
     localesJsonPlugin(),
     customI18nHmrPlugin(),
   ],
+  worker: {
+    plugins: () => [
+      wasm(),
+      topLevelAwait(),
+    ],
+  },
   resolve: {
     alias: {
       '~': path.resolve(__dirname, 'src'),

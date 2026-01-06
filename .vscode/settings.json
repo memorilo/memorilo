@@ -1,4 +1,17 @@
 {
+  // i18n ally settings
+  "i18n-ally.localesPaths": "locales",
+  "i18n-ally.enabledFrameworks": [
+    "react-i18next",
+    "i18next"
+  ],
+  "i18n-ally.namespace": true,
+  "i18n-ally.pathMatcher": "{namespace}/{locale}.json",
+  "i18n-ally.keystyle": "flat",
+  "i18n-ally.dirStructure": "dir",
+  "i18n-ally.defaultNamespace": "app",
+  "i18n-ally.sourceLanguage": "en",
+
   // Disable the default formatter, use eslint instead
   "prettier.enable": false,
   "editor.formatOnSave": false,
