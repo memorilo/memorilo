@@ -3,28 +3,32 @@ packages:
   - packages/*
 
 catalog:
-  '@tiptap/core': ^2.11.0
-  '@tiptap/react': ^2.11.0
-  '@tiptap/starter-kit': ^2.11.0
   '@radix-ui/react-switch': ^1.2.6
+  '@tiptap/core': ^3.15.1
+  '@tiptap/extension-bullet-list': ^3.15.1
+  '@tiptap/extension-document': 3.15.1
+  '@tiptap/extension-paragraph': ^3.15.3
+  '@tiptap/extension-text': ^3.15.3
+  '@tiptap/pm': ^3.15.1
+  '@tiptap/react': ^3.15.1
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
   dayjs: ^1.11.19
-  effect: ^3.19.9
+  effect: ^3.19.14
   es-toolkit: ^1.43.0
   i18next: ^25.7.2
   jotai: ^2.16.0
   katex: ^0.16.27
-  loro-crdt: ^1.10.2
+  loro-crdt: ^1.10.3
   loro-prosemirror: ^0.4.2
   mitt: ^3.0.1
-  prosemirror-model: ^1.18.1
-  prosemirror-state: ^1.4.1
-  prosemirror-view: ^1.28.0
-  react: ^19.2.1
-  react-dom: ^19.2.1
+  motion: ^12.23.25
+  react: ^19.2.3
+  react-dom: ^19.2.3
   react-i18next: ^16.4.0
-  tailwindcss: ^4.1.17
+  react-icons: 5.5.0
+  tailwindcss: ^4.1.18
+  uniqolor: ^1.1.1
   vite-plugin-top-level-await: ^1.6.0
   vite-plugin-wasm: ^3.5.0
   zod: ^4.1.13

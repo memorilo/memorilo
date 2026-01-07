@@ -1,5 +1,6 @@
 import type { LoroDocType } from '@memorilo/editor'
 import { MemoriloEditor } from '@memorilo/editor'
+import { DEV } from '@memorilo/utils/constants'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { LoroDoc } from 'loro-crdt'
 import { useMemo } from 'react'
@@ -10,7 +11,25 @@ export const Route = createLazyFileRoute('/journals')({
 
 function RouteComponent() {
   // Temporarily using a new doc for debugging
-  const loroDoc = useMemo(() => new LoroDoc() as LoroDocType, [])
+  const loroDoc = useMemo(() => {
+    const doc = new LoroDoc() as LoroDocType
+
+    // TODO: remove this after completing editor feature
+    if (DEV) {
+      try {
+        if (localStorage.getItem('memorilo:debug-journal-cache')) {
+          doc.importJsonUpdates(localStorage.getItem('memorilo:debug-journal-cache')!)
+        }
+      }
+      catch {}
+      doc.subscribe(() => {
+        const updates = doc.exportJsonUpdates()
+        localStorage.setItem('memorilo:debug-journal-cache', JSON.stringify(updates))
+      })
+    }
+
+    return doc
+  }, [])
 
   return (
     <div className="flex h-full flex-col">

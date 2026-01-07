@@ -15,18 +15,22 @@
   "dependencies": {
     "@memorilo/utils": "workspace:*",
     "@tiptap/core": "catalog:",
+    "@tiptap/extension-bullet-list": "catalog:",
+    "@tiptap/extension-document": "catalog:",
+    "@tiptap/extension-paragraph": "catalog:",
+    "@tiptap/extension-text": "catalog:",
+    "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
-    "@tiptap/starter-kit": "catalog:",
     "effect": "catalog:",
     "es-toolkit": "catalog:",
     "katex": "catalog:",
     "loro-crdt": "catalog:",
     "loro-prosemirror": "catalog:",
-    "prosemirror-model": "catalog:",
-    "prosemirror-state": "catalog:",
-    "prosemirror-view": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "react-icons": "catalog:",
+    "uniqolor": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",
