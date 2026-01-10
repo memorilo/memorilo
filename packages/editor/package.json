@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@memorilo/components": "workspace:*",
     "@memorilo/utils": "workspace:*",
     "@tiptap/core": "catalog:",
     "@tiptap/extension-bullet-list": "catalog:",

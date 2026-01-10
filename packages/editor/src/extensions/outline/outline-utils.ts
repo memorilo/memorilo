@@ -1,5 +1,6 @@
 import type { Node as ProseMirrorNode, ResolvedPos } from '@tiptap/pm/model'
 import type { EditorState } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
 
 export interface ListItemContext {
   node: ProseMirrorNode
@@ -73,4 +74,38 @@ export function findSiblingListItemPos(
   })
 
   return found
+}
+
+export function resolveOutlineItemFromElement(
+  view: EditorView,
+  element: HTMLElement,
+) {
+  let current: HTMLElement | null = element
+  while (current && !current.hasAttribute('data-outline-item')) {
+    current = current.parentElement
+  }
+
+  if (!current) return null
+  let pos: number | null = null
+
+  try {
+    const domPos = view.posAtDOM(current, 0)
+    let listItem = findListItem(view.state.doc.resolve(domPos))
+    if (!listItem) {
+      const nextPos = Math.min(domPos + 1, view.state.doc.content.size)
+      listItem = findListItem(view.state.doc.resolve(nextPos))
+    }
+    if (listItem)
+      pos = listItem.pos
+  }
+  catch {
+    pos = null
+  }
+
+  if (pos === null)
+    return null
+
+  const node = view.state.doc.nodeAt(pos)
+  if (!node) return null
+  return { node, pos, element: current }
 }

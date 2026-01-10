@@ -1,8 +1,10 @@
 import type { NodeViewProps } from '@tiptap/react'
+import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
 import { useCallback, useMemo, useState } from 'react'
 import { MdChevronRight } from 'react-icons/md'
+import { startOutlineDrag } from './outline-dnd'
 import { getOutlineLevel, isListContainerNode } from './outline-utils'
 
 const OUTLINE_DOT_CENTER_PX = 20
@@ -61,9 +63,19 @@ export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
     [editor, getPos],
   )
 
+  const handleGripMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const pos = getPos()
+    if (typeof pos === 'number')
+      startOutlineDrag(editor, pos, e.nativeEvent)
+  }, [editor, getPos])
+
   return (
     <NodeViewWrapper
       as="li"
+      data-outline-item="true"
+      data-outline-level={level}
       data-folded={isFolded ? 'true' : 'false'}
       className={cn(
         'relative my-[2px]',
@@ -80,8 +92,21 @@ export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
           style={{ left: offset }}
         />
       ))}
-      <div className="flex items-start gap-1">
+      <div className="flex w-full items-start gap-1" data-outline-row>
         <div className="relative mt-0.5 w-8 h-6 shrink-0">
+          <button
+            type="button"
+            onMouseDown={handleGripMouseDown}
+            onClick={e => e.preventDefault()}
+            className={cn(
+              'absolute -left-5 top-0.5 w-5 h-5 z-10 flex items-center justify-center rounded cursor-grab active:cursor-grabbing border-none bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700',
+              'transition-opacity duration-150',
+              hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
+            )}
+            aria-label="Drag item"
+          >
+            <GripVerticalIcon size={14} className="text-gray-600 dark:text-gray-400" />
+          </button>
           {hasChildren && (
             <button
               type="button"
@@ -103,7 +128,7 @@ export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
             </button>
           )}
 
-          <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center">
+          <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center" data-outline-dot>
             <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
           </div>
         </div>
