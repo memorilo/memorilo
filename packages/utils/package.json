@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
+    "clsx": "catalog:",
     "jotai": "catalog:",
     "mitt": "catalog:",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "catalog:"
   }
 }
