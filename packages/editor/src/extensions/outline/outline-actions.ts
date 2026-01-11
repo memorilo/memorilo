@@ -16,8 +16,10 @@ function setFoldedState(
   folded: boolean,
 ) {
   const listItem = findListItem(state.selection.$from)
-  if (!listItem) return false
-  if (listItem.node.attrs.folded === folded) return false
+  if (!listItem)
+    return false
+  if (listItem.node.attrs.folded === folded)
+    return false
 
   if (dispatch) {
     dispatch(
@@ -33,7 +35,8 @@ function setFoldedState(
 
 function toggleFoldedState(state: EditorState, dispatch: Dispatch) {
   const listItem = findListItem(state.selection.$from)
-  if (!listItem) return false
+  if (!listItem)
+    return false
 
   const folded = !listItem.node.attrs.folded
   if (dispatch) {
@@ -51,10 +54,12 @@ function toggleFoldedState(state: EditorState, dispatch: Dispatch) {
 function focusSiblingItem(direction: 'prev' | 'next'): Command {
   return ({ editor, state }) => {
     const listItem = findListItem(state.selection.$from)
-    if (!listItem) return false
+    if (!listItem)
+      return false
 
     const targetPos = findSiblingListItemPos(state, listItem, direction)
-    if (targetPos === null) return false
+    if (targetPos === null)
+      return false
 
     editor.commands.setTextSelection(targetPos + 1)
     return true
@@ -67,21 +72,21 @@ export const outlineCommands = {
    */
   toggleFold:
     (): Command =>
-    ({ state, dispatch }) => toggleFoldedState(state, dispatch),
+      ({ state, dispatch }) => toggleFoldedState(state, dispatch),
 
   /**
    * Fold the current node
    */
   fold:
     (): Command =>
-    ({ state, dispatch }) => setFoldedState(state, dispatch, true),
+      ({ state, dispatch }) => setFoldedState(state, dispatch, true),
 
   /**
    * Unfold the current node
    */
   unfold:
     (): Command =>
-    ({ state, dispatch }) => setFoldedState(state, dispatch, false),
+      ({ state, dispatch }) => setFoldedState(state, dispatch, false),
 
   /**
    * Move to the previous list item

@@ -1,7 +1,7 @@
 import type { Editor } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
-import { Fragment, Slice } from '@tiptap/pm/model'
 import type { EditorView } from '@tiptap/pm/view'
+import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { dropPoint } from '@tiptap/pm/transform'
 import {
@@ -32,6 +32,13 @@ interface DragState {
   indicator: IndicatorElements
   cleanup: () => void
   restoreCursor: () => void
+}
+
+interface OutlineHit {
+  node: ProseMirrorNode
+  pos: number
+  element: HTMLElement
+  rowRect: DOMRect
 }
 
 const DROP_LEFT_THRESHOLD_PX = 30
@@ -148,8 +155,8 @@ function getDotCenter(element: HTMLElement, rect: DOMRect) {
   return dotRect ? dotRect.left + dotRect.width / 2 : rect.left
 }
 
-function resolveOutlineItemAtCoords(view: EditorView, y: number) {
-  let best: { node: ProseMirrorNode; pos: number; element: HTMLElement; rowRect: DOMRect } | null = null
+function resolveOutlineItemAtCoords(view: EditorView, y: number): OutlineHit | null {
+  let best: OutlineHit | null = null
   let bestDistance = Number.POSITIVE_INFINITY
   let bestInside = false
 
