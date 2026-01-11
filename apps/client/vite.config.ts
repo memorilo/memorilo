@@ -3,6 +3,7 @@ import process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig } from 'vite'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import wasm from 'vite-plugin-wasm'
@@ -12,6 +13,7 @@ import { localesJsonPlugin } from './plugins/locales-json'
 import i18nCompleteness from './plugins/utils/i18n-completeness'
 
 const HOST = process.env.TAURI_DEV_HOST ?? '0.0.0.0'
+const isVisualizer = process.env.VISUALIZER === 'true'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -34,7 +36,13 @@ export default defineConfig({
     localesPlugin(),
     localesJsonPlugin(),
     customI18nHmrPlugin(),
+    isVisualizer && visualizer({
+      sourcemap: true,
+    }),
   ],
+  build: {
+    sourcemap: isVisualizer,
+  },
   worker: {
     plugins: () => [
       wasm(),

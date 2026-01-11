@@ -25,3 +25,10 @@ build-ios:
 clean:
   if [[ -d ./apps/client/dist ]]; then rm -rf ./apps/client/dist; fi
   cd ./src-tauri/ && cargo clean
+
+build-web:
+  cd apps/client && pnpm build
+
+build-bundle-size-stats:
+  cd apps/client && VISUALIZER=true pnpm build
+  rm -rf apps/client/dist

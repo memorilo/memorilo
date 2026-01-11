@@ -51,6 +51,7 @@
     "es-toolkit": "catalog:",
     "globals": "catalog:",
     "pathe": "catalog:",
+    "rollup-plugin-visualizer": "catalog:",
     "tailwindcss": "catalog:",
     "vite-plugin-top-level-await": "catalog:",
     "vite-plugin-wasm": "catalog:"
