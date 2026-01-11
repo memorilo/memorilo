@@ -1,13 +1,19 @@
 import type { LoroDocType } from 'loro-prosemirror'
 import type { HTMLAttributes } from 'react'
 import { cn } from '@memorilo/utils'
+import Bold from '@tiptap/extension-bold'
+import Code from '@tiptap/extension-code'
 import Document from '@tiptap/extension-document'
+import Italic from '@tiptap/extension-italic'
 import Paragraph from '@tiptap/extension-paragraph'
-
+import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
-import { EditorContent, useEditor } from '@tiptap/react'
+import Underline from '@tiptap/extension-underline'
+import { Gapcursor } from '@tiptap/extensions'
 
+import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
+import { EditorBubbleMenu } from './extensions/bubble-menu'
 import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Outline } from './extensions/outline'
 import { LoroDocumentContext } from './provider/loro'
@@ -31,13 +37,23 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
     {
       extensions: [
         BulletDocument,
+        Bold,
+        Italic,
+        Underline,
+        Strike,
         Paragraph,
         Text,
+        Code.configure({
+          HTMLAttributes: {
+            class: 'font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded',
+          },
+        }),
         Outline.configure({
           bulletListHTMLAttributes: {
             class: 'list-none m-0 p-0 pl-0',
           },
         }),
+        Gapcursor,
         loroSyncExtension,
       ],
     },
@@ -55,6 +71,7 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
         )}
         {...props}
       >
+        {editor ? <EditorBubbleMenu editor={editor} /> : null}
         <EditorContent editor={editor} />
       </div>
     </LoroDocumentContext>
