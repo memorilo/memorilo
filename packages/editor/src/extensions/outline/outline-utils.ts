@@ -9,9 +9,14 @@ export interface ListItemContext {
 }
 
 const listContainerNames = new Set(['bulletList', 'orderedList'])
+const outlineTextBlockNames = new Set(['paragraph', 'heading'])
 
 export function isListContainerNode(node: ProseMirrorNode) {
   return listContainerNames.has(node.type.name)
+}
+
+export function isOutlineTextBlockNode(node: ProseMirrorNode) {
+  return outlineTextBlockNames.has(node.type.name)
 }
 
 export function getOutlineLevel($pos: ResolvedPos) {

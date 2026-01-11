@@ -8,6 +8,7 @@ import {
   findFirstChildListPos,
   findListItem,
   isListContainerNode,
+  isOutlineTextBlockNode,
 } from './outline-utils'
 
 type DropType = 'before' | 'after' | 'child'
@@ -202,7 +203,7 @@ function isEmptyListItem(node: ProseMirrorNode) {
   if (node.childCount !== 1)
     return false
   const first = node.child(0)
-  return first.type.name === 'paragraph' && first.content.size === 0
+  return isOutlineTextBlockNode(first) && first.content.size === 0
 }
 
 function resolveDropTarget(view: EditorView, fromPos: number, event: MouseEvent) {

@@ -1,7 +1,7 @@
 import type { Command, Editor } from '@tiptap/core'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { findListItem, findSiblingListItemPos } from './outline-utils'
+import { findListItem, findSiblingListItemPos, isOutlineTextBlockNode } from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
 
@@ -129,7 +129,7 @@ export function outlineKeymap(nodeTypeName: string) {
       const { $from } = view.state.selection
       const parent = $from.parent
 
-      if ($from.parentOffset === 0 && parent.type.name === 'paragraph') {
+      if ($from.parentOffset === 0 && isOutlineTextBlockNode(parent)) {
         return editor.commands.focusPreviousItem()
       }
 
@@ -143,7 +143,7 @@ export function outlineKeymap(nodeTypeName: string) {
       const { $from } = view.state.selection
       const parent = $from.parent
 
-      if ($from.parentOffset === parent.content.size && parent.type.name === 'paragraph') {
+      if ($from.parentOffset === parent.content.size && isOutlineTextBlockNode(parent)) {
         return editor.commands.focusNextItem()
       }
 

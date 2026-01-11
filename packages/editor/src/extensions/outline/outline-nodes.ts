@@ -5,7 +5,12 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { outlineCommands, outlineKeymap } from './outline-actions'
 import { OutlineItemView } from './outline-item-view'
-import { findFirstChildListPos, findListItem, findSiblingListItemPos } from './outline-utils'
+import {
+  findFirstChildListPos,
+  findListItem,
+  findSiblingListItemPos,
+  isOutlineTextBlockNode,
+} from './outline-utils'
 
 export const OutlineBulletList = BulletList.extend({
   addKeyboardShortcuts() {
@@ -18,7 +23,7 @@ export const OutlineBulletList = BulletList.extend({
           return false
 
         const { $from } = selection
-        if ($from.parent.type.name !== 'paragraph' || $from.parentOffset !== 0) {
+        if (!isOutlineTextBlockNode($from.parent) || $from.parentOffset !== 0) {
           return false
         }
 
@@ -65,7 +70,7 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
     }
   },
 
-  content: 'paragraph block*',
+  content: '(paragraph | heading) block*',
 
   defining: true,
 
@@ -112,7 +117,7 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
             const { $from } = state.selection
             const parent = $from.parent
 
-            if (parent.type.name !== 'paragraph') {
+            if (!isOutlineTextBlockNode(parent)) {
               return false
             }
 
