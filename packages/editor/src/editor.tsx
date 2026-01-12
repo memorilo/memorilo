@@ -1,24 +1,28 @@
 import type { LoroDocType } from 'loro-prosemirror'
 import type { HTMLAttributes } from 'react'
-import { mergeAttributes } from '@tiptap/core'
+import type { HeadingLevel } from './heading'
 import { cn } from '@memorilo/utils'
+import { mergeAttributes } from '@tiptap/core'
+import Blockquote from '@tiptap/extension-blockquote'
 import Bold from '@tiptap/extension-bold'
 import Code from '@tiptap/extension-code'
 import Document from '@tiptap/extension-document'
+import HardBreak from '@tiptap/extension-hard-break'
 import Heading from '@tiptap/extension-heading'
 import Italic from '@tiptap/extension-italic'
 import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
-import { Gapcursor } from '@tiptap/extensions'
 
+import { Gapcursor } from '@tiptap/extensions'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
+import { CodeBlockPrism } from './extensions/codeblock'
 import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Outline } from './extensions/outline'
-import { headingClassByLevel } from './heading'
+import { headingClassByLevel, headingLevels } from './heading'
 import { LoroDocumentContext } from './provider/loro'
 
 const BulletDocument = Document.extend({
@@ -27,7 +31,8 @@ const BulletDocument = Document.extend({
 
 const StyledHeading = Heading.extend({
   renderHTML({ node, HTMLAttributes }) {
-    const level = node.attrs.level
+    const rawLevel = Number(node.attrs.level)
+    const level = headingLevels.includes(rawLevel as HeadingLevel) ? (rawLevel as HeadingLevel) : 1
     return [
       `h${level}`,
       mergeAttributes(HTMLAttributes, { class: headingClassByLevel[level] }),
@@ -60,10 +65,25 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
         Strike,
         Paragraph,
         Text,
+        Blockquote.configure({
+          HTMLAttributes: {
+            class: 'border-l-[3px] border-gray-300 my-6 pl-4',
+          },
+        }),
+        HardBreak.configure({
+          keepMarks: false,
+        }),
         Code.configure({
           HTMLAttributes: {
             class: 'font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded',
           },
+        }),
+        CodeBlockPrism.configure({
+          languageClassPrefix: 'language-',
+          defaultLanguage: null,
+          enableTabIndentation: true,
+          exitOnTripleEnter: true,
+          exitOnArrowDown: true,
         }),
         Outline.configure({
           bulletListHTMLAttributes: {

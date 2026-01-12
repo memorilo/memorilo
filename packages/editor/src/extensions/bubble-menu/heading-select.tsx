@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import type { HeadingLevel } from '../../heading'
 import {
   Select,
   SelectContent,
@@ -8,8 +9,8 @@ import {
 } from '@memorilo/components/ui/select'
 import {
   headingLabelByLevel,
+
   headingLevels,
-  type HeadingLevel,
 } from '../../heading'
 
 type HeadingValue = 'paragraph' | `${HeadingLevel}`
@@ -64,11 +65,11 @@ export function HeadingSelect({ editor }: HeadingSelectProps) {
     >
       <SelectTrigger
         aria-label="Heading level"
-        className="min-w-[110px]"
+        className="min-w-[110px] border-none ring-none box-shadow-none outline-none"
         onMouseDown={event => event.preventDefault()}
         size="sm"
       >
-        <SelectValue placeholder="Plain" />
+        <SelectValue placeholder="Plain" className="border-none ring-none box-shadow-none outline-none" />
       </SelectTrigger>
       <SelectContent>
         {headingOptions.map(option => (

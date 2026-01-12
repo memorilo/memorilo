@@ -17,6 +17,7 @@ const isVisualizer = process.env.VISUALIZER === 'true'
 
 // https://vite.dev/config/
 export default defineConfig({
+  publicDir: path.resolve(__dirname, '../../public'),
   server: {
     host: HOST,
   },

@@ -13,14 +13,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/utils": "workspace:*",
+    "@tauri-apps/plugin-log": "catalog:",
     "@tiptap/core": "catalog:",
+    "@tiptap/extension-blockquote": "catalog:",
     "@tiptap/extension-bold": "catalog:",
     "@tiptap/extension-bubble-menu": "catalog:",
     "@tiptap/extension-bullet-list": "catalog:",
     "@tiptap/extension-code": "catalog:",
+    "@tiptap/extension-code-block": "catalog:",
     "@tiptap/extension-document": "catalog:",
+    "@tiptap/extension-hard-break": "catalog:",
     "@tiptap/extension-heading": "catalog:",
     "@tiptap/extension-italic": "catalog:",
     "@tiptap/extension-paragraph": "catalog:",
@@ -30,18 +35,22 @@
     "@tiptap/extensions": "catalog:",
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
+    "@vscode/vscode-languagedetection": "catalog:",
+    "cmdk": "catalog:",
     "effect": "catalog:",
     "es-toolkit": "catalog:",
     "katex": "catalog:",
     "loro-crdt": "catalog:",
     "loro-prosemirror": "catalog:",
     "motion": "catalog:",
+    "prismjs": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "catalog:",
     "uniqolor": "catalog:"
   },
   "devDependencies": {
+    "@types/prismjs": "catalog:",
     "@types/react": "catalog:",
     "tailwindcss": "catalog:"
   }

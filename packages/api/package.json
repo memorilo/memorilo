@@ -5,8 +5,7 @@
   "packageManager": "pnpm@10.17.0",
   "exports": {
     ".": "./src/index.ts",
-    "./command": "./src/command.ts",
-    "./query": "./src/query.ts"
+    "./*": "./src/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -18,6 +17,7 @@
     "@tanstack/react-query": "catalog:",
     "@tauri-apps/api": "catalog:",
     "@tauri-apps/plugin-dialog": "catalog:",
+    "@tauri-apps/plugin-fs": "catalog:",
     "effect": "catalog:",
     "effect-query": "catalog:"
   }

@@ -1,7 +1,11 @@
 import type { Command, Editor } from '@tiptap/core'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { findListItem, findSiblingListItemPos, isOutlineTextBlockNode } from './outline-utils'
+import {
+  findListItem,
+  findSiblingListItemPos,
+  isOutlineTextBlockNode,
+} from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
 
@@ -87,7 +91,6 @@ export const outlineCommands = {
   unfold:
     (): Command =>
       ({ state, dispatch }) => setFoldedState(state, dispatch, false),
-
   /**
    * Move to the previous list item
    */
@@ -102,11 +105,19 @@ export const outlineCommands = {
 export function outlineKeymap(nodeTypeName: string) {
   return {
     'Tab': ({ editor }: KeyboardShortcutContext) => {
+      if (editor.isActive('codeBlock')) {
+        return false
+      }
+
       editor.commands.sinkListItem(nodeTypeName)
       return true
     },
 
     'Shift-Tab': ({ editor }: KeyboardShortcutContext) => {
+      if (editor.isActive('codeBlock')) {
+        return false
+      }
+
       return editor.commands.liftListItem(nodeTypeName)
     },
 
