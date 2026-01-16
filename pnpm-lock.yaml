@@ -117,6 +117,9 @@ catalogs:
     '@tiptap/extension-heading':
       specifier: ^3.15.3
       version: 3.15.3
+    '@tiptap/extension-image':
+      specifier: ^3.15.3
+      version: 3.15.3
     '@tiptap/extension-italic':
       specifier: ^3.15.3
       version: 3.15.3
@@ -608,6 +611,9 @@ importers:
       '@tiptap/extension-heading':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
+      '@tiptap/extension-image':
+        specifier: 'catalog:'
+        version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
       '@tiptap/extension-italic':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
@@ -635,6 +641,9 @@ importers:
       '@vscode/vscode-languagedetection':
         specifier: 'catalog:'
         version: 1.0.22
+      cmdk:
+        specifier: 'catalog:'
+        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       effect:
         specifier: 'catalog:'
         version: 3.19.14
@@ -2549,6 +2558,11 @@ packages:
 
   '@tiptap/extension-heading@3.15.3':
     resolution: {integrity: sha512-G1GG6iN1YXPS+75arDpo+bYRzhr3dNDw99c7D7na3aDawa9Qp7sZ/bVrzFUUcVEce0cD6h83yY7AooBxEc67hA==}
+    peerDependencies:
+      '@tiptap/core': ^3.15.3
+
+  '@tiptap/extension-image@3.15.3':
+    resolution: {integrity: sha512-Tjq9BHlC/0bGR9/uySA0tv6I1Ua1Q5t5P/mdbWyZi4JdUpKHRfgenzfXF5DYnklJ01QJ7uOPSp9sAGgPzBixtQ==}
     peerDependencies:
       '@tiptap/core': ^3.15.3
 
@@ -6653,6 +6667,10 @@ snapshots:
       '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
 
   '@tiptap/extension-heading@3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))':
+    dependencies:
+      '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
+
+  '@tiptap/extension-image@3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))':
     dependencies:
       '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
 

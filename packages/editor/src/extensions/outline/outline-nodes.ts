@@ -9,6 +9,7 @@ import {
   findFirstChildListPos,
   findListItem,
   findSiblingListItemPos,
+  isEmptyOutlineParagraph,
   isOutlineTextBlockNode,
 } from './outline-utils'
 
@@ -31,8 +32,16 @@ export const OutlineBulletList = BulletList.extend({
         if (!listItem)
           return false
 
-        const isEmpty = $from.parent.content.size === 0
+        const isEmpty = isEmptyOutlineParagraph($from.parent)
         if (!isEmpty) {
+          return true
+        }
+
+        if (listItem.node.childCount > 1) {
+          // Preserve the list item when deleting a trailing empty paragraph.
+          const paragraphPos = $from.before($from.depth)
+          const tr = state.tr.delete(paragraphPos, paragraphPos + $from.parent.nodeSize)
+          view.dispatch(tr)
           return true
         }
 
@@ -70,7 +79,7 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
     }
   },
 
-  content: '(paragraph | heading) block*',
+  content: '(paragraph | heading | codeBlock | image) block*',
 
   defining: true,
 

@@ -3,6 +3,7 @@ import type { HTMLAttributes } from 'react'
 import type { HeadingLevel } from './heading'
 import { cn } from '@memorilo/utils'
 import { mergeAttributes } from '@tiptap/core'
+
 import Blockquote from '@tiptap/extension-blockquote'
 import Bold from '@tiptap/extension-bold'
 import Code from '@tiptap/extension-code'
@@ -14,12 +15,13 @@ import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
-
 import { Gapcursor } from '@tiptap/extensions'
+
 import { EditorContent, useEditor } from '@tiptap/react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
 import { CodeBlockPrism } from './extensions/codeblock'
+import { OutlineImage } from './extensions/image'
 import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Outline } from './extensions/outline'
 import { headingClassByLevel, headingLevels } from './heading'
@@ -76,6 +78,23 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
         Code.configure({
           HTMLAttributes: {
             class: 'font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded',
+          },
+        }),
+        OutlineImage.configure({
+          resize: {
+            enabled: true,
+            directions: [
+              'top',
+              'bottom',
+              'left',
+              'right',
+              'top-left',
+              'top-right',
+              'bottom-left',
+              'bottom-right',
+            ],
+            minHeight: 50,
+            minWidth: 50,
           },
         }),
         CodeBlockPrism.configure({

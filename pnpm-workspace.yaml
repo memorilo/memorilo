@@ -40,6 +40,7 @@ catalog:
   '@tiptap/extension-document': ^3.15.3
   '@tiptap/extension-hard-break': ^3.15.3
   '@tiptap/extension-heading': ^3.15.3
+  '@tiptap/extension-image': ^3.15.3
   '@tiptap/extension-italic': ^3.15.3
   '@tiptap/extension-paragraph': ^3.15.3
   '@tiptap/extension-strike': ^3.15.3

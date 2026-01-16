@@ -8,8 +8,14 @@ export interface ListItemContext {
   pos: number
 }
 
+export interface ReplaceRange {
+  from: number
+  to: number
+}
+
 const listContainerNames = new Set(['bulletList', 'orderedList'])
 const outlineTextBlockNames = new Set(['paragraph', 'heading'])
+const emptyParagraphInlineNames = new Set(['text', 'hardBreak'])
 
 export function isListContainerNode(node: ProseMirrorNode) {
   return listContainerNames.has(node.type.name)
@@ -17,6 +23,50 @@ export function isListContainerNode(node: ProseMirrorNode) {
 
 export function isOutlineTextBlockNode(node: ProseMirrorNode) {
   return outlineTextBlockNames.has(node.type.name)
+}
+
+export function isEmptyOutlineParagraph(node: ProseMirrorNode) {
+  if (node.type.name !== 'paragraph') {
+    return false
+  }
+
+  if (node.content.size === 0) {
+    return true
+  }
+
+  if (node.textContent.trim().length > 0) {
+    return false
+  }
+
+  let onlyEmptyInline = true
+  node.forEach((child) => {
+    if (!emptyParagraphInlineNames.has(child.type.name)) {
+      onlyEmptyInline = false
+    }
+  })
+
+  return onlyEmptyInline
+}
+
+export function getLeadingEmptyParagraphRange(
+  $pos: ResolvedPos,
+): ReplaceRange | null {
+  const listItem = findListItem($pos)
+  if (!listItem) {
+    return null
+  }
+
+  if ($pos.index(listItem.depth) !== 0) {
+    return null
+  }
+
+  const firstChild = listItem.node.child(0)
+  if (!isEmptyOutlineParagraph(firstChild)) {
+    return null
+  }
+
+  const from = listItem.pos + 1
+  return { from, to: from + firstChild.nodeSize }
 }
 
 export function getOutlineLevel($pos: ResolvedPos) {
