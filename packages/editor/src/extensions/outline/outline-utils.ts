@@ -13,12 +13,21 @@ export interface ReplaceRange {
   to: number
 }
 
-const listContainerNames = new Set(['bulletList', 'orderedList'])
+const listContainerNames = new Set(['bulletList', 'orderedList', 'taskList'])
+const outlineItemNames = new Set(['listItem', 'taskItem'])
 const outlineTextBlockNames = new Set(['paragraph', 'heading'])
 const emptyParagraphInlineNames = new Set(['text', 'hardBreak'])
 
 export function isListContainerNode(node: ProseMirrorNode) {
   return listContainerNames.has(node.type.name)
+}
+
+export function isOutlineItemNode(node: ProseMirrorNode) {
+  return outlineItemNames.has(node.type.name)
+}
+
+export function isOutlineItemName(name: string) {
+  return outlineItemNames.has(name)
 }
 
 export function isOutlineTextBlockNode(node: ProseMirrorNode) {
@@ -83,7 +92,7 @@ export function getOutlineLevel($pos: ResolvedPos) {
 export function findListItem($pos: ResolvedPos): ListItemContext | null {
   for (let depth = $pos.depth; depth > 0; depth--) {
     const node = $pos.node(depth)
-    if (node.type.name === 'listItem') {
+    if (isOutlineItemName(node.type.name)) {
       return {
         node,
         depth,
@@ -118,7 +127,7 @@ export function findSiblingListItemPos(
 
   let found: number | null = null
   doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name !== 'listItem') return
+    if (!isOutlineItemNode(node)) return
 
     if (direction === 'prev') {
       found = pos

@@ -126,6 +126,9 @@ catalogs:
     '@tiptap/extension-italic':
       specifier: ^3.15.3
       version: 3.15.3
+    '@tiptap/extension-list':
+      specifier: ^3.15.3
+      version: 3.15.3
     '@tiptap/extension-mathematics':
       specifier: ^3.15.3
       version: 3.15.3
@@ -626,6 +629,9 @@ importers:
       '@tiptap/extension-italic':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
+      '@tiptap/extension-list':
+        specifier: 'catalog:'
+        version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)
       '@tiptap/extension-mathematics':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)(katex@0.16.27)

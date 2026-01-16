@@ -5,7 +5,7 @@ import Heading from '@tiptap/extension-heading'
 import { headingClassByLevel, headingLevels } from './heading'
 
 export const BulletDocument = Document.extend({
-  content: 'bulletList',
+  content: 'bulletList | taskList',
 })
 
 export const StyledHeading = Heading.extend({

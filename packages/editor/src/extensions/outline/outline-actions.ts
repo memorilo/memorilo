@@ -1,6 +1,7 @@
 import type { Command, Editor } from '@tiptap/core'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
+import { liftOutlineListItem, sinkOutlineListItem } from './outline-list-commands'
 import {
   findListItem,
   findSiblingListItemPos,
@@ -102,15 +103,14 @@ export const outlineCommands = {
   focusNextItem: () => focusSiblingItem('next'),
 }
 
-export function outlineKeymap(nodeTypeName: string) {
+export function outlineKeymap(_nodeTypeName: string) {
   return {
     'Tab': ({ editor }: KeyboardShortcutContext) => {
       if (editor.isActive('codeBlock')) {
         return false
       }
 
-      editor.commands.sinkListItem(nodeTypeName)
-      return true
+      return sinkOutlineListItem(editor.state, editor.view?.dispatch)
     },
 
     'Shift-Tab': ({ editor }: KeyboardShortcutContext) => {
@@ -118,7 +118,7 @@ export function outlineKeymap(nodeTypeName: string) {
         return false
       }
 
-      return editor.commands.liftListItem(nodeTypeName)
+      return liftOutlineListItem(editor.state, editor.view?.dispatch)
     },
 
     'Mod-[': ({ editor }: KeyboardShortcutContext) => {

@@ -8,6 +8,7 @@ import {
   findFirstChildListPos,
   findListItem,
   isListContainerNode,
+  isOutlineItemNode,
   isOutlineTextBlockNode,
 } from './outline-utils'
 
@@ -162,7 +163,7 @@ function resolveOutlineItemAtCoords(view: EditorView, y: number): OutlineHit | n
   let bestInside = false
 
   view.state.doc.descendants((node, pos) => {
-    if (node.type.name !== 'listItem')
+    if (!isOutlineItemNode(node))
       return
     const dom = view.nodeDOM(pos)
     if (!(dom instanceof HTMLElement))
@@ -198,7 +199,7 @@ function hasChildList(node: ProseMirrorNode) {
 }
 
 function isEmptyListItem(node: ProseMirrorNode) {
-  if (node.type.name !== 'listItem')
+  if (!isOutlineItemNode(node))
     return false
   if (node.childCount !== 1)
     return false
@@ -210,7 +211,7 @@ function resolveDropTarget(view: EditorView, fromPos: number, event: MouseEvent)
   const resolved = resolveOutlineItemAtCoords(view, event.clientY)
   if (!resolved)
     return null
-  if (resolved.node.type.name !== 'listItem')
+  if (!isOutlineItemNode(resolved.node))
     return null
 
   const fromLookup = findListItem(view.state.doc.resolve(Math.min(fromPos + 1, view.state.doc.content.size)))

@@ -1,4 +1,5 @@
 import type { NodeViewProps } from '@tiptap/react'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
@@ -10,8 +11,17 @@ import { getOutlineLevel, isListContainerNode } from './outline-utils'
 const OUTLINE_DOT_CENTER_PX = 20
 const OUTLINE_ITEM_INDENT_PX = 32
 
-export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
+interface TaskItemViewOptions {
+  onReadOnlyChecked?: (node: ProseMirrorNode, checked: boolean) => boolean
+  a11y?: {
+    checkboxLabel?: (node: ProseMirrorNode, checked: boolean) => string
+  }
+}
+
+export function OutlineItemView({ node, editor, getPos, extension }: NodeViewProps) {
   const [hovered, setHovered] = useState(false)
+  const isTaskItem = node.type.name === 'taskItem'
+  const isChecked = Boolean(node.attrs.checked)
   const isFolded = node.attrs.folded
   const { nodeViewContentRef } = useReactNodeView()
   const level = useMemo(() => {
@@ -71,6 +81,48 @@ export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
       startOutlineDrag(editor, pos, e.nativeEvent)
   }, [editor, getPos])
 
+  const checkboxLabel = useMemo(() => {
+    if (!isTaskItem)
+      return undefined
+    const labelBuilder = (extension?.options as TaskItemViewOptions | undefined)
+      ?.a11y?.checkboxLabel
+    if (labelBuilder) {
+      return labelBuilder(node, isChecked)
+    }
+    return `Task item checkbox for ${node.textContent || 'empty task item'}`
+  }, [extension?.options, isChecked, isTaskItem, node])
+
+  const handleCheckboxChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextChecked = event.currentTarget.checked
+    if (!editor.isEditable) {
+      const onReadOnlyChecked = (extension?.options as TaskItemViewOptions | undefined)
+        ?.onReadOnlyChecked
+      if (!onReadOnlyChecked || !onReadOnlyChecked(node, nextChecked)) {
+        event.currentTarget.checked = !nextChecked
+      }
+      return
+    }
+
+    const pos = getPos()
+    if (typeof pos !== 'number')
+      return
+
+    editor
+      .chain()
+      .focus(undefined, { scrollIntoView: false })
+      .command(({ tr }) => {
+        const currentNode = tr.doc.nodeAt(pos)
+        if (!currentNode)
+          return false
+        tr.setNodeMarkup(pos, undefined, {
+          ...currentNode.attrs,
+          checked: nextChecked,
+        })
+        return true
+      })
+      .run()
+  }, [editor, extension?.options, getPos, node])
+
   return (
     <NodeViewWrapper
       as="li"
@@ -93,7 +145,7 @@ export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
         />
       ))}
       <div className="flex w-full items-start gap-1" data-outline-row>
-        <div className="relative mt-0.5 w-8 h-6 shrink-0">
+        <div className={cn('relative w-8 h-6 shrink-0', isTaskItem ? 'mt-0' : 'mt-0.5')}>
           <button
             type="button"
             onMouseDown={handleGripMouseDown}
@@ -129,7 +181,23 @@ export function OutlineItemView({ node, editor, getPos }: NodeViewProps) {
           )}
 
           <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center" data-outline-dot>
-            <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
+            {isTaskItem ? (
+              <label
+                className="flex h-6 w-6 items-center justify-center"
+                contentEditable={false}
+                onMouseDown={e => e.preventDefault()}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={handleCheckboxChange}
+                  className="h-4 w-4 cursor-pointer"
+                  aria-label={checkboxLabel}
+                />
+              </label>
+            ) : (
+              <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
+            )}
           </div>
         </div>
 
