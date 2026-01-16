@@ -79,7 +79,7 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
     }
   },
 
-  content: '(paragraph | heading | codeBlock | image) block*',
+  content: '(paragraph | heading | codeBlock | image | blockMath) block*',
 
   defining: true,
 

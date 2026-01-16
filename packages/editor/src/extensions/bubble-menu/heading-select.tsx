@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import type { HeadingLevel } from '../../heading'
+import type { HeadingLevel } from '../outline/heading'
 import {
   Select,
   SelectContent,
@@ -7,11 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@memorilo/components/ui/select'
-import {
-  headingLabelByLevel,
-
-  headingLevels,
-} from '../../heading'
+import { headingLabelByLevel, headingLevels } from '../outline/heading'
 
 type HeadingValue = 'paragraph' | `${HeadingLevel}`
 

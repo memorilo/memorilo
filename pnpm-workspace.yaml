@@ -11,6 +11,7 @@ catalog:
   '@radix-ui/react-context-menu': ^2.2.16
   '@radix-ui/react-dialog': ^1.1.15
   '@radix-ui/react-dropdown-menu': ^2.1.16
+  '@radix-ui/react-popover': ^1.1.15
   '@radix-ui/react-scroll-area': ^1.2.10
   '@radix-ui/react-select': ^2.2.6
   '@radix-ui/react-separator': ^1.1.8
@@ -42,6 +43,7 @@ catalog:
   '@tiptap/extension-heading': ^3.15.3
   '@tiptap/extension-image': ^3.15.3
   '@tiptap/extension-italic': ^3.15.3
+  '@tiptap/extension-mathematics': ^3.15.3
   '@tiptap/extension-paragraph': ^3.15.3
   '@tiptap/extension-strike': ^3.15.3
   '@tiptap/extension-text': ^3.15.3
@@ -71,7 +73,7 @@ catalog:
   immer: ^11.0.1
   jotai: ^2.16.0
   jsdom: ^27.4.0
-  katex: ^0.16.27
+  katex: 0.16.27
   loro-crdt: ^1.10.3
   loro-prosemirror: ^0.4.2
   lucide-react: ^0.554.0
