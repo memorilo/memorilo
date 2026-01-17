@@ -6,7 +6,7 @@ import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
 import { useCallback, useMemo, useState } from 'react'
 import { MdChevronRight } from 'react-icons/md'
 import { startOutlineDrag } from './outline-dnd'
-import { getOutlineLevel, isListContainerNode } from './outline-utils'
+import { findListItem, getOutlineLevel, isListContainerNode } from './outline-utils'
 
 const OUTLINE_DOT_CENTER_PX = 20
 const OUTLINE_ITEM_INDENT_PX = 32
@@ -21,6 +21,7 @@ interface TaskItemViewOptions {
 export function OutlineItemView({ node, editor, getPos, extension }: NodeViewProps) {
   const [hovered, setHovered] = useState(false)
   const isTaskItem = node.type.name === 'taskItem'
+  const isOrderedItem = node.type.name === 'orderedItem'
   const isChecked = Boolean(node.attrs.checked)
   const isFolded = node.attrs.folded
   const { nodeViewContentRef } = useReactNodeView()
@@ -47,6 +48,20 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       OUTLINE_DOT_CENTER_PX - OUTLINE_ITEM_INDENT_PX,
     ]
   }, [level])
+
+  const orderedIndex = useMemo(() => {
+    if (!isOrderedItem)
+      return null
+    const pos = getPos()
+    if (typeof pos !== 'number')
+      return null
+    const resolvedPos = Math.min(pos + 1, editor.state.doc.content.size)
+    const $pos = editor.state.doc.resolve(resolvedPos)
+    const listItem = findListItem($pos)
+    if (!listItem || listItem.depth < 1)
+      return null
+    return $pos.index(listItem.depth - 1) + 1
+  }, [editor.state.doc, getPos, isOrderedItem])
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -195,6 +210,10 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
                   aria-label={checkboxLabel}
                 />
               </label>
+            ) : isOrderedItem ? (
+              <span className="font-mono text-gray-700 dark:text-gray-200">
+                {(orderedIndex ?? 1).toString()}.
+              </span>
             ) : (
               <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
             )}

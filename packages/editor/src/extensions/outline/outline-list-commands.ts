@@ -1,8 +1,8 @@
-import type { NodeType, Node as ProseMirrorNode } from '@tiptap/pm/model'
+import type { NodeType, Node as ProseMirrorNode, ResolvedPos } from '@tiptap/pm/model'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Fragment, NodeRange, Slice } from '@tiptap/pm/model'
 import { canJoin, liftTarget, ReplaceAroundStep } from '@tiptap/pm/transform'
-import { findListItem, isOutlineItemNode } from './outline-utils'
+import { findListItem, isListContainerNode, isOutlineItemNode } from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
 
@@ -22,9 +22,137 @@ function getActiveOutlineItemType(state: EditorState): NodeType | null {
   return listItem.node.type
 }
 
+function getIndentTargetTypes(
+  state: EditorState,
+  parentList: ProseMirrorNode,
+  nodeBefore: ProseMirrorNode,
+  activeItemType: NodeType,
+) {
+  const {
+    orderedList: orderedListType,
+    orderedItem: orderedItemType,
+    taskItem: taskItemType,
+    listItem: listItemType,
+  } = state.schema.nodes
+
+  const existingChildList = nodeBefore.lastChild
+  const targetListType = (existingChildList && isListContainerNode(existingChildList))
+    ? existingChildList.type
+    : nodeBefore.type.name === 'orderedItem'
+      ? orderedListType
+      : parentList.type
+
+  if (!targetListType || !listItemType || !orderedItemType) {
+    return null
+  }
+
+  if (targetListType.name === 'orderedList') {
+    // Task items cannot be placed inside ordered lists.
+    if (activeItemType.name === 'taskItem')
+      return null
+    return { listType: targetListType, itemType: orderedItemType }
+  }
+
+  if (targetListType.name === 'taskList') {
+    return {
+      listType: targetListType,
+      itemType: activeItemType.name === 'taskItem' && taskItemType ? taskItemType : listItemType,
+    }
+  }
+
+  if (targetListType.name === 'bulletList') {
+    return {
+      listType: targetListType,
+      itemType: activeItemType.name === 'taskItem' && taskItemType ? taskItemType : listItemType,
+    }
+  }
+
+  return { listType: targetListType, itemType: activeItemType }
+}
+
+function collectRangeItemPositions(range: NodeRange) {
+  const positions: number[] = []
+  let pos = range.start
+  for (let index = range.startIndex; index < range.endIndex; index += 1) {
+    positions.push(pos)
+    pos += range.parent.child(index).nodeSize
+  }
+  return positions
+}
+
+function findParentListType($pos: ResolvedPos) {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const node = $pos.node(depth)
+    if (isListContainerNode(node))
+      return node.type
+  }
+  return null
+}
+
+function stripCheckedAttr(attrs: Record<string, any>) {
+  const nextAttrs = { ...attrs }
+  if ('checked' in nextAttrs) {
+    delete nextAttrs.checked
+  }
+  return nextAttrs
+}
+
+function normalizeMovedItems(
+  tr: Transaction,
+  state: EditorState,
+  itemPositions: number[],
+) {
+  const {
+    orderedList: orderedListType,
+    orderedItem: orderedItemType,
+    taskList: taskListType,
+    taskItem: taskItemType,
+    bulletList: bulletListType,
+    listItem: listItemType,
+  } = state.schema.nodes
+
+  if (!orderedListType || !orderedItemType || !bulletListType || !listItemType) {
+    return
+  }
+
+  const processed = new Set<number>()
+
+  // Map each moved item's original position to the new document and normalize its type
+  // based on the list container it landed in.
+  itemPositions.forEach((pos) => {
+    const mapped = tr.mapping.map(pos)
+    const resolved = tr.doc.resolve(Math.min(mapped + 1, tr.doc.content.size))
+    const listItem = findListItem(resolved)
+    if (!listItem || processed.has(listItem.pos))
+      return
+    processed.add(listItem.pos)
+
+    const $itemPos = tr.doc.resolve(Math.min(listItem.pos + 1, tr.doc.content.size))
+    const parentListType = findParentListType($itemPos)
+    if (!parentListType)
+      return
+
+    let targetType: NodeType | null = null
+    if (parentListType === orderedListType) {
+      targetType = orderedItemType
+    } else if (parentListType === taskListType || parentListType === bulletListType) {
+      if (taskItemType && listItem.node.type === taskItemType) {
+        targetType = taskItemType
+      } else {
+        targetType = listItemType
+      }
+    }
+
+    if (!targetType || listItem.node.type === targetType)
+      return
+
+    const nextAttrs = targetType === listItemType ? stripCheckedAttr(listItem.node.attrs) : listItem.node.attrs
+    tr.setNodeMarkup(listItem.pos, targetType, nextAttrs)
+  })
+}
+
 function liftToOuterList(
   state: EditorState,
-  dispatch: (tr: Transaction) => void,
   itemType: NodeType,
   range: NodeRange,
 ) {
@@ -52,19 +180,17 @@ function liftToOuterList(
   }
   const target = liftTarget(range)
   if (target == null)
-    return false
+    return null
   tr.lift(range, target)
   const $after = tr.doc.resolve(tr.mapping.map(end, -1) - 1)
   if (canJoin(tr.doc, $after.pos) && $after.nodeBefore!.type === $after.nodeAfter!.type) {
     tr.join($after.pos)
   }
-  dispatch(tr.scrollIntoView())
-  return true
+  return tr
 }
 
 function liftOutOfList(
   state: EditorState,
-  dispatch: (tr: Transaction) => void,
   range: NodeRange,
 ) {
   let tr = state.tr
@@ -77,19 +203,17 @@ function liftOutOfList(
   const $start = tr.doc.resolve(range.start)
   const item = $start.nodeAfter!
   if (tr.mapping.map(range.end) !== range.start + $start.nodeAfter!.nodeSize)
-    return false
+    return null
   const atStart = range.startIndex === 0
   const atEnd = range.endIndex === list.childCount
   const parent = $start.node(-1)
   const indexBefore = $start.index(-1)
-  if (
-    !parent.canReplace(
-      indexBefore + (atStart ? 0 : 1),
-      indexBefore + 1,
-      item.content.append(atEnd ? Fragment.empty : Fragment.from(list)),
-    )
-  ) {
-    return false
+  if (!parent.canReplace(
+    indexBefore + (atStart ? 0 : 1),
+    indexBefore + 1,
+    item.content.append(atEnd ? Fragment.empty : Fragment.from(list)),
+  )) {
+    return null
   }
   const start = $start.pos
   const end = start + item.nodeSize
@@ -108,13 +232,12 @@ function liftOutOfList(
       atStart ? 0 : 1,
     ),
   )
-  dispatch(tr.scrollIntoView())
-  return true
+  return tr
 }
 
 export function sinkOutlineListItem(state: EditorState, dispatch?: Dispatch) {
-  const itemType = getActiveOutlineItemType(state)
-  if (!itemType) {
+  const activeItemType = getActiveOutlineItemType(state)
+  if (!activeItemType) {
     return false
   }
 
@@ -131,35 +254,38 @@ export function sinkOutlineListItem(state: EditorState, dispatch?: Dispatch) {
   const nodeBefore = parent.child(startIndex - 1)
   if (!isOutlineItemNode(nodeBefore))
     return false
+  const targetTypes = getIndentTargetTypes(state, parent, nodeBefore, activeItemType)
+  if (!targetTypes) {
+    return false
+  }
+  const itemPositions = collectRangeItemPositions(range)
 
   if (dispatch) {
     // Adapted from schema-list: create a nested list and move the range into it.
-    const nestedBefore = nodeBefore.lastChild && nodeBefore.lastChild.type === parent.type
-    const inner = Fragment.from(nestedBefore ? itemType.create() : null)
+    const nestedBefore = nodeBefore.lastChild && nodeBefore.lastChild.type === targetTypes.listType
+    const inner = Fragment.from(nestedBefore ? targetTypes.itemType.create() : null)
     const slice = new Slice(
       Fragment.from(
-        itemType.create(null, Fragment.from(parent.type.create(null, inner))),
+        targetTypes.itemType.create(null, Fragment.from(targetTypes.listType.create(null, inner))),
       ),
       nestedBefore ? 3 : 1,
       0,
     )
     const before = range.start
     const after = range.end
-    dispatch(
-      state.tr
-        .step(
-          new ReplaceAroundStep(
-            before - (nestedBefore ? 3 : 1),
-            after,
-            before,
-            after,
-            slice,
-            1,
-            true,
-          ),
-        )
-        .scrollIntoView(),
+    const tr = state.tr.step(
+      new ReplaceAroundStep(
+        before - (nestedBefore ? 3 : 1),
+        after,
+        before,
+        after,
+        slice,
+        1,
+        true,
+      ),
     )
+    normalizeMovedItems(tr, state, itemPositions)
+    dispatch(tr.scrollIntoView())
   }
 
   return true
@@ -177,8 +303,20 @@ export function liftOutlineListItem(state: EditorState, dispatch?: Dispatch) {
   if (!dispatch)
     return true
 
+  const itemPositions = collectRangeItemPositions(range)
+
   if (isOutlineItemNode($from.node(range.depth - 1))) {
-    return liftToOuterList(state, dispatch, itemType, range)
+    const tr = liftToOuterList(state, itemType, range)
+    if (!tr)
+      return false
+    normalizeMovedItems(tr, state, itemPositions)
+    dispatch(tr.scrollIntoView())
+    return true
   }
-  return liftOutOfList(state, dispatch, range)
+  const tr = liftOutOfList(state, range)
+  if (!tr)
+    return false
+  normalizeMovedItems(tr, state, itemPositions)
+  dispatch(tr.scrollIntoView())
+  return true
 }

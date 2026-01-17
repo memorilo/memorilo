@@ -6,12 +6,13 @@ import { ReactNodeViewRenderer } from '@tiptap/react'
 import { outlineCommands, outlineKeymap } from './outline-actions'
 import { OutlineItemView } from './outline-item-view'
 import {
+  createOrderedItemInputPlugin,
   createOutlineItemEnterPlugin,
   createOutlineListBackspaceHandler,
-  createTaskListFallbackPlugin,
   getOutlineFoldedAttributes,
   outlineItemContent,
   outlineListContent,
+  outlineOrderedListContent,
 } from './outline-node-helpers'
 import { findListItem } from './outline-utils'
 
@@ -67,6 +68,14 @@ export const OutlineTaskList = TaskList.extend({
               .run()
           }
 
+          const listDepth = listItem.depth - 1
+          if (listDepth > 0) {
+            const listNode = state.selection.$from.node(listDepth)
+            if (listNode.type.name === 'orderedList') {
+              return false
+            }
+          }
+
           const toTaskItem = listItem.node.type === listItemType
           const targetItemType = toTaskItem ? taskItemType : listItemType
 
@@ -91,15 +100,43 @@ export const OutlineTaskList = TaskList.extend({
     }
   },
 
-  addProseMirrorPlugins() {
-    return [createTaskListFallbackPlugin()]
-  },
-
   addKeyboardShortcuts() {
     return {
       ...this.parent?.(),
       Backspace: createOutlineListBackspaceHandler(this.editor),
     }
+  },
+})
+
+export const OutlineOrderedList = Node.create({
+  name: 'orderedList',
+
+  group: 'block',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  content: outlineOrderedListContent,
+
+  parseHTML() {
+    return [{ tag: 'ol' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['ol', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Backspace: createOutlineListBackspaceHandler(this.editor),
+    }
+  },
+
+  addProseMirrorPlugins() {
+    return [createOrderedItemInputPlugin()]
   },
 })
 
@@ -168,9 +205,64 @@ export const OutlineTaskItem = TaskItem.extend({
   },
 
   addKeyboardShortcuts() {
+    const parentShortcuts = this.parent?.() ?? {}
+    const restShortcuts = { ...parentShortcuts }
+    // Let the outline Enter handler control taskItem splitting/child insertion.
+    delete restShortcuts.Enter
+    // Defer Backspace behavior to the shared outline handler.
+    delete restShortcuts.Backspace
+
     return {
-      ...this.parent?.(),
+      ...restShortcuts,
       ...outlineKeymap(this.name),
     }
+  },
+})
+
+export const OutlineOrderedItem = Node.create<OutlineItemOptions>({
+  name: 'orderedItem',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  content: outlineItemContent,
+
+  defining: true,
+
+  addAttributes() {
+    return getOutlineFoldedAttributes()
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'li',
+        context: 'orderedList/',
+        priority: 100,
+      },
+    ]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['li', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(OutlineItemView)
+  },
+
+  addCommands() {
+    return outlineCommands
+  },
+
+  addProseMirrorPlugins() {
+    return [createOutlineItemEnterPlugin(this.editor, this.name)]
+  },
+
+  addKeyboardShortcuts() {
+    return outlineKeymap(this.name)
   },
 })

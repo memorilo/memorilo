@@ -8,13 +8,8 @@ export interface ListItemContext {
   pos: number
 }
 
-export interface ReplaceRange {
-  from: number
-  to: number
-}
-
 const listContainerNames = new Set(['bulletList', 'orderedList', 'taskList'])
-const outlineItemNames = new Set(['listItem', 'taskItem'])
+const outlineItemNames = new Set(['listItem', 'taskItem', 'orderedItem'])
 const outlineTextBlockNames = new Set(['paragraph', 'heading'])
 const emptyParagraphInlineNames = new Set(['text', 'hardBreak'])
 
@@ -28,6 +23,14 @@ export function isOutlineItemNode(node: ProseMirrorNode) {
 
 export function isOutlineItemName(name: string) {
   return outlineItemNames.has(name)
+}
+
+export function isOrderedItemNode(node: ProseMirrorNode) {
+  return node.type.name === 'orderedItem'
+}
+
+export function isOrderedListNode(node: ProseMirrorNode) {
+  return node.type.name === 'orderedList'
 }
 
 export function isOutlineTextBlockNode(node: ProseMirrorNode) {
@@ -57,15 +60,17 @@ export function isEmptyOutlineParagraph(node: ProseMirrorNode) {
   return onlyEmptyInline
 }
 
-export function getLeadingEmptyParagraphRange(
-  $pos: ResolvedPos,
-): ReplaceRange | null {
+export function getLeadingEmptyParagraphRange($pos: ResolvedPos) {
   const listItem = findListItem($pos)
   if (!listItem) {
     return null
   }
 
   if ($pos.index(listItem.depth) !== 0) {
+    return null
+  }
+
+  if (listItem.node.childCount === 0) {
     return null
   }
 

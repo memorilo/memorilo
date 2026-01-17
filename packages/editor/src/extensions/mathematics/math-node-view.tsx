@@ -1,120 +1,21 @@
 import type { NodeViewProps } from '@tiptap/react'
-import type { KatexOptions } from 'katex'
 import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
 import { NodeViewWrapper } from '@tiptap/react'
 import { TextSelection } from '@tiptap/pm/state'
-import katex from 'katex'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  BlockEditor,
+  InlineEditor,
+  MathPreview,
+  getInlineInputWidth,
+  renderKatexHtml,
+} from './math-node-view-components'
+import type { MathEditorElement, MathVariant } from './math-node-view-components'
 import styles from './math.module.css'
-
-type MathVariant = 'inline' | 'block'
-type RenderResult = { html: string; error: boolean }
-type MathEditorElement = HTMLInputElement | HTMLTextAreaElement
-
-interface InlineEditorProps {
-  adornment: string
-  value: string
-  widthCh: number
-  inputRef: React.RefObject<HTMLInputElement>
-  onChange: (event: React.ChangeEvent<MathEditorElement>) => void
-  onKeyDown: (event: React.KeyboardEvent<MathEditorElement>) => void
-}
-
-interface BlockEditorProps {
-  adornment: string
-  value: string
-  inputRef: React.RefObject<HTMLTextAreaElement>
-  onChange: (event: React.ChangeEvent<MathEditorElement>) => void
-  onKeyDown: (event: React.KeyboardEvent<MathEditorElement>) => void
-}
-
-interface MathPreviewProps {
-  html: string
-  hasError: boolean
-}
 
 interface MathNodeViewProps extends NodeViewProps {
   variant: MathVariant
-}
-
-const inlineWidthBuffer = 1
-
-function renderKatexHtml(latex: string, options: KatexOptions, displayMode: boolean): RenderResult {
-  try {
-    const html = katex.renderToString(latex, {
-      ...options,
-      displayMode,
-      throwOnError: false,
-    })
-    return { html, error: false }
-  } catch {
-    return { html: latex, error: true }
-  }
-}
-
-function getInlineInputWidth(value: string) {
-  return Math.max(value.length, 1) + inlineWidthBuffer
-}
-
-function InlineEditor({
-  adornment,
-  value,
-  widthCh,
-  inputRef,
-  onChange,
-  onKeyDown,
-}: InlineEditorProps) {
-  return (
-    <span className="inline-flex items-center gap-0">
-      <span className="select-none font-mono text-blue-500">{adornment}</span>
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        className="min-w-0 bg-transparent px-0.5 font-mono text-sm outline-none"
-        style={{ width: `${widthCh}ch` }}
-      />
-      <span className="select-none font-mono text-blue-500">{adornment}</span>
-    </span>
-  )
-}
-
-function BlockEditor({
-  adornment,
-  value,
-  inputRef,
-  onChange,
-  onKeyDown,
-}: BlockEditorProps) {
-  return (
-    <div className={cn(styles.blockEditor, 'flex items-stretch gap-1')}>
-      <span className={cn(styles.blockAdornment, styles.blockAdornmentStart, 'select-none font-mono text-blue-500')}>
-        {adornment}
-      </span>
-      <textarea
-        ref={inputRef}
-        value={value}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        rows={1}
-        className="w-full resize-none bg-transparent p-2 font-mono text-sm outline-none"
-      />
-      <span className={cn(styles.blockAdornment, styles.blockAdornmentEnd, 'select-none font-mono text-blue-500')}>
-        {adornment}
-      </span>
-    </div>
-  )
-}
-
-function MathPreview({ html, hasError }: MathPreviewProps) {
-  return (
-    <span
-      className={cn(hasError && styles.mathError)}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  )
 }
 
 function MathNodeView({ node, editor, getPos, selected, extension, variant }: MathNodeViewProps) {

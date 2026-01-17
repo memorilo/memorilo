@@ -1,6 +1,13 @@
 import { Extension } from '@tiptap/core'
 import { BulletDocument, StyledHeading } from './document'
-import { OutlineBulletList, OutlineItem, OutlineTaskItem, OutlineTaskList } from './outline-nodes'
+import {
+  OutlineBulletList,
+  OutlineItem,
+  OutlineOrderedItem,
+  OutlineOrderedList,
+  OutlineTaskItem,
+  OutlineTaskList,
+} from './outline-nodes'
 
 export interface OutlineOptions {
   bulletListHTMLAttributes: Record<string, any>
@@ -21,6 +28,10 @@ export const Outline = Extension.create<OutlineOptions>({
         HTMLAttributes: this.options.bulletListHTMLAttributes,
       }),
       OutlineItem,
+      OutlineOrderedList.configure({
+        HTMLAttributes: this.options.bulletListHTMLAttributes,
+      }),
+      OutlineOrderedItem,
       OutlineTaskList.configure({
         HTMLAttributes: this.options.bulletListHTMLAttributes,
       }),
@@ -31,4 +42,5 @@ export const Outline = Extension.create<OutlineOptions>({
       }),
     ]
   },
+
 })
