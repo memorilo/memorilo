@@ -1,4 +1,5 @@
 import type { DropTarget, IndicatorElements } from './outline-dnd-types'
+import { getDotCenter } from './outline-dnd-geometry'
 import {
   INDENT_STEP_PX,
   INDICATOR_HEIGHT,
@@ -8,7 +9,6 @@ import {
   INDICATOR_NUB_SHORT,
   INDICATOR_NUB_WIDTH,
 } from './outline-dnd-types'
-import { getDotCenter } from './outline-dnd-geometry'
 
 let indicatorElements: IndicatorElements | null = null
 

@@ -1,4 +1,4 @@
+export * from './outline-item-enter'
+export * from './outline-list-backspace'
 export * from './outline-node-constants'
 export * from './outline-ordered-input'
-export * from './outline-list-backspace'
-export * from './outline-item-enter'

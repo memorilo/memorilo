@@ -3,7 +3,7 @@ import type { NodeViewProps } from '@tiptap/react'
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import { MdChevronRight } from 'react-icons/md'
 import { startOutlineDrag } from './outline-dnd'
 import { findListItem, getOutlineLevel, isListContainerNode } from './outline-utils'
@@ -25,7 +25,6 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
   const isChecked = Boolean(node.attrs.checked)
   const isFolded = node.attrs.folded
   const { nodeViewContentRef } = useReactNodeView()
-  const [orderedIndex, setOrderedIndex] = useState<number | null>(null)
   const level = useMemo(() => {
     const pos = getPos()
     if (typeof pos !== 'number')
@@ -70,20 +69,19 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     return $pos.index(listItem.depth - 1) + 1
   }, [editor, getPos, isOrderedItem])
 
-  useEffect(() => {
-    if (!isOrderedItem) {
-      setOrderedIndex(null)
-      return
-    }
-    const updateIndex = () => {
-      setOrderedIndex(resolveOrderedIndex())
-    }
-    updateIndex()
-    editor.on('transaction', updateIndex)
-    return () => {
-      editor.off('transaction', updateIndex)
-    }
-  }, [editor, isOrderedItem, resolveOrderedIndex])
+  const orderedIndex = useSyncExternalStore(
+    (onStoreChange) => {
+      if (!isOrderedItem) {
+        return () => {}
+      }
+      editor.on('transaction', onStoreChange)
+      return () => {
+        editor.off('transaction', onStoreChange)
+      }
+    },
+    resolveOrderedIndex,
+    resolveOrderedIndex,
+  )
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {

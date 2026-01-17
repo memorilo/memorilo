@@ -4,7 +4,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/
 import { cn } from '@memorilo/utils'
 import { TextSelection } from '@tiptap/pm/state'
 import { NodeViewWrapper } from '@tiptap/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import {
   BlockEditor,
   getInlineInputWidth,
@@ -21,7 +21,7 @@ interface MathNodeViewProps extends NodeViewProps {
 function MathNodeView({ node, editor, getPos, selected, extension, variant }: MathNodeViewProps) {
   const nodeLatex = node?.attrs?.latex ?? ''
   const nodeSize = node?.nodeSize ?? 0
-  const [value, setValue] = useState<string>(nodeLatex)
+  const [value, dispatchValue] = useReducer((_: string, next: string) => next, nodeLatex)
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const initialValueRef = useRef<string>(nodeLatex)
   const valueRef = useRef<string>(nodeLatex)
@@ -70,7 +70,7 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       const nextValue = nodeLatex
       initialValueRef.current = nextValue
       valueRef.current = nextValue
-      setValue(nextValue)
+      dispatchValue(nextValue)
     }
     else if (wasSelectedRef.current) {
       if (skipCommitRef.current) {
@@ -137,7 +137,7 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
   const cancelEditing = useCallback(() => {
     const nextValue = initialValueRef.current
     valueRef.current = nextValue
-    setValue(nextValue)
+    dispatchValue(nextValue)
     skipCommitRef.current = true
     moveSelectionAfter()
   }, [moveSelectionAfter])
@@ -189,7 +189,10 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
     }
   }, [cancelEditing, commitAndExit, deleteNodeAtSelection, variant])
 
-  const katexOptions = extension.options.katexOptions ?? {}
+  const katexOptions = useMemo(
+    () => extension.options.katexOptions ?? {},
+    [extension.options.katexOptions],
+  )
   const latexToRender = nodeLatex
   const renderResult = useMemo(
     () => renderKatexHtml(latexToRender, katexOptions, isBlock),
@@ -206,7 +209,7 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
   const adornment = isBlock ? '$$' : '$'
   const inlineWidth = getInlineInputWidth(value)
   const handleValueChange = useCallback((event: React.ChangeEvent<MathEditorElement>) => {
-    setValue(event.target.value)
+    dispatchValue(event.target.value)
   }, [])
 
   let content = <MathPreview html={renderResult.html} hasError={renderResult.error} />
@@ -254,9 +257,11 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       </PopoverAnchor>
       <PopoverContent side="top" align="center" className="min-w-[200px] text-[11px]">
         <div className="mt-2 flex justify-center">
-          <div
-            className={cn(styles.popoverPreview, popoverResult.error && styles.mathError)}
-            dangerouslySetInnerHTML={{ __html: popoverResult.html }}
+          <MathPreview
+            as="div"
+            className={styles.popoverPreview}
+            html={popoverResult.html}
+            hasError={popoverResult.error}
           />
         </div>
         <div className="mt-1 select-none text-[9px] text-muted-foreground">

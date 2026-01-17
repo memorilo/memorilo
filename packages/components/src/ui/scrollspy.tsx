@@ -24,7 +24,7 @@ export function Scrollspy({
   history = true,
 }: ScrollspyProps) {
   const selfRef = useRef<HTMLDivElement | null>(null)
-  const anchorElementsRef = useRef<Element[] | null>(null)
+  const anchorElementsRef = useRef<HTMLElement[] | null>(null)
   const prevIdTracker = useRef<string | null>(null)
 
   // Sets active nav, hash, prevIdTracker, and calls onUpdate
@@ -149,11 +149,16 @@ export function Scrollspy({
   useEffect(() => {
     // Query elements and store them in the ref, avoiding unnecessary re-renders
     if (selfRef.current) {
-      anchorElementsRef.current = Array.from(selfRef.current.querySelectorAll(`[data-${dataAttribute}-anchor]`))
+      anchorElementsRef.current = Array.from(
+        selfRef.current.querySelectorAll<HTMLElement>(`[data-${dataAttribute}-anchor]`),
+      )
     }
 
+    const clickHandlers = new Map<HTMLElement, EventListener>()
     anchorElementsRef.current?.forEach((item) => {
-      item.addEventListener('click', scrollTo(item as HTMLElement))
+      const handler = scrollTo(item as HTMLElement) as EventListener
+      clickHandlers.set(item, handler)
+      item.addEventListener('click', handler)
     })
 
     const scrollElement = targetRef?.current === document ? window : targetRef?.current
@@ -162,19 +167,24 @@ export function Scrollspy({
     scrollElement?.addEventListener('scroll', handleScroll)
 
     // Check if there's a hash in the URL and scroll to the corresponding section
-    setTimeout(() => {
+    let highlightTimeout: number | null = null
+    const hashTimeout = window.setTimeout(() => {
       scrollToHashSection()
       // Wait for scroll to settle, then update nav highlighting
-      setTimeout(() => {
+      highlightTimeout = window.setTimeout(() => {
         handleScroll()
       }, 100)
     }, 100) // Adding a slight delay to ensure content is fully rendered
 
     return () => {
       scrollElement?.removeEventListener('scroll', handleScroll)
-      anchorElementsRef.current?.forEach((item) => {
-        item.removeEventListener('click', scrollTo(item as HTMLElement))
+      clickHandlers.forEach((handler, item) => {
+        item.removeEventListener('click', handler)
       })
+      window.clearTimeout(hashTimeout)
+      if (highlightTimeout !== null) {
+        window.clearTimeout(highlightTimeout)
+      }
     }
   }, [targetRef, selfRef, handleScroll, dataAttribute, scrollTo, scrollToHashSection])
 

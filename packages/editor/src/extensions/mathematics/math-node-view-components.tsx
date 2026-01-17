@@ -1,10 +1,15 @@
+/* eslint-disable react-refresh/only-export-components */
 import type { KatexOptions } from 'katex'
 import { cn } from '@memorilo/utils'
 import katex from 'katex'
+import { useEffect, useRef } from 'react'
 import styles from './math.module.css'
 
 export type MathVariant = 'inline' | 'block'
-export type RenderResult = { html: string; error: boolean }
+export interface RenderResult {
+  html: string
+  error: boolean
+}
 export type MathEditorElement = HTMLInputElement | HTMLTextAreaElement
 
 export interface InlineEditorProps {
@@ -27,6 +32,8 @@ export interface BlockEditorProps {
 export interface MathPreviewProps {
   html: string
   hasError: boolean
+  className?: string
+  as?: 'span' | 'div'
 }
 
 const inlineWidthBuffer = 1
@@ -39,7 +46,8 @@ export function renderKatexHtml(latex: string, options: KatexOptions, displayMod
       throwOnError: false,
     })
     return { html, error: false }
-  } catch {
+  }
+  catch {
     return { html: latex, error: true }
   }
 }
@@ -99,11 +107,30 @@ export function BlockEditor({
   )
 }
 
-export function MathPreview({ html, hasError }: MathPreviewProps) {
+export function MathPreview({ html, hasError, className, as = 'span' }: MathPreviewProps) {
+  const spanRef = useRef<HTMLSpanElement>(null)
+  const divRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const element = as === 'div' ? divRef.current : spanRef.current
+    if (element) {
+      element.innerHTML = html
+    }
+  }, [as, html])
+
+  if (as === 'div') {
+    return (
+      <div
+        ref={divRef}
+        className={cn(hasError && styles.mathError, className)}
+      />
+    )
+  }
+
   return (
     <span
-      className={cn(hasError && styles.mathError)}
-      dangerouslySetInnerHTML={{ __html: html }}
+      ref={spanRef}
+      className={cn(hasError && styles.mathError, className)}
     />
   )
 }

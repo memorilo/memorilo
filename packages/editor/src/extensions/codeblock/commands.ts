@@ -59,7 +59,6 @@ export function toggleOutlineCodeBlock(state: EditorState, dispatch: Dispatch) {
     if (insertPos === null && isListContainerNode(child)) {
       insertPos = childPos
     }
-
   })
 
   if (dispatch) {

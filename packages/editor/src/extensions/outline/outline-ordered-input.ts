@@ -35,8 +35,8 @@ export function createOrderedItemInputPlugin() {
         if (!isOutlineTextBlockNode(parent))
           return false
 
-        const beforeText = parent.textBetween(0, $from.parentOffset, undefined, '\ufffc')
-        const afterText = parent.textBetween($from.parentOffset, parent.content.size, undefined, '\ufffc')
+        const beforeText = parent.textBetween(0, $from.parentOffset, undefined, '\uFFFC')
+        const afterText = parent.textBetween($from.parentOffset, parent.content.size, undefined, '\uFFFC')
         if (afterText.length > 0)
           return false
 
@@ -80,14 +80,14 @@ export function createOrderedItemInputPlugin() {
         })
 
         const nextList = orderedListType.create(listNode.attrs, orderedItems)
-        let tr = state.tr.replaceWith(listPos, listEnd, nextList)
+        const tr = state.tr.replaceWith(listPos, listEnd, nextList)
 
         // Delete the typed "1." prefix (and trailing space) after the list is converted.
         const mappedListPos = tr.mapping.map(listPos)
         const newParentStart = mappedListPos + parentOffsetFromList
         const deleteFrom = newParentStart + parentOffset - matchLength
         let deleteTo = newParentStart + parentOffset
-        const nextChar = tr.doc.textBetween(deleteTo, deleteTo + 1, undefined, '\ufffc')
+        const nextChar = tr.doc.textBetween(deleteTo, deleteTo + 1, undefined, '\uFFFC')
         if (nextChar === ' ')
           deleteTo += 1
         tr.delete(deleteFrom, deleteTo)

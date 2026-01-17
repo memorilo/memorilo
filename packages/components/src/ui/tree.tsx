@@ -1,5 +1,6 @@
 'use client'
 
+/* eslint-disable react-refresh/only-export-components */
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@memorilo/utils'
 import { ChevronRight, File, Folder, FolderOpen } from 'lucide-react'
@@ -84,10 +85,10 @@ export function TreeProvider({
   className,
 }: TreeProviderProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    new Set(defaultExpandedIds),
+    () => new Set(defaultExpandedIds),
   )
   const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>(
-    selectedIds ?? [],
+    () => selectedIds ?? [],
   )
 
   const isControlled
