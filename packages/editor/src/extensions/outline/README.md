@@ -15,6 +15,7 @@ This folder contains the outline editor extension built on top of Tiptap list it
 - `outline-dnd-types.ts`: Shared drag-and-drop types and constants.
 - `outline-actions.ts`: Command helpers and keyboard shortcuts for folding, navigation, and indentation.
 - `outline-list-commands.ts`: Custom sink/lift commands that support mixed listItem/taskItem structures.
+- `outline-list-utils.ts`: Shared list helpers for type normalization and parent list lookup.
 - `outline-node-constants.ts`: Shared node constants (content schemas, folded attributes).
 - `outline-ordered-input.ts`: Ordered list input handling (e.g. `1.` + space conversion).
 - `outline-list-backspace.ts`: Backspace handling for outline list items.

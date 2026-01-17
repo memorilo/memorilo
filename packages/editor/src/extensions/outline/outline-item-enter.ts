@@ -1,6 +1,11 @@
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
-import { findFirstChildListPos, findListItem, isOutlineTextBlockNode } from './outline-utils'
+import { resolveDefaultItemTypeForList } from './outline-list-utils'
+import {
+  findFirstChildListPos,
+  findListItem,
+  isOutlineTextBlockNode,
+} from './outline-utils'
 
 export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: string) {
   return new Plugin({
@@ -32,16 +37,22 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
         const childListPos = findFirstChildListPos(listItem)
 
         if (childListPos !== null) {
-          // Nodes with children always insert a new child item (same type as the current item).
+          const childListNode = state.doc.nodeAt(childListPos)
           const listItemType = state.schema.nodes[itemTypeName]
           const paragraphType = state.schema.nodes.paragraph
-          if (!listItemType || !paragraphType)
+          let targetItemType = listItemType ?? null
+          if (childListNode) {
+            targetItemType = resolveDefaultItemTypeForList(state.schema, childListNode.type)
+              ?? listItemType
+          }
+
+          if (!targetItemType || !paragraphType)
             return false
 
           // Insert a new list item at the start of the child list.
           const tr = state.tr.insert(
             childListPos + 1,
-            listItemType.create(null, paragraphType.create()),
+            targetItemType.create(null, paragraphType.create()),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(childListPos + 2)))
           dispatch(tr)

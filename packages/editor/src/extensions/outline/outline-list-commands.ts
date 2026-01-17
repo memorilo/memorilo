@@ -1,7 +1,8 @@
-import type { NodeType, Node as ProseMirrorNode, ResolvedPos } from '@tiptap/pm/model'
+import type { NodeType, Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Fragment, NodeRange, Slice } from '@tiptap/pm/model'
 import { canJoin, liftTarget, ReplaceAroundStep } from '@tiptap/pm/transform'
+import { findParentListType, resolveItemTypeForList, stripCheckedAttr } from './outline-list-utils'
 import { findListItem, isListContainerNode, isOutlineItemNode } from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
@@ -28,46 +29,32 @@ function getIndentTargetTypes(
   nodeBefore: ProseMirrorNode,
   activeItemType: NodeType,
 ) {
-  const {
-    orderedList: orderedListType,
-    orderedItem: orderedItemType,
-    taskItem: taskItemType,
-    listItem: listItemType,
-  } = state.schema.nodes
+  const { orderedList: orderedListType } = state.schema.nodes
 
   const existingChildList = nodeBefore.lastChild
-  const targetListType = (existingChildList && isListContainerNode(existingChildList))
-    ? existingChildList.type
-    : nodeBefore.type.name === 'orderedItem'
-      ? orderedListType
-      : parentList.type
+  let targetListType: NodeType | null = parentList.type
+  if (existingChildList && isListContainerNode(existingChildList)) {
+    targetListType = existingChildList.type
+  }
+  else if (nodeBefore.type.name === 'orderedItem') {
+    targetListType = orderedListType ?? null
+  }
 
-  if (!targetListType || !listItemType || !orderedItemType) {
+  if (!targetListType) {
     return null
   }
 
-  if (targetListType.name === 'orderedList') {
+  if (targetListType.name === 'orderedList' && activeItemType.name === 'taskItem') {
     // Task items cannot be placed inside ordered lists.
-    if (activeItemType.name === 'taskItem')
-      return null
-    return { listType: targetListType, itemType: orderedItemType }
+    return null
   }
 
-  if (targetListType.name === 'taskList') {
-    return {
-      listType: targetListType,
-      itemType: activeItemType.name === 'taskItem' && taskItemType ? taskItemType : listItemType,
-    }
+  const targetItemType = resolveItemTypeForList(state.schema, targetListType, activeItemType)
+  if (!targetItemType) {
+    return null
   }
 
-  if (targetListType.name === 'bulletList') {
-    return {
-      listType: targetListType,
-      itemType: activeItemType.name === 'taskItem' && taskItemType ? taskItemType : listItemType,
-    }
-  }
-
-  return { listType: targetListType, itemType: activeItemType }
+  return { listType: targetListType, itemType: targetItemType }
 }
 
 function collectRangeItemPositions(range: NodeRange) {
@@ -80,38 +67,13 @@ function collectRangeItemPositions(range: NodeRange) {
   return positions
 }
 
-function findParentListType($pos: ResolvedPos) {
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    const node = $pos.node(depth)
-    if (isListContainerNode(node))
-      return node.type
-  }
-  return null
-}
-
-function stripCheckedAttr(attrs: Record<string, any>) {
-  const nextAttrs = { ...attrs }
-  if ('checked' in nextAttrs) {
-    delete nextAttrs.checked
-  }
-  return nextAttrs
-}
-
 function normalizeMovedItems(
   tr: Transaction,
   state: EditorState,
   itemPositions: number[],
 ) {
-  const {
-    orderedList: orderedListType,
-    orderedItem: orderedItemType,
-    taskList: taskListType,
-    taskItem: taskItemType,
-    bulletList: bulletListType,
-    listItem: listItemType,
-  } = state.schema.nodes
-
-  if (!orderedListType || !orderedItemType || !bulletListType || !listItemType) {
+  const { listItem: listItemType } = state.schema.nodes
+  if (!listItemType) {
     return
   }
 
@@ -132,17 +94,7 @@ function normalizeMovedItems(
     if (!parentListType)
       return
 
-    let targetType: NodeType | null = null
-    if (parentListType === orderedListType) {
-      targetType = orderedItemType
-    } else if (parentListType === taskListType || parentListType === bulletListType) {
-      if (taskItemType && listItem.node.type === taskItemType) {
-        targetType = taskItemType
-      } else {
-        targetType = listItemType
-      }
-    }
-
+    const targetType = resolveItemTypeForList(state.schema, parentListType, listItem.node.type)
     if (!targetType || listItem.node.type === targetType)
       return
 
@@ -156,8 +108,8 @@ function liftToOuterList(
   itemType: NodeType,
   range: NodeRange,
 ) {
-  let tr = state.tr
-  let end = range.end
+  const tr = state.tr
+  const end = range.end
   const endOfList = range.$to.end(range.depth)
   if (end < endOfList) {
     // Ensure that following siblings become children of the last lifted item.
@@ -193,7 +145,7 @@ function liftOutOfList(
   state: EditorState,
   range: NodeRange,
 ) {
-  let tr = state.tr
+  const tr = state.tr
   const list = range.parent
   // Merge the list items into a single big item.
   for (let pos = range.end, i = range.endIndex - 1, e = range.startIndex; i > e; i--) {

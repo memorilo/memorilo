@@ -4,6 +4,7 @@ import type { DropTarget } from './outline-dnd-types'
 import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { dropPoint } from '@tiptap/pm/transform'
+import { findParentListType, normalizeItemForList } from './outline-list-utils'
 import {
   findFirstChildListPos,
   findListItem,
@@ -27,16 +28,6 @@ function isEmptyListItem(node: ProseMirrorNode) {
   return isOutlineTextBlockNode(first) && first.content.size === 0
 }
 
-function resolveListContainerType(view: EditorView, pos: number) {
-  const $pos = view.state.doc.resolve(pos)
-  for (let depth = $pos.depth; depth > 0; depth--) {
-    const node = $pos.node(depth)
-    if (isListContainerNode(node))
-      return node.type
-  }
-  return view.state.schema.nodes.bulletList ?? null
-}
-
 export function moveOutlineItem(view: EditorView, fromPos: number, drop: DropTarget) {
   if (!drop.valid)
     return
@@ -54,12 +45,17 @@ export function moveOutlineItem(view: EditorView, fromPos: number, drop: DropTar
 
   let insertPos: number | null = null
   let insertNode: ProseMirrorNode | null = null
+  let insertedListWrapper = false
 
   const $target = state.doc.resolve(drop.pos + 1)
   const targetListItem = findListItem($target)
   if (!targetListItem)
     return
   const targetNode = targetListItem.node
+
+  const sourceListType = findParentListType(
+    state.doc.resolve(Math.min(sourcePos + 1, state.doc.content.size)),
+  )
 
   if (drop.type === 'before') {
     insertPos = targetListItem.pos
@@ -72,13 +68,20 @@ export function moveOutlineItem(view: EditorView, fromPos: number, drop: DropTar
     if (childListPos !== null) {
       // Insert as the first child in the existing list.
       insertPos = childListPos + 1
+      const childListNode = state.doc.nodeAt(childListPos)
+      const targetListType = childListNode?.type ?? sourceListType
+      insertNode = normalizeItemForList(view.state.schema, targetListType ?? null, fromNode)
     }
     else {
-      const listType = resolveListContainerType(view, drop.pos)
+      const listType = sourceListType
+        ?? findParentListType(state.doc.resolve(drop.pos))
+        ?? state.schema.nodes.bulletList
       if (!listType)
         return
       insertPos = targetListItem.pos + targetListItem.node.nodeSize - 1
-      insertNode = listType.create(null, fromNode)
+      const itemForList = normalizeItemForList(view.state.schema, listType, fromNode)
+      insertNode = listType.create(null, itemForList)
+      insertedListWrapper = true
     }
   }
 
@@ -138,7 +141,7 @@ export function moveOutlineItem(view: EditorView, fromPos: number, drop: DropTar
     })
   }
 
-  const selectionPos = insertNode ? safeInsertPos + 2 : safeInsertPos + 1
+  const selectionPos = insertedListWrapper ? safeInsertPos + 2 : safeInsertPos + 1
   const safeSelectionPos = Math.min(selectionPos, tr.doc.content.size)
   tr.setSelection(TextSelection.near(tr.doc.resolve(safeSelectionPos)))
   tr.scrollIntoView()

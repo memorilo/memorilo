@@ -63,7 +63,7 @@ dev-desktop: download-model download-web-resource
 
 [linux]
 [macos]
-build-desktop: download-model
+build-desktop: download-model lint-rs
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command cargo tauri build
@@ -72,7 +72,7 @@ build-desktop: download-model
   fi
 
 [windows]
-build-desktop: download-model
+build-desktop: download-model lint-rs
   cargo tauri build
 
 build-android: download-model
@@ -95,7 +95,7 @@ build-ios: download-model
 
 [linux]
 [macos]
-build-web: download-web-resource
+build-web: download-web-resource lint-web
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command bash -c "cd apps/client && pnpm build"
@@ -104,7 +104,7 @@ build-web: download-web-resource
   fi
 
 [windows]
-build-web: download-web-resource
+build-web: download-web-resource lint-web
   cd apps/client && pnpm build
 
 clean:
@@ -117,3 +117,39 @@ clean-node_modules:
 build-bundle-size-stats:
   cd apps/client && VISUALIZER=true pnpm build
   rm -rf apps/client/dist
+
+lint-web changed="false":
+  #!/usr/bin/env bash
+  if [ "{{changed}}" == "true" ]; then
+    echo "Checking only changed files..."
+    FILES=$(git diff --diff-filter=d --name-only HEAD | grep -E '^(apps|packages)/.*\.(ts|tsx|js|jsx|mjs|cjs|vue|json)$')
+    if [ -z "$FILES" ]; then
+      echo "No relevant changed files found."
+      exit 0
+    fi
+    pnpm exec eslint $FILES
+  else
+    echo "Checking all files..."
+    pnpm exec eslint apps packages
+  fi
+
+lint-rs changed="false":
+  #!/usr/bin/env bash
+  CLIPPY_CMD="cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings"
+
+  if [ "{{changed}}" == "true" ]; then
+    echo "Checking only changed files..."
+    FILES=$(git diff --diff-filter=d --name-only HEAD | grep -E '^src-tauri/src/.*\.rs$')
+    if [ -z "$FILES" ]; then
+      echo "No relevant changed files found."
+      exit 0
+    fi
+  else
+    echo "Checking all files..."
+  fi
+
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command $CLIPPY_CMD
+  else
+    $CLIPPY_CMD
+  fi

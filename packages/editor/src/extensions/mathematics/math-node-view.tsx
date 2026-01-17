@@ -1,17 +1,17 @@
 import type { NodeViewProps } from '@tiptap/react'
+import type { MathEditorElement, MathVariant } from './math-node-view-components'
 import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
-import { NodeViewWrapper } from '@tiptap/react'
 import { TextSelection } from '@tiptap/pm/state'
+import { NodeViewWrapper } from '@tiptap/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BlockEditor,
+  getInlineInputWidth,
   InlineEditor,
   MathPreview,
-  getInlineInputWidth,
   renderKatexHtml,
 } from './math-node-view-components'
-import type { MathEditorElement, MathVariant } from './math-node-view-components'
 import styles from './math.module.css'
 
 interface MathNodeViewProps extends NodeViewProps {
@@ -71,10 +71,12 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       initialValueRef.current = nextValue
       valueRef.current = nextValue
       setValue(nextValue)
-    } else if (wasSelectedRef.current) {
+    }
+    else if (wasSelectedRef.current) {
       if (skipCommitRef.current) {
         skipCommitRef.current = false
-      } else {
+      }
+      else {
         commitValue(valueRef.current)
       }
     }
@@ -207,6 +209,33 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
     setValue(event.target.value)
   }, [])
 
+  let content = <MathPreview html={renderResult.html} hasError={renderResult.error} />
+  if (selected) {
+    if (isBlock) {
+      content = (
+        <BlockEditor
+          adornment={adornment}
+          value={value}
+          inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
+          onChange={handleValueChange}
+          onKeyDown={handleKeyDown}
+        />
+      )
+    }
+    else {
+      content = (
+        <InlineEditor
+          adornment={adornment}
+          value={value}
+          widthCh={inlineWidth}
+          inputRef={inputRef as React.RefObject<HTMLInputElement>}
+          onChange={handleValueChange}
+          onKeyDown={handleKeyDown}
+        />
+      )
+    }
+  }
+
   return (
     <Popover open={showPopover}>
       <PopoverAnchor asChild>
@@ -220,32 +249,7 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
           data-math-variant={variant}
           onMouseDown={handleMouseDown}
         >
-          {selected
-            ? (
-                isBlock
-                  ? (
-                      <BlockEditor
-                        adornment={adornment}
-                        value={value}
-                        inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
-                        onChange={handleValueChange}
-                        onKeyDown={handleKeyDown}
-                      />
-                    )
-                  : (
-                      <InlineEditor
-                        adornment={adornment}
-                        value={value}
-                        widthCh={inlineWidth}
-                        inputRef={inputRef as React.RefObject<HTMLInputElement>}
-                        onChange={handleValueChange}
-                        onKeyDown={handleKeyDown}
-                      />
-                    )
-              )
-            : (
-                <MathPreview html={renderResult.html} hasError={renderResult.error} />
-              )}
+          {content}
         </NodeViewWrapper>
       </PopoverAnchor>
       <PopoverContent side="top" align="center" className="min-w-[200px] text-[11px]">

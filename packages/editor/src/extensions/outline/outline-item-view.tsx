@@ -1,9 +1,9 @@
-import type { NodeViewProps } from '@tiptap/react'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import type { NodeViewProps } from '@tiptap/react'
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MdChevronRight } from 'react-icons/md'
 import { startOutlineDrag } from './outline-dnd'
 import { findListItem, getOutlineLevel, isListContainerNode } from './outline-utils'
@@ -25,6 +25,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
   const isChecked = Boolean(node.attrs.checked)
   const isFolded = node.attrs.folded
   const { nodeViewContentRef } = useReactNodeView()
+  const [orderedIndex, setOrderedIndex] = useState<number | null>(null)
   const level = useMemo(() => {
     const pos = getPos()
     if (typeof pos !== 'number')
@@ -49,19 +50,40 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     ]
   }, [level])
 
-  const orderedIndex = useMemo(() => {
+  const resolveOrderedIndex = useCallback(() => {
     if (!isOrderedItem)
       return null
     const pos = getPos()
     if (typeof pos !== 'number')
       return null
     const resolvedPos = Math.min(pos + 1, editor.state.doc.content.size)
-    const $pos = editor.state.doc.resolve(resolvedPos)
+    let $pos
+    try {
+      $pos = editor.state.doc.resolve(resolvedPos)
+    }
+    catch {
+      return null
+    }
     const listItem = findListItem($pos)
     if (!listItem || listItem.depth < 1)
       return null
     return $pos.index(listItem.depth - 1) + 1
-  }, [editor.state.doc, getPos, isOrderedItem])
+  }, [editor, getPos, isOrderedItem])
+
+  useEffect(() => {
+    if (!isOrderedItem) {
+      setOrderedIndex(null)
+      return
+    }
+    const updateIndex = () => {
+      setOrderedIndex(resolveOrderedIndex())
+    }
+    updateIndex()
+    editor.on('transaction', updateIndex)
+    return () => {
+      editor.off('transaction', updateIndex)
+    }
+  }, [editor, isOrderedItem, resolveOrderedIndex])
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -100,7 +122,8 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     if (!isTaskItem)
       return undefined
     const labelBuilder = (extension?.options as TaskItemViewOptions | undefined)
-      ?.a11y?.checkboxLabel
+      ?.a11y
+      ?.checkboxLabel
     if (labelBuilder) {
       return labelBuilder(node, isChecked)
     }
@@ -137,6 +160,33 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       })
       .run()
   }, [editor, extension?.options, getPos, node])
+
+  let dotContent = <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
+  if (isTaskItem) {
+    dotContent = (
+      <label
+        className="flex h-6 w-6 items-center justify-center"
+        contentEditable={false}
+        onMouseDown={e => e.preventDefault()}
+      >
+        <input
+          type="checkbox"
+          checked={isChecked}
+          onChange={handleCheckboxChange}
+          className="h-4 w-4 cursor-pointer"
+          aria-label={checkboxLabel}
+        />
+      </label>
+    )
+  }
+  else if (isOrderedItem) {
+    dotContent = (
+      <span className="font-mono text-gray-700 dark:text-gray-200">
+        {(orderedIndex ?? 1).toString()}
+        .
+      </span>
+    )
+  }
 
   return (
     <NodeViewWrapper
@@ -196,27 +246,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
           )}
 
           <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center" data-outline-dot>
-            {isTaskItem ? (
-              <label
-                className="flex h-6 w-6 items-center justify-center"
-                contentEditable={false}
-                onMouseDown={e => e.preventDefault()}
-              >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={handleCheckboxChange}
-                  className="h-4 w-4 cursor-pointer"
-                  aria-label={checkboxLabel}
-                />
-              </label>
-            ) : isOrderedItem ? (
-              <span className="font-mono text-gray-700 dark:text-gray-200">
-                {(orderedIndex ?? 1).toString()}.
-              </span>
-            ) : (
-              <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
-            )}
+            {dotContent}
           </div>
         </div>
 

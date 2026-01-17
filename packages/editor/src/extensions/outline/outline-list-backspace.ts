@@ -1,6 +1,8 @@
 import type { Editor } from '@tiptap/core'
 import type { ResolvedPos } from '@tiptap/pm/model'
-import { TextSelection, type Transaction } from '@tiptap/pm/state'
+import type { Transaction } from '@tiptap/pm/state'
+import { TextSelection } from '@tiptap/pm/state'
+import { stripCheckedAttr } from './outline-list-utils'
 import {
   findListItem,
   findSiblingListItemPos,
@@ -9,14 +11,6 @@ import {
   isOrderedListNode,
   isOutlineTextBlockNode,
 } from './outline-utils'
-
-function stripCheckedAttr(attrs: Record<string, any>) {
-  const nextAttrs = { ...attrs }
-  if ('checked' in nextAttrs) {
-    delete nextAttrs.checked
-  }
-  return nextAttrs
-}
 
 function deleteLeadingParagraph($from: ResolvedPos, tr: Transaction) {
   const paragraphPos = $from.before($from.depth)

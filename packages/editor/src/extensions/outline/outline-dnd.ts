@@ -1,7 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 import type { DragState, DropTarget, IndicatorElements } from './outline-dnd-types'
-import { DROP_LEFT_THRESHOLD_PX } from './outline-dnd-types'
 import { getTextStartX, resolveOutlineItemAtCoords } from './outline-dnd-geometry'
 import {
   ensureIndicatorElements,
@@ -10,6 +9,7 @@ import {
   setIndicatorStyle,
 } from './outline-dnd-indicator'
 import { hasChildList, moveOutlineItem } from './outline-dnd-move'
+import { DROP_LEFT_THRESHOLD_PX } from './outline-dnd-types'
 import {
   findFirstChildListPos,
   findListItem,
@@ -75,11 +75,12 @@ function resolveDropTarget(view: EditorView, fromPos: number, event: MouseEvent)
   // Prevent dropping onto self or any descendant.
   const isSelf = resolved.pos === sourcePos
   const isDescendant = resolved.pos > sourcePos && resolved.pos < sourcePos + fromNode.nodeSize
-  // Ordered items can only move within ordered lists (and vice versa).
+  // Ordered items can only move within ordered lists (and vice versa), except when nesting.
   const isOrderedSource = isOrderedItemNode(fromNode)
   const isOrderedTarget = dropListNode ? isOrderedListNode(dropListNode) : false
   const matchesListType = isOrderedSource === isOrderedTarget
-  const valid = !isSelf && !isDescendant && matchesListType
+  const allowChildIntoOrdered = type === 'child' && !isOrderedSource && isOrderedTarget
+  const valid = !isSelf && !isDescendant && (matchesListType || allowChildIntoOrdered)
 
   return {
     pos: resolved.pos,
