@@ -47,7 +47,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+            if let tauri::RunEvent::ExitRequested { api: _, .. } = event {
                 let state = app_handle.state::<cmd::SettingsState>().clone();
                 
                 if let Err(e) = tauri::async_runtime::block_on(async move {

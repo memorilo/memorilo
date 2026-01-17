@@ -107,7 +107,7 @@ pub fn rename_folder_node(state: State<'_, db::DbState>, uuid: String, new_name:
 #[tauri::command]
 pub fn delete_folder_node_ret_parent(state: State<'_, db::DbState>, uuid: String) -> Result<Option<String>> {
     let mut conn = state.conn.lock().unwrap();
-    let parent = db::get_parent_folder_node_uuid(&mut conn, &uuid)?;
+    let parent = db::get_parent_folder_node_uuid(&conn, &uuid)?;
     db::delete_folder_node(&mut conn, &uuid)?;
     Ok(parent)
 }
