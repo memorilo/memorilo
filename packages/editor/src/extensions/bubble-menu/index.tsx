@@ -3,6 +3,7 @@ import { BubbleMenu } from '@tiptap/react/menus'
 import { BubbleMenuButton } from './bubble-menu-button'
 import { bubbleMenuItems } from './bubble-menu-items'
 import { HeadingSelect } from './heading-select'
+import { HighlightMenu } from './highlight-menu'
 import { useEditorSelectionUpdate } from './use-editor-selection-update'
 
 interface EditorBubbleMenuProps {
@@ -30,6 +31,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
           onClick={() => item.command(editor)}
         />
       ))}
+      <HighlightMenu editor={editor} />
     </BubbleMenu>
   )
 }

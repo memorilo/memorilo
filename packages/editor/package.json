@@ -27,6 +27,7 @@
     "@tiptap/extension-document": "catalog:",
     "@tiptap/extension-hard-break": "catalog:",
     "@tiptap/extension-heading": "catalog:",
+    "@tiptap/extension-highlight": "catalog:",
     "@tiptap/extension-image": "catalog:",
     "@tiptap/extension-italic": "catalog:",
     "@tiptap/extension-list": "catalog:",
@@ -38,6 +39,7 @@
     "@tiptap/extensions": "catalog:",
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
+    "@types/react-color": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
     "effect": "catalog:",
@@ -48,6 +50,7 @@
     "motion": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
+    "react-color": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "catalog:",
     "uniqolor": "catalog:"

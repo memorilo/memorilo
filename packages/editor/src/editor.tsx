@@ -6,6 +6,7 @@ import Blockquote from '@tiptap/extension-blockquote'
 import Bold from '@tiptap/extension-bold'
 import Code from '@tiptap/extension-code'
 import HardBreak from '@tiptap/extension-hard-break'
+import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
 import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
@@ -55,6 +56,9 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           HTMLAttributes: {
             class: 'font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded',
           },
+        }),
+        Highlight.configure({
+          multicolor: true,
         }),
         OutlineImage.configure({
           resize: {

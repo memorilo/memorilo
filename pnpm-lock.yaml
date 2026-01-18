@@ -6,9 +6,90 @@ settings:
 
 catalogs:
   default:
+    '@antfu/eslint-config':
+      specifier: ^6.7.3
+      version: 6.7.3
+    '@eslint-react/eslint-plugin':
+      specifier: ^2.5.4
+      version: 2.5.4
+    '@eslint/js':
+      specifier: ^9.39.1
+      version: 9.39.2
+    '@radix-ui/react-alert-dialog':
+      specifier: ^1.1.15
+      version: 1.1.15
+    '@radix-ui/react-avatar':
+      specifier: ^1.1.11
+      version: 1.1.11
+    '@radix-ui/react-context-menu':
+      specifier: ^2.2.16
+      version: 2.2.16
+    '@radix-ui/react-dialog':
+      specifier: ^1.1.15
+      version: 1.1.15
+    '@radix-ui/react-dropdown-menu':
+      specifier: ^2.1.16
+      version: 2.1.16
+    '@radix-ui/react-popover':
+      specifier: ^1.1.15
+      version: 1.1.15
+    '@radix-ui/react-scroll-area':
+      specifier: ^1.2.10
+      version: 1.2.10
+    '@radix-ui/react-select':
+      specifier: ^2.2.6
+      version: 2.2.6
+    '@radix-ui/react-separator':
+      specifier: ^1.1.8
+      version: 1.1.8
+    '@radix-ui/react-slot':
+      specifier: ^1.2.4
+      version: 1.2.4
+    '@radix-ui/react-switch':
+      specifier: ^1.2.6
+      version: 1.2.6
+    '@radix-ui/react-tooltip':
+      specifier: ^1.2.8
+      version: 1.2.8
+    '@tailwindcss/vite':
+      specifier: ^4.1.17
+      version: 4.1.17
+    '@tanstack/devtools-vite':
+      specifier: ^0.3.11
+      version: 0.3.11
+    '@tanstack/react-devtools':
+      specifier: ^0.8.2
+      version: 0.8.2
+    '@tanstack/react-query':
+      specifier: ^5.90.12
+      version: 5.90.12
+    '@tanstack/react-query-devtools':
+      specifier: ^5.91.1
+      version: 5.91.1
+    '@tanstack/react-router':
+      specifier: ^1.140.0
+      version: 1.140.0
+    '@tanstack/react-router-devtools':
+      specifier: ^1.140.0
+      version: 1.140.0
+    '@tanstack/router-plugin':
+      specifier: ^1.140.0
+      version: 1.140.0
+    '@tauri-apps/api':
+      specifier: ^2.9.1
+      version: 2.9.1
+    '@tauri-apps/plugin-dialog':
+      specifier: ^2.4.2
+      version: 2.4.2
+    '@tauri-apps/plugin-fs':
+      specifier: ^2.4.5
+      version: 2.4.5
     '@tauri-apps/plugin-log':
       specifier: 2.7.1
       version: 2.7.1
+    '@tauri-apps/plugin-opener':
+      specifier: ^2.5.2
+      version: 2.5.2
     '@tiptap/core':
       specifier: ^3.15.3
       version: 3.15.3
@@ -37,6 +118,9 @@ catalogs:
       specifier: ^3.15.3
       version: 3.15.3
     '@tiptap/extension-heading':
+      specifier: ^3.15.3
+      version: 3.15.3
+    '@tiptap/extension-highlight':
       specifier: ^3.15.3
       version: 3.15.3
     '@tiptap/extension-image':
@@ -72,24 +156,75 @@ catalogs:
     '@tiptap/react':
       specifier: ^3.15.3
       version: 3.15.3
+    '@types/node':
+      specifier: ^24.10.6
+      version: 24.10.6
     '@types/prismjs':
       specifier: ^1.26.5
       version: 1.26.5
     '@types/react':
       specifier: ^19.2.7
       version: 19.2.7
+    '@types/react-color':
+      specifier: ^3.0.13
+      version: 3.0.13
+    '@types/react-dom':
+      specifier: ^19.2.3
+      version: 19.2.3
+    '@vitejs/plugin-react':
+      specifier: ^5.1.1
+      version: 5.1.1
     '@vscode/vscode-languagedetection':
       specifier: ^1.0.22
       version: 1.0.22
+    babel-plugin-react-compiler:
+      specifier: ^1.0.0
+      version: 1.0.0
+    class-variance-authority:
+      specifier: ^0.7.1
+      version: 0.7.1
+    clsx:
+      specifier: ^2.1.1
+      version: 2.1.1
     cmdk:
       specifier: 1.1.1
       version: 1.1.1
+    dayjs:
+      specifier: ^1.11.19
+      version: 1.11.19
     effect:
       specifier: ^3.19.14
       version: 3.19.14
+    effect-query:
+      specifier: ^0.2.1
+      version: 0.2.1
     es-toolkit:
       specifier: ^1.43.0
       version: 1.43.0
+    eslint:
+      specifier: ^9.39.2
+      version: 9.39.2
+    eslint-plugin-react-hooks:
+      specifier: ^7.0.1
+      version: 7.0.1
+    eslint-plugin-react-refresh:
+      specifier: ^0.4.26
+      version: 0.4.26
+    globals:
+      specifier: ^16.5.0
+      version: 16.5.0
+    i18next:
+      specifier: ^25.7.2
+      version: 25.7.2
+    immer:
+      specifier: ^11.0.1
+      version: 11.0.1
+    jotai:
+      specifier: ^2.16.0
+      version: 2.16.0
+    jsdom:
+      specifier: ^27.4.0
+      version: 27.4.0
     katex:
       specifier: 0.16.27
       version: 0.16.27
@@ -99,27 +234,75 @@ catalogs:
     loro-prosemirror:
       specifier: ^0.4.2
       version: 0.4.2
+    lucide-react:
+      specifier: ^0.554.0
+      version: 0.554.0
+    mitt:
+      specifier: ^3.0.1
+      version: 3.0.1
     motion:
       specifier: ^12.23.25
       version: 12.23.25
+    pathe:
+      specifier: ^2.0.3
+      version: 2.0.3
     prismjs:
       specifier: ^1.30.0
       version: 1.30.0
     react:
       specifier: ^19.2.3
       version: 19.2.3
+    react-color:
+      specifier: ^2.19.3
+      version: 2.19.3
     react-dom:
       specifier: ^19.2.3
       version: 19.2.3
+    react-i18next:
+      specifier: ^16.4.0
+      version: 16.4.0
     react-icons:
       specifier: 5.5.0
       version: 5.5.0
+    react-scan:
+      specifier: ^0.4.3
+      version: 0.4.3
+    rollup-plugin-visualizer:
+      specifier: ^6.0.5
+      version: 6.0.5
+    tailwind-merge:
+      specifier: ^3.4.0
+      version: 3.4.0
     tailwindcss:
       specifier: ^4.1.18
       version: 4.1.18
+    tw-animate-css:
+      specifier: ^1.4.0
+      version: 1.4.0
+    typescript:
+      specifier: ^5.9.3
+      version: 5.9.3
     uniqolor:
       specifier: ^1.1.1
       version: 1.1.1
+    uuid:
+      specifier: ^13.0.0
+      version: 13.0.0
+    vite:
+      specifier: ^7.3.1
+      version: 7.3.1
+    vite-plugin-top-level-await:
+      specifier: ^1.6.0
+      version: 1.6.0
+    vite-plugin-wasm:
+      specifier: ^3.5.0
+      version: 3.5.0
+    vitest:
+      specifier: ^4.0.16
+      version: 4.0.16
+    zod:
+      specifier: ^4.1.13
+      version: 4.3.5
 
 importers:
 
@@ -244,11 +427,11 @@ importers:
         version: 13.0.0
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.5
     devDependencies:
       '@eslint/js':
         specifier: 'catalog:'
-        version: 9.39.1
+        version: 9.39.2
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.1.17(vite@7.3.1(@types/node@24.10.6)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.97.2)(tsx@4.21.0)(yaml@2.8.2))
@@ -380,7 +563,7 @@ importers:
         version: 3.4.0
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.5
     devDependencies:
       '@types/react':
         specifier: 'catalog:'
@@ -399,7 +582,7 @@ importers:
         version: 3.0.1
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.5
     devDependencies:
       '@types/react':
         specifier: 'catalog:'
@@ -449,6 +632,9 @@ importers:
       '@tiptap/extension-heading':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
+      '@tiptap/extension-highlight':
+        specifier: 'catalog:'
+        version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
       '@tiptap/extension-image':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
@@ -482,6 +668,9 @@ importers:
       '@tiptap/react':
         specifier: 'catalog:'
         version: 3.15.3(@floating-ui/dom@1.7.4)(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@types/react-color':
+        specifier: 'catalog:'
+        version: 3.0.13(@types/react@19.2.7)
       '@vscode/vscode-languagedetection':
         specifier: 'catalog:'
         version: 1.0.22
@@ -512,6 +701,9 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.3
+      react-color:
+        specifier: 'catalog:'
+        version: 2.19.3(react@19.2.3)
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
@@ -1208,10 +1400,6 @@ packages:
     resolution: {integrity: sha512-Kr+LPIUVKz2qkx1HAMH8q1q6azbqBAsXJUxBl/ODDuVPX45Z9DfwB8tPjTi6nNZ8BuM3nbJxC5zCAg5elnBUTQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@eslint/js@9.39.1':
-    resolution: {integrity: sha512-S26Stp4zCy88tH94QbBv3XCuzRQiZ9yXofEILmglYTh/Ug/a9/umqvgFtYBAo3Lp0nsI/5/qH1CCrbdK3AP1Tw==}
-    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
   '@eslint/js@9.39.2':
     resolution: {integrity: sha512-q1mjIoW1VX4IvSocvM/vbTiveKC4k9eLrajNEuSsmjymSDEbpGddtpfOoN7YGAqBK3NG+uqo8ia4PDTt8buCYA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -1267,6 +1455,11 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
+
+  '@icons/material@0.2.4':
+    resolution: {integrity: sha512-QPcGmICAPbGLGb6F/yNf/KzKqvFx8z5qx3D1yFqVAjoFmXK35EgyW+cJ57Te3CNsmzblwtzakLGFqHPqrfb4Tw==}
+    peerDependencies:
+      react: '*'
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2418,6 +2611,11 @@ packages:
     peerDependencies:
       '@tiptap/core': ^3.15.3
 
+  '@tiptap/extension-highlight@3.15.3':
+    resolution: {integrity: sha512-ZZyuKGW4WrMx3pBEfsHqOcqEklfiiAjVuvhji9FJcip1w0B2OnMWkgZw7rdAlsQG8pGH6NWh9Gf2DOUsjuAa6A==}
+    peerDependencies:
+      '@tiptap/core': ^3.15.3
+
   '@tiptap/extension-image@3.15.3':
     resolution: {integrity: sha512-Tjq9BHlC/0bGR9/uySA0tv6I1Ua1Q5t5P/mdbWyZi4JdUpKHRfgenzfXF5DYnklJ01QJ7uOPSp9sAGgPzBixtQ==}
     peerDependencies:
@@ -2531,6 +2729,11 @@ packages:
   '@types/prismjs@1.26.5':
     resolution: {integrity: sha512-AUZTa7hQ2KY5L7AmtSiqxlhWxb4ina0yd8hNbl4TWuqnv/pFP0nDMb3YrfSBf4hJVGLh2YEIBfKaBW/9UEl6IQ==}
 
+  '@types/react-color@3.0.13':
+    resolution: {integrity: sha512-2c/9FZ4ixC5T3JzN0LP5Cke2Mf0MKOP2Eh0NPDPWmuVH3NjPyhEjqNMQpN1Phr5m74egAy+p2lYNAFrX1z9Yrg==}
+    peerDependencies:
+      '@types/react': '*'
+
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
@@ -2543,6 +2746,11 @@ packages:
 
   '@types/react@19.2.7':
     resolution: {integrity: sha512-MWtvHrGZLFttgeEj28VXHxpmwYbor/ATPYbBfSFZEIRK0ecCFLl2Qo55z52Hss+UV9CRN7trSeq1zbgx7YDWWg==}
+
+  '@types/reactcss@1.2.13':
+    resolution: {integrity: sha512-gi3S+aUi6kpkF5vdhUsnkwbiSEIU/BEJyD7kBy2SudWBUuKmJk8AQKE0OVcQQeEy40Azh0lV6uynxlikYIJuwg==}
+    peerDependencies:
+      '@types/react': '*'
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -2995,10 +3203,6 @@ packages:
   empathic@2.0.0:
     resolution: {integrity: sha512-i6UzDscO/XfAcNYD75CfICkmfLedpyPDdozrLMmQc5ORaQcdMoc21OnlEylMIqI7U8eniKrPMxxtj8k0vhmJhA==}
     engines: {node: '>=14'}
-
-  enhanced-resolve@5.18.3:
-    resolution: {integrity: sha512-d4lC8xfavMeBjzGr2vECC3fsGXziXZQyJxD868h2M/mBI3PwAuODxAkLkq5HYuvrPYcUtiLzsTo8U3PgX3Ocww==}
-    engines: {node: '>=10.13.0'}
 
   enhanced-resolve@5.18.4:
     resolution: {integrity: sha512-LgQMM4WXU3QI+SYgEc2liRgznaD5ojbmY3sb8LxyguVkIg5FxdpTkvk72te2R38/TGKxH634oLxXRGY6d7AP+Q==}
@@ -3729,6 +3933,9 @@ packages:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
 
+  lodash-es@4.17.22:
+    resolution: {integrity: sha512-XEawp1t0gxSi9x01glktRZ5HDy0HXqrM0x5pXQM98EaI0NxO6jVM7omDOxsuEo5UIASAnm2bRp1Jt/e0a2XU8Q==}
+
   lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
 
@@ -3737,6 +3944,10 @@ packages:
 
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
+
+  loose-envify@1.4.0:
+    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
+    hasBin: true
 
   loro-crdt@1.10.3:
     resolution: {integrity: sha512-vzWkVw7mWrKTilPjrgAhhzjAyOn3/DaUPJxdK9lunpEI1Y+uQMDBt/pEtRiovKFtGXo4tUVfULnFc7H/ufGwkQ==}
@@ -3770,6 +3981,9 @@ packages:
 
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
+
+  material-colors@1.2.6:
+    resolution: {integrity: sha512-6qE4B9deFBIa9YSpOc9O0Sgc43zTeVYbgDT5veRKSlB2+ZuHNoVVxA1L/ckMUayV9Ay9y7Z/SZCLcGteW9i7bg==}
 
   mdast-util-find-and-replace@3.0.2:
     resolution: {integrity: sha512-Tmd1Vg/m3Xz43afeNxDIhWRtFZgM2VLyaf4vSTYwudTyeuTneoL3qtWMA5jeLyz/O1vDJmmV4QuScFCA2tBPwg==}
@@ -3969,6 +4183,10 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
+  object-assign@4.1.1:
+    resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
+    engines: {node: '>=0.10.0'}
+
   object-deep-merge@2.0.0:
     resolution: {integrity: sha512-3DC3UMpeffLTHiuXSy/UG4NOIYTLlY9u3V82+djSCLYClWobZiS4ivYzpIUWrRY/nfsJ8cWsKyG3QfyLePmhvg==}
 
@@ -4083,6 +4301,9 @@ packages:
     resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
     engines: {node: '>=6'}
 
+  prop-types@15.8.1:
+    resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
+
   prosemirror-changeset@2.3.1:
     resolution: {integrity: sha512-j0kORIBm8ayJNl3zQvD1TTPHJX3g042et6y/KQhZhnPrruO8exkTgG8X+NRpj7kIyMMEx74Xb3DyMIBtO0IKkQ==}
 
@@ -4158,6 +4379,11 @@ packages:
   quansync@1.0.0:
     resolution: {integrity: sha512-5xZacEEufv3HSTPQuchrvV6soaiACMFnq1H8wkVioctoH3TRha9Sz66lOxRwPK/qZj7HPiSveih9yAyh98gvqA==}
 
+  react-color@2.19.3:
+    resolution: {integrity: sha512-LEeGE/ZzNLIsFWa1TMe8y5VYqr7bibneWmvJwm1pCn/eNmrabWDh659JSPn9BuaMpEfU83WTOJfnCcjDZwNQTA==}
+    peerDependencies:
+      react: '*'
+
   react-dom@19.2.3:
     resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
     peerDependencies:
@@ -4183,6 +4409,9 @@ packages:
     resolution: {integrity: sha512-MEFcXdkP3dLo8uumGI5xN3lDFNsRtrjbOEKDLD7yv76v4wpnEq2Lt2qeHaQOr34I/wPN3s3+N08WkQ+CW37Xiw==}
     peerDependencies:
       react: '*'
+
+  react-is@16.13.1:
+    resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
   react-refresh@0.18.0:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
@@ -4241,6 +4470,11 @@ packages:
   react@19.2.3:
     resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
     engines: {node: '>=0.10.0'}
+
+  reactcss@1.2.3:
+    resolution: {integrity: sha512-KiwVUcFu1RErkI97ywr8nvx8dNOpT03rbnma0SSalTYjkrPYaEajR4a/MRt6DZ46K6arDRbWMNHF+xH7G7n/8A==}
+    peerDependencies:
+      react: '*'
 
   readdirp@3.6.0:
     resolution: {integrity: sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA==}
@@ -4454,6 +4688,9 @@ packages:
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
+
+  tinycolor2@1.6.0:
+    resolution: {integrity: sha512-XPaBkWQJdsf3pLKJV9p4qN/S+fm2Oj8AIPo1BTUhg5oxkvm9+SVEGFdhyOz7tTdUTfvxMiAs4sp6/eZO2Ew+pw==}
 
   tinyexec@1.0.2:
     resolution: {integrity: sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg==}
@@ -4807,9 +5044,6 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
-  zod@4.1.13:
-    resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
 
   zod@4.3.5:
     resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
@@ -5425,8 +5659,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@eslint/js@9.39.1': {}
-
   '@eslint/js@9.39.2': {}
 
   '@eslint/markdown@7.5.1':
@@ -5479,6 +5711,10 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/retry@0.4.3': {}
+
+  '@icons/material@0.2.4(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -6237,7 +6473,7 @@ snapshots:
   '@tailwindcss/node@4.1.17':
     dependencies:
       '@jridgewell/remapping': 2.3.5
-      enhanced-resolve: 5.18.3
+      enhanced-resolve: 5.18.4
       jiti: 2.6.1
       lightningcss: 1.30.2
       magic-string: 0.30.21
@@ -6557,6 +6793,10 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
 
+  '@tiptap/extension-highlight@3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))':
+    dependencies:
+      '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
+
   '@tiptap/extension-image@3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))':
     dependencies:
       '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
@@ -6696,6 +6936,11 @@ snapshots:
 
   '@types/prismjs@1.26.5': {}
 
+  '@types/react-color@3.0.13(@types/react@19.2.7)':
+    dependencies:
+      '@types/react': 19.2.7
+      '@types/reactcss': 1.2.13(@types/react@19.2.7)
+
   '@types/react-dom@19.2.3(@types/react@19.2.7)':
     dependencies:
       '@types/react': 19.2.7
@@ -6707,6 +6952,10 @@ snapshots:
   '@types/react@19.2.7':
     dependencies:
       csstype: 3.2.3
+
+  '@types/reactcss@1.2.13(@types/react@19.2.7)':
+    dependencies:
+      '@types/react': 19.2.7
 
   '@types/unist@3.0.3': {}
 
@@ -7202,11 +7451,6 @@ snapshots:
   emoji-regex@8.0.0: {}
 
   empathic@2.0.0: {}
-
-  enhanced-resolve@5.18.3:
-    dependencies:
-      graceful-fs: 4.2.11
-      tapable: 2.3.0
 
   enhanced-resolve@5.18.4:
     dependencies:
@@ -8039,11 +8283,17 @@ snapshots:
     dependencies:
       p-locate: 5.0.0
 
+  lodash-es@4.17.22: {}
+
   lodash.merge@4.6.2: {}
 
   lodash@4.17.21: {}
 
   longest-streak@3.1.0: {}
+
+  loose-envify@1.4.0:
+    dependencies:
+      js-tokens: 4.0.0
 
   loro-crdt@1.10.3: {}
 
@@ -8079,6 +8329,8 @@ snapshots:
       uc.micro: 2.1.0
 
   markdown-table@3.0.4: {}
+
+  material-colors@1.2.6: {}
 
   mdast-util-find-and-replace@3.0.2:
     dependencies:
@@ -8453,6 +8705,8 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
+  object-assign@4.1.1: {}
+
   object-deep-merge@2.0.0: {}
 
   obug@2.1.1: {}
@@ -8556,6 +8810,12 @@ snapshots:
   prettier@3.7.4: {}
 
   prismjs@1.30.0: {}
+
+  prop-types@15.8.1:
+    dependencies:
+      loose-envify: 1.4.0
+      object-assign: 4.1.1
+      react-is: 16.13.1
 
   prosemirror-changeset@2.3.1:
     dependencies:
@@ -8671,6 +8931,17 @@ snapshots:
   quansync@1.0.0:
     optional: true
 
+  react-color@2.19.3(react@19.2.3):
+    dependencies:
+      '@icons/material': 0.2.4(react@19.2.3)
+      lodash: 4.17.21
+      lodash-es: 4.17.22
+      material-colors: 1.2.6
+      prop-types: 15.8.1
+      react: 19.2.3
+      reactcss: 1.2.3(react@19.2.3)
+      tinycolor2: 1.6.0
+
   react-dom@19.2.3(react@19.2.3):
     dependencies:
       react: 19.2.3
@@ -8690,6 +8961,8 @@ snapshots:
   react-icons@5.5.0(react@19.2.3):
     dependencies:
       react: 19.2.3
+
+  react-is@16.13.1: {}
 
   react-refresh@0.18.0: {}
 
@@ -8749,6 +9022,11 @@ snapshots:
       '@types/react': 19.2.7
 
   react@19.2.3: {}
+
+  reactcss@1.2.3(react@19.2.3):
+    dependencies:
+      lodash: 4.17.21
+      react: 19.2.3
 
   readdirp@3.6.0:
     dependencies:
@@ -8945,6 +9223,8 @@ snapshots:
   tiny-warning@1.0.3: {}
 
   tinybench@2.9.0: {}
+
+  tinycolor2@1.6.0: {}
 
   tinyexec@1.0.2: {}
 
@@ -9258,8 +9538,6 @@ snapshots:
       zod: 4.3.5
 
   zod@3.25.76: {}
-
-  zod@4.1.13: {}
 
   zod@4.3.5: {}
 
