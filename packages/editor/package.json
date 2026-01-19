@@ -34,6 +34,7 @@
     "@tiptap/extension-mathematics": "catalog:",
     "@tiptap/extension-paragraph": "catalog:",
     "@tiptap/extension-strike": "catalog:",
+    "@tiptap/extension-table": "catalog:",
     "@tiptap/extension-text": "catalog:",
     "@tiptap/extension-underline": "catalog:",
     "@tiptap/extensions": "catalog:",

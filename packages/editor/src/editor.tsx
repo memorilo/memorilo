@@ -22,6 +22,7 @@ import { OutlineImage } from './extensions/image'
 import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Mathematics } from './extensions/mathematics'
 import { Outline } from './extensions/outline'
+import { TableExtension } from './extensions/table'
 import { LoroDocumentContext } from './provider/loro'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
@@ -89,10 +90,12 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           exitOnTripleEnter: true,
           exitOnArrowDown: true,
         }),
+        TableExtension,
         Outline.configure({
           bulletListHTMLAttributes: {
             class: 'list-none m-0 p-0 pl-0',
           },
+          allowTable: true,
         }),
         Gapcursor,
         loroSyncExtension,

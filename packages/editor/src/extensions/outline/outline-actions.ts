@@ -6,6 +6,7 @@ import {
   findListItem,
   findSiblingListItemPos,
   isOutlineTextBlockNode,
+  isSelectionInTable,
 } from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
@@ -109,12 +110,18 @@ export function outlineKeymap(_nodeTypeName: string) {
       if (editor.isActive('codeBlock')) {
         return false
       }
+      if (isSelectionInTable(editor.state.selection.$from)) {
+        return false
+      }
 
       return sinkOutlineListItem(editor.state, editor.view?.dispatch)
     },
 
     'Shift-Tab': ({ editor }: KeyboardShortcutContext) => {
       if (editor.isActive('codeBlock')) {
+        return false
+      }
+      if (isSelectionInTable(editor.state.selection.$from)) {
         return false
       }
 
@@ -139,6 +146,9 @@ export function outlineKeymap(_nodeTypeName: string) {
 
       const { $from } = view.state.selection
       const parent = $from.parent
+      if (isSelectionInTable($from)) {
+        return false
+      }
 
       if ($from.parentOffset === 0 && isOutlineTextBlockNode(parent)) {
         return editor.commands.focusPreviousItem()
@@ -153,6 +163,9 @@ export function outlineKeymap(_nodeTypeName: string) {
 
       const { $from } = view.state.selection
       const parent = $from.parent
+      if (isSelectionInTable($from)) {
+        return false
+      }
 
       if ($from.parentOffset === parent.content.size && isOutlineTextBlockNode(parent)) {
         return editor.commands.focusNextItem()

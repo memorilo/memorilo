@@ -1,3 +1,4 @@
+import type { TaskItemOptions } from '@tiptap/extension-list'
 import type { OutlineItemOptions } from './types'
 import { mergeAttributes, Node } from '@tiptap/core'
 import { BulletList } from '@tiptap/extension-bullet-list'
@@ -11,10 +12,19 @@ import {
   createOutlineListBackspaceHandler,
   getOutlineFoldedAttributes,
   outlineItemContent,
+  outlineItemContentWithTable,
   outlineListContent,
   outlineOrderedListContent,
 } from './outline-node-helpers'
 import { findListItem } from './outline-utils'
+
+function resolveOutlineItemContent(allowTable?: boolean) {
+  return allowTable ? outlineItemContentWithTable : outlineItemContent
+}
+
+interface OutlineTaskItemOptions extends TaskItemOptions {
+  allowTable?: boolean
+}
 
 export const OutlineBulletList = BulletList.extend({
   content() {
@@ -147,10 +157,13 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
   addOptions() {
     return {
       HTMLAttributes: {},
+      allowTable: false,
     }
   },
 
-  content: outlineItemContent,
+  content() {
+    return resolveOutlineItemContent(this.options.allowTable)
+  },
 
   defining: true,
 
@@ -183,8 +196,22 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
   },
 })
 
-export const OutlineTaskItem = TaskItem.extend({
-  content: outlineItemContent,
+export const OutlineTaskItem = TaskItem.extend<OutlineTaskItemOptions>({
+  addOptions() {
+    const parent = this.parent?.() ?? {
+      nested: false,
+      HTMLAttributes: {},
+      taskListTypeName: 'taskList',
+    }
+    return {
+      ...parent,
+      allowTable: false,
+    }
+  },
+
+  content() {
+    return resolveOutlineItemContent(this.options.allowTable)
+  },
 
   addAttributes() {
     return {
@@ -226,10 +253,13 @@ export const OutlineOrderedItem = Node.create<OutlineItemOptions>({
   addOptions() {
     return {
       HTMLAttributes: {},
+      allowTable: false,
     }
   },
 
-  content: outlineItemContent,
+  content() {
+    return resolveOutlineItemContent(this.options.allowTable)
+  },
 
   defining: true,
 

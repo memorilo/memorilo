@@ -1,6 +1,5 @@
 import type { ComponentType } from 'react'
-import { Button } from '@memorilo/components/ui/button'
-import { cn } from '@memorilo/utils'
+import { IconTooltipButton } from './icon-tooltip-button'
 
 export interface BubbleMenuButtonProps {
   label: string
@@ -16,17 +15,12 @@ export function BubbleMenuButton({
   onClick,
 }: BubbleMenuButtonProps) {
   return (
-    <Button
-      aria-label={label}
-      aria-pressed={active}
-      className={cn('h-8 w-8 px-0', active && 'bg-accent text-accent-foreground')}
-      onMouseDown={event => event.preventDefault()}
+    <IconTooltipButton
+      label={label}
+      Icon={Icon}
       onClick={onClick}
-      size="icon-sm"
-      type="button"
-      variant="ghost"
-    >
-      <Icon size={16} />
-    </Button>
+      active={active}
+      activeClassName="bg-accent text-accent-foreground"
+    />
   )
 }

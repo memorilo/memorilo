@@ -10,6 +10,7 @@ import {
   isListContainerNode,
   isOrderedListNode,
   isOutlineTextBlockNode,
+  isSelectionInTable,
 } from './outline-utils'
 
 function deleteLeadingParagraph($from: ResolvedPos, tr: Transaction) {
@@ -27,6 +28,9 @@ export function createOutlineListBackspaceHandler(editor: Editor) {
       return false
 
     const { $from } = selection
+    if (isSelectionInTable($from)) {
+      return false
+    }
     if (!isOutlineTextBlockNode($from.parent) || $from.parentOffset !== 0) {
       return false
     }

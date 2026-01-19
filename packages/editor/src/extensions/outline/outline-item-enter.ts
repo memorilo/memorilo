@@ -5,6 +5,7 @@ import {
   findFirstChildListPos,
   findListItem,
   isOutlineTextBlockNode,
+  isSelectionInTable,
 } from './outline-utils'
 
 export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: string) {
@@ -20,6 +21,9 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
         const { $from } = state.selection
         const parent = $from.parent
 
+        if (isSelectionInTable($from)) {
+          return false
+        }
         if (!isOutlineTextBlockNode(parent)) {
           return false
         }

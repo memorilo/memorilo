@@ -1,0 +1,68 @@
+.memorilo-editor {
+  --table-border: #e5e7eb;
+  --table-header-bg: #f3f4f6;
+  --table-header-text: #374151;
+  --table-cell-text: #1f2937;
+  --table-selected-border: rgba(59, 130, 246, 0.8);
+  --table-selected-bg: #eff6ff;
+  --table-selected-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.6);
+}
+
+.dark .memorilo-editor {
+  --table-border: #4b5563;
+  --table-header-bg: #1f2937;
+  --table-header-text: #e5e7eb;
+  --table-cell-text: #f3f4f6;
+  --table-selected-border: rgba(96, 165, 250, 0.8);
+  --table-selected-bg: rgba(30, 58, 138, 0.3);
+  --table-selected-shadow: inset 0 0 0 2px rgba(96, 165, 250, 0.6);
+}
+
+.memorilo-editor .ProseMirror .tableWrapper {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.memorilo-editor .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.memorilo-editor .ProseMirror th {
+  border: 1px solid var(--table-border);
+  background-color: var(--table-header-bg);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--table-header-text);
+}
+
+.memorilo-editor .ProseMirror td {
+  border: 1px solid var(--table-border);
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  color: var(--table-cell-text);
+}
+
+.memorilo-editor .ProseMirror td.tableAlignLeft,
+.memorilo-editor .ProseMirror th.tableAlignLeft {
+  text-align: left;
+}
+
+.memorilo-editor .ProseMirror td.tableAlignCenter,
+.memorilo-editor .ProseMirror th.tableAlignCenter {
+  text-align: center;
+}
+
+.memorilo-editor .ProseMirror td.tableAlignRight,
+.memorilo-editor .ProseMirror th.tableAlignRight {
+  text-align: right;
+}
+
+.memorilo-editor .ProseMirror td.selectedCell,
+.memorilo-editor .ProseMirror th.selectedCell {
+  border-color: var(--table-selected-border);
+  background-color: var(--table-selected-bg);
+  box-shadow: var(--table-selected-shadow);
+}

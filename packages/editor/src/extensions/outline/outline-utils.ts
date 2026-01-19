@@ -11,6 +11,7 @@ const listContainerNames = new Set(['bulletList', 'orderedList', 'taskList'])
 const outlineItemNames = new Set(['listItem', 'taskItem', 'orderedItem'])
 const outlineTextBlockNames = new Set(['paragraph', 'heading'])
 const emptyParagraphInlineNames = new Set(['text', 'hardBreak'])
+const tableNodeNames = new Set(['table', 'tableRow', 'tableCell', 'tableHeader'])
 
 export function isListContainerNode(node: ProseMirrorNode) {
   return listContainerNames.has(node.type.name)
@@ -34,6 +35,16 @@ export function isOrderedListNode(node: ProseMirrorNode) {
 
 export function isOutlineTextBlockNode(node: ProseMirrorNode) {
   return outlineTextBlockNames.has(node.type.name)
+}
+
+export function isSelectionInTable($pos: ResolvedPos) {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if (tableNodeNames.has($pos.node(depth).type.name)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 export function isEmptyOutlineParagraph(node: ProseMirrorNode) {
