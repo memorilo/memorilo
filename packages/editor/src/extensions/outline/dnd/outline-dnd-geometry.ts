@@ -1,6 +1,6 @@
 import type { EditorView } from '@tiptap/pm/view'
 import type { OutlineHit } from './outline-dnd-types'
-import { isOutlineItemNode } from './outline-utils'
+import { isOutlineItemNode } from '../core/outline-utils'
 
 function getElementRect(element: HTMLElement, selector: string) {
   const target = element.querySelector<HTMLElement>(selector)

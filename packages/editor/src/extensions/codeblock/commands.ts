@@ -4,7 +4,7 @@ import {
   getLeadingEmptyParagraphRange,
   isEmptyOutlineParagraph,
   isListContainerNode,
-} from '../outline/outline-utils'
+} from '../outline/core/outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
 

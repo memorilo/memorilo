@@ -1,13 +1,13 @@
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
-import { resolveItemTypeForList } from './outline-list-utils'
 import {
   findFirstChildListPos,
   findListItem,
   isListContainerNode,
   isOutlineTextBlockNode,
   isSelectionInTable,
-} from './outline-utils'
+} from '../core/outline-utils'
+import { resolveItemTypeForList } from '../list/outline-list-utils'
 
 export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: string) {
   return new Plugin({

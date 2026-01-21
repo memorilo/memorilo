@@ -1,17 +1,17 @@
 import type { EditorView } from '@tiptap/pm/view'
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
-  findListItem,
   findAdjacentVisibleOutlineItemPos,
-  getOutlineItemSelection,
+  findListItem,
   getOutlineItemEndSelection,
+  getOutlineItemSelection,
   isListContainerNode,
   isOutlineItemNode,
   isOutlineTextBlockNode,
   isSelectionInTable,
-} from './outline-utils'
+} from '../core/outline-utils'
 
-type ArrowIntent = {
+interface ArrowIntent {
   direction: -1 | 1
   useEndSelection: boolean
   axis: 'up' | 'down' | 'left'
@@ -46,7 +46,19 @@ function getListItemChildIndex(
     return null
   }
 
-  return listItem.node.content.findIndex(posInListItem).index
+  let offset = 0
+  for (let index = 0; index < listItem.node.childCount; index += 1) {
+    const child = listItem.node.child(index)
+    const end = offset + child.nodeSize
+    if (posInListItem < end) {
+      return index
+    }
+    offset = end
+  }
+  if (posInListItem === listItem.node.content.size && listItem.node.childCount > 0) {
+    return listItem.node.childCount - 1
+  }
+  return null
 }
 
 function isSelectionAtItemEdge(

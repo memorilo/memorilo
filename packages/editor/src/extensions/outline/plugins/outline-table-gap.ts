@@ -1,4 +1,5 @@
 import type { EditorState } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
 import { GapCursor } from '@tiptap/pm/gapcursor'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
@@ -7,7 +8,7 @@ import {
   isOutlineItemName,
   isOutlineMediaNode,
   isSelectionInTable,
-} from './outline-utils'
+} from '../core/outline-utils'
 
 function getOutlineMediaGapPos(state: EditorState) {
   const { $from } = state.selection
@@ -60,6 +61,34 @@ function isTableSelectionAtEdge(state: EditorState) {
     return false
   }
   return $from.parentOffset === 0
+}
+
+function moveFromMediaGapSelection(view: EditorView, direction: 'up' | 'left') {
+  const listItem = findListItem(view.state.selection.$from)
+  if (!listItem) {
+    return false
+  }
+
+  const prevPos = findSiblingListItemPos(view.state, listItem, 'prev')
+  const resolveSelection = direction === 'up' ? getOutlineItemStartSelection : getOutlineItemEndSelection
+  if (prevPos !== null) {
+    const nextSelection = resolveSelection(view.state, prevPos)
+    if (nextSelection) {
+      view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())
+      return true
+    }
+  }
+
+  // If there is no previous sibling, move to the parent list position to preserve outline navigation flow.
+  const listDepth = listItem.depth - 1
+  if (listDepth >= 0) {
+    const listPos = view.state.selection.$from.before(listDepth)
+    const nextSelection = TextSelection.near(view.state.doc.resolve(listPos), -1)
+    view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())
+    return true
+  }
+
+  return false
 }
 
 function getOutlineItemStartSelection(state: EditorState, listItemPos: number) {
@@ -147,52 +176,18 @@ export function createOutlineTableGapPlugin() {
           return false
         }
         if (event.key === 'ArrowUp') {
-          const listItem = findListItem(view.state.selection.$from)
-          if (!listItem) {
-            return false
-          }
-          const prevPos = findSiblingListItemPos(view.state, listItem, 'prev')
-          if (prevPos !== null) {
-            const nextSelection = getOutlineItemStartSelection(view.state, prevPos)
-            if (nextSelection) {
-              event.preventDefault()
-              view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())
-              return true
-            }
-          }
-
-          const listDepth = listItem.depth - 1
-          if (listDepth >= 0) {
-            const listPos = view.state.selection.$from.before(listDepth)
-            const nextSelection = TextSelection.near(view.state.doc.resolve(listPos), -1)
+          const handled = moveFromMediaGapSelection(view, 'up')
+          if (handled) {
             event.preventDefault()
-            view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())
-            return true
           }
+          return handled
         }
         if (event.key === 'ArrowLeft') {
-          const listItem = findListItem(view.state.selection.$from)
-          if (!listItem) {
-            return false
-          }
-          const prevPos = findSiblingListItemPos(view.state, listItem, 'prev')
-          if (prevPos !== null) {
-            const nextSelection = getOutlineItemEndSelection(view.state, prevPos)
-            if (nextSelection) {
-              event.preventDefault()
-              view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())
-              return true
-            }
-          }
-
-          const listDepth = listItem.depth - 1
-          if (listDepth >= 0) {
-            const listPos = view.state.selection.$from.before(listDepth)
-            const nextSelection = TextSelection.near(view.state.doc.resolve(listPos), -1)
+          const handled = moveFromMediaGapSelection(view, 'left')
+          if (handled) {
             event.preventDefault()
-            view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())
-            return true
           }
+          return handled
         }
         if (event.key === 'Enter' || event.key === 'Backspace' || event.key === 'Delete') {
           event.preventDefault()

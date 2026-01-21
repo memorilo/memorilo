@@ -1,5 +1,5 @@
 import type { NodeType, Node as ProseMirrorNode, ResolvedPos, Schema } from '@tiptap/pm/model'
-import { isListContainerNode } from './outline-utils'
+import { isListContainerNode } from '../core/outline-utils'
 
 export function findParentListType($pos: ResolvedPos) {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {

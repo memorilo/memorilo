@@ -1,6 +1,13 @@
 import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 import type { DragState, DropTarget, IndicatorElements } from './outline-dnd-types'
+import {
+  findFirstChildListPos,
+  findListItem,
+  isOrderedItemNode,
+  isOrderedListNode,
+  isOutlineItemNode,
+} from '../core/outline-utils'
 import { getTextStartX, resolveOutlineItemAtCoords } from './outline-dnd-geometry'
 import {
   ensureIndicatorElements,
@@ -10,13 +17,6 @@ import {
 } from './outline-dnd-indicator'
 import { hasChildList, moveOutlineItem } from './outline-dnd-move'
 import { DROP_LEFT_THRESHOLD_PX } from './outline-dnd-types'
-import {
-  findFirstChildListPos,
-  findListItem,
-  isOrderedItemNode,
-  isOrderedListNode,
-  isOutlineItemNode,
-} from './outline-utils'
 
 let activeDrag: DragState | null = null
 

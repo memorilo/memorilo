@@ -1,12 +1,12 @@
+import type { OutlineItemOptions } from '../core/types'
 import type { OutlineTaskItemOptions } from './outline-item-config'
-import type { OutlineItemOptions } from './types'
 import { mergeAttributes, Node } from '@tiptap/core'
 import { TaskItem } from '@tiptap/extension-list'
-import { outlineKeymap } from './outline-actions'
+import { outlineKeymap } from '../actions/outline-actions'
+import { getOutlineFoldedAttributes } from '../core/outline-node-constants'
 import {
   outlineItemSharedSpec,
 } from './outline-item-config'
-import { getOutlineFoldedAttributes } from './outline-node-constants'
 
 export const OutlineItem = Node.create<OutlineItemOptions>({
   name: 'listItem',

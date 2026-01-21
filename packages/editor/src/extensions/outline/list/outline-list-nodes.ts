@@ -1,12 +1,9 @@
 import { mergeAttributes, Node } from '@tiptap/core'
 import { BulletList } from '@tiptap/extension-bullet-list'
 import { TaskList } from '@tiptap/extension-list'
-import {
-  createOutlineListBackspaceHandler,
-  outlineListContent,
-  outlineOrderedListContent,
-} from './outline-node-helpers'
-import { findListItem } from './outline-utils'
+import { outlineListContent, outlineOrderedListContent } from '../core/outline-node-constants'
+import { findListItem } from '../core/outline-utils'
+import { createOutlineListBackspaceHandler } from './outline-list-backspace'
 
 export const OutlineBulletList = BulletList.extend({
   content() {

@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import { useCallback, useSyncExternalStore } from 'react'
-import { findListItem } from './outline-utils'
+import { findListItem } from '../core/outline-utils'
 
 export function useOrderedIndex(
   editor: Editor,

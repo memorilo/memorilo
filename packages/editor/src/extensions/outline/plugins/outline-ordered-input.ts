@@ -1,6 +1,6 @@
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
-import { findListItem, isOutlineTextBlockNode, isSelectionInTable } from './outline-utils'
+import { findListItem, isOutlineTextBlockNode, isSelectionInTable } from '../core/outline-utils'
 
 const orderedItemInputRegex = /^(\d+)\.$/
 

@@ -4,11 +4,11 @@ import { cn } from '@memorilo/utils'
 import { GapCursor } from '@tiptap/pm/gapcursor'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
 import { useCallback, useMemo, useState } from 'react'
-import { startOutlineDrag } from './outline-dnd'
+import { getOutlineLevel, isListContainerNode, isOutlineMediaNode } from '../core/outline-utils'
+import { startOutlineDrag } from '../dnd/outline-dnd'
 import { OutlineItemControls } from './outline-item-controls'
 import { OutlineItemDot } from './outline-item-dot'
 import { useOrderedIndex } from './outline-item-hooks'
-import { getOutlineLevel, isListContainerNode, isOutlineMediaNode } from './outline-utils'
 
 interface TaskItemViewOptions {
   onReadOnlyChecked?: (node: ProseMirrorNode, checked: boolean) => boolean

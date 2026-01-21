@@ -1,7 +1,7 @@
 import type { NodeType, Slice } from '@tiptap/pm/model'
 import Image from '@tiptap/extension-image'
 import { Plugin } from '@tiptap/pm/state'
-import { getLeadingEmptyParagraphRange } from '../outline/outline-utils'
+import { getLeadingEmptyParagraphRange } from '../outline/core/outline-utils'
 import './image.css'
 
 function sliceHasImage(slice: Slice, imageType: NodeType) {

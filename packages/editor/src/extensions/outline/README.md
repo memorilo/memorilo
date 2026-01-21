@@ -2,33 +2,31 @@
 
 This folder contains the outline editor extension built on top of Tiptap list items.
 
-## Files
+## Features
 
-- `index.ts`: Re-exports the Outline extension and related option/types for external use.
-- `outline.ts`: Composes the Outline extension by registering the custom bullet list and list item nodes, and passes HTML attributes into the bullet list.
-- `outline-plugins.ts`: ProseMirror plugins shared across outline behavior (ordered input + media gap handling).
-- `outline-navigation.ts`: Keyboard navigation plugin for moving between outline items with ArrowUp/ArrowDown.
-- `outline-gapcursor.ts`: Schema helper enabling gap cursor positions for outline list items.
-- `outline-nodes.ts`: Re-exports the outline item and list node definitions.
-- `outline-item-config.ts`: Shared configuration helpers for outline item nodes.
-- `outline-item-nodes.ts`: Defines listItem/taskItem/orderedItem nodes and wires shared behavior.
-- `outline-list-nodes.ts`: Defines list containers and their backspace handling.
-- `outline-item-view.tsx`: React node view container for a list item plus level-based dashed connector line rendering.
-- `outline-item-controls.tsx`: Drag handle + fold toggle controls for outline items.
-- `outline-item-dot.tsx`: Dot/checkbox/ordered index rendering for outline items.
-- `outline-item-hooks.ts`: Shared hooks for outline item view state.
-- `outline-dnd.ts`: Drag-and-drop entry point wiring up indicator + move logic.
-- `outline-dnd-geometry.ts`: DOM geometry helpers used by drag-and-drop hit testing.
-- `outline-dnd-indicator.ts`: Drop indicator element creation and styling.
-- `outline-dnd-move.ts`: Move/insert logic for drag-and-drop operations.
-- `outline-dnd-types.ts`: Shared drag-and-drop types and constants.
-- `outline-actions.ts`: Command helpers and keyboard shortcuts for folding, navigation, and indentation.
-- `outline-list-commands.ts`: Custom sink/lift commands that support mixed listItem/taskItem structures.
-- `outline-list-utils.ts`: Shared list helpers for type normalization and parent list lookup.
-- `outline-node-constants.ts`: Shared node constants (content schemas, folded attributes).
-- `outline-ordered-input.ts`: Ordered list input handling (e.g. `1.` + space conversion).
-- `outline-list-backspace.ts`: Backspace handling for outline list items.
-- `outline-item-enter.ts`: Enter handling for outline list items.
-- `outline-node-helpers.ts`: Barrel file re-exporting the shared outline node helpers.
-- `outline-utils.ts`: Shared utilities for identifying list containers and finding list items/positions.
-- `types.ts`: Option and attribute types plus command type augmentation for Tiptap.
+- Bullet, ordered, and task outline items with folding support.
+- Keyboard navigation between outline items (ArrowUp/ArrowDown, ArrowLeft for previous item end).
+- Ordered list input rules (`1.` + space) and custom list indentation (Tab/Shift-Tab).
+- Drag-and-drop reordering with drop indicators.
+- Media-aware gap cursor handling so leading tables/images remain navigable.
+- Task list toggling that preserves list type constraints.
+
+## Implementation notes
+
+- `outline.ts` composes the extension by registering nodes, plugins, and the gap cursor schema.
+- Mixed list types are allowed temporarily in list containers so indent/outdent can normalize items in one transaction.
+- List indentation commands mirror ProseMirror list logic but normalize item types to match their parent list.
+- The table/media gap plugin prevents inserting text before leading media and redirects navigation to valid positions.
+- Arrow navigation uses document positions rather than DOM geometry to stay deterministic.
+- Drag-and-drop is split into geometry, indicator, and move logic for clarity and testability.
+
+## Structure
+
+- `core/`: shared constants, utilities, and type definitions.
+- `nodes/`: document/heading nodes plus re-exports for list/item nodes.
+- `list/`: list containers, list commands, and backspace handling.
+- `item/`: item nodes, node view, and item-specific plugins.
+- `plugins/`: ProseMirror plugins (navigation, ordered input, gap cursor).
+- `dnd/`: drag-and-drop hit testing, indicator styling, and move logic.
+- `outline.css`: outline-specific styling hooks.
+- `index.ts`: external entry point re-exporting the Outline extension and types.

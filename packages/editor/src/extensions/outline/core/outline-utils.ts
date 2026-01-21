@@ -50,9 +50,6 @@ export function isSelectionInTable($pos: ResolvedPos) {
 }
 
 export function isOutlineMediaNode(node: ProseMirrorNode) {
-  if (node.type.spec.tableRole === 'table') {
-    return true
-  }
   if (node.type.name === 'table') {
     return true
   }

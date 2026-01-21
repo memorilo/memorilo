@@ -2,26 +2,29 @@ import type { Editor } from '@tiptap/core'
 import type { NodeType, Node as ProseMirrorNode, Schema } from '@tiptap/pm/model'
 import { Fragment } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
-import { normalizeItemForList } from './outline-list-utils'
 import {
   findListItem,
   findSiblingListItemPos,
   isListContainerNode,
   isOutlineTextBlockNode,
   isSelectionInTable,
-} from './outline-utils'
+} from '../core/outline-utils'
+import { normalizeItemForList } from './outline-list-utils'
 
 function getPromotedChildrenFragment(
   schema: Schema,
   listItemNode: ProseMirrorNode,
   parentListType: NodeType,
 ) {
+  // Collect child list items and normalize them so promotion keeps the parent list schema valid.
   let childListNode: ProseMirrorNode | null = null
-  listItemNode.forEach((child) => {
-    if (!childListNode && isListContainerNode(child)) {
+  for (let index = 0; index < listItemNode.childCount; index += 1) {
+    const child = listItemNode.child(index)
+    if (isListContainerNode(child)) {
       childListNode = child
+      break
     }
-  })
+  }
   if (!childListNode) {
     return null
   }
@@ -29,10 +32,11 @@ function getPromotedChildrenFragment(
     return null
   }
 
-  const normalizedItems = [] as ProseMirrorNode[]
-  childListNode.forEach((child) => {
+  const normalizedItems: ProseMirrorNode[] = []
+  for (let index = 0; index < childListNode.childCount; index += 1) {
+    const child = childListNode.child(index)
     normalizedItems.push(normalizeItemForList(schema, parentListType, child))
-  })
+  }
   return Fragment.fromArray(normalizedItems)
 }
 

@@ -1,15 +1,15 @@
 import { Extension } from '@tiptap/core'
-import { BulletDocument, StyledHeading } from './document'
-import { OutlineGapCursor } from './outline-gapcursor'
 import {
+  BulletDocument,
   OutlineBulletList,
   OutlineItem,
   OutlineOrderedItem,
   OutlineOrderedList,
   OutlineTaskItem,
   OutlineTaskList,
-} from './outline-nodes'
-import { OutlinePlugins } from './outline-plugins'
+  StyledHeading,
+} from './nodes'
+import { OutlineGapCursor, OutlinePlugins } from './plugins'
 import './outline.css'
 
 export interface OutlineOptions {

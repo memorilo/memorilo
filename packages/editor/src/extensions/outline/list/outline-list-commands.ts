@@ -2,8 +2,8 @@ import type { NodeType, Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Fragment, NodeRange, Slice } from '@tiptap/pm/model'
 import { canJoin, liftTarget, ReplaceAroundStep } from '@tiptap/pm/transform'
+import { findListItem, isListContainerNode, isOutlineItemNode } from '../core/outline-utils'
 import { findParentListType, resolveItemTypeForList, stripCheckedAttr } from './outline-list-utils'
-import { findListItem, isListContainerNode, isOutlineItemNode } from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
 

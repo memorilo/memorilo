@@ -1,18 +1,24 @@
 import type { Command, Editor } from '@tiptap/core'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { liftOutlineListItem, sinkOutlineListItem } from './outline-list-commands'
 import {
   findAdjacentVisibleOutlineItemPos,
   findListItem,
   getOutlineItemSelection,
-} from './outline-utils'
+  isSelectionInTable,
+} from '../core/outline-utils'
+import { liftOutlineListItem, sinkOutlineListItem } from '../list/outline-list-commands'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
 
 interface KeyboardShortcutContext {
   editor: Editor
   view?: EditorView
+}
+
+function shouldSkipOutlineIndentation(editor: Editor) {
+  // Avoid hijacking Tab indentation when editing code blocks or inside tables.
+  return editor.isActive('codeBlock') || isSelectionInTable(editor.state.selection.$from)
 }
 
 function setFoldedState(
@@ -115,21 +121,14 @@ export const outlineCommands = {
 export function outlineKeymap(_nodeTypeName: string) {
   return {
     'Tab': ({ editor }: KeyboardShortcutContext) => {
-      if (editor.isActive('codeBlock')) {
+      if (shouldSkipOutlineIndentation(editor)) {
         return false
       }
-      if (isSelectionInTable(editor.state.selection.$from)) {
-        return false
-      }
-
       return sinkOutlineListItem(editor.state, editor.view?.dispatch)
     },
 
     'Shift-Tab': ({ editor }: KeyboardShortcutContext) => {
-      if (editor.isActive('codeBlock')) {
-        return false
-      }
-      if (isSelectionInTable(editor.state.selection.$from)) {
+      if (shouldSkipOutlineIndentation(editor)) {
         return false
       }
 

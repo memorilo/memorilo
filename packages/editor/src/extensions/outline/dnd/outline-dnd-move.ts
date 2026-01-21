@@ -4,13 +4,13 @@ import type { DropTarget } from './outline-dnd-types'
 import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { dropPoint } from '@tiptap/pm/transform'
-import { findParentListType, normalizeItemForList } from './outline-list-utils'
 import {
   findFirstChildListPos,
   findListItem,
   isListContainerNode,
   isOutlineTextBlockNode,
-} from './outline-utils'
+} from '../core/outline-utils'
+import { findParentListType, normalizeItemForList } from '../list/outline-list-utils'
 
 export function hasChildList(node: ProseMirrorNode) {
   let hasChildren = false
