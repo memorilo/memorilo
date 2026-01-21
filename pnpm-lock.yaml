@@ -156,6 +156,9 @@ catalogs:
     '@tiptap/extension-underline':
       specifier: ^3.15.3
       version: 3.15.3
+    '@tiptap/extension-unique-id':
+      specifier: ^3.16.0
+      version: 3.16.0
     '@tiptap/extensions':
       specifier: ^3.15.3
       version: 3.15.3
@@ -680,6 +683,9 @@ importers:
       '@tiptap/extension-underline':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))
+      '@tiptap/extension-unique-id':
+        specifier: 'catalog:'
+        version: 3.16.0(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)
       '@tiptap/extensions':
         specifier: 'catalog:'
         version: 3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)
@@ -2695,6 +2701,12 @@ packages:
     resolution: {integrity: sha512-r/IwcNN0W366jGu4Y0n2MiFq9jGa4aopOwtfWO4d+J0DyeS2m7Go3+KwoUqi0wQTiVU74yfi4DF6eRsMQ9/iHQ==}
     peerDependencies:
       '@tiptap/core': ^3.15.3
+
+  '@tiptap/extension-unique-id@3.16.0':
+    resolution: {integrity: sha512-D4rGM+7Cz0nSc1JLz96XZrUVocY3HNpJl1YqW5Vhn4ekdy6bQF8CHNy/Gnex6HaMXkteLnplpwYQpsxMdlSymQ==}
+    peerDependencies:
+      '@tiptap/core': ^3.16.0
+      '@tiptap/pm': ^3.16.0
 
   '@tiptap/extensions@3.15.3':
     resolution: {integrity: sha512-ycx/BgxR4rc9tf3ZyTdI98Z19yKLFfqM3UN+v42ChuIwkzyr9zyp7kG8dB9xN2lNqrD+5y/HyJobz/VJ7T90gA==}
@@ -6905,6 +6917,12 @@ snapshots:
   '@tiptap/extension-underline@3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))':
     dependencies:
       '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
+
+  '@tiptap/extension-unique-id@3.16.0(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)':
+    dependencies:
+      '@tiptap/core': 3.15.3(@tiptap/pm@3.15.3)
+      '@tiptap/pm': 3.15.3
+      uuid: 10.0.0
 
   '@tiptap/extensions@3.15.3(@tiptap/core@3.15.3(@tiptap/pm@3.15.3))(@tiptap/pm@3.15.3)':
     dependencies:

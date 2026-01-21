@@ -1,13 +1,7 @@
-catalogMode: prefer
-
-cleanupUnusedCatalogs: true
-
-shellEmulator: true
-
-trustPolicy: no-downgrade
 packages:
   - apps/*
   - packages/*
+
 catalog:
   '@antfu/eslint-config': ^6.7.3
   '@eslint-react/eslint-plugin': ^2.5.4
@@ -59,6 +53,7 @@ catalog:
   '@tiptap/extension-table': ^3.15.3
   '@tiptap/extension-text': ^3.15.3
   '@tiptap/extension-underline': ^3.15.3
+  '@tiptap/extension-unique-id': ^3.16.0
   '@tiptap/extensions': ^3.15.3
   '@tiptap/pm': ^3.15.3
   '@tiptap/react': ^3.15.3
@@ -112,5 +107,14 @@ catalog:
   vite-plugin-wasm: ^3.5.0
   vitest: ^4.0.16
   zod: ^4.1.13
+
+catalogMode: prefer
+
+cleanupUnusedCatalogs: true
+
 onlyBuiltDependencies:
   - esbuild
+
+shellEmulator: true
+
+trustPolicy: no-downgrade

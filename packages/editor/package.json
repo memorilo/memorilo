@@ -39,6 +39,7 @@
     "@tiptap/extension-table": "catalog:",
     "@tiptap/extension-text": "catalog:",
     "@tiptap/extension-underline": "catalog:",
+    "@tiptap/extension-unique-id": "catalog:",
     "@tiptap/extensions": "catalog:",
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
