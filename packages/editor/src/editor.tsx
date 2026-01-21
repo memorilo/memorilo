@@ -12,17 +12,19 @@ import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
-import { Gapcursor } from '@tiptap/extensions'
 
+import { Gapcursor } from '@tiptap/extensions'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
 import { CodeBlockPrism } from './extensions/codeblock'
+import { EmojiExtension } from './extensions/emoji'
 import { OutlineImage } from './extensions/image'
 import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Mathematics } from './extensions/mathematics'
 import { Outline } from './extensions/outline'
 import { TableExtension } from './extensions/table'
+
 import { LoroDocumentContext } from './provider/loro'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
@@ -97,6 +99,7 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           allowTable: true,
         }),
         TableExtension,
+        EmojiExtension,
         Gapcursor,
         loroSyncExtension,
       ],

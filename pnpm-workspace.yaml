@@ -1,11 +1,18 @@
+catalogMode: prefer
+
+cleanupUnusedCatalogs: true
+
+shellEmulator: true
+
+trustPolicy: no-downgrade
 packages:
   - apps/*
   - packages/*
-
 catalog:
   '@antfu/eslint-config': ^6.7.3
   '@eslint-react/eslint-plugin': ^2.5.4
   '@eslint/js': ^9.39.1
+  '@floating-ui/dom': ^1.7.4
   '@radix-ui/react-alert-dialog': ^1.1.15
   '@radix-ui/react-avatar': ^1.1.11
   '@radix-ui/react-context-menu': ^2.2.16
@@ -39,6 +46,7 @@ catalog:
   '@tiptap/extension-code': ^3.15.3
   '@tiptap/extension-code-block': ^3.15.3
   '@tiptap/extension-document': ^3.15.3
+  '@tiptap/extension-emoji': ^3.16.0
   '@tiptap/extension-hard-break': ^3.15.3
   '@tiptap/extension-heading': ^3.15.3
   '@tiptap/extension-highlight': ^3.15.3
@@ -54,6 +62,7 @@ catalog:
   '@tiptap/extensions': ^3.15.3
   '@tiptap/pm': ^3.15.3
   '@tiptap/react': ^3.15.3
+  '@tiptap/suggestion': ^3.16.0
   '@types/node': ^24.10.6
   '@types/prismjs': ^1.26.5
   '@types/react': ^19.2.7
@@ -103,14 +112,5 @@ catalog:
   vite-plugin-wasm: ^3.5.0
   vitest: ^4.0.16
   zod: ^4.1.13
-
-catalogMode: prefer
-
-cleanupUnusedCatalogs: true
-
 onlyBuiltDependencies:
   - esbuild
-
-shellEmulator: true
-
-trustPolicy: no-downgrade

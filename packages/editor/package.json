@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@floating-ui/dom": "catalog:",
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/utils": "workspace:*",
@@ -25,6 +26,7 @@
     "@tiptap/extension-code": "catalog:",
     "@tiptap/extension-code-block": "catalog:",
     "@tiptap/extension-document": "catalog:",
+    "@tiptap/extension-emoji": "catalog:",
     "@tiptap/extension-hard-break": "catalog:",
     "@tiptap/extension-heading": "catalog:",
     "@tiptap/extension-highlight": "catalog:",
@@ -40,6 +42,7 @@
     "@tiptap/extensions": "catalog:",
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
+    "@tiptap/suggestion": "catalog:",
     "@types/react-color": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
