@@ -5,13 +5,10 @@ import { findListItem, isOutlineTextBlockNode, isSelectionInTable } from './outl
 const orderedItemInputRegex = /^(\d+)\.$/
 
 function canConvertToOrderedList(listNode: ProseMirrorNode) {
-  if (listNode.childCount > 1) {
-    // Avoid converting the whole list when siblings are not ordered items.
-    return false
-  }
   let allowed = true
   listNode.forEach((child) => {
     if (child.type.name === 'taskItem') {
+      // Avoid converting task lists with "1." input.
       allowed = false
     }
   })

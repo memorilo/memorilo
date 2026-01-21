@@ -3,10 +3,9 @@ import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { liftOutlineListItem, sinkOutlineListItem } from './outline-list-commands'
 import {
+  findAdjacentVisibleOutlineItemPos,
   findListItem,
-  findSiblingListItemPos,
-  isOutlineTextBlockNode,
-  isSelectionInTable,
+  getOutlineItemSelection,
 } from './outline-utils'
 
 type Dispatch = ((tr: Transaction) => void) | undefined
@@ -63,11 +62,20 @@ function focusSiblingItem(direction: 'prev' | 'next'): Command {
     if (!listItem)
       return false
 
-    const targetPos = findSiblingListItemPos(state, listItem, direction)
+    const targetPos = findAdjacentVisibleOutlineItemPos(
+      state,
+      listItem.pos,
+      direction === 'prev' ? -1 : 1,
+    )
     if (targetPos === null)
       return false
 
-    editor.commands.setTextSelection(targetPos + 1)
+    const selection = getOutlineItemSelection(state, targetPos)
+    if (!selection) {
+      return false
+    }
+
+    editor.view?.dispatch(state.tr.setSelection(selection).scrollIntoView())
     return true
   }
 }
@@ -140,38 +148,6 @@ export function outlineKeymap(_nodeTypeName: string) {
       return editor.commands.toggleFold()
     },
 
-    'ArrowUp': ({ editor, view }: KeyboardShortcutContext) => {
-      if (!view)
-        return false
-
-      const { $from } = view.state.selection
-      const parent = $from.parent
-      if (isSelectionInTable($from)) {
-        return false
-      }
-
-      if ($from.parentOffset === 0 && isOutlineTextBlockNode(parent)) {
-        return editor.commands.focusPreviousItem()
-      }
-
-      return false
-    },
-
-    'ArrowDown': ({ editor, view }: KeyboardShortcutContext) => {
-      if (!view)
-        return false
-
-      const { $from } = view.state.selection
-      const parent = $from.parent
-      if (isSelectionInTable($from)) {
-        return false
-      }
-
-      if ($from.parentOffset === parent.content.size && isOutlineTextBlockNode(parent)) {
-        return editor.commands.focusNextItem()
-      }
-
-      return false
-    },
+    // ArrowUp/ArrowDown handled by outline navigation plugin to avoid keymap conflicts.
   }
 }

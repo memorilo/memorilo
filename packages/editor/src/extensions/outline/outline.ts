@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core'
 import { BulletDocument, StyledHeading } from './document'
+import { OutlineGapCursor } from './outline-gapcursor'
 import {
   OutlineBulletList,
   OutlineItem,
@@ -8,6 +9,8 @@ import {
   OutlineTaskItem,
   OutlineTaskList,
 } from './outline-nodes'
+import { OutlinePlugins } from './outline-plugins'
+import './outline.css'
 
 export interface OutlineOptions {
   bulletListHTMLAttributes: Record<string, any>
@@ -30,6 +33,8 @@ export const Outline = Extension.create<OutlineOptions>({
     }
 
     return [
+      OutlineGapCursor,
+      OutlinePlugins,
       OutlineBulletList.configure({
         HTMLAttributes: this.options.bulletListHTMLAttributes,
       }),

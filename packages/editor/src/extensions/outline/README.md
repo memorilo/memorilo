@@ -6,8 +6,17 @@ This folder contains the outline editor extension built on top of Tiptap list it
 
 - `index.ts`: Re-exports the Outline extension and related option/types for external use.
 - `outline.ts`: Composes the Outline extension by registering the custom bullet list and list item nodes, and passes HTML attributes into the bullet list.
-- `outline-nodes.ts`: Defines the list nodes and wires in shared behavior (folding, keymaps, Enter/Backspace handlers).
-- `outline-item-view.tsx`: React node view UI for a list item (bullet, fold button, content wrapper) plus level-based dashed connector line rendering.
+- `outline-plugins.ts`: ProseMirror plugins shared across outline behavior (ordered input + media gap handling).
+- `outline-navigation.ts`: Keyboard navigation plugin for moving between outline items with ArrowUp/ArrowDown.
+- `outline-gapcursor.ts`: Schema helper enabling gap cursor positions for outline list items.
+- `outline-nodes.ts`: Re-exports the outline item and list node definitions.
+- `outline-item-config.ts`: Shared configuration helpers for outline item nodes.
+- `outline-item-nodes.ts`: Defines listItem/taskItem/orderedItem nodes and wires shared behavior.
+- `outline-list-nodes.ts`: Defines list containers and their backspace handling.
+- `outline-item-view.tsx`: React node view container for a list item plus level-based dashed connector line rendering.
+- `outline-item-controls.tsx`: Drag handle + fold toggle controls for outline items.
+- `outline-item-dot.tsx`: Dot/checkbox/ordered index rendering for outline items.
+- `outline-item-hooks.ts`: Shared hooks for outline item view state.
 - `outline-dnd.ts`: Drag-and-drop entry point wiring up indicator + move logic.
 - `outline-dnd-geometry.ts`: DOM geometry helpers used by drag-and-drop hit testing.
 - `outline-dnd-indicator.ts`: Drop indicator element creation and styling.

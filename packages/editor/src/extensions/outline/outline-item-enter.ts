@@ -1,9 +1,10 @@
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
-import { resolveDefaultItemTypeForList } from './outline-list-utils'
+import { resolveItemTypeForList } from './outline-list-utils'
 import {
   findFirstChildListPos,
   findListItem,
+  isListContainerNode,
   isOutlineTextBlockNode,
   isSelectionInTable,
 } from './outline-utils'
@@ -41,22 +42,21 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
         const childListPos = findFirstChildListPos(listItem)
 
         if (childListPos !== null) {
-          const childListNode = state.doc.nodeAt(childListPos)
-          const listItemType = state.schema.nodes[itemTypeName]
+          const listItemType = listItem.node.type
           const paragraphType = state.schema.nodes.paragraph
-          let targetItemType = listItemType ?? null
-          if (childListNode) {
-            targetItemType = resolveDefaultItemTypeForList(state.schema, childListNode.type)
-              ?? listItemType
+          const childListNode = state.doc.nodeAt(childListPos)
+          if (!paragraphType || !childListNode || !isListContainerNode(childListNode)) {
+            return false
           }
 
-          if (!targetItemType || !paragraphType)
-            return false
+          // Keep the child list item type consistent with the list container.
+          const targetItemType = resolveItemTypeForList(state.schema, childListNode.type, listItemType) ?? listItemType
+          const nextAttrs = targetItemType.name === 'taskItem' ? { checked: false } : null
 
           // Insert a new list item at the start of the child list.
           const tr = state.tr.insert(
             childListPos + 1,
-            targetItemType.create(null, paragraphType.create()),
+            targetItemType.create(nextAttrs, paragraphType.create()),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(childListPos + 2)))
           dispatch(tr)
@@ -65,7 +65,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
 
         if (isEmpty) {
           // Empty nodes without children should still create a sibling instead of lifting.
-          const listItemType = state.schema.nodes[itemTypeName]
+          const listItemType = listItem.node.type
           const paragraphType = state.schema.nodes.paragraph
           if (!listItemType || !paragraphType)
             return false
@@ -73,7 +73,10 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           const insertPos = listItem.pos + listItem.node.nodeSize
           const tr = state.tr.insert(
             insertPos,
-            listItemType.create(null, paragraphType.create()),
+            listItemType.create(
+              listItemType.name === 'taskItem' ? { checked: false } : null,
+              paragraphType.create(),
+            ),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
           dispatch(tr)

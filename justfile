@@ -95,7 +95,7 @@ build-ios: download-model
 
 [linux]
 [macos]
-build-web: download-web-resource lint-web
+build-web: download-web-resource && lint-web
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command bash -c "cd apps/client && pnpm build"
@@ -104,7 +104,7 @@ build-web: download-web-resource lint-web
   fi
 
 [windows]
-build-web: download-web-resource lint-web
+build-web: download-web-resource && lint-web
   cd apps/client && pnpm build
 
 clean:

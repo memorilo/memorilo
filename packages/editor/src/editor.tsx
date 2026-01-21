@@ -90,13 +90,13 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           exitOnTripleEnter: true,
           exitOnArrowDown: true,
         }),
-        TableExtension,
         Outline.configure({
           bulletListHTMLAttributes: {
             class: 'list-none m-0 p-0 pl-0',
           },
           allowTable: true,
         }),
+        TableExtension,
         Gapcursor,
         loroSyncExtension,
       ],

@@ -1,15 +1,14 @@
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { NodeViewProps } from '@tiptap/react'
-import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
+import { GapCursor } from '@tiptap/pm/gapcursor'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
-import { MdChevronRight } from 'react-icons/md'
+import { useCallback, useMemo, useState } from 'react'
 import { startOutlineDrag } from './outline-dnd'
-import { findListItem, getOutlineLevel, isListContainerNode } from './outline-utils'
-
-const OUTLINE_DOT_CENTER_PX = 20
-const OUTLINE_ITEM_INDENT_PX = 32
+import { OutlineItemControls } from './outline-item-controls'
+import { OutlineItemDot } from './outline-item-dot'
+import { useOrderedIndex } from './outline-item-hooks'
+import { getOutlineLevel, isListContainerNode, isOutlineMediaNode } from './outline-utils'
 
 interface TaskItemViewOptions {
   onReadOnlyChecked?: (node: ProseMirrorNode, checked: boolean) => boolean
@@ -40,48 +39,16 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     })
     return found
   }, [node])
-
-  const lineOffsets = useMemo(() => {
-    if (level <= 1)
-      return []
-    return [
-      OUTLINE_DOT_CENTER_PX - OUTLINE_ITEM_INDENT_PX,
-    ]
-  }, [level])
-
-  const resolveOrderedIndex = useCallback(() => {
-    if (!isOrderedItem)
-      return null
-    const pos = getPos()
-    if (typeof pos !== 'number')
-      return null
-    const resolvedPos = Math.min(pos + 1, editor.state.doc.content.size)
-    let $pos
-    try {
-      $pos = editor.state.doc.resolve(resolvedPos)
+  const hasLeadingMedia = useMemo(() => {
+    const firstChild = node.firstChild
+    if (!firstChild) {
+      return false
     }
-    catch {
-      return null
-    }
-    const listItem = findListItem($pos)
-    if (!listItem || listItem.depth < 1)
-      return null
-    return $pos.index(listItem.depth - 1) + 1
-  }, [editor, getPos, isOrderedItem])
+    return isOutlineMediaNode(firstChild)
+  }, [node])
+  const showIndentGuide = level > 1
 
-  const orderedIndex = useSyncExternalStore(
-    (onStoreChange) => {
-      if (!isOrderedItem) {
-        return () => {}
-      }
-      editor.on('transaction', onStoreChange)
-      return () => {
-        editor.off('transaction', onStoreChange)
-      }
-    },
-    resolveOrderedIndex,
-    resolveOrderedIndex,
-  )
+  const orderedIndex = useOrderedIndex(editor, getPos, isOrderedItem)
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -114,6 +81,22 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     const pos = getPos()
     if (typeof pos === 'number')
       startOutlineDrag(editor, pos, e.nativeEvent)
+  }, [editor, getPos])
+
+  const handleMediaGapMouseDown = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!editor.view) {
+      return
+    }
+    const pos = getPos()
+    if (typeof pos !== 'number') {
+      return
+    }
+    const gapPos = pos + 1
+    const $gap = editor.state.doc.resolve(gapPos)
+    const tr = editor.state.tr.setSelection(new GapCursor($gap))
+    editor.view.dispatch(tr.scrollIntoView())
   }, [editor, getPos])
 
   const checkboxLabel = useMemo(() => {
@@ -159,33 +142,6 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       .run()
   }, [editor, extension?.options, getPos, node])
 
-  let dotContent = <div className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
-  if (isTaskItem) {
-    dotContent = (
-      <label
-        className="flex h-6 w-6 items-center justify-center"
-        contentEditable={false}
-        onMouseDown={e => e.preventDefault()}
-      >
-        <input
-          type="checkbox"
-          checked={isChecked}
-          onChange={handleCheckboxChange}
-          className="h-4 w-4 cursor-pointer"
-          aria-label={checkboxLabel}
-        />
-      </label>
-    )
-  }
-  else if (isOrderedItem) {
-    dotContent = (
-      <span className="font-mono text-gray-700 dark:text-gray-200">
-        {(orderedIndex ?? 1).toString()}
-        .
-      </span>
-    )
-  }
-
   return (
     <NodeViewWrapper
       as="li"
@@ -199,60 +155,63 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {lineOffsets.map(offset => (
-        <span
-          key={offset}
-          aria-hidden="true"
-          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-gray-300 dark:border-gray-600"
-          style={{ left: offset }}
-        />
-      ))}
-      <div className="flex w-full items-start gap-1" data-outline-row>
+      {showIndentGuide
+        ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 bottom-0 -left-3 border-l border-dashed border-gray-300 dark:border-gray-600"
+            />
+          )
+        : null}
+      <div
+        className={cn(
+          'flex w-full items-start',
+          hasLeadingMedia ? 'gap-0' : 'gap-1',
+        )}
+        data-outline-row
+      >
         <div className={cn('relative w-8 h-6 shrink-0', isTaskItem ? 'mt-0' : 'mt-0.5')}>
-          <button
-            type="button"
-            onMouseDown={handleGripMouseDown}
-            onClick={e => e.preventDefault()}
-            className={cn(
-              'absolute -left-5 top-0.5 w-5 h-5 z-10 flex items-center justify-center rounded cursor-grab active:cursor-grabbing border-none bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700',
-              'transition-opacity duration-150',
-              hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
-            )}
-            aria-label="Drag item"
-          >
-            <GripVerticalIcon size={14} className="text-gray-600 dark:text-gray-400" />
-          </button>
-          {hasChildren && (
-            <button
-              type="button"
-              onMouseDown={handleToggle}
-              onClick={e => e.preventDefault()}
-              className={cn(
-                'absolute left-0 top-0.5 w-5 h-5 z-10 flex items-center justify-center rounded cursor-pointer border-none bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700',
-                'transition-opacity duration-150',
-                hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
-              )}
-            >
-              <MdChevronRight
-                className={cn(
-                  'w-4 h-4 text-gray-600 dark:text-gray-400',
-                  'transition-transform duration-200',
-                  !isFolded && 'rotate-90',
-                )}
-              />
-            </button>
-          )}
-
+          <OutlineItemControls
+            hovered={hovered}
+            hasChildren={hasChildren}
+            isFolded={isFolded}
+            onToggle={handleToggle}
+            onGripMouseDown={handleGripMouseDown}
+          />
           <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center" data-outline-dot>
-            {dotContent}
+            <OutlineItemDot
+              isTaskItem={isTaskItem}
+              isOrderedItem={isOrderedItem}
+              isChecked={isChecked}
+              orderedIndex={orderedIndex}
+              checkboxLabel={checkboxLabel}
+              onCheckboxChange={handleCheckboxChange}
+            />
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 -ml-1">
+        <div
+          className={cn(
+            'relative flex-1 min-w-0',
+            hasLeadingMedia ? 'pl-2' : '-ml-1',
+          )}
+        >
+          {hasLeadingMedia && editor.isEditable
+            ? (
+                <button
+                  type="button"
+                  aria-label="Outline media gap cursor"
+                  className="absolute left-0 top-0 bottom-0 w-2 cursor-text"
+                  onMouseDown={handleMediaGapMouseDown}
+                  tabIndex={-1}
+                  contentEditable={false}
+                />
+              )
+            : null}
           <div
             ref={nodeViewContentRef}
             data-node-view-content=""
-            style={{ whiteSpace: 'pre-wrap' }}
+            className="whitespace-pre-wrap"
           />
         </div>
       </div>
