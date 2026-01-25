@@ -1,0 +1,32 @@
+.memorilo-editor {
+  --slash-suggestion-bg: #f3f4f6;
+  --slash-suggestion-border: #e5e7eb;
+  --slash-suggestion-text: #374151;
+  --slash-suggestion-empty-text: #9ca3af;
+}
+
+.dark .memorilo-editor {
+  --slash-suggestion-bg: #1f2937;
+  --slash-suggestion-border: #374151;
+  --slash-suggestion-text: #e5e7eb;
+  --slash-suggestion-empty-text: #9ca3af;
+}
+
+.memorilo-editor .ProseMirror .slash-suggestion {
+  border-radius: 0.375rem;
+  background-color: var(--slash-suggestion-bg);
+  border: 1px solid var(--slash-suggestion-border);
+  color: var(--slash-suggestion-text);
+  padding: 0 0.35rem;
+  box-decoration-break: clone;
+}
+
+.memorilo-editor .ProseMirror .slash-suggestion.slash-suggestion-empty {
+  color: var(--slash-suggestion-empty-text);
+}
+
+.slash-menu-floating {
+  position: absolute;
+  z-index: 50;
+  pointer-events: auto;
+}

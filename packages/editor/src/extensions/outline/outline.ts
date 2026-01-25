@@ -22,7 +22,9 @@ export const Outline = Extension.create<OutlineOptions>({
 
   addOptions() {
     return {
-      bulletListHTMLAttributes: {},
+      bulletListHTMLAttributes: {
+        class: 'outline-list',
+      },
       allowTable: false,
     }
   },

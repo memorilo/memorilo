@@ -1,5 +1,6 @@
 import type { EditorView } from '@tiptap/pm/view'
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
+import { slashSuggestionPluginKey } from '../../slash/slash-plugin-key'
 import {
   findAdjacentVisibleOutlineItemPos,
   findListItem,
@@ -31,6 +32,23 @@ function getArrowIntent(event: KeyboardEvent): ArrowIntent | null {
   }
 
   return null
+}
+
+function isSlashSuggestionActive(view: EditorView) {
+  const slashState = slashSuggestionPluginKey.getState(view.state)
+  if (slashState?.active) {
+    return true
+  }
+
+  const { selection } = view.state
+  const domAtPos = view.domAtPos(selection.from)
+  const node = domAtPos.node
+  const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element | null)
+  if (!element) {
+    return false
+  }
+
+  return Boolean(element.closest('.slash-suggestion'))
 }
 
 function getListItemChildIndex(
@@ -101,6 +119,10 @@ function isSelectionAtItemEdge(
 }
 
 function handleOutlineArrowNavigation(view: EditorView, event: KeyboardEvent) {
+  if (isSlashSuggestionActive(view)) {
+    return false
+  }
+
   const intent = getArrowIntent(event)
   if (!intent) {
     return false

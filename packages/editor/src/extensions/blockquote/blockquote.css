@@ -1,0 +1,5 @@
+.memorilo-editor .ProseMirror .memorilo-blockquote {
+  border-left: 3px solid #d1d5db;
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+}

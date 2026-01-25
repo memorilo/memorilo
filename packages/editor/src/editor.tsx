@@ -2,9 +2,7 @@ import type { LoroDocType } from 'loro-prosemirror'
 import type { HTMLAttributes } from 'react'
 import { cn } from '@memorilo/utils'
 
-import Blockquote from '@tiptap/extension-blockquote'
 import Bold from '@tiptap/extension-bold'
-import Code from '@tiptap/extension-code'
 import HardBreak from '@tiptap/extension-hard-break'
 import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
@@ -17,16 +15,20 @@ import UniqueID from '@tiptap/extension-unique-id'
 import { Gapcursor } from '@tiptap/extensions'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
+import { BlockquoteExtension } from './extensions/blockquote'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
 import { CodeBlockPrism } from './extensions/codeblock'
 import { EmojiExtension } from './extensions/emoji'
 import { OutlineImage } from './extensions/image'
+import { InlineCodeExtension } from './extensions/inline-code'
 import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Mathematics } from './extensions/mathematics'
 import { Outline } from './extensions/outline'
+import { SlashExtension } from './extensions/slash'
 import { TableExtension } from './extensions/table'
-
 import { LoroDocumentContext } from './provider/loro'
+
+import './editor.css'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   doc: LoroDocType
@@ -48,19 +50,11 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
         Strike,
         Paragraph,
         Text,
-        Blockquote.configure({
-          HTMLAttributes: {
-            class: 'border-l-[3px] border-gray-300 my-6 pl-4',
-          },
-        }),
+        BlockquoteExtension,
         HardBreak.configure({
           keepMarks: false,
         }),
-        Code.configure({
-          HTMLAttributes: {
-            class: 'font-mono text-red-500 text-sm py-1 px-1.5 mx-0.5 bg-gray-100 rounded',
-          },
-        }),
+        InlineCodeExtension,
         Highlight.configure({
           multicolor: true,
         }),
@@ -94,11 +88,9 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           exitOnArrowDown: true,
         }),
         Outline.configure({
-          bulletListHTMLAttributes: {
-            class: 'list-none m-0 p-0 pl-0',
-          },
           allowTable: true,
         }),
+        SlashExtension,
         TableExtension,
         EmojiExtension,
         Gapcursor,
@@ -118,8 +110,7 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
     <LoroDocumentContext value={loroDocumentValue}>
       <div
         className={cn(
-          'memorilo-editor group/editor px-8 py-4',
-          '[&_.ProseMirror]:outline-none',
+          'memorilo-editor',
           className,
         )}
         {...props}
