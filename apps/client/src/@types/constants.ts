@@ -1,7 +1,7 @@
 const langs = ['en', 'zh-CN', 'ja', 'eo'] as const
 
-export const currentSupportedLanguages = langs as readonly string[]
 export type RendererSupportedLanguages = (typeof langs)[number]
+export const currentSupportedLanguages = langs as readonly RendererSupportedLanguages[]
 
 export const ns = ['app', 'common', 'lang', 'errors', 'settings'] as const
 export const defaultNS = 'app' as const

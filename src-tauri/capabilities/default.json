@@ -13,6 +13,8 @@
     "dialog:default",
     "clipboard-manager:default",
     "fs:allow-read-text-file",
-    "fs:allow-resource-read-recursive"
+    "fs:allow-resource-read-recursive",
+    "os:default",
+    "os:allow-locale"
   ]
 }
