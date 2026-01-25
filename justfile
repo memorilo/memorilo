@@ -3,8 +3,9 @@ MODEL_DIR := "./src-tauri/models"
 download-model:
   # Download VSCode Language Detection model files
   # https://github.com/microsoft/vscode-languagedetection
-  just _download "{{MODEL_DIR}}/vscode-languagedetection.json" "https://github.com/microsoft/vscode-languagedetection/raw/refs/heads/main/model/model.json"
-  just _download "{{MODEL_DIR}}/vscode-languagedetection.bin" "https://github.com/microsoft/vscode-languagedetection/raw/refs/heads/main/model/group1-shard1of1.bin"
+  # Pinned to specific commit and checksums for security
+  just _download "{{MODEL_DIR}}/vscode-languagedetection.json" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/model.json" "100ce176367e7311e37ced0695057452991a8692029a79340a25e622893e7983"
+  just _download "{{MODEL_DIR}}/vscode-languagedetection.bin" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/group1-shard1of1.bin" "fab6442698f64d5b1d2df052061d12bafd570330556819d29f48c7bcbb5889f7"
 
 download-web-resource:
   just _download-prismjs
@@ -13,38 +14,96 @@ _download-prismjs:
   #!/usr/bin/env bash
   set -e
   TARGET_DIR="public/prism"
-  URL="https://github.com/PrismJS/prism/archive/refs/heads/master.zip"
+  # Security: Pin to a specific version and verify checksum to prevent supply-chain attacks
+  PRISM_VERSION="1.29.0"
+  URL="https://github.com/PrismJS/prism/archive/refs/tags/v${PRISM_VERSION}.zip"
+  # SHA256 of v1.29.0.zip
+  EXPECTED_SHA256="e9fd561074d875de61f43f071c9e7e096cab5d7ed832351f25f3744c668f6332"
 
   if [[ -d "$TARGET_DIR" ]]; then
     echo "$TARGET_DIR already exists, skipping download."
     exit 0
   fi
 
-  echo "Downloading PrismJS from $URL..."
   TEMP_DIR=$(mktemp -d)
   ZIP_FILE="$TEMP_DIR/prism.zip"
 
-  curl -L "$URL" -o "$ZIP_FILE"
+  # Use centralized download helper with checksum verification
+  just _download "$ZIP_FILE" "$URL" "$EXPECTED_SHA256"
 
   echo "Extracting components..."
-  unzip -q "$ZIP_FILE" "prism-master/components/*" -d "$TEMP_DIR"
+  # Extract components, handle variable root directory name (e.g. prism-1.29.0)
+  unzip -q "$ZIP_FILE" "*/components/*" -d "$TEMP_DIR"
 
   mkdir -p public
-  mv "$TEMP_DIR/prism-master/components" "$TARGET_DIR"
+  # Find the directory containing 'components' (it should be the only directory extracted)
+  EXTRACTED_ROOT=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "prism-*" | head -n 1)
+  
+  if [[ -d "$EXTRACTED_ROOT/components" ]]; then
+    mv "$EXTRACTED_ROOT/components" "$TARGET_DIR"
+  else
+    echo "Error: Could not find components directory in extracted zip."
+    ls -R "$TEMP_DIR"
+    rm -rf "$TEMP_DIR"
+    exit 1
+  fi
 
   rm -rf "$TEMP_DIR"
   echo "Done."
 
 
-_download target url:
+_download target url checksum="":
   #!/usr/bin/env bash
   set -e
-  if [[ -f {{target}} ]]; then
-    echo "{{target}} already exists, skipping download."
-    exit 0
+  
+  CURRENT_SHA=""
+  if [[ -f "{{target}}" ]]; then
+    if [[ -n "{{checksum}}" ]]; then
+       if command -v shasum >/dev/null 2>&1; then
+         CURRENT_SHA=$(shasum -a 256 "{{target}}" | awk '{print $1}')
+       elif command -v sha256sum >/dev/null 2>&1; then
+         CURRENT_SHA=$(sha256sum "{{target}}" | awk '{print $1}')
+       fi
+       
+       if [[ "$CURRENT_SHA" == "{{checksum}}" ]]; then
+         echo "{{target}} already exists and checksum matches, skipping download."
+         exit 0
+       else
+         echo "{{target}} exists but checksum mismatch. Re-downloading."
+         echo "Expected: {{checksum}}"
+         echo "Actual:   $CURRENT_SHA"
+         rm "{{target}}"
+       fi
+    else
+       echo "{{target}} already exists, skipping download."
+       exit 0
+    fi
   fi
-  mkdir -p $(dirname {{target}})
-  curl -L {{url}} -o {{target}}
+  
+  mkdir -p $(dirname "{{target}}")
+  echo "Downloading {{target}}..."
+  curl -L "{{url}}" -o "{{target}}"
+  
+  if [[ -n "{{checksum}}" ]]; then
+    echo "Verifying checksum for {{target}}..."
+    if command -v shasum >/dev/null 2>&1; then
+      ACTUAL_SHA=$(shasum -a 256 "{{target}}" | awk '{print $1}')
+    elif command -v sha256sum >/dev/null 2>&1; then
+      ACTUAL_SHA=$(sha256sum "{{target}}" | awk '{print $1}')
+    else
+      echo "Warning: Neither shasum nor sha256sum found. Cannot verify integrity of {{target}}."
+      exit 0
+    fi
+    
+    if [[ "$ACTUAL_SHA" != "{{checksum}}" ]]; then
+      echo "Error: Checksum mismatch for {{target}}!"
+      echo "Expected: {{checksum}}"
+      echo "Actual:   $ACTUAL_SHA"
+      rm "{{target}}"
+      exit 1
+    fi
+    echo "Checksum verified."
+  fi
 
 
 [linux]
