@@ -83,18 +83,15 @@ export const slashSuggestionRenderer: SuggestionOptions<SlashCommand>['render'] 
     },
 
     onKeyDown(props: { event: KeyboardEvent }) {
-      if (props.event.key === 'Escape') {
-        floating?.cleanup()
-        floating = null
-        return true
-      }
-
       return component?.ref?.onKeyDown(props) ?? false
     },
 
-    onExit() {
+    onExit(props) {
+      props.editor.storage.slash.sessionActive = false
       floating?.cleanup()
+      floating = null
       component?.destroy()
+      component = null
     },
   }
 }
