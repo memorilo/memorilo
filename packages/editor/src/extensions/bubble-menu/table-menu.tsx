@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   LuAlignCenter,
   LuAlignLeft,
@@ -28,6 +29,7 @@ interface TableMenuProps {
 }
 
 export function TableMenu({ editor }: TableMenuProps) {
+  const { t } = useTranslation('app')
   const tableContext = useMemo(() => getTableContext(editor.state), [editor.state])
   if (!tableContext) {
     return null
@@ -40,44 +42,44 @@ export function TableMenu({ editor }: TableMenuProps) {
     <div className="flex items-center gap-1">
       <TableSettingsPopover editor={editor} tableContext={tableContext} />
       <IconTooltipButton
-        label="Align left"
+        label={t('editor.table.align_left')}
         Icon={LuAlignLeft}
         onClick={runTableCommand(editor, chain => chain.setCellAttribute('textAlign', 'left'))}
       />
       <IconTooltipButton
-        label="Align center"
+        label={t('editor.table.align_center')}
         Icon={LuAlignCenter}
         onClick={runTableCommand(editor, chain => chain.setCellAttribute('textAlign', 'center'))}
       />
       <IconTooltipButton
-        label="Align right"
+        label={t('editor.table.align_right')}
         Icon={LuAlignRight}
         onClick={runTableCommand(editor, chain => chain.setCellAttribute('textAlign', 'right'))}
       />
       <IconTooltipButton
-        label="Insert row above"
+        label={t('editor.table.insert_row_above')}
         Icon={LuArrowUpToLine}
         onClick={runTableCommand(editor, chain => chain.addRowBefore())}
       />
       <IconTooltipButton
-        label="Insert row below"
+        label={t('editor.table.insert_row_below')}
         Icon={LuArrowDownToLine}
         onClick={runTableCommand(editor, chain => chain.addRowAfter())}
       />
       <IconTooltipButton
-        label="Insert column left"
+        label={t('editor.table.insert_column_left')}
         Icon={LuArrowLeftToLine}
         onClick={runTableCommand(editor, chain => chain.addColumnBefore())}
       />
       <IconTooltipButton
-        label="Insert column right"
+        label={t('editor.table.insert_column_right')}
         Icon={LuArrowRightToLine}
         onClick={runTableCommand(editor, chain => chain.addColumnAfter())}
       />
       {canSplit
         ? (
             <IconTooltipButton
-              label="Split cell"
+              label={t('editor.table.split_cell')}
               Icon={LuTableCellsSplit}
               onClick={runTableCommand(editor, chain => chain.splitCell())}
             />
@@ -86,7 +88,7 @@ export function TableMenu({ editor }: TableMenuProps) {
       {canMerge
         ? (
             <IconTooltipButton
-              label="Merge cells"
+              label={t('editor.table.merge_cells')}
               Icon={LuTableCellsMerge}
               onClick={runTableCommand(editor, chain => chain.mergeCells())}
             />

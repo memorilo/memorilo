@@ -5,6 +5,7 @@ import {
 } from '@memorilo/components/ui/dropdown-menu'
 import { Option, pipe } from 'effect'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Command,
   CommandEmpty,
@@ -25,11 +26,13 @@ interface LanguageSelectorProps {
 }
 
 export function LanguageSelector({ value, options, onSelect }: LanguageSelectorProps) {
+  const { t } = useTranslation('app')
+  const autoLabel = t('editor.codeblock.auto')
   const [open, setOpen] = useState(false)
   const selectedLabel = pipe(
     Option.fromNullable(options.find(option => option.id === value)),
     Option.map(option => option.label),
-    Option.getOrElse(() => 'Auto'),
+    Option.getOrElse(() => autoLabel),
   )
 
   const handleSelect = (nextValue: string) => {
@@ -42,7 +45,7 @@ export function LanguageSelector({ value, options, onSelect }: LanguageSelectorP
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Code block language"
+          aria-label={t('editor.codeblock.language')}
           className="min-w-[80px] h-4 px-1 py-0 text-[9px] gap-1 border border-[var(--white)]/80 bg-transparent text-[var(--white)] ring-0 shadow-none inline-flex items-center justify-between"
         >
           <span className="pointer-events-none">{selectedLabel}</span>
@@ -65,9 +68,9 @@ export function LanguageSelector({ value, options, onSelect }: LanguageSelectorP
         className="p-0 overflow-hidden"
       >
         <Command className="w-48">
-          <CommandInput placeholder="Search language..." />
+          <CommandInput placeholder={t('editor.codeblock.search_language')} />
           <CommandList>
-            <CommandEmpty>No language found.</CommandEmpty>
+            <CommandEmpty>{t('editor.codeblock.no_language_found')}</CommandEmpty>
             {options.map(option => (
               <CommandItem
                 key={option.id}

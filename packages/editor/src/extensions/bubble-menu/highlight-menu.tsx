@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui
 import { cn } from '@memorilo/utils'
 import { useState } from 'react'
 import { BlockPicker } from 'react-color'
+import { useTranslation } from 'react-i18next'
 import { MdArrowDropDown, MdOutlineHighlight } from 'react-icons/md'
 
 const defaultHighlightColor = '#fef08a'
@@ -26,6 +27,7 @@ interface HighlightMenuProps {
 }
 
 export function HighlightMenu({ editor }: HighlightMenuProps) {
+  const { t } = useTranslation('app')
   const [open, setOpen] = useState(false)
   const currentColor = editor.getAttributes('highlight').color as string | undefined
   const isActive = editor.isActive('highlight')
@@ -44,7 +46,7 @@ export function HighlightMenu({ editor }: HighlightMenuProps) {
   return (
     <div className="flex items-center">
       <Button
-        aria-label="Mark"
+        aria-label={t('editor.highlight.mark')}
         aria-pressed={isActive}
         className={cn(
           'h-8 w-8 rounded-r-none px-0',
@@ -61,7 +63,7 @@ export function HighlightMenu({ editor }: HighlightMenuProps) {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
-            aria-label="Mark options"
+            aria-label={t('editor.highlight.mark_options')}
             className={cn(
               'h-8 w-6 rounded-l-none px-0',
               isActive && 'bg-accent text-accent-foreground',

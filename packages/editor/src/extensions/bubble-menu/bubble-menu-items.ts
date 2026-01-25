@@ -8,7 +8,7 @@ import { UnderlineIcon } from '@memorilo/components/ui/animiated-icons/underline
 
 export interface BubbleMenuItem {
   name: 'bold' | 'italic' | 'underline' | 'strike' | 'code'
-  label: string
+  labelKey: string
   Icon: ComponentType<{ size?: number }>
   command: (editor: Editor) => void
 }
@@ -16,31 +16,31 @@ export interface BubbleMenuItem {
 export const bubbleMenuItems: BubbleMenuItem[] = [
   {
     name: 'bold',
-    label: 'Bold',
+    labelKey: 'editor.bubble.bold',
     Icon: BoldIcon,
     command: editor => editor.chain().focus().toggleBold().run(),
   },
   {
     name: 'italic',
-    label: 'Italic',
+    labelKey: 'editor.bubble.italic',
     Icon: ItalicIcon,
     command: editor => editor.chain().focus().toggleItalic().run(),
   },
   {
     name: 'underline',
-    label: 'Underline',
+    labelKey: 'editor.bubble.underline',
     Icon: UnderlineIcon,
     command: editor => editor.chain().focus().toggleUnderline().run(),
   },
   {
     name: 'strike',
-    label: 'Strikethrough',
+    labelKey: 'editor.bubble.strikethrough',
     Icon: StrikethroughIcon,
     command: editor => editor.chain().focus().toggleStrike().run(),
   },
   {
     name: 'code',
-    label: 'Code',
+    labelKey: 'editor.bubble.code',
     Icon: TerminalIcon,
     command: editor => editor.chain().focus().toggleCode().run(),
   },

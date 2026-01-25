@@ -16,5 +16,5 @@ export interface SlashCommand {
 
 export interface SlashCommandGroupConfig {
   id: SlashCommandGroup
-  label: string
+  labelKey: string
 }

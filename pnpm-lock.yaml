@@ -277,7 +277,7 @@ catalogs:
       specifier: ^19.2.3
       version: 19.2.3
     react-i18next:
-      specifier: ^16.4.0
+      specifier: 16.4.0
       version: 16.4.0
     react-icons:
       specifier: 5.5.0
@@ -719,6 +719,9 @@ importers:
       es-toolkit:
         specifier: 'catalog:'
         version: 1.43.0
+      i18next:
+        specifier: 'catalog:'
+        version: 25.7.2(typescript@5.9.3)
       katex:
         specifier: 'catalog:'
         version: 0.16.27
@@ -743,6 +746,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
+      react-i18next:
+        specifier: 'catalog:'
+        version: 16.4.0(i18next@25.7.2(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
       react-icons:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)

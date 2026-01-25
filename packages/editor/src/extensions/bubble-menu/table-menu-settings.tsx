@@ -7,6 +7,7 @@ import { Switch } from '@memorilo/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { cn } from '@memorilo/utils'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MdGridOn, MdSettings } from 'react-icons/md'
 import { clamp, getTableContext, resizeTable, selectCell } from './table-menu-utils'
 
@@ -18,6 +19,7 @@ interface TableSettingsPopoverProps {
 const GRID_MAX = 10
 
 export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopoverProps) {
+  const { t } = useTranslation('app')
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState(tableContext.rows)
   const [cols, setCols] = useState(tableContext.cols)
@@ -77,7 +79,7 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
             <Button
-              aria-label="Table settings"
+              aria-label={t('editor.table.settings')}
               className="h-8 w-8 px-0"
               onMouseDown={event => event.preventDefault()}
               size="icon-sm"
@@ -89,17 +91,17 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={6}>
-          Table settings
+          {t('editor.table.settings')}
         </TooltipContent>
       </Tooltip>
       <PopoverContent side="top" align="start" className="w-64 p-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Header row</span>
+          <span className="text-xs font-medium text-muted-foreground">{t('editor.table.header_row')}</span>
           <Switch checked={withHeaderRow} onCheckedChange={setWithHeaderRow} />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Rows
+            {t('editor.table.rows')}
             <Input
               type="number"
               min={1}
@@ -108,7 +110,7 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Columns
+            {t('editor.table.columns')}
             <Input
               type="number"
               min={1}
@@ -122,6 +124,9 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
           onHover={handleGridHover}
           onLeave={handleGridLeave}
           onSelect={handleGridSelect}
+          selectSizeLabel={t('editor.table.select_size')}
+          getCellLabel={(row, col) =>
+            t('editor.table.select_size_cell', { rows: row, cols: col })}
         />
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
@@ -131,7 +136,7 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
             {displaySize.cols}
           </span>
           <Button size="sm" type="button" onClick={handleApply}>
-            Apply
+            {t('editor.table.apply')}
           </Button>
         </div>
       </PopoverContent>
@@ -144,14 +149,23 @@ interface TableSizeGridProps {
   onHover: (rows: number, cols: number) => void
   onLeave: () => void
   onSelect: (rows: number, cols: number) => void
+  selectSizeLabel: string
+  getCellLabel: (row: number, col: number) => string
 }
 
-function TableSizeGrid({ hovered, onHover, onLeave, onSelect }: TableSizeGridProps) {
+function TableSizeGrid({
+  hovered,
+  onHover,
+  onLeave,
+  onSelect,
+  selectSizeLabel,
+  getCellLabel,
+}: TableSizeGridProps) {
   return (
     <div className="mt-3">
       <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
         <MdGridOn size={14} />
-        Select size
+        {selectSizeLabel}
       </div>
       <div
         className="grid grid-cols-10 gap-1"
@@ -165,7 +179,7 @@ function TableSizeGrid({ hovered, onHover, onLeave, onSelect }: TableSizeGridPro
             <button
               key={`${row}-${col}`}
               type="button"
-              aria-label={`Select ${row} rows and ${col} columns`}
+              aria-label={getCellLabel(row, col)}
               className={cn(
                 'h-4 w-4 rounded border border-border',
                 isActive ? 'bg-primary/80' : 'bg-muted',

@@ -2,13 +2,13 @@ export const headingLevels = [1, 2, 3, 4, 5, 6] as const
 
 export type HeadingLevel = (typeof headingLevels)[number]
 
-export const headingLabelByLevel: Record<HeadingLevel, string> = {
-  1: 'Heading 1',
-  2: 'Heading 2',
-  3: 'Heading 3',
-  4: 'Heading 4',
-  5: 'Heading 5',
-  6: 'Heading 6',
+export const headingLabelKeyByLevel: Record<HeadingLevel, string> = {
+  1: 'editor.heading.level_1',
+  2: 'editor.heading.level_2',
+  3: 'editor.heading.level_3',
+  4: 'editor.heading.level_4',
+  5: 'editor.heading.level_5',
+  6: 'editor.heading.level_6',
 }
 
 export const headingClassByLevel: Record<HeadingLevel, string> = {

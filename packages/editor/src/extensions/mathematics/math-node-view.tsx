@@ -5,6 +5,7 @@ import { cn } from '@memorilo/utils'
 import { TextSelection } from '@tiptap/pm/state'
 import { NodeViewWrapper } from '@tiptap/react'
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BlockEditor,
   getInlineInputWidth,
@@ -19,6 +20,7 @@ interface MathNodeViewProps extends NodeViewProps {
 }
 
 function MathNodeView({ node, editor, getPos, selected, extension, variant }: MathNodeViewProps) {
+  const { t } = useTranslation('app')
   const nodeLatex = node?.attrs?.latex ?? ''
   const nodeSize = node?.nodeSize ?? 0
   const [value, dispatchValue] = useReducer((_: string, next: string) => next, nodeLatex)
@@ -204,7 +206,7 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
     [isBlock, katexOptions, previewLatex],
   )
 
-  const hint = isBlock ? 'Ctrl+Enter 保存 · Esc 取消' : 'Enter 保存 · Esc 取消'
+  const hint = isBlock ? t('editor.math.hint_block') : t('editor.math.hint_inline')
   const showPopover = selected
   const adornment = isBlock ? '$$' : '$'
   const inlineWidth = getInlineInputWidth(value)

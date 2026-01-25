@@ -9,20 +9,17 @@ import { maxBy } from 'es-toolkit/array'
 import debounce from 'es-toolkit/compat/debounce'
 import { isNotNil } from 'es-toolkit/predicate'
 import { useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getLanguageState, resolveLanguageClass } from './language'
 import { guessLanguage } from './language-guess'
 import { LanguageSelector } from './language-selector'
 import { loadLanguage, resolveLanguageId, supportedLanguages } from './prism'
 
-const languageOptions = [
-  { id: 'auto', label: 'Auto' },
-  { id: 'plain', label: 'Plain' },
-  ...supportedLanguages.filter(language => language.id !== 'plain'),
-]
 function CodeViewContent(props: ComponentPropsWithoutRef<'code'>) {
   return NodeViewContent<'code'>({ as: 'code', ...props })
 }
 export function CodeBlockNodeView(props: NodeViewProps) {
+  const { t } = useTranslation('app')
   const { node, extension, updateAttributes } = props
   const guessingRef = useRef(false)
   const { language, guessLanguage: guessedLanguageAttr } = getLanguageState(node.attrs)
@@ -40,6 +37,11 @@ export function CodeBlockNodeView(props: NodeViewProps) {
   languageValueRef.current = languageValue
   guessedLanguageValueRef.current = guessedLanguageValue
   const selectValue = pipe(language, Option.getOrElse(() => 'auto'))
+  const languageOptions = [
+    { id: 'auto', label: t('editor.codeblock.auto') },
+    { id: 'plain', label: t('editor.codeblock.plain') },
+    ...supportedLanguages.filter(language => language.id !== 'plain'),
+  ]
 
   const handleLanguageChange = (value: string) => {
     const nextLanguage = value === 'auto' ? null : value

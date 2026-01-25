@@ -2,6 +2,7 @@ import type { Editor, Range } from '@tiptap/core'
 import type { SlashCommand, SlashCommandGroupConfig } from './slash-types'
 import { pipe } from 'effect'
 import * as Arr from 'effect/Array'
+import i18next from 'i18next'
 import {
   MdCheckBox,
   MdCode,
@@ -20,9 +21,9 @@ const defaultTableOptions = {
 } as const
 
 export const slashCommandGroups: SlashCommandGroupConfig[] = [
-  { id: 'Text', label: 'Text' },
-  { id: 'List', label: 'List' },
-  { id: 'Insert', label: 'Insert' },
+  { id: 'Text', labelKey: 'editor.slash.group.text' },
+  { id: 'List', labelKey: 'editor.slash.group.list' },
+  { id: 'Insert', labelKey: 'editor.slash.group.insert' },
 ]
 
 type CommandChain = ReturnType<Editor['chain']>
@@ -50,11 +51,12 @@ function matchesQuery(command: SlashCommand, query: string) {
 }
 
 export function getDefaultSlashCommands(): SlashCommand[] {
+  const t = (key: string) => i18next.t(key, { ns: 'app' })
   return [
     {
       id: 'paragraph',
-      title: 'Paragraph',
-      description: 'Start with plain text',
+      title: t('editor.slash.item.paragraph.title'),
+      description: t('editor.slash.item.paragraph.description'),
       group: 'Text',
       keywords: ['text', 'body'],
       icon: MdTextFields,
@@ -64,8 +66,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'heading-1',
-      title: 'Heading 1',
-      description: 'Large section heading',
+      title: t('editor.heading.level_1'),
+      description: t('editor.slash.item.heading_1.description'),
       group: 'Text',
       keywords: ['title', 'h1', 'heading'],
       icon: MdTitle,
@@ -75,8 +77,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'heading-2',
-      title: 'Heading 2',
-      description: 'Medium section heading',
+      title: t('editor.heading.level_2'),
+      description: t('editor.slash.item.heading_2.description'),
       group: 'Text',
       keywords: ['h2', 'heading', 'subtitle'],
       icon: MdTitle,
@@ -86,8 +88,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'heading-3',
-      title: 'Heading 3',
-      description: 'Small section heading',
+      title: t('editor.heading.level_3'),
+      description: t('editor.slash.item.heading_3.description'),
       group: 'Text',
       keywords: ['h3', 'heading'],
       icon: MdTitle,
@@ -97,8 +99,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'heading-4',
-      title: 'Heading 4',
-      description: 'Small section heading',
+      title: t('editor.heading.level_4'),
+      description: t('editor.slash.item.heading_4.description'),
       group: 'Text',
       keywords: ['h4', 'heading'],
       icon: MdTitle,
@@ -108,8 +110,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'heading-5',
-      title: 'Heading 5',
-      description: 'Small section heading',
+      title: t('editor.heading.level_5'),
+      description: t('editor.slash.item.heading_5.description'),
       group: 'Text',
       keywords: ['h5', 'heading'],
       icon: MdTitle,
@@ -119,8 +121,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'heading-6',
-      title: 'Heading 6',
-      description: 'Small section heading',
+      title: t('editor.heading.level_6'),
+      description: t('editor.slash.item.heading_6.description'),
       group: 'Text',
       keywords: ['h6', 'heading'],
       icon: MdTitle,
@@ -130,8 +132,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'bullet-list',
-      title: 'Bullet list',
-      description: 'Create a bullet list',
+      title: t('editor.slash.item.bullet_list.title'),
+      description: t('editor.slash.item.bullet_list.description'),
       group: 'List',
       keywords: ['unordered', 'bullet'],
       icon: MdFormatListBulleted,
@@ -141,8 +143,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'ordered-list',
-      title: 'Ordered list',
-      description: 'Create a numbered list',
+      title: t('editor.slash.item.ordered_list.title'),
+      description: t('editor.slash.item.ordered_list.description'),
       group: 'List',
       keywords: ['numbered', 'ordered', 'ol'],
       icon: MdFormatListNumbered,
@@ -152,8 +154,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'task-list',
-      title: 'Todo',
-      description: 'Track tasks with checkboxes',
+      title: t('editor.slash.item.todo.title'),
+      description: t('editor.slash.item.todo.description'),
       group: 'List',
       keywords: ['todo', 'checkbox', 'task'],
       icon: MdCheckBox,
@@ -163,8 +165,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'blockquote',
-      title: 'Blockquote',
-      description: 'Capture a quote',
+      title: t('editor.slash.item.blockquote.title'),
+      description: t('editor.slash.item.blockquote.description'),
       group: 'Insert',
       keywords: ['quote', 'citation'],
       icon: MdFormatQuote,
@@ -174,8 +176,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'code-block',
-      title: 'Code block',
-      description: 'Insert a code snippet',
+      title: t('editor.slash.item.code_block.title'),
+      description: t('editor.slash.item.code_block.description'),
       group: 'Insert',
       keywords: ['code', 'snippet', 'pre'],
       icon: MdCode,
@@ -185,8 +187,8 @@ export function getDefaultSlashCommands(): SlashCommand[] {
     },
     {
       id: 'table',
-      title: 'Table',
-      description: 'Insert a table',
+      title: t('editor.slash.item.table.title'),
+      description: t('editor.slash.item.table.description'),
       group: 'Insert',
       keywords: ['grid', 'cells'],
       icon: MdTableRows,

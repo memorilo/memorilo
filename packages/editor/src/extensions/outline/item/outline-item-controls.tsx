@@ -1,5 +1,6 @@
 import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
+import { useTranslation } from 'react-i18next'
 import { MdChevronRight } from 'react-icons/md'
 
 interface OutlineItemControlsProps {
@@ -17,6 +18,7 @@ export function OutlineItemControls({
   onToggle,
   onGripMouseDown,
 }: OutlineItemControlsProps) {
+  const { t } = useTranslation('app')
   return (
     <>
       <button
@@ -28,7 +30,7 @@ export function OutlineItemControls({
           'transition-opacity duration-150',
           hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
-        aria-label="Drag item"
+        aria-label={t('editor.outline.drag_item')}
       >
         <GripVerticalIcon size={14} className="text-gray-600 dark:text-gray-400" />
       </button>

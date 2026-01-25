@@ -4,6 +4,7 @@ import { cn } from '@memorilo/utils'
 import { GapCursor } from '@tiptap/pm/gapcursor'
 import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
 import { useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getOutlineLevel, isListContainerNode, isOutlineMediaNode } from '../core/outline-utils'
 import { startOutlineDrag } from '../dnd/outline-dnd'
 import { OutlineItemControls } from './outline-item-controls'
@@ -18,6 +19,7 @@ interface TaskItemViewOptions {
 }
 
 export function OutlineItemView({ node, editor, getPos, extension }: NodeViewProps) {
+  const { t, i18n } = useTranslation('app')
   const [hovered, setHovered] = useState(false)
   const isTaskItem = node.type.name === 'taskItem'
   const isOrderedItem = node.type.name === 'orderedItem'
@@ -108,8 +110,11 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     if (labelBuilder) {
       return labelBuilder(node, isChecked)
     }
-    return `Task item checkbox for ${node.textContent || 'empty task item'}`
-  }, [extension?.options, isChecked, isTaskItem, node])
+    const fallbackTitle = t('editor.outline.empty_task_item')
+    return t('editor.outline.task_checkbox_label', {
+      title: node.textContent || fallbackTitle,
+    })
+  }, [extension?.options, i18n.language, isChecked, isTaskItem, node, t])
 
   const handleCheckboxChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const nextChecked = event.currentTarget.checked
@@ -200,7 +205,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
             ? (
                 <button
                   type="button"
-                  aria-label="Outline media gap cursor"
+                  aria-label={t('editor.outline.media_gap_cursor')}
                   className="absolute left-0 top-0 bottom-0 w-2 cursor-text"
                   onMouseDown={handleMediaGapMouseDown}
                   tabIndex={-1}

@@ -3,6 +3,7 @@ import type { SlashCommand } from './slash-types'
 import { cn } from '@memorilo/utils'
 import { groupBy } from 'es-toolkit'
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { slashCommandGroups } from './slash-items'
 
 export interface SlashMenuRef {
@@ -21,7 +22,10 @@ interface GroupedCommand {
   }>
 }
 
-function getGroupedCommands(items: SlashCommand[]): GroupedCommand[] {
+function getGroupedCommands(
+  items: SlashCommand[],
+  resolveGroupLabel: (group: SlashCommand['group']) => string,
+): GroupedCommand[] {
   const indexedItems = items.map((item, index) => ({ item, index }))
   const grouped = groupBy(indexedItems, entry => entry.item.group)
 
@@ -32,7 +36,7 @@ function getGroupedCommands(items: SlashCommand[]): GroupedCommand[] {
     }
     return [
       {
-        group: group.label,
+        group: resolveGroupLabel(group.id),
         items: entries,
       },
     ]
@@ -40,6 +44,7 @@ function getGroupedCommands(items: SlashCommand[]): GroupedCommand[] {
 }
 
 export function SlashMenu({ ref, items, command }: SlashMenuProps) {
+  const { t, i18n } = useTranslation('app')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const prevItemsLengthRef = useRef(items.length)
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -52,7 +57,10 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
     return Math.min(selectedIndex, Math.max(0, items.length - 1))
   }, [items.length, selectedIndex])
 
-  const groupedCommands = useMemo(() => getGroupedCommands(items), [items])
+  const groupedCommands = useMemo(() => getGroupedCommands(items, (group) => {
+    const match = slashCommandGroups.find(item => item.id === group)
+    return match ? t(match.labelKey) : group
+  }), [items, i18n.language, t])
 
   const selectItem = (index: number) => {
     const item = items[index]
@@ -107,7 +115,7 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
         {items.length === 0
           ? (
               <div className="text-muted-foreground px-3 py-2 text-xs">
-                No matches found.
+                {t('editor.slash.no_matches')}
               </div>
             )
           : (

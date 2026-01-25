@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core'
 import type { EditorState } from '@tiptap/pm/state'
 import { CellSelection } from '@tiptap/pm/tables'
 import { BubbleMenu } from '@tiptap/react/menus'
+import { useTranslation } from 'react-i18next'
 import { BubbleMenuButton } from './bubble-menu-button'
 import { bubbleMenuItems } from './bubble-menu-items'
 import { HeadingSelect } from './heading-select'
@@ -36,6 +37,7 @@ function shouldShowBubbleMenu(state: EditorState) {
 }
 
 export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
+  const { t } = useTranslation('app')
   useEditorSelectionUpdate(editor)
   const isTableSelection = isSelectionInTable(editor.state)
   const showMenu = shouldShowBubbleMenu(editor.state)
@@ -58,7 +60,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
                   {bubbleMenuItems.map(item => (
                     <BubbleMenuButton
                       key={item.name}
-                      label={item.label}
+                      label={t(item.labelKey)}
                       active={editor.isActive(item.name)}
                       Icon={item.Icon}
                       onClick={() => item.command(editor)}

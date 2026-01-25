@@ -7,7 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@memorilo/components/ui/select'
-import { headingLabelByLevel, headingLevels } from '../outline/nodes/heading'
+import { useTranslation } from 'react-i18next'
+import { headingLabelKeyByLevel, headingLevels } from '../outline/nodes/heading'
 
 type HeadingValue = 'paragraph' | `${HeadingLevel}`
 
@@ -18,15 +19,6 @@ interface HeadingOption {
 }
 
 const headingLevelSet = new Set<HeadingLevel>(headingLevels)
-const headingOptions: HeadingOption[] = [
-  { value: 'paragraph', label: 'Plain', icon: '¶ ' },
-  ...headingLevels.map(level => ({
-    value: String(level) as HeadingValue,
-    label: headingLabelByLevel[level],
-    icon: `H${level}`,
-  })),
-]
-
 function getHeadingValue(editor: Editor): HeadingValue {
   const parent = editor.state.selection.$from.parent
   if (parent.type.name !== 'heading') {
@@ -52,7 +44,16 @@ interface HeadingSelectProps {
 }
 
 export function HeadingSelect({ editor }: HeadingSelectProps) {
+  const { t } = useTranslation('app')
   const headingValue = getHeadingValue(editor)
+  const headingOptions: HeadingOption[] = [
+    { value: 'paragraph', label: t('editor.heading.paragraph'), icon: '¶ ' },
+    ...headingLevels.map(level => ({
+      value: String(level) as HeadingValue,
+      label: t(headingLabelKeyByLevel[level]),
+      icon: `H${level}`,
+    })),
+  ]
 
   return (
     <Select
@@ -60,12 +61,15 @@ export function HeadingSelect({ editor }: HeadingSelectProps) {
       onValueChange={value => applyHeadingValue(editor, value as HeadingValue)}
     >
       <SelectTrigger
-        aria-label="Heading level"
+        aria-label={t('editor.heading.level')}
         className="min-w-[110px] border-none ring-none box-shadow-none outline-none"
         onMouseDown={event => event.preventDefault()}
         size="sm"
       >
-        <SelectValue placeholder="Plain" className="border-none ring-none box-shadow-none outline-none" />
+        <SelectValue
+          placeholder={t('editor.heading.paragraph')}
+          className="border-none ring-none box-shadow-none outline-none"
+        />
       </SelectTrigger>
       <SelectContent>
         {headingOptions.map(option => (
