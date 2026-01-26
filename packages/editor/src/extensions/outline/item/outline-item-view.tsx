@@ -114,6 +114,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     return t('editor.outline.task_checkbox_label', {
       title: node.textContent || fallbackTitle,
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extension?.options, i18n.language, isChecked, isTaskItem, node, t])
 
   const handleCheckboxChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {

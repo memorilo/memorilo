@@ -38,6 +38,7 @@ function shouldShowBubbleMenu(state: EditorState) {
 
 export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
   const { t } = useTranslation('app')
+  const translate = (key: string) => t(key as never) as string
   useEditorSelectionUpdate(editor)
   const isTableSelection = isSelectionInTable(editor.state)
   const showMenu = shouldShowBubbleMenu(editor.state)
@@ -60,7 +61,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
                   {bubbleMenuItems.map(item => (
                     <BubbleMenuButton
                       key={item.name}
-                      label={t(item.labelKey)}
+                      label={translate(item.labelKey)}
                       active={editor.isActive(item.name)}
                       Icon={item.Icon}
                       onClick={() => item.command(editor)}

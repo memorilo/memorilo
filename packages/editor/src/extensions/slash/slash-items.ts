@@ -51,7 +51,7 @@ function matchesQuery(command: SlashCommand, query: string) {
 }
 
 export function getDefaultSlashCommands(): SlashCommand[] {
-  const t = (key: string) => i18next.t(key, { ns: 'app' })
+  const t = (key: string) => i18next.t(key as never, { ns: 'app' }) as string
   return [
     {
       id: 'paragraph',

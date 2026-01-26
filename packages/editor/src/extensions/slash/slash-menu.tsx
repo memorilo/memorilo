@@ -45,6 +45,7 @@ function getGroupedCommands(
 
 export function SlashMenu({ ref, items, command }: SlashMenuProps) {
   const { t, i18n } = useTranslation('app')
+  const translate = (key: string) => t(key as never) as string
   const [selectedIndex, setSelectedIndex] = useState(0)
   const prevItemsLengthRef = useRef(items.length)
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -59,9 +60,9 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
 
   const groupedCommands = useMemo(() => getGroupedCommands(items, (group) => {
     const match = slashCommandGroups.find(item => item.id === group)
-    return match ? t(match.labelKey) : group
+    return match ? translate(match.labelKey) : group
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [items, i18n.language, t])
+  }), [items, i18n.language, translate])
 
   const selectItem = (index: number) => {
     const item = items[index]
@@ -116,7 +117,7 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
         {items.length === 0
           ? (
               <div className="text-muted-foreground px-3 py-2 text-xs">
-                {t('editor.slash.no_matches')}
+                {translate('editor.slash.no_matches')}
               </div>
             )
           : (

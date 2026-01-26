@@ -45,12 +45,13 @@ interface HeadingSelectProps {
 
 export function HeadingSelect({ editor }: HeadingSelectProps) {
   const { t } = useTranslation('app')
+  const translate = (key: string) => t(key as never) as string
   const headingValue = getHeadingValue(editor)
   const headingOptions: HeadingOption[] = [
-    { value: 'paragraph', label: t('editor.heading.paragraph'), icon: '¶ ' },
+    { value: 'paragraph', label: translate('editor.heading.paragraph'), icon: '¶ ' },
     ...headingLevels.map(level => ({
       value: String(level) as HeadingValue,
-      label: t(headingLabelKeyByLevel[level]),
+      label: translate(headingLabelKeyByLevel[level]),
       icon: `H${level}`,
     })),
   ]
@@ -61,13 +62,13 @@ export function HeadingSelect({ editor }: HeadingSelectProps) {
       onValueChange={value => applyHeadingValue(editor, value as HeadingValue)}
     >
       <SelectTrigger
-        aria-label={t('editor.heading.level')}
+        aria-label={translate('editor.heading.level')}
         className="min-w-[110px] border-none ring-none box-shadow-none outline-none"
         onMouseDown={event => event.preventDefault()}
         size="sm"
       >
         <SelectValue
-          placeholder={t('editor.heading.paragraph')}
+          placeholder={translate('editor.heading.paragraph')}
           className="border-none ring-none box-shadow-none outline-none"
         />
       </SelectTrigger>
