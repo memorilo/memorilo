@@ -1,48 +1,7 @@
 {
   "name": "@memorilo/editor",
-  "type": "module",
-  "private": true,
-  "packageManager": "pnpm@10.17.0",
+  "version": "0.0.1",
   "author": "Memorilo Team",
   "license": "AGLP-3.0-only",
-  "exports": {
-    ".": "./src/index.tsx"
-  },
-  "scripts": {
-    "test": "vitest",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@floating-ui/react": "catalog:",
-    "@memorilo/api": "workspace:*",
-    "@memorilo/components": "workspace:*",
-    "@memorilo/utils": "workspace:*",
-    "@types/is-hotkey": "catalog:",
-    "@vscode/vscode-languagedetection": "catalog:",
-    "effect": "catalog:",
-    "es-toolkit": "catalog:",
-    "i18next": "catalog:",
-    "image-extensions": "catalog:",
-    "is-hotkey": "catalog:",
-    "jotai": "catalog:",
-    "katex": "catalog:",
-    "motion": "catalog:",
-    "prismjs": "catalog:",
-    "react": "catalog:",
-    "react-dnd": "catalog:",
-    "react-dnd-html5-backend": "catalog:",
-    "react-i18next": "catalog:",
-    "react-icons": "catalog:",
-    "react-use": "catalog:",
-    "slate": "catalog:",
-    "slate-history": "catalog:",
-    "slate-hotkeys": "catalog:",
-    "slate-react": "catalog:",
-    "slate-table": "catalog:"
-  },
-  "devDependencies": {
-    "@types/prismjs": "catalog:",
-    "@types/react": "catalog:",
-    "tailwindcss": "catalog:"
-  }
+  "packageManager": "pnpm@10.17.0"
 }

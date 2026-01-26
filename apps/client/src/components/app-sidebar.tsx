@@ -82,10 +82,10 @@ export function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip={t('sidebar.journal')}>
-                    <Link to="/journals">
+                    <a>
                       <LuNotebookPen />
                       {t('sidebar.journal')}
-                    </Link>
+                    </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

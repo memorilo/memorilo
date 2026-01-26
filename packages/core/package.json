@@ -10,7 +10,6 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@memorilo/utils": "workspace:*",
     "effect": "catalog:",
     "i18next": "catalog:",
     "mitt": "catalog:",

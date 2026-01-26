@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import type { ZodType } from 'zod'
-import { Disposable } from '@memorilo/utils/disposable'
 import { Either, Option } from 'effect'
 import mitt from 'mitt'
+import { Disposable } from '../utils/disposable'
 
 // eslint-disable-next-line ts/consistent-type-definitions
 type SettingStoreEvents = {

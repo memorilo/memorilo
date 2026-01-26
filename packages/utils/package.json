@@ -13,8 +13,6 @@
   },
   "dependencies": {
     "clsx": "catalog:",
-    "effect": "catalog:",
-    "es-toolkit": "catalog:",
     "jotai": "catalog:",
     "mitt": "catalog:",
     "tailwind-merge": "catalog:"

@@ -14,7 +14,6 @@ const HOST = process.env.TAURI_DEV_HOST ?? '0.0.0.0'
 
 // https://vite.dev/config/
 export default defineConfig({
-  publicDir: path.resolve(__dirname, '../../public'),
   server: {
     host: HOST,
   },

@@ -1,1 +1,1 @@
-export { cn, parsePositiveInt } from './utils'
+export { cn } from './utils'

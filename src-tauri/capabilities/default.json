@@ -11,8 +11,6 @@
     "log:default",
     "notification:default",
     "dialog:default",
-    "clipboard-manager:default",
-    "fs:allow-read-text-file",
-    "fs:allow-resource-read-recursive"
+    "clipboard-manager:default"
   ]
 }
