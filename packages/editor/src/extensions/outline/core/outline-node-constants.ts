@@ -1,5 +1,5 @@
-export const outlineItemContent = '(paragraph | heading | codeBlock | image | blockMath) block*'
-export const outlineItemContentWithTable = '(paragraph | heading | codeBlock | image | blockMath | table) block*'
+export const outlineItemContent = '(paragraph | heading | blockquote | codeBlock | image | blockMath) block*'
+export const outlineItemContentWithTable = '(paragraph | heading | blockquote | codeBlock | image | blockMath | table) block*'
 // Allow mixed item types temporarily so indent/outdent can normalize nodes in one transaction.
 export const outlineListContent = '(listItem|taskItem|orderedItem)+'
 export const outlineOrderedListContent = '(orderedItem|listItem)+'

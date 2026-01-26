@@ -60,6 +60,7 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
   const groupedCommands = useMemo(() => getGroupedCommands(items, (group) => {
     const match = slashCommandGroups.find(item => item.id === group)
     return match ? t(match.labelKey) : group
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [items, i18n.language, t])
 
   const selectItem = (index: number) => {
