@@ -4,6 +4,7 @@ import type { Transaction } from '@tiptap/pm/state'
 import type { SlashCommand } from './slash-types'
 import { Extension } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
+import { Option } from 'effect'
 import { filterSlashCommands, getDefaultSlashCommands } from './slash-items'
 import { slashSuggestionPluginKey } from './slash-plugin-key'
 import { slashSuggestionRenderer } from './slash-suggestion'
@@ -11,7 +12,6 @@ import './slash.css'
 
 export interface SlashExtensionOptions {
   items: (editor: Editor) => SlashCommand[]
-  maxItems: number
 }
 
 function findSlashMatch($position: ResolvedPos) {
@@ -115,7 +115,7 @@ export const SlashExtension = Extension.create<SlashExtensionOptions>({
         shouldShow: ({ editor, transaction, range }) => shouldShowSlashSession(editor, transaction, range),
         items: ({ query }) => {
           const items = this.options.items(this.editor)
-          return filterSlashCommands(items, query, this.editor, this.options.maxItems)
+          return filterSlashCommands(items, query, this.editor, Option.none())
         },
         command: ({ editor, range, props }) => {
           props.command({ editor, range })

@@ -2,6 +2,7 @@ import type { Editor, Range } from '@tiptap/core'
 import type { SlashCommand, SlashCommandGroupConfig } from './slash-types'
 import { pipe } from 'effect'
 import * as Arr from 'effect/Array'
+import * as Option from 'effect/Option'
 import i18next from 'i18next'
 import {
   MdCheckBox,
@@ -203,14 +204,18 @@ export function filterSlashCommands(
   commands: SlashCommand[],
   query: string,
   editor: Editor,
-  maxItems: number,
+  maxItems: Option.Option<number>,
 ) {
   const normalizedQuery = query.trim().toLowerCase()
 
-  return pipe(
+  const filteredCommands = pipe(
     commands,
     Arr.filter(command => (command.isEnabled ? command.isEnabled(editor) : true)),
     Arr.filter(command => matchesQuery(command, normalizedQuery)),
-    Arr.take(maxItems),
   )
+
+  return Option.match(maxItems, {
+    onNone: () => filteredCommands,
+    onSome: limit => Arr.take(filteredCommands, limit),
+  })
 }
