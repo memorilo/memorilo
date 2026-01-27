@@ -37,7 +37,7 @@ function parseLanguageOrDetect(
 }
 
 function useLanguageSync() {
-  const lang = useSyncExternalStore((notify) => {
+  const originalLang = useSyncExternalStore((notify) => {
     const disposable = memorilo.settings.watch('core::lang', notify)
     return () => disposable.dispose()
   }, () => memorilo.settings.get<string>('core::lang').pipe(
@@ -51,10 +51,14 @@ function useLanguageSync() {
   const currentLanguage = useRef<string>(null)
 
   useEffect(() => {
-    Effect.runPromise(parseLanguageOrDetect(lang)).then((lang) => {
+    Effect.runPromise(parseLanguageOrDetect(originalLang)).then((lang) => {
       if (currentLanguage.current === lang) {
         return
       }
+      if (originalLang === DEFAULT_LANGUAGE_AUTO) {
+        memorilo.settings.set('core::lang', lang)
+      }
+
       currentLanguage.current = lang
       // if (lang === 'zh-TW') {
       //   loadLanguageAndApply('zh-CN')
@@ -67,7 +71,7 @@ function useLanguageSync() {
         })
       })
     })
-  }, [lang])
+  }, [originalLang])
 }
 
 export function SettingSync() {
