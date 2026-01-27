@@ -87,6 +87,9 @@ jobs:
       - name: Install node dependencies
         run: pnpm install
 
+      - name: Install just
+        uses: taiki-e/install-action@just
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -109,7 +112,7 @@ jobs:
         run: cargo binstall tauri-cli -y
 
       - name: Build Ubuntu
-        run: cargo tauri build --verbose
+        run: just build-desktop
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -155,8 +158,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Install node dependencies
+        run: nix develop --command bash -c "pnpm install"
+
       - name: Build MacOS
-        run: nix develop --command bash -c "pnpm install && cargo tauri build"
+        run: just build-desktop
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -189,6 +198,9 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: Install just
+        uses: taiki-e/install-action@just
+
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@main
 
@@ -199,7 +211,7 @@ jobs:
         run: pnpm install
 
       - name: Build Windows
-        run: cargo tauri build
+        run: just build-desktop
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -232,9 +244,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Install node dependencies
+        run: nix develop ".#android" --command bash -c "pnpm install"
+
       - name: Build Android
-        run: |
-          nix develop ".#android" --command bash -c "pnpm install && cargo tauri android build && cargo tauri android build --split-per-abi"
+        run: just build-android
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
