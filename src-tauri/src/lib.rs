@@ -11,10 +11,12 @@ pub fn run() {
     let specta_builder = setup::get_specta_builder();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .clear_targets()
@@ -46,7 +48,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+            if let tauri::RunEvent::ExitRequested { api: _, .. } = event {
                 let state = app_handle.state::<cmd::SettingsState>().clone();
                 
                 if let Err(e) = tauri::async_runtime::block_on(async move {

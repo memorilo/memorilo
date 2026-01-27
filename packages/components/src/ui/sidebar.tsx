@@ -1,5 +1,6 @@
 'use client'
 
+/* eslint-disable react-refresh/only-export-components */
 import type { VariantProps } from 'class-variance-authority'
 import { cn } from '@memorilo/utils/utils'
 import { Slot } from '@radix-ui/react-slot'

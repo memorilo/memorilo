@@ -13,8 +13,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 
+const JournalsLazyRouteImport = createFileRoute('/journals')()
 const AllNotesLazyRouteImport = createFileRoute('/all-notes')()
 
+const JournalsLazyRoute = JournalsLazyRouteImport.update({
+  id: '/journals',
+  path: '/journals',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/journals.lazy').then((d) => d.Route))
 const AllNotesLazyRoute = AllNotesLazyRouteImport.update({
   id: '/all-notes',
   path: '/all-notes',
@@ -29,31 +35,42 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/all-notes': typeof AllNotesLazyRoute
+  '/journals': typeof JournalsLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/all-notes': typeof AllNotesLazyRoute
+  '/journals': typeof JournalsLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/all-notes': typeof AllNotesLazyRoute
+  '/journals': typeof JournalsLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/all-notes'
+  fullPaths: '/' | '/all-notes' | '/journals'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/all-notes'
-  id: '__root__' | '/' | '/all-notes'
+  to: '/' | '/all-notes' | '/journals'
+  id: '__root__' | '/' | '/all-notes' | '/journals'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AllNotesLazyRoute: typeof AllNotesLazyRoute
+  JournalsLazyRoute: typeof JournalsLazyRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/journals': {
+      id: '/journals'
+      path: '/journals'
+      fullPath: '/journals'
+      preLoaderRoute: typeof JournalsLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/all-notes': {
       id: '/all-notes'
       path: '/all-notes'
@@ -74,6 +91,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AllNotesLazyRoute: AllNotesLazyRoute,
+  JournalsLazyRoute: JournalsLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

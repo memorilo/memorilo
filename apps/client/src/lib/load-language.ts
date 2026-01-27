@@ -5,8 +5,7 @@ import * as log from '@tauri-apps/plugin-log'
 import dayjs from 'dayjs'
 
 import i18next from 'i18next'
-import { z } from 'zod'
-import { currentSupportedLanguages, dayjsLocaleImportMap } from '~/@types/constants'
+import { dayjsLocaleImportMap } from '~/@types/constants'
 import { defaultResources } from '~/@types/default-resource'
 
 import { langChain, LocaleCache } from '~/i18n'
@@ -14,12 +13,7 @@ import { langChain, LocaleCache } from '~/i18n'
 const loadingLangLock = new Set<string>()
 const loadedLangs = new Set<string>(['en'])
 
-function parseLangCode(lang: string): RendererSupportedLanguages {
-  return z.enum([...currentSupportedLanguages as RendererSupportedLanguages[]]).parse(lang)
-}
-
-export async function loadLanguageAndApply(newLang: string) {
-  const lang = parseLangCode(newLang)
+export async function loadLanguageAndApply(lang: RendererSupportedLanguages) {
   const dayjsImport = dayjsLocaleImportMap[lang]
 
   if (dayjsImport) {

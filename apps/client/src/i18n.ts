@@ -22,7 +22,7 @@ export function getI18n() {
 export const langChain = new Chain()
 
 export class LocaleCache {
-  static shared = new LocaleCache()
+  static shared: LocaleCache
   private getKey(lang: string) {
     return getStorageNS(`locale-${lang}`)
   }
@@ -45,6 +45,8 @@ export class LocaleCache {
     localStorage.setItem(key, JSON.stringify(mergedResources))
   }
 }
+
+LocaleCache.shared = new LocaleCache()
 
 export const fallbackLanguage = 'en'
 

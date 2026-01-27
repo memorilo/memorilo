@@ -12,14 +12,15 @@ pub enum FolderNodeType {
     Item,
 }
 
-impl ToString for FolderNodeType {
-    fn to_string(&self) -> String {
-        match self {
-            FolderNodeType::Folder => "folder".to_string(),
-            FolderNodeType::Topic => "topic".to_string(),
-            FolderNodeType::Highlight => "highlight".to_string(),
-            FolderNodeType::Item => "item".to_string(),
-        }
+impl std::fmt::Display for FolderNodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            FolderNodeType::Folder => "folder",
+            FolderNodeType::Topic => "topic",
+            FolderNodeType::Highlight => "highlight",
+            FolderNodeType::Item => "item",
+        };
+        f.write_str(value)
     }
 }
 

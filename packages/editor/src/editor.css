@@ -1,0 +1,7 @@
+.memorilo-editor {
+  padding: 1rem 2rem;
+}
+
+.memorilo-editor .ProseMirror {
+  outline: none;
+}

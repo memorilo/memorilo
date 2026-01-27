@@ -16,6 +16,8 @@ export async function loadSettingsAtStartup() {
   }
 }
 
+export const DEFAULT_LANGUAGE_AUTO = '_auto'
+
 export function registerMemoriloSettings(memorilo: Memorilo) {
   const i18next = getI18n()
   const { t } = i18next
@@ -25,8 +27,8 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
   memorilo.settings.register('core', [
     {
       key: 'lang',
-      schema: z.enum([...currentSupportedLanguages, '_auto']),
-      defaultValue: '_auto',
+      schema: z.enum([...currentSupportedLanguages, DEFAULT_LANGUAGE_AUTO]),
+      defaultValue: DEFAULT_LANGUAGE_AUTO,
       component: ({ value, onChange, schema }) => {
         const options = getEnumOptions(schema).filter(v => !v.startsWith('_'))
         return (
