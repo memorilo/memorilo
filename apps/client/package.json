@@ -36,6 +36,7 @@
     "react-i18next": "catalog:",
     "react-icons": "catalog:",
     "react-scan": "catalog:",
+    "react-toastify": "catalog:",
     "tw-animate-css": "catalog:",
     "uuid": "catalog:",
     "zod": "catalog:"

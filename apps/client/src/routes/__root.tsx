@@ -1,5 +1,6 @@
 import { SidebarInset, SidebarProvider } from '@memorilo/components/ui/sidebar'
 import { createRootRoute, Outlet } from '@tanstack/react-router'
+import { ToastContainer } from 'react-toastify'
 import { AppSidebar } from '~/components/app-sidebar'
 import { RootProvider } from '~/provider/root-provider'
 
@@ -15,6 +16,11 @@ function RouteComponent() {
         <SidebarInset>
           <Outlet />
         </SidebarInset>
+        <ToastContainer
+          position="bottom-right"
+          draggable
+          pauseOnHover
+        />
       </SidebarProvider>
     </RootProvider>
   )
