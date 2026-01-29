@@ -1,5 +1,6 @@
 use crate::db::{self, doc::DocState, DbState, FolderNodeType};
 use crate::error::{Error, Result};
+use crate::utils::client_id;
 use loro::ExportMode;
 use serde::Serialize;
 use tauri::{ipc::Channel, State};
@@ -67,7 +68,7 @@ pub async fn update_doc(
 
     {
         let conn = db_state.conn.lock()?;
-        let client_id = db::doc::client_id();
+        let client_id = client_id();
         conn.execute(
             "INSERT INTO doc_updates (doc_id, data, client_id, sync_status) VALUES (?1, ?2, ?3, 0)",
             rusqlite::params![&doc_id, &update, client_id],
@@ -76,6 +77,19 @@ pub async fn update_doc(
 
     state.broadcast_updates(&doc_id, &doc);
 
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_topic_doc(
+    state: State<'_, DocState>,
+    db_state: State<'_, DbState>,
+    doc_id: String,
+    update: Vec<u8>,
+) -> Result<()> {
+    update_doc(state.clone(), db_state.clone(), doc_id.clone(), update).await?;
+    state.schedule_topic_sync(doc_id, db_state.conn.clone());
     Ok(())
 }
 

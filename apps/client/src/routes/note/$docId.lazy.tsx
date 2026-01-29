@@ -1,6 +1,5 @@
 import type { LoroDocType } from '@memorilo/editor'
 import { effectCommands } from '@memorilo/api/command'
-import log from '@memorilo/api/log'
 import { MemoriloEditor } from '@memorilo/editor'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { Channel } from '@tauri-apps/api/core'
@@ -26,12 +25,13 @@ function RouteComponent() {
       if (update.by !== 'local') {
         return
       }
+      // Use topic-specific update to trigger debounced doc_nodes sync on the backend.
       Effect.runPromise(Effect.gen(function* () {
         const version = yield* effectCommands.getDocVersion(docId)
         const vvmap = new Map([...Object.entries(version)])
         const vv = VersionVector.parseJSON(vvmap as any)
         const bytes = doc.export({ mode: 'update', from: vv })
-        yield* effectCommands.updateDoc(docId, [...bytes])
+        yield* effectCommands.updateTopicDoc(docId, [...bytes])
       }))
     })
 
