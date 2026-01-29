@@ -58,6 +58,24 @@ export function useMutateCreateFolderNode() {
   }))
 }
 
+export function useMutateCreateTopicNode() {
+  const invalidate = useFolderChildrenInvalidate()
+  return useMutation(eq.mutationOptions({
+    mutationKey: ['createTopicNode'],
+    mutationFn: (vars: { parentUUID: string, name: string }) => {
+      const grandparent = effectCommands.getParentFolderNodeUuid(vars.parentUUID)
+      const result = effectCommands.createTopic(vars.parentUUID, vars.name)
+      return Effect.zipWith(grandparent, result, (gp, _) => gp)
+    },
+    onSuccess: (grandParentUUID, vars) => {
+      if (grandParentUUID) {
+        invalidate(grandParentUUID)
+      }
+      invalidate(vars.parentUUID)
+    },
+  }))
+}
+
 export function useMutateDeleteFolderNode() {
   const invalidate = useFolderChildrenInvalidate()
   return useMutation(eq.mutationOptions({

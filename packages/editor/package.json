@@ -17,7 +17,6 @@
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/utils": "workspace:*",
-    "@tauri-apps/plugin-log": "catalog:",
     "@tiptap/core": "catalog:",
     "@tiptap/extension-blockquote": "catalog:",
     "@tiptap/extension-bold": "catalog:",

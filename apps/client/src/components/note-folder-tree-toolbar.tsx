@@ -1,9 +1,10 @@
-import { useFolderChildrenInvalidate, useMutateCreateFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { useFolderChildrenInvalidate, useMutateCreateFolderNode, useMutateCreateTopicNode, useRootFolderNodeUUID } from '@memorilo/api/query'
 
 import { cn } from '@memorilo/utils/utils'
 import { Match } from 'effect'
 import { useTranslation } from 'react-i18next'
 import { LuFilePlus, LuFolderPlus, LuListCollapse, LuRefreshCcw } from 'react-icons/lu'
+import { toast } from 'react-toastify'
 import { v7 as uuidV7 } from 'uuid'
 import { useNoteFolderTree } from './note-folder-tree'
 
@@ -12,6 +13,7 @@ export function NoteFolderTreeToolbar() {
   const { selectedIds } = useNoteFolderTree()
   const { data: rootUUID, status } = useRootFolderNodeUUID()
   const createFolderMutation = useMutateCreateFolderNode()
+  const createTopicMutation = useMutateCreateTopicNode()
   const handleInvalidate = useFolderChildrenInvalidate()
   const tree = useNoteFolderTree()
 
@@ -20,6 +22,20 @@ export function NoteFolderTreeToolbar() {
     Match.when(1, () => selectedIds[0]),
     Match.orElse(() => null),
   )
+
+  function handleCreateTopic() {
+    if (targetUUID === null)
+      return
+    createTopicMutation.mutate({
+      parentUUID: targetUUID,
+      name: t('note_folder_tree.new_topic'),
+    }, {
+      onSuccess: () => {},
+      onError: (error) => {
+        toast.error(t('note_folder_tree.create_topic_error', { error: String(error) }))
+      },
+    })
+  }
 
   function handleCreateFolder() {
     if (targetUUID === null)
@@ -32,8 +48,7 @@ export function NoteFolderTreeToolbar() {
     }, {
       onSuccess: () => {},
       onError: (error) => {
-        // TODO: Show i18n message notification
-        console.error('Failed to create folder:', error)
+        toast.error(t('note_folder_tree.create_folder_error', { error: String(error) }))
       },
     })
   }
@@ -51,6 +66,7 @@ export function NoteFolderTreeToolbar() {
           'p-1.5 hover:bg-secondary',
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
+        onClick={handleCreateTopic}
       >
         <LuFilePlus />
       </button>

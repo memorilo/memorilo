@@ -18,6 +18,14 @@ pub fn get_specta_builder() -> tauri_specta::Builder {
         crate::cmd::read_settings,
         crate::cmd::update_settings,
         crate::cmd::save_settings,
+        crate::cmd::get_doc,
+        crate::cmd::get_doc_version,
+        crate::cmd::update_doc,
+        crate::cmd::create_doc,
+        crate::cmd::delete_doc,
+        crate::cmd::create_topic,
+        crate::cmd::watch_doc,
+        crate::cmd::unwatch_doc,
     ]);
 
     #[cfg(debug_assertions)]
@@ -40,8 +48,9 @@ pub fn setup_database(app: &App) {
     let db_path = app_data_dir.join("memorilo.db");
     let conn = db::get_connection(db_path.to_str().unwrap()).expect("failed to open database");
     app.manage(db::DbState {
-        conn: std::sync::Mutex::new(conn),
+        conn: std::sync::Arc::new(std::sync::Mutex::new(conn)),
     });
+    app.manage(db::doc::DocState::new());
 }
 
 pub fn setup_settings(app: &App) {

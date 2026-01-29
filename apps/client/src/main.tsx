@@ -5,7 +5,7 @@ import 'react-scan/all-environments'
 import { memorilo } from '@memorilo/core'
 import { initI18n } from './i18n'
 import { loadSettingsAtStartup, registerMemoriloSettings } from './lib/register-settings'
-import * as log from '@tauri-apps/plugin-log'
+import log from '@memorilo/api/log'
 
 async function main() {
   try {

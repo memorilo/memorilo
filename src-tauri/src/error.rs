@@ -5,7 +5,9 @@ use serde::Serialize;
 pub enum ErrorKind {
     DatabaseError,
     IoError,
-    SerializationError
+    SerializationError,
+    CrdtError,
+    StateError,
 }
 
 #[derive(Debug, specta::Type, Serialize, thiserror::Error)]
@@ -63,6 +65,68 @@ impl From<toml::de::Error> for Error {
             kind: ErrorKind::SerializationError,
             message: "TOML deserialization error occurred".to_string(),
             inner_message: err.to_string()
+        }
+    }
+}
+
+impl From<std::sync::PoisonError<std::sync::MutexGuard<'_, rusqlite::Connection>>> for Error {
+    fn from(err: std::sync::PoisonError<std::sync::MutexGuard<'_, rusqlite::Connection>>) -> Self {
+        Error {
+            kind: ErrorKind::StateError,
+            message: "State lock poisoned".to_string(),
+            inner_message: err.to_string(),
+        }
+    }
+}
+
+impl<T> From<std::sync::PoisonError<std::sync::MutexGuard<'_, std::collections::HashMap<String, T>>>> for Error {
+    fn from(
+        err: std::sync::PoisonError<std::sync::MutexGuard<'_, std::collections::HashMap<String, T>>>,
+    ) -> Self {
+        Error {
+            kind: ErrorKind::StateError,
+            message: "State lock poisoned".to_string(),
+            inner_message: err.to_string(),
+        }
+    }
+}
+
+impl From<tauri::Error> for Error {
+    fn from(err: tauri::Error) -> Self {
+        Error {
+            kind: ErrorKind::StateError,
+            message: "IPC error occurred".to_string(),
+            inner_message: err.to_string(),
+        }
+    }
+}
+
+impl From<loro::LoroError> for Error {
+    fn from(err: loro::LoroError) -> Self {
+        Error {
+            kind: ErrorKind::CrdtError,
+            message: "CRDT error occurred".to_string(),
+            inner_message: err.to_string(),
+        }
+    }
+}
+
+impl From<loro::LoroEncodeError> for Error {
+    fn from(err: loro::LoroEncodeError) -> Self {
+        Error {
+            kind: ErrorKind::CrdtError,
+            message: "CRDT encode error occurred".to_string(),
+            inner_message: err.to_string(),
+        }
+    }
+}
+
+impl From<String> for Error {
+    fn from(err: String) -> Self {
+        Error {
+            kind: ErrorKind::StateError,
+            message: "Operation failed".to_string(),
+            inner_message: err,
         }
     }
 }

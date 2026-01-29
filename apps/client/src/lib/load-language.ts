@@ -1,7 +1,7 @@
 import type { RendererSupportedLanguages } from '~/@types/constants'
+import log from '@memorilo/api/log'
 import { EventBus } from '@memorilo/utils/event-bus'
 import { isEmptyObject } from '@memorilo/utils/utils'
-import * as log from '@tauri-apps/plugin-log'
 import dayjs from 'dayjs'
 
 import i18next from 'i18next'

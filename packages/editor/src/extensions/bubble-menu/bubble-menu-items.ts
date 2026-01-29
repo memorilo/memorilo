@@ -1,10 +1,10 @@
 import type { Editor } from '@tiptap/core'
 import type { ComponentType } from 'react'
-import { BoldIcon } from '@memorilo/components/ui/animiated-icons/bold'
-import { ItalicIcon } from '@memorilo/components/ui/animiated-icons/italic'
-import { StrikethroughIcon } from '@memorilo/components/ui/animiated-icons/strikethrough'
-import { TerminalIcon } from '@memorilo/components/ui/animiated-icons/terminal'
-import { UnderlineIcon } from '@memorilo/components/ui/animiated-icons/underline'
+import { BoldIcon } from '@memorilo/components/ui/animated-icons/bold'
+import { ItalicIcon } from '@memorilo/components/ui/animated-icons/italic'
+import { StrikethroughIcon } from '@memorilo/components/ui/animated-icons/strikethrough'
+import { TerminalIcon } from '@memorilo/components/ui/animated-icons/terminal'
+import { UnderlineIcon } from '@memorilo/components/ui/animated-icons/underline'
 
 export interface BubbleMenuItem {
   name: 'bold' | 'italic' | 'underline' | 'strike' | 'code'

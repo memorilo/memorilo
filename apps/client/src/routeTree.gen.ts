@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 
 const JournalsLazyRouteImport = createFileRoute('/journals')()
 const AllNotesLazyRouteImport = createFileRoute('/all-notes')()
+const NoteDocIdLazyRouteImport = createFileRoute('/note/$docId')()
 
 const JournalsLazyRoute = JournalsLazyRouteImport.update({
   id: '/journals',
@@ -31,35 +32,44 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NoteDocIdLazyRoute = NoteDocIdLazyRouteImport.update({
+  id: '/note/$docId',
+  path: '/note/$docId',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/note/$docId.lazy').then((d) => d.Route))
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/all-notes': typeof AllNotesLazyRoute
   '/journals': typeof JournalsLazyRoute
+  '/note/$docId': typeof NoteDocIdLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/all-notes': typeof AllNotesLazyRoute
   '/journals': typeof JournalsLazyRoute
+  '/note/$docId': typeof NoteDocIdLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/all-notes': typeof AllNotesLazyRoute
   '/journals': typeof JournalsLazyRoute
+  '/note/$docId': typeof NoteDocIdLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/all-notes' | '/journals'
+  fullPaths: '/' | '/all-notes' | '/journals' | '/note/$docId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/all-notes' | '/journals'
-  id: '__root__' | '/' | '/all-notes' | '/journals'
+  to: '/' | '/all-notes' | '/journals' | '/note/$docId'
+  id: '__root__' | '/' | '/all-notes' | '/journals' | '/note/$docId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AllNotesLazyRoute: typeof AllNotesLazyRoute
   JournalsLazyRoute: typeof JournalsLazyRoute
+  NoteDocIdLazyRoute: typeof NoteDocIdLazyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -85,6 +95,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/note/$docId': {
+      id: '/note/$docId'
+      path: '/note/$docId'
+      fullPath: '/note/$docId'
+      preLoaderRoute: typeof NoteDocIdLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -92,6 +109,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AllNotesLazyRoute: AllNotesLazyRoute,
   JournalsLazyRoute: JournalsLazyRoute,
+  NoteDocIdLazyRoute: NoteDocIdLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

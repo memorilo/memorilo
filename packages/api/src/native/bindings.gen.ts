@@ -164,6 +164,70 @@ async saveSettings() : Promise<Result<null, Error>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getDoc(docId: string) : Promise<Result<number[], Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getDocVersion(docId: string) : Promise<Result<VersionVector, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_version", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateDoc(docId: string, update: number[]) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_doc", { docId, update }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createDoc() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_doc") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteDoc(docId: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_doc", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createTopic(parentUuid: string, name: string) : Promise<Result<CreatedTopic, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_topic", { parentUuid, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async watchDoc(docId: string, channel: TAURI_CHANNEL<number[]>) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("watch_doc", { docId, channel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async unwatchDoc(watchId: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unwatch_doc", { watchId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -177,8 +241,9 @@ async saveSettings() : Promise<Result<null, Error>> {
 
 /** user-defined types **/
 
+export type CreatedTopic = { docId: string; topicUuid: string }
 export type Error = { _tag: ErrorKind; message: string; inner_message: string }
-export type ErrorKind = "DatabaseError" | "IoError" | "SerializationError"
+export type ErrorKind = "DatabaseError" | "IoError" | "SerializationError" | "CrdtError" | "StateError"
 /**
  * Represents a folder node with all its properties.
  */
@@ -187,6 +252,8 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  * Represents the type of a folder node in the hierarchy.
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
+export type TAURI_CHANNEL<TSend> = null
+export type VersionVector = Partial<{ [key in string]: number }>
 
 /** tauri-specta globals **/
 

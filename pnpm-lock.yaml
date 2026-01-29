@@ -90,9 +90,6 @@ catalogs:
     '@tauri-apps/plugin-log':
       specifier: 2.7.1
       version: 2.7.1
-    '@tauri-apps/plugin-opener':
-      specifier: ^2.5.2
-      version: 2.5.2
     '@tauri-apps/plugin-os':
       specifier: ^2.3.2
       version: 2.3.2
@@ -398,12 +395,6 @@ importers:
       '@tauri-apps/api':
         specifier: 'catalog:'
         version: 2.9.1
-      '@tauri-apps/plugin-log':
-        specifier: 'catalog:'
-        version: 2.7.1
-      '@tauri-apps/plugin-opener':
-        specifier: 'catalog:'
-        version: 2.5.2
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19
@@ -510,6 +501,9 @@ importers:
       '@tauri-apps/plugin-fs':
         specifier: 'catalog:'
         version: 2.4.5
+      '@tauri-apps/plugin-log':
+        specifier: 'catalog:'
+        version: 2.7.1
       '@tauri-apps/plugin-os':
         specifier: 'catalog:'
         version: 2.3.2
@@ -2549,9 +2543,6 @@ packages:
 
   '@tauri-apps/plugin-log@2.7.1':
     resolution: {integrity: sha512-jdb+o0wxQc8PjnLktgGpOs9Dh1YupaOGDXzO+Y8peA1UZ1ep3eXv4E1oiJ7nIQVN0XUFDDhnn3aBszl8ijhR+A==}
-
-  '@tauri-apps/plugin-opener@2.5.2':
-    resolution: {integrity: sha512-ei/yRRoCklWHImwpCcDK3VhNXx+QXM9793aQ64YxpqVF0BDuuIlXhZgiAkc15wnPVav+IbkYhmDJIv5R326Mew==}
 
   '@tauri-apps/plugin-os@2.3.2':
     resolution: {integrity: sha512-n+nXWeuSeF9wcEsSPmRnBEGrRgOy6jjkSU+UVCOV8YUGKb2erhDOxis7IqRXiRVHhY8XMKks00BJ0OAdkpf6+A==}
@@ -6706,10 +6697,6 @@ snapshots:
       '@tauri-apps/api': 2.9.1
 
   '@tauri-apps/plugin-log@2.7.1':
-    dependencies:
-      '@tauri-apps/api': 2.9.1
-
-  '@tauri-apps/plugin-opener@2.5.2':
     dependencies:
       '@tauri-apps/api': 2.9.1
 

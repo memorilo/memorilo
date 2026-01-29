@@ -1,6 +1,6 @@
 import { effectCommands } from '@memorilo/api/command'
+import log from '@memorilo/api/log'
 import { memorilo } from '@memorilo/core'
-import * as log from '@tauri-apps/plugin-log'
 import { Effect } from 'effect'
 
 export function loadSettings() {

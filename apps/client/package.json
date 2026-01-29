@@ -22,8 +22,6 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tauri-apps/api": "catalog:",
-    "@tauri-apps/plugin-log": "catalog:",
-    "@tauri-apps/plugin-opener": "catalog:",
     "dayjs": "catalog:",
     "effect": "catalog:",
     "effect-query": "catalog:",
