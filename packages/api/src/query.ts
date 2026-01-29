@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { app } from '@tauri-apps/api'
 import { Effect } from 'effect'
 import { eq } from '.'
 import { effectCommands } from './command'
@@ -107,5 +108,50 @@ export function useMutateRenameFolderNode() {
         invalidate(parent)
       }
     },
+  }))
+}
+
+export interface AboutInfo {
+  version: string
+  tauriVersion: string
+  clientID: string
+  appLocalDataDir: string
+  gitCommitId: string
+  docNodesCount: number
+  docUpdatesCount: number
+}
+
+function loadAboutInfo(): Effect.Effect<AboutInfo, never> {
+  return Effect.all({
+    version: Effect.tryPromise(() => app.getVersion()).pipe(
+      Effect.catchAll(() => Effect.succeed('')),
+    ),
+    tauriVersion: Effect.tryPromise(() => app.getTauriVersion()).pipe(
+      Effect.catchAll(() => Effect.succeed('')),
+    ),
+    clientID: effectCommands.getClientId().pipe(
+      Effect.catchAll(() => Effect.succeed('')),
+    ),
+    appLocalDataDir: effectCommands.getAppLocalDataDir().pipe(
+      Effect.catchAll(() => Effect.succeed('')),
+    ),
+    gitCommitId: effectCommands.getGitCommitId().pipe(
+      Effect.catchAll(() => Effect.succeed('')),
+    ),
+    docNodesCount: effectCommands.getDocNodesCount().pipe(
+      Effect.map(value => Number.parseInt(value, 10) || 0),
+      Effect.catchAll(() => Effect.succeed(0)),
+    ),
+    docUpdatesCount: effectCommands.getDocUpdatesCount().pipe(
+      Effect.map(value => Number.parseInt(value, 10) || 0),
+      Effect.catchAll(() => Effect.succeed(0)),
+    ),
+  })
+}
+
+export function useAboutInfo() {
+  return useQuery(eq.queryOptions({
+    queryKey: ['aboutInfo'],
+    queryFn: () => loadAboutInfo(),
   }))
 }

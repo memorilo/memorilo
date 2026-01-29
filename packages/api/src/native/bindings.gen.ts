@@ -189,6 +189,44 @@ async updateDoc(docId: string, update: number[]) : Promise<Result<null, Error>> 
     else return { status: "error", error: e  as any };
 }
 },
+async updateTopicDoc(docId: string, update: number[]) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_topic_doc", { docId, update }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getClientId() : Promise<string> {
+    return await TAURI_INVOKE("get_client_id");
+},
+async getAppLocalDataDir() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_app_local_data_dir") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getGitCommitId() : Promise<string> {
+    return await TAURI_INVOKE("get_git_commit_id");
+},
+async getDocNodesCount() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_nodes_count") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getDocUpdatesCount() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_updates_count") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createDoc() : Promise<Result<string, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_doc") };

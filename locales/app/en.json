@@ -84,5 +84,18 @@
   "editor.slash.item.code_block.title": "Code block",
   "editor.slash.item.code_block.description": "Insert a code snippet",
   "editor.slash.item.table.title": "Table",
-  "editor.slash.item.table.description": "Insert a table"
+  "editor.slash.item.table.description": "Insert a table",
+  "about.title": "About Memorilo",
+  "about.subtitle": "A quiet place to collect thoughts and turn them into something useful.",
+  "about.version_prefix": "v",
+  "about.tauri_label": "Tauri",
+  "about.document_nodes_label": "Document Nodes",
+  "about.document_updates_label": "Document Updates",
+  "about.client_label": "Client",
+  "about.git_commit_label": "Git Commit",
+  "about.git_commit_unknown": "unknown",
+  "about.app_data_dir_label": "App Data Directory",
+  "about.reveal_dir": "Reveal Dir",
+  "about.logo_alt": "Memorilo",
+  "sidebar.about": "About"
 }
