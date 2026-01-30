@@ -59,7 +59,7 @@
     "i18next": "catalog:",
     "katex": "catalog:",
     "loro-crdt": "catalog:",
-    "loro-prosemirror": "catalog:",
+    "loro-prosemirror": "workspace:*",
     "motion": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
