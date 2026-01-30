@@ -38,7 +38,6 @@ pub async fn get_doc_version(
     db_state: State<'_, DbState>,
     doc_id: String,
 ) -> Result<VersionVectorDto> {
-    log::info!("get_doc_version request: {doc_id}");
     let conn = db_state.conn.lock()?;
     let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
 

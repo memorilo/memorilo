@@ -167,7 +167,8 @@ build-web: download-web-resource && lint-web
   pnpm build
 
 clean:
-  if [[ -d ./apps/client/dist ]]; then rm -rf ./apps/client/dist; fi
+  find . -name 'dist' -type d -prune -exec rm -rf '{}' +
+  find . -name '.turbo' -type d -prune -exec rm -rf '{}' +
   cd ./src-tauri/ && cargo clean
 
 clean-node_modules:
