@@ -19,6 +19,9 @@ jobs:
       - name: Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - name: Install just
+        uses: taiki-e/install-action@just
+
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
@@ -40,4 +43,12 @@ jobs:
             ${{ runner.os }}-pnpm-
 
       - name: Run Cargo Test
-        run: nix develop --command bash -c "cd src-tauri && cargo test"
+        run: |
+          mkdir -p src-tauri/models
+          nix develop --command bash -c "cd src-tauri && cargo test"
+
+      - name: Run Lint
+        run: |
+          just lint-rs
+          nix develop --command bash -c "pnpm install"
+          just lint-web
