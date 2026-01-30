@@ -12,6 +12,7 @@
   "dependencies": {
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
+    "@memorilo/config": "workspace:*",
     "@memorilo/core": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/utils": "workspace:*",

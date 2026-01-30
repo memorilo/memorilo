@@ -19,6 +19,9 @@ catalog:
   '@radix-ui/react-slot': ^1.2.4
   '@radix-ui/react-switch': ^1.2.6
   '@radix-ui/react-tooltip': ^1.2.8
+  '@rollup/plugin-node-resolve': ^16.0.3
+  '@rollup/plugin-typescript': ^12.1.4
+  '@tailwindcss/postcss': ^4.1.18
   '@tailwindcss/vite': ^4.1.18
   '@tanstack/devtools-vite': ^0.3.12
   '@tanstack/react-devtools': ^0.8.4
@@ -97,9 +100,12 @@ catalog:
   react-icons: ^5.5.0
   react-scan: ^0.4.3
   react-toastify: ^11.0.5
+  rollup: ^4.57.0
+  rollup-plugin-postcss: ^4.0.2
   rollup-plugin-visualizer: ^6.0.5
   tailwind-merge: ^3.4.0
   tailwindcss: ^4.1.18
+  turbo: ^2.8.0
   tw-animate-css: ^1.4.0
   typescript: ^5.9.3
   uniqolor: ^1.1.1

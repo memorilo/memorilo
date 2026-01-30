@@ -157,14 +157,14 @@ build-ios: download-model
 build-web: download-web-resource && lint-web
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
-    nix develop ".#default" --command bash -c "cd apps/client && pnpm build"
+    nix develop ".#default" --command pnpm build
   else
-    cd apps/client && pnpm build
+    pnpm build
   fi
 
 [windows]
 build-web: download-web-resource && lint-web
-  cd apps/client && pnpm build
+  pnpm build
 
 clean:
   if [[ -d ./apps/client/dist ]]; then rm -rf ./apps/client/dist; fi

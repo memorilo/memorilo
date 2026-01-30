@@ -1,0 +1,14 @@
+{
+  "name": "@memorilo/config",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "license": "AGPL-3.0-only",
+  "exports": {
+    "./tailwind.css": "./tailwind.css"
+  },
+  "dependencies": {
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:"
+  }
+}

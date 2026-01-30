@@ -6,9 +6,16 @@
   "author": "Memorilo Team",
   "license": "AGPL-3.0-only",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": {
+      "types": "./dist/types/editor.d.ts",
+      "import": "./dist/editor.js",
+      "default": "./dist/editor.js"
+    }
   },
+  "types": "./dist/types/editor.d.ts",
   "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -16,6 +23,7 @@
     "@floating-ui/dom": "catalog:",
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
+    "@memorilo/config": "workspace:*",
     "@memorilo/utils": "workspace:*",
     "@tiptap/core": "catalog:",
     "@tiptap/extension-blockquote": "catalog:",
@@ -62,8 +70,13 @@
     "uniqolor": "catalog:"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "catalog:",
+    "@rollup/plugin-typescript": "catalog:",
+    "@tailwindcss/postcss": "catalog:",
     "@types/prismjs": "catalog:",
     "@types/react": "catalog:",
+    "rollup": "catalog:",
+    "rollup-plugin-postcss": "catalog:",
     "tailwindcss": "catalog:"
   }
 }

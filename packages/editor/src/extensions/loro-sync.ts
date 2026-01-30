@@ -3,7 +3,6 @@ import { Extension } from '@tiptap/core'
 import { keymap } from '@tiptap/pm/keymap'
 import {
   CursorEphemeralStore,
-
   LoroEphemeralCursorPlugin,
   LoroSyncPlugin,
   LoroUndoPlugin,
