@@ -14,6 +14,7 @@ import UniqueID from '@tiptap/extension-unique-id'
 
 import { Gapcursor } from '@tiptap/extensions'
 import { EditorContent, useEditor } from '@tiptap/react'
+import { loroSyncPluginKey } from 'loro-prosemirror'
 import { useMemo } from 'react'
 import { BlockquoteExtension } from './extensions/blockquote'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
@@ -98,6 +99,12 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           attributeName: 'uuid',
           updateDocument: true,
           types: ['listItem', 'orderedItem', 'taskItem'],
+          filterTransaction: (tr) => {
+            // Adds support for collaborative editing
+            // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction
+            const meta = tr.getMeta(loroSyncPluginKey) as { type?: string } | null
+            return meta?.type !== 'non-local-updates' && meta?.type !== 'update-state'
+          },
         }),
         loroSyncExtension,
       ],

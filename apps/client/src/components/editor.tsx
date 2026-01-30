@@ -2,7 +2,6 @@ import type { LoroDocType } from '@memorilo/editor'
 import { effectCommands } from '@memorilo/api/command'
 import { Skeleton } from '@memorilo/components/ui/skeleton'
 import { MemoriloEditor } from '@memorilo/editor'
-import { cn } from '@memorilo/utils'
 import { DEV } from '@memorilo/utils/constants'
 import { Channel } from '@tauri-apps/api/core'
 import { Effect, Option } from 'effect'
@@ -90,25 +89,21 @@ export function Editor({ docId }: EditorProps) {
     }
   }, [docId, doc, initialized])
 
+  if (!initialized) {
+    return (
+      <div className="px-2 py-6 space-y-2.5">
+        <Skeleton className="w-full h-4" />
+        <Skeleton className="w-full h-4" />
+        <Skeleton className="w-1/2 h-4" />
+        <Skeleton className="w-1/4 h-4" />
+      </div>
+    )
+  }
+
   return (
-    <>
-      <MemoriloEditor
-        className={cn({
-          hidden: !initialized,
-        })}
-        key={docId}
-        doc={doc as LoroDocType}
-      />
-      {
-        !initialized && (
-          <div className="px-2 py-6 space-y-2.5">
-            <Skeleton className="w-full h-4" />
-            <Skeleton className="w-full h-4" />
-            <Skeleton className="w-1/2 h-4" />
-            <Skeleton className="w-1/4 h-4" />
-          </div>
-        )
-      }
-    </>
+    <MemoriloEditor
+      key={docId}
+      doc={doc as LoroDocType}
+    />
   )
 }
