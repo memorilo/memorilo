@@ -202,8 +202,6 @@ function EditorInstance({ docId }: EditorProps) {
   }
 
   return (
-    <MemoriloEditor
-      fragment={fragment}
-    />
+    <MemoriloEditor fragment={fragment} />
   )
 }
