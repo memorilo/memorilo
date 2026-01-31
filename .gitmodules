@@ -1,3 +1,0 @@
-[submodule "packages/loro-prosemirror"]
-	path = packages/loro-prosemirror
-	url = git@github.com:memorilo/loro-prosemirror.git

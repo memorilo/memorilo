@@ -1,26 +1,31 @@
 use crate::utils::lru_cache::LruCache;
-use loro::{ExportMode, LoroDoc, ToJson, VersionVector};
 use rusqlite::{params, Connection};
-use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tauri::async_runtime::JoinHandle;
 use tauri::ipc::Channel;
 use tokio::time::{sleep, Duration};
+use yrs::updates::decoder::Decode;
+use yrs::types::text::YChange;
+use yrs::types::GetString;
+use yrs::{
+    Doc, Out, ReadTxn, StateVector, Text, Transact, Update, Xml, XmlElementRef, XmlFragment,
+    XmlFragmentRef, XmlOut, XmlTextRef,
+};
 
 const DOC_CACHE_CAPACITY: usize = 32;
 const TOPIC_SYNC_DEBOUNCE_MS: u64 = 300;
 
 #[derive(Debug)]
 struct PinnedDoc {
-    doc: LoroDoc,
+    doc: Doc,
     pins: usize,
 }
 
 struct WatchEntry {
     doc_id: String,
     channel: Channel<Vec<u8>>,
-    last_version: VersionVector,
+    last_version: StateVector,
 }
 
 struct TopicSyncEntry {
@@ -30,7 +35,7 @@ struct TopicSyncEntry {
 #[derive(Clone)]
 struct DocNodePayload {
     node_name: String,
-    attributes: Value,
+    attr: String,
     node_uuid: Option<String>,
     text: Option<String>,
     children: Vec<DocNodePayload>,
@@ -47,11 +52,11 @@ struct ExistingNode {
     text: Option<String>,
 }
 
-/// Document state manager with LRU cache for LoroDoc instances.
+/// Document state manager with LRU cache for Yrs Doc instances.
 #[derive(Clone)]
 pub struct DocState {
-    /// LRU cache for LoroDoc instances, keyed by doc_id
-    cache: Arc<Mutex<LruCache<String, LoroDoc>>>,
+    /// LRU cache for Yrs Doc instances, keyed by doc_id
+    cache: Arc<Mutex<LruCache<String, Doc>>>,
     /// Pinned docs that should not be evicted (ref-counted by watches)
     pinned: Arc<Mutex<HashMap<String, PinnedDoc>>>,
     /// Active watches keyed by watch id
@@ -71,9 +76,9 @@ impl DocState {
         }
     }
 
-    /// Get a LoroDoc from the cache by doc_id.
+    /// Get a Yrs Doc from the cache by doc_id.
     /// If not in cache, returns None.
-    pub fn get(&self, doc_id: &str) -> Option<LoroDoc> {
+    pub fn get(&self, doc_id: &str) -> Option<Doc> {
         if let Some(doc) = self
             .pinned
             .lock()
@@ -87,8 +92,8 @@ impl DocState {
         cache.get(&doc_id.to_string()).cloned()
     }
 
-    /// Insert a LoroDoc into the cache.
-    pub fn insert(&self, doc_id: String, doc: LoroDoc) {
+    /// Insert a Yrs Doc into the cache.
+    pub fn insert(&self, doc_id: String, doc: Doc) {
         if let Some(entry) = self.pinned.lock().unwrap().get_mut(&doc_id) {
             entry.doc = doc;
             return;
@@ -97,8 +102,8 @@ impl DocState {
         cache.put(doc_id, doc);
     }
 
-    /// Remove a LoroDoc from the cache.
-    pub fn remove(&self, doc_id: &str) -> Option<LoroDoc> {
+    /// Remove a Yrs Doc from the cache.
+    pub fn remove(&self, doc_id: &str) -> Option<Doc> {
         if let Some(entry) = self.pinned.lock().unwrap().remove(doc_id) {
             return Some(entry.doc);
         }
@@ -137,7 +142,7 @@ impl DocState {
     }
 
     /// Load a document from the update log if not present in cache.
-    pub fn get_or_load(&self, conn: &Connection, doc_id: &str) -> Result<LoroDoc, String> {
+    pub fn get_or_load(&self, conn: &Connection, doc_id: &str) -> Result<Doc, String> {
         if let Some(doc) = self.get(doc_id) {
             return Ok(doc);
         }
@@ -152,12 +157,16 @@ impl DocState {
             .query_map(params![doc_id], |row| row.get::<_, Vec<u8>>(0))
             .map_err(|e| e.to_string())?;
 
-        let doc = LoroDoc::new();
+        let doc = Doc::new();
         let mut updates_count = 0usize;
-        for update in updates {
-            let data = update.map_err(|e| e.to_string())?;
-            doc.import(&data).map_err(|e| e.to_string())?;
-            updates_count += 1;
+        {
+            let mut txn = doc.transact_mut();
+            for update in updates {
+                let data = update.map_err(|e| e.to_string())?;
+                let update = Update::decode_v1(&data).map_err(|e| e.to_string())?;
+                txn.apply_update(update).map_err(|e| e.to_string())?;
+                updates_count += 1;
+            }
         }
 
         self.insert(doc_id.to_string(), doc.clone());
@@ -166,10 +175,12 @@ impl DocState {
     }
 
     /// Create a new document and persist an initial snapshot.
-    pub fn create_doc(&self, conn: &Connection, doc_id: &str) -> Result<LoroDoc, String> {
+    pub fn create_doc(&self, conn: &Connection, doc_id: &str) -> Result<Doc, String> {
         log::info!("Creating doc: {doc_id}");
-        let doc = LoroDoc::new();
-        let snapshot = doc.export(ExportMode::Snapshot).map_err(|e| e.to_string())?;
+        let doc = Doc::new();
+        let snapshot = doc
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default());
         let client_id = crate::utils::client_id();
         conn.execute(
             "INSERT INTO doc_updates (doc_id, data, client_id, sync_status) VALUES (?1, ?2, ?3, 0)",
@@ -219,7 +230,7 @@ impl DocState {
     }
 
     /// Pin a document to prevent LRU eviction.
-    pub fn pin(&self, doc_id: &str, doc: LoroDoc) {
+    pub fn pin(&self, doc_id: &str, doc: Doc) {
         let mut pinned = self.pinned.lock().unwrap();
         if let Some(entry) = pinned.get_mut(doc_id) {
             entry.pins = entry.pins.saturating_add(1);
@@ -271,7 +282,7 @@ impl DocState {
         watch_id: String,
         doc_id: String,
         channel: Channel<Vec<u8>>,
-        last_version: VersionVector,
+        last_version: StateVector,
     ) {
         self.watches
             .lock()
@@ -296,15 +307,15 @@ impl DocState {
     }
 
     /// Update a watch's version vector after it catches up.
-    pub fn set_watch_version(&self, watch_id: &str, last_version: VersionVector) {
+    pub fn set_watch_version(&self, watch_id: &str, last_version: StateVector) {
         if let Some(entry) = self.watches.lock().unwrap().get_mut(watch_id) {
             entry.last_version = last_version;
         }
     }
 
     /// Broadcast updates to all active watches for the document.
-    pub fn broadcast_updates(&self, doc_id: &str, doc: &LoroDoc) {
-        let targets: Vec<(String, Channel<Vec<u8>>, VersionVector)> = {
+    pub fn broadcast_updates(&self, doc_id: &str, doc: &Doc) {
+        let targets: Vec<(String, Channel<Vec<u8>>, StateVector)> = {
             let watches = self.watches.lock().unwrap();
             watches
                 .iter()
@@ -326,7 +337,8 @@ impl DocState {
             return;
         }
 
-        let current_version = doc.oplog_vv();
+        let txn = doc.transact();
+        let current_version = txn.state_vector();
         let mut failed = Vec::new();
         let mut succeeded = Vec::new();
 
@@ -336,10 +348,7 @@ impl DocState {
                 continue;
             }
 
-            let updates = match doc.export(ExportMode::updates(&last_version)) {
-                Ok(updates) => updates,
-                Err(_) => continue,
-            };
+            let updates = txn.encode_diff_v1(&last_version);
 
             if !updates.is_empty() && channel.send(updates).is_err() {
                 failed.push(watch_id);
@@ -406,13 +415,7 @@ impl DocState {
             }
         };
 
-        let json_value = doc.get_deep_value().to_json_value();
-        let root_value = match extract_root_node(&json_value) {
-            Some(root) => root.clone(),
-            None => return Err("Missing doc root node".to_string()),
-        };
-
-        let root_node = parse_doc_node(&root_value)?;
+        let root_node = yjs_doc_to_doc_node(&doc)?;
 
         let mut conn_guard = conn.lock().map_err(|e| e.to_string())?;
         let tx = conn_guard.transaction().map_err(|e| e.to_string())?;
@@ -457,70 +460,79 @@ impl Default for DocState {
     }
 }
 
-fn extract_root_node(value: &Value) -> Option<&Value> {
-    match value {
-        Value::Object(map) => {
-            if let Some(doc) = map.get("doc") {
-                return Some(doc);
-            }
-            if map.contains_key("nodeName") {
-                return Some(value);
-            }
-            None
-        }
-        _ => None,
+fn yjs_doc_to_doc_node(doc: &Doc) -> Result<DocNodePayload, String> {
+    let txn = doc.transact();
+    if let Some(fragment) = txn.get_xml_fragment("doc") {
+        Ok(DocNodePayload {
+            node_name: "doc".to_string(),
+            attr: fragment.get_string(&txn),
+            node_uuid: None,
+            text: None,
+            children: xml_fragment_children_to_nodes(&txn, &fragment),
+        })
+    } else {
+        Ok(DocNodePayload {
+            node_name: "doc".to_string(),
+            attr: String::new(),
+            node_uuid: None,
+            text: None,
+            children: Vec::new(),
+        })
     }
 }
 
-fn parse_doc_node(value: &Value) -> Result<DocNodePayload, String> {
-    match value {
-        Value::String(text) => Ok(DocNodePayload {
-            node_name: "text".to_string(),
-            attributes: serde_json::json!({}),
-            node_uuid: None,
-            text: Some(text.clone()),
-            children: Vec::new(),
-        }),
-        Value::Object(map) => {
-            let node_name = map
-                .get("nodeName")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| "Missing nodeName".to_string())?
-                .to_string();
-            let attributes = map
-                .get("attributes")
-                .cloned()
-                .unwrap_or_else(|| serde_json::json!({}));
-            let node_uuid = attributes
-                .get("uuid")
-                .and_then(|v| v.as_str())
-                .map(|v| v.to_string());
-            let text = map
-                .get("text")
-                .and_then(|v| v.as_str())
-                .map(|v| v.to_string());
+fn xml_fragment_children_to_nodes<T: ReadTxn>(
+    txn: &T,
+    fragment: &XmlFragmentRef,
+) -> Vec<DocNodePayload> {
+    fragment
+        .children(txn)
+        .flat_map(|child| xml_out_to_nodes(txn, child))
+        .collect()
+}
 
-            let mut children = Vec::new();
-            if let Some(items) = map.get("children").and_then(|v| v.as_array()) {
-                for item in items {
-                    match item {
-                        Value::String(_) | Value::Object(_) => {
-                            children.push(parse_doc_node(item)?);
-                        }
-                        _ => {}
-                    }
-                }
-            }
+fn xml_out_to_nodes<T: ReadTxn>(txn: &T, node: XmlOut) -> Vec<DocNodePayload> {
+    match node {
+        XmlOut::Text(text) => vec![xml_text_to_node(txn, &text)],
+        XmlOut::Element(element) => vec![xml_element_to_node(txn, &element)],
+        XmlOut::Fragment(fragment) => xml_fragment_children_to_nodes(txn, &fragment),
+    }
+}
 
-            Ok(DocNodePayload {
-                node_name,
-                attributes,
-                node_uuid,
-                text,
-                children,
-            })
+fn xml_element_to_node<T: ReadTxn>(txn: &T, element: &XmlElementRef) -> DocNodePayload {
+    let node_uuid = element
+        .get_attribute(txn, "uuid")
+        .map(|out| out.to_string(txn))
+        .filter(|value| !value.is_empty());
+
+    let children = element
+        .children(txn)
+        .flat_map(|child| xml_out_to_nodes(txn, child))
+        .collect();
+
+    DocNodePayload {
+        node_name: element.tag().to_string(),
+        attr: element.get_string(txn),
+        node_uuid,
+        text: None,
+        children,
+    }
+}
+
+fn xml_text_to_node<T: ReadTxn>(txn: &T, text: &XmlTextRef) -> DocNodePayload {
+    let mut plain_text = String::new();
+    for diff in text.diff(txn, YChange::identity) {
+        if let Out::Any(any) = diff.insert {
+            plain_text.push_str(&any.to_string());
         }
-        _ => Err("Unexpected node format".to_string()),
+    }
+
+    DocNodePayload {
+        node_name: "text".to_string(),
+        attr: text.get_string(txn),
+        node_uuid: None,
+        text: Some(plain_text),
+        children: Vec::new(),
     }
 }
 
@@ -602,7 +614,7 @@ fn sync_node(
     uuid_map: &mut HashMap<String, i64>,
     used_ids: &mut HashSet<i64>,
 ) -> Result<i64, String> {
-    let attr = serde_json::to_string(&node.attributes).map_err(|e| e.to_string())?;
+    let attr = node.attr.as_str();
     let node_uuid = node.node_uuid.as_deref();
     let text = node.text.as_deref();
 
@@ -672,7 +684,7 @@ fn insert_doc_node_row(
     parent_id: Option<i64>,
     position: i64,
 ) -> Result<i64, String> {
-    let attr = serde_json::to_string(&node.attributes).map_err(|e| e.to_string())?;
+    let attr = node.attr.as_str();
     let node_uuid = node.node_uuid.as_deref();
     let text = node.text.as_deref();
     tx.execute(

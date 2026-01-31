@@ -1,2 +1,4 @@
 {
+  "editor.fail_send_update": "Failed to send document update to local",
+  "editor.fail_receive_update": "Failed to sync document. Please reload."
 }

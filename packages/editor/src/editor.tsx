@@ -1,8 +1,9 @@
-import type { LoroDocType } from 'loro-prosemirror'
 import type { HTMLAttributes } from 'react'
+import type { XmlFragment } from 'yjs'
 import { cn } from '@memorilo/utils'
 
 import Bold from '@tiptap/extension-bold'
+import Collaboration, { isChangeOrigin } from '@tiptap/extension-collaboration'
 import HardBreak from '@tiptap/extension-hard-break'
 import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
@@ -14,7 +15,6 @@ import UniqueID from '@tiptap/extension-unique-id'
 
 import { Gapcursor } from '@tiptap/extensions'
 import { EditorContent, useEditor } from '@tiptap/react'
-import { loroSyncPluginKey } from 'loro-prosemirror'
 import { useMemo } from 'react'
 import { BlockquoteExtension } from './extensions/blockquote'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
@@ -22,24 +22,22 @@ import { CodeBlockPrism } from './extensions/codeblock'
 import { EmojiExtension } from './extensions/emoji'
 import { OutlineImage } from './extensions/image'
 import { InlineCodeExtension } from './extensions/inline-code'
-import { createLoroSyncExtension } from './extensions/loro-sync'
 import { Mathematics } from './extensions/mathematics'
 import { Outline } from './extensions/outline'
 import { SlashExtension } from './extensions/slash'
 import { TableExtension } from './extensions/table'
-import { LoroDocumentContext } from './provider/loro'
+import { YjsDocumentContext } from './provider/yjs'
 
 import './editor.css'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
-  doc: LoroDocType
-  username?: string
+  fragment: XmlFragment
 }
 
-export function MemoriloEditor({ className, doc, username, ...props }: MemoriloEditorProps) {
-  const loroSyncExtension = useMemo(
-    () => createLoroSyncExtension(doc, username),
-    [doc, username],
+export function MemoriloEditor({ className, fragment, ...props }: MemoriloEditorProps) {
+  const collaborationExtension = useMemo(
+    () => Collaboration.configure({ fragment }),
+    [fragment],
   )
 
   const editor = useEditor(
@@ -102,19 +100,18 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
           filterTransaction: (tr) => {
             // Adds support for collaborative editing
             // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction
-            const meta = tr.getMeta(loroSyncPluginKey) as { type?: string } | null
-            return meta?.type !== 'non-local-updates' && meta?.type !== 'update-state'
+            return !isChangeOrigin(tr)
           },
         }),
-        loroSyncExtension,
+        collaborationExtension,
       ],
     },
-    [doc, loroSyncExtension],
+    [fragment, collaborationExtension],
   )
-  const loroDocumentValue = useMemo(() => ({ doc }), [doc])
+  const yjsDocumentValue = useMemo(() => ({ fragment }), [fragment])
 
   return (
-    <LoroDocumentContext value={loroDocumentValue}>
+    <YjsDocumentContext value={yjsDocumentValue}>
       <div
         className={cn(
           'memorilo-editor',
@@ -125,8 +122,8 @@ export function MemoriloEditor({ className, doc, username, ...props }: MemoriloE
         {editor ? <EditorBubbleMenu editor={editor} /> : null}
         <EditorContent editor={editor} />
       </div>
-    </LoroDocumentContext>
+    </YjsDocumentContext>
   )
 }
 
-export type { LoroDocType } from 'loro-prosemirror'
+export type YDocType = XmlFragment

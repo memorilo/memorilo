@@ -173,7 +173,7 @@ async getDoc(docId: string) : Promise<Result<number[], Error>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getDocVersion(docId: string) : Promise<Result<VersionVector, Error>> {
+async getDocVersion(docId: string) : Promise<Result<StateVector, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_doc_version", { docId }) };
 } catch (e) {
@@ -290,8 +290,8 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  * Represents the type of a folder node in the hierarchy.
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
+export type StateVector = number[]
 export type TAURI_CHANNEL<TSend> = null
-export type VersionVector = Partial<{ [key in string]: number }>
 
 /** tauri-specta globals **/
 

@@ -101,21 +101,21 @@ impl From<tauri::Error> for Error {
     }
 }
 
-impl From<loro::LoroError> for Error {
-    fn from(err: loro::LoroError) -> Self {
+impl From<yrs::encoding::read::Error> for Error {
+    fn from(err: yrs::encoding::read::Error) -> Self {
         Error {
             kind: ErrorKind::CrdtError,
-            message: "CRDT error occurred".to_string(),
+            message: "CRDT decode error occurred".to_string(),
             inner_message: err.to_string(),
         }
     }
 }
 
-impl From<loro::LoroEncodeError> for Error {
-    fn from(err: loro::LoroEncodeError) -> Self {
+impl From<yrs::error::UpdateError> for Error {
+    fn from(err: yrs::error::UpdateError) -> Self {
         Error {
             kind: ErrorKind::CrdtError,
-            message: "CRDT encode error occurred".to_string(),
+            message: "CRDT update error occurred".to_string(),
             inner_message: err.to_string(),
         }
     }

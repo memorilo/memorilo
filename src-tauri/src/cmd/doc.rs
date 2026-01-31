@@ -1,10 +1,12 @@
 use crate::db::{self, doc::DocState, DbState, FolderNodeType};
 use crate::error::{Error, Result};
 use crate::utils::client_id;
-use loro::ExportMode;
 use serde::Serialize;
 use tauri::{ipc::Channel, State};
 use uuid::Uuid;
+use yrs::updates::decoder::Decode;
+use yrs::updates::encoder::Encode;
+use yrs::{ReadTxn, StateVector, Transact, Update};
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -14,9 +16,9 @@ pub struct CreatedTopic {
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
-#[specta(rename = "VersionVector", transparent)]
+#[specta(rename = "StateVector", transparent)]
 #[serde(transparent)]
-pub struct VersionVectorDto(pub std::collections::HashMap<String, i32>);
+pub struct StateVectorDto(pub Vec<u8>);
 
 #[tauri::command]
 #[specta::specta]
@@ -28,7 +30,10 @@ pub async fn get_doc(
     log::info!("get_doc request: {doc_id}");
     let conn = db_state.conn.lock()?;
     let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
-    Ok(doc.export(ExportMode::Snapshot)?)
+    let update = doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
+    Ok(update)
 }
 
 #[tauri::command]
@@ -37,16 +42,11 @@ pub async fn get_doc_version(
     state: State<'_, DocState>,
     db_state: State<'_, DbState>,
     doc_id: String,
-) -> Result<VersionVectorDto> {
+) -> Result<StateVectorDto> {
     let conn = db_state.conn.lock()?;
     let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
-
-    let vv = doc.oplog_vv();
-    let map = vv
-        .iter()
-        .map(|(peer, counter)| (peer.to_string(), *counter))
-        .collect();
-    Ok(VersionVectorDto(map))
+    let state_vector = doc.transact().state_vector().encode_v1();
+    Ok(StateVectorDto(state_vector))
 }
 
 #[tauri::command]
@@ -63,7 +63,8 @@ pub async fn update_doc(
         state.get_or_load(&conn, &doc_id).map_err(Error::from)?
     };
 
-    doc.import(&update)?;
+    let update_decoded = Update::decode_v1(&update)?;
+    doc.transact_mut().apply_update(update_decoded)?;
 
     {
         let conn = db_state.conn.lock()?;
@@ -167,7 +168,9 @@ pub async fn watch_doc(
     let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
     state.pin(&doc_id, doc.clone());
 
-    let snapshot = doc.export(ExportMode::Snapshot)?;
+    let snapshot = doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
     log::info!(
         "watch_doc sending full snapshot: doc_id={doc_id} bytes={}",
         snapshot.len()
@@ -176,7 +179,7 @@ pub async fn watch_doc(
         state.unpin(&doc_id);
         return Err(err.into());
     }
-    let snapshot_version = doc.oplog_vv();
+    let snapshot_version = doc.transact().state_vector();
 
     let watch_id = Uuid::now_v7().to_string();
     log::info!("watch_doc established: doc_id={doc_id} watch_id={watch_id}");
@@ -189,9 +192,9 @@ pub async fn watch_doc(
         snapshot_version.clone(),
     );
 
-    let current_version = doc.oplog_vv();
+    let current_version = doc.transact().state_vector();
     if current_version != snapshot_version {
-        let updates = doc.export(ExportMode::updates(&snapshot_version))?;
+        let updates = doc.transact().encode_diff_v1(&snapshot_version);
         if !updates.is_empty() {
             if let Err(err) = channel.send(updates) {
                 state.remove_watch(&watch_id);

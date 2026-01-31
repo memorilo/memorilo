@@ -17,6 +17,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body,
+#root {
+  overscroll-behavior: none;
+}
+
 #root {
   width: 100%;
   min-height: 100vh;

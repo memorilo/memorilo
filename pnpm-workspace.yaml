@@ -43,6 +43,7 @@ catalog:
   '@tiptap/extension-bullet-list': ^3.16.0
   '@tiptap/extension-code': ^3.16.0
   '@tiptap/extension-code-block': ^3.16.0
+  '@tiptap/extension-collaboration': ^3.16.0
   '@tiptap/extension-document': ^3.16.0
   '@tiptap/extension-emoji': ^3.16.0
   '@tiptap/extension-hard-break': ^3.16.0
@@ -62,17 +63,15 @@ catalog:
   '@tiptap/pm': ^3.16.0
   '@tiptap/react': ^3.16.0
   '@tiptap/suggestion': ^3.16.0
+  '@tiptap/y-tiptap': ^3.0.2
   '@types/node': ^24.10.6
   '@types/prismjs': ^1.26.5
   '@types/react': ^19.2.7
   '@types/react-color': ^3.0.13
   '@types/react-dom': ^19.2.3
-  '@typescript-eslint/parser': ^7.4.0
   '@vitejs/plugin-react': ^5.1.2
-  '@vitest/coverage-v8': ^1.4.0
   '@vscode/vscode-languagedetection': ^1.0.22
   babel-plugin-react-compiler: ^1.0.0
-  chromatic: ^11.5.3
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   cmdk: ^1.1.1
@@ -89,16 +88,11 @@ catalog:
   jotai: ^2.16.0
   jsdom: ^27.4.0
   katex: ^0.16.27
-  lib0: ^0.2.93
-  loro-crdt: ^1.10.3
   lucide-react: ^0.554.0
   mitt: ^3.0.1
   motion: 12.23.25
   pathe: ^2.0.3
   prismjs: ^1.30.0
-  prosemirror-model: ^1.18.1
-  prosemirror-state: ^1.4.1
-  prosemirror-view: ^1.26.2
   react: ^19.2.3
   react-color: ^2.19.3
   react-dom: ^19.2.3
@@ -107,8 +101,6 @@ catalog:
   react-scan: ^0.4.3
   react-toastify: ^11.0.5
   rollup: ^4.57.0
-  rollup-plugin-dts: ^5.3.1
-  rollup-plugin-esbuild: ^5.0.0
   rollup-plugin-postcss: ^4.0.2
   rollup-plugin-visualizer: ^6.0.5
   tailwind-merge: ^3.4.0
@@ -122,6 +114,7 @@ catalog:
   vite-plugin-top-level-await: ^1.6.0
   vite-plugin-wasm: ^3.5.0
   vitest: ^4.0.16
+  yjs: ^13.6.29
   zod: ^4.2.0
 
 catalogMode: prefer

@@ -29,7 +29,7 @@
     "i18next": "catalog:",
     "immer": "catalog:",
     "jotai": "catalog:",
-    "loro-crdt": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-i18next": "catalog:",
@@ -38,6 +38,7 @@
     "react-toastify": "catalog:",
     "tw-animate-css": "catalog:",
     "uuid": "catalog:",
+    "yjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

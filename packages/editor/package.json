@@ -32,6 +32,7 @@
     "@tiptap/extension-bullet-list": "catalog:",
     "@tiptap/extension-code": "catalog:",
     "@tiptap/extension-code-block": "catalog:",
+    "@tiptap/extension-collaboration": "catalog:",
     "@tiptap/extension-document": "catalog:",
     "@tiptap/extension-emoji": "catalog:",
     "@tiptap/extension-hard-break": "catalog:",
@@ -51,6 +52,7 @@
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
     "@tiptap/suggestion": "catalog:",
+    "@tiptap/y-tiptap": "catalog:",
     "@types/react-color": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
@@ -58,8 +60,6 @@
     "es-toolkit": "catalog:",
     "i18next": "catalog:",
     "katex": "catalog:",
-    "loro-crdt": "catalog:",
-    "loro-prosemirror": "workspace:*",
     "motion": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
@@ -67,7 +67,8 @@
     "react-dom": "catalog:",
     "react-i18next": "catalog:",
     "react-icons": "catalog:",
-    "uniqolor": "catalog:"
+    "uniqolor": "catalog:",
+    "yjs": "catalog:"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "catalog:",
