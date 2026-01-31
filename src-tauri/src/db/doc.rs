@@ -3,6 +3,7 @@ use rusqlite::{params, Connection};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tauri::async_runtime::JoinHandle;
+use serde_json::Value as JsonValue;
 use tauri::ipc::Channel;
 use tokio::time::{sleep, Duration};
 use yrs::updates::decoder::Decode;
@@ -15,6 +16,7 @@ use yrs::{
 
 const DOC_CACHE_CAPACITY: usize = 32;
 const TOPIC_SYNC_DEBOUNCE_MS: u64 = 300;
+const JSON_EMPTY_OBJ: &str = "{}";
 
 #[derive(Debug)]
 struct PinnedDoc {
@@ -465,7 +467,7 @@ fn yjs_doc_to_doc_node(doc: &Doc) -> Result<DocNodePayload, String> {
     if let Some(fragment) = txn.get_xml_fragment("doc") {
         Ok(DocNodePayload {
             node_name: "doc".to_string(),
-            attr: fragment.get_string(&txn),
+            attr: JSON_EMPTY_OBJ.to_string(),
             node_uuid: None,
             text: None,
             children: xml_fragment_children_to_nodes(&txn, &fragment),
@@ -473,7 +475,7 @@ fn yjs_doc_to_doc_node(doc: &Doc) -> Result<DocNodePayload, String> {
     } else {
         Ok(DocNodePayload {
             node_name: "doc".to_string(),
-            attr: String::new(),
+            attr: JSON_EMPTY_OBJ.to_string(),
             node_uuid: None,
             text: None,
             children: Vec::new(),
@@ -505,6 +507,14 @@ fn xml_element_to_node<T: ReadTxn>(txn: &T, element: &XmlElementRef) -> DocNodeP
         .map(|out| out.to_string(txn))
         .filter(|value| !value.is_empty());
 
+    let mut attr_map = serde_json::Map::new();
+    for (key, value) in element.attributes(txn) {
+        if key == "uuid" {
+            continue;
+        }
+        attr_map.insert(key.to_string(), JsonValue::String(value.to_string(txn)));
+    }
+
     let children = element
         .children(txn)
         .flat_map(|child| xml_out_to_nodes(txn, child))
@@ -512,7 +522,7 @@ fn xml_element_to_node<T: ReadTxn>(txn: &T, element: &XmlElementRef) -> DocNodeP
 
     DocNodePayload {
         node_name: element.tag().to_string(),
-        attr: element.get_string(txn),
+        attr: JsonValue::Object(attr_map).to_string(),
         node_uuid,
         text: None,
         children,
@@ -529,7 +539,7 @@ fn xml_text_to_node<T: ReadTxn>(txn: &T, text: &XmlTextRef) -> DocNodePayload {
 
     DocNodePayload {
         node_name: "text".to_string(),
-        attr: text.get_string(txn),
+        attr: JSON_EMPTY_OBJ.to_string(),
         node_uuid: None,
         text: Some(plain_text),
         children: Vec::new(),
