@@ -49,6 +49,21 @@ export function isSelectionInTable($pos: ResolvedPos) {
   return false
 }
 
+export function isImeComposing(
+  view?: { composing?: boolean } | null,
+  event?: { isComposing?: boolean, key?: string, keyCode?: number, which?: number } | null,
+) {
+  // IME keydowns often use keyCode 229 before compositionstart; treat as composing.
+  const keyCode = event?.keyCode ?? event?.which
+  return Boolean(
+    view?.composing
+    || event?.isComposing
+    || event?.key === 'Process'
+    || event?.key === 'Unidentified'
+    || keyCode === 229,
+  )
+}
+
 export function isOutlineMediaNode(node: ProseMirrorNode) {
   if (node.type.name === 'table') {
     return true

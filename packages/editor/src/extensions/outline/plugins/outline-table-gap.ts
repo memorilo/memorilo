@@ -5,6 +5,7 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
   findListItem,
   findSiblingListItemPos,
+  isImeComposing,
   isOutlineItemName,
   isOutlineMediaNode,
   isSelectionInTable,
@@ -127,9 +128,14 @@ function getOutlineItemEndSelection(state: EditorState, listItemPos: number) {
 }
 
 export function createOutlineTableGapPlugin() {
+  let isComposing = false
   return new Plugin({
     key: new PluginKey('outlineTableGap'),
     appendTransaction: (_transactions, _oldState, newState) => {
+      if (isComposing) {
+        // IME composition can transiently create gap selections; avoid syncing preedit state.
+        return null
+      }
       if (!(newState.selection instanceof GapCursor)) {
         return null
       }
@@ -156,7 +162,21 @@ export function createOutlineTableGapPlugin() {
       return newState.tr.setSelection(TextSelection.near($from, 1))
     },
     props: {
+      handleDOMEvents: {
+        compositionstart: () => {
+          isComposing = true
+          return false
+        },
+        compositionend: () => {
+          isComposing = false
+          return false
+        },
+      },
       handleTextInput: (view) => {
+        // IME composition should not be intercepted; let the editor commit text first.
+        if (isImeComposing(view)) {
+          return false
+        }
         // Prevent inserting text before leading media so Tab/Shift-Tab can adjust outline depth.
         return isOutlineMediaGapSelection(view.state)
       },
@@ -164,6 +184,10 @@ export function createOutlineTableGapPlugin() {
         return isOutlineMediaGapSelection(view.state)
       },
       handleKeyDown: (view, event) => {
+        // IME composition emits keydown with preedit text; skip handling to avoid syncing pinyin.
+        if (isImeComposing(view, event)) {
+          return false
+        }
         if ((event.key === 'ArrowLeft' || event.key === 'ArrowUp') && isTableSelectionAtEdge(view.state)) {
           const gapPos = getOutlineMediaGapPos(view.state)
           if (gapPos !== null) {

@@ -34,7 +34,6 @@ export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>
   fragment: XmlFragment
 }
 
-
 export function MemoriloEditor({ className, fragment, ...props }: MemoriloEditorProps) {
   const collaborationExtension = useMemo(
     () => Collaboration.configure({ fragment }),

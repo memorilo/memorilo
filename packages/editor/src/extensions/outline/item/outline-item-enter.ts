@@ -3,6 +3,7 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
   findFirstChildListPos,
   findListItem,
+  isImeComposing,
   isListContainerNode,
   isOutlineTextBlockNode,
   isSelectionInTable,
@@ -14,6 +15,11 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
     key: new PluginKey(`outlineItemEnterHandler:${itemTypeName}`),
     props: {
       handleKeyDown: (view, event) => {
+        // IME composition can trigger Enter for commit; skip to avoid syncing preedit text.
+        if (isImeComposing(view, event)) {
+          return false
+        }
+
         if (event.key !== 'Enter' || event.metaKey || event.ctrlKey || event.shiftKey) {
           return false
         }

@@ -118,71 +118,69 @@ function isSelectionAtItemEdge(
   return true
 }
 
-function handleOutlineArrowNavigation(view: EditorView, event: KeyboardEvent) {
-  if (isSlashSuggestionActive(view)) {
-    return false
-  }
-
-  const intent = getArrowIntent(event)
-  if (!intent) {
-    return false
-  }
-
-  const { direction, useEndSelection } = intent
-  const { state } = view
-  const { selection } = state
-  if (selection instanceof TextSelection && isSelectionInTable(selection.$from)) {
-    return false
-  }
-
-  let listItemPos: number | null = null
-  let shouldHandle = selection instanceof NodeSelection
-
-  if (selection instanceof NodeSelection) {
-    if (!isOutlineItemNode(selection.node)) {
-      return false
-    }
-    listItemPos = selection.from
-  }
-  else if (selection instanceof TextSelection) {
-    const { $from } = selection
-    const listItem = findListItem($from)
-    if (!listItem) {
-      return false
-    }
-    if (!isSelectionAtItemEdge(view, selection, listItem, intent)) {
-      return false
-    }
-    listItemPos = listItem.pos
-    shouldHandle = true
-  }
-
-  if (!shouldHandle || listItemPos === null) {
-    return false
-  }
-
-  const targetPos = findAdjacentVisibleOutlineItemPos(state, listItemPos, direction)
-  if (targetPos === null) {
-    return false
-  }
-
-  const nextSelection = useEndSelection
-    ? getOutlineItemEndSelection(state, targetPos)
-    : getOutlineItemSelection(state, targetPos)
-  if (!nextSelection) {
-    return false
-  }
-
-  event.preventDefault()
-  view.dispatch(state.tr.setSelection(nextSelection).scrollIntoView())
-  return true
-}
-
 export function createOutlineNavigationPlugin() {
   return new Plugin({
     key: new PluginKey('outlineNavigation'),
     props: {
-      handleKeyDown: handleOutlineArrowNavigation,
+      handleKeyDown: (view, event) => {
+        if (isSlashSuggestionActive(view)) {
+          return false
+        }
+
+        const intent = getArrowIntent(event)
+        if (!intent) {
+          return false
+        }
+
+        const { direction, useEndSelection } = intent
+        const { state } = view
+        const { selection } = state
+        if (selection instanceof TextSelection && isSelectionInTable(selection.$from)) {
+          return false
+        }
+
+        let listItemPos: number | null = null
+        let shouldHandle = selection instanceof NodeSelection
+
+        if (selection instanceof NodeSelection) {
+          if (!isOutlineItemNode(selection.node)) {
+            return false
+          }
+          listItemPos = selection.from
+        }
+        else if (selection instanceof TextSelection) {
+          const { $from } = selection
+          const listItem = findListItem($from)
+          if (!listItem) {
+            return false
+          }
+          if (!isSelectionAtItemEdge(view, selection, listItem, intent)) {
+            return false
+          }
+          listItemPos = listItem.pos
+          shouldHandle = true
+        }
+
+        if (!shouldHandle || listItemPos === null) {
+          return false
+        }
+
+        const targetPos = findAdjacentVisibleOutlineItemPos(state, listItemPos, direction)
+        if (targetPos === null) {
+          return false
+        }
+
+        const nextSelection = useEndSelection
+          ? getOutlineItemEndSelection(state, targetPos)
+          : getOutlineItemSelection(state, targetPos)
+        if (!nextSelection) {
+          return false
+        }
+
+        event.preventDefault()
+        view.dispatch(state.tr.setSelection(nextSelection).scrollIntoView())
+        return true
+      },
     },
   })
 }

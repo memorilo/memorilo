@@ -1,6 +1,6 @@
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
-import { findListItem, isOutlineTextBlockNode, isSelectionInTable } from '../core/outline-utils'
+import { findListItem, isImeComposing, isOutlineTextBlockNode, isSelectionInTable } from '../core/outline-utils'
 
 const orderedItemInputRegex = /^(\d+)\.$/
 
@@ -20,6 +20,11 @@ export function createOrderedItemInputPlugin() {
     key: new PluginKey('outlineOrderedItemInput'),
     props: {
       handleKeyDown(view, event) {
+        // IME composition uses Space for candidate selection; skip to avoid syncing preedit text.
+        if (isImeComposing(view, event)) {
+          return false
+        }
+
         if (event.key !== ' ' && event.key !== 'Spacebar' && event.code !== 'Space')
           return false
 

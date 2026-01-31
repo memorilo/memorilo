@@ -34,10 +34,9 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
     return ['li', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
   },
 
-  // TODO(IME): Disabled due to IME regression. Re-enable after fixing keymap handling.
-  // addKeyboardShortcuts() {
-  //   return outlineKeymap(this.name)
-  // },
+  addKeyboardShortcuts() {
+    return outlineKeymap(this.name)
+  },
 })
 
 export const OutlineTaskItem = TaskItem.extend<OutlineTaskItemOptions>({
@@ -62,20 +61,19 @@ export const OutlineTaskItem = TaskItem.extend<OutlineTaskItemOptions>({
     }
   },
 
-  // TODO(IME): Disabled due to IME regression. Re-enable after fixing keymap handling.
-  // addKeyboardShortcuts() {
-  //   const parentShortcuts = this.parent?.() ?? {}
-  //   const restShortcuts = { ...parentShortcuts }
-  //   // Let the outline Enter handler control taskItem splitting/child insertion.
-  //   delete restShortcuts.Enter
-  //   // Defer Backspace behavior to the shared outline handler.
-  //   delete restShortcuts.Backspace
-  //
-  //   return {
-  //     ...restShortcuts,
-  //     ...outlineKeymap(this.name),
-  //   }
-  // },
+  addKeyboardShortcuts() {
+    const parentShortcuts = this.parent?.() ?? {}
+    const restShortcuts = { ...parentShortcuts }
+    // Let the outline Enter handler control taskItem splitting/child insertion.
+    delete restShortcuts.Enter
+    // Defer Backspace behavior to the shared outline handler.
+    delete restShortcuts.Backspace
+
+    return {
+      ...restShortcuts,
+      ...outlineKeymap(this.name),
+    }
+  },
 
 })
 
@@ -111,8 +109,7 @@ export const OutlineOrderedItem = Node.create<OutlineItemOptions>({
     return ['li', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
   },
 
-  // TODO(IME): Disabled due to IME regression. Re-enable after fixing keymap handling.
-  // addKeyboardShortcuts() {
-  //   return outlineKeymap(this.name)
-  // },
+  addKeyboardShortcuts() {
+    return outlineKeymap(this.name)
+  },
 })

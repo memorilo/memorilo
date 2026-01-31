@@ -5,6 +5,7 @@ import {
   findAdjacentVisibleOutlineItemPos,
   findListItem,
   getOutlineItemSelection,
+  isImeComposing,
   isSelectionInTable,
 } from '../core/outline-utils'
 import { liftOutlineListItem, sinkOutlineListItem } from '../list/outline-list-commands'
@@ -13,6 +14,7 @@ type Dispatch = ((tr: Transaction) => void) | undefined
 
 interface KeyboardShortcutContext {
   editor: Editor
+  event?: KeyboardEvent
   view?: EditorView
 }
 
@@ -120,14 +122,22 @@ export const outlineCommands = {
 
 export function outlineKeymap(_nodeTypeName: string) {
   return {
-    'Tab': ({ editor }: KeyboardShortcutContext) => {
+    'Tab': ({ editor, event }: KeyboardShortcutContext) => {
+      // Skip during IME composition to avoid committing preedit text into Yjs.
+      if (isImeComposing(editor.view ?? undefined, event)) {
+        return false
+      }
       if (shouldSkipOutlineIndentation(editor)) {
         return false
       }
       return sinkOutlineListItem(editor.state, editor.view?.dispatch)
     },
 
-    'Shift-Tab': ({ editor }: KeyboardShortcutContext) => {
+    'Shift-Tab': ({ editor, event }: KeyboardShortcutContext) => {
+      // Skip during IME composition to avoid committing preedit text into Yjs.
+      if (isImeComposing(editor.view ?? undefined, event)) {
+        return false
+      }
       if (shouldSkipOutlineIndentation(editor)) {
         return false
       }
@@ -135,15 +145,27 @@ export function outlineKeymap(_nodeTypeName: string) {
       return liftOutlineListItem(editor.state, editor.view?.dispatch)
     },
 
-    'Mod-[': ({ editor }: KeyboardShortcutContext) => {
+    'Mod-[': ({ editor, event }: KeyboardShortcutContext) => {
+      // Skip during IME composition to avoid committing preedit text into Yjs.
+      if (isImeComposing(editor.view ?? undefined, event)) {
+        return false
+      }
       return editor.commands.fold()
     },
 
-    'Mod-]': ({ editor }: KeyboardShortcutContext) => {
+    'Mod-]': ({ editor, event }: KeyboardShortcutContext) => {
+      // Skip during IME composition to avoid committing preedit text into Yjs.
+      if (isImeComposing(editor.view ?? undefined, event)) {
+        return false
+      }
       return editor.commands.unfold()
     },
 
-    'Mod-\\': ({ editor }: KeyboardShortcutContext) => {
+    'Mod-\\': ({ editor, event }: KeyboardShortcutContext) => {
+      // Skip during IME composition to avoid committing preedit text into Yjs.
+      if (isImeComposing(editor.view ?? undefined, event)) {
+        return false
+      }
       return editor.commands.toggleFold()
     },
 

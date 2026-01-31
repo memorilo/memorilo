@@ -2,7 +2,7 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { NodeViewProps } from '@tiptap/react'
 import { cn } from '@memorilo/utils'
 import { GapCursor } from '@tiptap/pm/gapcursor'
-import { NodeViewWrapper, useReactNodeView } from '@tiptap/react'
+import { NodeViewContent, NodeViewWrapper } from '@tiptap/react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getOutlineLevel, isListContainerNode, isOutlineMediaNode } from '../core/outline-utils'
@@ -25,7 +25,6 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
   const isOrderedItem = node.type.name === 'orderedItem'
   const isChecked = Boolean(node.attrs.checked)
   const isFolded = node.attrs.folded
-  const { nodeViewContentRef } = useReactNodeView()
   const level = useMemo(() => {
     const pos = getPos()
     if (typeof pos !== 'number')
@@ -214,11 +213,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
                 />
               )
             : null}
-          <div
-            ref={nodeViewContentRef}
-            data-node-view-content=""
-            className="whitespace-pre-wrap"
-          />
+          <NodeViewContent className="whitespace-pre-wrap" />
         </div>
       </div>
     </NodeViewWrapper>

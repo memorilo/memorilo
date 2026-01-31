@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import type { Node as ProseMirrorNode, Schema } from '@tiptap/pm/model'
+import type { NodeType, Node as ProseMirrorNode, Schema } from '@tiptap/pm/model'
 import type { EditorState, Selection, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { Fragment, Slice } from '@tiptap/pm/model'
@@ -29,7 +29,7 @@ interface BackspaceContext {
   listEnd: number
   listItemPos: number
   listItemEnd: number
-  listItemType: ReturnType<EditorState['schema']['nodes']['listItem']> | null
+  listItemType: NodeType | null
 }
 
 function getPromotedChildrenFragment(schema: Schema, listItemNode: ProseMirrorNode, parentListType: ProseMirrorNode['type']) {
@@ -133,8 +133,8 @@ function handleOrderedItemBackspace(view: EditorView, ctx: BackspaceContext) {
     return dispatchTransaction(view, tr)
   }
 
-  const prevPos = findSiblingListItemPos(ctx.state, ctx.listItem, 'prev')
-  let targetItemPos = prevPos
+  const prevPos = findSiblingListItemPos(ctx.state, ctx.listItem, 'prev') as number | null
+  let targetItemPos: number | null = prevPos
   if (targetItemPos === null) {
     const parentItem = findParentOutlineItem(ctx.state, ctx.listDepth)
     if (parentItem && parentItem.pos !== ctx.listItemPos) {
