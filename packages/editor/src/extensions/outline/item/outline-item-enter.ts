@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import type { NodeType } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
   findFirstChildListPos,
@@ -9,6 +10,14 @@ import {
   isSelectionInTable,
 } from '../core/outline-utils'
 import { resolveItemTypeForList } from '../list/outline-list-utils'
+
+function createEmptyListItem(
+  listItemType: NodeType,
+  paragraphType: NodeType,
+) {
+  const attrs = listItemType.name === 'taskItem' ? { checked: false } : null
+  return listItemType.create(attrs, paragraphType.create())
+}
 
 export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: string) {
   return new Plugin({
@@ -44,8 +53,28 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           return false
         }
 
+        const isRootItem = listItem.depth === 1
         const isEmpty = parent.content.size === 0
         const childListPos = findFirstChildListPos(listItem)
+
+        if (isRootItem && childListPos === null) {
+          const listItemType = listItem.node.type
+          const paragraphType = state.schema.nodes.paragraph
+          const bulletListType = state.schema.nodes.bulletList
+          if (!paragraphType || !bulletListType) {
+            return false
+          }
+
+          const insertPos = listItem.pos + listItem.node.nodeSize - 1
+          // Root item: Enter should always create the first child list instead of a sibling.
+          const childItem = createEmptyListItem(listItemType, paragraphType)
+          const childList = bulletListType.create(null, childItem)
+          const tr = state.tr.insert(insertPos, childList)
+          const selectionPos = Math.min(insertPos + 3, tr.doc.content.size)
+          tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)))
+          dispatch(tr)
+          return true
+        }
 
         if (childListPos !== null) {
           const listItemType = listItem.node.type
@@ -79,10 +108,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           const insertPos = listItem.pos + listItem.node.nodeSize
           const tr = state.tr.insert(
             insertPos,
-            listItemType.create(
-              listItemType.name === 'taskItem' ? { checked: false } : null,
-              paragraphType.create(),
-            ),
+            createEmptyListItem(listItemType, paragraphType),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
           dispatch(tr)

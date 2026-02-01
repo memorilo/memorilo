@@ -58,7 +58,7 @@ export function createOrderedItemInputPlugin() {
           return false
 
         const listDepth = listItem.depth - 1
-        if (listDepth < 1)
+        if (listDepth <= 1)
           return false
 
         const listNode = $from.node(listDepth)

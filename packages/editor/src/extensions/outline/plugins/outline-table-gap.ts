@@ -82,7 +82,7 @@ function moveFromMediaGapSelection(view: EditorView, direction: 'up' | 'left') {
 
   // If there is no previous sibling, move to the parent list position to preserve outline navigation flow.
   const listDepth = listItem.depth - 1
-  if (listDepth >= 0) {
+  if (listDepth > 0) {
     const listPos = view.state.selection.$from.before(listDepth)
     const nextSelection = TextSelection.near(view.state.doc.resolve(listPos), -1)
     view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView())

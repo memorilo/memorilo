@@ -7,7 +7,6 @@ import Collaboration, { isChangeOrigin } from '@tiptap/extension-collaboration'
 import HardBreak from '@tiptap/extension-hard-break'
 import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
-import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
@@ -24,6 +23,7 @@ import { OutlineImage } from './extensions/image'
 import { InlineCodeExtension } from './extensions/inline-code'
 import { Mathematics } from './extensions/mathematics'
 import { Outline } from './extensions/outline'
+import { TitleParagraph } from './extensions/paragraph'
 import { SlashExtension } from './extensions/slash'
 import { TableExtension } from './extensions/table'
 import { YjsDocumentContext } from './provider/yjs'
@@ -32,9 +32,10 @@ import './editor.css'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   fragment: XmlFragment
+  hideTitle?: boolean
 }
 
-export function MemoriloEditor({ className, fragment, ...props }: MemoriloEditorProps) {
+export function MemoriloEditor({ className, fragment, hideTitle = false, ...props }: MemoriloEditorProps) {
   const collaborationExtension = useMemo(
     () => Collaboration.configure({ fragment }),
     [fragment],
@@ -47,7 +48,9 @@ export function MemoriloEditor({ className, fragment, ...props }: MemoriloEditor
         Italic,
         Underline,
         Strike,
-        Paragraph,
+        TitleParagraph.configure({
+          hideTitle,
+        }),
         Text,
         BlockquoteExtension,
         HardBreak.configure({
@@ -96,7 +99,7 @@ export function MemoriloEditor({ className, fragment, ...props }: MemoriloEditor
         UniqueID.configure({
           attributeName: 'uuid',
           updateDocument: true,
-          types: ['listItem', 'orderedItem', 'taskItem'],
+          types: ['listItem', 'orderedItem', 'taskItem', 'bulletList'],
           filterTransaction: (tr) => {
             // Adds support for collaborative editing
             // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction

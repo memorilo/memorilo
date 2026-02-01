@@ -92,7 +92,7 @@ function createBackspaceContext(state: EditorState, listItem: ListItemContext | 
     return null
   }
   const listDepth = listItem.depth - 1
-  if (listDepth < 0) {
+  if (listDepth < 1) {
     return null
   }
   const listNode = state.selection.$from.node(listDepth)

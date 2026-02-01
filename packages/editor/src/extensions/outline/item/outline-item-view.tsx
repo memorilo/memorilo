@@ -25,12 +25,20 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
   const isOrderedItem = node.type.name === 'orderedItem'
   const isChecked = Boolean(node.attrs.checked)
   const isFolded = node.attrs.folded
+  const hideTitle = Boolean(editor.storage.paragraph?.hideTitle)
   const level = useMemo(() => {
     const pos = getPos()
     if (typeof pos !== 'number')
       return 1
     return getOutlineLevel(editor.state.doc.resolve(pos))
   }, [editor.state.doc, getPos])
+  const isRootItem = useMemo(() => {
+    const pos = getPos()
+    return typeof pos === 'number' && pos === 0
+  }, [getPos])
+  const showTitleGutter = !(hideTitle && isRootItem)
+  // Only nested items get a guide line; the root title gets one unless it's hidden.
+  const shouldRenderIndentGuide = level > 1 || (isRootItem && !hideTitle)
   const hasChildren = useMemo(() => {
     let found = false
     node.forEach((child) => {
@@ -47,8 +55,6 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     }
     return isOutlineMediaNode(firstChild)
   }, [node])
-  const showIndentGuide = level > 1
-
   const orderedIndex = useOrderedIndex(editor, getPos, isOrderedItem)
 
   const handleToggle = useCallback(
@@ -154,17 +160,21 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       data-outline-level={level}
       data-folded={isFolded ? 'true' : 'false'}
       className={cn(
-        'relative my-[2px]',
+        'relative',
+        hideTitle && isRootItem ? 'my-0' : 'my-0.5',
         'data-[folded=true]:[&_ul]:hidden data-[folded=true]:[&_ol]:hidden',
       )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {showIndentGuide
+      {shouldRenderIndentGuide
         ? (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute top-0 bottom-0 -left-3 border-l border-dashed border-gray-300 dark:border-gray-600"
+              className={cn(
+                'pointer-events-none absolute border-l border-dashed border-gray-300 dark:border-gray-600',
+                isRootItem ? 'top-6 bottom-0 left-5' : 'top-0 bottom-0 -left-3',
+              )}
             />
           )
         : null}
@@ -175,25 +185,31 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
         )}
         data-outline-row
       >
-        <div className={cn('relative w-8 h-6 shrink-0', isTaskItem ? 'mt-0' : 'mt-0.5')}>
-          <OutlineItemControls
-            hovered={hovered}
-            hasChildren={hasChildren}
-            isFolded={isFolded}
-            onToggle={handleToggle}
-            onGripMouseDown={handleGripMouseDown}
-          />
-          <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center" data-outline-dot>
-            <OutlineItemDot
-              isTaskItem={isTaskItem}
-              isOrderedItem={isOrderedItem}
-              isChecked={isChecked}
-              orderedIndex={orderedIndex}
-              checkboxLabel={checkboxLabel}
-              onCheckboxChange={handleCheckboxChange}
-            />
-          </div>
-        </div>
+        {showTitleGutter
+          ? (
+              <div
+                className={cn('relative w-8 h-6 shrink-0', isTaskItem ? 'mt-0' : 'mt-0.5')}
+              >
+                <OutlineItemControls
+                  hovered={hovered}
+                  hasChildren={hasChildren}
+                  isFolded={isFolded}
+                  onToggle={handleToggle}
+                  onGripMouseDown={handleGripMouseDown}
+                />
+                <div className="absolute right-0 top-0 w-6 h-6 flex items-center justify-center" data-outline-dot>
+                  <OutlineItemDot
+                    isTaskItem={isTaskItem}
+                    isOrderedItem={isOrderedItem}
+                    isChecked={isChecked}
+                    orderedIndex={orderedIndex}
+                    checkboxLabel={checkboxLabel}
+                    onCheckboxChange={handleCheckboxChange}
+                  />
+                </div>
+              </div>
+            )
+          : null}
 
         <div
           className={cn(

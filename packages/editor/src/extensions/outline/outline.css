@@ -11,6 +11,14 @@
   padding-left: 0;
 }
 
+.memorilo-editor .ProseMirror li[data-outline-item="true"] {
+  list-style: none;
+}
+
+.memorilo-editor .ProseMirror li[data-outline-item="true"]::marker {
+  content: '';
+}
+
 .memorilo-editor .ProseMirror-gapcursor::after {
   content: '';
   display: block;
