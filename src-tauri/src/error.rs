@@ -1,6 +1,5 @@
 use serde::Serialize;
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, specta::Type, Serialize)]
 pub enum ErrorKind {
     DatabaseError,
@@ -127,6 +126,33 @@ impl From<String> for Error {
             kind: ErrorKind::StateError,
             message: "Operation failed".to_string(),
             inner_message: err,
+        }
+    }
+}
+
+impl From<crate::db::doc::DocError> for Error {
+    fn from(err: crate::db::doc::DocError) -> Self {
+        match err {
+            crate::db::doc::DocError::LockPoison { context } => Error {
+                kind: ErrorKind::StateError,
+                message: "State lock poisoned".to_string(),
+                inner_message: context.to_string(),
+            },
+            crate::db::doc::DocError::Db { context, source } => Error {
+                kind: ErrorKind::DatabaseError,
+                message: format!("Database error during {context}"),
+                inner_message: source.to_string(),
+            },
+            crate::db::doc::DocError::CrdtDecode { context, source } => Error {
+                kind: ErrorKind::CrdtError,
+                message: format!("CRDT decode error during {context}"),
+                inner_message: source.to_string(),
+            },
+            crate::db::doc::DocError::CrdtUpdate { context, source } => Error {
+                kind: ErrorKind::CrdtError,
+                message: format!("CRDT update error during {context}"),
+                inner_message: source.to_string(),
+            },
         }
     }
 }

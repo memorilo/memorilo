@@ -1,7 +1,9 @@
+use crate::cmd::ToastEvent;
 use crate::db;
 use tauri::App;
 use tauri::Manager;
 use tauri_specta::collect_commands;
+use tauri_specta::collect_events;
 
 use crate::cmd::SettingsState;
 
@@ -32,7 +34,7 @@ pub fn get_specta_builder() -> tauri_specta::Builder {
         crate::cmd::create_topic,
         crate::cmd::watch_doc,
         crate::cmd::unwatch_doc,
-    ]);
+    ]).events(collect_events![ToastEvent]);
 
     #[cfg(debug_assertions)]
     builder

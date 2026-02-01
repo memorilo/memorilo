@@ -1,4 +1,8 @@
 {
   "editor.fail_send_update": "Failed to send document update to local",
-  "editor.fail_receive_update": "Failed to sync document. Please reload."
+  "editor.fail_receive_update": "Failed to sync document. Please reload.",
+  "rs.doc.lock_poison": "State lock poisoned: {context}",
+  "rs.doc.db": "Database error during {context}: {error}",
+  "rs.doc.crdt_decode": "CRDT decode error during {context}: {error}",
+  "rs.doc.crdt_update": "CRDT update error during {context}: {error}"
 }

@@ -1,14 +1,14 @@
 use crate::utils::lru_cache::LruCache;
 use rusqlite::{params, Connection};
+use serde_json::Value as JsonValue;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tauri::async_runtime::JoinHandle;
-use serde_json::Value as JsonValue;
 use tauri::ipc::Channel;
+use thiserror::Error as ThisError;
 use tokio::time::{sleep, Duration};
 use yrs::updates::decoder::Decode;
 use yrs::types::text::YChange;
-use yrs::types::GetString;
 use yrs::{
     Doc, Out, ReadTxn, StateVector, Text, Transact, Update, Xml, XmlElementRef, XmlFragment,
     XmlFragmentRef, XmlOut, XmlTextRef,
@@ -17,6 +17,42 @@ use yrs::{
 const DOC_CACHE_CAPACITY: usize = 32;
 const TOPIC_SYNC_DEBOUNCE_MS: u64 = 300;
 const JSON_EMPTY_OBJ: &str = "{}";
+
+pub type DocResult<T> = std::result::Result<T, DocError>;
+
+#[derive(Debug, ThisError)]
+pub enum DocError {
+    #[error("state lock poisoned: {context}")]
+    LockPoison { context: &'static str },
+    #[error("database error during {context}: {source}")]
+    Db {
+        context: &'static str,
+        #[source]
+        source: rusqlite::Error,
+    },
+    #[error("CRDT decode error during {context}: {source}")]
+    CrdtDecode {
+        context: &'static str,
+        #[source]
+        source: yrs::encoding::read::Error,
+    },
+    #[error("CRDT update error during {context}: {source}")]
+    CrdtUpdate {
+        context: &'static str,
+        #[source]
+        source: yrs::error::UpdateError,
+    },
+}
+
+fn lock_mutex<'a, T>(
+    mutex: &'a Mutex<T>,
+    context: &'static str,
+) -> DocResult<std::sync::MutexGuard<'a, T>> {
+    mutex.lock().map_err(|_| {
+        log::error!("Mutex poisoned: {context}");
+        DocError::LockPoison { context }
+    })
+}
 
 #[derive(Debug)]
 struct PinnedDoc {
@@ -80,72 +116,99 @@ impl DocState {
 
     /// Get a Yrs Doc from the cache by doc_id.
     /// If not in cache, returns None.
-    pub fn get(&self, doc_id: &str) -> Option<Doc> {
-        if let Some(doc) = self
-            .pinned
-            .lock()
-            .unwrap()
-            .get(doc_id)
-            .map(|entry| entry.doc.clone())
-        {
-            return Some(doc);
+    pub fn get(&self, doc_id: &str) -> DocResult<Option<Doc>> {
+        let doc = {
+            let pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
+            pinned.get(doc_id).map(|entry| entry.doc.clone())
+        };
+        if doc.is_some() {
+            return Ok(doc);
         }
-        let mut cache = self.cache.lock().unwrap();
-        cache.get(&doc_id.to_string()).cloned()
+        let mut cache = lock_mutex(&self.cache, "DocState.cache")?;
+        Ok(cache.get(&doc_id.to_string()).cloned())
     }
 
     /// Insert a Yrs Doc into the cache.
-    pub fn insert(&self, doc_id: String, doc: Doc) {
-        if let Some(entry) = self.pinned.lock().unwrap().get_mut(&doc_id) {
-            entry.doc = doc;
-            return;
+    pub fn insert(&self, doc_id: String, doc: Doc) -> DocResult<()> {
+        {
+            let mut pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
+            if let Some(entry) = pinned.get_mut(&doc_id) {
+                entry.doc = doc;
+                return Ok(());
+            }
         }
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = lock_mutex(&self.cache, "DocState.cache")?;
         cache.put(doc_id, doc);
+        Ok(())
     }
 
     /// Remove a Yrs Doc from the cache.
-    pub fn remove(&self, doc_id: &str) -> Option<Doc> {
-        if let Some(entry) = self.pinned.lock().unwrap().remove(doc_id) {
-            return Some(entry.doc);
+    pub fn remove(&self, doc_id: &str) -> DocResult<Option<Doc>> {
+        let removed = {
+            let mut pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
+            pinned.remove(doc_id).map(|entry| entry.doc)
+        };
+        if removed.is_some() {
+            return Ok(removed);
         }
-        let mut cache = self.cache.lock().unwrap();
-        cache.remove(&doc_id.to_string())
+        let mut cache = lock_mutex(&self.cache, "DocState.cache")?;
+        Ok(cache.remove(&doc_id.to_string()))
     }
 
     /// Check if a doc_id exists in the cache.
-    pub fn contains(&self, doc_id: &str) -> bool {
-        if self.pinned.lock().unwrap().contains_key(doc_id) {
-            return true;
+    pub fn contains(&self, doc_id: &str) -> DocResult<bool> {
+        let has_pinned = {
+            let pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
+            pinned.contains_key(doc_id)
+        };
+        if has_pinned {
+            return Ok(true);
         }
-        let cache = self.cache.lock().unwrap();
-        cache.contains_key(&doc_id.to_string())
+        let cache = lock_mutex(&self.cache, "DocState.cache")?;
+        Ok(cache.contains_key(&doc_id.to_string()))
     }
 
     /// Clear all documents from the cache.
-    pub fn clear(&self) {
-        let mut cache = self.cache.lock().unwrap();
-        cache.clear();
-        self.pinned.lock().unwrap().clear();
-        self.watches.lock().unwrap().clear();
-        self.topic_syncs.lock().unwrap().clear();
+    pub fn clear(&self) -> DocResult<()> {
+        lock_mutex(&self.pinned, "DocState.pinned")?.clear();
+        lock_mutex(&self.cache, "DocState.cache")?.clear();
+        lock_mutex(&self.watches, "DocState.watches")?.clear();
+        lock_mutex(&self.topic_syncs, "DocState.topic_syncs")?.clear();
+        Ok(())
     }
 
     /// Get the current number of documents in the cache.
-    pub fn len(&self) -> usize {
-        let cache_len = self.cache.lock().unwrap().len();
-        let pinned_len = self.pinned.lock().unwrap().len();
-        cache_len + pinned_len
+    pub fn len(&self) -> DocResult<usize> {
+        let pinned_len = {
+            let pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
+            pinned.len()
+        };
+        let cache_len = {
+            let cache = lock_mutex(&self.cache, "DocState.cache")?;
+            cache.len()
+        };
+        Ok(cache_len + pinned_len)
     }
 
     /// Check if the cache is empty.
-    pub fn is_empty(&self) -> bool {
-        self.cache.lock().unwrap().is_empty() && self.pinned.lock().unwrap().is_empty()
+    pub fn is_empty(&self) -> DocResult<bool> {
+        let pinned_empty = {
+            let pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
+            pinned.is_empty()
+        };
+        if !pinned_empty {
+            return Ok(false);
+        }
+        let cache_empty = {
+            let cache = lock_mutex(&self.cache, "DocState.cache")?;
+            cache.is_empty()
+        };
+        Ok(cache_empty)
     }
 
     /// Load a document from the update log if not present in cache.
-    pub fn get_or_load(&self, conn: &Connection, doc_id: &str) -> Result<Doc, String> {
-        if let Some(doc) = self.get(doc_id) {
+    pub fn get_or_load(&self, conn: &Connection, doc_id: &str) -> DocResult<Doc> {
+        if let Some(doc) = self.get(doc_id)? {
             return Ok(doc);
         }
 
@@ -153,31 +216,46 @@ impl DocState {
 
         let mut stmt = conn
             .prepare("SELECT data FROM doc_updates WHERE doc_id = ? ORDER BY created_at ASC, id ASC")
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| DocError::Db {
+                context: "prepare doc_updates select",
+                source: e,
+            })?;
 
         let updates = stmt
             .query_map(params![doc_id], |row| row.get::<_, Vec<u8>>(0))
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| DocError::Db {
+                context: "query doc_updates rows",
+                source: e,
+            })?;
 
         let doc = Doc::new();
         let mut updates_count = 0usize;
         {
             let mut txn = doc.transact_mut();
             for update in updates {
-                let data = update.map_err(|e| e.to_string())?;
-                let update = Update::decode_v1(&data).map_err(|e| e.to_string())?;
-                txn.apply_update(update).map_err(|e| e.to_string())?;
+                let data = update.map_err(|e| DocError::Db {
+                    context: "read doc_updates row",
+                    source: e,
+                })?;
+                let update = Update::decode_v1(&data).map_err(|e| DocError::CrdtDecode {
+                    context: "decode update",
+                    source: e,
+                })?;
+                txn.apply_update(update).map_err(|e| DocError::CrdtUpdate {
+                    context: "apply update",
+                    source: e,
+                })?;
                 updates_count += 1;
             }
         }
 
-        self.insert(doc_id.to_string(), doc.clone());
+        self.insert(doc_id.to_string(), doc.clone())?;
         log::info!("Loaded doc from db: {doc_id} (updates: {updates_count})");
         Ok(doc)
     }
 
     /// Create a new document and persist an initial snapshot.
-    pub fn create_doc(&self, conn: &Connection, doc_id: &str) -> Result<Doc, String> {
+    pub fn create_doc(&self, conn: &Connection, doc_id: &str) -> DocResult<Doc> {
         log::info!("Creating doc: {doc_id}");
         let doc = Doc::new();
         let snapshot = doc
@@ -188,34 +266,43 @@ impl DocState {
             "INSERT INTO doc_updates (doc_id, data, client_id, sync_status) VALUES (?1, ?2, ?3, 0)",
             params![doc_id, snapshot, client_id],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| DocError::Db {
+            context: "insert doc_updates initial snapshot",
+            source: e,
+        })?;
 
-        self.insert(doc_id.to_string(), doc.clone());
+        self.insert(doc_id.to_string(), doc.clone())?;
         log::info!("Created doc: {doc_id}");
         Ok(doc)
     }
 
     /// Delete a document's persisted data and purge it from memory.
-    pub fn delete_doc(&self, conn: &Connection, doc_id: &str) -> Result<(), String> {
+    pub fn delete_doc(&self, conn: &Connection, doc_id: &str) -> DocResult<()> {
         log::info!("Deleting doc: {doc_id}");
         conn.execute("DELETE FROM doc_updates WHERE doc_id = ?1", params![doc_id])
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| DocError::Db {
+                context: "delete doc_updates by doc_id",
+                source: e,
+            })?;
         conn.execute("DELETE FROM doc_nodes WHERE doc_id = ?1", params![doc_id])
-            .map_err(|e| e.to_string())?;
-        self.purge_doc(doc_id);
+            .map_err(|e| DocError::Db {
+                context: "delete doc_nodes by doc_id",
+                source: e,
+            })?;
+        self.purge_doc(doc_id)?;
         log::info!("Deleted doc: {doc_id}");
         Ok(())
     }
 
     /// Remove a document from all in-memory caches/subscriptions.
-    pub fn purge_doc(&self, doc_id: &str) {
-        self.cache.lock().unwrap().remove(&doc_id.to_string());
-        self.pinned.lock().unwrap().remove(doc_id);
-        if let Some(entry) = self.topic_syncs.lock().unwrap().remove(doc_id) {
+    pub fn purge_doc(&self, doc_id: &str) -> DocResult<()> {
+        lock_mutex(&self.cache, "DocState.cache")?.remove(&doc_id.to_string());
+        lock_mutex(&self.pinned, "DocState.pinned")?.remove(doc_id);
+        if let Some(entry) = lock_mutex(&self.topic_syncs, "DocState.topic_syncs")?.remove(doc_id) {
             entry.handle.abort();
         }
 
-        let mut watches = self.watches.lock().unwrap();
+        let mut watches = lock_mutex(&self.watches, "DocState.watches")?;
         let to_remove: Vec<String> = watches
             .iter()
             .filter_map(|(watch_id, entry)| {
@@ -229,15 +316,16 @@ impl DocState {
         for watch_id in to_remove {
             watches.remove(&watch_id);
         }
+        Ok(())
     }
 
     /// Pin a document to prevent LRU eviction.
-    pub fn pin(&self, doc_id: &str, doc: Doc) {
-        let mut pinned = self.pinned.lock().unwrap();
+    pub fn pin(&self, doc_id: &str, doc: Doc) -> DocResult<()> {
+        let mut pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
         if let Some(entry) = pinned.get_mut(doc_id) {
             entry.pins = entry.pins.saturating_add(1);
             entry.doc = doc;
-            return;
+            return Ok(());
         }
 
         pinned.insert(
@@ -248,12 +336,13 @@ impl DocState {
             },
         );
         drop(pinned);
-        self.cache.lock().unwrap().remove(&doc_id.to_string());
+        lock_mutex(&self.cache, "DocState.cache")?.remove(&doc_id.to_string());
+        Ok(())
     }
 
     /// Unpin a document and return it to the LRU cache when no pins remain.
-    pub fn unpin(&self, doc_id: &str) {
-        let mut pinned = self.pinned.lock().unwrap();
+    pub fn unpin(&self, doc_id: &str) -> DocResult<()> {
+        let mut pinned = lock_mutex(&self.pinned, "DocState.pinned")?;
         let should_release = match pinned.get_mut(doc_id) {
             Some(entry) if entry.pins > 1 => {
                 entry.pins -= 1;
@@ -264,18 +353,16 @@ impl DocState {
         };
 
         if !should_release {
-            return;
+            return Ok(());
         }
 
         let entry = pinned.remove(doc_id);
         drop(pinned);
 
         if let Some(entry) = entry {
-            self.cache
-                .lock()
-                .unwrap()
-                .put(doc_id.to_string(), entry.doc);
+            lock_mutex(&self.cache, "DocState.cache")?.put(doc_id.to_string(), entry.doc);
         }
+        Ok(())
     }
 
     /// Track a watch subscription by id.
@@ -285,40 +372,36 @@ impl DocState {
         doc_id: String,
         channel: Channel<Vec<u8>>,
         last_version: StateVector,
-    ) {
-        self.watches
-            .lock()
-            .unwrap()
-            .insert(
-                watch_id,
-                WatchEntry {
-                    doc_id,
-                    channel,
-                    last_version,
-                },
-            );
+    ) -> DocResult<()> {
+        lock_mutex(&self.watches, "DocState.watches")?.insert(
+            watch_id,
+            WatchEntry {
+                doc_id,
+                channel,
+                last_version,
+            },
+        );
+        Ok(())
     }
 
     /// Remove a watch subscription and return its doc id.
-    pub fn remove_watch(&self, watch_id: &str) -> Option<String> {
-        self.watches
-            .lock()
-            .unwrap()
-            .remove(watch_id)
-            .map(|entry| entry.doc_id)
+    pub fn remove_watch(&self, watch_id: &str) -> DocResult<Option<String>> {
+        let removed = lock_mutex(&self.watches, "DocState.watches")?.remove(watch_id);
+        Ok(removed.map(|entry| entry.doc_id))
     }
 
     /// Update a watch's version vector after it catches up.
-    pub fn set_watch_version(&self, watch_id: &str, last_version: StateVector) {
-        if let Some(entry) = self.watches.lock().unwrap().get_mut(watch_id) {
+    pub fn set_watch_version(&self, watch_id: &str, last_version: StateVector) -> DocResult<()> {
+        if let Some(entry) = lock_mutex(&self.watches, "DocState.watches")?.get_mut(watch_id) {
             entry.last_version = last_version;
         }
+        Ok(())
     }
 
     /// Broadcast updates to all active watches for the document.
-    pub fn broadcast_updates(&self, doc_id: &str, doc: &Doc) {
+    pub fn broadcast_updates(&self, doc_id: &str, doc: &Doc) -> DocResult<()> {
         let targets: Vec<(String, Channel<Vec<u8>>, StateVector)> = {
-            let watches = self.watches.lock().unwrap();
+            let watches = lock_mutex(&self.watches, "DocState.watches")?;
             watches
                 .iter()
                 .filter_map(|(watch_id, entry)| {
@@ -336,7 +419,7 @@ impl DocState {
         };
 
         if targets.is_empty() {
-            return;
+            return Ok(());
         }
 
         let txn = doc.transact();
@@ -361,7 +444,7 @@ impl DocState {
         }
 
         if !succeeded.is_empty() {
-            let mut watches = self.watches.lock().unwrap();
+            let mut watches = lock_mutex(&self.watches, "DocState.watches")?;
             for watch_id in succeeded {
                 if let Some(entry) = watches.get_mut(&watch_id) {
                     entry.last_version = current_version.clone();
@@ -371,7 +454,7 @@ impl DocState {
 
         let mut to_unpin = Vec::new();
         {
-            let mut watches = self.watches.lock().unwrap();
+            let mut watches = lock_mutex(&self.watches, "DocState.watches")?;
             for watch_id in failed {
                 if let Some(entry) = watches.remove(&watch_id) {
                     to_unpin.push(entry.doc_id);
@@ -380,13 +463,30 @@ impl DocState {
         }
 
         for doc_id in to_unpin {
-            self.unpin(&doc_id);
+            self.unpin(&doc_id)?;
         }
+        Ok(())
     }
 
     /// Debounced sync of topic doc content into doc_nodes.
-    pub fn schedule_topic_sync(&self, doc_id: String, conn: Arc<Mutex<Connection>>) {
-        let mut syncs = self.topic_syncs.lock().unwrap();
+    pub fn schedule_topic_sync<F>(
+        &self,
+        doc_id: String,
+        conn: Arc<Mutex<Connection>>,
+        on_error: F,
+    ) -> DocResult<()>
+    where
+        F: Fn(DocError) + Send + Sync + 'static,
+    {
+        let mut syncs = match lock_mutex(&self.topic_syncs, "DocState.topic_syncs") {
+            Ok(guard) => guard,
+            Err(_) => {
+                let context = "DocState.topic_syncs";
+                let err = DocError::LockPoison { context };
+                on_error(DocError::LockPoison { context });
+                return Err(err);
+            }
+        };
         if let Some(entry) = syncs.remove(&doc_id) {
             entry.handle.abort();
         }
@@ -396,31 +496,38 @@ impl DocState {
         let handle = tauri::async_runtime::spawn(async move {
             sleep(Duration::from_millis(TOPIC_SYNC_DEBOUNCE_MS)).await;
             if let Err(err) = state.sync_topic_doc_nodes(&doc_id_for_task, &conn) {
-                log::warn!("Failed to sync topic doc nodes: doc_id={doc_id_for_task} err={err}");
+                log::error!("Failed to sync topic doc nodes: doc_id={doc_id_for_task} err={err}");
+                on_error(err);
             }
         });
 
         syncs.insert(doc_id, TopicSyncEntry { handle });
+        Ok(())
     }
 
     fn sync_topic_doc_nodes(
         &self,
         doc_id: &str,
         conn: &Arc<Mutex<Connection>>,
-    ) -> Result<(), String> {
+    ) -> DocResult<()> {
         log::info!("sync_topic_doc_nodes started: doc_id={doc_id}");
-        let doc = match self.get(doc_id) {
+        let doc = match self.get(doc_id)? {
             Some(doc) => doc,
             None => {
-                let conn_guard = conn.lock().map_err(|e| e.to_string())?;
+                let conn_guard = lock_mutex(conn, "DbState.conn")?;
                 self.get_or_load(&conn_guard, doc_id)?
             }
         };
 
         let root_node = yjs_doc_to_doc_node(&doc)?;
 
-        let mut conn_guard = conn.lock().map_err(|e| e.to_string())?;
-        let tx = conn_guard.transaction().map_err(|e| e.to_string())?;
+        let mut conn_guard = lock_mutex(conn, "DbState.conn")?;
+        let tx = conn_guard
+            .transaction()
+            .map_err(|e| DocError::Db {
+                context: "begin doc_nodes sync transaction",
+                source: e,
+            })?;
         let existing_nodes = load_existing_nodes(&tx, doc_id)?;
         let mut existing_uuid_map = build_uuid_map(&existing_nodes);
         let children_map = build_children_map(&existing_nodes);
@@ -448,13 +555,20 @@ impl DocState {
             .collect();
         for id in unused_ids {
             tx.execute("DELETE FROM doc_nodes WHERE id = ?1", params![id])
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| DocError::Db {
+                    context: "delete stale doc_nodes",
+                    source: e,
+                })?;
         }
 
-        tx.commit().map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| DocError::Db {
+            context: "commit doc_nodes sync transaction",
+            source: e,
+        })?;
         Ok(())
     }
 }
+
 
 impl Default for DocState {
     fn default() -> Self {
@@ -462,7 +576,7 @@ impl Default for DocState {
     }
 }
 
-fn yjs_doc_to_doc_node(doc: &Doc) -> Result<DocNodePayload, String> {
+fn yjs_doc_to_doc_node(doc: &Doc) -> DocResult<DocNodePayload> {
     let txn = doc.transact();
     if let Some(fragment) = txn.get_xml_fragment("doc") {
         Ok(DocNodePayload {
@@ -549,12 +663,15 @@ fn xml_text_to_node<T: ReadTxn>(txn: &T, text: &XmlTextRef) -> DocNodePayload {
 fn load_existing_nodes(
     tx: &rusqlite::Transaction<'_>,
     doc_id: &str,
-) -> Result<HashMap<i64, ExistingNode>, String> {
+) -> DocResult<HashMap<i64, ExistingNode>> {
     let mut stmt = tx
         .prepare(
             "SELECT id, node_uuid, parent_id, position, node_name, attr, text FROM doc_nodes WHERE doc_id = ?1",
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| DocError::Db {
+            context: "prepare doc_nodes select",
+            source: e,
+        })?;
     let rows = stmt
         .query_map(params![doc_id], |row| {
             Ok(ExistingNode {
@@ -567,11 +684,17 @@ fn load_existing_nodes(
                 text: row.get(6)?,
             })
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| DocError::Db {
+            context: "query doc_nodes rows",
+            source: e,
+        })?;
 
     let mut map = HashMap::new();
     for row in rows {
-        let node = row.map_err(|e| e.to_string())?;
+        let node = row.map_err(|e| DocError::Db {
+            context: "read doc_nodes row",
+            source: e,
+        })?;
         map.insert(node.id, node);
     }
     Ok(map)
@@ -600,7 +723,7 @@ fn resolve_root_id(
     doc_id: &str,
     node: &DocNodePayload,
     existing: &HashMap<i64, ExistingNode>,
-) -> Result<i64, String> {
+) -> DocResult<i64> {
     let root = existing
         .values()
         .find(|n| n.parent_id.is_none() && n.node_name == node.node_name);
@@ -623,7 +746,7 @@ fn sync_node(
     children_map: &HashMap<Option<i64>, Vec<i64>>,
     uuid_map: &mut HashMap<String, i64>,
     used_ids: &mut HashSet<i64>,
-) -> Result<i64, String> {
+) -> DocResult<i64> {
     let attr = node.attr.as_str();
     let node_uuid = node.node_uuid.as_deref();
     let text = node.text.as_deref();
@@ -641,7 +764,10 @@ fn sync_node(
                     "UPDATE doc_nodes SET parent_id = ?1, position = ?2, node_name = ?3, attr = ?4, text = ?5, node_uuid = ?6 WHERE id = ?7",
                     params![parent_id, position, node.node_name, attr, text, node_uuid, id],
                 )
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| DocError::Db {
+                    context: "update doc_nodes row",
+                    source: e,
+                })?;
             }
         }
         id
@@ -693,7 +819,7 @@ fn insert_doc_node_row(
     node: &DocNodePayload,
     parent_id: Option<i64>,
     position: i64,
-) -> Result<i64, String> {
+) -> DocResult<i64> {
     let attr = node.attr.as_str();
     let node_uuid = node.node_uuid.as_deref();
     let text = node.text.as_deref();
@@ -701,6 +827,9 @@ fn insert_doc_node_row(
         "INSERT INTO doc_nodes (doc_id, node_uuid, parent_id, position, node_name, attr, text) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![doc_id, node_uuid, parent_id, position, node.node_name, attr, text],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| DocError::Db {
+        context: "insert doc_nodes row",
+        source: e,
+    })?;
     Ok(tx.last_insert_rowid())
 }

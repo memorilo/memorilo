@@ -80,7 +80,6 @@ function EditorInstance({ docId }: EditorProps) {
         setSyncError(
           t('editor.fail_receive_update', {
             ns: 'errors',
-            defaultValue: 'Failed to sync document. Please reload.',
           }),
         )
       })

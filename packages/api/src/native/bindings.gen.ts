@@ -272,6 +272,11 @@ async unwatchDoc(watchId: string) : Promise<Result<null, Error>> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+toastEvent: ToastEvent
+}>({
+toastEvent: "toast-event"
+})
 
 /** user-defined constants **/
 
@@ -291,7 +296,8 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
 export type StateVector = number[]
-export type TAURI_CHANNEL<TSend> = null
+export type ToastEvent = { toast_type: ToastType; ns: string; i18n_key: string; values: Partial<{ [key in string]: string }> }
+export type ToastType = "Info" | "Success" | "Warning" | "Error"
 
 /** tauri-specta globals **/
 
