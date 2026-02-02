@@ -1,11 +1,9 @@
 import { effectCommands } from '@memorilo/api/command'
 import log from '@memorilo/api/log'
-import { DEV } from '@memorilo/utils/constants'
 import { Channel } from '@tauri-apps/api/core'
 import { Effect } from 'effect'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'react-toastify'
 import * as Y from 'yjs'
 
 export function useSyncYDoc(docId: string) {
@@ -27,14 +25,11 @@ export function useSyncYDoc(docId: string) {
   useEffect(() => {
     initializedRef.current = false
 
-    const markInitialized = (bytes: number) =>
+    const markInitialized = () =>
       Effect.sync(() => {
         if (!initializedRef.current) {
           setInitialized(true)
           initializedRef.current = true
-          if (DEV) {
-            toast.success(`Document loaded, length ${bytes} bytes`, { toastId: `doc-loaded-${docId}` })
-          }
         }
       })
 
@@ -88,7 +83,7 @@ export function useSyncYDoc(docId: string) {
         }).pipe(
           Effect.flatMap(({ diff, bytes }) =>
             diff.length === 0
-              ? markInitialized(bytes)
+              ? markInitialized()
               : applyUpdateWithRetry(diff, bytes).pipe(
                   Effect.tap(markInitialized),
                   Effect.catchAll(markError),

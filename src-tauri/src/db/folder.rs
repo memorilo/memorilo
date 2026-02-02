@@ -100,7 +100,7 @@ pub fn is_folder_node_exist(conn: &rusqlite::Connection, uuid: &str) -> Result<b
 pub fn get_folder_node(conn: &rusqlite::Connection, uuid: &str) -> Result<FolderNode> {
     conn.query_row(
         "SELECT uuid, typ, name, ref, created_at, children_updated_at, 
-        (SELECT COUNT(1) > 0 FROM folder_node_hierarchy WHERE parent_uuid = folder_nodes.uuid) as has_children 
+        (SELECT COUNT(1) > 0 FROM folder_nodes child WHERE child.parent_uuid = folder_nodes.uuid) as has_children 
         FROM folder_nodes WHERE uuid = ?",
         [uuid],
         |row| {
@@ -121,10 +121,9 @@ pub fn get_folder_node(conn: &rusqlite::Connection, uuid: &str) -> Result<Folder
 pub fn get_folder_node_children(conn: &rusqlite::Connection, parent_uuid: &str) -> Result<Vec<FolderNode>> {
     let mut stmt = conn.prepare(
         "SELECT n.uuid, n.typ, n.name, n.ref, n.created_at, n.children_updated_at,
-         (SELECT COUNT(1) > 0 FROM folder_node_hierarchy WHERE parent_uuid = n.uuid) as has_children
+         (SELECT COUNT(1) > 0 FROM folder_nodes child WHERE child.parent_uuid = n.uuid) as has_children
          FROM folder_nodes n
-         JOIN folder_node_hierarchy h ON n.uuid = h.child_uuid
-         WHERE h.parent_uuid = ?"
+         WHERE n.parent_uuid = ?"
     )?;
     
     let rows = stmt.query_map([parent_uuid], |row| {
@@ -148,10 +147,13 @@ pub fn get_folder_node_children(conn: &rusqlite::Connection, parent_uuid: &str) 
 
 pub fn get_parent_folder_node_uuid(conn: &rusqlite::Connection, child_uuid: &str) -> Result<Option<String>> {
     let mut stmt = conn.prepare(
-        "SELECT parent_uuid FROM folder_node_hierarchy WHERE child_uuid = ?"
+        "SELECT parent_uuid FROM folder_nodes WHERE uuid = ?"
     )?;
     
-    let parent_uuid: Option<String> = stmt.query_row([child_uuid], |row| row.get(0)).optional()?;
+    let parent_uuid: Option<String> = stmt
+        .query_row([child_uuid], |row| row.get::<_, Option<String>>(0))
+        .optional()?
+        .flatten();
     Ok(parent_uuid)
 }
 
@@ -160,7 +162,7 @@ pub fn get_parent_folder_node_uuid(conn: &rusqlite::Connection, child_uuid: &str
 ///
 /// This function performs two operations within a transaction:
 /// 1. Inserts the node into `folder_nodes`.
-/// 2. Inserts the relationship into `folder_node_hierarchy`.
+/// 2. Links the node to its parent via `parent_uuid`.
 pub fn create_folder_node(
     conn: &mut rusqlite::Connection,
     parent_uuid: &str,
@@ -171,12 +173,8 @@ pub fn create_folder_node(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO folder_nodes (uuid, typ, name, ref) VALUES (?, ?, ?, ?)",
-        (uuid, typ, name, reference),
-    )?;
-    tx.execute(
-        "INSERT INTO folder_node_hierarchy (parent_uuid, child_uuid) VALUES (?, ?)",
-        (parent_uuid, uuid),
+        "INSERT INTO folder_nodes (uuid, parent_uuid, typ, name, ref) VALUES (?, ?, ?, ?, ?)",
+        (uuid, parent_uuid, typ, name, reference),
     )?;
     tx.commit()?;
     Ok(())
@@ -200,10 +198,10 @@ pub fn delete_folder_node(conn: &mut rusqlite::Connection, uuid: &str) -> Result
     {
         let mut stmt = tx.prepare(
             "WITH RECURSIVE descendants(id) AS (
-                SELECT child_uuid FROM folder_node_hierarchy WHERE parent_uuid = ?
+                SELECT uuid FROM folder_nodes WHERE parent_uuid = ?
                 UNION ALL
-                SELECT h.child_uuid FROM folder_node_hierarchy h
-                JOIN descendants d ON h.parent_uuid = d.id
+                SELECT f.uuid FROM folder_nodes f
+                JOIN descendants d ON f.parent_uuid = d.id
             )
             SELECT id FROM descendants",
         )?;
