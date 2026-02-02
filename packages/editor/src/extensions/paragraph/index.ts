@@ -2,6 +2,7 @@ import type { ParagraphOptions } from '@tiptap/extension-paragraph'
 import Paragraph from '@tiptap/extension-paragraph'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { getOutlineRootItem } from '../outline/core/outline-utils'
 
 export interface TitleParagraphOptions extends ParagraphOptions {
   hideTitle?: boolean
@@ -41,7 +42,7 @@ function createTitleDecorationPlugin() {
     key: new PluginKey('titleParagraph'),
     props: {
       decorations(state) {
-        const root = state.doc.firstChild
+        const root = getOutlineRootItem(state.doc)
         if (!root || root.type.name !== 'listItem') {
           return null
         }

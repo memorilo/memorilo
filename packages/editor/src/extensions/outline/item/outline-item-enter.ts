@@ -54,6 +54,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
         }
 
         const isRootItem = listItem.depth === 1
+          || (listItem.depth === 0 && state.schema.topNodeType.name === listItem.node.type.name)
         const isEmpty = parent.content.size === 0
         const childListPos = findFirstChildListPos(listItem)
 

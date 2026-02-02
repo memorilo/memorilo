@@ -208,17 +208,28 @@ export function getOutlineLevel($pos: ResolvedPos) {
 }
 
 export function findListItem($pos: ResolvedPos): ListItemContext | null {
-  for (let depth = $pos.depth; depth > 0; depth--) {
+  for (let depth = $pos.depth; depth >= 0; depth--) {
     const node = $pos.node(depth)
     if (isOutlineItemName(node.type.name)) {
       return {
         node,
         depth,
-        pos: $pos.before(depth),
+        pos: depth === 0 ? 0 : $pos.before(depth),
       }
     }
   }
 
+  return null
+}
+
+export function getOutlineRootItem(doc: ProseMirrorNode) {
+  if (isOutlineItemNode(doc)) {
+    return doc
+  }
+  const firstChild = doc.firstChild
+  if (firstChild && isOutlineItemNode(firstChild)) {
+    return firstChild
+  }
   return null
 }
 

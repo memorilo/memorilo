@@ -13,6 +13,7 @@ import { useOrderedIndex } from './outline-item-hooks'
 
 interface TaskItemViewOptions {
   onReadOnlyChecked?: (node: ProseMirrorNode, checked: boolean) => boolean
+  onOutlineClick?: (uuid: string) => void
   a11y?: {
     checkboxLabel?: (node: ProseMirrorNode, checked: boolean) => string
   }
@@ -56,6 +57,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
     return isOutlineMediaNode(firstChild)
   }, [node])
   const orderedIndex = useOrderedIndex(editor, getPos, isOrderedItem)
+  const onOutlineClick = (extension?.options as TaskItemViewOptions | undefined)?.onOutlineClick
 
   const handleToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -153,6 +155,19 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       .run()
   }, [editor, extension?.options, getPos, node])
 
+  const handleBulletClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (isTaskItem || isOrderedItem) {
+      return
+    }
+    const uuid = node.attrs?.uuid
+    if (typeof uuid !== 'string' || uuid.length === 0) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    onOutlineClick?.(uuid)
+  }, [isOrderedItem, isTaskItem, node.attrs?.uuid, onOutlineClick])
+
   return (
     <NodeViewWrapper
       as="li"
@@ -160,6 +175,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
       data-outline-level={level}
       data-folded={isFolded ? 'true' : 'false'}
       className={cn(
+        'list-none',
         'relative',
         hideTitle && isRootItem ? 'my-0' : 'my-0.5',
         'data-[folded=true]:[&_ul]:hidden data-[folded=true]:[&_ol]:hidden',
@@ -205,6 +221,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
                     orderedIndex={orderedIndex}
                     checkboxLabel={checkboxLabel}
                     onCheckboxChange={handleCheckboxChange}
+                    onBulletClick={handleBulletClick}
                   />
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import type { DOMOutputSpec } from '@tiptap/pm/model'
 import type { OutlineItemOptions } from '../core/types'
 import type { OutlineTaskItemOptions } from './outline-item-config'
 import { mergeAttributes, Node } from '@tiptap/core'
@@ -8,9 +9,7 @@ import {
   outlineItemSharedSpec,
 } from './outline-item-config'
 
-export const OutlineItem = Node.create<OutlineItemOptions>({
-  name: 'listItem',
-
+const outlineItemBaseSpec = {
   ...outlineItemSharedSpec,
 
   addOptions() {
@@ -30,13 +29,27 @@ export const OutlineItem = Node.create<OutlineItemOptions>({
     return [{ tag: 'li' }]
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ['li', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
+  renderHTML(
+    this: { options: OutlineItemOptions },
+    { HTMLAttributes }: { HTMLAttributes: Record<string, any> },
+  ): DOMOutputSpec {
+    return ['li', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0] as DOMOutputSpec
   },
 
   addKeyboardShortcuts() {
-    return outlineKeymap(this.name)
+    return outlineKeymap('listItem')
   },
+}
+
+export const OutlineItem = Node.create<OutlineItemOptions>({
+  name: 'listItem',
+  ...outlineItemBaseSpec,
+})
+
+export const OutlineRootItem = Node.create<OutlineItemOptions>({
+  name: 'listItem',
+  topNode: true,
+  ...outlineItemBaseSpec,
 })
 
 export const OutlineTaskItem = TaskItem.extend<OutlineTaskItemOptions>({
@@ -77,6 +90,10 @@ export const OutlineTaskItem = TaskItem.extend<OutlineTaskItemOptions>({
 
 })
 
+export const OutlineRootTaskItem = OutlineTaskItem.extend<OutlineTaskItemOptions>({
+  topNode: true,
+})
+
 export const OutlineOrderedItem = Node.create<OutlineItemOptions>({
   name: 'orderedItem',
 
@@ -112,4 +129,8 @@ export const OutlineOrderedItem = Node.create<OutlineItemOptions>({
   addKeyboardShortcuts() {
     return outlineKeymap(this.name)
   },
+})
+
+export const OutlineRootOrderedItem = OutlineOrderedItem.extend<OutlineItemOptions>({
+  topNode: true,
 })

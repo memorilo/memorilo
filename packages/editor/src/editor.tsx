@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from 'react'
-import type { XmlFragment } from 'yjs'
+import type { XmlElement, XmlFragment } from 'yjs'
 import { cn } from '@memorilo/utils'
 
 import Bold from '@tiptap/extension-bold'
@@ -31,11 +31,20 @@ import { YjsDocumentContext } from './provider/yjs'
 import './editor.css'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
-  fragment: XmlFragment
+  fragment: XmlFragment | XmlElement
+  rootNode?: 'doc' | 'listItem' | 'orderedItem' | 'taskItem'
   hideTitle?: boolean
+  onOutlineClick?: (uuid: string) => void
 }
 
-export function MemoriloEditor({ className, fragment, hideTitle = false, ...props }: MemoriloEditorProps) {
+export function MemoriloEditor({
+  className,
+  fragment,
+  rootNode = 'doc',
+  hideTitle = false,
+  onOutlineClick,
+  ...props
+}: MemoriloEditorProps) {
   const collaborationExtension = useMemo(
     () => Collaboration.configure({ fragment }),
     [fragment],
@@ -91,6 +100,8 @@ export function MemoriloEditor({ className, fragment, hideTitle = false, ...prop
         }),
         Outline.configure({
           allowTable: true,
+          rootNode,
+          onOutlineClick,
         }),
         SlashExtension,
         TableExtension,
@@ -108,8 +119,14 @@ export function MemoriloEditor({ className, fragment, hideTitle = false, ...prop
         }),
         collaborationExtension,
       ],
+      editorProps: {
+        attributes: {
+          'data-outline-root': rootNode,
+          'data-outline-hide-title': hideTitle ? 'true' : 'false',
+        },
+      },
     },
-    [fragment, collaborationExtension],
+    [fragment, collaborationExtension, rootNode, onOutlineClick, hideTitle],
   )
   const yjsDocumentValue = useMemo(() => ({ fragment }), [fragment])
 
@@ -129,4 +146,4 @@ export function MemoriloEditor({ className, fragment, hideTitle = false, ...prop
   )
 }
 
-export type YDocType = XmlFragment
+export type YDocType = XmlFragment | XmlElement

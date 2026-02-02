@@ -11,12 +11,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as NoteRouteImport } from './routes/note'
 import { Route as IndexRouteImport } from './routes/index'
 
 const JournalsLazyRouteImport = createFileRoute('/journals')()
 const AllNotesLazyRouteImport = createFileRoute('/all-notes')()
 const AboutLazyRouteImport = createFileRoute('/about')()
-const NoteDocIdLazyRouteImport = createFileRoute('/note/$docId')()
+const NoteDocIdIndexLazyRouteImport = createFileRoute('/note/$docId/')()
+const NoteDocIdNodeIdLazyRouteImport = createFileRoute('/note/$docId/$nodeId')()
 
 const JournalsLazyRoute = JournalsLazyRouteImport.update({
   id: '/journals',
@@ -33,53 +35,95 @@ const AboutLazyRoute = AboutLazyRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/about.lazy').then((d) => d.Route))
+const NoteRoute = NoteRouteImport.update({
+  id: '/note',
+  path: '/note',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NoteDocIdLazyRoute = NoteDocIdLazyRouteImport.update({
-  id: '/note/$docId',
-  path: '/note/$docId',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/note/$docId.lazy').then((d) => d.Route))
+const NoteDocIdIndexLazyRoute = NoteDocIdIndexLazyRouteImport.update({
+  id: '/$docId/',
+  path: '/$docId/',
+  getParentRoute: () => NoteRoute,
+} as any).lazy(() =>
+  import('./routes/note/$docId/index.lazy').then((d) => d.Route),
+)
+const NoteDocIdNodeIdLazyRoute = NoteDocIdNodeIdLazyRouteImport.update({
+  id: '/$docId/$nodeId',
+  path: '/$docId/$nodeId',
+  getParentRoute: () => NoteRoute,
+} as any).lazy(() =>
+  import('./routes/note/$docId/$nodeId.lazy').then((d) => d.Route),
+)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/note': typeof NoteRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/all-notes': typeof AllNotesLazyRoute
   '/journals': typeof JournalsLazyRoute
-  '/note/$docId': typeof NoteDocIdLazyRoute
+  '/note/$docId/$nodeId': typeof NoteDocIdNodeIdLazyRoute
+  '/note/$docId/': typeof NoteDocIdIndexLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/note': typeof NoteRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/all-notes': typeof AllNotesLazyRoute
   '/journals': typeof JournalsLazyRoute
-  '/note/$docId': typeof NoteDocIdLazyRoute
+  '/note/$docId/$nodeId': typeof NoteDocIdNodeIdLazyRoute
+  '/note/$docId': typeof NoteDocIdIndexLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/note': typeof NoteRouteWithChildren
   '/about': typeof AboutLazyRoute
   '/all-notes': typeof AllNotesLazyRoute
   '/journals': typeof JournalsLazyRoute
-  '/note/$docId': typeof NoteDocIdLazyRoute
+  '/note/$docId/$nodeId': typeof NoteDocIdNodeIdLazyRoute
+  '/note/$docId/': typeof NoteDocIdIndexLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/all-notes' | '/journals' | '/note/$docId'
+  fullPaths:
+    | '/'
+    | '/note'
+    | '/about'
+    | '/all-notes'
+    | '/journals'
+    | '/note/$docId/$nodeId'
+    | '/note/$docId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/all-notes' | '/journals' | '/note/$docId'
-  id: '__root__' | '/' | '/about' | '/all-notes' | '/journals' | '/note/$docId'
+  to:
+    | '/'
+    | '/note'
+    | '/about'
+    | '/all-notes'
+    | '/journals'
+    | '/note/$docId/$nodeId'
+    | '/note/$docId'
+  id:
+    | '__root__'
+    | '/'
+    | '/note'
+    | '/about'
+    | '/all-notes'
+    | '/journals'
+    | '/note/$docId/$nodeId'
+    | '/note/$docId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  NoteRoute: typeof NoteRouteWithChildren
   AboutLazyRoute: typeof AboutLazyRoute
   AllNotesLazyRoute: typeof AllNotesLazyRoute
   JournalsLazyRoute: typeof JournalsLazyRoute
-  NoteDocIdLazyRoute: typeof NoteDocIdLazyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -105,6 +149,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/note': {
+      id: '/note'
+      path: '/note'
+      fullPath: '/note'
+      preLoaderRoute: typeof NoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -112,22 +163,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/note/$docId': {
-      id: '/note/$docId'
-      path: '/note/$docId'
-      fullPath: '/note/$docId'
-      preLoaderRoute: typeof NoteDocIdLazyRouteImport
-      parentRoute: typeof rootRouteImport
+    '/note/$docId/': {
+      id: '/note/$docId/'
+      path: '/$docId'
+      fullPath: '/note/$docId/'
+      preLoaderRoute: typeof NoteDocIdIndexLazyRouteImport
+      parentRoute: typeof NoteRoute
+    }
+    '/note/$docId/$nodeId': {
+      id: '/note/$docId/$nodeId'
+      path: '/$docId/$nodeId'
+      fullPath: '/note/$docId/$nodeId'
+      preLoaderRoute: typeof NoteDocIdNodeIdLazyRouteImport
+      parentRoute: typeof NoteRoute
     }
   }
 }
 
+interface NoteRouteChildren {
+  NoteDocIdNodeIdLazyRoute: typeof NoteDocIdNodeIdLazyRoute
+  NoteDocIdIndexLazyRoute: typeof NoteDocIdIndexLazyRoute
+}
+
+const NoteRouteChildren: NoteRouteChildren = {
+  NoteDocIdNodeIdLazyRoute: NoteDocIdNodeIdLazyRoute,
+  NoteDocIdIndexLazyRoute: NoteDocIdIndexLazyRoute,
+}
+
+const NoteRouteWithChildren = NoteRoute._addFileChildren(NoteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  NoteRoute: NoteRouteWithChildren,
   AboutLazyRoute: AboutLazyRoute,
   AllNotesLazyRoute: AllNotesLazyRoute,
   JournalsLazyRoute: JournalsLazyRoute,
-  NoteDocIdLazyRoute: NoteDocIdLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

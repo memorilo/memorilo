@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core'
 import type { NodeType, Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { getOutlineRootItem } from '../core/outline-utils'
 
 function needsRootChildList(root: ProseMirrorNode) {
   // Only auto-insert when the root item still contains just its title paragraph.
@@ -24,7 +25,7 @@ export function createOutlineRootInitPlugin(editor: Editor) {
         return null
       }
 
-      const root = newState.doc.firstChild
+      const root = getOutlineRootItem(newState.doc)
       if (!root || root.type.name !== 'listItem') {
         return null
       }

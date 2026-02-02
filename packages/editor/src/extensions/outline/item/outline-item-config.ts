@@ -9,6 +9,7 @@ import { OutlineItemView } from './outline-item-view'
 
 export interface OutlineTaskItemOptions extends TaskItemOptions {
   allowTable?: boolean
+  onOutlineClick?: (uuid: string) => void
 }
 
 interface OutlineItemContentContext {

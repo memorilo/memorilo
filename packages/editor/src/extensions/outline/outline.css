@@ -4,19 +4,37 @@
   position: absolute;
 }
 
-.memorilo-editor .ProseMirror .outline-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  padding-left: 0;
+
+.memorilo-editor .ProseMirror:is(
+  [data-outline-root='listItem'],
+  [data-outline-root='orderedItem'],
+  [data-outline-root='taskItem']
+)[data-outline-hide-title='false'] {
+  position: relative;
 }
 
-.memorilo-editor .ProseMirror li[data-outline-item="true"] {
-  list-style: none;
+.memorilo-editor .ProseMirror .outline-root-gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2rem;
+  height: 100%;
 }
 
-.memorilo-editor .ProseMirror li[data-outline-item="true"]::marker {
-  content: '';
+.memorilo-editor .ProseMirror:is(
+  [data-outline-root='listItem'],
+  [data-outline-root='orderedItem'],
+  [data-outline-root='taskItem']
+)[data-outline-hide-title='false'] > :not(.outline-list):not(.outline-root-gutter) {
+  padding-left: 2rem;
+}
+
+.memorilo-editor .ProseMirror:is(
+  [data-outline-root='listItem'],
+  [data-outline-root='orderedItem'],
+  [data-outline-root='taskItem']
+)[data-outline-hide-title='false'] > .outline-list {
+  padding-left: 2rem;
 }
 
 .memorilo-editor .ProseMirror-gapcursor::after {

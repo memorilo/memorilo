@@ -1,8 +1,8 @@
-import type { XmlFragment } from 'yjs'
+import type { XmlElement, XmlFragment } from 'yjs'
 import { createContext, use } from 'react'
 
 interface YjsDocumentContextValue {
-  fragment: XmlFragment
+  fragment: XmlFragment | XmlElement
 }
 
 export const YjsDocumentContext = createContext<YjsDocumentContextValue | undefined>(undefined)

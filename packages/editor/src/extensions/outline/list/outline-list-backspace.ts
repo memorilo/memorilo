@@ -219,7 +219,7 @@ export function createOutlineListBackspaceHandler(editor: Editor) {
 
     const ctx = createBackspaceContext(state, listItem)
     if (!ctx) {
-      return true
+      return false
     }
 
     if (handleTaskItemBackspace(view, ctx)) {
