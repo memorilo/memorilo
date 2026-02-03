@@ -216,6 +216,8 @@ export function createOutlineListBackspaceHandler(editor: Editor) {
     const listItem = findListItem($from)
     if (!listItem)
       return false
+    if (listItem.depth === 0 && state.schema.topNodeType.name === listItem.node.type.name)
+      return true
 
     const ctx = createBackspaceContext(state, listItem)
     if (!ctx) {

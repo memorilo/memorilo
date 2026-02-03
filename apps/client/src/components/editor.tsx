@@ -1,9 +1,9 @@
 import { Skeleton } from '@memorilo/components/ui/skeleton'
 import { MemoriloEditor } from '@memorilo/editor'
 import { DEV } from '@memorilo/utils/constants'
-import { Iterable, Option } from 'effect'
+import { Effect, Exit, Fiber, Iterable, Option, Schedule } from 'effect'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import * as Y from 'yjs'
 import { useSyncYDoc } from '~/hooks/use-sync-ydoc'
 
@@ -30,20 +30,45 @@ export function Editor(props: EditorProps) {
 }
 
 function EditorInstance({ docId, focusNodeId, onOutlineClick }: EditorProps) {
-  const { doc, initialized, error } = useSyncYDoc(docId)
+  const { doc, initialized: docInitialized, error } = useSyncYDoc(docId)
 
-  const fragment = useMemo(() => {
-    if (!initialized)
-      return Option.none<Y.XmlFragment | Y.XmlElement>()
-    const fragment = doc.getXmlFragment('doc')
+  const [fragment, setFragment] = useState<Option.Option<Y.XmlElement | Y.XmlFragment> | null>(null)
+  const initialized = docInitialized && fragment !== null
+
+  useEffect(() => {
+    const rootFragment = doc.getXmlFragment('doc')
     if (!focusNodeId) {
-      return Option.some(fragment)
+      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
+      setFragment(Option.some(rootFragment))
+      return
     }
-    const walker = fragment.createTreeWalker(
-      elem =>
-        elem instanceof Y.XmlElement && elem.getAttribute('uuid') === focusNodeId,
+
+    const program = Effect.sync(() => {
+      const walker = rootFragment.createTreeWalker(
+        elem =>
+          elem instanceof Y.XmlElement && elem.getAttribute('uuid') === focusNodeId,
+      )
+      return Iterable.head(walker)
+    }).pipe(
+      Effect.flatMap(Option.match({
+        onNone: () => Effect.fail('Node not found'),
+        onSome: node => Effect.succeed(node as Y.XmlElement),
+      })),
+      Effect.retry({ times: 3, schedule: Schedule.spaced(300) }),
+      Effect.map(node => Option.some(node)),
+      Effect.catchAll(() => Effect.succeed(Option.none())),
     )
-    return Iterable.head(walker).pipe(Option.map(e => e as Y.XmlElement))
+
+    const fiber = Effect.runFork(program)
+    fiber.addObserver((exit) => {
+      if (Exit.isSuccess(exit)) {
+        setFragment(exit.value)
+      }
+    })
+
+    return () => {
+      Effect.runFork(Fiber.interruptFork(fiber))
+    }
   }, [doc, focusNodeId, initialized])
 
   // Debug only

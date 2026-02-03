@@ -53,8 +53,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           return false
         }
 
-        const isRootItem = listItem.depth === 1
-          || (listItem.depth === 0 && state.schema.topNodeType.name === listItem.node.type.name)
+        const isRootItem = listItem.depth <= 1
         const isEmpty = parent.content.size === 0
         const childListPos = findFirstChildListPos(listItem)
 
@@ -62,14 +61,22 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           const listItemType = listItem.node.type
           const paragraphType = state.schema.nodes.paragraph
           const bulletListType = state.schema.nodes.bulletList
+          const orderedListType = state.schema.nodes.orderedList
+          const taskListType = state.schema.nodes.taskList
           if (!paragraphType || !bulletListType) {
             return false
           }
+          const listType = listItemType.name === 'orderedItem'
+            ? (orderedListType ?? bulletListType)
+            : listItemType.name === 'taskItem'
+              ? (taskListType ?? bulletListType)
+              : bulletListType
 
-          const insertPos = listItem.pos + listItem.node.nodeSize - 1
+          const contentStart = listItem.depth === 0 ? 0 : listItem.pos + 1
+          const insertPos = contentStart + listItem.node.content.size
           // Root item: Enter should always create the first child list instead of a sibling.
           const childItem = createEmptyListItem(listItemType, paragraphType)
-          const childList = bulletListType.create(null, childItem)
+          const childList = listType.create(null, childItem)
           const tr = state.tr.insert(insertPos, childList)
           const selectionPos = Math.min(insertPos + 3, tr.doc.content.size)
           tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)))

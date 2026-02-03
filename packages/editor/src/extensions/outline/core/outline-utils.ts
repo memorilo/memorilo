@@ -241,7 +241,8 @@ export function findFirstChildListPos(listItem: ListItemContext) {
       return
     if (!isListContainerNode(child))
       return
-    childListPos = listItem.pos + 1 + offset
+    const contentStart = listItem.depth === 0 ? 0 : listItem.pos + 1
+    childListPos = contentStart + offset
   })
 
   return childListPos
