@@ -39,3 +39,12 @@ CREATE INDEX IF NOT EXISTS idx_doc_nodes_doc_id ON doc_nodes(doc_id);
 CREATE INDEX IF NOT EXISTS idx_doc_nodes_parent_id ON doc_nodes(parent_id);
 CREATE INDEX IF NOT EXISTS idx_doc_nodes_node_uuid ON doc_nodes(node_uuid);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_nodes_doc_uuid ON doc_nodes(doc_id, node_uuid);
+
+-- Trigger: Delete topic doc data when a topic folder node is removed
+CREATE TRIGGER IF NOT EXISTS delete_topic_doc_on_folder_delete
+AFTER DELETE ON folder_nodes
+WHEN OLD.typ = 'topic' AND OLD.ref IS NOT NULL
+BEGIN
+    DELETE FROM doc_updates WHERE doc_id = OLD.ref;
+    DELETE FROM doc_nodes WHERE doc_id = OLD.ref;
+END;
