@@ -1,7 +1,6 @@
 import { createLazyFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import { Editor } from '~/components/editor'
-import { useTitle } from '~/hooks/use-title'
 
 export const Route = createLazyFileRoute('/note/$docId/$nodeId')({
   component: RouteComponent,
@@ -9,8 +8,6 @@ export const Route = createLazyFileRoute('/note/$docId/$nodeId')({
 
 function RouteComponent() {
   const { docId, nodeId } = Route.useParams()
-
-  useTitle(`Document: ${docId} - Node: ${nodeId}`)
 
   const navigate = useNavigate()
   const handleFocusNode = useCallback((uuid: string) => {
