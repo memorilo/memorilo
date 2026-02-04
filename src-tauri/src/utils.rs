@@ -1,4 +1,5 @@
 pub mod lru_cache;
+pub mod asset_url;
 
 static CLIENT_ID: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
     let system = std::env::consts::OS;

@@ -3064,15 +3064,19 @@ dependencies = [
 name = "memorilo"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
+ "dunce",
  "git-version",
  "libp2p",
  "log",
  "machineid-rs",
  "once_cell",
+ "percent-encoding",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "specta",
  "specta-typescript",
  "sqlite-vec",

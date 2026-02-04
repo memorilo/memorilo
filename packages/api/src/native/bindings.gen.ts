@@ -227,6 +227,54 @@ async getDocUpdatesCount() : Promise<Result<string, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+async addAsset(sourcePath: string, meta: string | null) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset", { sourcePath, meta }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addAssetFromBytes(bytes: number[], extension: string | null, meta: string | null) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset_from_bytes", { bytes, extension, meta }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addAssetFromBase64(base64: string, extension: string | null, meta: string | null) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset_from_base64", { base64, extension, meta }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteAsset(assetId: string) : Promise<Result<AssetDeleteResult, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_asset", { assetId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async analyzeAssets() : Promise<Result<AssetAnalysisResult, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("analyze_assets") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getAssetUrl(assetId: string, useHttps: boolean | null) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_asset_url", { assetId, useHttps }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createDoc() : Promise<Result<string, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_doc") };
@@ -284,6 +332,13 @@ toastEvent: "toast-event"
 
 /** user-defined types **/
 
+/**
+ * Represents an asset stored in the local assets directory.
+ */
+export type Asset = { assetId: string; filename: string; sha256: string; clientId: string; createdAt: string; meta: string | null }
+export type AssetAnalysisEntry = { assetId: string; filename: string }
+export type AssetAnalysisResult = { missingFiles: AssetAnalysisEntry[]; untrackedFiles: AssetAnalysisEntry[] }
+export type AssetDeleteResult = { deletedRecord: boolean; deletedFiles: string[] }
 export type CreatedTopic = { docId: string; topicUuid: string }
 export type Error = { _tag: ErrorKind; message: string; inner_message: string }
 export type ErrorKind = "DatabaseError" | "IoError" | "SerializationError" | "CrdtError" | "StateError"
