@@ -111,14 +111,14 @@ _download target url checksum="":
 dev-desktop: download-model download-web-resource
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
-    nix develop ".#default" --command cargo tauri dev
+    nix develop ".#default" --command cargo tauri dev --config src-tauri/tauri.dev.conf.json
   else
-    cargo tauri dev
+    cargo tauri dev --config src-tauri/tauri.dev.conf.json
   fi
 
 [windows]
 dev-desktop: download-model download-web-resource
-  cargo tauri dev
+  cargo tauri dev --config src-tauri/tauri.dev.conf.json
 
 [linux]
 [macos]
