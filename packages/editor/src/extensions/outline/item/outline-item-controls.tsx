@@ -1,4 +1,4 @@
-import { GripVerticalIcon } from '@memorilo/components/ui/animiated-icons/grip-vertical'
+import { GripVerticalIcon } from '@memorilo/components/ui/animated-icons/grip-vertical'
 import { cn } from '@memorilo/utils'
 import { useTranslation } from 'react-i18next'
 import { MdChevronRight } from 'react-icons/md'

@@ -1,6 +1,6 @@
 import type { Memorilo } from '@memorilo/core'
 
-import * as log from '@tauri-apps/plugin-log'
+import log from '@memorilo/api/log'
 import { Effect, Either } from 'effect'
 import { z } from 'zod'
 import { currentSupportedLanguages } from '~/@types/constants'
@@ -47,6 +47,14 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
           </EnumInput>
         )
       },
+    },
+  ])
+
+  memorilo.settings.register('note', [
+    {
+      key: 'downloadImage',
+      schema: z.boolean(),
+      defaultValue: true,
     },
   ])
 

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.memorilo.client",
   "build": {
-    "beforeDevCommand": "cd apps/client && pnpm dev",
+    "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "just build-web",
     "frontendDist": "../apps/client/dist"
@@ -18,7 +18,11 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**/*"]
+      }
     },
     "withGlobalTauri": true
   },

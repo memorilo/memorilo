@@ -3,6 +3,7 @@
 # Build System
 /.direnv/
 /result
+.turbo
 
 # Logs
 logs

@@ -1,4 +1,5 @@
 import * as tauriDialog from '@tauri-apps/plugin-dialog'
+import { events } from './native/bindings.gen'
 
 export * from './native/effect'
 
@@ -32,3 +33,5 @@ function ask(message: string, options?: AskOptions): Promise<boolean> {
 export const dialog = {
   ask,
 }
+
+export const toastEvent = events.toastEvent

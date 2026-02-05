@@ -2,7 +2,6 @@ import type { Editor } from '@tiptap/core'
 import type { NodeType, Node as ProseMirrorNode, Schema } from '@tiptap/pm/model'
 import type { EditorState, Selection, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import type { ListItemContext } from '../core/outline-utils'
 import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import {
@@ -14,6 +13,12 @@ import {
   isSelectionInTable,
 } from '../core/outline-utils'
 import { normalizeItemForList, stripCheckedAttr } from './outline-list-utils'
+
+interface ListItemContext {
+  node: ProseMirrorNode
+  pos: number
+  depth: number
+}
 
 interface BackspaceContext {
   state: EditorState
@@ -27,11 +32,7 @@ interface BackspaceContext {
   listItemType: NodeType | null
 }
 
-function getPromotedChildrenFragment(
-  schema: Schema,
-  listItemNode: ProseMirrorNode,
-  parentListType: NodeType,
-) {
+function getPromotedChildrenFragment(schema: Schema, listItemNode: ProseMirrorNode, parentListType: ProseMirrorNode['type']) {
   // Collect child list items and normalize them so promotion keeps the parent list schema valid.
   let childListNode: ProseMirrorNode | null = null
   for (let index = 0; index < listItemNode.childCount; index += 1) {
@@ -41,6 +42,7 @@ function getPromotedChildrenFragment(
       break
     }
   }
+
   if (!childListNode) {
     return null
   }
@@ -48,7 +50,7 @@ function getPromotedChildrenFragment(
     return null
   }
 
-  const normalizedItems: ProseMirrorNode[] = []
+  const normalizedItems = []
   for (let index = 0; index < childListNode.childCount; index += 1) {
     const child = childListNode.child(index)
     normalizedItems.push(normalizeItemForList(schema, parentListType, child))
@@ -84,24 +86,21 @@ function dispatchTransaction(view: EditorView, tr: Transaction, selection?: Sele
   return true
 }
 
-function createBackspaceContext(state: EditorState, listItem: ListItemContext) {
+function createBackspaceContext(state: EditorState, listItem: ListItemContext | null) {
   // Cache resolved positions so each branch can operate on the same base coordinates.
   if (!listItem) {
     return null
   }
-
   const listDepth = listItem.depth - 1
-  if (listDepth < 0) {
+  if (listDepth < 1) {
     return null
   }
-
   const listNode = state.selection.$from.node(listDepth)
   const listPos = state.selection.$from.before(listDepth)
   const listEnd = listPos + listNode.nodeSize
   const listItemPos = listItem.pos
   const listItemEnd = listItemPos + listItem.node.nodeSize
   const listItemType = state.schema.nodes.listItem ?? null
-
   return {
     state,
     listItem,
@@ -112,14 +111,13 @@ function createBackspaceContext(state: EditorState, listItem: ListItemContext) {
     listItemPos,
     listItemEnd,
     listItemType,
-  }
+  } satisfies BackspaceContext
 }
 
 function handleTaskItemBackspace(view: EditorView, ctx: BackspaceContext) {
   if (!ctx.listItemType || ctx.listItem.node.type.name !== 'taskItem') {
     return false
   }
-
   const nextAttrs = stripCheckedAttr(ctx.listItem.node.attrs)
   const tr = ctx.state.tr.setNodeMarkup(ctx.listItemPos, ctx.listItemType, nextAttrs)
   return dispatchTransaction(view, tr)
@@ -129,14 +127,13 @@ function handleOrderedItemBackspace(view: EditorView, ctx: BackspaceContext) {
   if (ctx.listItem.node.type.name !== 'orderedItem') {
     return false
   }
-
   // Ordered items at the line start either merge into the previous item or demote to a bullet item.
   if (ctx.listItemType && ctx.listNode.childCount === 1) {
     const tr = ctx.state.tr.setNodeMarkup(ctx.listItemPos, ctx.listItemType, ctx.listItem.node.attrs)
     return dispatchTransaction(view, tr)
   }
 
-  const prevPos: number | null = findSiblingListItemPos(ctx.state, ctx.listItem, 'prev')
+  const prevPos = findSiblingListItemPos(ctx.state, ctx.listItem, 'prev') as number | null
   let targetItemPos: number | null = prevPos
   if (targetItemPos === null) {
     const parentItem = findParentOutlineItem(ctx.state, ctx.listDepth)
@@ -150,11 +147,7 @@ function handleOrderedItemBackspace(view: EditorView, ctx: BackspaceContext) {
   }
 
   const inlineContent = getFirstTextblockInlineContent(ctx.listItem.node)
-  const promotedFragment = getPromotedChildrenFragment(
-    ctx.state.schema,
-    ctx.listItem.node,
-    ctx.listNode.type,
-  )
+  const promotedFragment = getPromotedChildrenFragment(ctx.state.schema, ctx.listItem.node, ctx.listNode.type)
   let tr = ctx.state.tr
   if (promotedFragment) {
     tr = tr.replaceWith(ctx.listItemPos, ctx.listItemEnd, promotedFragment)
@@ -162,14 +155,12 @@ function handleOrderedItemBackspace(view: EditorView, ctx: BackspaceContext) {
   else {
     tr = tr.delete(ctx.listItemPos, ctx.listItemEnd)
   }
-
   const mappedTargetPos = tr.mapping.map(targetItemPos)
   const nextState = ctx.state.apply(tr)
   const targetSelection = getOutlineItemEndSelection(nextState, mappedTargetPos)
   if (!inlineContent || !targetSelection || !targetSelection.$from.parent.isTextblock) {
     return dispatchTransaction(view, tr, targetSelection ?? undefined)
   }
-
   const insertPos = targetSelection.from
   tr.replaceRange(insertPos, insertPos, new Slice(inlineContent, 0, 0))
   const caretPos = insertPos + inlineContent.size
@@ -177,14 +168,9 @@ function handleOrderedItemBackspace(view: EditorView, ctx: BackspaceContext) {
 }
 
 function handleDefaultBackspace(view: EditorView, ctx: BackspaceContext) {
-  const promotedFragment = getPromotedChildrenFragment(
-    ctx.state.schema,
-    ctx.listItem.node,
-    ctx.listNode.type,
-  )
+  const promotedFragment = getPromotedChildrenFragment(ctx.state.schema, ctx.listItem.node, ctx.listNode.type)
   let tr = ctx.state.tr
   let selectionPos: number | null = null
-
   if (promotedFragment) {
     tr = tr.replaceWith(ctx.listItemPos, ctx.listItemEnd, promotedFragment)
     selectionPos = tr.mapping.map(ctx.listItemPos) + 1
@@ -192,7 +178,6 @@ function handleDefaultBackspace(view: EditorView, ctx: BackspaceContext) {
   else {
     const prevPos = findSiblingListItemPos(ctx.state, ctx.listItem, 'prev')
     const nextPos = findSiblingListItemPos(ctx.state, ctx.listItem, 'next')
-
     if (ctx.listNode.childCount <= 1) {
       tr = tr.delete(ctx.listPos, ctx.listEnd)
       selectionPos = Math.min(ctx.listPos, tr.doc.content.size)
@@ -205,7 +190,6 @@ function handleDefaultBackspace(view: EditorView, ctx: BackspaceContext) {
       }
     }
   }
-
   const selection = selectionPos !== null
     ? TextSelection.near(tr.doc.resolve(selectionPos))
     : null
@@ -232,20 +216,20 @@ export function createOutlineListBackspaceHandler(editor: Editor) {
     const listItem = findListItem($from)
     if (!listItem)
       return false
+    if (listItem.depth === 0 && state.schema.topNodeType.name === listItem.node.type.name)
+      return true
 
     const ctx = createBackspaceContext(state, listItem)
     if (!ctx) {
-      return true
+      return false
     }
 
     if (handleTaskItemBackspace(view, ctx)) {
       return true
     }
-
     if (handleOrderedItemBackspace(view, ctx)) {
       return true
     }
-
     return handleDefaultBackspace(view, ctx)
   }
 }

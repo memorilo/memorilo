@@ -19,6 +19,9 @@ catalog:
   '@radix-ui/react-slot': ^1.2.4
   '@radix-ui/react-switch': ^1.2.6
   '@radix-ui/react-tooltip': ^1.2.8
+  '@rollup/plugin-node-resolve': ^16.0.3
+  '@rollup/plugin-typescript': ^12.1.4
+  '@tailwindcss/postcss': ^4.1.18
   '@tailwindcss/vite': ^4.1.18
   '@tanstack/devtools-vite': ^0.3.12
   '@tanstack/react-devtools': ^0.8.4
@@ -31,7 +34,7 @@ catalog:
   '@tauri-apps/plugin-dialog': ^2.4.2
   '@tauri-apps/plugin-fs': ^2.4.5
   '@tauri-apps/plugin-log': 2.7.1
-  '@tauri-apps/plugin-opener': ^2.5.2
+  '@tauri-apps/plugin-opener': ^2.5.3
   '@tauri-apps/plugin-os': ^2.3.2
   '@tiptap/core': ^3.16.0
   '@tiptap/extension-blockquote': ^3.16.0
@@ -40,6 +43,7 @@ catalog:
   '@tiptap/extension-bullet-list': ^3.16.0
   '@tiptap/extension-code': ^3.16.0
   '@tiptap/extension-code-block': ^3.16.0
+  '@tiptap/extension-collaboration': ^3.16.0
   '@tiptap/extension-document': ^3.16.0
   '@tiptap/extension-emoji': ^3.16.0
   '@tiptap/extension-hard-break': ^3.16.0
@@ -59,6 +63,8 @@ catalog:
   '@tiptap/pm': ^3.16.0
   '@tiptap/react': ^3.16.0
   '@tiptap/suggestion': ^3.16.0
+  '@tiptap/y-tiptap': ^3.0.2
+  '@types/mime-types': ^3.0.1
   '@types/node': ^24.10.6
   '@types/prismjs': ^1.26.5
   '@types/react': ^19.2.7
@@ -83,9 +89,8 @@ catalog:
   jotai: ^2.16.0
   jsdom: ^27.4.0
   katex: ^0.16.27
-  loro-crdt: ^1.10.3
-  loro-prosemirror: ^0.4.2
   lucide-react: ^0.554.0
+  mime-types: ^3.0.2
   mitt: ^3.0.1
   motion: 12.23.25
   pathe: ^2.0.3
@@ -97,9 +102,12 @@ catalog:
   react-icons: ^5.5.0
   react-scan: ^0.4.3
   react-toastify: ^11.0.5
+  rollup: ^4.57.0
+  rollup-plugin-postcss: ^4.0.2
   rollup-plugin-visualizer: ^6.0.5
   tailwind-merge: ^3.4.0
   tailwindcss: ^4.1.18
+  turbo: ^2.8.0
   tw-animate-css: ^1.4.0
   typescript: ^5.9.3
   uniqolor: ^1.1.1
@@ -108,6 +116,7 @@ catalog:
   vite-plugin-top-level-await: ^1.6.0
   vite-plugin-wasm: ^3.5.0
   vitest: ^4.0.16
+  yjs: ^13.6.29
   zod: ^4.2.0
 
 catalogMode: prefer
@@ -115,6 +124,8 @@ catalogMode: prefer
 cleanupUnusedCatalogs: true
 
 onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@swc/core'
   - esbuild
 
 shellEmulator: true

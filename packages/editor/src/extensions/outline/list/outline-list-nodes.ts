@@ -124,5 +124,4 @@ export const OutlineOrderedList = Node.create({
       Backspace: createOutlineListBackspaceHandler(this.editor),
     }
   },
-
 })

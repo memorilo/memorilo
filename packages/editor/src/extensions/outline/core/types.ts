@@ -5,6 +5,7 @@ export interface OutlineItemAttributes {
 export interface OutlineItemOptions {
   HTMLAttributes: Record<string, any>
   allowTable?: boolean
+  onOutlineClick?: (uuid: string) => void
 }
 
 declare module '@tiptap/core' {

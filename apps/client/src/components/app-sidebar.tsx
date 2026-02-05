@@ -1,12 +1,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@memorilo/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@memorilo/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuBook, LuChevronDown, LuClock, LuFlag, LuNotebookPen, LuSettings, LuUser } from 'react-icons/lu'
+import { LuBook, LuChevronDown, LuClock, LuFlag, LuInfo, LuNotebookPen, LuSettings, LuUser } from 'react-icons/lu'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 
@@ -67,7 +67,14 @@ export function AppSidebar() {
                     <LuSettings className="size-3.5 shrink-0" />
                   </div>
                   {t('sidebar.settings')}
-                  <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/about">
+                    <div className="flex size-6 items-center justify-center rounded-md">
+                      <LuInfo className="size-3.5 shrink-0" />
+                    </div>
+                    {t('sidebar.about')}
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

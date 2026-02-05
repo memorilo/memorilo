@@ -164,12 +164,175 @@ async saveSettings() : Promise<Result<null, Error>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getDoc(docId: string) : Promise<Result<number[], Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getDocVersion(docId: string) : Promise<Result<StateVector, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_version", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateDoc(docId: string, update: number[]) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_doc", { docId, update }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateTopicDoc(docId: string, update: number[]) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_topic_doc", { docId, update }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getClientId() : Promise<string> {
+    return await TAURI_INVOKE("get_client_id");
+},
+async getAppLocalDataDir() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_app_local_data_dir") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getGitCommitId() : Promise<string> {
+    return await TAURI_INVOKE("get_git_commit_id");
+},
+async getDocNodesCount() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_nodes_count") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getDocUpdatesCount() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_updates_count") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addAsset(sourcePath: string, meta: string | null) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset", { sourcePath, meta }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addAssetFromBytes(bytes: number[], extension: string | null, meta: string | null) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset_from_bytes", { bytes, extension, meta }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addAssetFromBase64(base64: string, extension: string | null, meta: string | null) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset_from_base64", { base64, extension, meta }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addAssetFromUrl(url: string) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset_from_url", { url }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteAsset(assetId: string) : Promise<Result<AssetDeleteResult, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_asset", { assetId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async analyzeAssets() : Promise<Result<AssetAnalysisResult, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("analyze_assets") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getAssetUrl(assetId: string, useHttps: boolean | null) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_asset_url", { assetId, useHttps }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createDoc() : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_doc") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteDoc(docId: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_doc", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createTopic(parentUuid: string, name: string) : Promise<Result<CreatedTopic, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_topic", { parentUuid, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async watchDoc(docId: string, channel: TAURI_CHANNEL<number[]>) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("watch_doc", { docId, channel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async unwatchDoc(watchId: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unwatch_doc", { watchId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+toastEvent: ToastEvent
+}>({
+toastEvent: "toast-event"
+})
 
 /** user-defined constants **/
 
@@ -177,8 +340,16 @@ async saveSettings() : Promise<Result<null, Error>> {
 
 /** user-defined types **/
 
+/**
+ * Represents an asset stored in the local assets directory.
+ */
+export type Asset = { assetId: string; filename: string; sha256: string; clientId: string; createdAt: string; meta: string | null }
+export type AssetAnalysisEntry = { assetId: string; filename: string }
+export type AssetAnalysisResult = { missingFiles: AssetAnalysisEntry[]; untrackedFiles: AssetAnalysisEntry[]; unusedFiles: AssetAnalysisEntry[] }
+export type AssetDeleteResult = { deletedRecord: boolean; deletedFiles: string[] }
+export type CreatedTopic = { docId: string; topicUuid: string }
 export type Error = { _tag: ErrorKind; message: string; inner_message: string }
-export type ErrorKind = "DatabaseError" | "IoError" | "SerializationError"
+export type ErrorKind = "DatabaseError" | "IoError" | "SerializationError" | "CrdtError" | "StateError"
 /**
  * Represents a folder node with all its properties.
  */
@@ -187,6 +358,9 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  * Represents the type of a folder node in the hierarchy.
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
+export type StateVector = number[]
+export type ToastEvent = { toast_type: ToastType; ns: string; i18n_key: string; values: Partial<{ [key in string]: string }> }
+export type ToastType = "Info" | "Success" | "Warning" | "Error"
 
 /** tauri-specta globals **/
 

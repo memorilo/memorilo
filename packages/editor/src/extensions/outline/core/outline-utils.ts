@@ -49,6 +49,21 @@ export function isSelectionInTable($pos: ResolvedPos) {
   return false
 }
 
+export function isImeComposing(
+  view?: { composing?: boolean } | null,
+  event?: { isComposing?: boolean, key?: string, keyCode?: number, which?: number } | null,
+) {
+  // IME keydowns often use keyCode 229 before compositionstart; treat as composing.
+  const keyCode = event?.keyCode ?? event?.which
+  return Boolean(
+    view?.composing
+    || event?.isComposing
+    || event?.key === 'Process'
+    || event?.key === 'Unidentified'
+    || keyCode === 229,
+  )
+}
+
 export function isOutlineMediaNode(node: ProseMirrorNode) {
   if (node.type.name === 'table') {
     return true
@@ -193,17 +208,28 @@ export function getOutlineLevel($pos: ResolvedPos) {
 }
 
 export function findListItem($pos: ResolvedPos): ListItemContext | null {
-  for (let depth = $pos.depth; depth > 0; depth--) {
+  for (let depth = $pos.depth; depth >= 0; depth--) {
     const node = $pos.node(depth)
     if (isOutlineItemName(node.type.name)) {
       return {
         node,
         depth,
-        pos: $pos.before(depth),
+        pos: depth === 0 ? 0 : $pos.before(depth),
       }
     }
   }
 
+  return null
+}
+
+export function getOutlineRootItem(doc: ProseMirrorNode) {
+  if (isOutlineItemNode(doc)) {
+    return doc
+  }
+  const firstChild = doc.firstChild
+  if (firstChild && isOutlineItemNode(firstChild)) {
+    return firstChild
+  }
   return null
 }
 
@@ -215,7 +241,8 @@ export function findFirstChildListPos(listItem: ListItemContext) {
       return
     if (!isListContainerNode(child))
       return
-    childListPos = listItem.pos + 1 + offset
+    const contentStart = listItem.depth === 0 ? 0 : listItem.pos + 1
+    childListPos = contentStart + offset
   })
 
   return childListPos

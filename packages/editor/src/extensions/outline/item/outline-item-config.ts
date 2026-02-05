@@ -9,6 +9,7 @@ import { OutlineItemView } from './outline-item-view'
 
 export interface OutlineTaskItemOptions extends TaskItemOptions {
   allowTable?: boolean
+  onOutlineClick?: (uuid: string) => void
 }
 
 interface OutlineItemContentContext {
@@ -17,19 +18,17 @@ interface OutlineItemContentContext {
   }
 }
 
+function buildOutlineItemContent(this: OutlineItemContentContext) {
+  return this.options.allowTable ? outlineItemContentWithTableSpec : outlineItemContentSpec
+}
+
 interface OutlineItemPluginContext {
   editor: Editor
   name: string
 }
 
-function buildOutlineItemContent(this: OutlineItemContentContext) {
-  return this.options.allowTable ? outlineItemContentWithTableSpec : outlineItemContentSpec
-}
-
 function outlineItemPlugins(this: OutlineItemPluginContext): Plugin[] {
-  return [
-    createOutlineItemEnterPlugin(this.editor, this.name),
-  ]
+  return [createOutlineItemEnterPlugin(this.editor, this.name)]
 }
 
 export const outlineItemSharedSpec = {

@@ -1,8 +1,10 @@
 import type { FolderNode } from '@memorilo/api'
 import { dialog } from '@memorilo/api/command'
+import log from '@memorilo/api/log'
 import { useFolderNodeChildren, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
+import { useNavigate } from '@tanstack/react-router'
 import { Match } from 'effect'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -68,6 +70,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   const renameInputRef = useRef<HTMLInputElement>(null)
   const mutateDeleteFolderNode = useMutateDeleteFolderNode()
   const mutateRenameFolderNode = useMutateRenameFolderNode()
+  const navigate = useNavigate()
 
   async function handleDelete() {
     const isConfirm = await dialog.ask(t('note_folder_tree.delete_confirm', { name: props.name }), {
@@ -110,6 +113,16 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
     }, 0)
   }
 
+  function handleClick() {
+    if (props.typ === 'Topic') {
+      log.info(`Navigating to topic ${props.ref}`)
+      navigate({
+        to: '/note/$docId',
+        params: { docId: props.ref! },
+      })
+    }
+  }
+
   const treeNodeIcon = Match.value(props.typ).pipe(
     Match.when('Folder', () => <LuFolder />),
     Match.when('Topic', () => <LuNotebook />),
@@ -123,7 +136,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
 
   const treeNode = (
     <TreeNode level={props.level} isLast={props.isLast} nodeId={props.uuid}>
-      <TreeNodeTrigger>
+      <TreeNodeTrigger onClick={handleClick}>
         {props.hasChildren ? <TreeExpander hasChildren /> : null}
         {treeNodeIcon}
         {treeNodeLabelWithRename}

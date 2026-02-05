@@ -1,7 +1,9 @@
+use crate::cmd::ToastEvent;
 use crate::db;
 use tauri::App;
 use tauri::Manager;
 use tauri_specta::collect_commands;
+use tauri_specta::collect_events;
 
 use crate::cmd::SettingsState;
 
@@ -18,7 +20,28 @@ pub fn get_specta_builder() -> tauri_specta::Builder {
         crate::cmd::read_settings,
         crate::cmd::update_settings,
         crate::cmd::save_settings,
-    ]);
+        crate::cmd::get_doc,
+        crate::cmd::get_doc_version,
+        crate::cmd::update_doc,
+        crate::cmd::update_topic_doc,
+        crate::cmd::get_client_id,
+        crate::cmd::get_app_local_data_dir,
+        crate::cmd::get_git_commit_id,
+        crate::cmd::get_doc_nodes_count,
+        crate::cmd::get_doc_updates_count,
+        crate::cmd::add_asset,
+        crate::cmd::add_asset_from_bytes,
+        crate::cmd::add_asset_from_base64,
+        crate::cmd::add_asset_from_url,
+        crate::cmd::delete_asset,
+        crate::cmd::analyze_assets,
+        crate::cmd::get_asset_url,
+        crate::cmd::create_doc,
+        crate::cmd::delete_doc,
+        crate::cmd::create_topic,
+        crate::cmd::watch_doc,
+        crate::cmd::unwatch_doc,
+    ]).events(collect_events![ToastEvent]);
 
     #[cfg(debug_assertions)]
     builder
@@ -40,8 +63,9 @@ pub fn setup_database(app: &App) {
     let db_path = app_data_dir.join("memorilo.db");
     let conn = db::get_connection(db_path.to_str().unwrap()).expect("failed to open database");
     app.manage(db::DbState {
-        conn: std::sync::Mutex::new(conn),
+        conn: std::sync::Arc::new(std::sync::Mutex::new(conn)),
     });
+    app.manage(db::doc::DocState::new());
 }
 
 pub fn setup_settings(app: &App) {

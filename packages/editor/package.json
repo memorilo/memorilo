@@ -6,9 +6,16 @@
   "author": "Memorilo Team",
   "license": "AGPL-3.0-only",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": {
+      "types": "./dist/types/editor.d.ts",
+      "import": "./dist/editor.js",
+      "default": "./dist/editor.js"
+    }
   },
+  "types": "./dist/types/editor.d.ts",
   "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -16,8 +23,8 @@
     "@floating-ui/dom": "catalog:",
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
+    "@memorilo/config": "workspace:*",
     "@memorilo/utils": "workspace:*",
-    "@tauri-apps/plugin-log": "catalog:",
     "@tiptap/core": "catalog:",
     "@tiptap/extension-blockquote": "catalog:",
     "@tiptap/extension-bold": "catalog:",
@@ -25,6 +32,7 @@
     "@tiptap/extension-bullet-list": "catalog:",
     "@tiptap/extension-code": "catalog:",
     "@tiptap/extension-code-block": "catalog:",
+    "@tiptap/extension-collaboration": "catalog:",
     "@tiptap/extension-document": "catalog:",
     "@tiptap/extension-emoji": "catalog:",
     "@tiptap/extension-hard-break": "catalog:",
@@ -44,6 +52,7 @@
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
     "@tiptap/suggestion": "catalog:",
+    "@tiptap/y-tiptap": "catalog:",
     "@types/react-color": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
@@ -51,8 +60,7 @@
     "es-toolkit": "catalog:",
     "i18next": "catalog:",
     "katex": "catalog:",
-    "loro-crdt": "catalog:",
-    "loro-prosemirror": "catalog:",
+    "mime-types": "catalog:",
     "motion": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
@@ -60,11 +68,19 @@
     "react-dom": "catalog:",
     "react-i18next": "catalog:",
     "react-icons": "catalog:",
-    "uniqolor": "catalog:"
+    "uniqolor": "catalog:",
+    "yjs": "catalog:"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "catalog:",
+    "@rollup/plugin-typescript": "catalog:",
+    "@tailwindcss/postcss": "catalog:",
+    "@types/mime-types": "catalog:",
     "@types/prismjs": "catalog:",
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "rollup": "catalog:",
+    "rollup-plugin-postcss": "catalog:",
     "tailwindcss": "catalog:"
   }
 }

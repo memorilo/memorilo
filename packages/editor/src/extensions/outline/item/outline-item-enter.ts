@@ -1,19 +1,34 @@
 import type { Editor } from '@tiptap/core'
+import type { NodeType } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
   findFirstChildListPos,
   findListItem,
+  isImeComposing,
   isListContainerNode,
   isOutlineTextBlockNode,
   isSelectionInTable,
 } from '../core/outline-utils'
 import { resolveItemTypeForList } from '../list/outline-list-utils'
 
+function createEmptyListItem(
+  listItemType: NodeType,
+  paragraphType: NodeType,
+) {
+  const attrs = listItemType.name === 'taskItem' ? { checked: false } : null
+  return listItemType.create(attrs, paragraphType.create())
+}
+
 export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: string) {
   return new Plugin({
     key: new PluginKey(`outlineItemEnterHandler:${itemTypeName}`),
     props: {
       handleKeyDown: (view, event) => {
+        // IME composition can trigger Enter for commit; skip to avoid syncing preedit text.
+        if (isImeComposing(view, event)) {
+          return false
+        }
+
         if (event.key !== 'Enter' || event.metaKey || event.ctrlKey || event.shiftKey) {
           return false
         }
@@ -38,8 +53,36 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           return false
         }
 
+        const isRootItem = listItem.depth <= 1
         const isEmpty = parent.content.size === 0
         const childListPos = findFirstChildListPos(listItem)
+
+        if (isRootItem && childListPos === null) {
+          const listItemType = listItem.node.type
+          const paragraphType = state.schema.nodes.paragraph
+          const bulletListType = state.schema.nodes.bulletList
+          const orderedListType = state.schema.nodes.orderedList
+          const taskListType = state.schema.nodes.taskList
+          if (!paragraphType || !bulletListType) {
+            return false
+          }
+          const listType = listItemType.name === 'orderedItem'
+            ? (orderedListType ?? bulletListType)
+            : listItemType.name === 'taskItem'
+              ? (taskListType ?? bulletListType)
+              : bulletListType
+
+          const contentStart = listItem.depth === 0 ? 0 : listItem.pos + 1
+          const insertPos = contentStart + listItem.node.content.size
+          // Root item: Enter should always create the first child list instead of a sibling.
+          const childItem = createEmptyListItem(listItemType, paragraphType)
+          const childList = listType.create(null, childItem)
+          const tr = state.tr.insert(insertPos, childList)
+          const selectionPos = Math.min(insertPos + 3, tr.doc.content.size)
+          tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)))
+          dispatch(tr)
+          return true
+        }
 
         if (childListPos !== null) {
           const listItemType = listItem.node.type
@@ -73,10 +116,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           const insertPos = listItem.pos + listItem.node.nodeSize
           const tr = state.tr.insert(
             insertPos,
-            listItemType.create(
-              listItemType.name === 'taskItem' ? { checked: false } : null,
-              paragraphType.create(),
-            ),
+            createEmptyListItem(listItemType, paragraphType),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
           dispatch(tr)

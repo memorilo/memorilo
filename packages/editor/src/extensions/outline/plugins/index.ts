@@ -1,4 +1,5 @@
 export * from './outline-gapcursor'
+export * from './outline-ime-preedit'
 export * from './outline-navigation'
 export * from './outline-ordered-input'
 export * from './outline-plugins'

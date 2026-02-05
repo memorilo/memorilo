@@ -1,4 +1,4 @@
-import * as log from '@tauri-apps/plugin-log'
+import log from '@memorilo/api/log'
 import { Option, pipe } from 'effect'
 import Prism from 'prismjs'
 import prismLanguages from 'prismjs/components.json'

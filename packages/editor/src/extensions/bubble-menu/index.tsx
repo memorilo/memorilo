@@ -42,12 +42,19 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
   useEditorSelectionUpdate(editor)
   const isTableSelection = isSelectionInTable(editor.state)
   const showMenu = shouldShowBubbleMenu(editor.state)
+  const boundary = editor.view.dom.closest('.memorilo-editor') ?? editor.view.dom
 
   return (
     <>
       <BubbleMenu
         editor={editor}
-        options={{ placement: 'top' }}
+        appendTo={() => document.body}
+        options={{
+          placement: 'top',
+          offset: 8,
+          flip: { padding: 8, boundary },
+          shift: { padding: 8, boundary, crossAxis: true },
+        }}
         className="rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
         shouldShow={({ editor: currentEditor, state }) =>
           currentEditor.isEditable && shouldShowBubbleMenu(state)}

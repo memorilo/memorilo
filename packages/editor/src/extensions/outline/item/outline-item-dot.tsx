@@ -5,6 +5,7 @@ interface OutlineItemDotProps {
   orderedIndex?: number | null
   checkboxLabel?: string
   onCheckboxChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onBulletClick?: (event: React.MouseEvent<HTMLDivElement>) => void
 }
 
 export function OutlineItemDot({
@@ -14,6 +15,7 @@ export function OutlineItemDot({
   orderedIndex,
   checkboxLabel,
   onCheckboxChange,
+  onBulletClick,
 }: OutlineItemDotProps) {
   if (isTaskItem) {
     return (
@@ -51,6 +53,7 @@ export function OutlineItemDot({
       className="h-1.5 w-1.5 rounded-full bg-black dark:bg-white"
       contentEditable={false}
       onMouseDown={e => e.preventDefault()}
+      onClick={onBulletClick}
     />
   )
 }

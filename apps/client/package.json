@@ -12,6 +12,7 @@
   "dependencies": {
     "@memorilo/api": "workspace:*",
     "@memorilo/components": "workspace:*",
+    "@memorilo/config": "workspace:*",
     "@memorilo/core": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/utils": "workspace:*",
@@ -22,15 +23,13 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tauri-apps/api": "catalog:",
-    "@tauri-apps/plugin-log": "catalog:",
-    "@tauri-apps/plugin-opener": "catalog:",
     "dayjs": "catalog:",
     "effect": "catalog:",
     "effect-query": "catalog:",
     "i18next": "catalog:",
     "immer": "catalog:",
     "jotai": "catalog:",
-    "loro-crdt": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-i18next": "catalog:",
@@ -39,6 +38,7 @@
     "react-toastify": "catalog:",
     "tw-animate-css": "catalog:",
     "uuid": "catalog:",
+    "yjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

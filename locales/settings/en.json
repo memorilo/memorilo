@@ -4,5 +4,7 @@
   "dev.title": "Developer",
   "dev.scan": "Show view updates (react-scan)",
   "dev.router": "Show router debug (tanstack-router)",
-  "dev.query": "Show query debug (tanstack-query)"
+  "dev.query": "Show query debug (tanstack-query)",
+  "note.title": "Notes",
+  "note.downloadImage": "Download images when pasting URLs"
 }

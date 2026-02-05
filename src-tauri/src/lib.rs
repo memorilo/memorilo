@@ -2,6 +2,7 @@ pub mod db;
 pub mod cmd;
 pub mod setup;
 pub mod error;
+pub mod utils;
 
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;

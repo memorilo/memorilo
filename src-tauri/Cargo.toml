@@ -22,10 +22,12 @@ crate-type = [
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
+base64 = "0.22"
+percent-encoding = "2"
 tauri-plugin-log = { version = "2", features = [ "colored" ] }
 log = { version = "0.4.28", features = [ "serde" ] }
 tauri-plugin-notification = "2"
@@ -43,4 +45,12 @@ tokio = { version = "1.48.0", features = ["fs", "io-std", "io-util", "net", "syn
 toml = "0.9.8"
 tauri-plugin-fs = "2.4.5"
 tauri-plugin-os = "2.3.2"
-
+git-version = "0.3.9"
+libp2p = { version = "0.56.0", features = ["tcp", "autonat", "gossipsub", "ping", "yamux", "identify", "mdns"] }
+machineid-rs = "1.2.4"
+yrs = { version = "0.25.0", features = ["sync", "weak"] }
+once_cell = "1.21.3"
+sha2 = "0.10.9"
+dunce = "1"
+reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls"] }
+mime2ext = "0.1.53"
