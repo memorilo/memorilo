@@ -64,6 +64,7 @@ catalog:
   '@tiptap/react': ^3.16.0
   '@tiptap/suggestion': ^3.16.0
   '@tiptap/y-tiptap': ^3.0.2
+  '@types/mime-types': ^3.0.1
   '@types/node': ^24.10.6
   '@types/prismjs': ^1.26.5
   '@types/react': ^19.2.7
@@ -89,6 +90,7 @@ catalog:
   jsdom: ^27.4.0
   katex: ^0.16.27
   lucide-react: ^0.554.0
+  mime-types: ^3.0.2
   mitt: ^3.0.1
   motion: 12.23.25
   pathe: ^2.0.3

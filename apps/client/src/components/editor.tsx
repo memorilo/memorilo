@@ -5,6 +5,7 @@ import { Effect, Exit, Fiber, Iterable, Option, Schedule } from 'effect'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import * as Y from 'yjs'
+import { useSetting } from '~/hooks/use-setting'
 import { useSyncYDoc } from '~/hooks/use-sync-ydoc'
 
 interface EditorProps {
@@ -31,6 +32,7 @@ export function Editor(props: EditorProps) {
 
 function EditorInstance({ docId, focusNodeId, onOutlineClick }: EditorProps) {
   const { doc, initialized: docInitialized, error } = useSyncYDoc(docId)
+  const { data: downloadImage } = useSetting('note::downloadImage', true)
 
   const [fragment, setFragment] = useState<Option.Option<Y.XmlElement | Y.XmlFragment> | null>(null)
   const initialized = docInitialized && fragment !== null
@@ -140,6 +142,7 @@ function EditorInstance({ docId, focusNodeId, onOutlineClick }: EditorProps) {
     <MemoriloEditor
       fragment={fragment.value}
       rootNode={rootNode}
+      downloadImage={downloadImage}
       onOutlineClick={onOutlineClick}
     />
   )

@@ -251,6 +251,14 @@ async addAssetFromBase64(base64: string, extension: string | null, meta: string 
     else return { status: "error", error: e  as any };
 }
 },
+async addAssetFromUrl(url: string) : Promise<Result<Asset, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_asset_from_url", { url }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async deleteAsset(assetId: string) : Promise<Result<AssetDeleteResult, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_asset", { assetId }) };
@@ -337,7 +345,7 @@ toastEvent: "toast-event"
  */
 export type Asset = { assetId: string; filename: string; sha256: string; clientId: string; createdAt: string; meta: string | null }
 export type AssetAnalysisEntry = { assetId: string; filename: string }
-export type AssetAnalysisResult = { missingFiles: AssetAnalysisEntry[]; untrackedFiles: AssetAnalysisEntry[] }
+export type AssetAnalysisResult = { missingFiles: AssetAnalysisEntry[]; untrackedFiles: AssetAnalysisEntry[]; unusedFiles: AssetAnalysisEntry[] }
 export type AssetDeleteResult = { deletedRecord: boolean; deletedFiles: string[] }
 export type CreatedTopic = { docId: string; topicUuid: string }
 export type Error = { _tag: ErrorKind; message: string; inner_message: string }

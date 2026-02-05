@@ -34,6 +34,7 @@ export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>
   fragment: XmlFragment | XmlElement
   rootNode?: 'doc' | 'listItem' | 'orderedItem' | 'taskItem'
   hideTitle?: boolean
+  downloadImage?: boolean
   onOutlineClick?: (uuid: string) => void
 }
 
@@ -42,6 +43,7 @@ export function MemoriloEditor({
   fragment,
   rootNode = 'doc',
   hideTitle = false,
+  downloadImage = false,
   onOutlineClick,
   ...props
 }: MemoriloEditorProps) {
@@ -70,6 +72,7 @@ export function MemoriloEditor({
           multicolor: true,
         }),
         OutlineImage.configure({
+          downloadImage,
           resize: {
             enabled: true,
             directions: [

@@ -60,6 +60,7 @@
     "es-toolkit": "catalog:",
     "i18next": "catalog:",
     "katex": "catalog:",
+    "mime-types": "catalog:",
     "motion": "catalog:",
     "prismjs": "catalog:",
     "react": "catalog:",
@@ -74,8 +75,10 @@
     "@rollup/plugin-node-resolve": "catalog:",
     "@rollup/plugin-typescript": "catalog:",
     "@tailwindcss/postcss": "catalog:",
+    "@types/mime-types": "catalog:",
     "@types/prismjs": "catalog:",
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "rollup": "catalog:",
     "rollup-plugin-postcss": "catalog:",
     "tailwindcss": "catalog:"

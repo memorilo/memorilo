@@ -50,6 +50,14 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
     },
   ])
 
+  memorilo.settings.register('note', [
+    {
+      key: 'downloadImage',
+      schema: z.boolean(),
+      defaultValue: true,
+    },
+  ])
+
   memorilo.settings.register('dev', [
     {
       key: 'scan',

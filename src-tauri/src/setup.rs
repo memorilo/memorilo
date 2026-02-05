@@ -32,6 +32,7 @@ pub fn get_specta_builder() -> tauri_specta::Builder {
         crate::cmd::add_asset,
         crate::cmd::add_asset_from_bytes,
         crate::cmd::add_asset_from_base64,
+        crate::cmd::add_asset_from_url,
         crate::cmd::delete_asset,
         crate::cmd::analyze_assets,
         crate::cmd::get_asset_url,

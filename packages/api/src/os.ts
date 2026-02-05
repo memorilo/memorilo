@@ -22,7 +22,7 @@ export function detectLanguage<S extends ReadonlyArray<string>, F extends string
           A.findFirst(supportedLocales, lang => lang.toLowerCase() === target)
 
         return findMatch(normalized).pipe(
-          Option.orElse(() => findMatch(normalized.split('-')[0])),
+          Option.orElse(() => findMatch(normalized.split('-')[0] ?? normalized)),
         )
       }),
       Option.getOrElse(fallback),

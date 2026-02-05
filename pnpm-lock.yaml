@@ -189,6 +189,9 @@ catalogs:
     '@tiptap/y-tiptap':
       specifier: ^3.0.2
       version: 3.0.2
+    '@types/mime-types':
+      specifier: ^3.0.1
+      version: 3.0.1
     '@types/node':
       specifier: ^24.10.6
       version: 24.10.6
@@ -264,6 +267,9 @@ catalogs:
     lucide-react:
       specifier: ^0.554.0
       version: 0.554.0
+    mime-types:
+      specifier: ^3.0.2
+      version: 3.0.2
     mitt:
       specifier: ^3.0.1
       version: 3.0.1
@@ -776,6 +782,9 @@ importers:
       katex:
         specifier: 'catalog:'
         version: 0.16.27
+      mime-types:
+        specifier: 'catalog:'
+        version: 3.0.2
       motion:
         specifier: 'catalog:'
         version: 12.23.25(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -813,12 +822,18 @@ importers:
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.1.18
+      '@types/mime-types':
+        specifier: 'catalog:'
+        version: 3.0.1
       '@types/prismjs':
         specifier: 'catalog:'
         version: 1.26.5
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.7
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.7)
       rollup:
         specifier: 'catalog:'
         version: 4.57.0
@@ -2979,6 +2994,9 @@ packages:
   '@types/mdurl@2.0.0':
     resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
 
+  '@types/mime-types@3.0.1':
+    resolution: {integrity: sha512-xRMsfuQbnRq1Ef+C+RKaENOxXX87Ygl38W1vDfPHRku02TgQr+Qd8iivLtAMcR0KF5/29xlnFihkTlbqFrGOVQ==}
+
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
@@ -4518,6 +4536,14 @@ packages:
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
+
+  mime-db@1.54.0:
+    resolution: {integrity: sha512-aU5EJuIN2WDemCcAp2vFBfp/m4EAhWJnUNSSw0ixs7/kXbd6Pg64EmwJkNdFhB8aWt1sH2CTXrLxo/iAGV3oPQ==}
+    engines: {node: '>= 0.6'}
+
+  mime-types@3.0.2:
+    resolution: {integrity: sha512-Lbgzdk0h4juoQ9fCKXW4by0UJqj+nOOrI9MJ1sSj4nI8aI2eo1qmvQEie4VD1glsS250n15LsWsYtCugiStS5A==}
+    engines: {node: '>=18'}
 
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
@@ -7739,6 +7765,8 @@ snapshots:
 
   '@types/mdurl@2.0.0': {}
 
+  '@types/mime-types@3.0.1': {}
+
   '@types/ms@2.1.0': {}
 
   '@types/node@20.19.28':
@@ -9619,6 +9647,12 @@ snapshots:
       braces: 3.0.3
       picomatch: 2.3.1
     optional: true
+
+  mime-db@1.54.0: {}
+
+  mime-types@3.0.2:
+    dependencies:
+      mime-db: 1.54.0
 
   minimatch@3.1.2:
     dependencies:
