@@ -18,7 +18,11 @@ function RouteComponent() {
   }, [navigate, docId])
   return (
     <div className="size-full">
-      <Editor docId={docId} onOutlineClick={handleFocusNode} />
+      <Editor
+        docId={docId}
+        onOutlineClick={handleFocusNode}
+        hideTitle
+      />
     </div>
   )
 }

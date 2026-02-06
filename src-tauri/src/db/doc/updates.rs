@@ -53,8 +53,16 @@ impl DocState {
     }
 
     /// Create a new document and persist an initial snapshot.
-    pub fn create_doc(&self, conn: &Connection, doc_id: &str) -> DocResult<Doc> {
+    pub fn create_doc(&self, conn: &Connection, doc_id: &str, title: &str) -> DocResult<Doc> {
         log::info!("Creating doc: {doc_id}");
+        conn.execute(
+            "INSERT INTO docs (doc_id, title, typ) VALUES (?1, ?2, ?3)",
+            params![doc_id, title, "outline"],
+        )
+        .map_err(|e| DocError::Db {
+            context: "insert docs row",
+            source: e,
+        })?;
         let doc = Doc::new();
         let snapshot = doc
             .transact()
@@ -77,14 +85,9 @@ impl DocState {
     /// Delete a document's persisted data and purge it from memory.
     pub fn delete_doc(&self, conn: &Connection, doc_id: &str) -> DocResult<()> {
         log::info!("Deleting doc: {doc_id}");
-        conn.execute("DELETE FROM doc_updates WHERE doc_id = ?1", params![doc_id])
+        conn.execute("DELETE FROM docs WHERE doc_id = ?1", params![doc_id])
             .map_err(|e| DocError::Db {
-                context: "delete doc_updates by doc_id",
-                source: e,
-            })?;
-        conn.execute("DELETE FROM doc_nodes WHERE doc_id = ?1", params![doc_id])
-            .map_err(|e| DocError::Db {
-                context: "delete doc_nodes by doc_id",
+                context: "delete docs by doc_id",
                 source: e,
             })?;
         self.purge_doc(doc_id)?;

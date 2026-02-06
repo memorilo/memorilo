@@ -1,3 +1,17 @@
+-- Documents metadata
+CREATE TABLE IF NOT EXISTS docs(
+    -- Document id
+    doc_id TEXT PRIMARY KEY,
+    -- Document title
+    title TEXT NOT NULL,
+    -- Document type (only "outline" is allowed)
+    typ TEXT NOT NULL CHECK (typ IN ('outline')),
+    -- Last modification time
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Creation time
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS folder_nodes (
     uuid TEXT PRIMARY KEY,
     parent_uuid TEXT NULL,
@@ -10,7 +24,8 @@ CREATE TABLE IF NOT EXISTS folder_nodes (
     CHECK (uuid = '00000000-0000-0000-0000-000000000000' OR parent_uuid IS NOT NULL),
     CHECK (uuid != '00000000-0000-0000-0000-000000000000' OR parent_uuid IS NULL),
     CHECK (parent_uuid IS NULL OR parent_uuid != uuid),
-    FOREIGN KEY (parent_uuid) REFERENCES folder_nodes(uuid) ON DELETE CASCADE
+    FOREIGN KEY (parent_uuid) REFERENCES folder_nodes(uuid) ON DELETE CASCADE,
+    FOREIGN KEY (ref) REFERENCES docs(doc_id)
 );
 
 

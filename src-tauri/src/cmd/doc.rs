@@ -150,7 +150,7 @@ pub async fn create_doc(
     log::info!("create_doc request: {doc_id}");
     let _doc = {
         let conn = db_state.conn.lock()?;
-        map_doc(state.create_doc(&conn, &doc_id))?
+        map_doc(state.create_doc(&conn, &doc_id, ""))?
     };
     Ok(doc_id)
 }
@@ -183,7 +183,7 @@ pub async fn create_topic(
     );
     let _doc = {
         let mut conn = db_state.conn.lock()?;
-        let doc = map_doc(state.create_doc(&conn, &doc_id))?;
+        let doc = map_doc(state.create_doc(&conn, &doc_id, &name))?;
         if let Err(err) = db::create_folder_node(
             &mut conn,
             &parent_uuid,
