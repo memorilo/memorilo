@@ -1,14 +1,17 @@
 import type { FolderNode } from '@memorilo/api'
+import type { MouseEvent } from 'react'
 import { dialog } from '@memorilo/api/command'
 import log from '@memorilo/api/log'
-import { useFolderNodeChildren, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
+import { useFolderNodeChildren, useMutateCreateFolderNode, useMutateCreateTopicNode, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
 import { useNavigate } from '@tanstack/react-router'
 import { Match } from 'effect'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFolder, LuHighlighter, LuNotebook, LuRefreshCcw, LuStickyNote } from 'react-icons/lu'
+import { toast } from 'react-toastify'
+import { v7 as uuidV7 } from 'uuid'
 import { useNoteFolderTree } from './note-folder-tree-provider'
 
 /**
@@ -81,6 +84,8 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
     })
     return () => cancelAnimationFrame(frame)
   }, [isRenaming])
+  const mutateCreateFolderNode = useMutateCreateFolderNode()
+  const mutateCreateTopicNode = useMutateCreateTopicNode()
   const mutateDeleteFolderNode = useMutateDeleteFolderNode()
   const mutateRenameFolderNode = useMutateRenameFolderNode()
   const navigate = useNavigate()
@@ -100,6 +105,35 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
         },
       })
     }
+  }
+  function handleCreateFolder() {
+    if (selectedIds.length !== 1) {
+      return
+    }
+    const uuid = uuidV7()
+    mutateCreateFolderNode.mutate({
+      parentUUID: selectedIds[0],
+      uuid,
+      name: t('note_folder_tree.new_folder'),
+    }, {
+      onSuccess: () => {},
+      onError: (error) => {
+        toast.error(t('note_folder_tree.create_folder_error', { error: String(error), interpolation: { escapeValue: false } }))
+      },
+    })
+  }
+  function handleCreateTopic() {
+    if (selectedIds.length !== 1)
+      return
+    mutateCreateTopicNode.mutate({
+      parentUUID: selectedIds[0],
+      name: t('note_folder_tree.new_topic'),
+    }, {
+      onSuccess: () => {},
+      onError: (error) => {
+        toast.error(t('note_folder_tree.create_topic_error', { error: String(error), interpolation: { escapeValue: false } }))
+      },
+    })
   }
 
   function handleStartRename() {
@@ -195,6 +229,19 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
           })
         }}
       >
+        {
+          props.typ === 'Folder'
+            ? (
+                <ContextMenuSub>
+                  <ContextMenuSubTrigger>{t('note_folder_tree.create')}</ContextMenuSubTrigger>
+                  <ContextMenuSubContent>
+                    <ContextMenuItem onSelect={handleCreateTopic}>{t('note_folder_tree.new_topic')}</ContextMenuItem>
+                    <ContextMenuItem onSelect={handleCreateFolder}>{t('note_folder_tree.new_folder')}</ContextMenuItem>
+                  </ContextMenuSubContent>
+                </ContextMenuSub>
+              )
+            : null
+        }
         <ContextMenuItem onSelect={handleRequestRename}>
           {t('note_folder_tree.rename')}
         </ContextMenuItem>

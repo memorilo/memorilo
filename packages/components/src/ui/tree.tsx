@@ -18,6 +18,7 @@ import {
 interface TreeContextType {
   expandedIds: Set<string>
   selectedIds: string[]
+  setSelectedIds: (ids: string[]) => void
   toggleExpanded: (nodeId: string) => void
   handleSelection: (nodeId: string, ctrlKey: boolean) => void
   showLines?: boolean
@@ -141,6 +142,15 @@ export function TreeProvider({
     ],
   )
 
+  const handleSetSelectedIds = useCallback((ids: string[]) => {
+    if (isControlled) {
+      onSelectionChange?.(ids)
+    }
+    else {
+      setInternalSelectedIds(ids)
+    }
+  }, [isControlled, onSelectionChange])
+
   return (
     <TreeContext
       value={{
@@ -148,6 +158,7 @@ export function TreeProvider({
         selectedIds: currentSelectedIds,
         toggleExpanded,
         handleSelection,
+        setSelectedIds: handleSetSelectedIds,
         showLines,
         showIcons,
         selectable,
@@ -235,7 +246,7 @@ export function TreeNodeTrigger({
   onClick,
   ...props
 }: TreeNodeTriggerProps) {
-  const { selectedIds, toggleExpanded, handleSelection, indent } = useTree()
+  const { selectedIds, toggleExpanded, handleSelection, indent, setSelectedIds } = useTree()
   const { nodeId, level } = useTreeNode()
   const isSelected = selectedIds.includes(nodeId)
 
@@ -247,6 +258,9 @@ export function TreeNodeTrigger({
         isSelected && 'bg-accent/80',
         className,
       )}
+      onContextMenu={() => {
+        setSelectedIds([nodeId])
+      }}
       onClick={(e) => {
         toggleExpanded(nodeId)
         handleSelection(nodeId, e.ctrlKey || e.metaKey)
