@@ -180,6 +180,14 @@ build-bundle-size-stats:
 
 lint-web changed="false":
   #!/usr/bin/env bash
+  run_pnpm() {
+    if command -v nix >/dev/null 2>&1; then
+      nix develop ".#default" --command pnpm "$@"
+    else
+      pnpm "$@"
+    fi
+  }
+
   if [ "{{changed}}" == "true" ]; then
     echo "Checking only changed files..."
     FILES=$(git diff --diff-filter=d --name-only HEAD | grep -E '^(apps|packages)/.*\.(ts|tsx|js|jsx|mjs|cjs|vue|json)$')
@@ -187,10 +195,10 @@ lint-web changed="false":
       echo "No relevant changed files found."
       exit 0
     fi
-    pnpm exec eslint $FILES
+    run_pnpm exec eslint $FILES
   else
     echo "Checking all files..."
-    pnpm exec eslint apps packages
+    run_pnpm exec eslint apps packages
   fi
 
 lint-rs changed="false":
