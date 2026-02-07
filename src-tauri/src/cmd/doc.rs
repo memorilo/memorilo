@@ -76,6 +76,17 @@ pub async fn get_doc(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_doc_title(
+    state: State<'_, DocState>,
+    db_state: State<'_, DbState>,
+    doc_id: String,
+) -> Result<String> {
+    let conn = db_state.conn.lock()?;
+    map_doc(state.get_doc_title(&conn, &doc_id))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn get_doc_version(
     state: State<'_, DocState>,
     db_state: State<'_, DbState>,
@@ -153,6 +164,20 @@ pub async fn create_doc(
         map_doc(state.create_doc(&conn, &doc_id, ""))?
     };
     Ok(doc_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_doc_title(
+    state: State<'_, DocState>,
+    db_state: State<'_, DbState>,
+    doc_id: String,
+    title: String,
+) -> Result<()> {
+    log::info!("update_doc_title request: {doc_id}");
+    let conn = db_state.conn.lock()?;
+    map_doc(state.update_doc_title(&conn, &doc_id, &title))?;
+    Ok(())
 }
 
 #[tauri::command]

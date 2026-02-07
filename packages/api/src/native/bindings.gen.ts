@@ -173,6 +173,14 @@ async getDoc(docId: string) : Promise<Result<number[], Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getDocTitle(docId: string) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_title", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getDocVersion(docId: string) : Promise<Result<StateVector, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_doc_version", { docId }) };
@@ -286,6 +294,14 @@ async getAssetUrl(assetId: string, useHttps: boolean | null) : Promise<Result<st
 async createDoc() : Promise<Result<string, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_doc") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateDocTitle(docId: string, title: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_doc_title", { docId, title }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

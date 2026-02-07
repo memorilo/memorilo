@@ -1,4 +1,5 @@
 use crate::utils::lru_cache::LruCache;
+use rusqlite::{params, Connection};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::async_runtime::JoinHandle;
@@ -81,5 +82,36 @@ pub struct DocState {
 impl Default for DocState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl DocState {
+    pub fn get_doc_title(&self, conn: &Connection, doc_id: &str) -> DocResult<String> {
+        conn.query_row(
+            "SELECT title FROM docs WHERE doc_id = ?1",
+            params![doc_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| DocError::Db {
+            context: "get docs title",
+            source: e,
+        })
+    }
+
+    pub fn update_doc_title(
+        &self,
+        conn: &Connection,
+        doc_id: &str,
+        title: &str,
+    ) -> DocResult<()> {
+        conn.execute(
+            "UPDATE docs SET title = ?1, updated_at = CURRENT_TIMESTAMP WHERE doc_id = ?2",
+            params![title, doc_id],
+        )
+        .map_err(|e| DocError::Db {
+            context: "update docs title",
+            source: e,
+        })?;
+        Ok(())
     }
 }

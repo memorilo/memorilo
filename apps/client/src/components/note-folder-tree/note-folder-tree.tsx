@@ -6,7 +6,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
 import { useNavigate } from '@tanstack/react-router'
 import { Match } from 'effect'
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFolder, LuHighlighter, LuNotebook, LuRefreshCcw, LuStickyNote } from 'react-icons/lu'
 import { useNoteFolderTree } from './note-folder-tree-provider'
@@ -67,7 +67,20 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   const { t } = useTranslation('app')
   const { selectedIds, setSelectedIds } = useNoteFolderTree()
   const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const pendingRenameRef = useRef(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => {
+    if (!isRenaming) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      renameInputRef.current?.focus()
+      renameInputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [isRenaming])
   const mutateDeleteFolderNode = useMutateDeleteFolderNode()
   const mutateRenameFolderNode = useMutateRenameFolderNode()
   const navigate = useNavigate()
@@ -90,27 +103,23 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   }
 
   function handleStartRename() {
+    setRenameValue(props.name)
     setIsRenaming(true)
-    setTimeout(() => {
-      if (renameInputRef.current) {
-        const input = renameInputRef.current
-        input.value = props.name
-        input.select()
-        const applyRename = () => {
-          setIsRenaming(false)
-          mutateRenameFolderNode.mutate({
-            uuid: props.uuid,
-            newName: input.value,
-          })
-        }
-        input.addEventListener('blur', applyRename)
-        input.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter') {
-            applyRename()
-          }
-        })
-      }
-    }, 0)
+  }
+
+  function handleRequestRename() {
+    pendingRenameRef.current = true
+  }
+
+  function handleCommitRename() {
+    setIsRenaming(false)
+    if (renameValue === props.name) {
+      return
+    }
+    mutateRenameFolderNode.mutate({
+      uuid: props.uuid,
+      newName: renameValue,
+    })
   }
 
   function handleClick() {
@@ -131,8 +140,26 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
     Match.exhaustive,
   )
 
-  const treeNodeLabelWithRename
-    = isRenaming ? <input ref={renameInputRef} type="text" className="ml-1 min-w-0 font flex-1 text-sm" /> : <TreeLabel className="pl-1">{props.name}</TreeLabel>
+  const treeNodeLabelWithRename = isRenaming
+    ? (
+        <input
+          type="text"
+          className="ml-1 min-w-0 font flex-1 text-sm"
+          ref={renameInputRef}
+          autoFocus
+          value={renameValue}
+          onPointerDown={event => event.stopPropagation()}
+          onClick={event => event.stopPropagation()}
+          onChange={event => setRenameValue(event.currentTarget.value)}
+          onBlur={handleCommitRename}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              handleCommitRename()
+            }
+          }}
+        />
+      )
+    : <TreeLabel className="pl-1">{props.name}</TreeLabel>
 
   const treeNode = (
     <TreeNode level={props.level} isLast={props.isLast} nodeId={props.uuid}>
@@ -156,13 +183,21 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{treeNode}</ContextMenuTrigger>
-      <ContextMenuContent onCloseAutoFocus={(e) => {
-        if (isRenaming) {
-          e.preventDefault()
-        }
-      }}
+      <ContextMenuContent
+        onCloseAutoFocus={(event) => {
+          if (!pendingRenameRef.current) {
+            return
+          }
+          event.preventDefault()
+          pendingRenameRef.current = false
+          requestAnimationFrame(() => {
+            handleStartRename()
+          })
+        }}
       >
-        <ContextMenuItem onClick={handleStartRename}>{t('note_folder_tree.rename')}</ContextMenuItem>
+        <ContextMenuItem onSelect={handleRequestRename}>
+          {t('note_folder_tree.rename')}
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={handleDelete}>{t('note_folder_tree.delete')}</ContextMenuItem>
       </ContextMenuContent>
