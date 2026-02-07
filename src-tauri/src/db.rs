@@ -16,7 +16,8 @@ pub struct DbState {
 static DATABASE_MIGRATIONS: &[&str] = &[
     include_str!("../migrations/00-init-folder.sql"),
     include_str!("../migrations/01-note-struct.sql"),
-    include_str!("../migrations/02-assets.sql")
+    include_str!("../migrations/02-assets.sql"),
+    include_str!("../migrations/03-folder_view.sql")
 ];
 
 /// Establishes a connection to the SQLite database at the specified URL.
