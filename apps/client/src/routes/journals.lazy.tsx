@@ -32,8 +32,8 @@ function Journals() {
   }, [jumpToDate])
 
   return (
-    <div className="size-full flex flex-col overflow-hidden">
-      <div className="border-b px-2 py-1">
+    <div className="size-full flex flex-col">
+      <div className="sticky top-0 z-10 border-b bg-background px-2 py-1">
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>
             <Button

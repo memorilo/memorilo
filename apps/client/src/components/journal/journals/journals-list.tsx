@@ -9,7 +9,6 @@ function isScrolledToBottom(el: HTMLElement) {
 export function JournalsList({ state }: { state: JournalsState }) {
   const {
     autoCreateEnabled,
-    createdDocMap,
     docIdByDateKey,
     handleCreated,
     getRow,
@@ -22,15 +21,17 @@ export function JournalsList({ state }: { state: JournalsState }) {
   } = state
 
   if (listError) {
+    const errorMessage = typeof listError === 'string'
+      ? listError
+      : listError instanceof Error
+        ? listError.message
+        : 'Unknown error'
     return (
       <div className="px-4 py-6 text-sm text-destructive">
-        {String(listError)}
+        {errorMessage}
       </div>
     )
   }
-
-  const resolveDocId = (dateKey: string, fallbackDocId: string | null) =>
-    createdDocMap[dateKey] ?? docIdByDateKey[dateKey] ?? fallbackDocId
 
   return (
     <div
@@ -55,7 +56,7 @@ export function JournalsList({ state }: { state: JournalsState }) {
             if (!item) {
               return null
             }
-            const resolvedDocId = resolveDocId(item.dateKey, item.docId)
+            const resolvedDocId = docIdByDateKey[item.dateKey] ?? null
             return (
               <div
                 key={item.dateKey}

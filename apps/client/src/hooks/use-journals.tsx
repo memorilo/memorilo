@@ -144,7 +144,7 @@ export function useJournals() {
     getScrollElement: () => parentRef.current,
     // Use a stable key so the virtualizer size cache doesn't get confused when rows are inserted
     // (e.g. the "today" placeholder or a newly-created journal day in existing-only mode).
-    getItemKey: (index) => {
+    getItemKey: (index: number) => {
       if (autoCreateEnabled) {
         return dayjs(todayKey, DATE_FORMAT).subtract(index, 'day').format(DATE_FORMAT)
       }
@@ -220,6 +220,18 @@ export function useJournals() {
     }
     return map
   }, [autoCreateEnabled, autoRangeQueries])
+
+  const docIdByDateKey = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const item of existingItems) {
+      if (item.docId) {
+        map[item.dateKey] = item.docId
+      }
+    }
+    Object.assign(map, autoDocIdByDateKey)
+    Object.assign(map, createdDocMap)
+    return map
+  }, [autoDocIdByDateKey, createdDocMap, existingItems])
 
   const listError = useMemo(() => {
     if (!autoCreateEnabled) {
@@ -346,8 +358,7 @@ export function useJournals() {
     autoCreateEnabled,
     todayKey,
     getRow,
-    createdDocMap,
-    docIdByDateKey: autoDocIdByDateKey,
+    docIdByDateKey,
     handleCreated,
     parentRef,
     rowVirtualizer,
