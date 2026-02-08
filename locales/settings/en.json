@@ -6,5 +6,7 @@
   "dev.router": "Show router debug (tanstack-router)",
   "dev.query": "Show query debug (tanstack-query)",
   "note.title": "Notes",
-  "note.downloadImage": "Download images when pasting URLs"
+  "note.downloadImage": "Download images when pasting URLs",
+  "journal.title": "Journal",
+  "journal.autoCreate": "Auto-create Journal for past dates"
 }

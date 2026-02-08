@@ -10,10 +10,18 @@ CREATE TABLE IF NOT EXISTS doc_updates(
     -- Originating client id (for sync purposes)
     client_id TEXT NOT NULL,
     -- Sync status: 0 = pending, 1 = synced, other values reserved. Pending updates maybe compacted later.
-    sync_status INTEGER NOT NULL DEFAULT 0
+    sync_status INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(doc_id) REFERENCES docs(doc_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_doc_updates_doc_id ON doc_updates(doc_id);
+
+-- Trigger: Touch docs updated_at when new updates are recorded
+CREATE TRIGGER IF NOT EXISTS touch_doc_on_update_insert
+AFTER INSERT ON doc_updates
+BEGIN
+    UPDATE docs SET updated_at = CURRENT_TIMESTAMP WHERE doc_id = NEW.doc_id;
+END;
 
 -- ProseMirror document tree stored as adjacency list
 CREATE TABLE IF NOT EXISTS doc_nodes(
@@ -32,7 +40,8 @@ CREATE TABLE IF NOT EXISTS doc_nodes(
     attr TEXT NOT NULL,
     -- Text content for ProseMirror text leaf nodes; NULL for non-text nodes
     text TEXT NULL,
-    FOREIGN KEY(parent_id) REFERENCES doc_nodes(id) ON DELETE CASCADE
+    FOREIGN KEY(parent_id) REFERENCES doc_nodes(id) ON DELETE CASCADE,
+    FOREIGN KEY(doc_id) REFERENCES docs(doc_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_doc_nodes_doc_id ON doc_nodes(doc_id);
@@ -40,11 +49,10 @@ CREATE INDEX IF NOT EXISTS idx_doc_nodes_parent_id ON doc_nodes(parent_id);
 CREATE INDEX IF NOT EXISTS idx_doc_nodes_node_uuid ON doc_nodes(node_uuid);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_nodes_doc_uuid ON doc_nodes(doc_id, node_uuid);
 
--- Trigger: Delete topic doc data when a topic folder node is removed
-CREATE TRIGGER IF NOT EXISTS delete_topic_doc_on_folder_delete
+-- Trigger: Delete doc when a folder node with ref is removed
+CREATE TRIGGER IF NOT EXISTS delete_doc_on_folder_delete
 AFTER DELETE ON folder_nodes
-WHEN OLD.typ = 'topic' AND OLD.ref IS NOT NULL
+WHEN OLD.ref IS NOT NULL
 BEGIN
-    DELETE FROM doc_updates WHERE doc_id = OLD.ref;
-    DELETE FROM doc_nodes WHERE doc_id = OLD.ref;
+    DELETE FROM docs WHERE doc_id = OLD.ref;
 END;

@@ -1,4 +1,4 @@
-use crate::db::{self, doc::{DocError, DocResult, DocState}, DbState, FolderNodeType};
+use crate::db::{self, doc::{DocError, DocState}, DbState, FolderNodeType};
 use crate::cmd::{show_toast, ToastEvent, ToastType};
 use crate::error::{Error, Result};
 use crate::utils::client_id;
@@ -21,10 +21,6 @@ pub struct CreatedTopic {
 #[specta(rename = "StateVector", transparent)]
 #[serde(transparent)]
 pub struct StateVectorDto(pub Vec<u8>);
-
-fn map_doc<T>(result: DocResult<T>) -> Result<T> {
-    result.map_err(Error::from)
-}
 
 fn toast_for_doc_error(doc_id: &str, err: DocError) -> ToastEvent {
     let mut values = HashMap::new();
@@ -67,11 +63,22 @@ pub async fn get_doc(
 ) -> Result<Vec<u8>> {
     log::info!("get_doc request: {doc_id}");
     let conn = db_state.conn.lock()?;
-    let doc = map_doc(state.get_or_load(&conn, &doc_id))?;
+    let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
     let update = doc
         .transact()
         .encode_state_as_update_v1(&StateVector::default());
     Ok(update)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_doc_title(
+    state: State<'_, DocState>,
+    db_state: State<'_, DbState>,
+    doc_id: String,
+) -> Result<String> {
+    let conn = db_state.conn.lock()?;
+    state.get_doc_title(&conn, &doc_id).map_err(Error::from)
 }
 
 #[tauri::command]
@@ -82,7 +89,7 @@ pub async fn get_doc_version(
     doc_id: String,
 ) -> Result<StateVectorDto> {
     let conn = db_state.conn.lock()?;
-    let doc = map_doc(state.get_or_load(&conn, &doc_id))?;
+    let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
     let state_vector = doc.transact().state_vector().encode_v1();
     Ok(StateVectorDto(state_vector))
 }
@@ -98,7 +105,7 @@ pub async fn update_doc(
     log::info!("update_doc request: {doc_id} (bytes: {})", update.len());
     let doc = {
         let conn = db_state.conn.lock()?;
-        map_doc(state.get_or_load(&conn, &doc_id))?
+        state.get_or_load(&conn, &doc_id).map_err(Error::from)?
     };
 
     let update_decoded = Update::decode_v1(&update)?;
@@ -113,7 +120,7 @@ pub async fn update_doc(
         )?;
     }
 
-    map_doc(state.broadcast_updates(&doc_id, &doc))?;
+    state.broadcast_updates(&doc_id, &doc).map_err(Error::from)?;
 
     Ok(())
 }
@@ -136,7 +143,9 @@ pub async fn update_topic_doc(
             toast_for_doc_error(&doc_id_for_toast, err),
         );
     };
-    map_doc(state.schedule_topic_sync(doc_id, db_state.conn.clone(), on_error))?;
+    state
+        .schedule_topic_sync(doc_id, db_state.conn.clone(), on_error)
+        .map_err(Error::from)?;
     Ok(())
 }
 
@@ -150,9 +159,25 @@ pub async fn create_doc(
     log::info!("create_doc request: {doc_id}");
     let _doc = {
         let conn = db_state.conn.lock()?;
-        map_doc(state.create_doc(&conn, &doc_id))?
+        state.create_doc(&conn, &doc_id, "").map_err(Error::from)?
     };
     Ok(doc_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_doc_title(
+    state: State<'_, DocState>,
+    db_state: State<'_, DbState>,
+    doc_id: String,
+    title: String,
+) -> Result<()> {
+    log::info!("update_doc_title request: {doc_id}");
+    let conn = db_state.conn.lock()?;
+    state
+        .update_doc_title(&conn, &doc_id, &title)
+        .map_err(Error::from)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -164,7 +189,7 @@ pub async fn delete_doc(
 ) -> Result<()> {
     log::info!("delete_doc request: {doc_id}");
     let conn = db_state.conn.lock()?;
-    map_doc(state.delete_doc(&conn, &doc_id))?;
+    state.delete_doc(&conn, &doc_id).map_err(Error::from)?;
     Ok(())
 }
 
@@ -183,7 +208,7 @@ pub async fn create_topic(
     );
     let _doc = {
         let mut conn = db_state.conn.lock()?;
-        let doc = map_doc(state.create_doc(&conn, &doc_id))?;
+        let doc = state.create_doc(&conn, &doc_id, &name).map_err(Error::from)?;
         if let Err(err) = db::create_folder_node(
             &mut conn,
             &parent_uuid,
@@ -212,8 +237,8 @@ pub async fn watch_doc(
 ) -> Result<String> {
     log::info!("watch_doc request: {doc_id}");
     let conn = db_state.conn.lock()?;
-    let doc = map_doc(state.get_or_load(&conn, &doc_id))?;
-    map_doc(state.pin(&doc_id, doc.clone()))?;
+    let doc = state.get_or_load(&conn, &doc_id).map_err(Error::from)?;
+    state.pin(&doc_id, doc.clone()).map_err(Error::from)?;
 
     let snapshot = doc
         .transact()
@@ -223,7 +248,7 @@ pub async fn watch_doc(
         snapshot.len()
     );
     if let Err(err) = channel.send(snapshot) {
-        map_doc(state.unpin(&doc_id))?;
+        state.unpin(&doc_id).map_err(Error::from)?;
         return Err(err.into());
     }
     let snapshot_version = doc.transact().state_vector();
@@ -232,24 +257,28 @@ pub async fn watch_doc(
     log::info!("watch_doc established: doc_id={doc_id} watch_id={watch_id}");
 
     let doc_id_for_watch = doc_id.clone();
-    map_doc(state.add_watch(
+    state
+        .add_watch(
             watch_id.clone(),
             doc_id_for_watch,
             channel.clone(),
             snapshot_version.clone(),
-        ))?;
+        )
+        .map_err(Error::from)?;
 
     let current_version = doc.transact().state_vector();
     if current_version != snapshot_version {
         let updates = doc.transact().encode_diff_v1(&snapshot_version);
         if !updates.is_empty() {
             if let Err(err) = channel.send(updates) {
-                map_doc(state.remove_watch(&watch_id))?;
-                map_doc(state.unpin(&doc_id))?;
+                state.remove_watch(&watch_id).map_err(Error::from)?;
+                state.unpin(&doc_id).map_err(Error::from)?;
                 return Err(err.into());
             }
         }
-        map_doc(state.set_watch_version(&watch_id, current_version))?;
+        state
+            .set_watch_version(&watch_id, current_version)
+            .map_err(Error::from)?;
     }
 
     Ok(watch_id)
@@ -258,9 +287,9 @@ pub async fn watch_doc(
 #[tauri::command]
 #[specta::specta]
 pub async fn unwatch_doc(state: State<'_, DocState>, watch_id: String) -> Result<()> {
-    if let Some(doc_id) = map_doc(state.remove_watch(&watch_id))? {
+    if let Some(doc_id) = state.remove_watch(&watch_id).map_err(Error::from)? {
         log::info!("unwatch_doc: doc_id={doc_id} watch_id={watch_id}");
-        map_doc(state.unpin(&doc_id))?;
+        state.unpin(&doc_id).map_err(Error::from)?;
         return Ok(());
     }
 

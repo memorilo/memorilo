@@ -226,6 +226,14 @@ mod tests {
         get_connection(":memory:").unwrap()
     }
 
+    fn insert_doc(conn: &rusqlite::Connection, doc_id: &str, title: &str) {
+        conn.execute(
+            "INSERT INTO docs (doc_id, title, typ) VALUES (?1, ?2, 'outline')",
+            (doc_id, title),
+        )
+        .unwrap();
+    }
+
     #[test]
     pub fn test_database() {
         let conn = get_memory_connection();
@@ -256,6 +264,7 @@ mod tests {
         
         // Create child
         let child_uuid = "22222222-2222-2222-2222-222222222222";
+        insert_doc(&conn, "ref-topic", "My Topic");
         create_folder_node(&mut conn, folder_uuid, child_uuid, FolderNodeType::Topic, "My Topic", Some("ref-topic")).unwrap();
         assert!(is_folder_node_exist(&conn, child_uuid).unwrap());
         
@@ -274,9 +283,11 @@ mod tests {
         create_folder_node(&mut conn, root, folder_uuid, FolderNodeType::Folder, "My Folder", None).unwrap();
         
         let child1_uuid = "22222222-2222-2222-2222-222222222222";
+        insert_doc(&conn, "ref-topic", "Topic 1");
         create_folder_node(&mut conn, folder_uuid, child1_uuid, FolderNodeType::Topic, "Topic 1", Some("ref-topic")).unwrap();
         
         let child2_uuid = "33333333-3333-3333-3333-333333333333";
+        insert_doc(&conn, "ref-topic-2", "Topic 2");
         create_folder_node(&mut conn, folder_uuid, child2_uuid, FolderNodeType::Topic, "Topic 2", Some("ref-topic-2")).unwrap();
 
         // Test get_folder_node
@@ -309,6 +320,18 @@ mod tests {
         // 1. Folder -> Folder
         let folder1_uuid = "10000000-0000-0000-0000-000000000001";
         create_folder_node(&mut conn, root, folder1_uuid, FolderNodeType::Folder, "Folder 1", None).unwrap();
+
+        for (doc_id, title) in [
+            ("ref-topic", "Topic 1"),
+            ("ref-item", "Item 1"),
+            ("ref-hl", "Highlight 1"),
+            ("ref-item-2", "Item 2"),
+            ("ref-hl-2", "Highlight 2"),
+            ("ref-item-3", "Item 3"),
+            ("ref", "Invalid Item"),
+        ] {
+            insert_doc(&conn, doc_id, title);
+        }
 
         // 2. Folder -> Topic
         let topic1_uuid = "20000000-0000-0000-0000-000000000001";

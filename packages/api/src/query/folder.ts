@@ -93,19 +93,28 @@ export function useMutateDeleteFolderNode() {
 
 export function useMutateRenameFolderNode() {
   const invalidate = useFolderChildrenInvalidate()
+  const client = useQueryClient()
   return useMutation(eq.mutationOptions({
     mutationKey: ['renameFolderNode'],
     mutationFn: (vars: { uuid: string, newName: string }) => {
-      const result = effectCommands.renameFolderNode(vars.uuid, vars.newName)
-      return Effect.zipWith(
-        effectCommands.getParentFolderNodeUuid(vars.uuid),
-        result,
-        (parentUUID, _) => parentUUID,
+      return Effect.all({
+        parentUUID: effectCommands.getParentFolderNodeUuid(vars.uuid),
+        node: effectCommands.getFolderNode(vars.uuid),
+        result: effectCommands.renameFolderNode(vars.uuid, vars.newName),
+      }).pipe(
+        Effect.map(({ parentUUID, node }) => ({
+          parentUUID,
+          ref: node.ref,
+        })),
       )
     },
-    onSuccess: (parent) => {
-      if (parent) {
-        invalidate(parent)
+    onSuccess: ({ parentUUID, ref }, vars) => {
+      if (parentUUID) {
+        invalidate(parentUUID)
+      }
+      client.invalidateQueries({ queryKey: ['folderNode', vars.uuid] })
+      if (ref) {
+        client.invalidateQueries({ queryKey: ['docTitle', ref] })
       }
     },
   }))

@@ -12,6 +12,7 @@ interface EditorProps {
   docId: string
   focusNodeId?: string
   onOutlineClick?: (uuid: string) => void
+  hideTitle?: boolean
 }
 export function Editor(props: EditorProps) {
   return (
@@ -30,7 +31,7 @@ export function Editor(props: EditorProps) {
   )
 }
 
-function EditorInstance({ docId, focusNodeId, onOutlineClick }: EditorProps) {
+function EditorInstance({ docId, focusNodeId, onOutlineClick, hideTitle }: EditorProps) {
   const { doc, initialized: docInitialized, error } = useSyncYDoc(docId)
   const { data: downloadImage } = useSetting('note::downloadImage', true)
 
@@ -144,6 +145,7 @@ function EditorInstance({ docId, focusNodeId, onOutlineClick }: EditorProps) {
       rootNode={rootNode}
       downloadImage={downloadImage}
       onOutlineClick={onOutlineClick}
+      hideTitle={hideTitle}
     />
   )
 }

@@ -1,7 +1,22 @@
+-- Documents metadata
+CREATE TABLE IF NOT EXISTS docs(
+    -- Document id
+    doc_id TEXT PRIMARY KEY,
+    -- Document title
+    title TEXT NOT NULL,
+    -- Document type (only "outline" is allowed)
+    typ TEXT NOT NULL CHECK (typ IN ('outline')),
+    -- Last modification time
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Creation time
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS folder_nodes (
     uuid TEXT PRIMARY KEY,
     parent_uuid TEXT NULL,
     typ TEXT NOT NULL DEFAULT 'folder' CHECK (typ IN ('folder', 'topic', 'highlight', 'item')),
+    -- Display name; when ref is set, folder_nodes view uses docs.title instead (base name is not kept in sync)
     name TEXT NOT NULL,
     ref TEXT NULL DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -10,7 +25,8 @@ CREATE TABLE IF NOT EXISTS folder_nodes (
     CHECK (uuid = '00000000-0000-0000-0000-000000000000' OR parent_uuid IS NOT NULL),
     CHECK (uuid != '00000000-0000-0000-0000-000000000000' OR parent_uuid IS NULL),
     CHECK (parent_uuid IS NULL OR parent_uuid != uuid),
-    FOREIGN KEY (parent_uuid) REFERENCES folder_nodes(uuid) ON DELETE CASCADE
+    FOREIGN KEY (parent_uuid) REFERENCES folder_nodes(uuid) ON DELETE CASCADE,
+    FOREIGN KEY (ref) REFERENCES docs(doc_id)
 );
 
 
@@ -21,19 +37,6 @@ CREATE TABLE IF NOT EXISTS folder_nodes (
 INSERT OR IGNORE INTO folder_nodes (uuid, typ, name) VALUES ('00000000-0000-0000-0000-000000000000', 'folder', '<ROOT>');
 
 CREATE INDEX IF NOT EXISTS idx_folder_nodes_parent ON folder_nodes(parent_uuid);
-
--- Table to log pending operations on folder nodes, for synchronization or batch processing, do not delete or modify
-CREATE TABLE IF NOT EXISTS folder_node_pending_ops (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    op TEXT NOT NULL CHECK (op IN ('create', 'update', 'delete')),
-    target_node_uuid TEXT NOT NULL,
-    new_typ TEXT NULL DEFAULT NULL,
-    new_name TEXT NULL DEFAULT NULL,
-    new_uuid TEXT NULL DEFAULT NULL,
-    new_ref TEXT NULL DEFAULT NULL,
-    execution_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CHECK ((new_name IS NULL AND new_uuid IS NULL) OR (new_name IS NOT NULL AND new_uuid IS NOT NULL))
-);
 
 -- Trigger: Update children_updated_at on ancestors when a node is updated
 CREATE TRIGGER IF NOT EXISTS update_ancestors_on_node_update

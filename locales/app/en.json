@@ -6,6 +6,7 @@
   "sidebar.all_notes": "All Notes",
   "sidebar.flashcards": "Flashcards",
   "sidebar.edit_later": "Edit Later",
+  "sidebar.about": "About",
   "notes_empty.title": "No Topic Yet",
   "notes_empty.description": "You haven't created any topics yet. Get started by creating your first topic.",
   "notes_empty.create_topic": "Create Topic",
@@ -17,6 +18,7 @@
   "note_folder_tree.delete_confirm": "Are you sure you want to delete \"{{name}}\"?",
   "note_folder_tree.delete": "Delete",
   "note_folder_tree.rename": "Rename",
+  "note_folder_tree.create": "New",
   "note_folder_tree.create_topic_error": "Failed to create topic: {{error}}",
   "note_folder_tree.create_folder_error": "Failed to create folder: {{error}}",
   "editor.bubble.bold": "Bold",
@@ -96,6 +98,5 @@
   "about.git_commit_unknown": "unknown",
   "about.app_data_dir_label": "App Data Directory",
   "about.reveal_dir": "Reveal Dir",
-  "about.logo_alt": "Memorilo",
-  "sidebar.about": "About"
+  "about.logo_alt": "Memorilo"
 }

@@ -1,5 +1,6 @@
 import { createLazyFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback } from 'react'
+import { DocTitleInput } from '~/components/doc-title-input'
 import { Editor } from '~/components/editor'
 
 export const Route = createLazyFileRoute('/note/$docId/')({
@@ -17,8 +18,15 @@ function RouteComponent() {
     })
   }, [navigate, docId])
   return (
-    <div className="size-full">
-      <Editor docId={docId} onOutlineClick={handleFocusNode} />
+    <div className="size-full flex flex-col">
+      <DocTitleInput docId={docId} />
+      <div className="min-h-0 flex-1">
+        <Editor
+          docId={docId}
+          onOutlineClick={handleFocusNode}
+          hideTitle
+        />
+      </div>
     </div>
   )
 }

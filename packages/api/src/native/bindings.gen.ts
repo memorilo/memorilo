@@ -173,6 +173,14 @@ async getDoc(docId: string) : Promise<Result<number[], Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getDocTitle(docId: string) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_doc_title", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getDocVersion(docId: string) : Promise<Result<StateVector, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_doc_version", { docId }) };
@@ -291,9 +299,49 @@ async createDoc() : Promise<Result<string, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+async updateDocTitle(docId: string, title: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_doc_title", { docId, title }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async deleteDoc(docId: string) : Promise<Result<null, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_doc", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createJournal(journalAt: string, title: string) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_journal", { journalAt, title }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getJournals(cursor: JournalCursor | null, limit: number | null) : Promise<Result<JournalPage, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_journals", { cursor, limit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getJournalsByDateRange(startDate: string, endDate: string) : Promise<Result<JournalEntry[], Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_journals_by_date_range", { startDate, endDate }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteJournal(docId: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_journal", { docId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -358,6 +406,18 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  * Represents the type of a folder node in the hierarchy.
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
+/**
+ * Cursor for journal pagination (descending by journal_at, then doc_id).
+ */
+export type JournalCursor = { journalAt: string; docId: string }
+/**
+ * Represents a journal entry joined with its document metadata.
+ */
+export type JournalEntry = { docId: string; journalAt: string; journalDate: string; title: string; typ: string; docCreatedAt: string; docUpdatedAt: string }
+/**
+ * Paginated journal response.
+ */
+export type JournalPage = { items: JournalEntry[]; nextCursor: JournalCursor | null }
 export type StateVector = number[]
 export type ToastEvent = { toast_type: ToastType; ns: string; i18n_key: string; values: Partial<{ [key in string]: string }> }
 export type ToastType = "Info" | "Success" | "Warning" | "Error"
