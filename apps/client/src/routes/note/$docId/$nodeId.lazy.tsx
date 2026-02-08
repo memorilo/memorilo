@@ -1,9 +1,7 @@
-import { useDocTitle } from '@memorilo/api/query'
 import { createLazyFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import { DocTitleInput } from '~/components/doc-title-input'
 import { Editor } from '~/components/editor'
-import { useTitle } from '~/hooks/use-title'
 
 export const Route = createLazyFileRoute('/note/$docId/$nodeId')({
   component: RouteComponent,
@@ -11,9 +9,6 @@ export const Route = createLazyFileRoute('/note/$docId/$nodeId')({
 
 function RouteComponent() {
   const { docId, nodeId } = Route.useParams()
-
-  const { data: title } = useDocTitle(docId)
-  useTitle(title ? `${title} - Memorilo` : 'Memorilo')
 
   const navigate = useNavigate()
   const handleFocusNode = useCallback((uuid: string) => {

@@ -315,9 +315,9 @@ async deleteDoc(docId: string) : Promise<Result<null, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
-async createJournal(createdAt: string | null, title: string) : Promise<Result<string, Error>> {
+async createJournal(journalAt: string, title: string) : Promise<Result<string, Error>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("create_journal", { createdAt, title }) };
+    return { status: "ok", data: await TAURI_INVOKE("create_journal", { journalAt, title }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -407,13 +407,13 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
 /**
- * Cursor for journal pagination (descending by created_at, then doc_id).
+ * Cursor for journal pagination (descending by journal_at, then doc_id).
  */
-export type JournalCursor = { createdAt: string; docId: string }
+export type JournalCursor = { journalAt: string; docId: string }
 /**
  * Represents a journal entry joined with its document metadata.
  */
-export type JournalEntry = { docId: string; createdAt: string; journalDate: string; title: string; typ: string; docCreatedAt: string; docUpdatedAt: string }
+export type JournalEntry = { docId: string; journalAt: string; journalDate: string; title: string; typ: string; docCreatedAt: string; docUpdatedAt: string }
 /**
  * Paginated journal response.
  */

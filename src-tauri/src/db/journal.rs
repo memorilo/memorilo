@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct JournalEntry {
     pub doc_id: String,
-    pub created_at: String,
+    pub journal_at: String,
     pub journal_date: String,
     pub title: String,
     pub typ: String,
@@ -18,7 +18,7 @@ pub struct JournalEntry {
 fn journal_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<JournalEntry> {
     Ok(JournalEntry {
         doc_id: row.get(0)?,
-        created_at: row.get(1)?,
+        journal_at: row.get(1)?,
         journal_date: row.get(2)?,
         title: row.get(3)?,
         typ: row.get(4)?,
@@ -27,11 +27,11 @@ fn journal_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<JournalEn
     })
 }
 
-/// Cursor for journal pagination (descending by created_at, then doc_id).
+/// Cursor for journal pagination (descending by journal_at, then doc_id).
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct JournalCursor {
-    pub created_at: String,
+    pub journal_at: String,
     pub doc_id: String,
 }
 
@@ -50,19 +50,12 @@ const MAX_PAGE_SIZE: usize = 200;
 pub fn create_journal(
     conn: &rusqlite::Connection,
     doc_id: &str,
-    created_at: Option<&str>,
+    journal_at: &str,
 ) -> Result<()> {
-    match created_at {
-        Some(created_at) => {
-            conn.execute(
-                "INSERT INTO journals (doc_id, created_at) VALUES (?1, datetime(?2))",
-                params![doc_id, created_at],
-            )?;
-        }
-        None => {
-            conn.execute("INSERT INTO journals (doc_id) VALUES (?1)", params![doc_id])?;
-        }
-    }
+    conn.execute(
+        "INSERT INTO journals (doc_id, journal_at) VALUES (?1, datetime(?2))",
+        params![doc_id, journal_at],
+    )?;
     Ok(())
 }
 
@@ -84,15 +77,15 @@ pub fn get_journals(
     let mut entries = Vec::new();
     if let Some(cursor) = cursor {
         let mut stmt = conn.prepare(
-            "SELECT j.doc_id, j.created_at, date(j.created_at, 'localtime'), d.title, d.typ, d.created_at, d.updated_at \
+            "SELECT j.doc_id, j.journal_at, date(j.journal_at, 'localtime'), d.title, d.typ, d.created_at, d.updated_at \
              FROM journals j \
              JOIN docs d ON d.doc_id = j.doc_id \
-             WHERE (j.created_at < ?1) OR (j.created_at = ?1 AND j.doc_id < ?2) \
-             ORDER BY j.created_at DESC, j.doc_id DESC \
+             WHERE (j.journal_at < ?1) OR (j.journal_at = ?1 AND j.doc_id < ?2) \
+             ORDER BY j.journal_at DESC, j.doc_id DESC \
              LIMIT ?3",
         )?;
         let rows = stmt.query_map(
-            params![cursor.created_at, cursor.doc_id, fetch_size],
+            params![cursor.journal_at, cursor.doc_id, fetch_size],
             journal_entry_from_row,
         )?;
         for row in rows {
@@ -100,10 +93,10 @@ pub fn get_journals(
         }
     } else {
         let mut stmt = conn.prepare(
-            "SELECT j.doc_id, j.created_at, date(j.created_at, 'localtime'), d.title, d.typ, d.created_at, d.updated_at \
+            "SELECT j.doc_id, j.journal_at, date(j.journal_at, 'localtime'), d.title, d.typ, d.created_at, d.updated_at \
              FROM journals j \
              JOIN docs d ON d.doc_id = j.doc_id \
-             ORDER BY j.created_at DESC, j.doc_id DESC \
+             ORDER BY j.journal_at DESC, j.doc_id DESC \
              LIMIT ?1",
         )?;
         let rows = stmt.query_map(params![fetch_size], journal_entry_from_row)?;
@@ -118,7 +111,7 @@ pub fn get_journals(
     }
     let next_cursor = if has_more {
         entries.last().map(|entry| JournalCursor {
-            created_at: entry.created_at.clone(),
+            journal_at: entry.journal_at.clone(),
             doc_id: entry.doc_id.clone(),
         })
     } else {
@@ -144,11 +137,11 @@ pub fn get_journals_by_date_range(
     };
 
     let mut stmt = conn.prepare(
-        "SELECT j.doc_id, j.created_at, date(j.created_at, 'localtime'), d.title, d.typ, d.created_at, d.updated_at \
+        "SELECT j.doc_id, j.journal_at, date(j.journal_at, 'localtime'), d.title, d.typ, d.created_at, d.updated_at \
          FROM journals j \
          JOIN docs d ON d.doc_id = j.doc_id \
-         WHERE date(j.created_at, 'localtime') BETWEEN date(?1) AND date(?2) \
-         ORDER BY j.created_at DESC, j.doc_id DESC",
+         WHERE date(j.journal_at, 'localtime') BETWEEN date(?1) AND date(?2) \
+         ORDER BY j.journal_at DESC, j.doc_id DESC",
     )?;
 
     let rows = stmt.query_map(params![start_date, end_date], journal_entry_from_row)?;

@@ -38,29 +38,25 @@ export function JournalsDay({
     // Only start auto-creation once the row intersects the viewport.
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0]
-      if (!entry?.isIntersecting) {
-        return
-      }
-      if (creatingRef.current) {
+      if (!entry?.isIntersecting || creatingRef.current) {
         return
       }
 
       creatingRef.current = true
-      const { createdAt, title } = getJournalCreateInput(dateKey)
+      const { journalAt, title } = getJournalCreateInput(dateKey)
 
-      void Effect.runPromise(
-        effectCommands.createJournal(createdAt, title).pipe(
-          // Notify parent so the editor can render without waiting for a refetch.
-          Effect.tap(newDocId => Effect.sync(() => onCreated(dateKey, newDocId))),
-          // Avoid unhandled promise rejections; creation will be retried on remount/scroll.
-          Effect.catchAll(() => Effect.succeed(null)),
-          Effect.ignore,
-          // Always clear the creating flag (success/failure).
-          Effect.ensuring(Effect.sync(() => {
-            creatingRef.current = false
-          })),
-        ),
+      const program = effectCommands.createJournal(journalAt, title).pipe(
+        // Notify parent so the editor can render without waiting for a refetch.
+        Effect.tap(newDocId => Effect.sync(() => onCreated(dateKey, newDocId))),
+        // Avoid unhandled promise rejections; creation will be retried on remount/scroll.
+        Effect.catchAll(() => Effect.succeed(undefined)),
+        // Always clear the creating flag (success/failure).
+        Effect.ensuring(Effect.sync(() => {
+          creatingRef.current = false
+        })),
       )
+
+      void Effect.runPromise(program)
     })
 
     observer.observe(el)
@@ -75,23 +71,25 @@ export function JournalsDay({
       ref={rowRef}
       className="flex flex-col bg-background"
     >
-      <div className="px-4 py-3">
-        <div>
-          {docId
-            ? <JournalEditor docId={docId} />
-            : (
-                <div className="flex min-h-[180px] flex-col gap-3">
-                  <Skeleton className="h-10 w-48" />
-                  <div className="min-h-0 flex-1 space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                </div>
-              )}
-        </div>
+      <div className="px-3 py-2">
+        {docId
+          ? <JournalEditor docId={docId} />
+          : <JournalsDaySkeleton />}
+      </div>
+    </div>
+  )
+}
+
+function JournalsDaySkeleton() {
+  return (
+    <div className="flex min-h-[180px] flex-col gap-3">
+      <Skeleton className="h-10 w-48" />
+      <div className="min-h-0 flex-1 space-y-3">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-3/4" />
       </div>
     </div>
   )

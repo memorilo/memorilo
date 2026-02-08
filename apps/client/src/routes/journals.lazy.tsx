@@ -1,7 +1,7 @@
 import { Button } from '@memorilo/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { createLazyFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import Calendar from 'react-calendar'
 import { useTranslation } from 'react-i18next'
 import { LuCalendarDays } from 'react-icons/lu'
@@ -21,20 +21,20 @@ function Journals() {
   const listState = useJournals()
   const { jumping, jumpToDate } = listState
 
-  const [calendarOpen, setCalendarOpen] = useState(false)
-  const [calendarValue, setCalendarValue] = useState<Date>(() => new Date())
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(() => new Date())
 
   // Pick a day (create if missing) then scroll to it.
-  function handlePickDay(value: Date) {
-    setCalendarOpen(false)
-    setCalendarValue(value)
+  const handlePickDay = useCallback((value: Date) => {
+    setIsCalendarOpen(false)
+    setSelectedDate(value)
     void jumpToDate(value)
-  }
+  }, [jumpToDate])
 
   return (
-    <div className="flex h-svh flex-col overflow-hidden">
-      <div className="px-2 py-1">
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+    <div className="size-full flex flex-col overflow-hidden">
+      <div className="border-b px-2 py-1">
+        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
@@ -47,7 +47,7 @@ function Journals() {
           </PopoverTrigger>
           <PopoverContent align="start" className="p-0">
             <Calendar
-              value={calendarValue}
+              value={selectedDate}
               maxDate={new Date()}
               locale={i18n.language}
               onClickDay={handlePickDay}

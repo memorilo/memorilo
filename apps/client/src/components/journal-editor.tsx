@@ -9,10 +9,10 @@ interface JournalEditorProps {
 
 export function JournalEditor({ docId }: JournalEditorProps) {
   const navigate = useNavigate()
-  const handleFocusNode = useCallback((uuid: string) => {
+  const focusNode = useCallback((nodeId: string) => {
     navigate({
       to: '/note/$docId/$nodeId',
-      params: { docId, nodeId: uuid },
+      params: { docId, nodeId },
     })
   }, [navigate, docId])
 
@@ -21,12 +21,12 @@ export function JournalEditor({ docId }: JournalEditorProps) {
       <DocTitleInput
         docId={docId}
         size="compact"
-        containerClassName="px-0 pt-0 pb-0"
+        containerClassName="p-0"
       />
       <div className="[&_.ProseMirror]:min-h-40">
         <Editor
           docId={docId}
-          onOutlineClick={handleFocusNode}
+          onOutlineClick={focusNode}
           hideTitle
         />
       </div>

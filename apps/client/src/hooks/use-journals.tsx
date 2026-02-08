@@ -1,11 +1,11 @@
-import type { JournalCursor, JournalEntry } from '@memorilo/api'
+import type { JournalCursor } from '@memorilo/api'
 import { effectCommands } from '@memorilo/api/command'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueries } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import dayjs from 'dayjs'
 import localizedFormat from 'dayjs/plugin/localizedFormat'
 import { Effect } from 'effect'
-import { keyBy, range } from 'es-toolkit/compat'
+import { range } from 'es-toolkit/compat'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSetting } from './use-setting'
 
@@ -19,11 +19,6 @@ interface JournalDayItem {
   docId: string | null
 }
 
-interface JournalDaysPage {
-  items: JournalDayItem[]
-  nextCursor: string
-}
-
 interface JournalEntriesPage {
   items: JournalDayItem[]
   nextCursor: JournalCursor | null
@@ -32,14 +27,14 @@ interface JournalEntriesPage {
 export function getJournalCreateInput(dateKey: string) {
   const title = dayjs(dateKey, DATE_FORMAT).format('LL')
   // Use midday local time to avoid edge cases around DST / timezone conversions.
-  const createdAt = dayjs(dateKey, DATE_FORMAT)
+  const journalAt = dayjs(dateKey, DATE_FORMAT)
     .hour(12)
     .minute(0)
     .second(0)
     .millisecond(0)
     .toISOString()
 
-  return { createdAt, title }
+  return { journalAt, title }
 }
 
 // Merge query results (existing journals) with journals created during this session.
@@ -61,13 +56,8 @@ function mergeExistingItems(
     seen.add(todayKey)
   }
 
-  const oldestLoadedKey = baseItems[baseItems.length - 1]?.dateKey
-
   for (const [dateKey, docId] of Object.entries(createdDocMap)) {
     if (seen.has(dateKey)) {
-      continue
-    }
-    if (oldestLoadedKey && dateKey < oldestLoadedKey) {
       continue
     }
 
@@ -79,40 +69,8 @@ function mergeExistingItems(
   return merged
 }
 
-// Auto-create mode:
-// Load a fixed window of days (14) ending at `endDateKey` (inclusive).
-// The backend only returns existing journals; missing journals are created lazily by the visible row.
-async function fetchAutoCreatePage(endDateKey?: string): Promise<JournalDaysPage> {
-  const endKey = endDateKey ?? dayjs().format(DATE_FORMAT)
-  const startKey = dayjs(endKey, DATE_FORMAT)
-    .subtract(14 - 1, 'day')
-    .format(DATE_FORMAT)
-
-  const entries = await Effect.runPromise(
-    effectCommands.getJournalsByDateRange(startKey, endKey),
-  )
-
-  // `getJournalsByDateRange` returns newest-first; reverse so `keyBy` keeps the newest when duplicated.
-  const entriesByDate = keyBy(entries.slice().reverse(), 'journalDate') as Record<
-    string,
-    JournalEntry | undefined
-  >
-
-  const dateKeys = range(0, 14).map(offset =>
-    dayjs(endKey, DATE_FORMAT).subtract(offset, 'day').format(DATE_FORMAT),
-  )
-
-  return {
-    items: dateKeys.map(dateKey => ({
-      dateKey,
-      docId: entriesByDate[dateKey]?.docId ?? null,
-    })),
-    nextCursor: dayjs(startKey, DATE_FORMAT).subtract(1, 'day').format(DATE_FORMAT),
-  }
-}
-
 // Existing-only mode:
-// Cursor-based pagination for journals (descending by created_at/doc_id) joined with docs metadata.
+// Cursor-based pagination for journals (descending by journalAt/docId) joined with docs metadata.
 async function fetchExistingPage(cursor?: JournalCursor | null): Promise<JournalEntriesPage> {
   const page = await Effect.runPromise(
     effectCommands.getJournals(cursor ?? null, 30),
@@ -139,17 +97,6 @@ export function useJournals() {
   const { data: autoCreateEnabled } = useSetting('journal::autoCreate', false)
   const todayKey = dayjs().format(DATE_FORMAT)
 
-  // Two query strategies:
-  // - autoCreate=true: page by days (today -> past) and lazily create journals for visible missing days
-  // - autoCreate=false: page by existing journals only (cursor pagination)
-  const autoCreateQuery = useInfiniteQuery({
-    queryKey: ['journalDays', 'auto'],
-    enabled: autoCreateEnabled,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) => fetchAutoCreatePage(pageParam as string | undefined),
-    getNextPageParam: lastPage => lastPage.nextCursor,
-  })
-
   const existingQuery = useInfiniteQuery({
     queryKey: ['journalDays', 'existing'],
     enabled: !autoCreateEnabled,
@@ -158,12 +105,10 @@ export function useJournals() {
     getNextPageParam: lastPage => lastPage.nextCursor ?? undefined,
   })
 
-  const activeQuery = autoCreateEnabled ? autoCreateQuery : existingQuery
-
-  // Flatten pages into a single list for virtualization.
-  const baseItems = useMemo(
-    () => (activeQuery.data ? activeQuery.data.pages.flatMap(page => page.items) : []),
-    [activeQuery.data],
+  // Flatten existing-journal pages into a single list for virtualization.
+  const baseExistingItems = useMemo(
+    () => (existingQuery.data ? existingQuery.data.pages.flatMap(page => page.items) : []),
+    [existingQuery.data],
   )
 
   // Journals created during this session (e.g. auto-create rows or calendar jump),
@@ -180,45 +125,137 @@ export function useJournals() {
     })
   }, [])
 
-  // `items` is the virtual list data source.
-  // - autoCreate=true: the list is continuous days (today -> past)
-  // - autoCreate=false: the list is existing journals, plus a "today" placeholder row to create if missing
-  const items = useMemo(
-    () => (autoCreateEnabled ? baseItems : mergeExistingItems(baseItems, createdDocMap, todayKey)),
-    [autoCreateEnabled, baseItems, createdDocMap, todayKey],
-  )
+  const [autoDaysCount, setAutoDaysCount] = useState(14)
+
+  // Existing-only list data source (cursor pagination).
+  const existingItems = useMemo(() => {
+    if (autoCreateEnabled) {
+      return []
+    }
+    return mergeExistingItems(baseExistingItems, createdDocMap, todayKey)
+  }, [autoCreateEnabled, baseExistingItems, createdDocMap, todayKey])
 
   // Virtualized list:
   // - overscan=0 to avoid pre-rendering (and thus pre-creating) future days
   // - load next page only when the last visible row reaches the end of the loaded items
   const parentRef = useRef<HTMLDivElement | null>(null)
   const rowVirtualizer = useVirtualizer({
-    count: items.length,
+    count: autoCreateEnabled ? autoDaysCount : existingItems.length,
     getScrollElement: () => parentRef.current,
-    // Use a stable key so virtualizer size cache doesn't get confused when `items` changes
-    // (e.g. inserting "today" placeholder or a newly-created journal day).
-    getItemKey: index => items[index]?.dateKey ?? index,
+    // Use a stable key so the virtualizer size cache doesn't get confused when rows are inserted
+    // (e.g. the "today" placeholder or a newly-created journal day in existing-only mode).
+    getItemKey: (index) => {
+      if (autoCreateEnabled) {
+        return dayjs(todayKey, DATE_FORMAT).subtract(index, 'day').format(DATE_FORMAT)
+      }
+      return existingItems[index]?.dateKey ?? index
+    },
     estimateSize: () => 260,
     overscan: 0,
   })
 
   const virtualItems = rowVirtualizer.getVirtualItems()
 
+  const getRow = useCallback((index: number): JournalDayItem | null => {
+    if (autoCreateEnabled) {
+      const dateKey = dayjs(todayKey, DATE_FORMAT).subtract(index, 'day').format(DATE_FORMAT)
+      return { dateKey, docId: null }
+    }
+    return existingItems[index] ?? null
+  }, [autoCreateEnabled, existingItems, todayKey])
+
+  // In auto-create mode, we query only the *currently visible* time window so:
+  // - the initial render stays fast
+  // - jumping to a far date doesn't fetch intermediate days
+  // We group requests into 14-day blocks to avoid refetching on every small scroll.
+  const visibleDateRange = useMemo(() => {
+    const first = virtualItems[0]?.index
+    const last = virtualItems[virtualItems.length - 1]?.index
+    if (first == null || last == null) {
+      return null
+    }
+
+    const startBlock = Math.floor(first / 14)
+    const endBlock = Math.floor(last / 14)
+
+    return range(startBlock, endBlock + 1).map((block) => {
+      const startIndex = block * 14
+      const endIndex = startIndex + (14 - 1)
+
+      const endKey = dayjs(todayKey, DATE_FORMAT)
+        .subtract(startIndex, 'day')
+        .format(DATE_FORMAT)
+      const startKey = dayjs(todayKey, DATE_FORMAT)
+        .subtract(endIndex, 'day')
+        .format(DATE_FORMAT)
+
+      return { startKey, endKey }
+    })
+  }, [todayKey, virtualItems])
+
+  const autoRangeQueries = useQueries({
+    queries: autoCreateEnabled && visibleDateRange
+      ? visibleDateRange.map(({ startKey, endKey }) => ({
+          queryKey: ['journalsByDateRange', startKey, endKey],
+          queryFn: () =>
+            Effect.runPromise(effectCommands.getJournalsByDateRange(startKey, endKey)),
+        }))
+      : [],
+  })
+
+  const autoDocIdByDateKey = useMemo(() => {
+    if (!autoCreateEnabled) {
+      return {}
+    }
+
+    // `getJournalsByDateRange` returns newest-first; reverse so the newest wins when duplicated.
+    const map: Record<string, string> = {}
+    for (const q of autoRangeQueries) {
+      if (q.status !== 'success') {
+        continue
+      }
+      for (const entry of q.data.slice().reverse()) {
+        map[entry.journalDate] = entry.docId
+      }
+    }
+    return map
+  }, [autoCreateEnabled, autoRangeQueries])
+
+  const listError = useMemo(() => {
+    if (!autoCreateEnabled) {
+      return existingQuery.status === 'error' ? existingQuery.error : null
+    }
+    const errQuery = autoRangeQueries.find(q => q.status === 'error')
+    return errQuery ? errQuery.error : null
+  }, [autoCreateEnabled, autoRangeQueries, existingQuery.error, existingQuery.status])
+
+  const listStatus = useMemo(() => {
+    if (!autoCreateEnabled) {
+      return existingQuery.status
+    }
+    return listError ? 'error' : 'success'
+  }, [autoCreateEnabled, existingQuery.status, listError])
+
   useEffect(() => {
+    if (autoCreateEnabled) {
+      return
+    }
+
     const lastItem = virtualItems[virtualItems.length - 1]
     if (!lastItem) {
       return
     }
-    if (lastItem.index < items.length - 1) {
+    if (lastItem.index < existingItems.length - 1) {
       return
     }
 
-    if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) {
-      activeQuery.fetchNextPage()
+    if (existingQuery.hasNextPage && !existingQuery.isFetchingNextPage) {
+      existingQuery.fetchNextPage()
     }
   }, [
-    activeQuery,
-    items.length,
+    autoCreateEnabled,
+    existingItems.length,
+    existingQuery,
     virtualItems,
   ])
 
@@ -232,10 +269,10 @@ export function useJournals() {
     setJumping(true)
     try {
       const dateKey = dayjs(value).format(DATE_FORMAT)
-      const { createdAt, title } = getJournalCreateInput(dateKey)
+      const { journalAt, title } = getJournalCreateInput(dateKey)
 
       const docId = await Effect.runPromise(
-        effectCommands.createJournal(createdAt, title).pipe(
+        effectCommands.createJournal(journalAt, title).pipe(
           Effect.catchAll(() => Effect.succeed(null)),
         ),
       )
@@ -250,25 +287,18 @@ export function useJournals() {
           0,
           dayjs(todayKey, DATE_FORMAT).diff(dayjs(dateKey, DATE_FORMAT), 'day'),
         )
-
-        let pagesLen = autoCreateQuery.data?.pages.length ?? 0
-        if (pagesLen === 0) {
-          const res = await autoCreateQuery.refetch()
-          pagesLen = res.data?.pages.length ?? pagesLen
-        }
-
-        const requiredPages = Math.ceil((targetIndex + 1) / 14)
-        while (pagesLen < requiredPages) {
-          const res = await autoCreateQuery.fetchNextPage()
-          pagesLen = res.data?.pages.length ?? pagesLen
+        if (targetIndex >= autoDaysCount) {
+          setAutoDaysCount(targetIndex + 1)
         }
 
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-        rowVirtualizer.scrollToIndex(targetIndex, { align: 'start', behavior: 'smooth' })
+        // NOTE: don't use smooth scrolling for large jumps; it mounts intermediate rows and can trigger
+        // auto-create for days we scroll past.
+        rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
         return
       }
 
-      let flat = baseItems
+      let flat = baseExistingItems
       if (flat.length === 0) {
         const res = await existingQuery.refetch()
         flat = res.data ? res.data.pages.flatMap(page => page.items) : flat
@@ -296,15 +326,15 @@ export function useJournals() {
           })()
 
       await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-      rowVirtualizer.scrollToIndex(targetIndex, { align: 'start', behavior: 'smooth' })
+      rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
     }
     finally {
       setJumping(false)
     }
   }, [
+    autoDaysCount,
     autoCreateEnabled,
-    autoCreateQuery,
-    baseItems,
+    baseExistingItems,
     createdDocMap,
     existingQuery,
     handleCreated,
@@ -315,15 +345,20 @@ export function useJournals() {
   return {
     autoCreateEnabled,
     todayKey,
-    items,
+    getRow,
     createdDocMap,
+    docIdByDateKey: autoDocIdByDateKey,
     handleCreated,
     parentRef,
     rowVirtualizer,
     virtualItems,
-    activeQuery,
+    listStatus,
+    listError,
     jumping,
     jumpToDate,
+    onAutoScrollEnd: autoCreateEnabled
+      ? () => setAutoDaysCount(prev => prev + 14)
+      : null,
   }
 }
 
