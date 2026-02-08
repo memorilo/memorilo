@@ -50,6 +50,14 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
     },
   ])
 
+  memorilo.settings.register('journal', [
+    {
+      key: 'autoCreate',
+      schema: z.boolean(),
+      defaultValue: false,
+    },
+  ])
+
   memorilo.settings.register('note', [
     {
       key: 'downloadImage',

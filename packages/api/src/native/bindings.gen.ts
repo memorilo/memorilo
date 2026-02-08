@@ -315,6 +315,38 @@ async deleteDoc(docId: string) : Promise<Result<null, Error>> {
     else return { status: "error", error: e  as any };
 }
 },
+async createJournal(createdAt: string | null, title: string) : Promise<Result<string, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_journal", { createdAt, title }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getJournals(cursor: JournalCursor | null, limit: number | null) : Promise<Result<JournalPage, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_journals", { cursor, limit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getJournalsByDateRange(startDate: string, endDate: string) : Promise<Result<JournalEntry[], Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_journals_by_date_range", { startDate, endDate }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteJournal(docId: string) : Promise<Result<null, Error>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_journal", { docId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createTopic(parentUuid: string, name: string) : Promise<Result<CreatedTopic, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_topic", { parentUuid, name }) };
@@ -374,6 +406,18 @@ export type FolderNode = { uuid: string; typ: FolderNodeType; name: string; ref:
  * Represents the type of a folder node in the hierarchy.
  */
 export type FolderNodeType = "Folder" | "Topic" | "Highlight" | "Item"
+/**
+ * Cursor for journal pagination (descending by created_at, then doc_id).
+ */
+export type JournalCursor = { createdAt: string; docId: string }
+/**
+ * Represents a journal entry joined with its document metadata.
+ */
+export type JournalEntry = { docId: string; createdAt: string; journalDate: string; title: string; typ: string; docCreatedAt: string; docUpdatedAt: string }
+/**
+ * Paginated journal response.
+ */
+export type JournalPage = { items: JournalEntry[]; nextCursor: JournalCursor | null }
 export type StateVector = number[]
 export type ToastEvent = { toast_type: ToastType; ns: string; i18n_key: string; values: Partial<{ [key in string]: string }> }
 export type ToastType = "Info" | "Success" | "Warning" | "Error"

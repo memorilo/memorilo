@@ -1,5 +1,6 @@
 mod assets;
 mod folder;
+mod journal;
 pub mod doc;
 
 use sqlite_vec::sqlite3_vec_init;
@@ -8,6 +9,7 @@ use crate::error::Result;
 
 pub use assets::*;
 pub use folder::*;
+pub use journal::*;
 
 pub struct DbState {
     pub conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
@@ -17,7 +19,8 @@ static DATABASE_MIGRATIONS: &[&str] = &[
     include_str!("../migrations/00-init-folder.sql"),
     include_str!("../migrations/01-note-struct.sql"),
     include_str!("../migrations/02-assets.sql"),
-    include_str!("../migrations/03-folder_view.sql")
+    include_str!("../migrations/03-folder_view.sql"),
+    include_str!("../migrations/04-journal.sql"),
 ];
 
 /// Establishes a connection to the SQLite database at the specified URL.

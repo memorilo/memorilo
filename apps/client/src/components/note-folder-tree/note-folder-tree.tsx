@@ -1,5 +1,4 @@
 import type { FolderNode } from '@memorilo/api'
-import type { MouseEvent } from 'react'
 import { dialog } from '@memorilo/api/command'
 import log from '@memorilo/api/log'
 import { useFolderNodeChildren, useMutateCreateFolderNode, useMutateCreateTopicNode, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'

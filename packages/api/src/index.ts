@@ -6,6 +6,9 @@ export type {
   ErrorKind,
   FolderNode,
   FolderNodeType,
+  JournalCursor,
+  JournalEntry,
+  JournalPage,
 } from './native/bindings.gen'
 
 export const managedRuntime = ManagedRuntime.make(Layer.empty)
