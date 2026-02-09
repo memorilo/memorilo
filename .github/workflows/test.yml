@@ -44,7 +44,7 @@ jobs:
 
       - name: Run Cargo Test
         run: |
-          mkdir -p src-tauri/models
+          mkdir -p bundle/models
           nix develop --command bash -c "cd src-tauri && cargo test"
 
       - name: Run Lint

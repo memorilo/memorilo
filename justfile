@@ -4,6 +4,7 @@ download-model:
   # Download VSCode Language Detection model files
   # https://github.com/microsoft/vscode-languagedetection
   # Pinned to specific commit and checksums for security
+  mkdir -p "{{MODEL_DIR}}"
   just _download "{{MODEL_DIR}}/vscode-languagedetection.json" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/model.json" "100ce176367e7311e37ced0695057452991a8692029a79340a25e622893e7983"
   just _download "{{MODEL_DIR}}/vscode-languagedetection.bin" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/group1-shard1of1.bin" "fab6442698f64d5b1d2df052061d12bafd570330556819d29f48c7bcbb5889f7"
 
