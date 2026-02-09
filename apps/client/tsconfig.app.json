@@ -12,7 +12,7 @@
     "moduleResolution": "bundler",
 
     "paths": {
-      "~/*": ["./src/*"],
+      "~/*": ["../../packages/app/src/*"],
       "@locales/*": ["../../locales/*"]
     },
     "types": ["vite/client"],
@@ -28,5 +28,5 @@
     "skipLibCheck": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "../../packages/app/src"]
 }
