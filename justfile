@@ -1,4 +1,4 @@
-MODEL_DIR := "./src-tauri/models"
+MODEL_DIR := "./bundle/models"
 
 download-model:
   # Download VSCode Language Detection model files
@@ -154,7 +154,7 @@ build-ios: download-model
 
 [linux]
 [macos]
-build-web: download-web-resource && lint-web
+build-client: download-web-resource && lint-apps
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build
@@ -163,7 +163,7 @@ build-web: download-web-resource && lint-web
   fi
 
 [windows]
-build-web: download-web-resource && lint-web
+build-client: download-web-resource && lint-apps
   pnpm build
 
 clean:
@@ -178,7 +178,7 @@ build-bundle-size-stats:
   cd apps/client && VISUALIZER=true pnpm build
   rm -rf apps/client/dist
 
-lint-web changed="false":
+lint-apps changed="false":
   #!/usr/bin/env bash
   run_pnpm() {
     if command -v nix >/dev/null 2>&1; then
@@ -200,6 +200,35 @@ lint-web changed="false":
     echo "Checking all files..."
     run_pnpm exec eslint apps packages
   fi
+
+[linux]
+[macos]
+dev-web:
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command pnpm --filter @memorilo/web dev
+  else
+    pnpm --filter @memorilo/web dev
+  fi
+
+[windows]
+dev-web:
+  pnpm --filter @memorilo/web dev
+
+[linux]
+[macos]
+build-web: download-web-resource
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command pnpm --filter @memorilo/web build
+  else
+    pnpm --filter @memorilo/web build
+  fi
+
+[windows]
+build-web: download-web-resource
+  pnpm --filter @memorilo/web build
+
 
 lint-rs changed="false":
   #!/usr/bin/env bash

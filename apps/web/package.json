@@ -1,5 +1,5 @@
 {
-  "name": "@memorilo/client",
+  "name": "@memorilo/web",
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.17.0",
@@ -24,6 +24,7 @@
     "rollup-plugin-visualizer": "catalog:",
     "tailwindcss": "catalog:",
     "vite": "catalog:",
+    "vite-plugin-static-copy": "catalog:",
     "vite-plugin-top-level-await": "catalog:",
     "vite-plugin-wasm": "catalog:"
   }
