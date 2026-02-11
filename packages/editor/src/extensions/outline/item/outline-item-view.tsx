@@ -24,7 +24,7 @@ export function OutlineItemView({ node, editor, getPos, extension }: NodeViewPro
   const [hovered, setHovered] = useState(false)
   const isTaskItem = node.type.name === 'taskItem'
   const isOrderedItem = node.type.name === 'orderedItem'
-  const isChecked = node.attrs.checked
+  const isChecked = node.attrs.checked ?? false
   const isFolded = node.attrs.folded
   const hideTitle = editor.storage.paragraph?.hideTitle ?? false
   const level = useMemo(() => {
