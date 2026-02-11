@@ -1,5 +1,5 @@
 import { runPromise } from '@memorilo/api-spec'
-import { OpenerService } from '@memorilo/api-spec/opener'
+import { OpenerService } from '@memorilo/api-spec/services/opener'
 import { Button } from '@memorilo/components/ui/button'
 import { NumberTicker } from '@memorilo/components/ui/number-ticker'
 import { Separator } from '@memorilo/components/ui/separator'

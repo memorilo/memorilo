@@ -1,6 +1,6 @@
 import type { ModelOperations } from '@vscode/vscode-languagedetection'
 import { runPromise } from '@memorilo/api-spec'
-import { FileService } from '@memorilo/api-spec/file'
+import { FileService } from '@memorilo/api-spec/services/file'
 import { Data, Effect, Option, pipe } from 'effect'
 
 export class LanguageDetectionError extends Data.TaggedError('LanguageDetectionError')<{

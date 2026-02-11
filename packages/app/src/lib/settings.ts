@@ -1,4 +1,4 @@
-import { SettingsService } from '@memorilo/api-spec/command'
+import { SettingsService } from '@memorilo/api-spec/services/settings'
 import { memorilo } from '@memorilo/core'
 import { Console, Effect } from 'effect'
 

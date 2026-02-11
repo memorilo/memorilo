@@ -1,6 +1,6 @@
 import type { EditorView } from '@tiptap/pm/view'
 import { runFork } from '@memorilo/api-spec'
-import { AssetsService } from '@memorilo/api-spec/command'
+import { AssetsService } from '@memorilo/api-spec/services/assets'
 import { Console, Duration, Effect } from 'effect'
 import { extFromMime, inferFileExtension } from './file-ext'
 import { getDataUrlMimeType } from './utils'

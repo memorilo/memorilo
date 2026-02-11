@@ -1,17 +1,29 @@
-import { ResourceReadError } from '@memorilo/api-spec/file'
+import { ResourceReadError } from '@memorilo/api-spec/services/file'
 import { resolveResource as resolveResourcePrimivate } from '@tauri-apps/api/path'
 import { readFile as readFilePrimivate } from '@tauri-apps/plugin-fs'
 import { Effect } from 'effect'
 
-export const fileService = {
+export const fileHandlers = {
   resolveResource: (path: string) =>
-    Effect.tryPromise(() => resolveResourcePrimivate(path)),
+    Effect.tryPromise({
+      try: () => resolveResourcePrimivate(path),
+      catch: cause => new ResourceReadError({
+        path,
+        message: String(cause),
+      }),
+    }),
   readFile: (path: string) =>
-    Effect.tryPromise(() => readFilePrimivate(path)),
+    Effect.tryPromise({
+      try: () => readFilePrimivate(path),
+      catch: cause => new ResourceReadError({
+        path,
+        message: String(cause),
+      }),
+    }),
   readResource: (path: string) =>
     Effect.gen(function* () {
-      const p = yield* fileService.resolveResource(path)
-      const buff = yield* fileService.readFile(p)
+      const p = yield* fileHandlers.resolveResource(path)
+      const buff = yield* fileHandlers.readFile(p)
       if (!(buff instanceof Uint8Array)) {
         return yield* Effect.fail(
           new ResourceReadError({
@@ -32,7 +44,7 @@ export const fileService = {
     }),
   readResourceText: (path: string) =>
     Effect.gen(function* () {
-      const buff = yield* fileService.readResource(path)
+      const buff = yield* fileHandlers.readResource(path)
       return new TextDecoder().decode(buff)
     }),
 }

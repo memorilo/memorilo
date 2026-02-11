@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Console, Duration, Effect } from 'effect'
 import { createEffectQueryFromManagedRuntime } from 'effect-query'
 import { isEmpty } from 'es-toolkit/compat'
-import { AssetsService } from './command'
+import { AssetsService } from './services/assets'
 
 let cachedEq: ReturnType<typeof createEffectQueryFromManagedRuntime> | null = null
 

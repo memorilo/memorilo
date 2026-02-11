@@ -1,7 +1,7 @@
-import type { EffectSystemCommands } from '@memorilo/api-spec/command'
+import type { SystemHandlers } from '@memorilo/api-spec/services/system'
 import { wrapCommand } from './shared'
 
-export const effectSystemCommands: EffectSystemCommands = {
+export const systemHandlers: SystemHandlers = {
   getClientId: wrapCommand('getClientId'),
   getAppLocalDataDir: wrapCommand('getAppLocalDataDir'),
   getGitCommitId: wrapCommand('getGitCommitId'),

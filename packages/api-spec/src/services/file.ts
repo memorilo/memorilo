@@ -5,9 +5,11 @@ export class ResourceReadError extends Data.TaggedError('ResourceReadError')<{
   message: string
 }> {}
 
-export class FileService extends Effect.Tag('FileService')<FileService, {
+export interface FileHandlers {
   readonly resolveResource: (path: string) => Effect.Effect<string, unknown>
   readonly readFile: (path: string) => Effect.Effect<Uint8Array, unknown>
   readonly readResource: (path: string) => Effect.Effect<Uint8Array, ResourceReadError>
   readonly readResourceText: (path: string) => Effect.Effect<string, ResourceReadError>
-}>() {}
+}
+
+export class FileService extends Effect.Tag('FileService')<FileService, FileHandlers>() {}

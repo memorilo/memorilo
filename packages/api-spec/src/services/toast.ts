@@ -10,16 +10,16 @@ export interface ToastEventPayload {
   values: Partial<Record<string, string>>
 }
 
-export interface ToastEventApi {
+export interface ToastEventHandlers {
   listen: (cb: (event: { payload: ToastEventPayload }) => void) => Promise<() => void>
 }
 
-export class ToastEventService extends Effect.Tag('ToastEventService')<ToastEventService, ToastEventApi>() {}
+export class ToastEventService extends Effect.Tag('ToastEventService')<ToastEventService, ToastEventHandlers>() {}
 
-export const toastEvent: ToastEventApi = new Proxy({} as ToastEventApi, {
+export const toastEvent: ToastEventHandlers = new Proxy({} as ToastEventHandlers, {
   get(_target, prop) {
-    const service = getService<ToastEventApi>(ToastEventService)
-    const value = service[prop as keyof ToastEventApi]
+    const service = getService<ToastEventHandlers>(ToastEventService)
+    const value = service[prop as keyof ToastEventHandlers]
     return typeof value === 'function' ? value.bind(service) : value
   },
 })

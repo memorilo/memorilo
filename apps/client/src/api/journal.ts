@@ -1,7 +1,7 @@
-import type { EffectJournalCommands } from '@memorilo/api-spec/command'
+import type { JournalHandlers } from '@memorilo/api-spec/services/journal'
 import { wrapCommand } from './shared'
 
-export const effectJournalCommands: EffectJournalCommands = {
+export const journalHandlers: JournalHandlers = {
   createJournal: wrapCommand('createJournal'),
   getJournals: wrapCommand('getJournals'),
   getJournalsByDateRange: wrapCommand('getJournalsByDateRange'),

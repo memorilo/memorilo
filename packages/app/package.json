@@ -15,7 +15,8 @@
   "scripts": {
     "gen:routes": "node scripts/gen-routes.mjs",
     "dev": "node scripts/gen-routes.mjs --watch",
-    "build": "node scripts/gen-routes.mjs"
+    "build": "node scripts/gen-routes.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@memorilo/api-spec": "workspace:*",

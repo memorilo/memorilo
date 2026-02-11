@@ -27,14 +27,14 @@ export interface AssetDeleteResult {
   deletedFiles: string[]
 }
 
-export interface EffectAssetsCommands {
-  addAsset: (sourcePath: string, meta: string | null) => Effect.Effect<Asset, CommandError<ApiError>>
-  addAssetFromBytes: (bytes: number[], extension: string | null, meta: string | null) => Effect.Effect<Asset, CommandError<ApiError>>
-  addAssetFromBase64: (base64: string, extension: string | null, meta: string | null) => Effect.Effect<Asset, CommandError<ApiError>>
-  addAssetFromUrl: (url: string) => Effect.Effect<Asset, CommandError<ApiError>>
-  deleteAsset: (assetId: string) => Effect.Effect<AssetDeleteResult, CommandError<ApiError>>
-  analyzeAssets: () => Effect.Effect<AssetAnalysisResult, CommandError<ApiError>>
-  getAssetUrl: (assetId: string, useHttps: boolean | null) => Effect.Effect<string, CommandError<ApiError>>
+export interface AssetsHandlers {
+  addAsset: (sourcePath: string, meta: string | null) => Effect.Effect<Asset, CommandError<ApiError | Error>>
+  addAssetFromBytes: (bytes: number[], extension: string | null, meta: string | null) => Effect.Effect<Asset, CommandError<ApiError | Error>>
+  addAssetFromBase64: (base64: string, extension: string | null, meta: string | null) => Effect.Effect<Asset, CommandError<ApiError | Error>>
+  addAssetFromUrl: (url: string) => Effect.Effect<Asset, CommandError<ApiError | Error>>
+  deleteAsset: (assetId: string) => Effect.Effect<AssetDeleteResult, CommandError<ApiError | Error>>
+  analyzeAssets: () => Effect.Effect<AssetAnalysisResult, CommandError<ApiError | Error>>
+  getAssetUrl: (assetId: string, useHttps: boolean | null) => Effect.Effect<string, CommandError<ApiError | Error>>
 }
 
-export class AssetsService extends Effect.Tag('AssetsService')<AssetsService, EffectAssetsCommands>() {}
+export class AssetsService extends Effect.Tag('AssetsService')<AssetsService, AssetsHandlers>() {}

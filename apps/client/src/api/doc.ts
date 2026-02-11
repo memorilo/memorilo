@@ -1,7 +1,7 @@
-import type { EffectDocCommands } from '@memorilo/api-spec/command'
+import type { DocHandlers } from '@memorilo/api-spec/services/doc'
 import { wrapCommand } from './shared'
 
-export const effectDocCommands: EffectDocCommands = {
+export const docHandlers: DocHandlers = {
   getDoc: wrapCommand('getDoc'),
   getDocTitle: wrapCommand('getDocTitle'),
   getDocVersion: wrapCommand('getDocVersion'),

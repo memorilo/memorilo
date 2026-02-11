@@ -1,5 +1,7 @@
-import { DocService, FolderService, SystemService } from '@memorilo/api-spec/command'
 import { getEq } from '@memorilo/api-spec/query'
+import { DocService } from '@memorilo/api-spec/services/doc'
+import { FolderService } from '@memorilo/api-spec/services/folder'
+import { SystemService } from '@memorilo/api-spec/services/system'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { app } from '@tauri-apps/api'
 import { Effect } from 'effect'

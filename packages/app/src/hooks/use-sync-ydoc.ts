@@ -1,5 +1,5 @@
 import { runPromise } from '@memorilo/api-spec'
-import { DocService } from '@memorilo/api-spec/command'
+import { DocService } from '@memorilo/api-spec/services/doc'
 import { Channel } from '@tauri-apps/api/core'
 import { Console, Effect } from 'effect'
 import { useEffect, useMemo, useRef, useState } from 'react'

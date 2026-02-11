@@ -1,7 +1,7 @@
 import * as opener from '@tauri-apps/plugin-opener'
 import { Effect } from 'effect'
 
-export const openerService = {
+export const openerHandlers = {
   openPath: (path: string, openWith?: string) =>
     Effect.tryPromise(() => opener.openPath(path, openWith)),
   openUrl: (url: string | URL, openWith?: 'inAppBrowser' | string) =>

@@ -1,7 +1,7 @@
-import type { EffectAssetsCommands } from '@memorilo/api-spec/command'
+import type { AssetsHandlers } from '@memorilo/api-spec/services/assets'
 import { wrapCommand } from './shared'
 
-export const effectAssetsCommands: EffectAssetsCommands = {
+export const assetsHandlers: AssetsHandlers = {
   addAsset: wrapCommand('addAsset'),
   addAssetFromBytes: wrapCommand('addAssetFromBytes'),
   addAssetFromBase64: wrapCommand('addAssetFromBase64'),

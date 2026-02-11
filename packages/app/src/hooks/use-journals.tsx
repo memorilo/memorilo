@@ -1,6 +1,6 @@
-import type { JournalCursor } from '@memorilo/api-spec'
+import type { JournalCursor } from '@memorilo/api-spec/services/journal'
 import { runPromise } from '@memorilo/api-spec'
-import { JournalService } from '@memorilo/api-spec/command'
+import { JournalService } from '@memorilo/api-spec/services/journal'
 import { useInfiniteQuery, useQueries } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import dayjs from 'dayjs'

@@ -1,28 +1,26 @@
-import type {
-  EffectAssetsCommands,
-  EffectDocCommands,
-  EffectFolderCommands,
-  EffectJournalCommands,
-  EffectSettingsCommands,
-  EffectSystemCommands,
-  ToastEventApi,
-} from '@memorilo/api-spec/command'
-import {
-  AssetsService,
-  DialogService,
-  DocService,
-  FolderService,
-  JournalService,
-  SettingsService,
-  SystemService,
-  ToastEventService,
-} from '@memorilo/api-spec/command'
-import { FileService, ResourceReadError } from '@memorilo/api-spec/file'
-import { OpenerService } from '@memorilo/api-spec/opener'
-import { DetectLanguageError, OSService } from '@memorilo/api-spec/os'
-import { Array as A, Effect, Layer, ManagedRuntime, Option } from 'effect'
-
-const settingsKey = 'memorilo.settings'
+import type { AssetsHandlers } from '@memorilo/api-spec/services/assets'
+import type { DialogHandlers } from '@memorilo/api-spec/services/dialog'
+import type { DocHandlers } from '@memorilo/api-spec/services/doc'
+import type { FileHandlers } from '@memorilo/api-spec/services/file'
+import type { FolderHandlers } from '@memorilo/api-spec/services/folder'
+import type { JournalHandlers } from '@memorilo/api-spec/services/journal'
+import type { OpenerHandlers } from '@memorilo/api-spec/services/opener'
+import type { OSHandlers } from '@memorilo/api-spec/services/os'
+import type { SettingsHandlers } from '@memorilo/api-spec/services/settings'
+import type { SystemHandlers } from '@memorilo/api-spec/services/system'
+import type { ToastEventHandlers } from '@memorilo/api-spec/services/toast'
+import { AssetsService } from '@memorilo/api-spec/services/assets'
+import { DialogService } from '@memorilo/api-spec/services/dialog'
+import { DocService } from '@memorilo/api-spec/services/doc'
+import { FileService } from '@memorilo/api-spec/services/file'
+import { FolderService } from '@memorilo/api-spec/services/folder'
+import { JournalService } from '@memorilo/api-spec/services/journal'
+import { OpenerService } from '@memorilo/api-spec/services/opener'
+import { OSService } from '@memorilo/api-spec/services/os'
+import { SettingsService } from '@memorilo/api-spec/services/settings'
+import { SystemService } from '@memorilo/api-spec/services/system'
+import { ToastEventService } from '@memorilo/api-spec/services/toast'
+import { Effect, Layer, ManagedRuntime } from 'effect'
 
 function unsupportedCommands<T>(name: string) {
   return new Proxy({}, {
@@ -33,118 +31,30 @@ function unsupportedCommands<T>(name: string) {
   }) as T
 }
 
-const effectFolderCommands: EffectFolderCommands = unsupportedCommands('FolderService')
-const effectDocCommands: EffectDocCommands = unsupportedCommands('DocService')
-const effectAssetsCommands: EffectAssetsCommands = unsupportedCommands('AssetsService')
-const effectJournalCommands: EffectJournalCommands = unsupportedCommands('JournalService')
-
-const effectSettingsCommands: EffectSettingsCommands = {
-  readSettings: () => Effect.succeed(localStorage.getItem(settingsKey) ?? '{}'),
-  updateSettings: (content: string) =>
-    Effect.sync(() => {
-      localStorage.setItem(settingsKey, content)
-      return null
-    }),
-  saveSettings: () => Effect.succeed(null),
-}
-
-const effectSystemCommands: EffectSystemCommands = {
-  getClientId: () => Effect.succeed('web'),
-  getAppLocalDataDir: () => Effect.succeed(''),
-  getGitCommitId: () => Effect.succeed(''),
-  getDocNodesCount: () => Effect.succeed('0'),
-  getDocUpdatesCount: () => Effect.succeed('0'),
-}
-
-const dialogService = {
-  ask: async (message: string, options?: { title?: string }) => {
-    const title = options?.title ? `${options.title}\n\n` : ''
-    const confirmDialog = Reflect.get(window, 'confirm') as (value: string) => boolean
-    return confirmDialog(`${title}${message}`)
-  },
-}
-
-const toastEventService: ToastEventApi = {
-  listen: async _cb => () => {},
-}
-
-const osService = {
-  detectLanguage<S extends ReadonlyArray<string>, F extends string>(supportedLocales: S, fallback: () => F) {
-    return Effect.gen(function* () {
-      const systemLocale = yield* Effect.tryPromise({
-        try: async () => navigator.language,
-        catch: cause => new DetectLanguageError({ cause }),
-      })
-
-      return Option.fromNullable(systemLocale).pipe(
-        Option.map(l => l.replace('_', '-').toLowerCase()),
-        Option.flatMap((normalized) => {
-          const findMatch = (target: string) =>
-            A.findFirst(supportedLocales, lang => lang.toLowerCase() === target)
-
-          return findMatch(normalized).pipe(
-            Option.orElse(() => findMatch(normalized.split('-')[0] ?? normalized)),
-          )
-        }),
-        Option.getOrElse(fallback),
-      )
-    })
-  },
-}
-
-const fileService = {
-  resolveResource: (path: string) =>
-    Effect.try({
-      try: () => new URL(path, window.location.origin).toString(),
-      catch: cause =>
-        new ResourceReadError({
-          path,
-          message: String(cause),
-        }),
-    }),
-  readFile: (path: string) =>
-    Effect.tryPromise({
-      try: async () => {
-        const res = await fetch(path)
-        if (!res.ok) {
-          throw new ResourceReadError({ path, message: `HTTP ${res.status}` })
-        }
-        const buffer = await res.arrayBuffer()
-        return new Uint8Array(buffer)
-      },
-      catch: cause =>
-        new ResourceReadError({
-          path,
-          message: String(cause),
-        }),
-    }),
-}
-
-const openerService = {
-  openPath: (path: string) => Effect.sync(() => {
-    window.open(path, '_blank')
-  }),
-  openUrl: (url: string | URL) => Effect.sync(() => {
-    window.open(url.toString(), '_blank')
-  }),
-  revealItemInDir: (path: string | string[]) => Effect.sync(() => {
-    const target = Array.isArray(path) ? path[0] : path
-    window.open(target, '_blank')
-  }),
-}
+const folderHandlers: FolderHandlers = unsupportedCommands('FolderService')
+const docHandlers: DocHandlers = unsupportedCommands('DocService')
+const assetsHandlers: AssetsHandlers = unsupportedCommands('AssetsService')
+const journalHandlers: JournalHandlers = unsupportedCommands('JournalService')
+const settingsHandlers: SettingsHandlers = unsupportedCommands('SettingsService')
+const systemHandlers: SystemHandlers = unsupportedCommands('SystemService')
+const dialogHandlers: DialogHandlers = unsupportedCommands('DialogService')
+const toastEventHandlers: ToastEventHandlers = unsupportedCommands('ToastEventService')
+const osHandlers: OSHandlers = unsupportedCommands('OSService')
+const fileHandlers: FileHandlers = unsupportedCommands('FileService')
+const openerHandlers: OpenerHandlers = unsupportedCommands('OpenerService')
 
 const webLayer = Layer.mergeAll(
-  Layer.succeed(FolderService, effectFolderCommands),
-  Layer.succeed(SettingsService, effectSettingsCommands),
-  Layer.succeed(DocService, effectDocCommands),
-  Layer.succeed(SystemService, effectSystemCommands),
-  Layer.succeed(AssetsService, effectAssetsCommands),
-  Layer.succeed(JournalService, effectJournalCommands),
-  Layer.succeed(DialogService, dialogService),
-  Layer.succeed(ToastEventService, toastEventService),
-  Layer.succeed(OSService, osService),
-  Layer.succeed(FileService, fileService),
-  Layer.succeed(OpenerService, openerService),
+  Layer.succeed(FolderService, folderHandlers),
+  Layer.succeed(SettingsService, settingsHandlers),
+  Layer.succeed(DocService, docHandlers),
+  Layer.succeed(SystemService, systemHandlers),
+  Layer.succeed(AssetsService, assetsHandlers),
+  Layer.succeed(JournalService, journalHandlers),
+  Layer.succeed(DialogService, dialogHandlers),
+  Layer.succeed(ToastEventService, toastEventHandlers),
+  Layer.succeed(OSService, osHandlers),
+  Layer.succeed(FileService, fileHandlers),
+  Layer.succeed(OpenerService, openerHandlers),
 )
 
 export const webRuntime = ManagedRuntime.make(webLayer)

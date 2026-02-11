@@ -1,5 +1,5 @@
 import { runPromise } from '@memorilo/api-spec'
-import { JournalService } from '@memorilo/api-spec/command'
+import { JournalService } from '@memorilo/api-spec/services/journal'
 import { Skeleton } from '@memorilo/components/ui/skeleton'
 import { Effect } from 'effect'
 import { useEffect, useRef } from 'react'

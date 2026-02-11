@@ -22,11 +22,11 @@ export interface JournalPage {
   nextCursor: JournalCursor | null
 }
 
-export interface EffectJournalCommands {
-  createJournal: (journalAt: string, title: string) => Effect.Effect<string, CommandError<ApiError>>
-  getJournals: (cursor: JournalCursor | null, limit: number | null) => Effect.Effect<JournalPage, CommandError<ApiError>>
-  getJournalsByDateRange: (startDate: string, endDate: string) => Effect.Effect<JournalEntry[], CommandError<ApiError>>
-  deleteJournal: (docId: string) => Effect.Effect<null, CommandError<ApiError>>
+export interface JournalHandlers {
+  createJournal: (journalAt: string, title: string) => Effect.Effect<string, CommandError<ApiError | Error>>
+  getJournals: (cursor: JournalCursor | null, limit: number | null) => Effect.Effect<JournalPage, CommandError<ApiError | Error>>
+  getJournalsByDateRange: (startDate: string, endDate: string) => Effect.Effect<JournalEntry[], CommandError<ApiError | Error>>
+  deleteJournal: (docId: string) => Effect.Effect<null, CommandError<ApiError | Error>>
 }
 
-export class JournalService extends Effect.Tag('JournalService')<JournalService, EffectJournalCommands>() {}
+export class JournalService extends Effect.Tag('JournalService')<JournalService, JournalHandlers>() {}

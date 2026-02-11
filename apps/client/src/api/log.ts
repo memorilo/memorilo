@@ -100,7 +100,7 @@ const unsafeConsole = {
   warn: unsafeWarn,
 }
 
-export const consoleService: EffectConsoleType = {
+export const consoleHandlers: EffectConsoleType = {
   [EffectConsole.TypeId]: EffectConsole.TypeId,
   assert: (condition, ...args) => condition
     ? Effect.void

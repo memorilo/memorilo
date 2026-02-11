@@ -14,21 +14,21 @@ export interface FolderNode {
   hasChildren: boolean
 }
 
-export interface EffectFolderCommands {
+export interface FolderHandlers {
   getRootFolderUuid: () => Effect.Effect<string, CommandError>
-  isFolderNodeExist: (uuid: string) => Effect.Effect<boolean, CommandError<ApiError>>
-  getFolderNode: (uuid: string) => Effect.Effect<FolderNode, CommandError<ApiError>>
-  getFolderNodeChildren: (parentUuid: string) => Effect.Effect<FolderNode[], CommandError<ApiError>>
+  isFolderNodeExist: (uuid: string) => Effect.Effect<boolean, CommandError<ApiError | Error>>
+  getFolderNode: (uuid: string) => Effect.Effect<FolderNode, CommandError<ApiError | Error>>
+  getFolderNodeChildren: (parentUuid: string) => Effect.Effect<FolderNode[], CommandError<ApiError | Error>>
   createFolderNode: (
     parentUuid: string,
     uuid: string,
     typ: FolderNodeType,
     name: string,
     reference: string | null,
-  ) => Effect.Effect<null, CommandError<ApiError>>
-  renameFolderNode: (uuid: string, newName: string) => Effect.Effect<null, CommandError<ApiError>>
-  deleteFolderNodeRetParent: (uuid: string) => Effect.Effect<string | null, CommandError<ApiError>>
-  getParentFolderNodeUuid: (childUuid: string) => Effect.Effect<string | null, CommandError<ApiError>>
+  ) => Effect.Effect<null, CommandError<ApiError | Error>>
+  renameFolderNode: (uuid: string, newName: string) => Effect.Effect<null, CommandError<ApiError | Error>>
+  deleteFolderNodeRetParent: (uuid: string) => Effect.Effect<string | null, CommandError<ApiError | Error>>
+  getParentFolderNodeUuid: (childUuid: string) => Effect.Effect<string | null, CommandError<ApiError | Error>>
 }
 
-export class FolderService extends Effect.Tag('FolderService')<FolderService, EffectFolderCommands>() {}
+export class FolderService extends Effect.Tag('FolderService')<FolderService, FolderHandlers>() {}

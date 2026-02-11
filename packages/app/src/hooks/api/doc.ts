@@ -1,6 +1,6 @@
-import type { FolderNode } from '@memorilo/api-spec'
-import { DocService } from '@memorilo/api-spec/command'
+import type { FolderNode } from '@memorilo/api-spec/services/folder'
 import { getEq } from '@memorilo/api-spec/query'
+import { DocService } from '@memorilo/api-spec/services/doc'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Effect } from 'effect'
 

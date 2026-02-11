@@ -8,12 +8,12 @@ export interface AskOptions {
   cancelLabel?: string
 }
 
-export interface DialogApi {
+export interface DialogHandlers {
   ask: (message: string, options?: AskOptions) => Promise<boolean>
 }
 
-export class DialogService extends Effect.Tag('DialogService')<DialogService, DialogApi>() {}
+export class DialogService extends Effect.Tag('DialogService')<DialogService, DialogHandlers>() {}
 
-export const dialog: DialogApi = {
-  ask: (message, options) => getService<DialogApi>(DialogService).ask(message, options),
+export const dialog: DialogHandlers = {
+  ask: (message, options) => getService<DialogHandlers>(DialogService).ask(message, options),
 }

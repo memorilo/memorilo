@@ -1,7 +1,7 @@
-import type { EffectFolderCommands } from '@memorilo/api-spec/command'
+import type { FolderHandlers } from '@memorilo/api-spec/services/folder'
 import { wrapCommand } from './shared'
 
-export const effectFolderCommands: EffectFolderCommands = {
+export const folderHandlers: FolderHandlers = {
   getRootFolderUuid: wrapCommand('getRootFolderUuid'),
   isFolderNodeExist: wrapCommand('isFolderNodeExist'),
   getFolderNode: wrapCommand('getFolderNode'),
