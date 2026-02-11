@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @import "@memorilo/config/tailwind.css";
 @source "./**/*.{js,ts,jsx,tsx}";
 
