@@ -1,4 +1,3 @@
-import type { Effectify } from '@memorilo/api-spec/command'
 import { CommandError } from '@memorilo/api-spec/command'
 import { Effect } from 'effect'
 import { commands } from '../bindings.gen'
@@ -18,7 +17,9 @@ function normalizeError(error: unknown): Error {
   return new Error(String(error))
 }
 
-export function wrapCommand<K extends keyof Commands>(key: K): Effectify<Commands>[K] {
+export function wrapCommand<K extends keyof Commands>(
+  key: K,
+): (...args: Parameters<Commands[K]>) => Effect.Effect<Awaited<ReturnType<Commands[K]>>, CommandError<Error>> {
   type Fn = Commands[K]
   type Args = Parameters<Fn>
   type FnReturn = Awaited<ReturnType<Fn>>
@@ -38,5 +39,5 @@ export function wrapCommand<K extends keyof Commands>(key: K): Effectify<Command
         return Effect.succeed(res)
       }),
     )
-  }) as Effectify<Commands>[K]
+  }) as (...args: Args) => Effect.Effect<FnReturn, CommandError<Error>>
 }
