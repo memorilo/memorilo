@@ -12,8 +12,11 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "build:client": "turbo run build:client",
+    "build:web": "turbo run build:web",
     "dev": "turbo run dev",
-    "dev:desktop": "turbo run dev --filter=@memorilo/client --filter=@memorilo/app --filter=@memorilo/editor",
+    "dev:client": "turbo run dev:client",
+    "dev:web": "turbo run dev:web",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },

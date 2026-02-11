@@ -16,6 +16,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
+    "dev:client": "rollup -c -w",
+    "dev:web": "rollup -c -w",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },

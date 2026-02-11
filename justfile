@@ -158,9 +158,9 @@ build-ios: download-model
 build-client: download-web-resource && lint-apps
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
-    nix develop ".#default" --command pnpm build
+    nix develop ".#default" --command pnpm build:client
   else
-    pnpm build
+    pnpm build:client
   fi
 
 [windows]
@@ -207,9 +207,9 @@ lint-apps changed="false":
 dev-web:
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
-    nix develop ".#default" --command pnpm --filter @memorilo/web dev
+    nix develop ".#default" --command pnpm dev:web
   else
-    pnpm --filter @memorilo/web dev
+    pnpm dev:web
   fi
 
 [windows]
@@ -221,9 +221,9 @@ dev-web:
 build-web: download-web-resource
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
-    nix develop ".#default" --command pnpm --filter @memorilo/web build
+    nix develop ".#default" --command pnpm build:web
   else
-    pnpm --filter @memorilo/web build
+    pnpm build:web
   fi
 
 [windows]

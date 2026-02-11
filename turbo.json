@@ -5,6 +5,14 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "src/routeTree.gen.ts"]
     },
+    "build:client": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "build:web": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
@@ -12,6 +20,14 @@
       "dependsOn": ["^test"]
     },
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:client": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:web": {
       "cache": false,
       "persistent": true
     }

@@ -39,8 +39,8 @@ This repo uses Turborepo as the task runner. The standard entrypoint is:
 - `just dev-desktop`
   - Downloads required model/assets.
   - Runs `cargo tauri dev` (via nix if available).
-  - Tauri runs `beforeDevCommand` from `src-tauri/tauri.conf.json` (`pnpm dev:desktop`).
-  - `pnpm dev:desktop` runs **Turborepo** and starts:
+  - Tauri runs `beforeDevCommand` from `src-tauri/tauri.conf.json` (`pnpm dev:client`).
+  - `pnpm dev:client` runs **Turborepo** and starts:
     - `packages/app` route-tree generator (watch mode).
     - `packages/editor` Rollup watch.
     - `apps/client` Vite dev server.

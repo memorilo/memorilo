@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.memorilo.client",
   "build": {
-    "beforeDevCommand": "pnpm dev:desktop",
+    "beforeDevCommand": "pnpm dev:client",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "just build-client",
     "frontendDist": "../apps/client/dist"

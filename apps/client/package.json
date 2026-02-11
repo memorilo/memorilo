@@ -6,7 +6,9 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "vite",
+    "dev:client": "vite",
     "build": "vite build",
+    "build:client": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
