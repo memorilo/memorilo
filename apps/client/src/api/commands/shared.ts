@@ -14,6 +14,23 @@ function normalizeError(error: unknown): Error {
   if (error instanceof Error) {
     return error
   }
+  if (typeof error === 'string') {
+    return new Error(error)
+  }
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>
+    const message = typeof record.message === 'string' ? record.message : undefined
+    const innerMessage = typeof record.inner_message === 'string' ? record.inner_message : undefined
+    if (message || innerMessage) {
+      return new Error([message, innerMessage].filter(Boolean).join(': '))
+    }
+    try {
+      return new Error(JSON.stringify(error))
+    }
+    catch {
+      return new Error(String(error))
+    }
+  }
   return new Error(String(error))
 }
 
