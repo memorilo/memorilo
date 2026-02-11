@@ -7,19 +7,29 @@ graph TD
     Client["apps/client (tauri shell)"]
     Web["apps/web (browser shell)"]
     Components["@memorilo/components"]
-    API["@memorilo/api"]
+    API["@memorilo/api-spec"]
+    Config["@memorilo/config"]
     Editor["@memorilo/editor"]
     Utils["@memorilo/utils"]
+    ViteConfig["@memorilo/vite-config"]
 
     Core-->App
     Components-->App
     API-->App
+    Config-->App
     Editor-->App
     Components-->Editor
+    API-->Editor
+    Config-->Editor
     Utils-->Components
+    Utils-->Editor
     Utils-->App
+    API-->Client
     App-->Client
+    ViteConfig-->Client
+    API-->Web
     App-->Web
+    ViteConfig-->Web
 ```
 
 ### Development workflow

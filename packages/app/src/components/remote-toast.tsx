@@ -1,4 +1,4 @@
-import { toastEvent } from '@memorilo/api/command'
+import { toastEvent } from '@memorilo/api-spec/command'
 import { Match } from 'effect'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'

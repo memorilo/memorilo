@@ -1,21 +1,29 @@
-import type { FolderNode } from '../index'
+import type { FolderNode } from '@memorilo/api-spec'
+import { DocService } from '@memorilo/api-spec/command'
+import { getEq } from '@memorilo/api-spec/query'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { eq } from '../index'
-import { effectCommands } from '../native/effect'
+import { Effect } from 'effect'
 
 export function useDocTitle(docId: string) {
+  const eq = getEq()
   return useQuery(eq.queryOptions({
     queryKey: ['docTitle', docId],
-    queryFn: () => effectCommands.getDocTitle(docId),
+    queryFn: () => Effect.gen(function* () {
+      const docService = yield* DocService
+      return yield* docService.getDocTitle(docId)
+    }),
   }))
 }
 
 export function useMutateDocTitle() {
   const client = useQueryClient()
+  const eq = getEq()
   return useMutation(eq.mutationOptions({
     mutationKey: ['updateDocTitle'],
-    mutationFn: (vars: { docId: string, title: string }) =>
-      effectCommands.updateDocTitle(vars.docId, vars.title),
+    mutationFn: (vars: { docId: string, title: string }) => Effect.gen(function* () {
+      const docService = yield* DocService
+      return yield* docService.updateDocTitle(vars.docId, vars.title)
+    }),
     onSuccess: (_result, vars) => {
       // Keep the doc title query in sync immediately after mutation.
       client.setQueryData(['docTitle', vars.docId], vars.title)

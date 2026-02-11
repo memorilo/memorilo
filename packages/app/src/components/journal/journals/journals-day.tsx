@@ -1,4 +1,5 @@
-import { effectCommands } from '@memorilo/api/command'
+import { runPromise } from '@memorilo/api-spec'
+import { JournalService } from '@memorilo/api-spec/command'
 import { Skeleton } from '@memorilo/components/ui/skeleton'
 import { Effect } from 'effect'
 import { useEffect, useRef } from 'react'
@@ -45,7 +46,10 @@ export function JournalsDay({
       creatingRef.current = true
       const { journalAt, title } = getJournalCreateInput(dateKey)
 
-      const program = effectCommands.createJournal(journalAt, title).pipe(
+      const program = Effect.gen(function* () {
+        const journalService = yield* JournalService
+        return yield* journalService.createJournal(journalAt, title)
+      }).pipe(
         // Notify parent so the editor can render without waiting for a refetch.
         Effect.tap(newDocId => Effect.sync(() => onCreated(dateKey, newDocId))),
         // Avoid unhandled promise rejections; creation will be retried on remount/scroll.
@@ -56,7 +60,7 @@ export function JournalsDay({
         })),
       )
 
-      void Effect.runPromise(program)
+      runPromise(program)
     })
 
     observer.observe(el)

@@ -1,12 +1,11 @@
 import type { RendererSupportedLanguages } from './@types/constants'
-import log from '@memorilo/api/log'
 import { memorilo } from '@memorilo/core'
 import { Chain } from '@memorilo/utils/chain'
 import { DEV } from '@memorilo/utils/constants'
 import { EventBus } from '@memorilo/utils/event-bus'
 import { jotaiStore } from '@memorilo/utils/jotai'
 import { getStorageNS } from '@memorilo/utils/ns'
-import { Either, Option } from 'effect'
+import { Console, Effect, Either, Option } from 'effect'
 import i18next from 'i18next'
 import { atom } from 'jotai'
 import { initReactI18next } from 'react-i18next'
@@ -74,7 +73,7 @@ export async function initI18n() {
   }
 
   const lng = cache ? lang : fallbackLanguage
-  log.info(`init i18n with lang: ${lng}`)
+  await Effect.runPromise(Console.info(`init i18n with lang: ${lng}`))
   await i18next.use(initReactI18next).init({
     ns,
     lng,
@@ -104,7 +103,7 @@ if (import.meta.hot) {
         return
       i18next.addResourceBundle(lang, nsName, resources, true, true)
 
-      log.info(`reload ${lang} ${nsName}`)
+      await Effect.runPromise(Console.info(`reload ${lang} ${nsName}`))
       await i18next.reloadResources(lang, nsName)
 
       EventBus.emit('I18N_UPDATE', '')

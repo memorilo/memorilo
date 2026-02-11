@@ -1,7 +1,7 @@
 import type { Memorilo } from '@memorilo/core'
 
-import log from '@memorilo/api/log'
-import { Effect, Either } from 'effect'
+import { runPromise } from '@memorilo/api-spec'
+import { Console, Effect, Either } from 'effect'
 import { z } from 'zod'
 import { currentSupportedLanguages } from '~/@types/constants'
 import { EnumInput, EnumInputOption } from '~/components/settings/inputs'
@@ -10,9 +10,15 @@ import { loadSettings, saveSettings } from './settings'
 import { getEnumOptions } from './zod'
 
 export async function loadSettingsAtStartup() {
-  const result = await Effect.runPromise(loadSettings())
-  if (Either.isLeft(result)) {
-    log.error(result.left.message)
+  try {
+    const result = await runPromise(loadSettings())
+    if (Either.isLeft(result)) {
+      await Effect.runPromise(Console.error(result.left.message))
+    }
+  }
+  catch (error) {
+    const message = error && error instanceof Error ? error.message : String(error)
+    await Effect.runPromise(Console.error(`Settings load failed: ${message}`))
   }
 }
 
@@ -22,7 +28,7 @@ export function registerMemoriloSettings(memorilo: Memorilo) {
   const i18next = getI18n()
   const { t } = i18next
   memorilo.settings.watch('*', () => {
-    Effect.runPromise(saveSettings())
+    runPromise(saveSettings())
   })
   memorilo.settings.register('core', [
     {

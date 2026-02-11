@@ -33,7 +33,7 @@ Why backend download?
 
 ## Rendering
 
-- UI resolves `assetId` via `useAssetUrl(assetId)` (tanstack-query) and renders the local URL.
+- UI resolves `assetId` via `useAssetUrl` (effect-query + `AssetsCommands.getAssetUrl`) and renders the local URL.
 - If resolving fails and `src` exists, it renders `src`.
 - While pending, it shows `Skeleton`. On failure, it shows a placeholder icon.
 

@@ -1,9 +1,8 @@
 import type { PropsWithChildren } from 'react'
-import log from '@memorilo/api/log'
 import { memorilo } from '@memorilo/core'
 import { Disposable } from '@memorilo/core/utils/disposable'
 import { EventBus } from '@memorilo/utils/event-bus'
-import { Either, Option } from 'effect'
+import { Console, Effect, Either, Option } from 'effect'
 import i18next from 'i18next'
 import { useAtom } from 'jotai'
 import { useEffect } from 'react'
@@ -28,7 +27,7 @@ export function I18nProvider({ children }: PropsWithChildren) {
           const nextI18n = i18next.cloneInstance({
             lng: lang,
           })
-          log.info(`I18nProvider detected I18N_UPDATE event, refresh language ${lang}`)
+          Effect.runPromise(Console.info(`I18nProvider detected I18N_UPDATE event, refresh language ${lang}`))
 
           update(nextI18n)
         }, cb => EventBus.on('I18N_UPDATE', cb), cb => EventBus.off('I18N_UPDATE', cb))

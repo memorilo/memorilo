@@ -9,7 +9,10 @@ function needsRootChildList(root: ProseMirrorNode) {
     return false
   }
   const firstChild = root.firstChild
-  return Boolean(firstChild && firstChild.type.name === 'paragraph')
+  if (!firstChild) {
+    return false
+  }
+  return firstChild.type.name === 'paragraph'
 }
 
 function createEmptyListItem(listItemType: NodeType, paragraphType: NodeType) {

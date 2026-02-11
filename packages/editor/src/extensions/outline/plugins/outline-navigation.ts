@@ -48,7 +48,7 @@ function isSlashSuggestionActive(view: EditorView) {
     return false
   }
 
-  return Boolean(element.closest('.slash-suggestion'))
+  return element.closest('.slash-suggestion') !== null
 }
 
 function getListItemChildIndex(

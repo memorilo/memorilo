@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "catalog:",
-    "@memorilo/api": "workspace:*",
+    "@memorilo/api-spec": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/utils": "workspace:*",

@@ -1,5 +1,6 @@
 import type { ModelOperations } from '@vscode/vscode-languagedetection'
-import { readResource, readResourceText } from '@memorilo/api/file'
+import { runPromise } from '@memorilo/api-spec'
+import { FileService } from '@memorilo/api-spec/file'
 import { Data, Effect, Option, pipe } from 'effect'
 
 export class LanguageDetectionError extends Data.TaggedError('LanguageDetectionError')<{
@@ -9,12 +10,16 @@ export class LanguageDetectionError extends Data.TaggedError('LanguageDetectionE
 
 let languagedetectionModel: ModelOperations | undefined
 
-const readModelJsonEffect = readResourceText('models/vscode-languagedetection.json').pipe(
-  Effect.map(JSON.parse),
-)
-const readModelWeightEffect = readResource('models/vscode-languagedetection.bin').pipe(
-  Effect.map(buf => buf.buffer),
-)
+const readModelJsonEffect = Effect.gen(function* () {
+  const { readResourceText } = yield* FileService
+  const text = yield* readResourceText('models/vscode-languagedetection.json')
+  return JSON.parse(text)
+})
+const readModelWeightEffect = Effect.gen(function* () {
+  const { readResource } = yield* FileService
+  const buff = yield* readResource('models/vscode-languagedetection.bin')
+  return new Uint8Array(buff).buffer
+})
 
 const loadModelEffect = Effect.tryPromise({
   try: async () => {
@@ -22,8 +27,8 @@ const loadModelEffect = Effect.tryPromise({
       // The model is large; keep a single instance for the session.
       const { ModelOperations } = await import('@vscode/vscode-languagedetection')
       languagedetectionModel = new ModelOperations({
-        modelJsonLoaderFunc: () => Effect.runPromise(readModelJsonEffect),
-        weightsLoaderFunc: () => Effect.runPromise(readModelWeightEffect),
+        modelJsonLoaderFunc: () => runPromise(readModelJsonEffect),
+        weightsLoaderFunc: () => runPromise(readModelWeightEffect),
       })
     }
     return languagedetectionModel

@@ -77,7 +77,7 @@ export const TitleParagraph = Paragraph.extend<TitleParagraphOptions>({
 
   addStorage() {
     return {
-      hideTitle: Boolean(this.options.hideTitle),
+      hideTitle: this.options.hideTitle,
     }
   },
 

@@ -9,7 +9,8 @@
     "paths": {
       "@memorilo/ui/*": ["./src/*"],
       "@memorilo/utils": ["../utils/src/index.ts"],
-      "@memorilo/utils/*": ["../utils/src/*"]
+      "@memorilo/utils/*": ["../utils/src/*"],
+      "~/*": ["../app/src/*"]
     },
     "resolveJsonModule": true,
     "allowJs": true,

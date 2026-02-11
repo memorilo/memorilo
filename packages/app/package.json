@@ -18,7 +18,7 @@
     "build": "node scripts/gen-routes.mjs"
   },
   "dependencies": {
-    "@memorilo/api": "workspace:*",
+    "@memorilo/api-spec": "workspace:*",
     "@memorilo/components": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/core": "workspace:*",

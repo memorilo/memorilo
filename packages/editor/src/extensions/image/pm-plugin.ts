@@ -1,9 +1,11 @@
 import type { NodeType, Slice } from '@tiptap/pm/model'
 import type { EditorView } from '@tiptap/pm/view'
-import log from '@memorilo/api/log'
 import { Fragment, Slice as ProseMirrorSlice } from '@tiptap/pm/model'
 import { Plugin, TextSelection } from '@tiptap/pm/state'
 import { dropPoint } from '@tiptap/pm/transform'
+import { Console, Effect } from 'effect'
+import { isEmpty } from 'es-toolkit/compat'
+import { isString } from 'es-toolkit/predicate'
 import { addBase64ImageToAssets, addFileToAssets, addRemoteImageToAssets, forkAssetTaskAndPatchImageByUploadId } from './asset'
 import {
   createUploadId,
@@ -19,12 +21,12 @@ interface SliceImageAssetJob { uploadId: string, src: string, kind: 'url' | 'dat
 // typing there, therefore we insert the image *after* the empty paragraph.
 function shouldInsertAfterEmptyTextBlock($pos: any) {
   const parent = $pos?.parent
-  return Boolean(
-    parent
-    && parent.isTextblock
+  if (!parent) {
+    return false
+  }
+  return parent.isTextblock
     && !parent.type.spec.code
-    && parent.childCount === 0,
-  )
+    && parent.childCount === 0
 }
 
 function sliceHasImage(slice: Slice, imageType: NodeType) {
@@ -93,13 +95,13 @@ function prepareSliceImageAssetJobs(params: {
   // - data-url: store into assets and avoid persisting base64 in the document
   const nextSlice = mapPastedSliceImages(slice, imageType, (attrs) => {
     const src = attrs.src
-    if (typeof src !== 'string' || src.length === 0) {
+    if (!isString(src) || isEmpty(src)) {
       return attrs
     }
-    if (typeof attrs.assetId === 'string' && attrs.assetId.length > 0) {
+    if (isString(attrs.assetId) && !isEmpty(attrs.assetId)) {
       return attrs
     }
-    if (typeof attrs.uploadId === 'string' && attrs.uploadId.length > 0) {
+    if (isString(attrs.uploadId) && !isEmpty(attrs.uploadId)) {
       return attrs
     }
 
@@ -137,30 +139,34 @@ function queueSliceImageAssetJobs(params: {
   // won't find nodes by `uploadId`. `queueMicrotask` is enough here because insertion
   // happens in the same tick.
   queueMicrotask(() => {
-    for (const job of jobs) {
-      if (job.kind === 'data-url') {
-        forkAssetTaskAndPatchImageByUploadId({
-          view,
-          uploadId: job.uploadId,
-          errorTag: 'store data-url',
-          task: addBase64ImageToAssets(job.src),
-          successAttrs: { src: null },
-        })
-        log.debug(
-          `[image] data-url queued origin=${origin} uploadId=${job.uploadId} mime=${getDataUrlMimeType(job.src) ?? 'unknown'}`,
-        )
+    const program = Effect.gen(function* () {
+      for (const job of jobs) {
+        if (job.kind === 'data-url') {
+          forkAssetTaskAndPatchImageByUploadId({
+            view,
+            uploadId: job.uploadId,
+            errorTag: 'store data-url',
+            task: addBase64ImageToAssets(job.src),
+            successAttrs: { src: null },
+          })
+          yield* Console.debug(
+            `[image] data-url queued origin=${origin} uploadId=${job.uploadId} mime=${getDataUrlMimeType(job.src) ?? 'unknown'}`,
+          )
+        }
+        else {
+          forkAssetTaskAndPatchImageByUploadId({
+            view,
+            uploadId: job.uploadId,
+            errorTag: 'download',
+            task: addRemoteImageToAssets(job.src),
+            successAttrs: { src: null },
+          })
+          yield* Console.debug(`[image] download queued origin=${origin} uploadId=${job.uploadId} url=${job.src}`)
+        }
       }
-      else {
-        forkAssetTaskAndPatchImageByUploadId({
-          view,
-          uploadId: job.uploadId,
-          errorTag: 'download',
-          task: addRemoteImageToAssets(job.src),
-          successAttrs: { src: null },
-        })
-        log.debug(`[image] download queued origin=${origin} uploadId=${job.uploadId} url=${job.src}`)
-      }
-    }
+    })
+
+    Effect.runPromise(program)
   })
 }
 
@@ -177,10 +183,11 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
 
         const { nextSlice, jobs } = prepareSliceImageAssetJobs({ slice, imageType, downloadImage })
         if (jobs.length > 0) {
-          log.info(`[image] transformPasted queued jobs=${jobs.length} downloadImage=${downloadImage}`)
+          Effect.runPromise(Console.info(
+            `[image] transformPasted queued jobs=${jobs.length} downloadImage=${downloadImage}`,
+          ))
           queueSliceImageAssetJobs({ view, jobs, origin: 'transformPasted' })
         }
-
         return nextSlice
       },
 
@@ -195,41 +202,46 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
             return false
           }
 
-          log.info(`[image] paste files detected count=${imageFiles.length}`)
-          const uploadIds = imageFiles.map(() => createUploadId())
-          const nodes = imageFiles.map((file, i) =>
-            imageType.create({
-              src: null,
-              assetId: null,
-              uploadId: uploadIds[i],
-              title: null,
-              width: null,
-              height: null,
-            }),
-          )
-          const fileSlice = new ProseMirrorSlice(Fragment.fromArray(nodes), 0, 0)
-
-          const $from = view.state.selection.$from
-          const insertPos = shouldInsertAfterEmptyTextBlock($from) ? $from.after() : null
-          const tr = insertPos != null
-            ? view.state.tr.replaceRange(insertPos, insertPos, fileSlice)
-            : view.state.tr.replaceSelection(fileSlice)
-          view.dispatch(tr.scrollIntoView())
-          log.info(`[image] paste files inserted uploadIds=${uploadIds.join(',')}`)
-
-          for (let i = 0; i < imageFiles.length; i += 1) {
-            const uploadId = uploadIds[i]!
-            const file = imageFiles[i]!
-            forkAssetTaskAndPatchImageByUploadId({
-              view,
-              uploadId,
-              errorTag: 'paste file',
-              task: addFileToAssets(file),
-            })
-            log.debug(
-              `[image] paste file queued uploadId=${uploadId} name=${file.name} type=${file.type} size=${file.size}`,
+          const program = Effect.gen(function* () {
+            yield* Console.info(`[image] paste files detected count=${imageFiles.length}`)
+            const uploadIds = imageFiles.map(() => createUploadId())
+            const nodes = imageFiles.map((file, i) =>
+              imageType.create({
+                src: null,
+                assetId: null,
+                uploadId: uploadIds[i],
+                title: null,
+                width: null,
+                height: null,
+              }),
             )
-          }
+            const fileSlice = new ProseMirrorSlice(Fragment.fromArray(nodes), 0, 0)
+
+            const $from = view.state.selection.$from
+            const insertPos = shouldInsertAfterEmptyTextBlock($from) ? $from.after() : null
+            const hasInsertPos = typeof insertPos === 'number'
+            const tr = hasInsertPos
+              ? view.state.tr.replaceRange(insertPos, insertPos, fileSlice)
+              : view.state.tr.replaceSelection(fileSlice)
+            view.dispatch(tr.scrollIntoView())
+            yield* Console.info(`[image] paste files inserted uploadIds=${uploadIds.join(',')}`)
+
+            for (let i = 0; i < imageFiles.length; i += 1) {
+              const uploadId = uploadIds[i]!
+              const file = imageFiles[i]!
+              forkAssetTaskAndPatchImageByUploadId({
+                view,
+                uploadId,
+                errorTag: 'paste file',
+                task: addFileToAssets(file),
+              })
+              yield* Console.debug(
+                `[image] paste file queued uploadId=${uploadId} name=${file.name} type=${file.type} size=${file.size}`,
+              )
+            }
+          })
+
+          Effect.runPromise(program)
 
           return true
         }
@@ -247,15 +259,18 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
         // We handle this path ourselves (instead of letting the editor replace selection)
         // so we can preserve the empty paragraph and still schedule asset jobs.
         const { nextSlice, jobs } = prepareSliceImageAssetJobs({ slice, imageType, downloadImage })
+        const program = Effect.gen(function* () {
+          const insertPos = $from.after()
+          const tr = view.state.tr.replaceRange(insertPos, insertPos, nextSlice)
+          view.dispatch(tr.scrollIntoView())
+          yield* Console.info('[image] paste slice inserted after empty paragraph')
+          if (jobs.length > 0) {
+            yield* Console.info(`[image] paste slice queued jobs=${jobs.length} downloadImage=${downloadImage}`)
+            queueSliceImageAssetJobs({ view, jobs, origin: 'paste slice' })
+          }
+        })
 
-        const insertPos = $from.after()
-        const tr = view.state.tr.replaceRange(insertPos, insertPos, nextSlice)
-        view.dispatch(tr.scrollIntoView())
-        log.info('[image] paste slice inserted after empty paragraph')
-        if (jobs.length > 0) {
-          log.info(`[image] paste slice queued jobs=${jobs.length} downloadImage=${downloadImage}`)
-          queueSliceImageAssetJobs({ view, jobs, origin: 'paste slice' })
-        }
+        Effect.runPromise(program)
         return true
       },
 
@@ -270,7 +285,6 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
             return false
           }
 
-          log.info(`[image] drop files detected count=${imageFiles.length}`)
           const coords = view.posAtCoords({ left: dragEvent.clientX, top: dragEvent.clientY })
           if (!coords) {
             return false
@@ -305,22 +319,27 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
             tr = tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)))
           }
 
-          view.dispatch(tr.scrollIntoView())
-          log.info(`[image] drop files inserted uploadIds=${uploadIds.join(',')}`)
+          const program = Effect.gen(function* () {
+            yield* Console.info(`[image] drop files detected count=${imageFiles.length}`)
+            view.dispatch(tr.scrollIntoView())
+            yield* Console.info(`[image] drop files inserted uploadIds=${uploadIds.join(',')}`)
 
-          for (let i = 0; i < imageFiles.length; i += 1) {
-            const uploadId = uploadIds[i]!
-            const file = imageFiles[i]!
-            forkAssetTaskAndPatchImageByUploadId({
-              view,
-              uploadId,
-              errorTag: 'drop file',
-              task: addFileToAssets(file),
-            })
-            log.debug(
-              `[image] drop file queued uploadId=${uploadId} name=${file.name} type=${file.type} size=${file.size}`,
-            )
-          }
+            for (let i = 0; i < imageFiles.length; i += 1) {
+              const uploadId = uploadIds[i]!
+              const file = imageFiles[i]!
+              forkAssetTaskAndPatchImageByUploadId({
+                view,
+                uploadId,
+                errorTag: 'drop file',
+                task: addFileToAssets(file),
+              })
+              yield* Console.debug(
+                `[image] drop file queued uploadId=${uploadId} name=${file.name} type=${file.type} size=${file.size}`,
+              )
+            }
+          })
+
+          Effect.runPromise(program)
 
           return true
         }
@@ -339,10 +358,11 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
 
         const $drop = view.state.doc.resolve(coords.pos)
         let tr = view.state.tr
+        let insertMode: 'after-empty' | 'drop-point' = 'drop-point'
         if (shouldInsertAfterEmptyTextBlock($drop)) {
           const insertPos = $drop.after()
           tr = tr.replaceRange(insertPos, insertPos, nextSlice)
-          log.info('[image] drop slice inserted after empty paragraph')
+          insertMode = 'after-empty'
         }
         else {
           const safePos = dropPoint(tr.doc, coords.pos, nextSlice)
@@ -352,14 +372,23 @@ export function createImageProseMirrorPlugin(params: { downloadImage: boolean })
           tr = tr.replaceRange(safePos, safePos, nextSlice)
           const selectionPos = Math.min(safePos + 1, tr.doc.content.size)
           tr = tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)))
-          log.info('[image] drop slice inserted at dropPoint')
         }
 
-        view.dispatch(tr.scrollIntoView())
-        if (jobs.length > 0) {
-          log.info(`[image] drop slice queued jobs=${jobs.length} downloadImage=${downloadImage}`)
-          queueSliceImageAssetJobs({ view, jobs, origin: 'drop slice' })
-        }
+        const program = Effect.gen(function* () {
+          if (insertMode === 'after-empty') {
+            yield* Console.info('[image] drop slice inserted after empty paragraph')
+          }
+          else {
+            yield* Console.info('[image] drop slice inserted at dropPoint')
+          }
+          view.dispatch(tr.scrollIntoView())
+          if (jobs.length > 0) {
+            yield* Console.info(`[image] drop slice queued jobs=${jobs.length} downloadImage=${downloadImage}`)
+            queueSliceImageAssetJobs({ view, jobs, origin: 'drop slice' })
+          }
+        })
+
+        Effect.runPromise(program)
         return true
       },
     },

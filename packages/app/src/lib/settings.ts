@@ -1,12 +1,12 @@
-import { effectCommands } from '@memorilo/api/command'
-import log from '@memorilo/api/log'
+import { SettingsService } from '@memorilo/api-spec/command'
 import { memorilo } from '@memorilo/core'
-import { Effect } from 'effect'
+import { Console, Effect } from 'effect'
 
 export function loadSettings() {
   return Effect.gen(function* () {
-    const settings = yield* effectCommands.readSettings()
-    log.info(`Settings loaded from storage: ${JSON.stringify(settings)}`)
+    const settingsService = yield* SettingsService
+    const settings = yield* settingsService.readSettings()
+    yield* Console.info(`Settings loaded from storage: ${JSON.stringify(settings)}`)
 
     return memorilo.settings.fromJSON(settings)
   })
@@ -14,8 +14,9 @@ export function loadSettings() {
 
 export function saveSettings() {
   return Effect.gen(function* () {
+    const settingsService = yield* SettingsService
     const settings = memorilo.settings.toJSON()
-    log.info(`Saving settings to storage: ${JSON.stringify(settings)}`)
-    yield* effectCommands.updateSettings(settings)
+    yield* Console.info(`Saving settings to storage: ${JSON.stringify(settings)}`)
+    yield* settingsService.updateSettings(settings)
   })
 }

@@ -1,11 +1,12 @@
-import { revealItemInDir } from '@memorilo/api/opener'
-import { useAboutInfo } from '@memorilo/api/query'
+import { runPromise } from '@memorilo/api-spec'
+import { OpenerService } from '@memorilo/api-spec/opener'
 import { Button } from '@memorilo/components/ui/button'
 import { NumberTicker } from '@memorilo/components/ui/number-ticker'
 import { Separator } from '@memorilo/components/ui/separator'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { Effect, Match } from 'effect'
 import { useTranslation } from 'react-i18next'
+import { useAboutInfo } from '~/hooks/api'
 import Logo from '../../../../src-tauri/icons/icon.png'
 
 export const Route = createLazyFileRoute('/about')({
@@ -35,7 +36,10 @@ function RouteComponent() {
     if (!aboutInfo.appLocalDataDir) {
       return
     }
-    Effect.runPromise(revealItemInDir(aboutInfo.appLocalDataDir))
+    runPromise(Effect.gen(function* () {
+      const { revealItemInDir } = yield* OpenerService
+      yield* revealItemInDir(aboutInfo.appLocalDataDir)
+    }))
   }
 
   return (

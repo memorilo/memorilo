@@ -1,5 +1,6 @@
-import type { JournalCursor } from '@memorilo/api'
-import { effectCommands } from '@memorilo/api/command'
+import type { JournalCursor } from '@memorilo/api-spec'
+import { runPromise } from '@memorilo/api-spec'
+import { JournalService } from '@memorilo/api-spec/command'
 import { useInfiniteQuery, useQueries } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import dayjs from 'dayjs'
@@ -72,9 +73,10 @@ function mergeExistingItems(
 // Existing-only mode:
 // Cursor-based pagination for journals (descending by journalAt/docId) joined with docs metadata.
 async function fetchExistingPage(cursor?: JournalCursor | null): Promise<JournalEntriesPage> {
-  const page = await Effect.runPromise(
-    effectCommands.getJournals(cursor ?? null, 30),
-  )
+  const page = await runPromise(Effect.gen(function* () {
+    const journalService = yield* JournalService
+    return yield* journalService.getJournals(cursor ?? null, 30)
+  }))
   return {
     items: page.items.map(entry => ({
       dateKey: entry.journalDate,
@@ -197,8 +199,10 @@ export function useJournals() {
     queries: autoCreateEnabled && visibleDateRange
       ? visibleDateRange.map(({ startKey, endKey }) => ({
           queryKey: ['journalsByDateRange', startKey, endKey],
-          queryFn: () =>
-            Effect.runPromise(effectCommands.getJournalsByDateRange(startKey, endKey)),
+          queryFn: () => runPromise(Effect.gen(function* () {
+            const journalService = yield* JournalService
+            return yield* journalService.getJournalsByDateRange(startKey, endKey)
+          })),
         }))
       : [],
   })
@@ -283,8 +287,11 @@ export function useJournals() {
       const dateKey = dayjs(value).format(DATE_FORMAT)
       const { journalAt, title } = getJournalCreateInput(dateKey)
 
-      const docId = await Effect.runPromise(
-        effectCommands.createJournal(journalAt, title).pipe(
+      const docId = await runPromise(
+        Effect.gen(function* () {
+          const journalService = yield* JournalService
+          return yield* journalService.createJournal(journalAt, title)
+        }).pipe(
           Effect.catchAll(() => Effect.succeed(null)),
         ),
       )

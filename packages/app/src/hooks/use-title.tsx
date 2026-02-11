@@ -39,7 +39,6 @@ export function useTitle(title: string) {
           }
           void win.setTitle(previousTitle)
         })
-        .catch(() => {})
     }
   }, [])
 

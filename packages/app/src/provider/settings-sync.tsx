@@ -1,9 +1,9 @@
-import type { DetectLanguageError } from '@memorilo/api/os'
+import type { DetectLanguageError } from '@memorilo/api-spec/os'
 import type { RendererSupportedLanguages } from '~/@types/constants'
-import log from '@memorilo/api/log'
-import { detectLanguage } from '@memorilo/api/os'
+import { runPromise } from '@memorilo/api-spec'
+import { OSService } from '@memorilo/api-spec/os'
 import { memorilo } from '@memorilo/core'
-import { Effect, Either, Option } from 'effect'
+import { Console, Effect, Either, Option } from 'effect'
 import i18next from 'i18next'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import * as z from 'zod'
@@ -14,7 +14,7 @@ import { DEFAULT_LANGUAGE_AUTO } from '~/lib/register-settings'
 
 function parseLanguageOrDetect(
   lang: string,
-): Effect.Effect<RendererSupportedLanguages, DetectLanguageError> {
+): Effect.Effect<RendererSupportedLanguages, DetectLanguageError, OSService> {
   const languageSchema = z.enum([
     ...currentSupportedLanguages,
     DEFAULT_LANGUAGE_AUTO,
@@ -27,10 +27,11 @@ function parseLanguageOrDetect(
       return parseResult.data
     }
 
+    const { detectLanguage } = yield* OSService
     const detected = yield* detectLanguage(
       currentSupportedLanguages,
       () => fallbackLanguage,
-    ).pipe(Effect.catchAll(() => Effect.succeed(fallbackLanguage)))
+    )
 
     return detected as RendererSupportedLanguages
   })
@@ -51,7 +52,7 @@ function useLanguageSync() {
   const currentLanguage = useRef<string>(null)
 
   useEffect(() => {
-    Effect.runPromise(parseLanguageOrDetect(originalLang)).then((lang) => {
+    runPromise(parseLanguageOrDetect(originalLang)).then((lang) => {
       if (currentLanguage.current === lang) {
         return
       }
@@ -64,8 +65,8 @@ function useLanguageSync() {
       //   loadLanguageAndApply('zh-CN')
       // }
       loadLanguageAndApply(lang).then(() => {
-        langChain.next(() => {
-          log.info(`i18next language config switched to: ${lang}`)
+        langChain.next(async () => {
+          await Effect.runPromise(Console.info(`i18next language config switched to: ${lang}`))
           document.documentElement.lang = lang
           return i18next.changeLanguage(lang)
         })

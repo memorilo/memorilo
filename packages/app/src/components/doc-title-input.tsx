@@ -1,6 +1,6 @@
-import { useDocTitle, useMutateDocTitle } from '@memorilo/api/query'
 import { Input } from '@memorilo/components/ui/input'
 import { useState } from 'react'
+import { useDocTitle, useMutateDocTitle } from '~/hooks/api'
 
 interface DocTitleInputProps {
   docId: string

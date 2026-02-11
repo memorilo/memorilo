@@ -11,7 +11,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@memorilo/app": "workspace:*"
+    "@memorilo/api-spec": "workspace:*",
+    "@memorilo/app": "workspace:*",
+    "@tauri-apps/api": "catalog:",
+    "@tauri-apps/plugin-dialog": "catalog:",
+    "@tauri-apps/plugin-fs": "catalog:",
+    "@tauri-apps/plugin-log": "catalog:",
+    "@tauri-apps/plugin-opener": "catalog:",
+    "@tauri-apps/plugin-os": "catalog:",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

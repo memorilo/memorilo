@@ -1,7 +1,7 @@
-import { effectCommands } from '@memorilo/api/command'
-import log from '@memorilo/api/log'
+import { runPromise } from '@memorilo/api-spec'
+import { DocService } from '@memorilo/api-spec/command'
 import { Channel } from '@tauri-apps/api/core'
-import { Effect } from 'effect'
+import { Console, Effect } from 'effect'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as Y from 'yjs'
@@ -34,19 +34,20 @@ export function useSyncYDoc(docId: string) {
       })
 
     const markError = (error: unknown) =>
-      Effect.sync(() => {
-        log.error('Failed to apply remote update', error)
-        setError(
-          t('editor.fail_receive_update', {
-            ns: 'errors',
+      Console.error('Failed to apply remote update', error).pipe(
+        Effect.zipRight(
+          Effect.sync(() => {
+            setError(
+              t('editor.fail_receive_update', {
+                ns: 'errors',
+              }),
+            )
           }),
-        )
-      })
+        ),
+      )
 
     const logRetryError = (attempt: number, error: unknown) =>
-      Effect.sync(() => {
-        log.error(`Failed to apply remote update (attempt ${attempt})`, error)
-      })
+      Console.error(`Failed to apply remote update (attempt ${attempt})`, error)
 
     const applyUpdateOnce = (diff: Uint8Array, bytes: number) =>
       Effect.try({
@@ -74,7 +75,7 @@ export function useSyncYDoc(docId: string) {
       )
 
     const channel = new Channel<number[]>((response) => {
-      Effect.runPromise(
+      runPromise(
         Effect.sync(() => {
           const update = new Uint8Array(response)
           const stateVector = Y.encodeStateVector(doc)
@@ -92,11 +93,17 @@ export function useSyncYDoc(docId: string) {
         ),
       )
     })
-    const unwatch = Effect.runPromise(effectCommands.watchDoc(docId, channel))
+    const unwatch = runPromise(Effect.gen(function* () {
+      const docService = yield* DocService
+      return yield* docService.watchDoc(docId, channel)
+    }))
 
     return () => {
       unwatch.then((watchID) => {
-        Effect.runPromise(effectCommands.unwatchDoc(watchID))
+        runPromise(Effect.gen(function* () {
+          const docService = yield* DocService
+          return yield* docService.unwatchDoc(watchID)
+        }))
       })
       setInitialized(false)
       initializedRef.current = false
@@ -113,22 +120,23 @@ export function useSyncYDoc(docId: string) {
       if (origin === 'remote' || !initializedRef.current) {
         return
       }
-      Effect.runPromise(
+      runPromise(
         sendSemaphore.withPermits(1)(
-          effectCommands.getDocVersion(docId).pipe(
-            Effect.flatMap((stateVector) => {
-              const encodedStateVector = new Uint8Array(stateVector)
-              const diff = Y.encodeStateAsUpdate(doc, encodedStateVector)
-              if (diff.length === 0) {
-                return Effect.succeed(undefined)
-              }
-              // Use topic-specific update to trigger debounced doc_nodes sync on the backend.
-              return effectCommands.updateTopicDoc(docId, [...diff])
-            }),
-            Effect.catchAll((error) => {
-              log.error('Failed to send document update', error)
-              return Effect.succeed(undefined)
-            }),
+          Effect.gen(function* () {
+            const docService = yield* DocService
+            const stateVector = yield* docService.getDocVersion(docId)
+            const encodedStateVector = new Uint8Array(stateVector)
+            const diff = Y.encodeStateAsUpdate(doc, encodedStateVector)
+            if (diff.length === 0) {
+              return undefined
+            }
+            return yield* docService.updateTopicDoc(docId, [...diff])
+          }).pipe(
+            Effect.catchAll(error =>
+              Console.error('Failed to send document update', error).pipe(
+                Effect.as(undefined),
+              ),
+            ),
           ),
         ),
       )

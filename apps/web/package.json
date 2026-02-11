@@ -11,7 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@memorilo/app": "workspace:*"
+    "@memorilo/api-spec": "workspace:*",
+    "@memorilo/app": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

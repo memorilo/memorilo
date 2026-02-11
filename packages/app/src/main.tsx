@@ -5,31 +5,47 @@ import 'react-scan/all-environments'
 import { memorilo } from '@memorilo/core'
 import { initI18n } from './i18n'
 import { loadSettingsAtStartup, registerMemoriloSettings } from './lib/register-settings'
-import log from '@memorilo/api/log'
+import { Console, Effect } from 'effect'
 
 export async function main() {
-  try {
-    log.info('Registering initialize functions...')
-    memorilo.registerPreInitializeFunction(registerMemoriloSettings)
-    memorilo.registerInitializeFunction(loadSettingsAtStartup)
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      yield* Console.info('Registering initialize functions...')
+      memorilo.registerPreInitializeFunction(registerMemoriloSettings)
+      memorilo.registerInitializeFunction(loadSettingsAtStartup)
 
-    log.info('Initializing memorilo...')
-    await memorilo.initialize()
-    log.info('Memorilo initialized.')
+      yield* Console.info('Initializing memorilo...')
+      yield* Effect.tryPromise({
+        try: () => memorilo.initialize(),
+        catch: cause => cause,
+      })
+      yield* Console.info('Memorilo initialized.')
 
-    log.info('Initializing i18n...')
-    await initI18n()
-    log.info('i18n initialized.')
+      yield* Console.info('Initializing i18n...')
+      yield* Effect.tryPromise({
+        try: () => initI18n(),
+        catch: cause => cause,
+      })
+      yield* Console.info('i18n initialized.')
 
-    // defer import to ensure memorilo is initialized before app code runs
-    log.info('Loading app module...')
-    await import('./app').then(({ renderApp }) => {
-      renderApp()
-    })
-  }
-  catch (error) {
-    const message = error && error instanceof Error && error.message ? error.message : String(error)
-    log.error(`Initialization failed: ${message}`)
-    document.body.innerHTML = `<div style="color:red;font-family:sans-serif;padding:2em"><h1>Application failed to start</h1><pre>${message}</pre></div>`
-  }
+      // defer import to ensure memorilo is initialized before app code runs
+      yield* Console.info('Loading app module...')
+      yield* Effect.tryPromise({
+        try: async () => {
+          const { renderApp } = await import('./app')
+          renderApp()
+        },
+        catch: cause => cause,
+      })
+    }).pipe(
+      Effect.catchAll((error) => {
+        const message = error instanceof Error && error.message ? error.message : String(error)
+        return Console.error(`Initialization failed: ${message}`).pipe(
+          Effect.tap(() => Effect.sync(() => {
+            document.body.innerHTML = `<div style="color:red;font-family:sans-serif;padding:2em"><h1>Application failed to start</h1><pre>${message}</pre></div>`
+          })),
+        )
+      }),
+    ),
+  )
 }

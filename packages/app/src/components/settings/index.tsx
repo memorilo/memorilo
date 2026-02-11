@@ -1,9 +1,8 @@
-import log from '@memorilo/api/log'
 import { Button } from '@memorilo/components/ui/button'
 import { ScrollArea } from '@memorilo/components/ui/scroll-area'
 import { Scrollspy } from '@memorilo/components/ui/scrollspy'
 import { memorilo } from '@memorilo/core'
-import { Either, Option } from 'effect'
+import { Console, Effect, Either, Option } from 'effect'
 import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AutoForm } from './auto-form'
@@ -34,11 +33,11 @@ export function Settings() {
     return values
   }, [catalogs])
 
-  const handleSave = (values: Record<string, any>) => {
-    Object.entries(values).forEach(([key, value]) => {
-      log.info(`Set setting ${key} = ${JSON.stringify(value)}`)
+  const handleSave = async (values: Record<string, any>) => {
+    for (const [key, value] of Object.entries(values)) {
+      await Effect.runPromise(Console.info(`Set setting ${key} = ${JSON.stringify(value)}`))
       memorilo.settings.set(key, value)
-    })
+    }
   }
 
   return (

@@ -1,16 +1,15 @@
-import type { FolderNode } from '@memorilo/api'
-import { dialog } from '@memorilo/api/command'
-import log from '@memorilo/api/log'
-import { useFolderNodeChildren, useMutateCreateFolderNode, useMutateCreateTopicNode, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '@memorilo/api/query'
+import type { FolderNode } from '@memorilo/api-spec'
+import { dialog } from '@memorilo/api-spec/command'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
 import { useNavigate } from '@tanstack/react-router'
-import { Match } from 'effect'
+import { Console, Effect, Match } from 'effect'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFolder, LuHighlighter, LuNotebook, LuRefreshCcw, LuStickyNote } from 'react-icons/lu'
 import { toast } from 'react-toastify'
 import { v7 as uuidV7 } from 'uuid'
+import { useFolderNodeChildren, useMutateCreateFolderNode, useMutateCreateTopicNode, useMutateDeleteFolderNode, useMutateRenameFolderNode, useRootFolderNodeUUID } from '~/hooks/api'
 import { useNoteFolderTree } from './note-folder-tree-provider'
 
 /**
@@ -155,9 +154,9 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
     })
   }
 
-  function handleClick() {
+  async function handleClick() {
     if (props.typ === 'Topic') {
-      log.info(`Navigating to topic ${props.ref}`)
+      await Effect.runPromise(Console.info(`Navigating to topic ${props.ref}`))
       navigate({
         to: '/note/$docId',
         params: { docId: props.ref! },
