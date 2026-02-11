@@ -1,9 +1,10 @@
-MODEL_DIR := "./src-tauri/models"
+MODEL_DIR := "./bundle/models"
 
 download-model:
   # Download VSCode Language Detection model files
   # https://github.com/microsoft/vscode-languagedetection
   # Pinned to specific commit and checksums for security
+  mkdir -p "{{MODEL_DIR}}"
   just _download "{{MODEL_DIR}}/vscode-languagedetection.json" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/model.json" "100ce176367e7311e37ced0695057452991a8692029a79340a25e622893e7983"
   just _download "{{MODEL_DIR}}/vscode-languagedetection.bin" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/group1-shard1of1.bin" "fab6442698f64d5b1d2df052061d12bafd570330556819d29f48c7bcbb5889f7"
 
@@ -154,7 +155,7 @@ build-ios: download-model
 
 [linux]
 [macos]
-build-web: download-web-resource && lint-web
+build-client: download-web-resource && lint-apps
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build
@@ -163,7 +164,7 @@ build-web: download-web-resource && lint-web
   fi
 
 [windows]
-build-web: download-web-resource && lint-web
+build-client: download-web-resource && lint-apps
   pnpm build
 
 clean:
@@ -178,7 +179,7 @@ build-bundle-size-stats:
   cd apps/client && VISUALIZER=true pnpm build
   rm -rf apps/client/dist
 
-lint-web changed="false":
+lint-apps changed="false":
   #!/usr/bin/env bash
   run_pnpm() {
     if command -v nix >/dev/null 2>&1; then
@@ -200,6 +201,35 @@ lint-web changed="false":
     echo "Checking all files..."
     run_pnpm exec eslint apps packages
   fi
+
+[linux]
+[macos]
+dev-web:
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command pnpm --filter @memorilo/web dev
+  else
+    pnpm --filter @memorilo/web dev
+  fi
+
+[windows]
+dev-web:
+  pnpm --filter @memorilo/web dev
+
+[linux]
+[macos]
+build-web: download-web-resource
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command pnpm --filter @memorilo/web build
+  else
+    pnpm --filter @memorilo/web build
+  fi
+
+[windows]
+build-web: download-web-resource
+  pnpm --filter @memorilo/web build
+
 
 lint-rs changed="false":
   #!/usr/bin/env bash

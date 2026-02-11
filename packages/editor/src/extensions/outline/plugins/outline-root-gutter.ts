@@ -92,7 +92,7 @@ function createRootGutter(editor: Editor) {
   const dotWrap = createDotWrap()
 
   if (rootType === 'taskItem') {
-    dotWrap.appendChild(createTaskCheckbox(editor, Boolean(rootNode.attrs.checked)))
+    dotWrap.appendChild(createTaskCheckbox(editor, rootNode.attrs.checked ?? false))
   }
   else if (rootType === 'orderedItem') {
     // Root ordered item has no list context; default to 1.
@@ -112,7 +112,7 @@ export function createOutlineRootGutterPlugin(editor: Editor) {
     key: rootGutterKey,
     props: {
       decorations(state) {
-        const hideTitle = Boolean(editor.storage.paragraph?.hideTitle)
+        const hideTitle = editor.storage.paragraph?.hideTitle ?? false
         if (hideTitle) {
           return null
         }

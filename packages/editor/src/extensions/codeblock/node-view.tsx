@@ -1,13 +1,13 @@
 import type { NodeViewProps } from '@tiptap/react'
 import type { ModelResult } from '@vscode/vscode-languagedetection'
 import type { ComponentPropsWithoutRef } from 'react'
-import log from '@memorilo/api/log'
+import { runPromise } from '@memorilo/api-spec'
 import { cn } from '@memorilo/utils'
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react'
-import { Effect, Option, pipe } from 'effect'
+import { Console, Effect, Option, pipe } from 'effect'
 import { maxBy } from 'es-toolkit/array'
 import debounce from 'es-toolkit/compat/debounce'
-import { isNotNil } from 'es-toolkit/predicate'
+import { isNotNil, isString } from 'es-toolkit/predicate'
 import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getLanguageState, resolveLanguageClass } from './language'
@@ -26,7 +26,7 @@ export function CodeBlockNodeView(props: NodeViewProps) {
   const languageClass = resolveLanguageClass(node.attrs, extension.options.languageClassPrefix)
   const baseAttributes = extension.options.HTMLAttributes ?? {}
   const { class: baseClassCandidate, ...restAttributes } = baseAttributes
-  const baseClass = typeof baseClassCandidate === 'string' ? baseClassCandidate : undefined
+  const baseClass = isString(baseClassCandidate) ? baseClassCandidate : undefined
   const languageValue = Option.getOrNull(language)
   const guessedLanguageValue = Option.getOrNull(guessedLanguageAttr)
   const textRef = useRef(node.textContent)
@@ -88,29 +88,31 @@ export function CodeBlockNodeView(props: NodeViewProps) {
     const guessEffect = pipe(
       guessLanguage(textSnapshot),
       Effect.tapError(error =>
-        Effect.sync(() => {
-          void log.error(`codeblock guess error: ${formatErrorDetail(error)}`)
-        }),
+        Console.error(`codeblock guess error: ${formatErrorDetail(error)}`),
       ),
       Effect.mapError(error => new Error(`guess failed: ${formatErrorDetail(error)}`)),
+      Effect.map((predictions) => {
+        const best = pickBestLanguage(predictions)
+        const resultMessage = pipe(
+          best,
+          Option.match({
+            onNone: () => 'codeblock guess result: none',
+            onSome: candidate =>
+              `codeblock guess result: ${candidate.languageId} (${candidate.confidence.toFixed(3)})`,
+          }),
+        )
+        return { best, resultMessage }
+      }),
+      Effect.tap(({ resultMessage }) => Console.info(resultMessage)),
+      Effect.map(({ best }) => best),
     )
 
     // Run the model off the UI thread and update attrs when still relevant.
-    void Effect.runPromise(guessEffect).then((predictions) => {
+    runPromise(guessEffect).then((best) => {
       if (languageValueRef.current || textRef.current !== textSnapshot) {
         return
       }
 
-      const best = pickBestLanguage(predictions)
-      const resultMessage = pipe(
-        best,
-        Option.match({
-          onNone: () => 'codeblock guess result: none',
-          onSome: candidate =>
-            `codeblock guess result: ${candidate.languageId} (${candidate.confidence.toFixed(3)})`,
-        }),
-      )
-      void log.info(resultMessage)
       pipe(
         best,
         Option.match({
@@ -232,7 +234,7 @@ function formatErrorDetail(error: unknown) {
 }
 
 function formatUnknownValue(value: unknown) {
-  if (typeof value === 'string') {
+  if (isString(value)) {
     return value
   }
   try {

@@ -1,0 +1,59 @@
+{
+  "name": "@memorilo/app",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "license": "AGPL-3.0-only",
+  "exports": {
+    ".": "./src/main.tsx",
+    "./main": "./src/main.tsx",
+    "./app": "./src/app.tsx",
+    "./routeTree": "./src/routeTree.gen.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "gen:routes": "node scripts/gen-routes.mjs",
+    "dev": "node scripts/gen-routes.mjs --watch",
+    "build": "node scripts/gen-routes.mjs"
+  },
+  "dependencies": {
+    "@memorilo/api-spec": "workspace:*",
+    "@memorilo/components": "workspace:*",
+    "@memorilo/config": "workspace:*",
+    "@memorilo/core": "workspace:*",
+    "@memorilo/editor": "workspace:*",
+    "@memorilo/utils": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-query-devtools": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-router-devtools": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
+    "@tauri-apps/api": "catalog:",
+    "dayjs": "catalog:",
+    "effect": "catalog:",
+    "effect-query": "catalog:",
+    "es-toolkit": "catalog:",
+    "i18next": "catalog:",
+    "immer": "catalog:",
+    "jotai": "catalog:",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-calendar": "catalog:",
+    "react-dom": "catalog:",
+    "react-i18next": "catalog:",
+    "react-icons": "catalog:",
+    "react-scan": "catalog:",
+    "react-toastify": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
+    "uuid": "catalog:",
+    "yjs": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tanstack/router-plugin": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
+  }
+}

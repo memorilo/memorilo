@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.memorilo.client",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm dev:desktop",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "just build-web",
+    "beforeBuildCommand": "just build-client",
     "frontendDist": "../apps/client/dist"
   },
   "app": {
@@ -36,8 +36,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "models/"
-    ]
+    "resources": {
+      "../bundle/models": "models"
+    }
   }
 }

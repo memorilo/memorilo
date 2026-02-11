@@ -7,9 +7,7 @@
     "moduleResolution": "Bundler",
 
     "paths": {
-      "@memorilo/ui/*": ["./src/*"],
-      "@memorilo/utils": ["../utils/src/index.ts"],
-      "@memorilo/utils/*": ["../utils/src/*"]
+      "@memorilo/ui/*": ["./src/*"]
     },
     "resolveJsonModule": true,
     "allowJs": true,
@@ -24,6 +22,6 @@
     "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "../utils/src/cn.ts", "../../apps/client/src/components/auto-form"]
+  "include": ["src/**/*"]
 
 }

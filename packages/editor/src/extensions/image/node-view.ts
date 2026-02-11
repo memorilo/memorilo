@@ -46,7 +46,7 @@ export function createImageNodeView(params: { resize: unknown }) {
   }
 
   const resize = params.resize as any
-  const resizeEnabled = Boolean(resize && resize.enabled)
+  const resizeEnabled = resize?.enabled ?? false
   const resizeOptions = resizeEnabled ? resize : null
 
   return ({ node, getPos, HTMLAttributes, editor }: any) => {
@@ -112,7 +112,7 @@ export function createImageNodeView(params: { resize: unknown }) {
           width: minWidth,
           height: minHeight,
         },
-        preserveAspectRatio: alwaysPreserveAspectRatio === true,
+        preserveAspectRatio: alwaysPreserveAspectRatio ?? false,
       },
     })
 

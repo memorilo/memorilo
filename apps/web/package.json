@@ -1,0 +1,33 @@
+{
+  "name": "@memorilo/web",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@memorilo/api-spec": "workspace:*",
+    "@memorilo/app": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@memorilo/vite-config": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "rollup-plugin-visualizer": "catalog:",
+    "tailwindcss": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-static-copy": "catalog:",
+    "vite-plugin-top-level-await": "catalog:",
+    "vite-plugin-wasm": "catalog:"
+  }
+}

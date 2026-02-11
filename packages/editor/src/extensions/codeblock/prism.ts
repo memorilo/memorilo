@@ -1,5 +1,4 @@
-import log from '@memorilo/api/log'
-import { Option, pipe } from 'effect'
+import { Console, Effect, Option, pipe } from 'effect'
 import Prism from 'prismjs'
 import prismLanguages from 'prismjs/components.json'
 import { isPlainLanguage } from './language'
@@ -19,7 +18,7 @@ export function loadLanguage(lang: string) {
   }
   return new Promise<void>((resolve, reject) => {
     autoloader.loadLanguages(lang, () => {
-      log.info(`Prism language loaded: ${lang}`)
+      Effect.runPromise(Console.info(`Prism language loaded: ${lang}`))
       if (Prism.languages[lang] !== undefined) {
         resolve()
       }
@@ -90,7 +89,7 @@ export function parseText(
 ): NormalizedPrismToken[][] {
   const loaded = isLanguageLoaded(language)
   if (!loaded && !options?.silent) {
-    log.error(`Prism language ${language} not loaded`)
+    Effect.runPromise(Console.error(`Prism language ${language} not loaded`))
   }
   if (isPlainLanguage(language) || !loaded) {
     return [[{ types: ['plain'], content: text }]]

@@ -1,0 +1,22 @@
+{
+  "name": "@memorilo/api-spec",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "catalog:",
+    "effect": "catalog:",
+    "effect-query": "catalog:",
+    "es-toolkit": "catalog:"
+  }
+}

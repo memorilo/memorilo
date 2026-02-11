@@ -1,6 +1,8 @@
-import log from '@memorilo/api/log'
-import { useAssetUrl } from '@memorilo/api/query'
+import { useAssetUrl } from '@memorilo/api-spec/query'
 import { Skeleton } from '@memorilo/components/ui/skeleton'
+import { Console, Effect } from 'effect'
+import { isEmpty } from 'es-toolkit/compat'
+import { isString } from 'es-toolkit/predicate'
 import { useRef, useState } from 'react'
 import { LuImage, LuImageOff } from 'react-icons/lu'
 
@@ -21,7 +23,7 @@ export function ImageContent(props: ImageContentProps) {
   const { assetId, uploadId, uploadError, src, alt, explicitSize, baseImgClassName } = props
 
   const assetQuery = useAssetUrl(assetId, null)
-  const assetUrl = typeof assetQuery.data === 'string' ? assetQuery.data : null
+  const assetUrl = isString(assetQuery.data) ? assetQuery.data : null
 
   // Display priority:
   // 1) `assetId` -> resolve to a local asset URL (preferred)
@@ -35,14 +37,16 @@ export function ImageContent(props: ImageContentProps) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const lastErrorKeyRef = useRef('')
 
-  const isLoaded = candidate != null && loadedSrc === candidate
-  const isErrored = candidate != null && errorSrc === candidate && !isLoaded
+  const isLoaded = !isEmpty(candidate) && loadedSrc === candidate
+  const isErrored = !isEmpty(candidate) && errorSrc === candidate && !isLoaded
 
-  const showEmpty = !candidate && !assetId && !src && !uploadId && !uploadError
-  const showError = Boolean(uploadError) || isErrored || (assetId != null && assetQuery.isError && !src)
-  const showSkeleton = (uploadId != null && !candidate)
-    || (assetId != null && assetQuery.isPending && !candidate)
-    || (candidate != null && !isLoaded && !isErrored)
+  const showEmpty = isEmpty(candidate) && isEmpty(assetId) && isEmpty(src) && isEmpty(uploadId) && isEmpty(uploadError)
+  const showError = !isEmpty(uploadError)
+    || isErrored
+    || (!isEmpty(assetId) && assetQuery.isError && !src)
+  const showSkeleton = (!isEmpty(uploadId) && isEmpty(candidate))
+    || (!isEmpty(assetId) && assetQuery.isPending && isEmpty(candidate))
+    || (!isEmpty(candidate) && !isLoaded && !isErrored)
 
   const fallbackStyle = explicitSize
     ? undefined
@@ -109,7 +113,7 @@ export function ImageContent(props: ImageContentProps) {
                 const errKey = `${assetId ?? 'none'}|${candidate}`
                 if (lastErrorKeyRef.current !== errKey) {
                   lastErrorKeyRef.current = errKey
-                  log.warn(`[image] load failed assetId=${assetId ?? 'none'} src=${candidate}`)
+                  Effect.runPromise(Console.warn(`[image] load failed assetId=${assetId ?? 'none'} src=${candidate}`))
                 }
                 setErrorSrc(candidate)
               }}

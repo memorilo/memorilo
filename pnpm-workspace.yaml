@@ -1,6 +1,15 @@
+catalogMode: prefer
+
+cleanupUnusedCatalogs: true
+
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
 packages:
   - apps/*
   - packages/*
+  - vite-config
 
 catalog:
   '@antfu/eslint-config': ^6.7.3
@@ -23,8 +32,6 @@ catalog:
   '@rollup/plugin-typescript': ^12.1.4
   '@tailwindcss/postcss': ^4.1.18
   '@tailwindcss/vite': ^4.1.18
-  '@tanstack/devtools-vite': ^0.3.12
-  '@tanstack/react-devtools': ^0.8.4
   '@tanstack/react-query': ^5.90.12
   '@tanstack/react-query-devtools': ^5.91.1
   '@tanstack/react-router': ^1.141.2
@@ -34,9 +41,9 @@ catalog:
   '@tauri-apps/api': ^2.9.1
   '@tauri-apps/plugin-dialog': ^2.4.2
   '@tauri-apps/plugin-fs': ^2.4.5
-  '@tauri-apps/plugin-log': 2.7.1
+  '@tauri-apps/plugin-log': ^2.7.1
   '@tauri-apps/plugin-opener': ^2.5.3
-  '@tauri-apps/plugin-os': ^2.3.2
+  '@tauri-apps/plugin-os': 2.3.2
   '@tiptap/core': ^3.16.0
   '@tiptap/extension-blockquote': ^3.16.0
   '@tiptap/extension-bold': ^3.16.0
@@ -78,13 +85,12 @@ catalog:
   clsx: ^2.1.1
   cmdk: ^1.1.1
   dayjs: ^1.11.19
-  effect: ^3.19.14
+  effect: 3.19.14
   effect-query: ^0.2.1
   es-toolkit: ^1.43.0
   eslint: ^9.39.2
   eslint-plugin-react-hooks: ^7.0.1
   eslint-plugin-react-refresh: ^0.4.26
-  globals: ^16.5.0
   i18next: 25.7.3
   immer: ^11.0.1
   jotai: ^2.16.0
@@ -115,21 +121,14 @@ catalog:
   uniqolor: ^1.1.1
   uuid: ^13.0.0
   vite: ^7.3.1
+  vite-plugin-static-copy: ^3.2.0
   vite-plugin-top-level-await: ^1.6.0
   vite-plugin-wasm: ^3.5.0
   vitest: ^4.0.16
   yjs: ^13.6.29
   zod: ^4.2.0
 
-catalogMode: prefer
-
-cleanupUnusedCatalogs: true
-
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@swc/core'
   - esbuild
-
-shellEmulator: true
-
-trustPolicy: no-downgrade

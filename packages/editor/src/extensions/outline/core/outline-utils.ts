@@ -55,13 +55,16 @@ export function isImeComposing(
 ) {
   // IME keydowns often use keyCode 229 before compositionstart; treat as composing.
   const keyCode = event?.keyCode ?? event?.which
-  return Boolean(
-    view?.composing
-    || event?.isComposing
-    || event?.key === 'Process'
-    || event?.key === 'Unidentified'
-    || keyCode === 229,
-  )
+  if (view?.composing) {
+    return true
+  }
+  if (event?.isComposing) {
+    return true
+  }
+  if (event?.key === 'Process' || event?.key === 'Unidentified') {
+    return true
+  }
+  return keyCode === 229
 }
 
 export function isOutlineMediaNode(node: ProseMirrorNode) {
@@ -131,7 +134,7 @@ export function findAdjacentVisibleOutlineItemPos(
       return true
     }
     positions.push(pos)
-    if (node.attrs?.folded === true) {
+    if (node.attrs?.folded) {
       return false
     }
     return true

@@ -288,7 +288,7 @@ export function TreeLines() {
     <div className="pointer-events-none absolute top-0 bottom-0 left-0">
       {/* Render vertical lines for all parent levels */}
       {Array.from({ length: level }, (_, index) => {
-        const shouldHideLine = parentPath[index] === true
+        const shouldHideLine = parentPath[index]
         if (shouldHideLine && index === level - 1) {
           return null
         }

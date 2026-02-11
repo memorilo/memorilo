@@ -64,7 +64,7 @@ export const OutlineImage = Image.extend<OutlineImageOptions>({
 
   addCommands() {
     const parentCommands = this.parent?.()
-    const downloadImage = Boolean(this.options.downloadImage)
+    const downloadImage = this.options.downloadImage
 
     return {
       ...parentCommands,
@@ -78,7 +78,7 @@ export const OutlineImage = Image.extend<OutlineImageOptions>({
 
   addProseMirrorPlugins() {
     const parentPlugins = this.parent?.() ?? []
-    const downloadImage = Boolean(this.options.downloadImage)
+    const downloadImage = this.options.downloadImage
 
     return [
       ...parentPlugins,
