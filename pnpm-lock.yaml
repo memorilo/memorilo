@@ -514,9 +514,6 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.12(react@19.2.3)
-      '@tauri-apps/api':
-        specifier: 'catalog:'
-        version: 2.9.1
       effect:
         specifier: 'catalog:'
         version: 3.19.14
@@ -613,6 +610,9 @@ importers:
       react-toastify:
         specifier: 'catalog:'
         version: 11.0.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.1.18
       tw-animate-css:
         specifier: 'catalog:'
         version: 1.4.0
