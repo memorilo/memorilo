@@ -106,14 +106,21 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
 
   const moveSelectionAfter = useCallback(() => {
     const pos = resolvePos()
-    if (pos === null) {
+    if (pos === null || nodeSize === 0) {
       return
     }
 
-    if (nodeSize === 0) {
-      return
-    }
-    editor.commands.setTextSelection(pos + nodeSize)
+    editor.commands.command(({ tr, dispatch }) => {
+      const targetPos = pos + nodeSize
+      if (targetPos > tr.doc.content.size) {
+        return false
+      }
+      const $pos = tr.doc.resolve(targetPos)
+      const selection = TextSelection.near($pos, 1)
+      tr.setSelection(selection)
+      if (dispatch) dispatch(tr.scrollIntoView())
+      return true
+    })
   }, [editor, nodeSize, resolvePos])
 
   const deleteNodeAtSelection = useCallback(() => {
