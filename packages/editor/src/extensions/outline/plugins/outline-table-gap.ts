@@ -213,7 +213,25 @@ export function createOutlineTableGapPlugin() {
           }
           return handled
         }
-        if (event.key === 'Enter' || event.key === 'Backspace' || event.key === 'Delete') {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          const { state } = view
+          const listItem = findListItem(state.selection.$from)
+          if (!listItem) return true
+          
+          const paragraphType = state.schema.nodes.paragraph
+          const listItemType = listItem.node.type
+          if (!paragraphType) return true
+          
+          const attrs = listItemType.name === 'taskItem' ? { checked: false } : null
+          const newItem = listItemType.create(attrs, paragraphType.create())
+          const insertPos = listItem.pos + listItem.node.nodeSize
+          const tr = state.tr.insert(insertPos, newItem)
+          tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
+          view.dispatch(tr.scrollIntoView())
+          return true
+        }
+        if (event.key === 'Backspace' || event.key === 'Delete') {
           event.preventDefault()
           return true
         }
