@@ -32,19 +32,22 @@ function Journals() {
   }, [jumpToDate])
 
   return (
-    <div className="size-full flex flex-col">
+    <div className="size-full min-h-0 overflow-hidden flex flex-col">
       <div className="sticky top-0 z-10 border-b bg-background px-2 py-1">
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={jumping}
-              aria-label="Pick date"
-            >
-              <LuCalendarDays />
-            </Button>
-          </PopoverTrigger>
+          <PopoverTrigger
+            render={popoverProps => (
+              <Button
+                {...popoverProps}
+                variant="ghost"
+                size="icon"
+                disabled={jumping}
+                aria-label="Pick date"
+              >
+                <LuCalendarDays />
+              </Button>
+            )}
+          />
           <PopoverContent align="start" className="p-0">
             <Calendar
               value={selectedDate}
@@ -56,7 +59,7 @@ function Journals() {
         </Popover>
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <JournalsList state={listState} />
       </div>
     </div>

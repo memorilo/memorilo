@@ -113,23 +113,16 @@ export function CodeBlockNodeView(props: NodeViewProps) {
         return
       }
 
-      pipe(
+      const resolvedLanguage = pipe(
         best,
-        Option.match({
-          onNone: () => {
-          },
-          onSome: (candidate) => {
-            pipe(
-              Option.fromNullable(candidate.languageId),
-              Option.filter(resolved => resolved !== guessedLanguageValueRef.current),
-              Option.match({
-                onNone: () => {},
-                onSome: resolved => updateAttributes({ guessLanguage: resolved }),
-              }),
-            )
-          },
-        }),
+        Option.flatMap(candidate => Option.fromNullable(candidate.languageId)),
+        Option.filter(resolved => resolved !== guessedLanguageValueRef.current),
+        Option.getOrNull,
       )
+
+      if (resolvedLanguage) {
+        updateAttributes({ guessLanguage: resolvedLanguage })
+      }
     }).finally(() => {
       guessingRef.current = false
       if (pendingGuessRef.current) {

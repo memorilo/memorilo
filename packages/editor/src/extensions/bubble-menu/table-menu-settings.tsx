@@ -76,20 +76,36 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              aria-label={t('editor.table.settings')}
-              className="h-8 w-8 px-0"
-              onMouseDown={event => event.preventDefault()}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <MdSettings size={16} />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={tooltipProps => (
+            <PopoverTrigger
+              render={popoverProps => (
+                <Button
+                  {...popoverProps}
+                  {...tooltipProps}
+                  aria-label={t('editor.table.settings')}
+                  className={cn(
+                    'h-8 w-8 px-0',
+                    popoverProps.className,
+                    tooltipProps.className,
+                  )}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                  }}
+                  onClick={(event) => {
+                    popoverProps.onClick?.(event)
+                    tooltipProps.onClick?.(event)
+                  }}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MdSettings size={16} />
+                </Button>
+              )}
+            />
+          )}
+        />
         <TooltipContent side="top" sideOffset={6}>
           {t('editor.table.settings')}
         </TooltipContent>

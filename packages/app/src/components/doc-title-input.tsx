@@ -16,7 +16,7 @@ export function DocTitleInput({ docId, readOnly = false, containerClassName, siz
 
   const currentTitle = titleQuery.data ?? ''
   const value = editing.active ? editing.value : currentTitle
-  const titleSizeClass = size === 'compact' ? 'text-xl' : 'text-2xl'
+  const titleSizeClass = size === 'compact' ? '!text-xl' : '!text-2xl'
   const titleLeadingClass = size === 'compact' ? 'leading-tight' : ''
 
   const commitTitle = (nextTitle: string) => {

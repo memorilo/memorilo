@@ -1,12 +1,13 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@memorilo/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@memorilo/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger, useSidebar } from '@memorilo/components/ui/sidebar'
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar } from '@memorilo/components/ui/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuBook, LuChevronDown, LuClock, LuFlag, LuInfo, LuNotebookPen, LuSettings, LuUser } from 'react-icons/lu'
+import { LuBook, LuChevronDown, LuClock, LuFlag, LuInfo, LuNotebookPen, LuPanelLeft, LuSettings, LuUser } from 'react-icons/lu'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 
@@ -14,7 +15,7 @@ const LazySettings = lazy(() => import('./settings').then(module => ({ default: 
 
 export function AppSidebar() {
   const { t } = useTranslation('app')
-  const { state: sidebarState } = useSidebar()
+  const { state: sidebarState, toggleSidebar } = useSidebar()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   return (
     <>
@@ -31,55 +32,64 @@ export function AppSidebar() {
 
       <Sidebar collapsible="icon" className="select-none">
         <SidebarHeader>
-          <div className="flex items-center gap-2">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger
-                asChild
                 className={cn(
+                  'min-w-0',
                   {
                     hidden: sidebarState === 'collapsed',
                   },
                 )}
-              >
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="flex aspect-square size-8 items-center justify-center rounded-lg border">
-                    <AvatarImage className="size-4" />
-                    <AvatarFallback className="size-4"><LuUser className="size-4" /></AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{t('sidebar.library_name')}</span>
-                    <span className="truncate text-xs">{t('sidebar.user_name')}</span>
-                  </div>
-                  <LuChevronDown className="ml-auto" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
+                render={triggerProps => (
+                  <SidebarMenuButton
+                    {...triggerProps}
+                    size="lg"
+                    className={cn(
+                      'data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground min-w-0 w-full overflow-hidden',
+                      triggerProps.className,
+                    )}
+                  >
+                    <Avatar className="rounded-lg after:rounded-lg">
+                    <AvatarImage />
+                    <AvatarFallback className="rounded-lg">
+                      <LuUser className="size-4" />
+                    </AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-medium">{t('sidebar.library_name')}</span>
+                      <span className="truncate text-xs">{t('sidebar.user_name')}</span>
+                    </div>
+                    <LuChevronDown className="ml-auto" />
+                  </SidebarMenuButton>
+                )}
+              />
               <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+                className="min-w-56 rounded-lg"
                 align="start"
                 side="bottom"
                 sideOffset={4}
               >
-                <DropdownMenuItem onSelect={() => setIsSettingsOpen(true)}>
+                <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
                   <div className="flex size-6 items-center justify-center rounded-md">
                     <LuSettings className="size-3.5 shrink-0" />
                   </div>
                   {t('sidebar.settings')}
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/about">
-                    <div className="flex size-6 items-center justify-center rounded-md">
-                      <LuInfo className="size-3.5 shrink-0" />
-                    </div>
-                    {t('sidebar.about')}
-                  </Link>
+                <DropdownMenuItem render={props => <Link {...props} to="/about" />}>
+                  <div className="flex size-6 items-center justify-center rounded-md">
+                    <LuInfo className="size-3.5 shrink-0" />
+                  </div>
+                  {t('sidebar.about')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <SidebarMenuButton asChild>
-              <SidebarTrigger className="size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+            <SidebarMenuButton
+              className="size-8 shrink-0 p-0"
+              onClick={toggleSidebar}
+              aria-label="Toggle Sidebar"
+            >
+              <LuPanelLeft className="size-4 cn-rtl-flip" />
             </SidebarMenuButton>
           </div>
         </SidebarHeader>
@@ -88,37 +98,75 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('sidebar.journal')}>
-                    <Link to="/journals">
-                      <LuNotebookPen />
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={triggerProps => (
+                        <SidebarMenuButton
+                          {...triggerProps}
+                          render={props => <Link {...props} to="/journals" />}
+                        >
+                          <LuNotebookPen />
+                          {t('sidebar.journal')}
+                        </SidebarMenuButton>
+                      )}
+                    />
+                    <TooltipContent side="right" align="center">
                       {t('sidebar.journal')}
-                    </Link>
-                  </SidebarMenuButton>
+                    </TooltipContent>
+                  </Tooltip>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('sidebar.all_notes')}>
-                    <Link to="/all-notes">
-                      <LuBook />
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={triggerProps => (
+                        <SidebarMenuButton
+                          {...triggerProps}
+                          render={props => <Link {...props} to="/all-notes" />}
+                        >
+                          <LuBook />
+                          {t('sidebar.all_notes')}
+                        </SidebarMenuButton>
+                      )}
+                    />
+                    <TooltipContent side="right" align="center">
                       {t('sidebar.all_notes')}
-                    </Link>
-                  </SidebarMenuButton>
+                    </TooltipContent>
+                  </Tooltip>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('sidebar.flashcards')}>
-                    <a>
-                      <LuFlag />
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={triggerProps => (
+                        <SidebarMenuButton
+                          {...triggerProps}
+                        >
+                          <LuFlag />
+                          {t('sidebar.flashcards')}
+                        </SidebarMenuButton>
+                      )}
+                    />
+                    <TooltipContent side="right" align="center">
                       {t('sidebar.flashcards')}
-                    </a>
-                  </SidebarMenuButton>
+                    </TooltipContent>
+                  </Tooltip>
                   <SidebarMenuBadge>0</SidebarMenuBadge>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('sidebar.edit_later')}>
-                    <a>
-                      <LuClock />
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={triggerProps => (
+                        <SidebarMenuButton
+                          {...triggerProps}
+                        >
+                          <LuClock />
+                          {t('sidebar.edit_later')}
+                        </SidebarMenuButton>
+                      )}
+                    />
+                    <TooltipContent side="right" align="center">
                       {t('sidebar.edit_later')}
-                    </a>
-                  </SidebarMenuButton>
+                    </TooltipContent>
+                  </Tooltip>
                   <SidebarMenuBadge>0</SidebarMenuBadge>
                 </SidebarMenuItem>
               </SidebarMenu>

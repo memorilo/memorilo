@@ -1,6 +1,6 @@
 import type { NodeViewProps } from '@tiptap/react'
 import type { MathEditorElement, MathVariant } from './math-node-view-components'
-import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
 import { TextSelection } from '@tiptap/pm/state'
 import { NodeViewWrapper } from '@tiptap/react'
@@ -243,20 +243,28 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
 
   return (
     <Popover open={showPopover}>
-      <PopoverAnchor asChild>
-        <NodeViewWrapper
-          as={isBlock ? 'div' : 'span'}
-          className={cn(
-            styles.math,
-            !selected && (isBlock ? 'block w-full rounded-md py-2' : 'inline-flex items-center align-middle'),
-          )}
-          contentEditable={false}
-          data-math-variant={variant}
-          onMouseDown={handleMouseDown}
-        >
-          {content}
-        </NodeViewWrapper>
-      </PopoverAnchor>
+      <PopoverTrigger
+        nativeButton={false}
+        render={triggerProps => (
+          <NodeViewWrapper
+            {...triggerProps}
+              as={isBlock ? 'div' : 'span'}
+              className={cn(
+                styles.math,
+                !selected && (isBlock ? 'block w-full rounded-md py-2' : 'inline-flex items-center align-middle'),
+                triggerProps.className,
+              )}
+              contentEditable={false}
+              data-math-variant={variant}
+              onMouseDown={(event: React.MouseEvent) => {
+                triggerProps.onMouseDown?.(event)
+                handleMouseDown(event)
+              }}
+            >
+              {content}
+            </NodeViewWrapper>
+        )}
+      />
       <PopoverContent side="top" align="center" className="min-w-[200px] text-[11px]">
         <div className="mt-2 flex justify-center">
           <MathPreview

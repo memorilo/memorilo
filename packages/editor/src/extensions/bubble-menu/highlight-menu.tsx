@@ -61,21 +61,28 @@ export function HighlightMenu({ editor }: HighlightMenuProps) {
         <MdOutlineHighlight size={16} />
       </Button>
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
+      <PopoverTrigger
+        render={popoverProps => (
           <Button
+            {...popoverProps}
             aria-label={t('editor.highlight.mark_options')}
             className={cn(
               'h-8 w-6 rounded-l-none px-0',
               isActive && 'bg-accent text-accent-foreground',
+              popoverProps.className,
             )}
-            onMouseDown={event => event.preventDefault()}
+            onMouseDown={(event) => {
+              popoverProps.onMouseDown?.(event)
+              event.preventDefault()
+            }}
             size="icon-sm"
             type="button"
             variant="ghost"
           >
             <MdArrowDropDown size={16} />
           </Button>
-        </PopoverTrigger>
+        )}
+      />
         <PopoverContent side="top" align="end" className="p-2">
           <BlockPicker
             color={currentColor ?? defaultHighlightColor}
