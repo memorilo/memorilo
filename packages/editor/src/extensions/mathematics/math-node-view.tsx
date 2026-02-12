@@ -123,6 +123,21 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
     })
   }, [editor, nodeSize, resolvePos])
 
+  const moveSelectionBefore = useCallback(() => {
+    const pos = resolvePos()
+    if (pos === null || pos <= 0) {
+      return
+    }
+
+    editor.commands.command(({ tr, dispatch }) => {
+      const $pos = tr.doc.resolve(pos)
+      const selection = TextSelection.near($pos, -1)
+      tr.setSelection(selection)
+      if (dispatch) dispatch(tr.scrollIntoView())
+      return true
+    })
+  }, [editor, resolvePos])
+
   const deleteNodeAtSelection = useCallback(() => {
     const pos = resolvePos()
     if (pos === null || nodeSize === 0) {
@@ -142,6 +157,12 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
     commitValue(valueRef.current)
     moveSelectionAfter()
   }, [commitValue, moveSelectionAfter])
+
+  const commitAndExitBefore = useCallback(() => {
+    skipCommitRef.current = true
+    commitValue(valueRef.current)
+    moveSelectionBefore()
+  }, [commitValue, moveSelectionBefore])
 
   const cancelEditing = useCallback(() => {
     const nextValue = initialValueRef.current
@@ -180,6 +201,29 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       }
     }
 
+    if (event.key === 'ArrowLeft') {
+      const target = event.currentTarget as MathEditorElement
+      const selectionStart = target?.selectionStart ?? 0
+      const selectionEnd = target?.selectionEnd ?? 0
+      if (selectionStart === 0 && selectionEnd === 0) {
+        event.preventDefault()
+        commitAndExitBefore()
+        return
+      }
+    }
+
+    if (event.key === 'ArrowRight') {
+      const target = event.currentTarget as MathEditorElement
+      const len = target?.value?.length ?? 0
+      const selectionStart = target?.selectionStart ?? 0
+      const selectionEnd = target?.selectionEnd ?? 0
+      if (selectionStart === len && selectionEnd === len) {
+        event.preventDefault()
+        commitAndExit()
+        return
+      }
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault()
       cancelEditing()
@@ -196,7 +240,7 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       event.preventDefault()
       commitAndExit()
     }
-  }, [cancelEditing, commitAndExit, deleteNodeAtSelection, variant])
+  }, [cancelEditing, commitAndExit, commitAndExitBefore, deleteNodeAtSelection, variant])
 
   const katexOptions = useMemo(
     () => extension.options.katexOptions ?? {},
