@@ -80,7 +80,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           const tr = state.tr.insert(insertPos, childList)
           const selectionPos = Math.min(insertPos + 3, tr.doc.content.size)
           tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)))
-          dispatch(tr)
+          dispatch(tr.scrollIntoView())
           return true
         }
 
@@ -102,7 +102,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
             targetItemType.create(nextAttrs, paragraphType.create()),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(childListPos + 2)))
-          dispatch(tr)
+          dispatch(tr.scrollIntoView())
           return true
         }
 
@@ -119,7 +119,7 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
             createEmptyListItem(listItemType, paragraphType),
           )
           tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
-          dispatch(tr)
+          dispatch(tr.scrollIntoView())
           return true
         }
 

@@ -128,6 +128,8 @@ export function useJournals() {
   }, [])
 
   const [autoDaysCount, setAutoDaysCount] = useState(14)
+  // Stores a deferred jump target when the virtualized range is not large enough yet.
+  const pendingAutoJumpIndexRef = useRef<number | null>(null)
 
   // Existing-only list data source (cursor pagination).
   const existingItems = useMemo(() => {
@@ -144,6 +146,23 @@ export function useJournals() {
   const rowVirtualizer = useVirtualizer({
     count: autoCreateEnabled ? autoDaysCount : existingItems.length,
     getScrollElement: () => parentRef.current,
+    onChange: (instance) => {
+      const targetIndex = pendingAutoJumpIndexRef.current
+      if (targetIndex == null) {
+        return
+      }
+      if (!autoCreateEnabled) {
+        pendingAutoJumpIndexRef.current = null
+        return
+      }
+      if (targetIndex >= instance.options.count) {
+        return
+      }
+
+      // Execute the deferred jump as soon as the virtualizer can address the target row.
+      instance.scrollToIndex(targetIndex, { align: 'start' })
+      pendingAutoJumpIndexRef.current = null
+    },
     // Use a stable key so the virtualizer size cache doesn't get confused when rows are inserted
     // (e.g. the "today" placeholder or a newly-created journal day in existing-only mode).
     getItemKey: (index: number) => {
@@ -307,10 +326,12 @@ export function useJournals() {
           dayjs(todayKey, DATE_FORMAT).diff(dayjs(dateKey, DATE_FORMAT), 'day'),
         )
         if (targetIndex >= autoDaysCount) {
-          setAutoDaysCount(targetIndex + 1)
+          // Defer scrolling until count expansion has been applied to the virtualizer.
+          pendingAutoJumpIndexRef.current = targetIndex
+          setAutoDaysCount(prev => Math.max(prev, targetIndex + 1))
+          return
         }
-
-        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        rowVirtualizer.measure()
         // NOTE: don't use smooth scrolling for large jumps; it mounts intermediate rows and can trigger
         // auto-create for days we scroll past.
         rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
@@ -344,7 +365,7 @@ export function useJournals() {
             return insertAt === -1 ? merged.length : insertAt
           })()
 
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      rowVirtualizer.measure()
       rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
     }
     finally {

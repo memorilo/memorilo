@@ -3,7 +3,7 @@ import { MemoriloEditor } from '@memorilo/editor'
 import { DEV } from '@memorilo/utils/constants'
 import { Effect, Exit, Fiber, Iterable, Option, Schedule } from 'effect'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Y from 'yjs'
 import { useSetting } from '~/hooks/use-setting'
 import { useSyncYDoc } from '~/hooks/use-sync-ydoc'
@@ -15,11 +15,14 @@ interface EditorProps {
   hideTitle?: boolean
 }
 export function Editor(props: EditorProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
+        ref={scrollRef}
         key={props.docId}
-        className="size-full"
+        className="size-full overflow-y-auto"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

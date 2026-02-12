@@ -127,6 +127,7 @@ export function MemoriloEditor({
           'data-outline-root': rootNode,
           'data-outline-hide-title': hideTitle ? 'true' : 'false',
         },
+        scrollMargin: { top: 24, bottom: 24, left: 0, right: 0 },
       },
     },
     [fragment, collaborationExtension, rootNode, onOutlineClick, hideTitle],
