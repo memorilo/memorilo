@@ -4,5 +4,9 @@
   "dev.title": "开发者选项",
   "dev.scan": "显示视图更新 (react-scan)",
   "dev.router": "显示路由调试 (tanstack-router)",
-  "dev.query": "显示查询调试 (tanstack-query)"
+  "dev.query": "显示查询调试 (tanstack-query)",
+  "note.title": "笔记",
+  "note.downloadImage": "粘贴 URL 时下载图片",
+  "journal.title": "日志",
+  "journal.autoCreate": "自动生成历史日期日志"
 }

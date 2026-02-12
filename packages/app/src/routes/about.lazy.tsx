@@ -52,11 +52,8 @@ function RouteComponent() {
               alt={t('about.logo_alt')}
               className="h-12 w-12 rounded-md border bg-muted p-1.5"
             />
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               <h1 className="text-2xl font-semibold tracking-tight">{t('about.title')}</h1>
-              <p className="text-sm text-muted-foreground">
-                {t('about.subtitle')}
-              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
