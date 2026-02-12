@@ -6,6 +6,7 @@ import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import {
   findListItem,
+  findPrecedingCodeBlock,
   findSiblingListItemPos,
   getOutlineItemEndSelection,
   isListContainerNode,
@@ -218,6 +219,18 @@ export function createOutlineListBackspaceHandler(editor: Editor) {
       return false
     if (listItem.depth === 0 && state.schema.topNodeType.name === listItem.node.type.name)
       return true
+
+    if ($from.parentOffset === 0 && $from.parent.content.size === 0) {
+      const { found: hasPrecedingCodeBlock, endPos: codeBlockEndPos } = findPrecedingCodeBlock(listItem.node, listItem.pos, $from.parent)
+      
+      if (hasPrecedingCodeBlock && codeBlockEndPos !== -1) {
+        const tr = state.tr.delete($from.before(), $from.after())
+        const mappedPos = tr.mapping.map(codeBlockEndPos)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), -1))
+        view.dispatch(tr.scrollIntoView())
+        return true
+      }
+    }
 
     const ctx = createBackspaceContext(state, listItem)
     if (!ctx) {

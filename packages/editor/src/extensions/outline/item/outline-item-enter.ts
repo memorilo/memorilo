@@ -4,6 +4,7 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import {
   findFirstChildListPos,
   findListItem,
+  findPrecedingCodeBlock,
   isImeComposing,
   isListContainerNode,
   isOutlineTextBlockNode,
@@ -104,6 +105,26 @@ export function createOutlineItemEnterPlugin(editor: Editor, itemTypeName: strin
           tr.setSelection(TextSelection.near(tr.doc.resolve(childListPos + 2)))
           dispatch(tr.scrollIntoView())
           return true
+        }
+
+        if (isEmpty) {
+          const { found: hasPrecedingCodeBlock } = findPrecedingCodeBlock(listItem.node, listItem.pos, parent)
+          
+          if (hasPrecedingCodeBlock) {
+            const paragraphPos = $from.before()
+            const paragraphEnd = $from.after()
+            const tr = state.tr.delete(paragraphPos, paragraphEnd)
+            
+            const insertPos = tr.mapping.map(listItem.pos + listItem.node.nodeSize)
+            const listItemType = listItem.node.type
+            const paragraphType = state.schema.nodes.paragraph
+            if (!paragraphType) return false
+            
+            tr.insert(insertPos, createEmptyListItem(listItemType, paragraphType))
+            tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
+            dispatch(tr.scrollIntoView())
+            return true
+          }
         }
 
         if (isEmpty) {

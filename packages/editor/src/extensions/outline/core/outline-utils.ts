@@ -251,6 +251,28 @@ export function findFirstChildListPos(listItem: ListItemContext) {
   return childListPos
 }
 
+export function findPrecedingCodeBlock(
+  listItemNode: ProseMirrorNode,
+  listItemPos: number,
+  stopAtChild: ProseMirrorNode,
+): { found: boolean, endPos: number } {
+  let found = false
+  let endPos = -1
+  let currentChildPos = listItemPos + 1
+
+  for (let i = 0; i < listItemNode.childCount; i++) {
+    const child = listItemNode.child(i)
+    if (child === stopAtChild) break
+    if (child.type.name === 'codeBlock') {
+      found = true
+      endPos = currentChildPos + child.nodeSize - 1
+    }
+    currentChildPos += child.nodeSize
+  }
+
+  return { found, endPos }
+}
+
 export function findSiblingListItemPos(
   state: EditorState,
   listItem: ListItemContext,
