@@ -8,6 +8,7 @@ import { Link } from '@tanstack/react-router'
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBook, LuChevronDown, LuClock, LuFlag, LuInfo, LuNotebookPen, LuPanelLeft, LuSettings, LuUser } from 'react-icons/lu'
+import { useSidebarSwipe } from '~/hooks/use-sidebar-swipe'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 
@@ -15,8 +16,15 @@ const LazySettings = lazy(() => import('./settings').then(module => ({ default: 
 
 export function AppSidebar() {
   const { t } = useTranslation('app')
-  const { state: sidebarState, toggleSidebar } = useSidebar()
+  const { state: sidebarState, toggleSidebar, isMobile, openMobile, setOpenMobile } = useSidebar()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  useSidebarSwipe({
+    isMobile,
+    openMobile,
+    setOpenMobile,
+  })
+
   return (
     <>
       <Suspense>
@@ -51,10 +59,10 @@ export function AppSidebar() {
                     )}
                   >
                     <Avatar className="rounded-lg after:rounded-lg">
-                    <AvatarImage />
-                    <AvatarFallback className="rounded-lg">
-                      <LuUser className="size-4" />
-                    </AvatarFallback>
+                      <AvatarImage />
+                      <AvatarFallback className="rounded-lg">
+                        <LuUser className="size-4" />
+                      </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-medium">{t('sidebar.library_name')}</span>
@@ -85,7 +93,12 @@ export function AppSidebar() {
               </DropdownMenuContent>
             </DropdownMenu>
             <SidebarMenuButton
-              className="size-8 shrink-0 p-0"
+              className={cn(
+                'size-8 shrink-0 p-0',
+                {
+                  hidden: isMobile,
+                },
+              )}
               onClick={toggleSidebar}
               aria-label="Toggle Sidebar"
             >
