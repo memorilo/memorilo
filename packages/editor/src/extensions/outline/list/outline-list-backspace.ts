@@ -222,7 +222,7 @@ export function createOutlineListBackspaceHandler(editor: Editor) {
 
     if ($from.parentOffset === 0 && $from.parent.content.size === 0) {
       const { found: hasPrecedingCodeBlock, endPos: codeBlockEndPos } = findPrecedingCodeBlock(listItem.node, listItem.pos, $from.parent)
-      
+
       if (hasPrecedingCodeBlock && codeBlockEndPos !== -1) {
         const tr = state.tr.delete($from.before(), $from.after())
         const mappedPos = tr.mapping.map(codeBlockEndPos)

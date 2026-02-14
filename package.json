@@ -17,6 +17,8 @@
     "dev": "turbo run dev",
     "dev:client": "turbo run dev:client",
     "dev:web": "turbo run dev:web",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },
