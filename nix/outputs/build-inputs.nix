@@ -75,7 +75,7 @@ let
     ++ (pkgs.lib.optionals pkgs.stdenv.isDarwin (
       with pkgs;
       [
-        pkgs.darwin.cctools
+        darwin.cctools
         libiconv
       ]
     ));
@@ -95,7 +95,9 @@ let
 
   androidBuildInputs =
     commonBulidInputs
-    ++ [ cargoTauri ]
+    ++ [ 
+      cargoTauri
+    ]
     ++ (with pkgs.fenix; [
       (combine [
         complete.cargo

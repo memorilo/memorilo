@@ -73,7 +73,6 @@ libp2p = { version = "0.56.0", features = [
   "identify",
   "mdns"
 ] }
-machineid-rs = "1.2.4"
 yrs = { version = "0.25.0", features = [
   "sync",
   "weak"
