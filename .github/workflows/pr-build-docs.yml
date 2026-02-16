@@ -1,0 +1,79 @@
+name: PR Build Command Docs
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post /build command reference
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const marker = '<!-- build-command-docs -->';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100
+            });
+
+            if (comments.some((comment) => comment.body && comment.body.includes(marker))) {
+              core.info('Build command docs already posted.');
+              return;
+            }
+
+            const body = [
+              marker,
+              '### /build command reference',
+              '',
+              'Use a PR comment that starts with `/build`.',
+              '',
+              '**Commands**',
+              '- `/build all` - windows + macos + ubuntu + android + ios',
+              '- `/build windows`',
+              '- `/build macos`',
+              '- `/build ubuntu`',
+              '- `/build android`',
+              '- `/build ios`',
+              '',
+              '**Arch filter (optional)**',
+              'Add one or more arch tokens to the same comment to limit outputs:',
+              '- `x86_64` (aliases: `x64`, `amd64`)',
+              '- `aarch64` (aliases: `arm64`, `aarch`)',
+              '- `armv7`',
+              '',
+              'Tokens must appear as standalone words.',
+              '',
+              '**Supported architectures by platform**',
+              '- Windows: `x86_64`, `aarch64`',
+              '- macOS: runner arch only (`x86_64` or `aarch64`)',
+              '- Ubuntu: `x86_64`, `aarch64`, `armv7`',
+              '- Android: `aarch64`, `armv7`, `x86_64` (universal APK only when no arch filter)',
+              '- iOS: `aarch64` (simulator)',
+              '',
+              '**Examples**',
+              '- `/build all aarch64`',
+              '- `/build ubuntu armv7`',
+              '- `/build windows x86_64`',
+              '',
+              '_Only repo collaborators (owner/member/collaborator) can trigger builds._',
+              'Artifacts appear in the workflow run summary.'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body
+            });

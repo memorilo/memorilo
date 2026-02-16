@@ -64,8 +64,8 @@ All production builds start from the `just` targets:
 - `just build-desktop`
   - Runs `cargo tauri build`.
   - Tauri runs `beforeBuildCommand` from `src-tauri/tauri.conf.json` (`just build-client`).
-  - `just build-client` prepares web assets and runs `pnpm build`.
-  - `pnpm build` runs **Turborepo** (`turbo run build`).
+  - `just build-client` prepares web assets and runs `pnpm build:client`.
+  - `pnpm build:client` runs **Turborepo** targeting `apps/client` only.
 
 - `just build-android`
   - Runs `cargo tauri android build` (and split-per-abi).
@@ -83,3 +83,4 @@ Notes:
 - `apps/client` is a thin Vite/Tauri shell that imports `@memorilo/app`.
 - `apps/web` is a browser shell that imports `@memorilo/app`.
 - Shared Vite plugins live in `vite-config` (package `@memorilo/vite-config`).
+- Desktop builds (`just build-desktop` / `just build-client`) do not build `apps/web`. For web-only builds, use `just build-web` or `pnpm build:web`.

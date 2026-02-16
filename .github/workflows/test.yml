@@ -51,4 +51,4 @@ jobs:
         run: |
           just lint-rs
           nix develop --command bash -c "pnpm install"
-          just lint-web
+          just lint-apps

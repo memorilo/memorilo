@@ -8,7 +8,7 @@ download-model:
   just _download "{{MODEL_DIR}}/vscode-languagedetection.json" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/model.json" "100ce176367e7311e37ced0695057452991a8692029a79340a25e622893e7983"
   just _download "{{MODEL_DIR}}/vscode-languagedetection.bin" "https://github.com/microsoft/vscode-languagedetection/raw/db2a0c35fe36d0fc2f658169b838b68708ff58d3/model/group1-shard1of1.bin" "fab6442698f64d5b1d2df052061d12bafd570330556819d29f48c7bcbb5889f7"
 
-download-web-resource:
+download-resource:
   just _download-prismjs
 
 _download-prismjs:
@@ -109,7 +109,7 @@ _download target url checksum="":
 
 [linux]
 [macos]
-dev-desktop: download-model download-web-resource
+dev-desktop: download-model download-resource
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command cargo tauri dev --config src-tauri/tauri.dev.conf.json
@@ -118,7 +118,7 @@ dev-desktop: download-model download-web-resource
   fi
 
 [windows]
-dev-desktop: download-model download-web-resource
+dev-desktop: download-model download-resource
   cargo tauri dev --config src-tauri/tauri.dev.conf.json
 
 [linux]
@@ -155,7 +155,7 @@ build-ios: download-model
 
 [linux]
 [macos]
-build-client: download-web-resource && lint-apps
+build-client: download-resource && lint-apps
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build:client
@@ -164,8 +164,8 @@ build-client: download-web-resource && lint-apps
   fi
 
 [windows]
-build-client: download-web-resource && lint-apps
-  pnpm build
+build-client: download-resource && lint-apps
+  pnpm build:client
 
 clean:
   find . -name 'dist' -type d -prune -exec rm -rf '{}' +
@@ -218,7 +218,7 @@ dev-web:
 
 [linux]
 [macos]
-build-web: download-web-resource
+build-web: download-resource
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build:web
@@ -227,7 +227,7 @@ build-web: download-web-resource
   fi
 
 [windows]
-build-web: download-web-resource
+build-web: download-resource
   pnpm --filter @memorilo/web build
 
 

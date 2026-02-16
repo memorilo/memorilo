@@ -9,7 +9,7 @@ import {
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
-import { defineConfig } from 'vite'
+import { defineConfig, normalizePath } from 'vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import wasm from 'vite-plugin-wasm'
@@ -17,7 +17,7 @@ import wasm from 'vite-plugin-wasm'
 const HOST = process.env.WEB_DEV_HOST ?? '0.0.0.0'
 const isVisualizer = process.env.VISUALIZER === 'true'
 const appSrc = path.resolve(__dirname, '../../packages/app/src')
-const bundleModels = path.resolve(__dirname, '../../bundle/models')
+const bundleRoot = path.resolve(__dirname, '../../bundle')
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -46,8 +46,8 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: path.join(bundleModels, '**/*'),
-          dest: 'models',
+          src: normalizePath(path.join(bundleRoot, '*')),
+          dest: '.',
         },
       ],
     }),

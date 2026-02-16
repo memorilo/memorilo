@@ -31,11 +31,19 @@ pub fn get_connection(url: &str) -> Result<rusqlite::Connection> {
     let mut conn = rusqlite::Connection::open(url)?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     unsafe {
+        #[cfg(all(any(target_os = "android", target_os = "linux"), any(target_arch = "arm", target_arch = "aarch64")))]
+        type SqliteExtensionInit = unsafe extern "C" fn(
+            *mut rusqlite::ffi::sqlite3,
+            *mut *mut u8,
+            *const rusqlite::ffi::sqlite3_api_routines,
+        ) -> i32;
+        #[cfg(not(all(any(target_os = "android", target_os = "linux"), any(target_arch = "arm", target_arch = "aarch64"))))]
         type SqliteExtensionInit = unsafe extern "C" fn(
             *mut rusqlite::ffi::sqlite3,
             *mut *mut i8,
             *const rusqlite::ffi::sqlite3_api_routines,
         ) -> i32;
+
         let init_fn =
             std::mem::transmute::<*const (), SqliteExtensionInit>(sqlite3_vec_init as *const ());
         sqlite3_auto_extension(Some(init_fn));
