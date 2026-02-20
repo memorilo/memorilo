@@ -1,4 +1,5 @@
 import type { MutableRefObject } from 'react'
+import { EventBus, SIDEBAR_CLOSE_EVENT } from '@memorilo/utils/event-bus'
 
 interface SidebarElements {
   content: HTMLElement | null
@@ -43,9 +44,6 @@ export function setupSidebarSwipeEffect({
   transitionTimeoutRef,
   closeTimeoutRef,
 }: SidebarSwipeEffectOptions) {
-  const OPEN_ZONE_START = 0
-  const OPEN_ZONE_WIDTH = 72
-  const OPEN_ZONE_END = OPEN_ZONE_START + OPEN_ZONE_WIDTH
   const supportsPointerEvents = typeof PointerEvent !== 'undefined'
   const supportsTouchEvents = typeof TouchEvent !== 'undefined'
   const CLICK_SUPPRESSION_MS = 700
@@ -56,21 +54,56 @@ export function setupSidebarSwipeEffect({
   let openedForDrag = false
   let activePointerId: number | null = null
   let activePointerTarget: Element | null = null
+  let activePointerType: PointerEvent['pointerType'] | null = null
+  let activeTouchId: number | null = null
+  let activeInputType: 'pointer' | 'touch' | null = null
   let pendingOpenProgress: number | null = null
   let pendingOpenFrame: number | null = null
   let pendingOpenTries = 0
   let suppressClickUntil = 0
+  let suppressPointerUntil = 0
 
   const isOverlayOpen = () => {
-    return document.querySelector('[data-slot="dialog-overlay"]') !== null
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]')
+    if (!(overlay instanceof HTMLElement))
+      return false
+    if (overlay.hasAttribute('data-open'))
+      return true
+    if (overlay.getAttribute('data-state') === 'open')
+      return true
+    if (overlay.getAttribute('data-open') === 'true')
+      return true
+    return false
+  }
+
+  const isPointerEvent = (event: Event): event is PointerEvent => {
+    return 'pointerType' in event && typeof (event as PointerEvent).clientX === 'number'
+  }
+
+  const isTouchEvent = (event: Event): event is TouchEvent => {
+    return 'touches' in event || 'changedTouches' in event
+  }
+
+  const getTouchPoint = (event: TouchEvent) => {
+    if (activeTouchId !== null) {
+      for (let i = 0; i < event.touches.length; i += 1) {
+        if (event.touches[i].identifier === activeTouchId)
+          return event.touches[i]
+      }
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        if (event.changedTouches[i].identifier === activeTouchId)
+          return event.changedTouches[i]
+      }
+    }
+    return event.touches[0] ?? event.changedTouches[0] ?? null
   }
 
   const getCoordinates = (event: PointerEvent | TouchEvent): { x: number, y: number } | null => {
-    if (supportsPointerEvents && event instanceof PointerEvent) {
+    if (supportsPointerEvents && isPointerEvent(event)) {
       return { x: event.clientX, y: event.clientY }
     }
-    if (supportsTouchEvents && event instanceof TouchEvent) {
-      const touch = event.touches[0] ?? event.changedTouches[0]
+    if (supportsTouchEvents && isTouchEvent(event)) {
+      const touch = getTouchPoint(event)
       if (!touch)
         return null
       return { x: touch.clientX, y: touch.clientY }
@@ -79,13 +112,25 @@ export function setupSidebarSwipeEffect({
   }
 
   const markTouchInteraction = (event: Event) => {
-    if (supportsPointerEvents && event instanceof PointerEvent) {
+    if (supportsPointerEvents && isPointerEvent(event)) {
       if (event.pointerType === 'touch')
         suppressClickUntil = Date.now() + CLICK_SUPPRESSION_MS
       return
     }
-    if (supportsTouchEvents && event instanceof TouchEvent)
+    if (supportsTouchEvents && isTouchEvent(event))
       suppressClickUntil = Date.now() + CLICK_SUPPRESSION_MS
+  }
+
+  const markTouchPointerSuppression = () => {
+    suppressPointerUntil = Date.now() + CLICK_SUPPRESSION_MS
+  }
+
+  const shouldIgnoreTouchPointer = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch')
+      return false
+    if (activeInputType === 'touch')
+      return true
+    return Date.now() < suppressPointerUntil
   }
 
   const shouldSuppressClick = (event: Event) => {
@@ -205,34 +250,41 @@ export function setupSidebarSwipeEffect({
     }
     activePointerTarget = null
     activePointerId = null
+    activePointerType = null
+    activeTouchId = null
+    activeInputType = null
   }
 
-  const resolveReleaseOnOverlay = (coords: { x: number, y: number } | null) => {
-    if (!coords)
-      return false
-    const releaseTarget = document.elementFromPoint(coords.x, coords.y)
-    return releaseTarget instanceof Element
-      ? releaseTarget.closest('[data-slot="sheet-overlay"]') !== null
-      : false
-  }
-
-  const closeWithAnimation = (source: 'drag' | 'overlay') => {
-    const inProgressRef = source === 'drag' ? dragCloseInProgressRef : overlayCloseInProgressRef
+  const closeWithAnimation = (source: 'drag' | 'overlay' | 'manual') => {
+    const inProgressRef = source === 'overlay' ? overlayCloseInProgressRef : dragCloseInProgressRef
+    const shouldReapplyTransform = source === 'drag'
     inProgressRef.current = true
+    if (source !== 'drag')
+      clearDragStyles()
     suppressAnimations()
+    if (pendingOpenFrame !== null) {
+      cancelAnimationFrame(pendingOpenFrame)
+      pendingOpenFrame = null
+      pendingOpenProgress = null
+      pendingOpenTries = 0
+    }
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
     animateToFinal(0, () => {
       setOpenMobile(false)
-      reapplyClosedTransform()
+      if (shouldReapplyTransform)
+        reapplyClosedTransform()
       closeTimeoutRef.current = setTimeout(() => {
         inProgressRef.current = false
-        if (source === 'drag')
-          resetDragState()
+        resetDragState()
         closeTimeoutRef.current = null
       }, 200)
     })
   }
 
-  const openWithAnimation = (releaseOnOverlay: boolean) => {
+  const openWithAnimation = () => {
     dragOpenInProgressRef.current = true
     suppressAnimations()
     if (pendingOpenFrame !== null) {
@@ -245,7 +297,7 @@ export function setupSidebarSwipeEffect({
       clearTimeout(closeTimeoutRef.current)
       closeTimeoutRef.current = null
     }
-    ignoreNextOverlayCloseRef.current = releaseOnOverlay
+    ignoreNextOverlayCloseRef.current = true
     animateToFinal(1, () => {
       dragOpenInProgressRef.current = false
       resetDragState()
@@ -259,17 +311,36 @@ export function setupSidebarSwipeEffect({
     if (isOverlayOpen())
       return
 
+    if (supportsPointerEvents && isPointerEvent(event) && shouldIgnoreTouchPointer(event))
+      return
+    if (supportsTouchEvents && isTouchEvent(event) && activeInputType === 'pointer' && activePointerType !== 'touch')
+      return
+
     const coords = getCoordinates(event)
     if (!coords)
       return
 
-    if (supportsPointerEvents && event instanceof PointerEvent) {
+    if (supportsPointerEvents && isPointerEvent(event)) {
       activePointerId = event.pointerId
+      activePointerType = event.pointerType
       const target = event.target
       if (target instanceof Element && typeof target.setPointerCapture === 'function') {
         target.setPointerCapture(event.pointerId)
         activePointerTarget = target
       }
+      if (event.pointerType === 'touch') {
+        activeInputType = 'touch'
+        markTouchPointerSuppression()
+      }
+      else {
+        activeInputType = 'pointer'
+      }
+    }
+    else if (supportsTouchEvents && isTouchEvent(event)) {
+      const touch = getTouchPoint(event)
+      activeTouchId = touch?.identifier ?? null
+      activeInputType = 'touch'
+      markTouchPointerSuppression()
     }
 
     startX = coords.x
@@ -278,7 +349,7 @@ export function setupSidebarSwipeEffect({
     dragMode = null
     openedForDrag = false
 
-    if (!openMobileRef.current && startX >= OPEN_ZONE_START && startX <= OPEN_ZONE_END) {
+    if (!openMobileRef.current) {
       dragMode = 'opening'
     }
     else if (openMobileRef.current) {
@@ -286,13 +357,30 @@ export function setupSidebarSwipeEffect({
     }
   }
 
+  const shouldIgnoreMouseMove = (event: PointerEvent) => {
+    if (event.pointerType !== 'mouse')
+      return false
+    if (event.buttons !== 0)
+      return false
+    // Some mobile WebViews report touch as a mouse pointer with buttons=0.
+    return activePointerId === null
+  }
+
   const handlePointerMove = (event: PointerEvent | TouchEvent) => {
     if (!dragMode)
       return
-    if (supportsPointerEvents && event instanceof PointerEvent && event.pointerType === 'mouse' && event.buttons === 0)
-      return
-    if (supportsTouchEvents && event instanceof TouchEvent && event.touches.length === 0)
-      return
+    if (supportsPointerEvents && isPointerEvent(event)) {
+      if (shouldIgnoreTouchPointer(event))
+        return
+      if (shouldIgnoreMouseMove(event))
+        return
+    }
+    if (supportsTouchEvents && isTouchEvent(event)) {
+      if (activeInputType === 'pointer' && activePointerType !== 'touch')
+        return
+      if (getTouchPoint(event) === null)
+        return
+    }
     if (isOverlayOpen()) {
       clearDragStyles()
       resetDragState()
@@ -303,8 +391,13 @@ export function setupSidebarSwipeEffect({
     if (!coords)
       return
 
-    if (supportsPointerEvents && event instanceof PointerEvent && activePointerId !== null && event.pointerId !== activePointerId)
+    if (supportsPointerEvents && isPointerEvent(event) && activePointerId !== null && event.pointerId !== activePointerId)
       return
+    if (supportsTouchEvents && isTouchEvent(event) && activeTouchId !== null) {
+      const touchPoint = getTouchPoint(event)
+      if (!touchPoint || touchPoint.identifier !== activeTouchId)
+        return
+    }
 
     if (overlayCloseInProgressRef.current) {
       resetDragState()
@@ -341,8 +434,25 @@ export function setupSidebarSwipeEffect({
   const handlePointerEnd = (event: PointerEvent | TouchEvent) => {
     if (!dragMode)
       return
-    if (supportsPointerEvents && event instanceof PointerEvent && activePointerId !== null && event.pointerId !== activePointerId)
+    if (overlayCloseInProgressRef.current || dragCloseInProgressRef.current) {
+      resetDragState()
       return
+    }
+    if (supportsPointerEvents && isPointerEvent(event)) {
+      if (shouldIgnoreTouchPointer(event))
+        return
+      if (activePointerId !== null && event.pointerId !== activePointerId)
+        return
+    }
+    if (supportsTouchEvents && isTouchEvent(event)) {
+      if (activeInputType === 'pointer' && activePointerType !== 'touch')
+        return
+      if (activeTouchId !== null) {
+        const touchPoint = getTouchPoint(event)
+        if (!touchPoint || touchPoint.identifier !== activeTouchId)
+          return
+      }
+    }
 
     const currentDragMode = dragMode
     const wasDragging = isDragging
@@ -374,7 +484,7 @@ export function setupSidebarSwipeEffect({
 
     if (isHorizontal) {
       if (currentDragMode === 'opening') {
-        if (startX >= OPEN_ZONE_START && startX <= OPEN_ZONE_END && dx >= 30) {
+        if (dx >= 30) {
           targetProgress = 1
         }
         else if (openedForDrag) {
@@ -404,21 +514,11 @@ export function setupSidebarSwipeEffect({
       closeWithAnimation('drag')
     }
     else {
-      const releaseOnOverlay = resolveReleaseOnOverlay(coords)
-      openWithAnimation(releaseOnOverlay)
+      openWithAnimation()
     }
   }
 
   const handleOverlayClick = (event: Event) => {
-    if (shouldSuppressClick(event)) {
-      event.preventDefault()
-      event.stopPropagation()
-      return
-    }
-
-    if (event.type === 'pointerdown' || event.type === 'touchstart')
-      markTouchInteraction(event)
-
     const target = event.target
     if (!(target instanceof Element))
       return
@@ -426,6 +526,12 @@ export function setupSidebarSwipeEffect({
     const overlay = target.closest('[data-slot="sheet-overlay"]')
     if (!overlay)
       return
+
+    if (shouldSuppressClick(event)) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
 
     if (dragOpenInProgressRef.current) {
       event.preventDefault()
@@ -449,24 +555,33 @@ export function setupSidebarSwipeEffect({
     if (!openMobileRef.current)
       return
 
-    resetDragState()
     closeWithAnimation('overlay')
 
     event.preventDefault()
     event.stopPropagation()
   }
 
-  if (supportsPointerEvents) {
-    window.addEventListener('pointerdown', handlePointerDown as EventListener, { passive: true })
-    window.addEventListener('pointermove', handlePointerMove as EventListener, { passive: true })
-    window.addEventListener('pointerup', handlePointerEnd as EventListener, { passive: true })
-    window.addEventListener('pointercancel', handlePointerEnd as EventListener, { passive: true })
+  const handleSidebarClose = () => {
+    if (!openMobileRef.current)
+      return
+    if (dragCloseInProgressRef.current || overlayCloseInProgressRef.current)
+      return
+    closeWithAnimation('manual')
   }
-  else if (supportsTouchEvents) {
-    window.addEventListener('touchstart', handlePointerDown as EventListener, { passive: true })
-    window.addEventListener('touchmove', handlePointerMove as EventListener, { passive: true })
-    window.addEventListener('touchend', handlePointerEnd as EventListener, { passive: true })
-    window.addEventListener('touchcancel', handlePointerEnd as EventListener, { passive: true })
+
+  EventBus.on(SIDEBAR_CLOSE_EVENT, handleSidebarClose)
+
+  if (supportsPointerEvents) {
+    window.addEventListener('pointerdown', handlePointerDown as EventListener, { passive: true, capture: true })
+    window.addEventListener('pointermove', handlePointerMove as EventListener, { passive: true, capture: true })
+    window.addEventListener('pointerup', handlePointerEnd as EventListener, { passive: true, capture: true })
+    window.addEventListener('pointercancel', handlePointerEnd as EventListener, { passive: true, capture: true })
+  }
+  if (supportsTouchEvents) {
+    window.addEventListener('touchstart', handlePointerDown as EventListener, { passive: true, capture: true })
+    window.addEventListener('touchmove', handlePointerMove as EventListener, { passive: true, capture: true })
+    window.addEventListener('touchend', handlePointerEnd as EventListener, { passive: true, capture: true })
+    window.addEventListener('touchcancel', handlePointerEnd as EventListener, { passive: true, capture: true })
   }
 
   if (supportsPointerEvents) {
@@ -480,16 +595,16 @@ export function setupSidebarSwipeEffect({
 
   return () => {
     if (supportsPointerEvents) {
-      window.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerEnd)
-      window.removeEventListener('pointercancel', handlePointerEnd)
+      window.removeEventListener('pointerdown', handlePointerDown, { capture: true })
+      window.removeEventListener('pointermove', handlePointerMove, { capture: true })
+      window.removeEventListener('pointerup', handlePointerEnd, { capture: true })
+      window.removeEventListener('pointercancel', handlePointerEnd, { capture: true })
     }
-    else if (supportsTouchEvents) {
-      window.removeEventListener('touchstart', handlePointerDown)
-      window.removeEventListener('touchmove', handlePointerMove)
-      window.removeEventListener('touchend', handlePointerEnd)
-      window.removeEventListener('touchcancel', handlePointerEnd)
+    if (supportsTouchEvents) {
+      window.removeEventListener('touchstart', handlePointerDown, { capture: true })
+      window.removeEventListener('touchmove', handlePointerMove, { capture: true })
+      window.removeEventListener('touchend', handlePointerEnd, { capture: true })
+      window.removeEventListener('touchcancel', handlePointerEnd, { capture: true })
     }
     if (supportsPointerEvents) {
       window.removeEventListener('pointerdown', handleOverlayClick, { capture: true })
@@ -499,6 +614,7 @@ export function setupSidebarSwipeEffect({
       window.removeEventListener('touchstart', handleOverlayClick, { capture: true })
       window.removeEventListener('click', handleOverlayClick, { capture: true })
     }
+    EventBus.off(SIDEBAR_CLOSE_EVENT, handleSidebarClose)
     if (transitionTimeoutRef.current) {
       clearTimeout(transitionTimeoutRef.current)
       transitionTimeoutRef.current = null
