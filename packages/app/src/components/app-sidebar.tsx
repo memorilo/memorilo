@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@memorilo/comp
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar } from '@memorilo/components/ui/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
-import { EventBus, SIDEBAR_CLOSE_EVENT } from '@memorilo/utils/event-bus'
+import { EventBus } from '@memorilo/utils/event-bus'
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
 import { lazy, Suspense, useCallback, useState } from 'react'
@@ -30,7 +30,7 @@ export function AppSidebar() {
   const closeMobileSidebar = useCallback(() => {
     if (!isMobile || !openMobile)
       return
-    EventBus.emit(SIDEBAR_CLOSE_EVENT)
+    EventBus.emit('SIDEBAR_CLOSE')
   }, [isMobile, openMobile])
 
   const handleSidebarAction = useCallback((event: MouseEvent<HTMLElement>) => {
@@ -41,7 +41,7 @@ export function AppSidebar() {
       return
     if (!target.closest('[data-sidebar-action="close"]'))
       return
-    EventBus.emit(SIDEBAR_CLOSE_EVENT)
+    EventBus.emit('SIDEBAR_CLOSE')
   }, [isMobile, openMobile])
 
   return (

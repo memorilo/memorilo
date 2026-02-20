@@ -72,6 +72,7 @@ export default defineConfig({
   },
   define: {
     TAURI: false,
+    PLATFORM: 'web',
     I18N_COMPLETENESS_MAP: JSON.stringify({ ...i18nCompleteness, en: 100 }),
   },
 })

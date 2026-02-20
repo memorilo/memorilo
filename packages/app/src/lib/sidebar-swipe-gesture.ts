@@ -1,5 +1,5 @@
-import type { MutableRefObject } from 'react'
-import { EventBus, SIDEBAR_CLOSE_EVENT } from '@memorilo/utils/event-bus'
+import type { RefObject } from 'react'
+import { EventBus } from '@memorilo/utils/event-bus'
 
 interface SidebarElements {
   content: HTMLElement | null
@@ -12,20 +12,20 @@ interface TransitionListener {
 }
 
 export interface SidebarSwipeEffectOptions {
-  openMobileRef: MutableRefObject<boolean>
+  openMobileRef: RefObject<boolean>
   setOpenMobile: (open: boolean) => void
   getElements: () => SidebarElements
   clearDragStyles: () => void
   suppressAnimations: () => void
   reapplyClosedTransform: () => void
   getSidebarWidth: () => number
-  ignoreNextOverlayCloseRef: MutableRefObject<boolean>
-  dragCloseInProgressRef: MutableRefObject<boolean>
-  overlayCloseInProgressRef: MutableRefObject<boolean>
-  dragOpenInProgressRef: MutableRefObject<boolean>
-  transitionListenerRef: MutableRefObject<TransitionListener | null>
-  transitionTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
-  closeTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
+  ignoreNextOverlayCloseRef: RefObject<boolean>
+  dragCloseInProgressRef: RefObject<boolean>
+  overlayCloseInProgressRef: RefObject<boolean>
+  dragOpenInProgressRef: RefObject<boolean>
+  transitionListenerRef: RefObject<TransitionListener | null>
+  transitionTimeoutRef: RefObject<ReturnType<typeof setTimeout> | null>
+  closeTimeoutRef: RefObject<ReturnType<typeof setTimeout> | null>
 }
 
 export function setupSidebarSwipeEffect({
@@ -569,7 +569,7 @@ export function setupSidebarSwipeEffect({
     closeWithAnimation('manual')
   }
 
-  EventBus.on(SIDEBAR_CLOSE_EVENT, handleSidebarClose)
+  EventBus.on('SIDEBAR_CLOSE', handleSidebarClose)
 
   if (supportsPointerEvents) {
     window.addEventListener('pointerdown', handlePointerDown as EventListener, { passive: true, capture: true })
@@ -614,7 +614,7 @@ export function setupSidebarSwipeEffect({
       window.removeEventListener('touchstart', handleOverlayClick, { capture: true })
       window.removeEventListener('click', handleOverlayClick, { capture: true })
     }
-    EventBus.off(SIDEBAR_CLOSE_EVENT, handleSidebarClose)
+    EventBus.off('SIDEBAR_CLOSE', handleSidebarClose)
     if (transitionTimeoutRef.current) {
       clearTimeout(transitionTimeoutRef.current)
       transitionTimeoutRef.current = null
