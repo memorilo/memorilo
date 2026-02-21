@@ -40,18 +40,19 @@ export function Settings() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 h-full min-h-0">
+    <div className="flex flex-1 min-h-0 flex-col md:flex-row gap-6">
       <aside className="w-full md:w-48 lg:w-64 shrink-0 border-0 md:pr-2 md:border-r">
         <Scrollspy
           offset={20}
           targetRef={parentRef}
+          history={false}
           className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 max-w-full"
         >
           {catalogs.map(catalog => (
             <Button
               key={catalog.key}
               variant="ghost"
-              className="justify-start w-auto md:w-full whitespace-nowrap data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
+              className="justify-start w-auto md:w-full whitespace-nowrap data-[active=true]:bg-accent data-[active=true]:text-accent-foreground focus-visible:ring-0 focus-visible:border-transparent"
               data-scrollspy-anchor={catalog.key}
             >
               {t(`${catalog.key}.title`, `${catalog.key}.title`)}
@@ -59,8 +60,8 @@ export function Settings() {
           ))}
         </Scrollspy>
       </aside>
-      <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
-        <div ref={parentRef} className="h-full min-h-0 pe-4 overflow-y-auto">
+      <main className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
+        <div ref={parentRef} className="flex-1 min-h-0 pe-4 overflow-y-auto">
           {
             catalogs.map(catalog => (
               <AutoForm
