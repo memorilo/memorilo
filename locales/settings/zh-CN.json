@@ -7,6 +7,6 @@
   "dev.query": "显示查询调试 (tanstack-query)",
   "note.title": "笔记",
   "note.downloadImage": "粘贴 URL 时下载图片",
-  "journal.title": "日志",
-  "journal.autoCreate": "自动生成历史日期日志"
+  "journal.title": "日记",
+  "journal.autoCreate": "自动生成历史日期日记"
 }
