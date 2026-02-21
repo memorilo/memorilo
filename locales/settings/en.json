@@ -1,6 +1,7 @@
 {
   "core.title": "Memorilo General",
   "core.lang": "Language",
+  "core.androidFullscreen": "Fullscreen",
   "dev.title": "Developer",
   "dev.scan": "Show view updates (react-scan)",
   "dev.router": "Show router debug (tanstack-router)",

@@ -96,6 +96,7 @@ let
   androidBuildInputs =
     commonBulidInputs
     ++ [ 
+      pkgs.android-tools
       cargoTauri
     ]
     ++ (with pkgs.fenix; [

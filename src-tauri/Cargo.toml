@@ -83,6 +83,9 @@ dunce = "1"
 reqwest = "0.13.2"
 mime2ext = "0.1.53"
 
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-android-statusbar = { path = "../packages/tauri-plugin-android-statusbar/rust" }
+
 # Optimize for smaller binary size in release builds
 [profile.release]
 codegen-units = 1        # Better LLVM optimization (slower build, smaller binary)

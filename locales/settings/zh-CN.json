@@ -1,6 +1,7 @@
 {
   "core.title": "Memorilo 通用设置",
   "core.lang": "语言",
+  "core.androidFullscreen": "全屏",
   "dev.title": "开发者选项",
   "dev.scan": "显示视图更新 (react-scan)",
   "dev.router": "显示路由调试 (tanstack-router)",

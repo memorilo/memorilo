@@ -47,10 +47,8 @@ export class SettingStore {
   private event = mitt<SettingStoreEvents>()
 
   public register(catalogKey: string, items: SettingItem[]): Either.Either<void, Error> {
-    if (this.definitions.has(catalogKey)) {
-      return Either.left(new Error(`Catalog with key "${catalogKey}" is already registered.`))
-    }
-    const itemMap = new Map<string, SettingItem>()
+    const itemMap = this.definitions.has(catalogKey) ? this.definitions.get(catalogKey)! : new Map<string, SettingItem>()
+
     for (const item of items) {
       if (itemMap.has(item.key)) {
         return Either.left(new Error(`Item with key "${item.key}" is duplicated in catalog "${catalogKey}".`))

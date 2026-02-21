@@ -48,7 +48,7 @@ export function AppSidebar() {
     <>
       <Suspense>
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col min-h-0">
             <DialogHeader>
               <DialogTitle>{t('sidebar.settings')}</DialogTitle>
             </DialogHeader>
