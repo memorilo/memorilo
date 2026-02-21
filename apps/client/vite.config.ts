@@ -12,9 +12,11 @@ import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig } from 'vite'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import wasm from 'vite-plugin-wasm'
+import { z } from 'zod'
 
 const HOST = process.env.TAURI_DEV_HOST ?? '0.0.0.0'
 const isVisualizer = process.env.VISUALIZER === 'true'
+const PLATFORM = z.enum(['web', 'android', 'ios', 'linux', 'windows', 'macos']).parse(process.env.PLATFORM)
 const appSrc = path.resolve(__dirname, '../../packages/app/src')
 
 // https://vite.dev/config/
@@ -60,6 +62,7 @@ export default defineConfig({
   },
   define: {
     TAURI: true,
+    PLATFORM: JSON.stringify(PLATFORM),
     I18N_COMPLETENESS_MAP: JSON.stringify({ ...i18nCompleteness, en: 100 }),
   },
 })

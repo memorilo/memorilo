@@ -111,6 +111,7 @@ _download target url checksum="":
 [macos]
 dev-desktop: download-model download-resource
   #!/usr/bin/env bash
+  export PLATFORM="{{os()}}"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command cargo tauri dev --config src-tauri/tauri.dev.conf.json
   else
@@ -119,12 +120,13 @@ dev-desktop: download-model download-resource
 
 [windows]
 dev-desktop: download-model download-resource
-  cargo tauri dev --config src-tauri/tauri.dev.conf.json
+  set PLATFORM=windows && cargo tauri dev --config src-tauri/tauri.dev.conf.json
 
 [linux]
 [macos]
 build-desktop: download-model lint-rs
   #!/usr/bin/env bash
+  export PLATFORM="{{os()}}"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command cargo tauri build
   else
@@ -133,10 +135,11 @@ build-desktop: download-model lint-rs
 
 [windows]
 build-desktop: download-model lint-rs
-  cargo tauri build
+  set PLATFORM=windows && cargo tauri build
 
 build-android: download-model
   #!/usr/bin/env bash
+  export PLATFORM="android"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#android" --command cargo tauri android build
     nix develop ".#android" --command cargo tauri android build --split-per-abi
@@ -147,6 +150,7 @@ build-android: download-model
 
 build-ios: download-model
   #!/usr/bin/env bash
+  export PLATFORM="ios"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#ios" --command cargo tauri ios build
   else
@@ -157,6 +161,7 @@ build-ios: download-model
 [macos]
 build-client: download-resource && lint-apps
   #!/usr/bin/env bash
+  export PLATFORM="{{os()}}"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build:client
   else
@@ -165,7 +170,7 @@ build-client: download-resource && lint-apps
 
 [windows]
 build-client: download-resource && lint-apps
-  pnpm build:client
+  set PLATFORM=windows && pnpm build:client
 
 clean:
   find . -name 'dist' -type d -prune -exec rm -rf '{}' +
@@ -176,7 +181,7 @@ clean-node_modules:
   find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +
 
 build-bundle-size-stats:
-  cd apps/client && VISUALIZER=true pnpm build
+  cd apps/client && PLATFORM="{{os()}}" VISUALIZER=true pnpm build
   rm -rf apps/client/dist
 
 lint-apps changed="false":
@@ -206,6 +211,7 @@ lint-apps changed="false":
 [macos]
 dev-web:
   #!/usr/bin/env bash
+  export PLATFORM="web"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm dev:web
   else
@@ -214,12 +220,13 @@ dev-web:
 
 [windows]
 dev-web:
-  pnpm --filter @memorilo/web dev
+  set PLATFORM=web && pnpm dev:web
 
 [linux]
 [macos]
 build-web: download-resource
   #!/usr/bin/env bash
+  export PLATFORM="web"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build:web
   else
@@ -228,7 +235,7 @@ build-web: download-resource
 
 [windows]
 build-web: download-resource
-  pnpm --filter @memorilo/web build
+  set PLATFORM=web && pnpm build:web
 
 
 lint-rs changed="false":
