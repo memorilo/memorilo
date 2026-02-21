@@ -11,7 +11,7 @@ use tauri_plugin_dialog::DialogExt;
 pub fn run() {
     let specta_builder = setup::get_specta_builder();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -37,7 +37,12 @@ pub fn run() {
                         .starts_with("tao::platform_impl::platform")
                 })
                 .build(),
-        )
+        );
+
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_android_statusbar::init());
+
+    builder
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             specta_builder.mount_events(app);

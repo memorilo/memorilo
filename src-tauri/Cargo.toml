@@ -73,7 +73,6 @@ libp2p = { version = "0.56.0", features = [
   "identify",
   "mdns"
 ] }
-machineid-rs = "1.2.4"
 yrs = { version = "0.25.0", features = [
   "sync",
   "weak"
@@ -83,6 +82,9 @@ sha2 = "0.10.9"
 dunce = "1"
 reqwest = "0.13.2"
 mime2ext = "0.1.53"
+
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-android-statusbar = { path = "../packages/tauri-plugin-android-statusbar/rust" }
 
 # Optimize for smaller binary size in release builds
 [profile.release]

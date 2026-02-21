@@ -12,11 +12,13 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "build:client": "turbo run build:client",
-    "build:web": "turbo run build:web",
+    "build:client": "turbo run build:client --filter=!./",
+    "build:web": "turbo run build:web --filter=!./",
     "dev": "turbo run dev",
-    "dev:client": "turbo run dev:client",
-    "dev:web": "turbo run dev:web",
+    "dev:client": "turbo run dev:client --filter=!./",
+    "dev:web": "turbo run dev:web --filter=!./",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },

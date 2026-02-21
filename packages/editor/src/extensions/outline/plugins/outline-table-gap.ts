@@ -217,12 +217,14 @@ export function createOutlineTableGapPlugin() {
           event.preventDefault()
           const { state } = view
           const listItem = findListItem(state.selection.$from)
-          if (!listItem) return true
-          
+          if (!listItem)
+            return true
+
           const paragraphType = state.schema.nodes.paragraph
           const listItemType = listItem.node.type
-          if (!paragraphType) return true
-          
+          if (!paragraphType)
+            return true
+
           const attrs = listItemType.name === 'taskItem' ? { checked: false } : null
           const newItem = listItemType.create(attrs, paragraphType.create())
           const insertPos = listItem.pos + listItem.node.nodeSize

@@ -2,6 +2,7 @@ import type { FolderNode } from '@memorilo/api-spec/services/folder'
 import { dialog } from '@memorilo/api-spec/services/dialog'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@memorilo/components/ui/context-menu'
 import { TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent, TreeNodeTrigger, TreeView } from '@memorilo/components/ui/tree'
+import { EventBus } from '@memorilo/utils/event-bus'
 import { useNavigate } from '@tanstack/react-router'
 import { Console, Effect, Match } from 'effect'
 import { useLayoutEffect, useRef, useState } from 'react'
@@ -160,6 +161,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
         to: '/note/$docId',
         params: { docId: props.ref! },
       })
+      EventBus.emit('SIDEBAR_CLOSE')
     }
   }
 

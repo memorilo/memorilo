@@ -111,6 +111,7 @@ _download target url checksum="":
 [macos]
 dev-desktop: download-model download-resource
   #!/usr/bin/env bash
+  export PLATFORM="{{os()}}"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command cargo tauri dev --config src-tauri/tauri.dev.conf.json
   else
@@ -119,12 +120,13 @@ dev-desktop: download-model download-resource
 
 [windows]
 dev-desktop: download-model download-resource
-  cargo tauri dev --config src-tauri/tauri.dev.conf.json
+  cset PLATFORM=windows && argo tauri dev --config src-tauri/tauri.dev.conf.json
 
 [linux]
 [macos]
-build-desktop: download-model lint-rs
+build-desktop: download-model download-resource lint-rs
   #!/usr/bin/env bash
+  export PLATFORM="{{os()}}"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command cargo tauri build
   else
@@ -132,11 +134,12 @@ build-desktop: download-model lint-rs
   fi
 
 [windows]
-build-desktop: download-model lint-rs
-  cargo tauri build
+build-desktop: download-model download-resource lint-rs
+  set PLATFORM=windows && cargo tauri build
 
-build-android: download-model
+build-android: download-model download-resource
   #!/usr/bin/env bash
+  export PLATFORM="android"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#android" --command cargo tauri android build
     nix develop ".#android" --command cargo tauri android build --split-per-abi
@@ -145,8 +148,19 @@ build-android: download-model
     cargo tauri android build --split-per-abi
   fi
 
-build-ios: download-model
+dev-android: download-model download-resource
   #!/usr/bin/env bash
+  adb --version
+  export PLATFORM="android"
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#android" --command cargo tauri android dev
+  else
+    cargo tauri android dev
+  fi
+
+build-ios: download-model download-resource
+  #!/usr/bin/env bash
+  export PLATFORM="ios"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#ios" --command cargo tauri ios build
   else
@@ -155,7 +169,7 @@ build-ios: download-model
 
 [linux]
 [macos]
-build-client: download-resource && lint-apps
+build-client: download-resource download-model && lint-apps
   #!/usr/bin/env bash
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build:client
@@ -164,19 +178,33 @@ build-client: download-resource && lint-apps
   fi
 
 [windows]
-build-client: download-resource && lint-apps
+build-client: download-resource download-model && lint-apps
   pnpm build:client
 
+[linux]
+[macos]
+dev-client: download-resource download-model && lint-apps
+  #!/usr/bin/env bash
+  if command -v nix >/dev/null 2>&1; then
+    nix develop ".#default" --command pnpm dev:client
+  else
+    pnpm dev:client
+  fi
+
+[windows]
+dev-client: download-resource download-model && lint-apps
+  pnpm dev:client
+
 clean:
-  find . -name 'dist' -type d -prune -exec rm -rf '{}' +
-  find . -name '.turbo' -type d -prune -exec rm -rf '{}' +
+  find . -name 'node_modules' -prune -o -name 'dist' -type d -exec rm -rf '{}' +
+  find . -name 'node_modules' -prune -o -name '.turbo' -type d -exec rm -rf '{}' +
   cd ./src-tauri/ && cargo clean
 
 clean-node_modules:
   find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +
 
 build-bundle-size-stats:
-  cd apps/client && VISUALIZER=true pnpm build
+  cd apps/client && PLATFORM="{{os()}}" VISUALIZER=true pnpm build
   rm -rf apps/client/dist
 
 lint-apps changed="false":
@@ -204,8 +232,9 @@ lint-apps changed="false":
 
 [linux]
 [macos]
-dev-web:
+dev-web: download-resource download-model
   #!/usr/bin/env bash
+  export PLATFORM="web"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm dev:web
   else
@@ -213,13 +242,14 @@ dev-web:
   fi
 
 [windows]
-dev-web:
-  pnpm --filter @memorilo/web dev
+dev-web: download-resource download-model
+  set PLATFORM=web && pnpm dev:web
 
 [linux]
 [macos]
-build-web: download-resource
+build-web: download-resource download-model lint-apps
   #!/usr/bin/env bash
+  export PLATFORM="web"
   if command -v nix >/dev/null 2>&1; then
     nix develop ".#default" --command pnpm build:web
   else
@@ -227,8 +257,8 @@ build-web: download-resource
   fi
 
 [windows]
-build-web: download-resource
-  pnpm --filter @memorilo/web build
+build-web: download-resource download-model lint-apps
+  set PLATFORM=web && pnpm build:web
 
 
 lint-rs changed="false":

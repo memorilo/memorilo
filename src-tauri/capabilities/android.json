@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/android-schema.json",
+  "identifier": "android",
+  "description": "Android-only permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "android-statusbar:default"
+  ],
+  "platforms": [
+    "android"
+  ]
+}

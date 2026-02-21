@@ -27,11 +27,56 @@ export function Scrollspy({
   const anchorElementsRef = useRef<HTMLElement[] | null>(null)
   const prevIdTracker = useRef<string | null>(null)
 
+  const scrollActiveAnchorIntoView = useCallback((sectionId: string, behavior: ScrollBehavior) => {
+    const container = selfRef.current
+    if (!container || !anchorElementsRef.current)
+      return
+    const activeAnchor = anchorElementsRef.current.find(
+      item => item.getAttribute(`data-${dataAttribute}-anchor`) === sectionId,
+    )
+    if (!activeAnchor)
+      return
+
+    const containerRect = container.getBoundingClientRect()
+    const anchorRect = activeAnchor.getBoundingClientRect()
+
+    let nextLeft = container.scrollLeft
+    let nextTop = container.scrollTop
+
+    if (container.scrollWidth > container.clientWidth) {
+      if (anchorRect.left < containerRect.left) {
+        nextLeft -= containerRect.left - anchorRect.left
+      }
+      else if (anchorRect.right > containerRect.right) {
+        nextLeft += anchorRect.right - containerRect.right
+      }
+    }
+
+    if (container.scrollHeight > container.clientHeight) {
+      if (anchorRect.top < containerRect.top) {
+        nextTop -= containerRect.top - anchorRect.top
+      }
+      else if (anchorRect.bottom > containerRect.bottom) {
+        nextTop += anchorRect.bottom - containerRect.bottom
+      }
+    }
+
+    if (nextLeft !== container.scrollLeft || nextTop !== container.scrollTop) {
+      container.scrollTo({
+        left: nextLeft,
+        top: nextTop,
+        behavior,
+      })
+    }
+  }, [dataAttribute])
+
   // Sets active nav, hash, prevIdTracker, and calls onUpdate
   const setActiveSection = useCallback(
     (sectionId: string | null, force = false) => {
       if (!sectionId)
         return
+      const shouldScrollNav = force || prevIdTracker.current !== sectionId
+      const scrollBehavior: ScrollBehavior = force && smooth ? 'smooth' : 'auto'
       anchorElementsRef.current?.forEach((item) => {
         const id = item.getAttribute(`data-${dataAttribute}-anchor`)
         if (id === sectionId) {
@@ -46,15 +91,20 @@ export function Scrollspy({
       if (history && (force || prevIdTracker.current !== sectionId)) {
         window.history.replaceState({}, '', `#${sectionId}`)
       }
+      if (shouldScrollNav) {
+        scrollActiveAnchorIntoView(sectionId, scrollBehavior)
+      }
       prevIdTracker.current = sectionId
     },
-    [anchorElementsRef, dataAttribute, history, onUpdate],
+    [anchorElementsRef, dataAttribute, history, onUpdate, scrollActiveAnchorIntoView, smooth],
   )
 
   const handleScroll = useCallback(() => {
     if (!anchorElementsRef.current || anchorElementsRef.current.length === 0)
       return
     const scrollElement = targetRef?.current === document ? window : targetRef?.current
+    if (!scrollElement)
+      return
     const scrollTop
       = scrollElement === window
         ? window.scrollY || document.documentElement.scrollTop
@@ -68,12 +118,15 @@ export function Scrollspy({
       const sectionElement = document.getElementById(sectionId!)
       if (!sectionElement)
         return
+      const sectionTop = scrollElement === window
+        ? sectionElement.getBoundingClientRect().top + scrollTop
+        : sectionElement.getBoundingClientRect().top - (scrollElement as HTMLElement).getBoundingClientRect().top + scrollTop
       let customOffset = offset
       const dataOffset = anchor.getAttribute(`data-${dataAttribute}-offset`)
       if (dataOffset)
         customOffset = Number.parseInt(dataOffset, 10)
-      const delta = Math.abs(sectionElement.offsetTop - customOffset - scrollTop)
-      if (sectionElement.offsetTop - customOffset <= scrollTop && delta < minDelta) {
+      const delta = Math.abs(sectionTop - customOffset - scrollTop)
+      if (sectionTop - customOffset <= scrollTop && delta < minDelta) {
         minDelta = delta
         activeIdx = idx
       }
@@ -84,7 +137,7 @@ export function Scrollspy({
       const scrollHeight
         = scrollElement === window ? document.documentElement.scrollHeight : (scrollElement as HTMLElement).scrollHeight
       const clientHeight = scrollElement === window ? window.innerHeight : (scrollElement as HTMLElement).clientHeight
-      if (scrollTop + clientHeight >= scrollHeight - 2) {
+      if (scrollHeight - clientHeight > 1 && scrollTop + clientHeight >= scrollHeight - 2) {
         activeIdx = anchorElementsRef.current.length - 1
       }
     }
@@ -113,6 +166,8 @@ export function Scrollspy({
         return
 
       const scrollToElement = targetRef?.current === document ? window : targetRef?.current
+      if (!scrollToElement)
+        return
 
       let customOffset = offset
       const dataOffset = anchorElement.getAttribute(`data-${dataAttribute}-offset`)
@@ -120,7 +175,9 @@ export function Scrollspy({
         customOffset = Number.parseInt(dataOffset, 10)
       }
 
-      const scrollTop = sectionElement.offsetTop - customOffset
+      const scrollTop = scrollToElement === window
+        ? sectionElement.getBoundingClientRect().top + (window.scrollY || document.documentElement.scrollTop) - customOffset
+        : sectionElement.getBoundingClientRect().top - (scrollToElement as HTMLElement).getBoundingClientRect().top + (scrollToElement as HTMLElement).scrollTop - customOffset
 
       if (scrollToElement && 'scrollTo' in scrollToElement) {
         scrollToElement.scrollTo({
@@ -136,6 +193,8 @@ export function Scrollspy({
 
   // Scroll to the section if the ID is present in the URL hash
   const scrollToHashSection = useCallback(() => {
+    if (!history)
+      return
     const hash = CSS.escape(window.location.hash.replace('#', ''))
 
     if (hash) {
@@ -144,7 +203,7 @@ export function Scrollspy({
         scrollTo(targetElement)()
       }
     }
-  }, [dataAttribute, scrollTo])
+  }, [dataAttribute, scrollTo, history])
 
   useEffect(() => {
     // Query elements and store them in the ref, avoiding unnecessary re-renders

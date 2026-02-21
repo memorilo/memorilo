@@ -1,3 +1,4 @@
+import { EffectsRegistry } from './utils/effects'
 import { SettingStore } from './utils/settings'
 
 export class Memorilo {
@@ -5,6 +6,7 @@ export class Memorilo {
   private initializeFunctions = new Set<(memorilo: Memorilo) => void | Promise<void>> ()
   private ready: boolean = false
 
+  effects = new EffectsRegistry()
   settings = new SettingStore()
 
   public registerPreInitializeFunction(func: (memorilo: Memorilo) => void | Promise<void>): void {

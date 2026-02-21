@@ -189,6 +189,9 @@ catalogs:
     cmdk:
       specifier: ^1.1.1
       version: 1.1.1
+    colorizr:
+      specifier: ^4.0.1
+      version: 4.0.1
     dayjs:
       specifier: ^1.11.19
       version: 1.11.19
@@ -365,6 +368,15 @@ importers:
       '@memorilo/app':
         specifier: workspace:*
         version: link:../../packages/app
+      '@memorilo/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@memorilo/tauri-plugin-android-statusbar':
+        specifier: workspace:*
+        version: link:../../packages/tauri-plugin-android-statusbar
+      '@memorilo/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@tauri-apps/api':
         specifier: 'catalog:'
         version: 2.9.1
@@ -383,9 +395,15 @@ importers:
       '@tauri-apps/plugin-os':
         specifier: 'catalog:'
         version: 2.3.2
+      colorizr:
+        specifier: 'catalog:'
+        version: 4.0.1
       effect:
         specifier: 'catalog:'
         version: 3.19.14
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.5
     devDependencies:
       '@eslint/js':
         specifier: 'catalog:'
@@ -854,6 +872,12 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.1.18
+
+  packages/tauri-plugin-android-statusbar:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: 'catalog:'
+        version: 2.9.1
 
   packages/utils:
     dependencies:
@@ -2948,6 +2972,9 @@ packages:
 
   colord@2.9.3:
     resolution: {integrity: sha512-jeC1axXpnb0/2nn/Y1LPuLdgXBLH7aDcHu4KEKfqw3CUhX7ZpfBSlPKyqXE6btIgEzfWtrX3/tyBCaCvXvMkOw==}
+
+  colorizr@4.0.1:
+    resolution: {integrity: sha512-CBHSSK2PE+uPKGGufG0tqsjNrvhWnbkSyerALcZljF62CCw2KzW6nEEJOWWfy7uu3/+MOdGjMtBG6gtBo7t9QA==}
 
   commander@7.2.0:
     resolution: {integrity: sha512-QrWXB+ZQSVPmIWIhtEO9H+gwHaMGYiF5ChvoJ+K9ZGHG/sVsa6yiesAD1GC/x46sET00Xlwo1u49RVVVzvcSkw==}
@@ -7358,6 +7385,8 @@ snapshots:
   color-name@1.1.4: {}
 
   colord@2.9.3: {}
+
+  colorizr@4.0.1: {}
 
   commander@7.2.0: {}
 

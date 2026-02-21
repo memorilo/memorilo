@@ -262,7 +262,8 @@ export function findPrecedingCodeBlock(
 
   for (let i = 0; i < listItemNode.childCount; i++) {
     const child = listItemNode.child(i)
-    if (child === stopAtChild) break
+    if (child === stopAtChild)
+      break
     if (child.type.name === 'codeBlock') {
       found = true
       endPos = currentChildPos + child.nodeSize - 1

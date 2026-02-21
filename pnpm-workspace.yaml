@@ -65,6 +65,7 @@ catalog:
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   cmdk: ^1.1.1
+  colorizr: ^4.0.1
   dayjs: ^1.11.19
   effect: 3.19.14
   effect-query: ^0.2.1

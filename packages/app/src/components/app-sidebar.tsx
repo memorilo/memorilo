@@ -1,13 +1,16 @@
+import type { MouseEvent } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@memorilo/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@memorilo/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@memorilo/components/ui/dropdown-menu'
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar } from '@memorilo/components/ui/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
+import { EventBus } from '@memorilo/utils/event-bus'
 import { cn } from '@memorilo/utils/utils'
 import { Link } from '@tanstack/react-router'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBook, LuChevronDown, LuClock, LuFlag, LuInfo, LuNotebookPen, LuPanelLeft, LuSettings, LuUser } from 'react-icons/lu'
+import { useSidebarSwipe } from '~/hooks/use-sidebar-swipe'
 import { NoteFolderTree, NoteFolderTreeProvider } from './note-folder-tree'
 import { NoteFolderTreeToolbar } from './note-folder-tree-toolbar'
 
@@ -15,13 +18,37 @@ const LazySettings = lazy(() => import('./settings').then(module => ({ default: 
 
 export function AppSidebar() {
   const { t } = useTranslation('app')
-  const { state: sidebarState, toggleSidebar } = useSidebar()
+  const { state: sidebarState, toggleSidebar, isMobile, openMobile, setOpenMobile } = useSidebar()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  useSidebarSwipe({
+    isMobile,
+    openMobile,
+    setOpenMobile,
+  })
+
+  const closeMobileSidebar = useCallback(() => {
+    if (!isMobile || !openMobile)
+      return
+    EventBus.emit('SIDEBAR_CLOSE')
+  }, [isMobile, openMobile])
+
+  const handleSidebarAction = useCallback((event: MouseEvent<HTMLElement>) => {
+    if (!isMobile || !openMobile)
+      return
+    const target = event.target
+    if (!(target instanceof Element))
+      return
+    if (!target.closest('[data-sidebar-action="close"]'))
+      return
+    EventBus.emit('SIDEBAR_CLOSE')
+  }, [isMobile, openMobile])
+
   return (
     <>
       <Suspense>
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col min-h-0">
             <DialogHeader>
               <DialogTitle>{t('sidebar.settings')}</DialogTitle>
             </DialogHeader>
@@ -51,10 +78,10 @@ export function AppSidebar() {
                     )}
                   >
                     <Avatar className="rounded-lg after:rounded-lg">
-                    <AvatarImage />
-                    <AvatarFallback className="rounded-lg">
-                      <LuUser className="size-4" />
-                    </AvatarFallback>
+                      <AvatarImage />
+                      <AvatarFallback className="rounded-lg">
+                        <LuUser className="size-4" />
+                      </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-medium">{t('sidebar.library_name')}</span>
@@ -70,13 +97,28 @@ export function AppSidebar() {
                 side="bottom"
                 sideOffset={4}
               >
-                <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+                <DropdownMenuItem onClick={() => {
+                  setIsSettingsOpen(true)
+                  closeMobileSidebar()
+                }}
+                >
                   <div className="flex size-6 items-center justify-center rounded-md">
                     <LuSettings className="size-3.5 shrink-0" />
                   </div>
                   {t('sidebar.settings')}
                 </DropdownMenuItem>
-                <DropdownMenuItem render={props => <Link {...props} to="/about" />}>
+                <DropdownMenuItem
+                  render={props => (
+                    <Link
+                      {...props}
+                      to="/about"
+                      onClick={(event) => {
+                        props.onClick?.(event)
+                        closeMobileSidebar()
+                      }}
+                    />
+                  )}
+                >
                   <div className="flex size-6 items-center justify-center rounded-md">
                     <LuInfo className="size-3.5 shrink-0" />
                   </div>
@@ -85,7 +127,12 @@ export function AppSidebar() {
               </DropdownMenuContent>
             </DropdownMenu>
             <SidebarMenuButton
-              className="size-8 shrink-0 p-0"
+              className={cn(
+                'size-8 shrink-0 p-0',
+                {
+                  hidden: isMobile,
+                },
+              )}
               onClick={toggleSidebar}
               aria-label="Toggle Sidebar"
             >
@@ -93,7 +140,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </div>
         </SidebarHeader>
-        <SidebarContent>
+        <SidebarContent onClickCapture={handleSidebarAction}>
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -103,6 +150,7 @@ export function AppSidebar() {
                       render={triggerProps => (
                         <SidebarMenuButton
                           {...triggerProps}
+                          data-sidebar-action="close"
                           render={props => <Link {...props} to="/journals" />}
                         >
                           <LuNotebookPen />
@@ -121,6 +169,7 @@ export function AppSidebar() {
                       render={triggerProps => (
                         <SidebarMenuButton
                           {...triggerProps}
+                          data-sidebar-action="close"
                           render={props => <Link {...props} to="/all-notes" />}
                         >
                           <LuBook />
@@ -139,6 +188,7 @@ export function AppSidebar() {
                       render={triggerProps => (
                         <SidebarMenuButton
                           {...triggerProps}
+                          data-sidebar-action="close"
                         >
                           <LuFlag />
                           {t('sidebar.flashcards')}
@@ -157,6 +207,7 @@ export function AppSidebar() {
                       render={triggerProps => (
                         <SidebarMenuButton
                           {...triggerProps}
+                          data-sidebar-action="close"
                         >
                           <LuClock />
                           {t('sidebar.edit_later')}

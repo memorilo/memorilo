@@ -15,13 +15,18 @@
   "dependencies": {
     "@memorilo/api-spec": "workspace:*",
     "@memorilo/app": "workspace:*",
+    "@memorilo/core": "workspace:*",
+    "@memorilo/tauri-plugin-android-statusbar": "workspace:*",
+    "@memorilo/utils": "workspace:*",
     "@tauri-apps/api": "catalog:",
     "@tauri-apps/plugin-dialog": "catalog:",
     "@tauri-apps/plugin-fs": "catalog:",
     "@tauri-apps/plugin-log": "catalog:",
     "@tauri-apps/plugin-opener": "catalog:",
     "@tauri-apps/plugin-os": "catalog:",
-    "effect": "catalog:"
+    "colorizr": "catalog:",
+    "effect": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

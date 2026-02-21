@@ -49,7 +49,8 @@ pub fn get_specta_builder() -> tauri_specta::Builder {
         crate::cmd::unwatch_doc,
     ]).events(collect_events![ToastEvent]);
 
-    #[cfg(debug_assertions)]
+    // Only export TypeScript bindings in debug mode on desktop platforms
+    #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     builder
         .export(
             specta_typescript::Typescript::default().header("// @ts-nocheck"),

@@ -118,7 +118,8 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       const $pos = tr.doc.resolve(targetPos)
       const selection = TextSelection.near($pos, 1)
       tr.setSelection(selection)
-      if (dispatch) dispatch(tr.scrollIntoView())
+      if (dispatch)
+        dispatch(tr.scrollIntoView())
       return true
     })
   }, [editor, nodeSize, resolvePos])
@@ -133,7 +134,8 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
       const $pos = tr.doc.resolve(pos)
       const selection = TextSelection.near($pos, -1)
       tr.setSelection(selection)
-      if (dispatch) dispatch(tr.scrollIntoView())
+      if (dispatch)
+        dispatch(tr.scrollIntoView())
       return true
     })
   }, [editor, resolvePos])
@@ -299,21 +301,21 @@ function MathNodeView({ node, editor, getPos, selected, extension, variant }: Ma
         render={triggerProps => (
           <NodeViewWrapper
             {...triggerProps}
-              as={isBlock ? 'div' : 'span'}
-              className={cn(
-                styles.math,
-                !selected && (isBlock ? 'block w-full rounded-md py-2' : 'inline-flex items-center align-middle'),
-                triggerProps.className,
-              )}
-              contentEditable={false}
-              data-math-variant={variant}
-              onMouseDown={(event: React.MouseEvent) => {
-                triggerProps.onMouseDown?.(event)
-                handleMouseDown(event)
-              }}
-            >
-              {content}
-            </NodeViewWrapper>
+            as={isBlock ? 'div' : 'span'}
+            className={cn(
+              styles.math,
+              !selected && (isBlock ? 'block w-full rounded-md py-2' : 'inline-flex items-center align-middle'),
+              triggerProps.className,
+            )}
+            contentEditable={false}
+            data-math-variant={variant}
+            onMouseDown={(event: React.MouseEvent) => {
+              triggerProps.onMouseDown?.(event)
+              handleMouseDown(event)
+            }}
+          >
+            {content}
+          </NodeViewWrapper>
         )}
       />
       <PopoverContent side="top" align="center" className="min-w-[200px] text-[11px]">
