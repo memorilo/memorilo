@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "@memorilo/config/tailwind.css";
+@source "./**/*.{js,ts,jsx,tsx}";
+@source "../../../components/src/**/*.{js,ts,jsx,tsx}";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+

@@ -15,7 +15,7 @@
   "types": "./dist/types/editor.d.ts",
   "scripts": {
     "build": "rollup -c",
-    "dev": "rollup -c -w",
+    "dev": "vite",
     "dev:client": "rollup -c -w",
     "dev:web": "rollup -c -w",
     "test": "vitest",
@@ -77,12 +77,15 @@
     "@rollup/plugin-node-resolve": "catalog:",
     "@rollup/plugin-typescript": "catalog:",
     "@tailwindcss/postcss": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@types/mime-types": "catalog:",
     "@types/prismjs": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "rollup": "catalog:",
     "rollup-plugin-postcss": "catalog:",
-    "tailwindcss": "catalog:"
+    "tailwindcss": "catalog:",
+    "vite": "catalog:"
   }
 }
