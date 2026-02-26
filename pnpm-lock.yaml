@@ -315,6 +315,9 @@ catalogs:
     vitest:
       specifier: ^4.0.16
       version: 4.0.16
+    xml-beautify:
+      specifier: ^1.2.3
+      version: 1.2.3
     yjs:
       specifier: ^13.6.29
       version: 13.6.29
@@ -881,6 +884,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 7.3.1(@types/node@24.10.6)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.97.2)(tsx@4.21.0)(yaml@2.8.2)
+      xml-beautify:
+        specifier: 'catalog:'
+        version: 1.2.3
 
   packages/tauri-plugin-android-statusbar:
     dependencies:
@@ -5385,6 +5391,9 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  xml-beautify@1.2.3:
+    resolution: {integrity: sha512-VsYpkqoVawIP84pi00XukPsgQHqOhgrpwTHlXqqRMAgYZ1u+Yw3KHIUhO1Igf19d5CQ5h6ExJT1hFCJRLmzADg==}
 
   xml-name-validator@4.0.0:
     resolution: {integrity: sha512-ICP2e+jsHvAj2E2lIHxa5tjXRlKDJo4IdvPvCXbXQGdzSfmSpNVyIKMvoZHjDY9DP0zV17iI85o90vRFXNccRw==}
@@ -10017,6 +10026,8 @@ snapshots:
       strip-ansi: 6.0.1
 
   ws@8.19.0: {}
+
+  xml-beautify@1.2.3: {}
 
   xml-name-validator@4.0.0: {}
 

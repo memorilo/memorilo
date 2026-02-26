@@ -1,8 +1,10 @@
 import type { XmlFragment } from 'yjs'
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
+import XMLBeautify from 'xml-beautify'
 import { MemoriloEditor } from '../../src/editor'
 
 export function App(props: { fragment: XmlFragment }) {
+  const beautify = useMemo(() => new XMLBeautify(), [])
   const data = useSyncExternalStore((sub) => {
     const cb = () => sub()
     props.fragment.observeDeep(cb)
@@ -14,10 +16,14 @@ export function App(props: { fragment: XmlFragment }) {
         <div className="left-panel flex-1 border">
           <MemoriloEditor fragment={props.fragment} />
         </div>
-        <div className="right-panel flex-1 border">
-          <code className="wrap-normal overflow-y-auto">
-            {data}
-          </code>
+        <div className="right-panel flex-1 border overflow-auto">
+          <pre>
+            <code>
+              {beautify.beautify(`<doc>${data}</doc>`, {
+                useSelfClosingElement: true,
+              })}
+            </code>
+          </pre>
         </div>
       </main>
     </div>

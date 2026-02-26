@@ -86,6 +86,7 @@
     "rollup": "catalog:",
     "rollup-plugin-postcss": "catalog:",
     "tailwindcss": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "xml-beautify": "catalog:"
   }
 }

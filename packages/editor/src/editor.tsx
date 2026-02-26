@@ -7,43 +7,28 @@ import Collaboration, { isChangeOrigin } from '@tiptap/extension-collaboration'
 import HardBreak from '@tiptap/extension-hard-break'
 import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
+import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
-import UniqueID from '@tiptap/extension-unique-id'
 
-import { Gapcursor } from '@tiptap/extensions'
+import UniqueID from '@tiptap/extension-unique-id'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
-import { BlockquoteExtension } from './extensions/blockquote'
 import { EditorBubbleMenu } from './extensions/bubble-menu'
-import { CodeBlockPrism } from './extensions/codeblock'
-import { EmojiExtension } from './extensions/emoji'
-import { OutlineImage } from './extensions/image'
-import { InlineCodeExtension } from './extensions/inline-code'
-import { Mathematics } from './extensions/mathematics'
 import { Outline } from './extensions/outline'
-import { TitleParagraph } from './extensions/paragraph'
-import { SlashExtension } from './extensions/slash'
-import { TableExtension } from './extensions/table'
-import { YjsDocumentContext } from './provider/yjs'
 
+import { YjsDocumentContext } from './provider/yjs'
 import './editor.css'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   fragment: XmlFragment | XmlElement
-  rootNode?: 'doc' | 'listItem' | 'orderedItem' | 'taskItem'
-  hideTitle?: boolean
-  downloadImage?: boolean
   onOutlineClick?: (uuid: string) => void
 }
 
 export function MemoriloEditor({
   className,
   fragment,
-  rootNode = 'doc',
-  hideTitle = false,
-  downloadImage = false,
   onOutlineClick,
   ...props
 }: MemoriloEditorProps) {
@@ -54,66 +39,29 @@ export function MemoriloEditor({
 
   const editor = useEditor(
     {
+      emitContentError: true,
+      enableContentCheck: true,
+      onContentError(err) {
+        console.error('Content error:', err)
+      },
       extensions: [
         Bold,
         Italic,
         Underline,
         Strike,
-        TitleParagraph.configure({
-          hideTitle,
-        }),
         Text,
-        BlockquoteExtension,
+        Paragraph,
+        Outline,
         HardBreak.configure({
           keepMarks: false,
         }),
-        InlineCodeExtension,
         Highlight.configure({
           multicolor: true,
         }),
-        OutlineImage.configure({
-          downloadImage,
-          resize: {
-            enabled: true,
-            directions: [
-              'top',
-              'bottom',
-              'left',
-              'right',
-              'top-left',
-              'top-right',
-              'bottom-left',
-              'bottom-right',
-            ],
-            minHeight: 50,
-            minWidth: 50,
-          },
-        }),
-        Mathematics.configure({
-          katexOptions: {
-            throwOnError: false,
-          },
-        }),
-        CodeBlockPrism.configure({
-          languageClassPrefix: 'language-',
-          defaultLanguage: null,
-          enableTabIndentation: true,
-          exitOnTripleEnter: true,
-          exitOnArrowDown: true,
-        }),
-        Outline.configure({
-          allowTable: true,
-          rootNode,
-          onOutlineClick,
-        }),
-        SlashExtension,
-        TableExtension,
-        EmojiExtension,
-        Gapcursor,
         UniqueID.configure({
           attributeName: 'uuid',
           updateDocument: true,
-          types: ['listItem', 'orderedItem', 'taskItem', 'bulletList'],
+          types: [],
           filterTransaction: (tr) => {
             // Adds support for collaborative editing
             // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction
@@ -123,14 +71,10 @@ export function MemoriloEditor({
         collaborationExtension,
       ],
       editorProps: {
-        attributes: {
-          'data-outline-root': rootNode,
-          'data-outline-hide-title': hideTitle ? 'true' : 'false',
-        },
         scrollMargin: { top: 24, bottom: 24, left: 0, right: 0 },
       },
     },
-    [fragment, collaborationExtension, rootNode, onOutlineClick, hideTitle],
+    [collaborationExtension, onOutlineClick],
   )
   const yjsDocumentValue = useMemo(() => ({ fragment }), [fragment])
 
@@ -143,7 +87,7 @@ export function MemoriloEditor({
         )}
         {...props}
       >
-        {editor ? <EditorBubbleMenu editor={editor} /> : null}
+        {/* {editor ? <EditorBubbleMenu editor={editor} /> : null} */}
         <EditorContent editor={editor} />
       </div>
     </YjsDocumentContext>
