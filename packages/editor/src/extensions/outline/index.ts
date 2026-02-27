@@ -1,9 +1,9 @@
-import { Extension } from '@tiptap/core'
+import { Extension, nodeInputRule } from '@tiptap/core'
 import { Fragment } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
 import { OutlineDocument } from './document'
-import { OutlineItem } from './outline-item'
+import { OutlineItem, OutlineTaskItem } from './outline-item'
 import { OutlineList } from './outline-list'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
 
@@ -29,6 +29,7 @@ export const Outline = Extension.create({
       OutlineDocument,
       OutlineList,
       OutlineItem,
+      OutlineTaskItem,
     ]
   },
   addCommands() {
@@ -124,7 +125,7 @@ export const Outline = Extension.create({
         // get the position after the last child of the previous outline list
         // const targetPos = tr.selection.$from.after(parentOutlineList.depth)
         const targetPos = tr.selection.$from.posAtIndex(
-          tr.selection.$from.index(parentOutlineList.depth - 1),
+          tr.selection.$from.indexAfter(parentOutlineList.depth - 1),
           parentOutlineList.depth - 1,
         )
         tr.insert(
@@ -209,8 +210,20 @@ export const Outline = Extension.create({
               return false
             }
 
-            // get the value BEFORE replace
+            // insert the new outline list after the origional outline list
             let outlineListEndPos = tr.selection.$from.after(currentOutlineList.depth)
+            if (currentOutlineList.node.childCount > 1) {
+              // if the current outline list has more than 1 child,
+              // insert the new item to the children of the current outline list
+              outlineListEndPos = tr.selection.$from.end(currentOutlineItem.depth)
+            }
+            tr.insert(
+              outlineListEndPos,
+              outlineListType.create(
+                currentOutlineList.node.attrs,
+                outlineItemType.create(currentOutlineItem.node.attrs, afterFragment),
+              ),
+            )
 
             // replace the origional outline item with the before block
             tr.replaceWith(
@@ -219,22 +232,8 @@ export const Outline = Extension.create({
               currentOutlineItem.node.type.create(currentOutlineItem.node.attrs, beforeFragment),
             )
 
-            // create new outline item(included in list)
-            const newOutlineList = outlineListType.create(
-              currentOutlineList.node.attrs,
-              outlineItemType.create(currentOutlineItem.node.attrs, afterFragment),
-            )
-
-            // insert the new outline list after the origional outline list
-            outlineListEndPos = tr.mapping.map(outlineListEndPos)
-            tr.insert(
-              outlineListEndPos,
-              newOutlineList,
-            )
-
             // refresh cursor loc
-            const selectionPos = outlineListEndPos
-            const $resolvedPos = tr.doc.resolve(Math.min(selectionPos, tr.doc.content.size))
+            const $resolvedPos = tr.doc.resolve(Math.min(outlineListEndPos, tr.doc.content.size))
             tr.setSelection(TextSelection.near($resolvedPos, 1))
 
             if (dispatch) {

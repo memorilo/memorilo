@@ -15,7 +15,6 @@ import Underline from '@tiptap/extension-underline'
 import UniqueID from '@tiptap/extension-unique-id'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
-import { EditorBubbleMenu } from './extensions/bubble-menu'
 import { Outline } from './extensions/outline'
 
 import { YjsDocumentContext } from './provider/yjs'
@@ -52,7 +51,14 @@ export function MemoriloEditor({
         Text,
         Paragraph,
         Outline,
-        HardBreak.configure({
+        HardBreak.extend({
+          // Remove Mod-Enter shortcut for hard break to avoid conflict with cycle todo shortcut in outline task item
+          addKeyboardShortcuts() {
+            return {
+              'Shift-Enter': () => this.editor.commands.setHardBreak(),
+            }
+          },
+        }).configure({
           keepMarks: false,
         }),
         Highlight.configure({

@@ -1,5 +1,6 @@
 import type { XmlFragment } from 'yjs'
 import { useMemo, useSyncExternalStore } from 'react'
+// @ts-expect-error - no types available
 import XMLBeautify from 'xml-beautify'
 import { MemoriloEditor } from '../../src/editor'
 
