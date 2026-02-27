@@ -1,4 +1,4 @@
-import { Extension, nodeInputRule } from '@tiptap/core'
+import { Extension } from '@tiptap/core'
 import { Fragment } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'

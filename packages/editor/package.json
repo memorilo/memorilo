@@ -58,6 +58,7 @@
     "@types/react-color": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
+    "dayjs": "catalog:",
     "effect": "catalog:",
     "es-toolkit": "catalog:",
     "i18next": "catalog:",
