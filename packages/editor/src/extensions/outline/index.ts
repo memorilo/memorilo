@@ -3,8 +3,11 @@ import { Fragment } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
 import { OutlineDocument } from './document'
-import { OutlineItem, OutlineTaskItem } from './outline-item'
-import { OutlineList } from './outline-list'
+import { OutlineOrdItem } from './outline-ord-item'
+import { OutlineOrdList } from './outline-ord-list'
+import { OutlineTaskItem } from './outline-task-item'
+import { OutlineUordItem } from './outline-uord-item'
+import { OutlineUList } from './outline-uord-list'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
 
 declare module '@tiptap/core' {
@@ -27,8 +30,10 @@ export const Outline = Extension.create({
   addExtensions() {
     return [
       OutlineDocument,
-      OutlineList,
-      OutlineItem,
+      OutlineOrdList,
+      OutlineOrdItem,
+      OutlineUList,
+      OutlineUordItem,
       OutlineTaskItem,
     ]
   },

@@ -17,7 +17,7 @@ function OutlineListView(_props: ReactNodeViewProps) {
   )
 }
 
-export const OutlineList = Node.create({
+export const OutlineUList = Node.create({
   name: 'outlineUList',
   content: 'outlineItem outlineList*',
   group: 'outlineList',
