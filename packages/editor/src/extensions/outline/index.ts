@@ -1,6 +1,7 @@
+import type { Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
 import { Fragment } from '@tiptap/pm/model'
-import { TextSelection } from '@tiptap/pm/state'
+import { Plugin, TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
 import { OutlineDocument } from './document'
 import { OutlineOrdItem } from './outline-ord-item'
@@ -9,6 +10,62 @@ import { OutlineTaskItem } from './outline-task-item'
 import { OutlineUordItem } from './outline-uord-item'
 import { OutlineUList } from './outline-uord-list'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
+
+/**
+ * Sync the first item type of a moved outline list after indent/unindent.
+ *
+ * The list model in this editor is: `outlineList := outlineItem outlineList*`.
+ * That means when a list is moved under a different semantic parent, the first
+ * child item may need to change type to stay consistent.
+ *
+ * Rules:
+ * - If the moved list is now under an `outlineOrdList`, use `outlineOrdItem`.
+ * - Otherwise fallback to `outlineUordItem` (default when no list grandparent exists).
+ *
+ * Example:
+ * - Before unindent: an ordered layer contains a nested unordered layer.
+ * - After unindent into an unordered context, the moved first item is rewritten to `outlineUordItem`.
+ *
+ * This helper is intentionally no-op when the replacement would be invalid.
+ */
+function syncMovedOutlineItemType(
+  tr: Transaction,
+  movedListPos: number,
+  parentListTypeName?: string,
+) {
+  const movedList = tr.doc.nodeAt(movedListPos)
+  if (!movedList || !movedList.type.isInGroup('outlineList') || movedList.childCount === 0) {
+    return
+  }
+
+  const outlineOrdItemType = tr.doc.type.schema.nodes.outlineOrdItem
+  const outlineUordItemType = tr.doc.type.schema.nodes.outlineUordItem
+  if (!outlineOrdItemType || !outlineUordItemType) {
+    return
+  }
+
+  const targetItemType = parentListTypeName === 'outlineOrdList'
+    ? outlineOrdItemType
+    : outlineUordItemType
+
+  const currentItem = movedList.child(0)
+  if (currentItem.type === targetItemType) {
+    return
+  }
+  if (!movedList.canReplaceWith(0, 1, targetItemType)) {
+    return
+  }
+  if (!targetItemType.validContent(currentItem.content)) {
+    return
+  }
+
+  tr.setNodeMarkup(
+    movedListPos + 1,
+    targetItemType,
+    currentItem.attrs,
+    currentItem.marks,
+  )
+}
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -30,11 +87,72 @@ export const Outline = Extension.create({
   addExtensions() {
     return [
       OutlineDocument,
-      OutlineOrdList,
-      OutlineOrdItem,
       OutlineUList,
       OutlineUordItem,
       OutlineTaskItem,
+      OutlineOrdList,
+      OutlineOrdItem,
+    ]
+  },
+  addProseMirrorPlugins() {
+    return [
+      // Normalize child list item types after any document change.
+      // Example 1: parent `outlineOrdList` + child first item `outlineUordItem` => rewrite to `outlineOrdItem`.
+      // Example 2: parent `outlineUList` + child first item `outlineOrdItem` => rewrite to `outlineUordItem`.
+      new Plugin({
+        appendTransaction(transactions, _oldState, newState) {
+          if (!transactions.some(tr => tr.docChanged)) {
+            return null
+          }
+
+          const outlineOrdListType = newState.schema.nodes.outlineOrdList
+          const outlineUListType = newState.schema.nodes.outlineUList
+          const outlineOrdItemType = newState.schema.nodes.outlineOrdItem
+          const outlineUordItemType = newState.schema.nodes.outlineUordItem
+          if (!outlineOrdListType || !outlineUListType || !outlineOrdItemType || !outlineUordItemType) {
+            return null
+          }
+
+          const tr = newState.tr
+          let hasFixes = false
+
+          newState.doc.descendants((node, pos) => {
+            if (node.type !== outlineOrdListType && node.type !== outlineUListType) {
+              return true
+            }
+
+            node.forEach((child, offset, index) => {
+              if (index === 0 || !child.type.isInGroup('outlineList') || child.childCount === 0) {
+                return
+              }
+
+              const childItem = child.child(0)
+              const targetItemType = node.type === outlineOrdListType
+                ? outlineOrdItemType
+                : childItem.type === outlineOrdItemType
+                  ? outlineUordItemType
+                  : null
+
+              if (!targetItemType || childItem.type === targetItemType) {
+                return
+              }
+
+              const childItemPos = pos + 1 + offset + 1
+              tr.setNodeMarkup(
+                tr.mapping.map(childItemPos),
+                targetItemType,
+                childItem.attrs,
+                childItem.marks,
+              )
+              hasFixes = true
+            })
+
+            return true
+          })
+
+          return hasFixes ? tr : null
+        },
+      }),
     ]
   },
   addCommands() {
@@ -76,6 +194,7 @@ export const Outline = Extension.create({
           targetPos,
           currentOutlineList.node,
         )
+        syncMovedOutlineItemType(tr, targetPos, prevOutlineList.node.type.name)
         tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos)))
         if (dispatch) {
           dispatch(tr.scrollIntoView())
@@ -102,6 +221,7 @@ export const Outline = Extension.create({
         if (!geparentOutlineListContainer) {
           return false
         }
+        const parentOutlineListEndPos = tr.selection.$from.after(parentOutlineList.depth)
 
         // move the outline list after current outline list to the children of the current outline list
         const afterFragment = tr.doc.slice(
@@ -127,16 +247,16 @@ export const Outline = Extension.create({
           tr.selection.$from.after(currentOutlineList.depth),
         )
 
-        // get the position after the last child of the previous outline list
-        // const targetPos = tr.selection.$from.after(parentOutlineList.depth)
-        const targetPos = tr.selection.$from.posAtIndex(
-          tr.selection.$from.indexAfter(parentOutlineList.depth - 1),
-          parentOutlineList.depth - 1,
-        )
+        // Insert the unindented list right after its former parent list.
+        const targetPos = tr.mapping.map(parentOutlineListEndPos, 1)
         tr.insert(
           targetPos,
           blockToUnindent.content,
         )
+        const parentListTypeName = geparentOutlineListContainer.node.type.isInGroup('outlineList')
+          ? geparentOutlineListContainer.node.type.name
+          : undefined
+        syncMovedOutlineItemType(tr, targetPos, parentListTypeName)
         // tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos)))
         if (dispatch) {
           dispatch(tr.scrollIntoView())

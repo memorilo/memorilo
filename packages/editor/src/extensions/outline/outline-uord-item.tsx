@@ -1,9 +1,9 @@
 import type { ReactNodeViewProps } from '@tiptap/react'
+import { InputRule } from '@tiptap/core'
 import { Fragment } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { mergeAttributes, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
-import { Match, Option } from 'effect'
-import { LuCircle, LuCircleAlert, LuCircleCheck, LuCircleDot, LuCircleOff } from 'react-icons/lu'
+import { Option } from 'effect'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
 
 declare module '@tiptap/core' {
@@ -44,6 +44,81 @@ export const OutlineUordItem = Node.create({
   },
   addNodeView() {
     return ReactNodeViewRenderer(OutlineItemView)
+  },
+  addInputRules() {
+    if (this.name !== 'outlineUordItem') {
+      return []
+    }
+
+    return [
+      new InputRule({
+        find: /^(\d+)\.$/,
+        handler: ({ state, range }) => {
+          const outlineOrdItemType = state.schema.nodes.outlineOrdItem
+          const outlineOrdListType = state.schema.nodes.outlineOrdList
+          if (!outlineOrdItemType || !outlineOrdListType) {
+            return null
+          }
+
+          const currentNode = this.editor.$pos(state.selection.$from.pos)
+          const ctx = Option.gen(function* () {
+            const currentBlock = yield* getParentBlock(currentNode)
+            const currentOutlineItem = yield* getParentOutlineItem(currentBlock)
+            const currentOutlineList = yield* getParentOutlineList(currentOutlineItem)
+            return { currentOutlineItem, currentOutlineList }
+          })
+          if (Option.isNone(ctx)) {
+            return null
+          }
+
+          const { currentOutlineItem, currentOutlineList } = ctx.value
+          if (currentOutlineItem.node.type.name !== 'outlineUordItem') {
+            return null
+          }
+
+          const isFirstBlockOfOutlineItem = state.selection.$from.index(currentOutlineItem.depth) === 0
+          if (!isFirstBlockOfOutlineItem) {
+            return null
+          }
+
+          // Only convert when the direct ancestor unordered list contains exactly:
+          // [0] its own item and [1] the current parent list.
+          // Example:
+          //   unordered item
+          //   - unordered item   <- typing "1." at the beginning of this item can convert
+          // but if the ancestor has extra sibling child lists, skip conversion.
+          const parentOutlineList = currentOutlineList.parent
+          if (!parentOutlineList || parentOutlineList.node.type.name !== 'outlineUList') {
+            return null
+          }
+          const isCurrentParentListOnlyChildList = parentOutlineList.node.childCount === 2
+            && state.selection.$from.index(parentOutlineList.depth) === 1
+            && parentOutlineList.node.child(1).type.isInGroup('outlineList')
+          if (!isCurrentParentListOnlyChildList) {
+            return null
+          }
+
+          const currentOutlineItemPos = state.selection.$from.before(currentOutlineItem.depth)
+          const parentOutlineListPos = state.selection.$from.before(parentOutlineList.depth)
+
+          const tr = state.tr
+          // Remove the typed marker (e.g. `1.`), then switch item type
+          // and only the direct ancestor unordered list type.
+          // We intentionally do not rewrite higher ancestors to avoid broad structural churn.
+          tr.delete(range.from, range.to)
+          tr.setNodeMarkup(
+            tr.mapping.map(currentOutlineItemPos),
+            outlineOrdItemType,
+            currentOutlineItem.node.attrs,
+          )
+          tr.setNodeMarkup(
+            tr.mapping.map(parentOutlineListPos),
+            outlineOrdListType,
+            parentOutlineList.node.attrs,
+          )
+        },
+      }),
+    ]
   },
   addCommands() {
     return {
@@ -117,6 +192,35 @@ export const OutlineUordItem = Node.create({
         const currentOutlineListParent = currentOutlineList.parent
         if (!currentOutlineListParent) {
           return false
+        }
+
+        const parentOutlineList = getParentOutlineList(currentOutlineList).pipe(Option.getOrNull)
+        if (currentOutlineItem.node.type.name === 'outlineOrdItem'
+          && parentOutlineList?.node.type.name === 'outlineOrdList') {
+          const outlineUordItemType = state.schema.nodes.outlineUordItem
+          const outlineUListType = state.schema.nodes.outlineUList
+          // Convert ordered -> unordered when this ordered layer is the only child-list branch.
+          // Example:
+          //   ordered item
+          //   - ordered item   <- Backspace at start of this item converts current item/layer back to unordered.
+          const isUniqueOrdLayer = parentOutlineList.node.childCount === 2
+            && selection.$from.index(parentOutlineList.depth) === 1
+            && parentOutlineList.node.child(1).type.isInGroup('outlineList')
+          if (outlineUordItemType && outlineUListType && isUniqueOrdLayer) {
+            const tr = state.tr
+            tr.setNodeMarkup(
+              tr.mapping.map(selection.$from.before(currentOutlineItem.depth)),
+              outlineUordItemType,
+              currentOutlineItem.node.attrs,
+            )
+            tr.setNodeMarkup(
+              tr.mapping.map(selection.$from.before(parentOutlineList.depth)),
+              outlineUListType,
+              parentOutlineList.node.attrs,
+            )
+            editor.view.dispatch(tr.scrollIntoView())
+            return true
+          }
         }
 
         const currentOutlineListIndex = selection.$from.index(currentOutlineListParent.depth)

@@ -4,13 +4,16 @@ import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap
 import { OutlineUordItem } from './outline-uord-item'
 
 function OutlineOrdItemView(_props: ReactNodeViewProps) {
+  // TODO: Implement auto numbering and renumbering when items are added, removed, or moved.
   return (
     <NodeViewWrapper className="relative">
       <div
         contentEditable={false}
         className="absolute -left-8 top-0 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
       >
-        <span className="h-[.4em] w-[.4em] rounded-full bg-black dark:bg-white transition-all group-hover:scale-125" />
+        <span className="text-sm font-mono transition-all group-hover:scale-125">
+          0.
+        </span>
       </div>
       <NodeViewContent />
     </NodeViewWrapper>
