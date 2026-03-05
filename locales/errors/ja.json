@@ -1,1 +1,8 @@
-{}
+{
+  "editor.fail_send_update": "ローカルへのドキュメント更新の送信に失敗しました",
+  "editor.fail_receive_update": "ドキュメントの同期に失敗しました。再読み込みしてください。",
+  "rs.doc.lock_poison": "状態ロックが破損しました: {context}",
+  "rs.doc.db": "{context} 中にデータベースエラーが発生しました: {error}",
+  "rs.doc.crdt_decode": "{context} 中に CRDT デコードエラーが発生しました: {error}",
+  "rs.doc.crdt_update": "{context} 中に CRDT 更新エラーが発生しました: {error}"
+}

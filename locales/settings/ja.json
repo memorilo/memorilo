@@ -1,8 +1,13 @@
 {
   "core.title": "Memorilo 一般",
   "core.lang": "言語",
+  "core.androidFullscreen": "全画面表示",
   "dev.title": "開発者",
   "dev.scan": "ビューの更新を表示 (react-scan)",
   "dev.router": "ルーターデバッグを表示 (tanstack-router)",
-  "dev.query": "クエリデバッグを表示 (tanstack-query)"
+  "dev.query": "クエリデバッグを表示 (tanstack-query)",
+  "note.title": "ノート",
+  "note.downloadImage": "URL を貼り付けるときに画像をダウンロード",
+  "journal.title": "ジャーナル",
+  "journal.autoCreate": "過去の日付のジャーナルを自動作成"
 }
