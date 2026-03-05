@@ -7,13 +7,11 @@
   "sidebar.flashcards": "フラッシュカード",
   "sidebar.edit_later": "後で編集",
   "sidebar.about": "Memorilo について",
-
   "notes_empty.title": "トピックはまだありません",
   "notes_empty.description": "まだトピックを作成していません。最初のトピックを作成して始めましょう。",
   "notes_empty.create_topic": "トピックを作成",
   "notes_empty.import_topic": "トピックをインポート",
   "notes_empty.learn_more": "詳細",
-
   "note_folder_tree.new_folder": "新しいフォルダ",
   "note_folder_tree.new_topic": "新しいトピック",
   "note_folder_tree.error": "エラー:",
@@ -23,13 +21,11 @@
   "note_folder_tree.create": "新規",
   "note_folder_tree.create_topic_error": "トピックの作成に失敗しました: {{error}}",
   "note_folder_tree.create_folder_error": "フォルダの作成に失敗しました: {{error}}",
-
   "editor.bubble.bold": "太字",
   "editor.bubble.italic": "斜体",
   "editor.bubble.underline": "下線",
   "editor.bubble.strikethrough": "取り消し線",
   "editor.bubble.code": "コード",
-
   "editor.heading.level": "見出しレベル",
   "editor.heading.paragraph": "通常",
   "editor.heading.level_1": "見出し 1",
@@ -38,10 +34,8 @@
   "editor.heading.level_4": "見出し 4",
   "editor.heading.level_5": "見出し 5",
   "editor.heading.level_6": "見出し 6",
-
   "editor.highlight.mark": "マーク",
   "editor.highlight.mark_options": "マークのオプション",
-
   "editor.table.settings": "表の設定",
   "editor.table.header_row": "ヘッダー行",
   "editor.table.rows": "行",
@@ -58,21 +52,17 @@
   "editor.table.insert_column_right": "右に列を挿入",
   "editor.table.split_cell": "セルを分割",
   "editor.table.merge_cells": "セルを結合",
-
   "editor.codeblock.language": "コードブロックの言語",
   "editor.codeblock.search_language": "言語を検索...",
   "editor.codeblock.no_language_found": "言語が見つかりません。",
   "editor.codeblock.auto": "自動",
   "editor.codeblock.plain": "プレーン",
-
   "editor.outline.drag_item": "項目をドラッグ",
   "editor.outline.media_gap_cursor": "アウトラインのメディア間カーソル",
   "editor.outline.task_checkbox_label": "{{title}} のタスク用チェックボックス",
   "editor.outline.empty_task_item": "空のタスク項目",
-
   "editor.math.hint_block": "Ctrl+Enter で保存 · Esc でキャンセル",
   "editor.math.hint_inline": "Enter で保存 · Esc でキャンセル",
-
   "editor.slash.no_matches": "一致する項目が見つかりません。",
   "editor.slash.group.text": "テキスト",
   "editor.slash.group.list": "リスト",
@@ -97,7 +87,6 @@
   "editor.slash.item.code_block.description": "コードスニペットを挿入",
   "editor.slash.item.table.title": "表",
   "editor.slash.item.table.description": "表を挿入",
-
   "about.title": "Memorilo について",
   "about.version_prefix": "v",
   "about.tauri_label": "Tauri",

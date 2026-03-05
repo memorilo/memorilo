@@ -7,13 +7,11 @@
   "sidebar.flashcards": "Fulmokartoj",
   "sidebar.edit_later": "Redakti poste",
   "sidebar.about": "Pri",
-
   "notes_empty.title": "Neniu temo",
   "notes_empty.description": "Vi ankoraŭ ne kreis temojn. Komencu per kreo de via unua temo.",
   "notes_empty.create_topic": "Krei temon",
   "notes_empty.import_topic": "Enporti temon",
   "notes_empty.learn_more": "Pliaj informoj",
-
   "note_folder_tree.new_folder": "Nova dosierujo",
   "note_folder_tree.new_topic": "Nova temo",
   "note_folder_tree.error": "Eraro: ",
@@ -23,13 +21,11 @@
   "note_folder_tree.create": "Nova",
   "note_folder_tree.create_topic_error": "Malsukcesis krei temon: {{error}}",
   "note_folder_tree.create_folder_error": "Malsukcesis krei dosierujon: {{error}}",
-
   "editor.bubble.bold": "Grasa",
   "editor.bubble.italic": "Kursiva",
   "editor.bubble.underline": "Substreki",
   "editor.bubble.strikethrough": "Trastreki",
   "editor.bubble.code": "Kodo",
-
   "editor.heading.level": "Titola nivelo",
   "editor.heading.paragraph": "Ordinara teksto",
   "editor.heading.level_1": "Titolo 1",
@@ -38,10 +34,8 @@
   "editor.heading.level_4": "Titolo 4",
   "editor.heading.level_5": "Titolo 5",
   "editor.heading.level_6": "Titolo 6",
-
   "editor.highlight.mark": "Marki",
   "editor.highlight.mark_options": "Markaj opcioj",
-
   "editor.table.settings": "Tabelaj agordoj",
   "editor.table.header_row": "Kapa vico",
   "editor.table.rows": "Vicoj",
@@ -58,21 +52,17 @@
   "editor.table.insert_column_right": "Enmeti kolumnon dekstre",
   "editor.table.split_cell": "Dividi ĉelon",
   "editor.table.merge_cells": "Kunfandi ĉelojn",
-
   "editor.codeblock.language": "Koda bloko-lingvo",
   "editor.codeblock.search_language": "Serĉi lingvon...",
   "editor.codeblock.no_language_found": "Neniu lingvo trovita.",
   "editor.codeblock.auto": "Aŭtomate",
   "editor.codeblock.plain": "Simpla",
-
   "editor.outline.drag_item": "Treni eron",
   "editor.outline.media_gap_cursor": "Kursoro por interspaco inter amaskomunikiloj",
   "editor.outline.task_checkbox_label": "Taska markobutono por {{title}}",
   "editor.outline.empty_task_item": "malplena tasko",
-
   "editor.math.hint_block": "Ctrl+Enter por konservi · Esc por nuligi",
   "editor.math.hint_inline": "Enter por konservi · Esc por nuligi",
-
   "editor.slash.no_matches": "Neniuj kongruoj trovitaj.",
   "editor.slash.group.text": "Teksto",
   "editor.slash.group.list": "Listo",
@@ -97,7 +87,6 @@
   "editor.slash.item.code_block.description": "Enmeti kodan peceton",
   "editor.slash.item.table.title": "Tabelo",
   "editor.slash.item.table.description": "Enmeti tabelon",
-
   "about.title": "Pri Memorilo",
   "about.version_prefix": "v",
   "about.tauri_label": "Tauri",
