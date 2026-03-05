@@ -7,7 +7,6 @@ import Collaboration, { isChangeOrigin } from '@tiptap/extension-collaboration'
 import HardBreak from '@tiptap/extension-hard-break'
 import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
-import Paragraph from '@tiptap/extension-paragraph'
 import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
@@ -49,7 +48,6 @@ export function MemoriloEditor({
         Underline,
         Strike,
         Text,
-        Paragraph,
         Outline,
         HardBreak.extend({
           // Remove Mod-Enter shortcut for hard break to avoid conflict with cycle todo shortcut in outline task item

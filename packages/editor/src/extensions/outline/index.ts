@@ -1,5 +1,6 @@
 import type { Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
+import Paragraph from '@tiptap/extension-paragraph'
 import { Fragment } from '@tiptap/pm/model'
 import { Plugin, TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
@@ -86,6 +87,7 @@ export const Outline = Extension.create({
   },
   addExtensions() {
     return [
+      Paragraph,
       OutlineDocument,
       OutlineUList,
       OutlineUordItem,
