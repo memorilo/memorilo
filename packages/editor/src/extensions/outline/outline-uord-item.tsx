@@ -52,7 +52,7 @@ export const OutlineUordItem = Node.create({
 
     return [
       new InputRule({
-        find: /^(\d+)\.$/,
+        find: /^(\d+)\.\s$/,
         handler: ({ state, range }) => {
           const outlineOrdItemType = state.schema.nodes.outlineOrdItem
           const outlineOrdListType = state.schema.nodes.outlineOrdList
@@ -163,6 +163,10 @@ export const OutlineUordItem = Node.create({
   addKeyboardShortcuts() {
     return {
       Backspace: ({ editor }) => {
+        // Backspace for unordered items:
+        // 1) protect non-empty top-level first item from being merged upward,
+        // 2) delete only empty items as structural nodes,
+        // 3) keep a single last top-level empty item as a floor node.
         const { state } = editor
         const { selection } = state
         if (!selection.empty) {
@@ -192,35 +196,6 @@ export const OutlineUordItem = Node.create({
         const currentOutlineListParent = currentOutlineList.parent
         if (!currentOutlineListParent) {
           return false
-        }
-
-        const parentOutlineList = getParentOutlineList(currentOutlineList).pipe(Option.getOrNull)
-        if (currentOutlineItem.node.type.name === 'outlineOrdItem'
-          && parentOutlineList?.node.type.name === 'outlineOrdList') {
-          const outlineUordItemType = state.schema.nodes.outlineUordItem
-          const outlineUListType = state.schema.nodes.outlineUList
-          // Convert ordered -> unordered when this ordered layer is the only child-list branch.
-          // Example:
-          //   ordered item
-          //   - ordered item   <- Backspace at start of this item converts current item/layer back to unordered.
-          const isUniqueOrdLayer = parentOutlineList.node.childCount === 2
-            && selection.$from.index(parentOutlineList.depth) === 1
-            && parentOutlineList.node.child(1).type.isInGroup('outlineList')
-          if (outlineUordItemType && outlineUListType && isUniqueOrdLayer) {
-            const tr = state.tr
-            tr.setNodeMarkup(
-              tr.mapping.map(selection.$from.before(currentOutlineItem.depth)),
-              outlineUordItemType,
-              currentOutlineItem.node.attrs,
-            )
-            tr.setNodeMarkup(
-              tr.mapping.map(selection.$from.before(parentOutlineList.depth)),
-              outlineUListType,
-              parentOutlineList.node.attrs,
-            )
-            editor.view.dispatch(tr.scrollIntoView())
-            return true
-          }
         }
 
         const currentOutlineListIndex = selection.$from.index(currentOutlineListParent.depth)

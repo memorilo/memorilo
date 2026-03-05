@@ -8,7 +8,7 @@ use tokio::time::{sleep, Duration};
 #[derive(Clone)]
 struct ExistingNode {
     id: i64,
-    node_uuid: Option<String>,
+    node_id: Option<String>,
     parent_id: Option<i64>,
     position: i64,
     node_name: String,
@@ -78,7 +78,7 @@ impl DocState {
                 source: e,
             })?;
         let existing_nodes = load_existing_nodes(&tx, doc_id)?;
-        let mut existing_uuid_map = build_uuid_map(&existing_nodes);
+        let mut existing_node_id_map = build_node_id_map(&existing_nodes);
         let children_map = build_children_map(&existing_nodes);
         let existing_ids: HashSet<i64> = existing_nodes.keys().copied().collect();
 
@@ -94,7 +94,7 @@ impl DocState {
             0,
             &existing_nodes,
             &children_map,
-            &mut existing_uuid_map,
+            &mut existing_node_id_map,
             &mut used_ids,
         )?;
 
@@ -124,7 +124,7 @@ fn load_existing_nodes(
 ) -> DocResult<HashMap<i64, ExistingNode>> {
     let mut stmt = tx
         .prepare(
-            "SELECT id, node_uuid, parent_id, position, node_name, attr, text FROM doc_nodes WHERE doc_id = ?1",
+            "SELECT id, node_id, parent_id, position, node_name, attr, text FROM doc_nodes WHERE doc_id = ?1",
         )
         .map_err(|e| DocError::Db {
             context: "prepare doc_nodes select",
@@ -134,7 +134,7 @@ fn load_existing_nodes(
         .query_map(params![doc_id], |row| {
             Ok(ExistingNode {
                 id: row.get(0)?,
-                node_uuid: row.get(1)?,
+                node_id: row.get(1)?,
                 parent_id: row.get(2)?,
                 position: row.get(3)?,
                 node_name: row.get(4)?,
@@ -158,10 +158,10 @@ fn load_existing_nodes(
     Ok(map)
 }
 
-fn build_uuid_map(existing: &HashMap<i64, ExistingNode>) -> HashMap<String, i64> {
+fn build_node_id_map(existing: &HashMap<i64, ExistingNode>) -> HashMap<String, i64> {
     existing
         .values()
-        .filter_map(|node| node.node_uuid.as_ref().map(|u| (u.clone(), node.id)))
+        .filter_map(|node| node.node_id.as_ref().map(|u| (u.clone(), node.id)))
         .collect()
 }
 
@@ -202,11 +202,11 @@ fn sync_node(
     position: i64,
     existing: &HashMap<i64, ExistingNode>,
     children_map: &HashMap<Option<i64>, Vec<i64>>,
-    uuid_map: &mut HashMap<String, i64>,
+    node_id_map: &mut HashMap<String, i64>,
     used_ids: &mut HashSet<i64>,
 ) -> DocResult<i64> {
     let attr = node.attr.as_str();
-    let node_uuid = node.node_uuid.as_deref();
+    let node_id = node.node_id.as_deref();
     let text = node.text.as_deref();
 
     let id = if let Some(id) = existing_id {
@@ -216,11 +216,11 @@ fn sync_node(
                 || existing_node.node_name != node.node_name
                 || existing_node.attr != attr
                 || existing_node.text.as_deref() != text
-                || existing_node.node_uuid.as_deref() != node_uuid;
+                || existing_node.node_id.as_deref() != node_id;
             if needs_update {
                 tx.execute(
-                    "UPDATE doc_nodes SET parent_id = ?1, position = ?2, node_name = ?3, attr = ?4, text = ?5, node_uuid = ?6 WHERE id = ?7",
-                    params![parent_id, position, node.node_name, attr, text, node_uuid, id],
+                    "UPDATE doc_nodes SET parent_id = ?1, position = ?2, node_name = ?3, attr = ?4, text = ?5, node_id = ?6 WHERE id = ?7",
+                    params![parent_id, position, node.node_name, attr, text, node_id, id],
                 )
                 .map_err(|e| DocError::Db {
                     context: "update doc_nodes row",
@@ -234,24 +234,24 @@ fn sync_node(
     };
 
     used_ids.insert(id);
-    if let Some(uuid) = &node.node_uuid {
-        uuid_map.remove(uuid);
+    if let Some(node_id) = &node.node_id {
+        node_id_map.remove(node_id);
     }
 
     let existing_children = children_map
         .get(&Some(id))
         .cloned()
         .unwrap_or_default();
-    let mut non_uuid_iter = existing_children
+    let mut non_node_id_iter = existing_children
         .iter()
-        .filter(|child_id| existing.get(child_id).and_then(|n| n.node_uuid.as_ref()).is_none())
+        .filter(|child_id| existing.get(child_id).and_then(|n| n.node_id.as_ref()).is_none())
         .copied();
 
     for (index, child) in node.children.iter().enumerate() {
-        let child_existing_id = if let Some(uuid) = &child.node_uuid {
-            uuid_map.get(uuid).copied()
+        let child_existing_id = if let Some(node_id) = &child.node_id {
+            node_id_map.get(node_id).copied()
         } else {
-            non_uuid_iter.next()
+            non_node_id_iter.next()
         };
         let child_id = sync_node(
             tx,
@@ -262,7 +262,7 @@ fn sync_node(
             index as i64,
             existing,
             children_map,
-            uuid_map,
+            node_id_map,
             used_ids,
         )?;
         used_ids.insert(child_id);
@@ -279,11 +279,11 @@ fn insert_doc_node_row(
     position: i64,
 ) -> DocResult<i64> {
     let attr = node.attr.as_str();
-    let node_uuid = node.node_uuid.as_deref();
+    let node_id = node.node_id.as_deref();
     let text = node.text.as_deref();
     tx.execute(
-        "INSERT INTO doc_nodes (doc_id, node_uuid, parent_id, position, node_name, attr, text) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![doc_id, node_uuid, parent_id, position, node.node_name, attr, text],
+        "INSERT INTO doc_nodes (doc_id, node_id, parent_id, position, node_name, attr, text) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![doc_id, node_id, parent_id, position, node.node_name, attr, text],
     )
     .map_err(|e| DocError::Db {
         context: "insert doc_nodes row",

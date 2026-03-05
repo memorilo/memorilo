@@ -1,5 +1,6 @@
 import type { Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
+import Heading from '@tiptap/extension-heading'
 import Paragraph from '@tiptap/extension-paragraph'
 import { Fragment } from '@tiptap/pm/model'
 import { Plugin, TextSelection } from '@tiptap/pm/state'
@@ -82,7 +83,8 @@ export const Outline = Extension.create({
   priority: 0,
   addOptions() {
     return {
-      contentTypes: ['paragraph'],
+      contentTypes: [Paragraph.type, Heading.type],
+      retardableTypes: [Heading.type],
     }
   },
   addExtensions() {

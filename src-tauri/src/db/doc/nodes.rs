@@ -13,7 +13,7 @@ const JSON_EMPTY_OBJ: &str = "{}";
 pub(super) struct DocNodePayload {
     pub(super) node_name: String,
     pub(super) attr: String,
-    pub(super) node_uuid: Option<String>,
+    pub(super) node_id: Option<String>,
     pub(super) text: Option<String>,
     pub(super) children: Vec<DocNodePayload>,
 }
@@ -25,7 +25,7 @@ pub(super) fn yjs_doc_to_doc_node(doc: &Doc) -> DocResult<DocNodePayload> {
         Ok(DocNodePayload {
             node_name: "doc".to_string(),
             attr: JSON_EMPTY_OBJ.to_string(),
-            node_uuid: None,
+            node_id: None,
             text: None,
             children: xml_fragment_children_to_nodes(&txn, &fragment),
         })
@@ -33,7 +33,7 @@ pub(super) fn yjs_doc_to_doc_node(doc: &Doc) -> DocResult<DocNodePayload> {
         Ok(DocNodePayload {
             node_name: "doc".to_string(),
             attr: JSON_EMPTY_OBJ.to_string(),
-            node_uuid: None,
+            node_id: None,
             text: None,
             children: Vec::new(),
         })
@@ -62,14 +62,14 @@ fn xml_out_to_nodes<T: ReadTxn>(txn: &T, node: XmlOut) -> Vec<DocNodePayload> {
 
 /// Convert an XML element into a DocNodePayload, preserving attributes and children.
 fn xml_element_to_node<T: ReadTxn>(txn: &T, element: &XmlElementRef) -> DocNodePayload {
-    let node_uuid = element
-        .get_attribute(txn, "uuid")
+    let node_id = element
+        .get_attribute(txn, "id")
         .map(|out| out.to_string(txn))
         .filter(|value| !value.is_empty());
 
     let mut attr_map = serde_json::Map::new();
     for (key, value) in element.attributes(txn) {
-        if key == "uuid" {
+        if key == "id" {
             continue;
         }
         attr_map.insert(key.to_string(), JsonValue::String(value.to_string(txn)));
@@ -83,7 +83,7 @@ fn xml_element_to_node<T: ReadTxn>(txn: &T, element: &XmlElementRef) -> DocNodeP
     DocNodePayload {
         node_name: element.tag().to_string(),
         attr: JsonValue::Object(attr_map).to_string(),
-        node_uuid,
+        node_id,
         text: None,
         children,
     }
@@ -105,7 +105,7 @@ fn xml_text_to_nodes<T: ReadTxn>(txn: &T, text: &XmlTextRef) -> Vec<DocNodePaylo
         let text_node = DocNodePayload {
             node_name: "text".to_string(),
             attr: JSON_EMPTY_OBJ.to_string(),
-            node_uuid: None,
+            node_id: None,
             text: Some(insert_text),
             children: Vec::new(),
         };
@@ -134,7 +134,7 @@ fn xml_text_to_nodes<T: ReadTxn>(txn: &T, text: &XmlTextRef) -> Vec<DocNodePaylo
             current = DocNodePayload {
                 node_name: mark_name,
                 attr: mark_attr,
-                node_uuid: None,
+                node_id: None,
                 text: None,
                 children: vec![current],
             };

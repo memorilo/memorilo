@@ -5,6 +5,7 @@ import { cn } from '@memorilo/utils'
 import Bold from '@tiptap/extension-bold'
 import Collaboration, { isChangeOrigin } from '@tiptap/extension-collaboration'
 import HardBreak from '@tiptap/extension-hard-break'
+import Heading from '@tiptap/extension-heading'
 import Highlight from '@tiptap/extension-highlight'
 import Italic from '@tiptap/extension-italic'
 import Strike from '@tiptap/extension-strike'
@@ -16,6 +17,8 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import { Outline } from './extensions/outline'
 
+import { OutlineOrdItem } from './extensions/outline/outline-ord-item'
+import { OutlineUordItem } from './extensions/outline/outline-uord-item'
 import { YjsDocumentContext } from './provider/yjs'
 import './editor.css'
 
@@ -49,6 +52,9 @@ export function MemoriloEditor({
         Strike,
         Text,
         Outline,
+        Heading.configure({
+          levels: [1, 2, 3, 4, 5, 6],
+        }),
         HardBreak.extend({
           // Remove Mod-Enter shortcut for hard break to avoid conflict with cycle todo shortcut in outline task item
           addKeyboardShortcuts() {
@@ -63,9 +69,9 @@ export function MemoriloEditor({
           multicolor: true,
         }),
         UniqueID.configure({
-          attributeName: 'uuid',
+          attributeName: 'id',
           updateDocument: true,
-          types: [],
+          types: [OutlineOrdItem.type, OutlineUordItem.type],
           filterTransaction: (tr) => {
             // Adds support for collaborative editing
             // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction
