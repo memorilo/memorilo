@@ -1,3 +1,4 @@
+import type { Node as PMNode } from '@tiptap/pm/model'
 import type { ReactNodeViewProps } from '@tiptap/react'
 import { InputRule } from '@tiptap/core'
 import { Fragment } from '@tiptap/pm/model'
@@ -123,35 +124,148 @@ export const OutlineUordItem = Node.create({
   addCommands() {
     return {
       deleteOutlineItem: () => ({ state, dispatch }) => {
+        // Delete the current outline list, but when the current block is non-empty,
+        // move its content upward first and keep the cursor at the merged end.
         const tr = state.tr
         const currentNode = this.editor.$pos(tr.selection.$from.pos)
         const ctx = Option.gen(function* () {
+          // Resolve the current block/list context from the cursor position.
           const currentBlock = yield* getParentBlock(currentNode)
           const currentOutlineItem = yield* getParentOutlineItem(currentBlock)
           const currentOutlineList = yield* getParentOutlineList(currentOutlineItem)
-          return { currentOutlineList }
+          return { currentBlock, currentOutlineList }
         })
         if (Option.isNone(ctx)) {
           return false
         }
 
-        const { currentOutlineList } = ctx.value
+        const { currentBlock, currentOutlineList } = ctx.value
+        const sourceBlockContent = currentBlock.node.content
         const outlineListStart = tr.selection.$from.before(currentOutlineList.depth)
         const outlineListEnd = tr.selection.$from.after(currentOutlineList.depth)
-        // Keep child outline lists by promoting them when deleting the current list item.
+
+        let cursorPosAfterMerge: number | null = null
+
+        // If the current block has content, we must preserve user data by moving it
+        // into an upper target item before removing the current outline list node.
+        if (sourceBlockContent.size > 0) {
+          const currentOutlineListParent = currentOutlineList.parent
+          if (!currentOutlineListParent) {
+            return false
+          }
+
+          const currentOutlineListIndex = tr.selection.$from.index(currentOutlineListParent.depth)
+          const prevOutlineList = currentOutlineListIndex > 0
+            ? currentOutlineListParent.children?.[currentOutlineListIndex - 1]
+            : null
+          const parentOutlineList = getParentOutlineList(currentOutlineList).pipe(Option.getOrNull)
+
+          // Choose merge target: previous sibling list first, otherwise parent list.
+          const targetOutlineList = prevOutlineList && prevOutlineList.node.type.isInGroup('outlineList')
+            ? prevOutlineList
+            : parentOutlineList
+          if (!targetOutlineList || !targetOutlineList.node.type.isInGroup('outlineList') || targetOutlineList.node.childCount === 0) {
+            return false
+          }
+
+          const targetItemPos = targetOutlineList.pos
+          const targetOutlineItem = targetOutlineList.node.child(0)
+          if (!targetOutlineItem.type.isInGroup('outlineItem') || targetOutlineItem.childCount === 0) {
+            return false
+          }
+
+          const targetLastBlockIndex = targetOutlineItem.childCount - 1
+          const targetLastBlock = targetOutlineItem.child(targetLastBlockIndex)
+
+          // Merge strategy:
+          // 1) try appending source content to the end of target's last block,
+          // 2) if invalid, append a new block to the target item.
+          const appendedLastBlockContent = targetLastBlock.content.append(sourceBlockContent)
+          const appendedLastBlock = targetLastBlock.type.validContent(appendedLastBlockContent)
+            ? targetLastBlock.type.create(targetLastBlock.attrs, appendedLastBlockContent, targetLastBlock.marks)
+            : null
+
+          let nextTargetBlocks: PMNode[] = []
+          let mergedBlockIndex = targetLastBlockIndex
+          // Cursor should stay at the join point (before moved content).
+          let cursorOffsetInMergedBlock = targetLastBlock.content.size
+          // This branch represents the "append into last target block" path.
+          if (appendedLastBlock) {
+            for (let index = 0; index < targetOutlineItem.childCount; index += 1) {
+              nextTargetBlocks.push(index === targetLastBlockIndex ? appendedLastBlock : targetOutlineItem.child(index))
+            }
+            const appendedFragment = Fragment.fromArray(nextTargetBlocks)
+            if (!targetOutlineItem.type.validContent(appendedFragment)) {
+              nextTargetBlocks = []
+            }
+          }
+
+          // If append is invalid, fallback to inserting a brand-new block at item tail.
+          if (nextTargetBlocks.length === 0) {
+            const copiedBlock = currentBlock.node.type.create(currentBlock.node.attrs, sourceBlockContent, currentBlock.node.marks)
+            nextTargetBlocks = Array.from(
+              { length: targetOutlineItem.childCount },
+              (_, index) => targetOutlineItem.child(index),
+            )
+            nextTargetBlocks.push(copiedBlock)
+            mergedBlockIndex = targetOutlineItem.childCount
+            // In fallback mode, join point is the start of the appended new block.
+            cursorOffsetInMergedBlock = 0
+            if (!targetOutlineItem.type.validContent(Fragment.fromArray(nextTargetBlocks))) {
+              return false
+            }
+          }
+
+          const mappedTargetItemPos = tr.mapping.map(targetItemPos)
+          const targetOutlineItemInTr = tr.doc.nodeAt(mappedTargetItemPos)
+          if (!targetOutlineItemInTr) {
+            return false
+          }
+
+          // Apply merged content by replacing the target outline item.
+          tr.replaceWith(
+            mappedTargetItemPos,
+            mappedTargetItemPos + targetOutlineItemInTr.nodeSize,
+            targetOutlineItem.type.create(
+              targetOutlineItem.attrs,
+              Fragment.fromArray(nextTargetBlocks),
+              targetOutlineItem.marks,
+            ),
+          )
+
+          // Compute the exact join-point position for cursor placement.
+          const mappedTargetItemNode = tr.doc.nodeAt(mappedTargetItemPos)
+          if (!mappedTargetItemNode || mergedBlockIndex < 0 || mergedBlockIndex >= mappedTargetItemNode.childCount) {
+            return false
+          }
+          let mergedBlockOffset = 1
+          for (let index = 0; index < mergedBlockIndex; index += 1) {
+            mergedBlockOffset += mappedTargetItemNode.child(index).nodeSize
+          }
+          cursorPosAfterMerge = mappedTargetItemPos + mergedBlockOffset + 1 + cursorOffsetInMergedBlock
+        }
+
+        const mappedOutlineListStart = tr.mapping.map(outlineListStart)
+        const mappedOutlineListEnd = tr.mapping.map(outlineListEnd)
+
+        // Preserve child outline lists by promoting children[1..] when removing current list.
         const promotedChildren = []
         for (let index = 1; index < currentOutlineList.node.childCount; index += 1) {
           promotedChildren.push(currentOutlineList.node.child(index))
         }
 
+        // Keep nested lists alive by replacing the removed list with its child lists.
         if (promotedChildren.length > 0) {
-          tr.replaceWith(outlineListStart, outlineListEnd, Fragment.fromArray(promotedChildren))
+          tr.replaceWith(mappedOutlineListStart, mappedOutlineListEnd, Fragment.fromArray(promotedChildren))
         }
         else {
-          tr.delete(outlineListStart, outlineListEnd)
+          tr.delete(mappedOutlineListStart, mappedOutlineListEnd)
         }
 
-        const nextSelectionPos = Math.min(outlineListStart, tr.doc.content.size)
+        // Place cursor at merged end when content moved, otherwise keep original delete behavior.
+        const nextSelectionPos = cursorPosAfterMerge === null
+          ? Math.min(mappedOutlineListStart, tr.doc.content.size)
+          : Math.min(cursorPosAfterMerge, tr.doc.content.size)
         tr.setSelection(TextSelection.near(tr.doc.resolve(nextSelectionPos), -1))
         if (dispatch) {
           dispatch(tr.scrollIntoView())
@@ -167,6 +281,7 @@ export const OutlineUordItem = Node.create({
         // 1) protect non-empty top-level first item from being merged upward,
         // 2) delete only empty items as structural nodes,
         // 3) keep a single last top-level empty item as a floor node.
+
         const { state } = editor
         const { selection } = state
         if (!selection.empty) {
@@ -176,46 +291,28 @@ export const OutlineUordItem = Node.create({
           return false
         }
 
-        const currentNode = editor.$pos(selection.$from.pos)
+        const node = editor.$pos(selection.$from.pos)
         const ctx = Option.gen(function* () {
-          const currentBlock = yield* getParentBlock(currentNode)
-          const currentOutlineItem = yield* getParentOutlineItem(currentBlock)
-          const currentOutlineList = yield* getParentOutlineList(currentOutlineItem)
-          return { currentOutlineItem, currentOutlineList }
+          const block = yield* getParentBlock(node)
+          const outlineItem = yield* getParentOutlineItem(block)
+          const outlineList = yield* getParentOutlineList(outlineItem)
+          return { outlineItem, outlineList }
         })
         if (Option.isNone(ctx)) {
           return false
         }
 
-        const { currentOutlineItem, currentOutlineList } = ctx.value
-        const isFirstBlockOfOutlineItem = selection.$from.index(currentOutlineItem.depth) === 0
+        const { outlineItem, outlineList } = ctx.value
+        const isFirstBlockOfOutlineItem = selection.$from.index(outlineItem.depth) === 0
+        // Not first block of the outline item, use other backspace behavior to delete content.
         if (!isFirstBlockOfOutlineItem) {
           return false
         }
 
-        const currentOutlineListParent = currentOutlineList.parent
-        if (!currentOutlineListParent) {
-          return false
-        }
-
-        const currentOutlineListIndex = selection.$from.index(currentOutlineListParent.depth)
-        const hasParentOutlineList = Option.isSome(getParentOutlineList(currentOutlineList))
-        const isTopLevelFirstItem = !hasParentOutlineList && currentOutlineListIndex === 0
-        // "Empty item" means exactly one empty text block.
-        const isEmptyItem = currentOutlineItem.node.childCount === 1
-          && !!currentOutlineItem.node.firstChild?.isTextblock
-          && currentOutlineItem.node.firstChild.content.size === 0
-        if (isTopLevelFirstItem && !isEmptyItem) {
-          return true
-        }
-
-        if (!isEmptyItem) {
-          return false
-        }
-
-        const hasPromotedChildren = currentOutlineList.node.childCount > 1
-        const isLastTopLevelItem = !hasParentOutlineList && currentOutlineListParent.node.childCount === 1
-        if (isLastTopLevelItem && !hasPromotedChildren) {
+        const outlineListIndex = selection.$from.index(outlineList.parent!.depth)
+        // Not having parent list of current list and index = 0, which means current list is top-level
+        // Prevent backspace to protect structure
+        if (Option.isNone(getParentOutlineList(outlineList)) && outlineListIndex === 0) {
           return true
         }
 
