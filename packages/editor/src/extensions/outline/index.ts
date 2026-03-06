@@ -339,15 +339,14 @@ export const Outline = Extension.create({
               return false
             }
 
-            // insert the new outline list after the origional outline list
-            let outlineListEndPos = tr.selection.$from.after(currentOutlineList.depth)
-            if (currentOutlineList.node.childCount > 1) {
-              // if the current outline list has more than 1 child,
-              // insert the new item to the children of the current outline list
-              outlineListEndPos = tr.selection.$from.end(currentOutlineItem.depth)
-            }
+            // Split has two insertion modes:
+            // 1) current list has child lists -> insert the new split list into current list children,
+            // 2) current list has no child list -> insert the new split list after current list.
+            const outlineListInsertPos = currentOutlineList.node.childCount > 1
+              ? tr.selection.$from.end(currentOutlineItem.depth)
+              : tr.selection.$from.after(currentOutlineList.depth)
             tr.insert(
-              outlineListEndPos,
+              outlineListInsertPos,
               outlineListType.create(
                 currentOutlineList.node.attrs,
                 outlineItemType.create(currentOutlineItem.node.attrs, afterFragment),
@@ -361,9 +360,17 @@ export const Outline = Extension.create({
               currentOutlineItem.node.type.create(currentOutlineItem.node.attrs, beforeFragment),
             )
 
-            // refresh cursor loc
-            const $resolvedPos = tr.doc.resolve(Math.min(outlineListEndPos, tr.doc.content.size))
-            tr.setSelection(TextSelection.near($resolvedPos, 1))
+            // Place cursor at the start of the newly created split item (before the first character).
+            // We map with assoc -1 to keep the anchor on the inserted list after subsequent mapping changes.
+            // `+3` depends on current schema shape: outlineList -> outlineItem -> first block text start.
+            const insertedListPos = tr.mapping.map(outlineListInsertPos, -1)
+            const preferredCursorPos = insertedListPos + 3
+            try {
+              tr.setSelection(TextSelection.near(tr.doc.resolve(preferredCursorPos), 1))
+            }
+            catch {
+              // Best-effort cursor placement: never fail the split operation due to selection errors.
+            }
 
             if (dispatch) {
               dispatch(tr.scrollIntoView())

@@ -1,4 +1,5 @@
 import type { ReactNodeViewProps } from '@tiptap/react'
+import { TextSelection } from '@tiptap/pm/state'
 import { mergeAttributes, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import { Match, Option } from 'effect'
 import { LuCircle, LuCircleAlert, LuCircleCheck, LuCircleDot, LuCircleOff } from 'react-icons/lu'
@@ -83,6 +84,11 @@ export const OutlineTaskItem = OutlineUordItem.extend({
           return false
 
         const content = outlineItem.node.content
+        const itemStart = tr.selection.$from.before(outlineItem.depth)
+        const itemEnd = tr.selection.$from.after(outlineItem.depth)
+        const itemContentStart = itemStart + 1
+        const anchorOffsetInItem = state.selection.anchor - itemContentStart
+        const headOffsetInItem = state.selection.head - itemContentStart
         const targetType = Match.value(outlineItem.node.type.name).pipe(
           Match.when('outlineUordItem', () => this.editor.schema.nodes.outlineTaskItem!),
           Match.when('outlineTaskItem', () => this.editor.schema.nodes.outlineUordItem!),
@@ -90,10 +96,25 @@ export const OutlineTaskItem = OutlineUordItem.extend({
         )
 
         tr.replaceWith(
-          tr.selection.$from.before(outlineItem.depth),
-          tr.selection.$from.after(outlineItem.depth),
+          itemStart,
+          itemEnd,
           targetType.create(outlineItem.node.attrs, content),
         )
+
+        // Keep the cursor/selection at the same relative offset inside the converted item.
+        const mappedItemStart = tr.mapping.map(itemStart, -1)
+        const mappedItem = tr.doc.nodeAt(mappedItemStart)
+        if (mappedItem) {
+          const mappedContentStart = mappedItemStart + 1
+          const mappedContentEnd = mappedItemStart + mappedItem.nodeSize - 1
+          const remapOffset = (offsetInItem: number) => Math.min(
+            Math.max(mappedContentStart + offsetInItem, mappedContentStart),
+            mappedContentEnd,
+          )
+          const nextAnchor = remapOffset(anchorOffsetInItem)
+          const nextHead = remapOffset(headOffsetInItem)
+          tr.setSelection(TextSelection.create(tr.doc, nextAnchor, nextHead))
+        }
 
         if (dispatch) {
           dispatch(tr.scrollIntoView())
