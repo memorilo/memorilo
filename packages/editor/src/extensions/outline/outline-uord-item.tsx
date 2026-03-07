@@ -5,7 +5,9 @@ import { Fragment } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import { mergeAttributes, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import { Option } from 'effect'
+import { useLayoutEffect, useRef } from 'react'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
+import { useOutlineMarkerCenter } from './utils/use-outline-marker-center'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -15,12 +17,29 @@ declare module '@tiptap/core' {
   }
 }
 
-function OutlineItemView(_props: ReactNodeViewProps) {
+function OutlineItemView(props: ReactNodeViewProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const markerCenterY = useOutlineMarkerCenter(wrapperRef, props.node)
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    if (markerCenterY === null) {
+      wrapper.style.removeProperty('--outline-marker-center-y')
+      return
+    }
+
+    wrapper.style.setProperty('--outline-marker-center-y', `${markerCenterY}px`)
+  }, [markerCenterY])
+
   return (
-    <NodeViewWrapper className="relative">
+    <NodeViewWrapper ref={wrapperRef} className="relative">
       <div
         contentEditable={false}
-        className="absolute -left-8 top-0 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
+        className="absolute -left-8 top-(--outline-marker-center-y) -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
       >
         <span className="h-[.4em] w-[.4em] rounded-full bg-black dark:bg-white transition-all group-hover:scale-125" />
       </div>

@@ -1,6 +1,33 @@
+import { mergeAttributes } from '@tiptap/core'
 import { Heading as HeadingPrivimitive } from '@tiptap/extension-heading'
 
+export const headingLevels = [1, 2, 3, 4, 5, 6] as const
+
+type HeadingLevel = (typeof headingLevels)[number]
+
+const headingClassByLevel: Record<HeadingLevel, string> = {
+  1: 'text-3xl',
+  2: 'text-2xl',
+  3: 'text-xl',
+  4: 'text-lg',
+  5: 'text-base',
+  6: 'text-base',
+}
+
 const Heading = HeadingPrivimitive.extend({
+  renderHTML({ node, HTMLAttributes }) {
+    const rawLevel = Number(node.attrs.level)
+    const level = headingLevels.includes(rawLevel as HeadingLevel)
+      ? rawLevel as HeadingLevel
+      : 1
+
+    return [
+      `h${level}`,
+      mergeAttributes(HTMLAttributes, { class: headingClassByLevel[level] }),
+      0,
+    ]
+  },
+
   addKeyboardShortcuts() {
     return {
       Backspace: ({ editor }) => {
@@ -33,7 +60,7 @@ const Heading = HeadingPrivimitive.extend({
   },
 
 }).configure({
-  levels: [1, 2, 3, 4, 5, 6],
+  levels: [...headingLevels],
 })
 
 export default Heading

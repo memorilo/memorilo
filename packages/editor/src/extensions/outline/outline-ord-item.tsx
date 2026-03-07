@@ -2,12 +2,30 @@ import type { ReactNodeViewProps } from '@tiptap/react'
 import { mergeAttributes } from '@tiptap/core'
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, useEditorState } from '@tiptap/react'
 import { Option } from 'effect'
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { OutlineOrdList } from './outline-ord-list'
 import { OutlineUordItem } from './outline-uord-item'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
+import { useOutlineMarkerCenter } from './utils/use-outline-marker-center'
 
 function OutlineOrdItemView(props: ReactNodeViewProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const markerCenterY = useOutlineMarkerCenter(wrapperRef, props.node)
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    if (markerCenterY === null) {
+      wrapper.style.removeProperty('--outline-marker-center-y')
+      return
+    }
+
+    wrapper.style.setProperty('--outline-marker-center-y', `${markerCenterY}px`)
+  }, [markerCenterY])
+
   const index = useEditorState({
     editor: props.editor,
     selector: () => {
@@ -38,10 +56,10 @@ function OutlineOrdItemView(props: ReactNodeViewProps) {
   }, [index, props])
 
   return (
-    <NodeViewWrapper className="relative">
+    <NodeViewWrapper ref={wrapperRef} className="relative">
       <div
         contentEditable={false}
-        className="absolute -left-8 top-0 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
+        className="absolute -left-8 top-(--outline-marker-center-y) -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
       >
         <span className="text-sm font-mono transition-all group-hover:scale-125">
           {index === 0 ? props.node.attrs.number : index}

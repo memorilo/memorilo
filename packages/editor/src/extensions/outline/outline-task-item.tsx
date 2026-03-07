@@ -2,9 +2,11 @@ import type { ReactNodeViewProps } from '@tiptap/react'
 import { TextSelection } from '@tiptap/pm/state'
 import { mergeAttributes, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import { Match, Option } from 'effect'
+import { useLayoutEffect, useRef } from 'react'
 import { LuCircle, LuCircleAlert, LuCircleCheck, LuCircleDot, LuCircleOff } from 'react-icons/lu'
 import { OutlineUordItem } from './outline-uord-item'
 import { getParentOutlineItem } from './utils/outlines'
+import { useOutlineMarkerCenter } from './utils/use-outline-marker-center'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -19,6 +21,23 @@ const todoStatus = ['todo', 'doing', 'done', 'discard'] as const
 type TodoStatus = typeof todoStatus[number]
 
 function OutlineTaskItemView(props: ReactNodeViewProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const markerCenterY = useOutlineMarkerCenter(wrapperRef, props.node)
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    if (markerCenterY === null) {
+      wrapper.style.removeProperty('--outline-marker-center-y')
+      return
+    }
+
+    wrapper.style.setProperty('--outline-marker-center-y', `${markerCenterY}px`)
+  }, [markerCenterY])
+
   const icon = Match.value(props.node.attrs.status as TodoStatus).pipe(
     Match.when('todo', () => <LuCircle className="size-5" />),
     Match.when('doing', () => <LuCircleDot className="size-5 text-amber-500" />),
@@ -27,10 +46,10 @@ function OutlineTaskItemView(props: ReactNodeViewProps) {
     Match.orElse(() => <LuCircleAlert className="size-5 text-red-500" />),
   )
   return (
-    <NodeViewWrapper className="relative">
+    <NodeViewWrapper ref={wrapperRef} className="relative">
       <div
         contentEditable={false}
-        className="absolute -left-8 top-0 w-6 h-6 flex items-center justify-center"
+        className="absolute -left-8 top-(--outline-marker-center-y) -translate-y-1/2 w-6 h-6 flex items-center justify-center"
       >
         {icon}
       </div>

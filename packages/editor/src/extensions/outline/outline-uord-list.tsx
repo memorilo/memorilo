@@ -1,16 +1,36 @@
 import type { ReactNodeViewProps } from '@tiptap/react'
 import { mergeAttributes, Node } from '@tiptap/core'
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
+import { useLayoutEffect, useRef } from 'react'
+import { useOutlineMarkerCenter } from './utils/use-outline-marker-center'
 
-function OutlineListView(_props: ReactNodeViewProps) {
+function OutlineListView(props: ReactNodeViewProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const markerCenterY = useOutlineMarkerCenter(wrapperRef, props.node)
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    if (markerCenterY === null) {
+      wrapper.style.removeProperty('--outline-marker-center-y')
+      return
+    }
+
+    wrapper.style.setProperty('--outline-marker-center-y', `${markerCenterY}px`)
+  }, [markerCenterY])
+
   // The first child of the outline list is always the outline item,
   // so if there are more than 1 children, it means that there are sub lists
   //   const hasChildren = props.node.children.length > 1
 
   return (
-    <NodeViewWrapper className="relative">
+    <NodeViewWrapper ref={wrapperRef} className="relative outline-list-node-view">
       <span
-        className="absolute border-l border-dashed border-gray-300 dark:border-gray-600 top-6 bottom-0 left-5"
+        className="absolute border-l border-dashed border-gray-300 dark:border-gray-600 bottom-0 left-5"
+        style={{ top: 'calc(var(--outline-marker-center-y) * 2)' }}
       />
       <NodeViewContent className="pl-10" />
     </NodeViewWrapper>
