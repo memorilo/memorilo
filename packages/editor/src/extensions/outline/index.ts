@@ -81,12 +81,7 @@ declare module '@tiptap/core' {
 
 export const Outline = Extension.create({
   priority: 0,
-  addOptions() {
-    return {
-      contentTypes: [Paragraph.type, Heading.type],
-      retardableTypes: [Heading.type],
-    }
-  },
+
   addExtensions() {
     return [
       Paragraph,
@@ -387,3 +382,5 @@ export const Outline = Extension.create({
     }
   },
 })
+
+export default Outline
