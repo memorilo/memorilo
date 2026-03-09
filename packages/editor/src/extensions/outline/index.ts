@@ -1,9 +1,9 @@
+import type { Node as PMNode } from '@tiptap/pm/model'
 import type { Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
-import Heading from '@tiptap/extension-heading'
 import Paragraph from '@tiptap/extension-paragraph'
 import { Fragment } from '@tiptap/pm/model'
-import { Plugin, TextSelection } from '@tiptap/pm/state'
+import { Plugin, Selection, TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
 import { OutlineDocument } from './document'
 import { OutlineOrdItem } from './outline-ord-item'
@@ -72,7 +72,14 @@ function syncMovedOutlineItemType(
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     outline: {
-      splitOutlineItem: () => ReturnType
+      /**
+       * Split current outline item into two items.
+       *
+       * - default: split by leaf text offset (e.g. paragraph cursor position)
+       * - atTopBlockBoundary: split by the direct child block boundary of current
+       *   outline item, keeping the current top block on the "before" side
+       */
+      splitOutlineItem: (options?: { atTopBlockBoundary?: boolean }) => ReturnType
       indentOutlineItem: () => ReturnType
       unindentOutlineItem: () => ReturnType
     }
@@ -265,64 +272,200 @@ export const Outline = Extension.create({
       },
 
       splitOutlineItem:
-        () =>
-          ({ state, dispatch }) => {
-            const tr = state.tr
+        (options) =>
+          ({ state, dispatch, tr }) => {
 
             // If there is a selection, delete it first
-            if (!state.selection.empty) {
+            if (!tr.selection.empty) {
               tr.deleteSelection()
             }
 
             const outlineItemType = state.schema.nodes.outlineUordItem
             const outlineListType = state.schema.nodes.outlineUList
-            if (!outlineItemType || !outlineListType)
+            const paragraphType = state.schema.nodes.paragraph
+            if (!outlineItemType || !outlineListType || !paragraphType)
               return false
 
-            // It maybe a node, but sometimes it's a mark, so we need to find the block node that contains the selection
-            const currentNode = this.editor.$pos(tr.selection.$from.pos)
-
-            // Find block node and outline item node that contains the current node
-            const ctx = Option.gen(function* () {
-              const currentBlock = yield* getParentBlock(currentNode)
-              const currentOutlineItem = yield* getParentOutlineItem(currentBlock)
-              const currentOutlineList = yield* getParentOutlineList(currentOutlineItem)
-              return { currentBlock, currentOutlineItem, currentOutlineList }
-            })
-
-            // The current node is not inside an outline item, so we don't handle the split
-            if (Option.isNone(ctx))
+            const { $from } = tr.selection
+            // Resolve context from transaction doc to support command chaining
+            // (e.g. blockquote double-Enter delete + split in one chain).
+            let currentBlockDepth = -1
+            for (let depth = $from.depth; depth > 0; depth -= 1) {
+              if ($from.node(depth).isBlock) {
+                currentBlockDepth = depth
+                break
+              }
+            }
+            if (currentBlockDepth < 0) {
               return false
+            }
 
-            const { currentBlock, currentOutlineItem, currentOutlineList } = ctx.value
-
-            const innerBlock = currentBlock.node
-            const parentOffset = tr.selection.$from.parentOffset
-
-            const beforeContent = innerBlock.content.cut(0, parentOffset)
-            const afterContent = innerBlock.content.cut(parentOffset, innerBlock.content.size)
-
-            const beforeBlock = innerBlock.type.create(innerBlock.attrs, beforeContent, innerBlock.marks)
-            const afterBlock = innerBlock.type.create(innerBlock.attrs, afterContent, innerBlock.marks)
-
-            const beforeBlocks = []
-            const afterBlocks = []
-
-            // get the index of the current block in the outline item
-            const blockIndexInOutlineItem = tr.selection.$from.index(currentOutlineItem.depth)
-
-            for (let index = 0; index < currentOutlineItem.node.childCount; index += 1) {
-              const child = currentOutlineItem.node.child(index)
-              if (index < blockIndexInOutlineItem) {
-                beforeBlocks.push(child)
+            let currentOutlineItemDepth = -1
+            for (let depth = currentBlockDepth; depth > 0; depth -= 1) {
+              if ($from.node(depth).type.isInGroup('outlineItem')) {
+                currentOutlineItemDepth = depth
+                break
               }
-              else if (index > blockIndexInOutlineItem) {
-                afterBlocks.push(child)
+            }
+            if (currentOutlineItemDepth < 0) {
+              return false
+            }
+
+            let currentOutlineListDepth = -1
+            for (let depth = currentOutlineItemDepth; depth > 0; depth -= 1) {
+              if ($from.node(depth).type.isInGroup('outlineList')) {
+                currentOutlineListDepth = depth
+                break
               }
-              else {
-                // The current block that be split
-                beforeBlocks.push(beforeBlock)
-                afterBlocks.push(afterBlock)
+            }
+            if (currentOutlineListDepth < 0) {
+              return false
+            }
+
+            const currentBlock = $from.node(currentBlockDepth)
+            const currentOutlineItem = $from.node(currentOutlineItemDepth)
+            const currentOutlineList = $from.node(currentOutlineListDepth)
+
+            // Split the direct child block under outline item while preserving
+            // all nested wrapper blocks between current block and this top block.
+            const topBlockIndexInOutlineItem = $from.index(currentOutlineItemDepth)
+            // The cursor must point to a valid direct child of the current outline item.
+            if (topBlockIndexInOutlineItem < 0 || topBlockIndexInOutlineItem >= currentOutlineItem.childCount) {
+              return false
+            }
+            const topBlock = currentOutlineItem.child(topBlockIndexInOutlineItem)
+
+            const beforeBlocks: PMNode[] = []
+            const afterBlocks: PMNode[] = []
+            if (options?.atTopBlockBoundary) {
+              /**
+               * Boundary mode:
+               * split by direct block boundary instead of leaf text offset.
+               * Current top block stays on the "before" side.
+               *
+               * This is used by blockquote double-Enter:
+               * after removing the trailing empty paragraph from blockquote,
+               * split should happen after the whole blockquote block.
+               */
+              for (let index = 0; index < currentOutlineItem.childCount; index += 1) {
+                const child = currentOutlineItem.child(index)
+                if (index <= topBlockIndexInOutlineItem) {
+                  beforeBlocks.push(child)
+                }
+                else {
+                  afterBlocks.push(child)
+                }
+              }
+              if (afterBlocks.length === 0) {
+                afterBlocks.push(paragraphType.create())
+              }
+            }
+            else {
+              const topBlockDepth = currentOutlineItemDepth + 1
+              const leafBlockDepth = currentBlockDepth
+              // Defensive check: leaf block cannot be above the top direct block.
+              if (leafBlockDepth < topBlockDepth) {
+                return false
+              }
+
+              const pathToLeaf: number[] = []
+              for (let depth = topBlockDepth; depth < leafBlockDepth; depth += 1) {
+                const parentNodeAtDepth = $from.node(depth)
+                const childIndex = $from.index(depth)
+                // Every path segment must resolve to a valid child index.
+                if (childIndex < 0 || childIndex >= parentNodeAtDepth.childCount) {
+                  return false
+                }
+                pathToLeaf.push(childIndex)
+              }
+
+              /**
+               * Inline split algorithm:
+               * 1) Split the leaf block where the cursor is located.
+               * 2) Rebuild every ancestor block up to `topBlock` by replacing the
+               *    descendant at `pathToLeaf[index]` with the split pair.
+               *
+               * Example:
+              *   topBlock(outline child): blockquote
+              *   structure: blockquote -> paragraph("123")
+              *   cursor after "1" => before: blockquote(paragraph("1")),
+              *                       after:  blockquote(paragraph("23"))
+              */
+              const leafOffset = $from.parentOffset
+              const splitPathNodes: PMNode[] = [topBlock]
+              let pathCursor = topBlock
+              for (const childIndex of pathToLeaf) {
+                // Walk from top block down to the leaf following the resolved path.
+                if (childIndex < 0 || childIndex >= pathCursor.childCount) {
+                  return false
+                }
+                pathCursor = pathCursor.child(childIndex)
+                splitPathNodes.push(pathCursor)
+              }
+
+              const leafNode = splitPathNodes[splitPathNodes.length - 1]
+              // Offset is relative to the leaf node content; it must be in bounds.
+              if (!leafNode || leafOffset < 0 || leafOffset > leafNode.content.size) {
+                return false
+              }
+
+              const leafBeforeContent = leafNode.content.cut(0, leafOffset)
+              const leafAfterContent = leafNode.content.cut(leafOffset, leafNode.content.size)
+              // Both split halves must satisfy the leaf node schema.
+              if (!leafNode.type.validContent(leafBeforeContent) || !leafNode.type.validContent(leafAfterContent)) {
+                return false
+              }
+
+              let beforeNode = leafNode.type.create(leafNode.attrs, leafBeforeContent, leafNode.marks)
+              let afterNode = leafNode.type.create(leafNode.attrs, leafAfterContent, leafNode.marks)
+
+              for (let index = pathToLeaf.length - 1; index >= 0; index -= 1) {
+                const parentNode = splitPathNodes[index]
+                const childIndex = pathToLeaf[index]
+                // Rebuild each ancestor from leaf -> top block.
+                if (!parentNode || childIndex === undefined || childIndex < 0 || childIndex >= parentNode.childCount) {
+                  return false
+                }
+
+                const beforeChildren: PMNode[] = []
+                const afterChildren: PMNode[] = []
+                for (let childOffset = 0; childOffset < parentNode.childCount; childOffset += 1) {
+                  const child = parentNode.child(childOffset)
+                  if (childOffset < childIndex) {
+                    beforeChildren.push(child)
+                  }
+                  else if (childOffset > childIndex) {
+                    afterChildren.push(child)
+                  }
+                  else {
+                    beforeChildren.push(beforeNode)
+                    afterChildren.push(afterNode)
+                  }
+                }
+
+                const beforeContent = Fragment.fromArray(beforeChildren)
+                const afterContent = Fragment.fromArray(afterChildren)
+                // Rebuilt ancestor nodes must remain schema-valid on both sides.
+                if (!parentNode.type.validContent(beforeContent) || !parentNode.type.validContent(afterContent)) {
+                  return false
+                }
+
+                beforeNode = parentNode.type.create(parentNode.attrs, beforeContent, parentNode.marks)
+                afterNode = parentNode.type.create(parentNode.attrs, afterContent, parentNode.marks)
+              }
+
+              for (let index = 0; index < currentOutlineItem.childCount; index += 1) {
+                const child = currentOutlineItem.child(index)
+                if (index < topBlockIndexInOutlineItem) {
+                  beforeBlocks.push(child)
+                }
+                else if (index > topBlockIndexInOutlineItem) {
+                  afterBlocks.push(child)
+                }
+                else {
+                  beforeBlocks.push(beforeNode)
+                  afterBlocks.push(afterNode)
+                }
               }
             }
 
@@ -330,38 +473,60 @@ export const Outline = Extension.create({
             const beforeFragment = Fragment.fromArray(beforeBlocks)
             const afterFragment = Fragment.fromArray(afterBlocks)
 
-            if (!outlineItemType.validContent(beforeFragment) || !outlineItemType.validContent(afterFragment)) {
+            // Keep current item type for "before", and ensure "after" fits outline item schema.
+            if (!currentOutlineItem.type.validContent(beforeFragment) || !outlineItemType.validContent(afterFragment)) {
               return false
             }
 
             // Split has two insertion modes:
             // 1) current list has child lists -> insert the new split list into current list children,
             // 2) current list has no child list -> insert the new split list after current list.
-            const outlineListInsertPos = currentOutlineList.node.childCount > 1
-              ? tr.selection.$from.end(currentOutlineItem.depth)
-              : tr.selection.$from.after(currentOutlineList.depth)
+            const insertIntoChildren = currentOutlineList.childCount > 1
+            const outlineListInsertPos = insertIntoChildren
+              ? $from.end(currentOutlineItemDepth)
+              : $from.after(currentOutlineListDepth)
             tr.insert(
               outlineListInsertPos,
               outlineListType.create(
-                currentOutlineList.node.attrs,
-                outlineItemType.create(currentOutlineItem.node.attrs, afterFragment),
+                currentOutlineList.attrs,
+                outlineItemType.create(currentOutlineItem.attrs, afterFragment),
               ),
             )
 
             // replace the origional outline item with the before block
             tr.replaceWith(
-              tr.selection.$from.before(currentOutlineItem.depth),
-              tr.selection.$from.after(currentOutlineItem.depth),
-              currentOutlineItem.node.type.create(currentOutlineItem.node.attrs, beforeFragment),
+              $from.before(currentOutlineItemDepth),
+              $from.after(currentOutlineItemDepth),
+              currentOutlineItem.type.create(currentOutlineItem.attrs, beforeFragment),
             )
 
-            // Place cursor at the start of the newly created split item (before the first character).
-            // We map with assoc -1 to keep the anchor on the inserted list after subsequent mapping changes.
-            // `+3` depends on current schema shape: outlineList -> outlineItem -> first block text start.
-            const insertedListPos = tr.mapping.map(outlineListInsertPos, -1)
-            const preferredCursorPos = insertedListPos + 3
+            // Place cursor inside the newly created split item.
+            // Resolve inserted list position from final structure to avoid
+            // landing back in current item when mapping hits ambiguous boundaries.
+            let insertedListPos: number | null = null
+            if (insertIntoChildren) {
+              const mappedItemPos = tr.mapping.map($from.before(currentOutlineItemDepth), -1)
+              const mappedItemNode = tr.doc.nodeAt(mappedItemPos)
+              if (mappedItemNode) {
+                insertedListPos = mappedItemPos + mappedItemNode.nodeSize
+              }
+            }
+            else {
+              const mappedListPos = tr.mapping.map($from.before(currentOutlineListDepth), -1)
+              const mappedListNode = tr.doc.nodeAt(mappedListPos)
+              if (mappedListNode) {
+                insertedListPos = mappedListPos + mappedListNode.nodeSize
+              }
+            }
+            if (insertedListPos === null) {
+              insertedListPos = tr.mapping.map(outlineListInsertPos, -1)
+            }
             try {
-              tr.setSelection(TextSelection.near(tr.doc.resolve(preferredCursorPos), 1))
+              const insertedListNode = tr.doc.nodeAt(insertedListPos)
+              const searchStartPos = insertedListNode ? insertedListPos + 1 : insertedListPos
+              const textSelection = Selection.findFrom(tr.doc.resolve(searchStartPos), 1, true)
+                ?? Selection.findFrom(tr.doc.resolve(searchStartPos), 1)
+              tr.setSelection(textSelection ?? Selection.near(tr.doc.resolve(searchStartPos), 1))
             }
             catch {
               // Best-effort cursor placement: never fail the split operation due to selection errors.

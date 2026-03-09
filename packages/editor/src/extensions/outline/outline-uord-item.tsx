@@ -315,13 +315,18 @@ export const OutlineUordItem = Node.create({
           const block = yield* getParentBlock(node)
           const outlineItem = yield* getParentOutlineItem(block)
           const outlineList = yield* getParentOutlineList(outlineItem)
-          return { outlineItem, outlineList }
+          return { block, outlineItem, outlineList }
         })
         if (Option.isNone(ctx)) {
           return false
         }
 
-        const { outlineItem, outlineList } = ctx.value
+        const { block, outlineItem, outlineList } = ctx.value
+        const isDirectBlockOfOutlineItem = block.depth === outlineItem.depth + 1
+        if (!isDirectBlockOfOutlineItem) {
+          return false
+        }
+
         const isFirstBlockOfOutlineItem = selection.$from.index(outlineItem.depth) === 0
         // Not first block of the outline item, use other backspace behavior to delete content.
         if (!isFirstBlockOfOutlineItem) {
