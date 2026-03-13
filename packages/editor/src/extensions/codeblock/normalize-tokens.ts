@@ -6,7 +6,7 @@
 import type Prism from 'prismjs'
 
 type PrismToken = Prism.Token
-interface Token {
+export interface Token {
   types: string[]
   content: string
   empty?: boolean
