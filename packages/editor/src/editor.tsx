@@ -15,6 +15,7 @@ import UniqueID from '@tiptap/extension-unique-id'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import Blockquote from './extensions/blockquote'
+import CodeBlock from './extensions/codeblock'
 import Heading from './extensions/heading'
 import InlineCode from './extensions/inline-code'
 import Outline from './extensions/outline'
@@ -59,6 +60,7 @@ export function MemoriloEditor({
           multicolor: true,
         }),
         InlineCode,
+        CodeBlock,
         Blockquote,
         HardBreak.extend({
           // Remove Mod-Enter shortcut for hard break to avoid conflict with cycle todo shortcut in outline task item
