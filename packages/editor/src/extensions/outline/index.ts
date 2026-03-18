@@ -5,13 +5,14 @@ import Paragraph from '@tiptap/extension-paragraph'
 import { Fragment } from '@tiptap/pm/model'
 import { Plugin, Selection, TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
+import { findClosestAncestor } from '../../utils/node-traversal'
 import { OutlineDocument } from './document'
 import { OutlineOrdItem } from './outline-ord-item'
 import { OutlineOrdList } from './outline-ord-list'
 import { OutlineTaskItem } from './outline-task-item'
 import { OutlineUordItem } from './outline-uord-item'
 import { OutlineUList } from './outline-uord-list'
-import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
+import { getParentOutlineItem, getParentOutlineList } from './utils/outlines'
 
 /**
  * Sync the first item type of a moved outline list after indent/unindent.
@@ -68,6 +69,8 @@ function syncMovedOutlineItemType(
     currentItem.marks,
   )
 }
+
+const SPLITTABLE_DIRECT_BLOCK_TYPES = new Set(['paragraph', 'heading'])
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -266,7 +269,44 @@ export const Outline = Extension.create({
 
       splitOutlineItem:
         () =>
-          ({ state, editor, dispatch, tr }) => {
+          ({ state, dispatch, tr }) => {
+            const { $from, $to } = state.selection
+            const directBlock = $from.parent
+            if ($to.parent !== directBlock) {
+              return false
+            }
+
+            const outlineItem = findClosestAncestor($from, node => node.type.isInGroup('outlineItem'))
+            const outlineList = findClosestAncestor($from, node => node.type.isInGroup('outlineList'))
+            if (!outlineItem || !outlineList) {
+              return false
+            }
+
+            const directBlockIndex = $from.index(outlineItem.depth)
+            if (directBlockIndex < 0 || directBlockIndex >= outlineItem.node.childCount) {
+              return false
+            }
+            if (!outlineItem.node.child(directBlockIndex).eq(directBlock)) {
+              return false
+            }
+
+            // Split only supports a selection that stays inside one direct block
+            // of the current outline item. Once the range crosses blocks or enters
+            // nested structure, this command can no longer rebuild the item safely.
+            // Keep custom split behavior to plain editable textblocks we know how
+            // to reconstruct. Code blocks or unsupported block types should fall
+            // back to their own Enter semantics instead of being rewritten here.
+            if (!directBlock.isTextblock || directBlock.type.spec.code) {
+              return false
+            }
+            if (!SPLITTABLE_DIRECT_BLOCK_TYPES.has(directBlock.type.name)) {
+              return false
+            }
+
+            const directBlockPos = $from.before($from.depth)
+            const outlineItemPos = outlineItem.pos
+            const outlineListPos = outlineList.pos
+
             // If there is a selection, delete it first
             if (!tr.selection.empty) {
               tr.deleteSelection()
@@ -279,147 +319,72 @@ export const Outline = Extension.create({
               throw new Error('Required node types are not defined in the schema')
             }
 
-            const { $from } = tr.selection
-            const blockPos = getParentBlock(editor.$pos($from.pos)).pipe(Option.getOrThrow)
-            const outlineItemPos = getParentOutlineItem(blockPos).pipe(Option.getOrThrow)
-            const outlineListPos = getParentOutlineList(outlineItemPos).pipe(Option.getOrThrow)
-            const outlineItem = outlineItemPos.node
-            const outlineList = outlineListPos.node
-
-            // The cursor must point to a valid direct child of the current outline item.
-            const topBlockIndexInOutlineItem = $from.index(outlineItemPos.depth)
-            if (topBlockIndexInOutlineItem < 0 || topBlockIndexInOutlineItem >= outlineItem.childCount) {
+            const mappedDirectBlockPos = tr.mapping.map(directBlockPos, -1)
+            const mappedOutlineItemPos = tr.mapping.map(outlineItemPos, -1)
+            const mappedOutlineListPos = tr.mapping.map(outlineListPos, -1)
+            const currentDirectBlock = tr.doc.nodeAt(mappedDirectBlockPos)
+            const currentOutlineItem = tr.doc.nodeAt(mappedOutlineItemPos)
+            const currentOutlineList = tr.doc.nodeAt(mappedOutlineListPos)
+            if (!currentDirectBlock || !currentOutlineItem || !currentOutlineList) {
               return false
             }
-            const topBlock = outlineItem.child(topBlockIndexInOutlineItem)
+            if (!currentOutlineItem.type.isInGroup('outlineItem') || !currentOutlineList.type.isInGroup('outlineList')) {
+              return false
+            }
+            if (directBlockIndex >= currentOutlineItem.childCount || !currentOutlineItem.child(directBlockIndex).eq(currentDirectBlock)) {
+              return false
+            }
+
+            const { $from: mappedFrom } = tr.selection
 
             const beforeBlocks: PMNode[] = []
             const afterBlocks: PMNode[] = []
-            const isTrailingEmptyParagraph = blockPos.depth === outlineItemPos.depth + 1
-              && topBlockIndexInOutlineItem === outlineItem.childCount - 1
-              && topBlockIndexInOutlineItem > 0
-              && $from.parent.type === paragraphType
-              && $from.parent.content.size === 0
-              && $from.parentOffset === 0
+            const isTrailingEmptyParagraph = currentDirectBlock.type === paragraphType
+              && directBlockIndex === currentOutlineItem.childCount - 1
+              && directBlockIndex > 0
+              && mappedFrom.parent.type === paragraphType
+              && mappedFrom.parent.content.size === 0
+              && mappedFrom.parentOffset === 0
 
+            // Special case: pressing Enter on a trailing empty paragraph should move
+            // that empty paragraph into the new split item, instead of keeping an
+            // extra empty tail block in the current item and then splitting again.
             const cleanupTrailingParagraphRange: { from: number, to: number } | null = isTrailingEmptyParagraph
               ? {
-                  from: $from.before(blockPos.depth),
-                  to: $from.before(blockPos.depth) + topBlock.nodeSize,
+                  from: mappedDirectBlockPos,
+                  to: mappedDirectBlockPos + currentDirectBlock.nodeSize,
                 }
               : null
 
-            // Handle the two split modes:
-            // 1) when the cursor is in a non-leading trailing empty paragraph,
-            //    create the new split item first and delete that original paragraph at the end;
-            // 2) otherwise, run the normal inline split logic at the cursor.
             if (cleanupTrailingParagraphRange) {
-              afterBlocks.push(paragraphType.create(topBlock.attrs, topBlock.content, topBlock.marks))
+              afterBlocks.push(paragraphType.create(currentDirectBlock.attrs, currentDirectBlock.content, currentDirectBlock.marks))
             }
             else {
-              const topBlockDepth = outlineItemPos.depth + 1
-              // Defensive check: leaf block cannot be above the top direct block.
-              if (blockPos.depth < topBlockDepth) {
+              const splitOffset = mappedFrom.parentOffset
+              if (splitOffset < 0 || splitOffset > currentDirectBlock.content.size) {
                 return false
               }
 
-              const pathToLeaf: number[] = []
-              for (let depth = topBlockDepth; depth < blockPos.depth; depth += 1) {
-                const parentNodeAtDepth = $from.node(depth)
-                const childIndex = $from.index(depth)
-                // Every path segment must resolve to a valid child index.
-                if (childIndex < 0 || childIndex >= parentNodeAtDepth.childCount) {
-                  return false
-                }
-                pathToLeaf.push(childIndex)
-              }
-
-              /**
-               * Inline split algorithm:
-               * 1) Split the leaf block where the cursor is located.
-               * 2) Rebuild every ancestor block up to `topBlock` by replacing the
-               *    descendant at `pathToLeaf[index]` with the split pair.
-               *
-               * Example:
-               *   topBlock(outline child): blockquote
-               *   structure: blockquote -> paragraph("123")
-               *   cursor after "1" => before: blockquote(paragraph("1")),
-               *                       after:  blockquote(paragraph("23"))
-               */
-              const leafOffset = $from.parentOffset
-              const splitPathNodes: PMNode[] = [topBlock]
-              let pathCursor = topBlock
-              for (const childIndex of pathToLeaf) {
-                // Walk from top block down to the leaf following the resolved path.
-                if (childIndex < 0 || childIndex >= pathCursor.childCount) {
-                  return false
-                }
-                pathCursor = pathCursor.child(childIndex)
-                splitPathNodes.push(pathCursor)
-              }
-
-              const leafNode = splitPathNodes[splitPathNodes.length - 1]
-              // Offset is relative to the leaf node content; it must be in bounds.
-              if (!leafNode || leafOffset < 0 || leafOffset > leafNode.content.size) {
+              const beforeContent = currentDirectBlock.content.cut(0, splitOffset)
+              const afterContent = currentDirectBlock.content.cut(splitOffset, currentDirectBlock.content.size)
+              if (!currentDirectBlock.type.validContent(beforeContent) || !currentDirectBlock.type.validContent(afterContent)) {
                 return false
               }
 
-              const leafBeforeContent = leafNode.content.cut(0, leafOffset)
-              const leafAfterContent = leafNode.content.cut(leafOffset, leafNode.content.size)
-              // Both split halves must satisfy the leaf node schema.
-              if (!leafNode.type.validContent(leafBeforeContent) || !leafNode.type.validContent(leafAfterContent)) {
-                return false
-              }
+              const beforeBlock = currentDirectBlock.type.create(currentDirectBlock.attrs, beforeContent, currentDirectBlock.marks)
+              const afterBlock = currentDirectBlock.type.create(currentDirectBlock.attrs, afterContent, currentDirectBlock.marks)
 
-              let beforeNode = leafNode.type.create(leafNode.attrs, leafBeforeContent, leafNode.marks)
-              let afterNode = leafNode.type.create(leafNode.attrs, leafAfterContent, leafNode.marks)
-
-              for (let index = pathToLeaf.length - 1; index >= 0; index -= 1) {
-                const parentNode = splitPathNodes[index]
-                const childIndex = pathToLeaf[index]
-                // Rebuild each ancestor from leaf -> top block.
-                if (!parentNode || childIndex === undefined || childIndex < 0 || childIndex >= parentNode.childCount) {
-                  return false
-                }
-
-                const beforeChildren: PMNode[] = []
-                const afterChildren: PMNode[] = []
-                for (let childOffset = 0; childOffset < parentNode.childCount; childOffset += 1) {
-                  const child = parentNode.child(childOffset)
-                  if (childOffset < childIndex) {
-                    beforeChildren.push(child)
-                  }
-                  else if (childOffset > childIndex) {
-                    afterChildren.push(child)
-                  }
-                  else {
-                    beforeChildren.push(beforeNode)
-                    afterChildren.push(afterNode)
-                  }
-                }
-
-                const beforeContent = Fragment.fromArray(beforeChildren)
-                const afterContent = Fragment.fromArray(afterChildren)
-                // Rebuilt ancestor nodes must remain schema-valid on both sides.
-                if (!parentNode.type.validContent(beforeContent) || !parentNode.type.validContent(afterContent)) {
-                  return false
-                }
-
-                beforeNode = parentNode.type.create(parentNode.attrs, beforeContent, parentNode.marks)
-                afterNode = parentNode.type.create(parentNode.attrs, afterContent, parentNode.marks)
-              }
-
-              for (let index = 0; index < outlineItem.childCount; index += 1) {
-                const child = outlineItem.child(index)
-                if (index < topBlockIndexInOutlineItem) {
+              for (let index = 0; index < currentOutlineItem.childCount; index += 1) {
+                const child = currentOutlineItem.child(index)
+                if (index < directBlockIndex) {
                   beforeBlocks.push(child)
                 }
-                else if (index > topBlockIndexInOutlineItem) {
+                else if (index > directBlockIndex) {
                   afterBlocks.push(child)
                 }
                 else {
-                  beforeBlocks.push(beforeNode)
-                  afterBlocks.push(afterNode)
+                  beforeBlocks.push(beforeBlock)
+                  afterBlocks.push(afterBlock)
                 }
               }
             }
@@ -429,7 +394,7 @@ export const Outline = Extension.create({
             const afterFragment = Fragment.fromArray(afterBlocks)
 
             // Keep current item type for "before", and ensure the split target fits outline item schema.
-            if (!cleanupTrailingParagraphRange && !outlineItem.type.validContent(beforeFragment)) {
+            if (!cleanupTrailingParagraphRange && !currentOutlineItem.type.validContent(beforeFragment)) {
               return false
             }
             if (!outlineItemType.validContent(afterFragment)) {
@@ -439,24 +404,24 @@ export const Outline = Extension.create({
             // Split has two insertion modes:
             // 1) current list has child lists -> insert the new split list into current list children,
             // 2) current list has no child list -> insert the new split list after current list.
-            const insertIntoChildren = outlineList.childCount > 1
+            const insertIntoChildren = currentOutlineList.childCount > 1
             const outlineListInsertPos = insertIntoChildren
-              ? $from.end(outlineItemPos.depth)
-              : $from.after(outlineListPos.depth)
+              ? mappedOutlineItemPos + currentOutlineItem.nodeSize - 1
+              : mappedOutlineListPos + currentOutlineList.nodeSize
             tr.insert(
               outlineListInsertPos,
               outlineListType.create(
-                outlineList.attrs,
-                outlineItemType.create(outlineItem.attrs, afterFragment),
+                currentOutlineList.attrs,
+                outlineItemType.create(currentOutlineItem.attrs, afterFragment),
               ),
             )
 
             if (!cleanupTrailingParagraphRange) {
               // replace the origional outline item with the before block
               tr.replaceWith(
-                $from.before(outlineItemPos.depth),
-                $from.after(outlineItemPos.depth),
-                outlineItem.type.create(outlineItem.attrs, beforeFragment),
+                mappedOutlineItemPos,
+                mappedOutlineItemPos + currentOutlineItem.nodeSize,
+                currentOutlineItem.type.create(currentOutlineItem.attrs, beforeFragment),
               )
             }
 
@@ -471,14 +436,14 @@ export const Outline = Extension.create({
             // landing back in current item when mapping hits ambiguous boundaries.
             let insertedListPos: number | null = null
             if (insertIntoChildren) {
-              const mappedItemPos = tr.mapping.map($from.before(outlineItemPos.depth), -1)
+              const mappedItemPos = tr.mapping.map(outlineItemPos, -1)
               const mappedItemNode = tr.doc.nodeAt(mappedItemPos)
               if (mappedItemNode) {
                 insertedListPos = mappedItemPos + mappedItemNode.nodeSize
               }
             }
             else {
-              const mappedListPos = tr.mapping.map($from.before(outlineListPos.depth), -1)
+              const mappedListPos = tr.mapping.map(outlineListPos, -1)
               const mappedListNode = tr.doc.nodeAt(mappedListPos)
               if (mappedListNode) {
                 insertedListPos = mappedListPos + mappedListNode.nodeSize
