@@ -72,14 +72,7 @@ function syncMovedOutlineItemType(
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     outline: {
-      /**
-       * Split current outline item into two items.
-       *
-       * - default: split by leaf text offset (e.g. paragraph cursor position)
-       * - atTopBlockBoundary: split by the direct child block boundary of current
-       *   outline item, keeping the current top block on the "before" side
-       */
-      splitOutlineItem: (options?: { atTopBlockBoundary?: boolean }) => ReturnType
+      splitOutlineItem: () => ReturnType
       indentOutlineItem: () => ReturnType
       unindentOutlineItem: () => ReturnType
     }
@@ -272,7 +265,7 @@ export const Outline = Extension.create({
       },
 
       splitOutlineItem:
-        options =>
+        () =>
           ({ state, editor, dispatch, tr }) => {
             // If there is a selection, delete it first
             if (!tr.selection.empty) {
@@ -287,17 +280,14 @@ export const Outline = Extension.create({
             }
 
             const { $from } = tr.selection
-
             const blockPos = getParentBlock(editor.$pos($from.pos)).pipe(Option.getOrThrow)
             const outlineItemPos = getParentOutlineItem(blockPos).pipe(Option.getOrThrow)
             const outlineListPos = getParentOutlineList(outlineItemPos).pipe(Option.getOrThrow)
             const outlineItem = outlineItemPos.node
             const outlineList = outlineListPos.node
 
-            // Split the direct child block under outline item while preserving
-            // all nested wrapper blocks between current block and this top block.
-            const topBlockIndexInOutlineItem = $from.index(outlineItemPos.depth)
             // The cursor must point to a valid direct child of the current outline item.
+            const topBlockIndexInOutlineItem = $from.index(outlineItemPos.depth)
             if (topBlockIndexInOutlineItem < 0 || topBlockIndexInOutlineItem >= outlineItem.childCount) {
               return false
             }
@@ -305,28 +295,26 @@ export const Outline = Extension.create({
 
             const beforeBlocks: PMNode[] = []
             const afterBlocks: PMNode[] = []
-            if (options?.atTopBlockBoundary) {
-              /**
-               * Boundary mode:
-               * split by direct block boundary instead of leaf text offset.
-               * Current top block stays on the "before" side.
-               *
-               * This is used by blockquote double-Enter:
-               * after removing the trailing empty paragraph from blockquote,
-               * split should happen after the whole blockquote block.
-               */
-              for (let index = 0; index < outlineItem.childCount; index += 1) {
-                const child = outlineItem.child(index)
-                if (index <= topBlockIndexInOutlineItem) {
-                  beforeBlocks.push(child)
+            const isTrailingEmptyParagraph = blockPos.depth === outlineItemPos.depth + 1
+              && topBlockIndexInOutlineItem === outlineItem.childCount - 1
+              && topBlockIndexInOutlineItem > 0
+              && $from.parent.type === paragraphType
+              && $from.parent.content.size === 0
+              && $from.parentOffset === 0
+
+            const cleanupTrailingParagraphRange: { from: number, to: number } | null = isTrailingEmptyParagraph
+              ? {
+                  from: $from.before(blockPos.depth),
+                  to: $from.before(blockPos.depth) + topBlock.nodeSize,
                 }
-                else {
-                  afterBlocks.push(child)
-                }
-              }
-              if (afterBlocks.length === 0) {
-                afterBlocks.push(paragraphType.create())
-              }
+              : null
+
+            // Handle the two split modes:
+            // 1) when the cursor is in a non-leading trailing empty paragraph,
+            //    create the new split item first and delete that original paragraph at the end;
+            // 2) otherwise, run the normal inline split logic at the cursor.
+            if (cleanupTrailingParagraphRange) {
+              afterBlocks.push(paragraphType.create(topBlock.attrs, topBlock.content, topBlock.marks))
             }
             else {
               const topBlockDepth = outlineItemPos.depth + 1
@@ -440,8 +428,11 @@ export const Outline = Extension.create({
             const beforeFragment = Fragment.fromArray(beforeBlocks)
             const afterFragment = Fragment.fromArray(afterBlocks)
 
-            // Keep current item type for "before", and ensure "after" fits outline item schema.
-            if (!outlineItem.type.validContent(beforeFragment) || !outlineItemType.validContent(afterFragment)) {
+            // Keep current item type for "before", and ensure the split target fits outline item schema.
+            if (!cleanupTrailingParagraphRange && !outlineItem.type.validContent(beforeFragment)) {
+              return false
+            }
+            if (!outlineItemType.validContent(afterFragment)) {
               return false
             }
 
@@ -460,12 +451,20 @@ export const Outline = Extension.create({
               ),
             )
 
-            // replace the origional outline item with the before block
-            tr.replaceWith(
-              $from.before(outlineItemPos.depth),
-              $from.after(outlineItemPos.depth),
-              outlineItem.type.create(outlineItem.attrs, beforeFragment),
-            )
+            if (!cleanupTrailingParagraphRange) {
+              // replace the origional outline item with the before block
+              tr.replaceWith(
+                $from.before(outlineItemPos.depth),
+                $from.after(outlineItemPos.depth),
+                outlineItem.type.create(outlineItem.attrs, beforeFragment),
+              )
+            }
+
+            if (cleanupTrailingParagraphRange) {
+              const cleanupFrom = tr.mapping.map(cleanupTrailingParagraphRange.from, -1)
+              const cleanupTo = tr.mapping.map(cleanupTrailingParagraphRange.to, -1)
+              tr.delete(cleanupFrom, cleanupTo)
+            }
 
             // Place cursor inside the newly created split item.
             // Resolve inserted list position from final structure to avoid
