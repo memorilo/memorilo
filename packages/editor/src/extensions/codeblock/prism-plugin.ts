@@ -2,20 +2,20 @@ import type {
   Node as ProsemirrorNode,
 } from '@tiptap/pm/model'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
 import type { Token } from './normalize-tokens'
 import { findChildren } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { Console, Effect } from 'effect'
 
 import Prism from 'prismjs'
+import { isPrismLanguageLoaded, loadPrismLanguage } from './libs/languages'
 import { normalizeTokens } from './normalize-tokens'
-import 'prismjs/components/prism-text'
+import 'prismjs/components/prism-jsx'
 
-function isLangRegistered(aliasOrLanguage: string) {
-  const allSupportLang = Object.keys(Prism.languages).filter(
-    id => typeof Prism.languages[id] === 'object',
-  )
-  return Boolean(allSupportLang.find(x => x === aliasOrLanguage))
+function shouldSkipHighlight(language: string | null | undefined) {
+  return !language || language === 'text'
 }
 
 function getLineStarts(text: string) {
@@ -43,27 +43,38 @@ function getDecorations({
   doc,
   name,
   defaultLanguage,
+  onMissingLanguage,
 }: {
   doc: ProsemirrorNode
   name: string
   defaultLanguage: string | null | undefined
+  onMissingLanguage?: (language: string) => void
 }) {
   const decorations: Decoration[] = []
+  const requestedLanguages = new Set<string>()
 
   findChildren(doc, node => node.type.name === name).forEach((block) => {
     const language = block.node.attrs.language || defaultLanguage
+    if (shouldSkipHighlight(language)) {
+      return
+    }
+
+    if (!isPrismLanguageLoaded(language)) {
+      if (!requestedLanguages.has(language)) {
+        requestedLanguages.add(language)
+        onMissingLanguage?.(language)
+      }
+      return
+    }
 
     let normalizedTokens: Token[][]
 
     try {
-      if (!isLangRegistered(language)) {
-        import(`prismjs/components/prism-${language}`)
-      }
       normalizedTokens = normalizeTokens(Prism.tokenize(block.node.textContent, Prism.languages[language]!))
     }
     catch (err: any) {
-      console.error(`${err.message}: "${language}"`)
-      normalizedTokens = normalizeTokens(Prism.tokenize(block.node.textContent, Prism.languages.javascript!))
+      Effect.runPromise(Console.error(`${err.message}: "${language}"`))
+      return
     }
 
     const text = block.node.textContent
@@ -110,8 +121,34 @@ export function PrismPlugin({
   }
 
   const key = new PluginKey('prism')
+  let editorView: EditorView | null = null
+  const requestLanguageLoad = (language: string) => {
+    void loadPrismLanguage(language)
+      .then(() => {
+        if (!editorView || editorView.isDestroyed) {
+          return
+        }
+
+        editorView.dispatch(editorView.state.tr.setMeta(key, { refresh: true }))
+      })
+      .catch((error) => {
+        Effect.runPromise(Console.error(error))
+      })
+  }
   const prismjsPlugin: Plugin<any> = new Plugin({
     key,
+
+    view(view) {
+      editorView = view
+
+      return {
+        destroy() {
+          if (editorView === view) {
+            editorView = null
+          }
+        },
+      }
+    },
 
     state: {
       init: (_, { doc }) =>
@@ -119,6 +156,7 @@ export function PrismPlugin({
           doc,
           name,
           defaultLanguage,
+          onMissingLanguage: requestLanguageLoad,
         }),
       apply: (transaction, decorationSet, oldState, newState) => {
         if (transaction.getMeta(key)?.refresh) {
@@ -126,6 +164,7 @@ export function PrismPlugin({
             doc: transaction.doc,
             name,
             defaultLanguage,
+            onMissingLanguage: requestLanguageLoad,
           })
         }
 
@@ -134,6 +173,7 @@ export function PrismPlugin({
             doc: transaction.doc,
             name,
             defaultLanguage,
+            onMissingLanguage: requestLanguageLoad,
           })
         }
 
@@ -161,17 +201,17 @@ function shouldRebuildDecorations(
     return false
   }
 
-  const oldNodeName = oldState.selection.$head.parent.type.name
-  const newNodeName = newState.selection.$head.parent.type.name
-  const selectionTouchesNode = oldNodeName === nodeName || newNodeName === nodeName
-
   const oldNodes = findChildren(oldState.doc, node => node.type.name === nodeName)
   const newNodes = findChildren(newState.doc, node => node.type.name === nodeName)
 
-  // Apply decorations if:
-  // selection includes named node,
-  // OR transaction adds/removes named node,
-  if (selectionTouchesNode || newNodes.length !== oldNodes.length) {
+  // Rebuild when the set of named nodes changes, or when a named node's
+  // markup/content changes. This catches attribute-only updates such as
+  // language changes, which don't necessarily produce a step map that
+  // encapsulates the whole node.
+  if (
+    newNodes.length !== oldNodes.length
+    || oldNodes.some((oldNode, index) => !oldNode.node.eq(newNodes[index]!.node))
+  ) {
     return true
   }
 
