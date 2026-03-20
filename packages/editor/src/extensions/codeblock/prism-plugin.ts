@@ -10,13 +10,13 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { Console, Effect } from 'effect'
 
 import Prism from 'prismjs'
-import { isPrismLanguageLoaded, loadPrismLanguage } from './libs/languages'
+import {
+  isPrismLanguageLoaded,
+  loadPrismLanguage,
+} from './libs/languages'
+import { getCodeBlockResolvedLanguage } from './libs/resolved-language'
 import { normalizeTokens } from './normalize-tokens'
 import 'prismjs/components/prism-jsx'
-
-function shouldSkipHighlight(language: string | null | undefined) {
-  return !language || language === 'text'
-}
 
 function getLineStarts(text: string) {
   const starts = [0]
@@ -54,8 +54,8 @@ function getDecorations({
   const requestedLanguages = new Set<string>()
 
   findChildren(doc, node => node.type.name === name).forEach((block) => {
-    const language = block.node.attrs.language || defaultLanguage
-    if (shouldSkipHighlight(language)) {
+    const language = getCodeBlockResolvedLanguage(block.node.attrs, defaultLanguage)
+    if (!language || language === 'text') {
       return
     }
 

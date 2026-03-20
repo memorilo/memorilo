@@ -1,18 +1,26 @@
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@memorilo/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { LuCheck, LuChevronDown } from 'react-icons/lu'
 import { languageMap, languages } from '../libs/languages'
+import { CODE_BLOCK_AUTO_LANGUAGE } from '../libs/resolved-language'
 
 interface LanguageSelectProps {
   value: string
   onChange: (value: string) => void
 }
+
 export function LanguageSelect(props: LanguageSelectProps) {
   const [open, setOpen] = useState(false)
-  const displayLanguage = languageMap[props.value] ?? props.value
-  const languageOptions = [{ key: 'text', label: 'Text' }].concat(...languages)
+  const languageOptions = [
+    { key: CODE_BLOCK_AUTO_LANGUAGE, label: 'Auto-Detect' },
+    { key: 'text', label: 'Text' },
+  ].concat(...languages)
+  const displayLanguage = useMemo(() =>
+    languageOptions.find(option => option.key === props.value)
+      ?.label
+      ?? props.value, [props.value, languageOptions])
 
   const handleSelect = (value: string) => {
     if (value !== props.value) {

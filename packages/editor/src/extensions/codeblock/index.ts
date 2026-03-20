@@ -4,6 +4,8 @@ import CodeBlock from '@tiptap/extension-code-block'
 
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { CodeBlockNodeView } from './components/node-view'
+import { CodeBlockLanguageGuessPlugin } from './language-guess-plugin'
+import { CODE_BLOCK_AUTO_LANGUAGE } from './libs/resolved-language'
 import { PrismPlugin } from './prism-plugin'
 import './themes/prism-gruvbox-light.css'
 
@@ -21,7 +23,7 @@ export const CodeBlockPrism = CodeBlock.extend<CodeBlockPrismOptions>({
           if (!okay) {
             return
           }
-          this.editor.chain().focus().deleteRange(range).toggleCodeBlock({ language: language ?? 'text' }).run()
+          this.editor.chain().focus().deleteRange(range).toggleCodeBlock({ language: language ?? CODE_BLOCK_AUTO_LANGUAGE }).run()
         },
       }),
     ]
@@ -30,7 +32,7 @@ export const CodeBlockPrism = CodeBlock.extend<CodeBlockPrismOptions>({
   addAttributes() {
     return {
       language: {
-        default: null,
+        default: CODE_BLOCK_AUTO_LANGUAGE,
       },
       guess: {
         default: null,
@@ -55,6 +57,9 @@ export const CodeBlockPrism = CodeBlock.extend<CodeBlockPrismOptions>({
       PrismPlugin({
         name: this.name,
         defaultLanguage: this.options.defaultLanguage,
+      }),
+      CodeBlockLanguageGuessPlugin({
+        name: this.name,
       }),
     ]
   },
