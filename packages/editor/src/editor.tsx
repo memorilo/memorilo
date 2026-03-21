@@ -18,6 +18,7 @@ import Blockquote from './extensions/blockquote'
 import CodeBlock from './extensions/codeblock'
 import Heading from './extensions/heading'
 import InlineCode from './extensions/inline-code'
+import Mathematics from './extensions/mathematics'
 import Outline from './extensions/outline'
 
 import { OutlineOrdItem } from './extensions/outline/outline-ord-item'
@@ -56,6 +57,7 @@ export function MemoriloEditor({
         Text,
         Outline,
         Heading,
+        Mathematics,
         Highlight.configure({
           multicolor: true,
         }),
