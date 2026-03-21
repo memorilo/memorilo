@@ -31,19 +31,16 @@ export function LanguageSelect(props: LanguageSelectProps) {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={popoverProps => (
-          <button
-            type="button"
-            {...popoverProps}
-            contentEditable={false}
-            className="absolute right-0.5 top-0.5 flex cursor-pointer items-center gap-1 rounded border px-2 py-1 font-mono text-sm select-none"
-          >
-            {displayLanguage}
-            <LuChevronDown />
-          </button>
-        )}
-      />
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          contentEditable={false}
+          className="absolute right-0.5 top-0.5 flex cursor-pointer items-center gap-1 rounded border px-2 py-1 font-mono text-sm select-none"
+        >
+          {displayLanguage}
+          <LuChevronDown />
+        </button>
+      </PopoverTrigger>
 
       <PopoverContent contentEditable={false} className="overflow-hidden gap-0 p-0">
         <Command>

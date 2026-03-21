@@ -1,3 +1,11 @@
+catalogMode: prefer
+
+cleanupUnusedCatalogs: true
+
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
 packages:
   - apps/*
   - packages/*
@@ -5,7 +13,6 @@ packages:
 
 catalog:
   '@antfu/eslint-config': ^6.7.3
-  '@base-ui/react': ^1.1.0
   '@eslint-react/eslint-plugin': ^2.5.4
   '@eslint/js': ^9.39.2
   '@floating-ui/dom': ^1.7.4
@@ -84,6 +91,7 @@ catalog:
   motion: 12.23.25
   pathe: ^2.0.3
   prismjs: ^1.30.0
+  radix-ui: ^1.4.3
   react: ^19.2.3
   react-calendar: ^6.0.0
   react-color: ^2.19.3
@@ -111,15 +119,7 @@ catalog:
   yjs: ^13.6.29
   zod: ^4.2.0
 
-catalogMode: prefer
-
-cleanupUnusedCatalogs: true
-
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@swc/core'
   - esbuild
-
-shellEmulator: true
-
-trustPolicy: no-downgrade

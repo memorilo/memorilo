@@ -26,31 +26,21 @@ export function IconTooltipButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={tooltipProps => (
-          <Button
-            {...tooltipProps}
-            aria-label={label}
-            aria-pressed={ariaPressed}
-            className={cn('h-8 w-8 px-0', className, active && activeClassName, tooltipProps.className)}
-            onMouseDown={(event) => {
-              event.preventDefault()
-            }}
-            onClick={(event) => {
-              tooltipProps.onClick?.(event)
-              if (!disabled) {
-                onClick()
-              }
-            }}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-            disabled={disabled}
-          >
-            <Icon size={16} />
-          </Button>
-        )}
-      />
+      <TooltipTrigger asChild>
+        <Button
+          aria-label={label}
+          aria-pressed={ariaPressed}
+          className={cn('h-8 w-8 px-0', className, active && activeClassName)}
+          onMouseDown={event => event.preventDefault()}
+          onClick={onClick}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+          disabled={disabled}
+        >
+          <Icon size={16} />
+        </Button>
+      </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6}>
         {label}
       </TooltipContent>

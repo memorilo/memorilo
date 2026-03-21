@@ -24,7 +24,6 @@ import Outline from './extensions/outline'
 import { OutlineOrdItem } from './extensions/outline/outline-ord-item'
 import { OutlineUordItem } from './extensions/outline/outline-uord-item'
 import { YjsDocumentContext } from './provider/yjs'
-import './editor.css'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   fragment: XmlFragment | XmlElement
@@ -98,7 +97,7 @@ export function MemoriloEditor({
     <YjsDocumentContext value={yjsDocumentValue}>
       <div
         className={cn(
-          'memorilo-editor',
+          'memorilo-editor px-8 py-4 [&_.ProseMirror]:outline-none',
           className,
         )}
         {...props}

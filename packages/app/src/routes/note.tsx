@@ -12,7 +12,7 @@ function RouteComponent() {
   const canGoBack = router.history.canGoBack()
 
   return (
-    <div className="size-full flex flex-col overflow-hidden">
+    <div className="size-full flex-col">
       <div className="border-b">
         <Button
           variant="ghost"
@@ -30,7 +30,7 @@ function RouteComponent() {
           <LuArrowRight />
         </Button>
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0">
         <Outlet />
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { Button } from '@memorilo/components/ui/button'
+import { ScrollArea } from '@memorilo/components/ui/scroll-area'
 import { Scrollspy } from '@memorilo/components/ui/scrollspy'
 import { memorilo } from '@memorilo/core'
 import { Console, Effect, Either, Option } from 'effect'
@@ -61,7 +62,7 @@ export function Settings() {
         </Scrollspy>
       </aside>
       <main className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
-        <div ref={parentRef} className="flex-1 min-h-0 pe-4 overflow-y-auto">
+        <ScrollArea className="flex-1 min-h-0 pe-4" viewportRef={parentRef}>
           {
             catalogs.map(catalog => (
               <AutoForm
@@ -73,7 +74,7 @@ export function Settings() {
             ),
             )
           }
-        </div>
+        </ScrollArea>
       </main>
     </div>
   )

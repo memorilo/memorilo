@@ -40,7 +40,7 @@ export default {
     postcss({
       autoModules: true,
       modules: {},
-      inject: { insertAt: 'top' },
+      inject: true,
       extract: false,
       plugins: [tailwindcss()],
     }),
