@@ -1,0 +1,83 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.fixture-shell {
+  min-height: 100%;
+  padding: 16px;
+}
+
+.fixture-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 38vw);
+  gap: 16px;
+  min-height: calc(100vh - 32px);
+}
+
+.fixture-panel,
+.fixture-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.fixture-label {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fixture-editor {
+  flex: 1;
+  min-height: 360px;
+  overflow: auto;
+  padding: 20px 24px;
+}
+
+.fixture-editor .ProseMirror {
+  min-height: 320px;
+  outline: none;
+}
+
+.fixture-pre {
+  flex: 1;
+  margin: 0;
+  overflow: auto;
+  padding: 14px;
+  background: #f9fafb;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 960px) {
+  .fixture-shell {
+    padding: 12px;
+  }
+
+  .fixture-grid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+}

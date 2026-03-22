@@ -18,7 +18,9 @@
     "dev": "vite",
     "dev:client": "rollup -c -w",
     "dev:web": "rollup -c -w",
-    "test": "vitest",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -84,6 +86,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@playwright/test": "catalog:",
     "rollup": "catalog:",
     "rollup-plugin-postcss": "catalog:",
     "tailwindcss": "catalog:",

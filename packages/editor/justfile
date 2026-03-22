@@ -1,0 +1,58 @@
+set shell := ["zsh", "-eu", "-o", "pipefail", "-c"]
+
+# Show the available recipes.
+default:
+  @just --list
+
+# Run the full Playwright suite in headless mode.
+test-all:
+  pnpm test
+
+# Step through a single Playwright test in headed Chromium.
+# Example:
+#   just test-debug tests/outline/outline.spec.ts
+#   just test-debug tests/outline/outline.spec.ts "creates a child outline item when pressing Enter on a top-level item with nested children"
+test-debug file test_name='':
+  #!/usr/bin/env zsh
+  set -eu -o pipefail
+
+  file={{quote(file)}}
+  test_name={{quote(test_name)}}
+
+  if [[ -n "$test_name" ]]; then
+    selected_test="$test_name"
+  else
+    tests=("${(@f)$(pnpm exec playwright test "$file" --project chromium --list | awk -F ' › ' '/^  \[[^]]+\] › / {print $NF}')}")
+
+    if (( ${#tests[@]} == 0 )); then
+      echo "No tests found in $file" >&2
+      exit 1
+    fi
+
+    if [[ -t 0 && -t 1 ]] && command -v fzf >/dev/null 2>&1; then
+      selected_test=$(printf '%s\n' "${tests[@]}" | fzf --prompt='Select test: ' --height=40% --reverse)
+    else
+      echo 'Select test:'
+      for index in {1..${#tests[@]}}; do
+        printf '%d) %s\n' "$index" "${tests[$index]}"
+      done
+
+      printf 'Enter selection: '
+      read -r selection
+
+      if [[ "$selection" != <-> ]] || (( selection < 1 || selection > ${#tests[@]} )); then
+        echo 'Invalid selection.' >&2
+        exit 1
+      fi
+
+      selected_test="${tests[$selection]}"
+    fi
+
+    if [[ -z "${selected_test:-}" ]]; then
+      echo 'No test selected.' >&2
+      exit 1
+    fi
+  fi
+
+  escaped_test_name=$(node -e 'const s = process.argv[1]; console.log(s.replace(/[|\\{}()[\]^$+*?.]/g, "\\\\$&"))' "$selected_test")
+  pnpm exec playwright test "$file" --project chromium --workers=1 --grep "${escaped_test_name}" --debug

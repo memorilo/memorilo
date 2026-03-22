@@ -3,6 +3,7 @@
 
 # Build System
 /.direnv/
+test-results/
 /result
 .turbo
 
