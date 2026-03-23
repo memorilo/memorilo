@@ -1,33 +1,90 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
+import type { EditorView } from '@tiptap/pm/view'
 import type { KatexOptions } from 'katex'
 import { findChildren, InputRule, mergeAttributes, Node } from '@tiptap/core'
 import { Plugin, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
-import { createInlineMathNodeView } from './inline-math-node-view'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { moveInlineMathCaretVertically } from './inline-math-navigation'
+import { InlineMathNodeView } from './inline-math-node-view'
+
 const caretAnchorChar = '\u200B'
 type CaretSide = 'before' | 'after'
 interface ConfigurableMathNodeOptions {
   katexOptions?: KatexOptions
 }
 
-function createInlineMathCaretAnchor() {
+function createInlineMathCaretAnchor(side: CaretSide) {
   const anchor = document.createElement('span')
-  anchor.dataset.inlineMathCaretAnchor = 'after'
+  anchor.dataset.inlineMathCaretAnchor = side
   anchor.setAttribute('aria-hidden', 'true')
   anchor.textContent = caretAnchorChar
   return anchor
 }
 
 function buildInlineMathCaretAnchors(doc: PMNode, name: string) {
-  const decorations = findChildren(doc, node => node.type.name === name)
-    .map(({ node, pos }) =>
-      Decoration.widget(pos + node.nodeSize, createInlineMathCaretAnchor, {
+  return DecorationSet.create(
+    doc,
+    findChildren(doc, node => node.type.name === name).flatMap(({ node, pos }) => [
+      Decoration.widget(pos, () => createInlineMathCaretAnchor('before'), {
+        side: -1,
+        key: `inline-math-caret-before-${pos}`,
+      }),
+      Decoration.widget(pos + node.nodeSize, () => createInlineMathCaretAnchor('after'), {
         side: 1,
         key: `inline-math-caret-after-${pos}`,
       }),
-    )
+    ]),
+  )
+}
 
-  return DecorationSet.create(doc, decorations)
+function getInlineMathBoundaryTextInsertPos(view: EditorView, name: string) {
+  const { selection } = view.state
+  if (!(selection instanceof TextSelection) || !selection.empty) {
+    return null
+  }
+
+  const { $from } = selection
+  if ($from.parent.type.name === name) {
+    return null
+  }
+
+  if ($from.nodeBefore?.type.name !== name && $from.nodeAfter?.type.name !== name) {
+    return null
+  }
+
+  return selection.from
+}
+
+function insertTextAtInlineMathBoundary(view: EditorView, name: string, text: string) {
+  const insertPos = getInlineMathBoundaryTextInsertPos(view, name)
+  if (insertPos === null) {
+    return false
+  }
+
+  view.dispatch(view.state.tr.insertText(text, insertPos, insertPos))
+  return true
+}
+
+function getInlineMathEntryPosFromAdjacentSelection(
+  selection: TextSelection,
+  name: string,
+  direction: 'left' | 'right',
+) {
+  const { $from } = selection
+  if ($from.parent.type.name === name) {
+    return null
+  }
+
+  if (direction === 'right') {
+    return $from.nodeAfter?.type.name === name
+      ? selection.from + 1
+      : null
+  }
+
+  return $from.nodeBefore?.type.name === name
+    ? selection.from - 1
+    : null
 }
 
 export const InlineMath = Node.create<ConfigurableMathNodeOptions>({
@@ -44,10 +101,6 @@ export const InlineMath = Node.create<ConfigurableMathNodeOptions>({
     }
   },
 
-  addAttributes() {
-    return {}
-  },
-
   parseHTML() {
     return [
       {
@@ -62,11 +115,13 @@ export const InlineMath = Node.create<ConfigurableMathNodeOptions>({
   },
 
   addNodeView() {
-    return createInlineMathNodeView(this.options.katexOptions)
+    return ReactNodeViewRenderer(
+      props => <InlineMathNodeView {...props} katexOptions={this.options.katexOptions} />,
+    )
   },
 
   addKeyboardShortcuts() {
-    const moveCaretOutside = (side: CaretSide) => {
+    const moveCaretHorizontally = (side: CaretSide) => {
       return () => this.editor.commands.command(({ state, tr, dispatch }) => {
         const { selection } = state
         if (!(selection instanceof TextSelection) || !selection.empty) {
@@ -74,25 +129,43 @@ export const InlineMath = Node.create<ConfigurableMathNodeOptions>({
         }
 
         const $cursor = selection.$cursor
-        if (!$cursor || $cursor.parent.type !== this.type || $cursor.depth === 0) {
+        if ($cursor && $cursor.parent.type === this.type && $cursor.depth > 0) {
+          const boundaryOffset = side === 'before' ? 0 : $cursor.parent.content.size
+          if ($cursor.parentOffset !== boundaryOffset) {
+            return false
+          }
+
+          const selectionPos = side === 'before'
+            ? $cursor.before()
+            : $cursor.before() + $cursor.parent.nodeSize
+
+          tr.setSelection(TextSelection.create(tr.doc, selectionPos))
+          if (dispatch) {
+            dispatch(tr)
+          }
+          return true
+        }
+
+        const entryPos = getInlineMathEntryPosFromAdjacentSelection(
+          selection,
+          this.name,
+          side === 'after' ? 'right' : 'left',
+        )
+        if (entryPos === null) {
           return false
         }
 
-        const boundaryOffset = side === 'before' ? 0 : $cursor.parent.content.size
-        if ($cursor.parentOffset !== boundaryOffset) {
-          return false
-        }
-
-        const selectionPos = side === 'before'
-          ? $cursor.before()
-          : $cursor.before() + $cursor.parent.nodeSize
-
-        tr.setSelection(TextSelection.create(tr.doc, selectionPos))
+        tr.setSelection(TextSelection.create(tr.doc, entryPos))
         if (dispatch) {
           dispatch(tr)
         }
         return true
       })
+    }
+
+    const moveCaretVertically = (dir: -1 | 1) => {
+      return () => this.editor.commands.command(({ state, tr, dispatch, view }) =>
+        moveInlineMathCaretVertically(state, tr, dispatch, view, this.name, dir))
     }
 
     return {
@@ -121,8 +194,10 @@ export const InlineMath = Node.create<ConfigurableMathNodeOptions>({
           return true
         })
       },
-      ArrowLeft: moveCaretOutside('before'),
-      ArrowRight: moveCaretOutside('after'),
+      ArrowLeft: moveCaretHorizontally('before'),
+      ArrowRight: moveCaretHorizontally('after'),
+      ArrowUp: moveCaretVertically(-1),
+      ArrowDown: moveCaretVertically(1),
     }
   },
 
@@ -132,6 +207,38 @@ export const InlineMath = Node.create<ConfigurableMathNodeOptions>({
       new Plugin({
         props: {
           decorations: state => buildInlineMathCaretAnchors(state.doc, this.name),
+          handleDOMEvents: {
+            beforeinput: (view, event) => {
+              const inputEvent = event as InputEvent
+              if (!inputEvent.data) {
+                return false
+              }
+
+              if (inputEvent.inputType !== 'insertText' && inputEvent.inputType !== 'insertCompositionText') {
+                return false
+              }
+
+              if (!insertTextAtInlineMathBoundary(view, this.name, inputEvent.data)) {
+                return false
+              }
+
+              inputEvent.preventDefault()
+              event.preventDefault()
+              return true
+            },
+          },
+          handleKeyDown: (view, event) => {
+            if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
+              return false
+            }
+
+            if (!insertTextAtInlineMathBoundary(view, this.name, event.key)) {
+              return false
+            }
+
+            event.preventDefault()
+            return true
+          },
         },
       }),
     ]

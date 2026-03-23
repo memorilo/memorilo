@@ -1,7 +1,8 @@
 import type { KatexOptions } from 'katex'
 import { InputRule, mergeAttributes, Node } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
-import { createBlockMathNodeView } from './block-math-node-view'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { BlockMathNodeView } from './block-math-node-view'
 
 interface ConfigurableMathNodeOptions {
   katexOptions?: KatexOptions
@@ -20,10 +21,6 @@ export const BlockMath = Node.create<ConfigurableMathNodeOptions>({
     }
   },
 
-  addAttributes() {
-    return {}
-  },
-
   parseHTML() {
     return [
       {
@@ -38,7 +35,9 @@ export const BlockMath = Node.create<ConfigurableMathNodeOptions>({
   },
 
   addNodeView() {
-    return createBlockMathNodeView(this.options.katexOptions)
+    return ReactNodeViewRenderer(
+      props => <BlockMathNodeView {...props} katexOptions={this.options.katexOptions} />,
+    )
   },
 
   addKeyboardShortcuts() {

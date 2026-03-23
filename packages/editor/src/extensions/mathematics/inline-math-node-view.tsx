@@ -1,40 +1,219 @@
 import type { ReactNodeViewProps } from '@tiptap/react'
 import type { KatexOptions } from 'katex'
-import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
+import type {
+  MutableRefObject,
+  MouseEvent as ReactMouseEvent,
+  RefObject,
+} from 'react'
+import { Popover, PopoverAnchor, PopoverContent } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
 import { TextSelection } from '@tiptap/pm/state'
-import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
-import katex from 'katex'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { NodeViewContent, NodeViewWrapper } from '@tiptap/react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { moveInlineMathCaretVertically } from './inline-math-navigation'
+import { MathPreview } from './math-preview'
 
-const previewErrorClasses = ['font-mono', 'text-red-600']
 const inlineBoundaryChar = '\uFEFF'
 type CaretSide = 'before' | 'after'
+interface PendingTextSelection {
+  from: number
+  to: number
+}
+
+interface PendingDomRestore {
+  pos: number
+  side: CaretSide
+}
 
 interface InlineMathNodeViewProps extends ReactNodeViewProps {
   katexOptions?: KatexOptions
 }
 
-function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOptions }: InlineMathNodeViewProps) {
+// Queues a text selection while the editable content is still hidden, then applies it
+// in a layout effect once the node view is mounted and ready to paint the caret.
+function usePendingSelectionRestore(
+  editor: InlineMathNodeViewProps['editor'],
+  wrapperRef: RefObject<HTMLSpanElement | null>,
+  isEditingActive: boolean,
+) {
+  const pendingSelectionRef = useRef<PendingTextSelection | null>(null)
+
+  const queuePendingSelection = useCallback((pendingSelection: PendingTextSelection | null) => {
+    pendingSelectionRef.current = pendingSelection
+  }, [])
+
+  useLayoutEffect(() => {
+    const pendingSelection = pendingSelectionRef.current
+    if (!isEditingActive || !pendingSelection) {
+      return
+    }
+
+    if (!wrapperRef.current?.querySelector<HTMLElement>('[data-node-view-content]')) {
+      return
+    }
+
+    if (!editor.view.hasFocus()) {
+      editor.view.focus()
+    }
+
+    const { from, to } = pendingSelection
+    const currentSelection = editor.state.selection
+    if (currentSelection.from !== from || currentSelection.to !== to) {
+      // Run before paint so the first visible caret position already matches the editable formula DOM.
+      editor.commands.command(({ tr, dispatch }) => {
+        tr.setSelection(TextSelection.create(tr.doc, from, to))
+        if (dispatch) {
+          dispatch(tr)
+        }
+        return true
+      })
+    }
+
+    pendingSelectionRef.current = null
+  }, [editor, isEditingActive, wrapperRef])
+
+  return queuePendingSelection
+}
+
+// Restores the browser DOM caret after leaving inline edit mode so the next key press
+// lands before or after the formula instead of mutating the node view wrapper DOM.
+function usePendingDomRestore(
+  editor: InlineMathNodeViewProps['editor'],
+  wrapperRef: RefObject<HTMLSpanElement | null>,
+  isEditingActive: boolean,
+) {
+  const pendingDomRestoreRef = useRef<PendingDomRestore | null>(null)
+
+  const queuePendingDomRestore = useCallback((pendingDomRestore: PendingDomRestore | null) => {
+    pendingDomRestoreRef.current = pendingDomRestore
+  }, [])
+
+  useLayoutEffect(() => {
+    const pendingDomRestore = pendingDomRestoreRef.current
+    if (isEditingActive || !pendingDomRestore) {
+      return
+    }
+
+    if (!editor.view.hasFocus()) {
+      pendingDomRestoreRef.current = null
+      return
+    }
+
+    const { pos, side } = pendingDomRestore
+    const range = editor.view.dom.ownerDocument.createRange()
+    const nodeViewRoot = wrapperRef.current?.parentElement
+
+    const rootSelection = 'getSelection' in editor.view.root
+      ? editor.view.root.getSelection()
+      : document.getSelection()
+    if (!rootSelection) {
+      pendingDomRestoreRef.current = null
+      return
+    }
+
+    // The document selection has already moved outside the formula. Re-anchor the browser caret to
+    // the node-view boundary itself so subsequent typing lands before/after the formula instead of
+    // mutating the node view wrapper DOM.
+    if (nodeViewRoot?.isConnected && nodeViewRoot.parentNode) {
+      if (side === 'before') {
+        range.setStartBefore(nodeViewRoot)
+      }
+      else {
+        range.setStartAfter(nodeViewRoot)
+      }
+    }
+    else {
+      const { node: domNode, offset } = editor.view.domAtPos(pos, side === 'before' ? -1 : 1)
+      range.setStart(domNode, offset)
+    }
+    range.collapse(true)
+    rootSelection.removeAllRanges()
+    rootSelection.addRange(range)
+    pendingDomRestoreRef.current = null
+  }, [editor.view, isEditingActive, wrapperRef])
+
+  return queuePendingDomRestore
+}
+
+// Keeps the React node view in sync with ProseMirror selection changes and pointer-driven
+// selection updates, while throttling expensive checks behind requestAnimationFrame.
+function useNodeViewSelectionSync(
+  editor: InlineMathNodeViewProps['editor'],
+  syncSelectionState: () => void,
+  isPointerSelectionActiveRef: MutableRefObject<boolean>,
+) {
+  const selectionSyncFrameRef = useRef(0)
+
+  const scheduleSelectionSync = useCallback(() => {
+    if (selectionSyncFrameRef.current) {
+      cancelAnimationFrame(selectionSyncFrameRef.current)
+    }
+
+    selectionSyncFrameRef.current = requestAnimationFrame(() => {
+      selectionSyncFrameRef.current = 0
+      syncSelectionState()
+    })
+  }, [syncSelectionState])
+
+  const startPointerSelection = useCallback(() => {
+    isPointerSelectionActiveRef.current = true
+  }, [isPointerSelectionActiveRef])
+
+  useEffect(() => {
+    const finishPointerSelection = () => {
+      if (!isPointerSelectionActiveRef.current) {
+        return
+      }
+
+      isPointerSelectionActiveRef.current = false
+      scheduleSelectionSync()
+    }
+
+    const ownerDocument = editor.view.dom.ownerDocument
+
+    editor.on('selectionUpdate', scheduleSelectionSync)
+    editor.on('blur', scheduleSelectionSync)
+    ownerDocument.addEventListener('selectionchange', scheduleSelectionSync)
+    ownerDocument.addEventListener('mouseup', finishPointerSelection)
+
+    return () => {
+      editor.off('selectionUpdate', scheduleSelectionSync)
+      editor.off('blur', scheduleSelectionSync)
+      ownerDocument.removeEventListener('selectionchange', scheduleSelectionSync)
+      ownerDocument.removeEventListener('mouseup', finishPointerSelection)
+    }
+  }, [editor, isPointerSelectionActiveRef, scheduleSelectionSync])
+
+  useEffect(() => {
+    scheduleSelectionSync()
+  }, [scheduleSelectionSync])
+
+  useEffect(() => {
+    return () => {
+      if (selectionSyncFrameRef.current) {
+        cancelAnimationFrame(selectionSyncFrameRef.current)
+      }
+    }
+  }, [])
+
+  return { scheduleSelectionSync, startPointerSelection }
+}
+
+export function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOptions }: InlineMathNodeViewProps) {
   const wrapperRef = useRef<HTMLSpanElement>(null)
-  const previewRef = useRef<HTMLSpanElement>(null)
-  const selectionSyncFrameRef = useRef<number | null>(null)
-  const selectionRestoreFrameRef = useRef<number | null>(null)
+  const previewRef = useRef<HTMLElement | null>(null)
+  const isPointerSelectionActiveRef = useRef(false)
   const latex = node.textContent
   const isFormulaEmpty = !latex.trim()
   const [isEditing, setIsEditing] = useState(() => isFormulaEmpty)
   const isEditingActive = isEditing || isFormulaEmpty
   const showRendered = !isFormulaEmpty && !isEditingActive
-  const katexOptions = useMemo(() => rawKatexOptions ?? {}, [rawKatexOptions])
-
-  const resolvePos = useCallback(() => {
-    const pos = typeof getPos === 'function' ? getPos() : getPos
-    return typeof pos === 'number' ? pos : null
-  }, [getPos])
+  const queuePendingSelection = usePendingSelectionRestore(editor, wrapperRef, isEditingActive)
+  const queuePendingDomRestore = usePendingDomRestore(editor, wrapperRef, isEditingActive)
 
   const resolveContentBounds = useCallback(() => {
-    const pos = resolvePos()
-    if (pos === null) {
+    const pos = getPos()
+    if (pos === undefined) {
       return null
     }
 
@@ -43,10 +222,10 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
       contentStart: pos + 1,
       contentEnd: pos + node.nodeSize - 1,
     }
-  }, [node.nodeSize, resolvePos])
+  }, [getPos, node.nodeSize])
 
   const isDomSelectionInsideContent = useCallback(() => {
-    const contentElement = wrapperRef.current?.querySelector('[data-node-view-content]') as HTMLElement | null
+    const contentElement = wrapperRef.current?.querySelector<HTMLElement>('[data-node-view-content]')
     if (!contentElement) {
       return false
     }
@@ -54,53 +233,21 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
     const selection = 'getSelection' in editor.view.root
       ? editor.view.root.getSelection()
       : document.getSelection()
-    if (!selection || selection.rangeCount === 0 || !selection.anchorNode || !selection.focusNode) {
+    const { anchorNode, focusNode } = selection ?? {}
+    if (!anchorNode || !focusNode) {
       return false
     }
 
-    const anchorInside = selection.anchorNode === contentElement || contentElement.contains(selection.anchorNode)
-    const focusInside = selection.focusNode === contentElement || contentElement.contains(selection.focusNode)
-
-    return anchorInside && focusInside
+    return contentElement.contains(anchorNode) && contentElement.contains(focusNode)
   }, [editor.view.root])
 
-  const restoreDomSelectionAtPos = useCallback((selectionPos: number, side: CaretSide) => {
-    if (selectionRestoreFrameRef.current !== null) {
-      cancelAnimationFrame(selectionRestoreFrameRef.current)
-    }
-
-    selectionRestoreFrameRef.current = requestAnimationFrame(() => {
-      selectionRestoreFrameRef.current = null
-
-      if (!editor.view.hasFocus()) {
-        return
-      }
-
-      const rootSelection = 'getSelection' in editor.view.root
-        ? editor.view.root.getSelection()
-        : document.getSelection()
-      if (!rootSelection) {
-        return
-      }
-
-      // Exiting edit mode rerenders the node view, so the browser caret
-      // may need to be re-anchored against the new DOM structure.
-      const { node: domNode, offset } = editor.view.domAtPos(selectionPos, side === 'before' ? -1 : 1)
-      const range = editor.view.dom.ownerDocument.createRange()
-      range.setStart(domNode, offset)
-      range.collapse(true)
-      rootSelection.removeAllRanges()
-      rootSelection.addRange(range)
-    })
-  }, [editor.view])
-
   const placeCaretOutside = useCallback((side: CaretSide) => {
-    const pos = resolvePos()
-    if (pos === null) {
+    const bounds = resolveContentBounds()
+    if (!bounds) {
       return
     }
 
-    const selectionPos = side === 'before' ? pos : pos + node.nodeSize
+    const selectionPos = side === 'before' ? bounds.pos : bounds.pos + node.nodeSize
     editor.commands.command(({ tr, dispatch }) => {
       tr.setSelection(TextSelection.create(tr.doc, selectionPos))
       if (dispatch) {
@@ -109,39 +256,38 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
       editor.view.focus()
       return true
     })
-  }, [editor.commands, editor.view, node.nodeSize, resolvePos])
+  }, [editor.commands, editor.view, node.nodeSize, resolveContentBounds])
 
-  const enterEditing = useCallback((selectionPos?: number | 'start' | 'end') => {
+  const enterEditing = useCallback((moveCaretToEnd = false) => {
     const bounds = resolveContentBounds()
     if (!bounds) {
       return
     }
 
+    const { from, to } = editor.state.selection
     const { contentStart, contentEnd } = bounds
+    const shouldPreserveSelection = !moveCaretToEnd && from >= contentStart && to <= contentEnd
+    let nextFrom: number | null = null
+    if (shouldPreserveSelection) {
+      nextFrom = Math.max(contentStart, Math.min(from, contentEnd))
+    }
+    else if (moveCaretToEnd) {
+      nextFrom = contentEnd
+    }
+
+    if (nextFrom) {
+      // Flip the node into editing mode first, then move the selection in a layout effect.
+      // This avoids drawing the caret inside a content element that is still visually hidden.
+      queuePendingSelection({
+        from: nextFrom,
+        to: shouldPreserveSelection ? Math.max(contentStart, Math.min(to, contentEnd)) : nextFrom,
+      })
+    }
+    else {
+      queuePendingSelection(null)
+    }
     setIsEditing(true)
-    editor.commands.command(({ tr }) => {
-      const { from, to } = tr.selection
-      const shouldPreserveSelection = selectionPos === undefined && from >= contentStart && to <= contentEnd
-      const nextFrom = shouldPreserveSelection
-        ? Math.max(contentStart, Math.min(from, contentEnd))
-        : selectionPos === 'start'
-          ? contentStart
-          : selectionPos === 'end'
-            ? contentEnd
-            : typeof selectionPos === 'number'
-              ? Math.max(contentStart, Math.min(selectionPos, contentEnd))
-              : null
-      const nextTo = shouldPreserveSelection
-        ? Math.max(contentStart, Math.min(to, contentEnd))
-        : nextFrom
-
-      if (nextFrom !== null && nextTo !== null) {
-        tr.setSelection(TextSelection.create(tr.doc, nextFrom, nextTo))
-      }
-
-      return true
-    })
-  }, [editor.commands, resolveContentBounds])
+  }, [editor.state.selection, queuePendingSelection, resolveContentBounds])
 
   const exitEditing = useCallback(() => {
     const bounds = resolveContentBounds()
@@ -158,22 +304,26 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
       return
     }
 
-    const { from, to } = editor.state.selection
-    const nextSelection = to <= pos
-      ? { pos, side: 'before' as const }
-      : from >= pos + node.nodeSize
-        ? { pos: pos + node.nodeSize, side: 'after' as const }
-        : null
+    const { selection } = editor.state
+    let nextSelection: PendingDomRestore | null = null
+    if (selection.empty) {
+      nextSelection = {
+        pos: selection.head,
+        side: selection.head <= pos ? 'before' : 'after',
+      }
+    }
 
     setIsEditing(false)
     if (nextSelection) {
-      restoreDomSelectionAtPos(nextSelection.pos, nextSelection.side)
+      queuePendingDomRestore(nextSelection)
     }
-  }, [editor.commands, editor.state.selection, isEditingActive, latex, node.nodeSize, resolveContentBounds, restoreDomSelectionAtPos])
+  }, [editor.commands, editor.state, isEditingActive, latex, node.nodeSize, queuePendingDomRestore, resolveContentBounds])
 
   const syncSelectionState = useCallback(() => {
     const bounds = resolveContentBounds()
     if (!bounds) {
+      isPointerSelectionActiveRef.current = false
+      setIsEditing(false)
       return
     }
 
@@ -193,10 +343,19 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
       return
     }
 
+    if (isPointerSelectionActiveRef.current) {
+      return
+    }
+
     if (isSelectionInsideContent) {
       if (!isEditingActive) {
         setIsEditing(true)
       }
+      return
+    }
+
+    if (isSelectionAdjacentToNode) {
+      exitEditing()
       return
     }
 
@@ -207,70 +366,65 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
     exitEditing()
   }, [editor, exitEditing, isDomSelectionInsideContent, isEditingActive, isFormulaEmpty, node.nodeSize, resolveContentBounds])
 
-  const scheduleSelectionSync = useCallback(() => {
-    if (selectionSyncFrameRef.current !== null) {
-      cancelAnimationFrame(selectionSyncFrameRef.current)
-    }
-
-    selectionSyncFrameRef.current = requestAnimationFrame(() => {
-      selectionSyncFrameRef.current = null
-      syncSelectionState()
-    })
-  }, [syncSelectionState])
+  const { scheduleSelectionSync, startPointerSelection } = useNodeViewSelectionSync(
+    editor,
+    syncSelectionState,
+    isPointerSelectionActiveRef,
+  )
 
   useEffect(() => {
     const ownerDocument = editor.view.dom.ownerDocument
 
-    editor.on('selectionUpdate', scheduleSelectionSync)
-    editor.on('blur', scheduleSelectionSync)
-    ownerDocument.addEventListener('selectionchange', scheduleSelectionSync)
-
-    return () => {
-      editor.off('selectionUpdate', scheduleSelectionSync)
-      editor.off('blur', scheduleSelectionSync)
-      ownerDocument.removeEventListener('selectionchange', scheduleSelectionSync)
-    }
-  }, [editor, scheduleSelectionSync])
-
-  useEffect(() => {
-    return () => {
-      if (selectionSyncFrameRef.current !== null) {
-        cancelAnimationFrame(selectionSyncFrameRef.current)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return
       }
-      if (selectionRestoreFrameRef.current !== null) {
-        cancelAnimationFrame(selectionRestoreFrameRef.current)
+
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+        return
       }
-    }
-  }, [])
 
-  useEffect(() => {
-    scheduleSelectionSync()
-  }, [scheduleSelectionSync])
+      const bounds = resolveContentBounds()
+      if (!bounds) {
+        return
+      }
 
-  useEffect(() => {
-    const preview = previewRef.current
-    if (!preview || !showRendered) {
-      return
+      const { from, to, empty } = editor.state.selection
+      if (!empty || from < bounds.contentStart || to > bounds.contentEnd) {
+        return
+      }
+
+      const handled = editor.commands.command(({ state, tr, dispatch, view }) =>
+        moveInlineMathCaretVertically(
+          state,
+          tr,
+          dispatch,
+          view,
+          node.type.name,
+          event.key === 'ArrowUp' ? -1 : 1,
+        ))
+
+      if (!handled) {
+        return
+      }
+
+      setIsEditing(false)
+      event.preventDefault()
+      event.stopPropagation()
     }
 
-    try {
-      katex.render(latex, preview, {
-        ...katexOptions,
-        displayMode: false,
-        throwOnError: false,
-      })
-      preview.classList.remove(...previewErrorClasses)
+    ownerDocument.addEventListener('keydown', handleKeyDown, true)
+    return () => {
+      ownerDocument.removeEventListener('keydown', handleKeyDown, true)
     }
-    catch {
-      preview.textContent = latex
-      preview.classList.add(...previewErrorClasses)
-    }
-  }, [katexOptions, latex, showRendered])
+  }, [editor, node.type.name, resolveContentBounds])
+
+  const isNodeAttached = !!resolveContentBounds()
 
   return (
     <NodeViewWrapper
       as="span"
-      ref={wrapperRef as RefObject<HTMLSpanElement>}
+      ref={wrapperRef}
       className={cn(
         'relative inline-block max-w-full align-middle',
         !showRendered && 'rounded-md border border-dashed border-input bg-transparent px-1.5 py-0.5',
@@ -280,6 +434,11 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
       draggable={showRendered}
       onBlurCapture={scheduleSelectionSync}
       onFocusCapture={scheduleSelectionSync}
+      onMouseDownCapture={() => {
+        if (isEditingActive) {
+          startPointerSelection()
+        }
+      }}
       onMouseDown={(event: ReactMouseEvent) => {
         if (!showRendered) {
           return
@@ -297,9 +456,33 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
           }
         }
 
-        enterEditing('end')
+        enterEditing(true)
       }}
     >
+      <Popover open={isNodeAttached && isEditingActive}>
+        <PopoverAnchor asChild>
+          <span
+            aria-hidden="true"
+            contentEditable={false}
+            className="pointer-events-none absolute inset-0 z-0"
+          />
+        </PopoverAnchor>
+        <PopoverContent
+          side="top"
+          sideOffset={8}
+          onOpenAutoFocus={event => event.preventDefault()}
+          onCloseAutoFocus={event => event.preventDefault()}
+          className="pointer-events-none w-fit max-w-[min(32rem,calc(100vw-2rem))] px-3 py-2 text-sm"
+        >
+          <MathPreview
+            as="span"
+            latex={latex}
+            displayMode={false}
+            katexOptions={rawKatexOptions}
+            className="inline-block max-w-full align-baseline"
+          />
+        </PopoverContent>
+      </Popover>
       <span
         aria-hidden="true"
         className="inline-block h-[1em] w-0 overflow-hidden align-baseline select-none"
@@ -326,18 +509,16 @@ function InlineMathNodeView({ node, editor, getPos, katexOptions: rawKatexOption
       >
         {inlineBoundaryChar}
       </span>
-      <span
-        ref={previewRef as RefObject<HTMLSpanElement>}
-        className="inline-block max-w-full align-baseline"
-        contentEditable={false}
-        hidden={!showRendered}
-      />
+      {showRendered && (
+        <MathPreview
+          ref={previewRef}
+          as="span"
+          latex={latex}
+          displayMode={false}
+          katexOptions={rawKatexOptions}
+          className="inline-block max-w-full align-baseline"
+        />
+      )}
     </NodeViewWrapper>
-  )
-}
-
-export function createInlineMathNodeView(katexOptions?: KatexOptions) {
-  return ReactNodeViewRenderer(
-    props => <InlineMathNodeView {...props} katexOptions={katexOptions} />,
   )
 }

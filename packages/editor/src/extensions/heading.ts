@@ -3,7 +3,16 @@ import { Heading as HeadingPrivimitive } from '@tiptap/extension-heading'
 
 export const headingLevels = [1, 2, 3, 4, 5, 6] as const
 
-type HeadingLevel = (typeof headingLevels)[number]
+export type HeadingLevel = (typeof headingLevels)[number]
+
+export const headingLabelKeyByLevel: Record<HeadingLevel, string> = {
+  1: 'editor.heading.level_1',
+  2: 'editor.heading.level_2',
+  3: 'editor.heading.level_3',
+  4: 'editor.heading.level_4',
+  5: 'editor.heading.level_5',
+  6: 'editor.heading.level_6',
+}
 
 const headingClassByLevel: Record<HeadingLevel, string> = {
   1: 'text-3xl',

@@ -1,74 +1,9 @@
-import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-
-interface JsonNode {
-  type: string
-  attrs?: Record<string, unknown>
-  content?: JsonNode[]
-  text?: string
-}
-
-async function gotoOutlineFixture(page: Page) {
-  await page.goto('/outline/')
-  await expect(page.getByTestId('outline-editor').locator('.ProseMirror')).toBeVisible()
-}
-
-async function readOutlineDoc(page: Page): Promise<JsonNode> {
-  const text = await page.getByTestId('outline-json').innerText()
-  return JSON.parse(text) as JsonNode
-}
-
-async function focusParagraph(page: Page, index: number, edge: 'start' | 'end' = 'end') {
-  const paragraph = page.locator('[data-testid="outline-editor"] .ProseMirror p').nth(index)
-  await expect(paragraph).toBeVisible()
-  await paragraph.evaluate((node, targetEdge) => {
-    const paragraph = node as HTMLParagraphElement
-    const editor = paragraph.closest('.ProseMirror')
-    if (!(editor instanceof HTMLElement)) {
-      throw new Error('Outline editor root not found')
-    }
-
-    editor.focus()
-
-    const selection = window.getSelection()
-    if (!selection) {
-      throw new Error('Window selection is unavailable')
-    }
-
-    const range = document.createRange()
-    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT)
-
-    let firstTextNode: Text | null = null
-    let lastTextNode: Text | null = null
-    while (walker.nextNode()) {
-      const textNode = walker.currentNode as Text
-      if (!firstTextNode) {
-        firstTextNode = textNode
-      }
-      lastTextNode = textNode
-    }
-
-    if (targetEdge === 'start') {
-      if (firstTextNode) {
-        range.setStart(firstTextNode, 0)
-      }
-      else {
-        range.setStart(paragraph, 0)
-      }
-    }
-    else if (lastTextNode) {
-      range.setStart(lastTextNode, lastTextNode.textContent?.length ?? 0)
-    }
-    else {
-      range.setStart(paragraph, paragraph.childNodes.length)
-    }
-
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
-    document.dispatchEvent(new Event('selectionchange'))
-  }, edge)
-}
+import {
+  focusParagraph,
+  gotoOutlineFixture,
+  readOutlineDoc,
+} from './outline-test-utils'
 
 test.describe('outline indent interactions', () => {
   test('moves an outline item into and back out of a nested level with Tab and Shift+Tab', async ({ page }) => {

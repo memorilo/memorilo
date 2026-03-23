@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import type { HeadingLevel } from '../outline/nodes/heading'
+import type { HeadingLevel } from '../heading'
 import {
   Select,
   SelectContent,
@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@memorilo/components/ui/select'
 import { useTranslation } from 'react-i18next'
-import { headingLabelKeyByLevel, headingLevels } from '../outline/nodes/heading'
+import { headingLabelKeyByLevel, headingLevels } from '../heading'
 
 type HeadingValue = 'paragraph' | `${HeadingLevel}`
 

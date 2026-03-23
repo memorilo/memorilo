@@ -1,3 +1,4 @@
+import type { EditorOptions } from '@tiptap/core'
 import type { HTMLAttributes } from 'react'
 import type { XmlElement, XmlFragment } from 'yjs'
 import { cn } from '@memorilo/utils'
@@ -30,66 +31,69 @@ export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>
   onOutlineClick?: (uuid: string) => void
 }
 
+export function createMemoriloEditorOptions(fragment: YDocType): Partial<EditorOptions> {
+  const collaborationExtension = Collaboration.configure({ fragment })
+
+  return {
+    emitContentError: true,
+    enableContentCheck: true,
+    onContentError(err) {
+      console.error('Content error:', err)
+    },
+    extensions: [
+      Bold,
+      Italic,
+      Underline,
+      Strike,
+      Text,
+      Outline,
+      Heading,
+      Mathematics,
+      Highlight.configure({
+        multicolor: true,
+      }),
+      InlineCode,
+      CodeBlock,
+      Blockquote,
+      HardBreak.extend({
+        // Remove Mod-Enter shortcut for hard break to avoid conflict with cycle todo shortcut in outline task item
+        addKeyboardShortcuts() {
+          return {
+            'Shift-Enter': () => this.editor.commands.setHardBreak(),
+          }
+        },
+      }).configure({
+        keepMarks: false,
+      }),
+      UniqueID.configure({
+        attributeName: 'id',
+        updateDocument: true,
+        types: [OutlineOrdItem.type, OutlineUordItem.type],
+        filterTransaction: (tr) => {
+          // Adds support for collaborative editing
+          // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction
+          return !isChangeOrigin(tr)
+        },
+      }),
+      collaborationExtension,
+    ],
+    editorProps: {
+      scrollMargin: { top: 24, bottom: 24, left: 0, right: 0 },
+    },
+  }
+}
+
 export function MemoriloEditor({
   className,
   fragment,
   onOutlineClick,
   ...props
 }: MemoriloEditorProps) {
-  const collaborationExtension = useMemo(
-    () => Collaboration.configure({ fragment }),
-    [fragment],
-  )
+  const editorOptions = useMemo(() => createMemoriloEditorOptions(fragment), [fragment])
 
   const editor = useEditor(
-    {
-      emitContentError: true,
-      enableContentCheck: true,
-      onContentError(err) {
-        console.error('Content error:', err)
-      },
-      extensions: [
-        Bold,
-        Italic,
-        Underline,
-        Strike,
-        Text,
-        Outline,
-        Heading,
-        Mathematics,
-        Highlight.configure({
-          multicolor: true,
-        }),
-        InlineCode,
-        CodeBlock,
-        Blockquote,
-        HardBreak.extend({
-          // Remove Mod-Enter shortcut for hard break to avoid conflict with cycle todo shortcut in outline task item
-          addKeyboardShortcuts() {
-            return {
-              'Shift-Enter': () => this.editor.commands.setHardBreak(),
-            }
-          },
-        }).configure({
-          keepMarks: false,
-        }),
-        UniqueID.configure({
-          attributeName: 'id',
-          updateDocument: true,
-          types: [OutlineOrdItem.type, OutlineUordItem.type],
-          filterTransaction: (tr) => {
-            // Adds support for collaborative editing
-            // https://tiptap.dev/docs/editor/extensions/functionality/uniqueid#filtertransaction
-            return !isChangeOrigin(tr)
-          },
-        }),
-        collaborationExtension,
-      ],
-      editorProps: {
-        scrollMargin: { top: 24, bottom: 24, left: 0, right: 0 },
-      },
-    },
-    [collaborationExtension, onOutlineClick],
+    editorOptions,
+    [editorOptions, onOutlineClick],
   )
   const yjsDocumentValue = useMemo(() => ({ fragment }), [fragment])
 

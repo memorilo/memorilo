@@ -4,55 +4,166 @@ set shell := ["zsh", "-eu", "-o", "pipefail", "-c"]
 default:
   @just --list
 
-# Run the full Playwright suite in headless mode.
+# Run the full Playwright matrix across Chrome/WebKit and minimal/full.
 test-all:
-  pnpm test
+  pnpm exec playwright test --project minimal --project full --project minimal-webkit --project full-webkit
 
-# Step through a single Playwright test in headed Chromium.
+# Run the Chrome Playwright suite in headless mode.
+test-chrome:
+  pnpm test:chrome
+
+# Run the minimal Chrome Playwright suite in headless mode.
+test-chrome-minimal:
+  pnpm exec playwright test --project minimal
+
+# Run the full Chrome Playwright suite in headless mode.
+test-chrome-full:
+  pnpm exec playwright test --project full
+
+# Run the WebKit Playwright suite in headless mode.
+test-webkit:
+  pnpm test:webkit
+
+# Run the minimal WebKit Playwright suite in headless mode.
+test-webkit-minimal:
+  pnpm exec playwright test --project minimal-webkit
+
+# Run the full WebKit Playwright suite in headless mode.
+test-webkit-full:
+  pnpm exec playwright test --project full-webkit
+
+# Step through a single Playwright test in headed Chrome or WebKit.
 # Example:
 #   just test-debug tests/outline/outline.spec.ts
-#   just test-debug tests/outline/outline.spec.ts "creates a child outline item when pressing Enter on a top-level item with nested children"
-test-debug file test_name='':
+#   just test-debug tests/outline/outline.spec.ts chrome full
+#   just test-debug tests/outline/outline.spec.ts webkit minimal "creates a child outline item when pressing Enter on a top-level item with nested children"
+test-debug file browser='' variant='' test_name='':
   #!/usr/bin/env zsh
   set -eu -o pipefail
 
   file={{quote(file)}}
+  browser={{quote(browser)}}
+  variant={{quote(variant)}}
   test_name={{quote(test_name)}}
+  use_fzf=${JUST_TEST_DEBUG_USE_FZF:-1}
+  stdin_is_tty=0
+
+  if [[ -t 0 ]]; then
+    stdin_is_tty=1
+  fi
+
+  warn() {
+    printf '%s\n' "$*" >&2
+  }
+
+  select_option() {
+    local label="$1"
+    local current="$2"
+    shift 2
+    local -a choices=("$@")
+
+    if [[ -n "$current" ]]; then
+      printf '%s\n' "$current"
+      return
+    fi
+
+    if [[ "$use_fzf" != '0' ]] && command -v fzf >/dev/null 2>&1; then
+      warn "Opening fzf to select ${label}. Press Enter to confirm or Ctrl-C to cancel."
+      warn "Set JUST_TEST_DEBUG_USE_FZF=0 to use a numbered prompt instead."
+      if selected=$(printf '%s\n' "${choices[@]}" | fzf --prompt="Select ${label}: " --height=40% --reverse); then
+        printf '%s\n' "$selected"
+        return
+      fi
+
+      if (( stdin_is_tty )); then
+        warn "fzf could not open an interactive picker here, falling back to a numbered prompt."
+      fi
+    fi
+
+    if (( ! stdin_is_tty )); then
+      warn "Cannot prompt for ${label} without interactive stdin."
+      warn "Pass it explicitly, for example: just test-debug ${file} chrome minimal"
+      exit 1
+    fi
+
+    warn "Select ${label}:"
+    for index in {1..${#choices[@]}}; do
+      warn "$index) ${choices[$index]}"
+    done
+
+    printf 'Enter selection: ' >&2
+    local selection
+    read -r selection
+
+    if [[ "$selection" != <-> ]] || (( selection < 1 || selection > ${#choices[@]} )); then
+      warn 'Invalid selection.'
+      exit 1
+    fi
+
+    printf '%s\n' "${choices[$selection]}"
+  }
+
+  browser=$(select_option 'browser' "$browser" chrome webkit)
+  case "$browser" in
+    chrome|webkit) ;;
+    *)
+      echo "Unsupported browser: $browser" >&2
+      exit 1
+      ;;
+  esac
+
+  variant=$(select_option 'target' "$variant" minimal full)
+  case "$variant" in
+    minimal|full) ;;
+    *)
+      echo "Unsupported target: $variant" >&2
+      exit 1
+      ;;
+  esac
+
+  case "$browser:$variant" in
+    chrome:minimal) project='minimal' ;;
+    chrome:full) project='full' ;;
+    webkit:minimal) project='minimal-webkit' ;;
+    webkit:full) project='full-webkit' ;;
+    *)
+      echo "Unsupported selection: $browser / $variant" >&2
+      exit 1
+      ;;
+  esac
 
   if [[ -n "$test_name" ]]; then
     selected_test="$test_name"
   else
-    tests=("${(@f)$(pnpm exec playwright test "$file" --project chromium --list | awk -F ' › ' '/^  \[[^]]+\] › / {print $NF}')}")
+    warn "Listing tests in ${file} for ${project}..."
+    tests=("${(@f)$(pnpm exec playwright test "$file" --project "$project" --list | awk -F ' › ' '/^  \[[^]]+\] › / {print $NF}')}")
 
     if (( ${#tests[@]} == 0 )); then
-      echo "No tests found in $file" >&2
+      warn "No tests found in $file for $project"
       exit 1
     fi
 
-    if [[ -t 0 && -t 1 ]] && command -v fzf >/dev/null 2>&1; then
-      selected_test=$(printf '%s\n' "${tests[@]}" | fzf --prompt='Select test: ' --height=40% --reverse)
-    else
-      echo 'Select test:'
-      for index in {1..${#tests[@]}}; do
-        printf '%d) %s\n' "$index" "${tests[$index]}"
-      done
+    if (( stdin_is_tty )); then
+      selected_test=$(select_option 'test' '' "${tests[@]}")
 
-      printf 'Enter selection: '
-      read -r selection
-
-      if [[ "$selection" != <-> ]] || (( selection < 1 || selection > ${#tests[@]} )); then
-        echo 'Invalid selection.' >&2
+      if [[ -z "${selected_test:-}" ]]; then
+        warn 'No test selected.'
         exit 1
       fi
-
-      selected_test="${tests[$selection]}"
-    fi
-
-    if [[ -z "${selected_test:-}" ]]; then
-      echo 'No test selected.' >&2
-      exit 1
+    else
+      selected_test=''
+      warn "No interactive stdin available, so Playwright debug will run the entire file."
     fi
   fi
 
-  escaped_test_name=$(node -e 'const s = process.argv[1]; console.log(s.replace(/[|\\{}()[\]^$+*?.]/g, "\\\\$&"))' "$selected_test")
-  pnpm exec playwright test "$file" --project chromium --workers=1 --grep "${escaped_test_name}" --debug
+  if [[ -n "${selected_test:-}" ]]; then
+    escaped_test_name=$(node -e 'const s = process.argv[1]; console.log(s.replace(/[|\\{}()[\]^$+*?.]/g, "\\\\$&"))' "$selected_test")
+    warn "Launching Playwright debug for ${project}: ${selected_test}"
+    command=(pnpm exec playwright test "$file" --project "$project" --workers=1 --grep "${escaped_test_name}" --debug)
+  else
+    warn "Launching Playwright debug for ${project}: ${file}"
+    command=(pnpm exec playwright test "$file" --project "$project" --workers=1 --debug)
+  fi
+
+  warn 'Playwright should open an Inspector window and a headed browser, then pause on the first action.'
+  "${command[@]}"

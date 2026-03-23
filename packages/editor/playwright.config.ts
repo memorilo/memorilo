@@ -4,29 +4,35 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const baseURL = 'http://127.0.0.1:5176'
+const serverURL = 'http://127.0.0.1:5176'
+const baseURL = `${serverURL}/`
+
+const createProject = (name: string, deviceName: keyof typeof devices, projectBaseURL: string) => ({
+  name,
+  use: {
+    ...devices[deviceName],
+    baseURL: projectBaseURL,
+  },
+})
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   reporter: 'list',
   use: {
-    baseURL,
     trace: 'on-first-retry',
   },
   projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-      },
-    },
+    createProject('minimal', 'Desktop Chrome', baseURL),
+    createProject('full', 'Desktop Chrome', `${baseURL}full-editor/`),
+    createProject('minimal-webkit', 'Desktop Safari', baseURL),
+    createProject('full-webkit', 'Desktop Safari', `${baseURL}full-editor/`),
   ],
   webServer: {
     command: 'pnpm exec vite --config tests/vite.config.ts --host 127.0.0.1',
     cwd: __dirname,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    url: baseURL,
+    url: serverURL,
   },
 })

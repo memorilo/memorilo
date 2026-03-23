@@ -19,7 +19,8 @@
     "dev:client": "rollup -c -w",
     "dev:web": "rollup -c -w",
     "test": "playwright test",
-    "test:headed": "playwright test --headed",
+    "test:chrome": "playwright test --project minimal --project full",
+    "test:webkit": "playwright test --project minimal-webkit --project full-webkit",
     "test:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit"
   },
@@ -77,6 +78,7 @@
     "yjs": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@rollup/plugin-node-resolve": "catalog:",
     "@rollup/plugin-typescript": "catalog:",
     "@tailwindcss/postcss": "catalog:",
@@ -86,7 +88,6 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@playwright/test": "catalog:",
     "rollup": "catalog:",
     "rollup-plugin-postcss": "catalog:",
     "tailwindcss": "catalog:",

@@ -1,127 +1,11 @@
-import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-
-interface JsonNode {
-  type: string
-  attrs?: Record<string, unknown>
-  content?: JsonNode[]
-  text?: string
-}
-
-async function gotoOutlineFixture(page: Page) {
-  await page.goto('/outline/')
-  await expect(page.getByTestId('outline-editor').locator('.ProseMirror')).toBeVisible()
-}
-
-async function readOutlineDoc(page: Page): Promise<JsonNode> {
-  const text = await page.getByTestId('outline-json').innerText()
-  return JSON.parse(text) as JsonNode
-}
-
-async function focusParagraph(page: Page, index: number, edge: 'start' | 'end' = 'end') {
-  const paragraph = page.locator('[data-testid="outline-editor"] .ProseMirror p').nth(index)
-  await focusParagraphLocator(paragraph, edge)
-}
-
-async function focusParagraphLocator(paragraph: ReturnType<Page['locator']>, edge: 'start' | 'end' = 'end') {
-  await expect(paragraph).toBeVisible()
-  await paragraph.evaluate((node, targetEdge) => {
-    const paragraph = node as HTMLParagraphElement
-    const editor = paragraph.closest('.ProseMirror')
-    if (!(editor instanceof HTMLElement)) {
-      throw new Error('Outline editor root not found')
-    }
-
-    editor.focus()
-
-    const selection = window.getSelection()
-    if (!selection) {
-      throw new Error('Window selection is unavailable')
-    }
-
-    const range = document.createRange()
-    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT)
-
-    let firstTextNode: Text | null = null
-    let lastTextNode: Text | null = null
-    while (walker.nextNode()) {
-      const textNode = walker.currentNode as Text
-      if (!firstTextNode) {
-        firstTextNode = textNode
-      }
-      lastTextNode = textNode
-    }
-
-    if (targetEdge === 'start') {
-      if (firstTextNode) {
-        range.setStart(firstTextNode, 0)
-      }
-      else {
-        range.setStart(paragraph, 0)
-      }
-    }
-    else if (lastTextNode) {
-      range.setStart(lastTextNode, lastTextNode.textContent?.length ?? 0)
-    }
-    else {
-      range.setStart(paragraph, paragraph.childNodes.length)
-    }
-
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
-    document.dispatchEvent(new Event('selectionchange'))
-  }, edge)
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-async function focusParagraphByText(page: Page, text: string, edge: 'start' | 'end' = 'end') {
-  const paragraph = page
-    .locator('[data-testid="outline-editor"] .ProseMirror p')
-    .filter({ hasText: new RegExp(`^${escapeRegExp(text)}$`) })
-    .first()
-  await focusParagraphLocator(paragraph, edge)
-}
-
-async function clickParagraphByText(page: Page, text: string) {
-  const paragraph = page
-    .locator('[data-testid="outline-editor"] .ProseMirror p')
-    .filter({ hasText: new RegExp(`^${escapeRegExp(text)}$`) })
-    .first()
-  await expect(paragraph).toBeVisible()
-  await paragraph.click()
-}
-
-async function focusEmptyParagraph(page: Page, occurrence = 0, edge: 'start' | 'end' = 'start') {
-  const paragraphs = page.locator('[data-testid="outline-editor"] .ProseMirror p')
-  const targetIndex = await paragraphs.evaluateAll((nodes, index) => {
-    const emptyIndexes = nodes.flatMap((node, currentIndex) => {
-      const text = node.textContent?.trim() ?? ''
-      return text.length === 0 ? [currentIndex] : []
-    })
-    return emptyIndexes[index] ?? -1
-  }, occurrence)
-
-  if (targetIndex < 0) {
-    throw new Error('Empty paragraph not found')
-  }
-
-  await focusParagraph(page, targetIndex, edge)
-}
-
-async function pressLineEnd(page: Page) {
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End')
-}
-
-async function createNestedChild(page: Page, text: string) {
-  await focusParagraph(page, 0)
-  await page.keyboard.press('Enter')
-  await page.keyboard.type(text)
-  await page.keyboard.press('Tab')
-}
+import {
+  createNestedChild,
+  focusParagraph,
+  focusParagraphByText,
+  gotoOutlineFixture,
+  readOutlineDoc,
+} from './outline-test-utils'
 
 test.describe('outline backspace interactions', () => {
   test('removes an empty outline item when Backspace is pressed at the item start', async ({ page }) => {
@@ -224,22 +108,41 @@ test.describe('outline backspace interactions', () => {
     })
   })
 
-  test('promotes a deleted child nested lists to the parent level', async ({ page }) => {
-    // Arrange: create an empty child item that itself has a nested child.
+  test('promotes a deleted empty child nested list to the parent level', async ({ page }) => {
+    // Arrange: create an empty child under the top-level item, then nest another child inside it.
     await gotoOutlineFixture(page)
-    await createNestedChild(page, 'Beta')
 
-    await clickParagraphByText(page, 'Beta')
-    await pressLineEnd(page)
+    await focusParagraph(page, 0)
     await page.keyboard.press('Enter')
-    await page.keyboard.type('Gamma')
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Enter')
+    await page.keyboard.type('Beta')
     await page.keyboard.press('Tab')
 
-    // Act: delete the empty parent child item from its start.
-    await focusEmptyParagraph(page)
+    await expect.poll(async () => {
+      const doc = await readOutlineDoc(page)
+      const rootList = doc.content?.[0]
+      const emptyChildList = rootList?.content?.[1]
+      const nestedChildList = emptyChildList?.content?.[1]
+
+      return {
+        topLevelCount: doc.content?.length ?? 0,
+        rootChildCount: rootList?.content?.length ?? 0,
+        emptyChildText: emptyChildList?.content?.[0]?.content?.[0]?.content?.[0]?.text ?? '',
+        nestedChildText: nestedChildList?.content?.[0]?.content?.[0]?.content?.[0]?.text ?? '',
+      }
+    }).toEqual({
+      topLevelCount: 1,
+      rootChildCount: 2,
+      emptyChildText: '',
+      nestedChildText: 'Beta',
+    })
+
+    // Act: delete the empty child item from its start.
+    await focusParagraph(page, 1, 'start')
     await page.keyboard.press('Backspace')
 
-    // Assert: the deleted child nested list is promoted to the parent level.
+    // Assert: the nested child list is promoted to the parent level.
     await expect.poll(async () => {
       const doc = await readOutlineDoc(page)
       return {
@@ -252,7 +155,7 @@ test.describe('outline backspace interactions', () => {
       topLevelCount: 1,
       rootChildCount: 2,
       firstText: 'Alpha',
-      promotedChildText: 'GammaBeta',
+      promotedChildText: 'Beta',
     })
   })
 

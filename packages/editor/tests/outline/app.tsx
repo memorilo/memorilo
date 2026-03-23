@@ -1,9 +1,15 @@
 import type { JSONContent } from '@tiptap/core'
 import Heading from '@tiptap/extension-heading'
 import Text from '@tiptap/extension-text'
-import { EditorContent, useEditor } from '@tiptap/react'
-import { useState } from 'react'
+import { useEditor } from '@tiptap/react'
+import { useMemo, useState } from 'react'
 import Outline from '../../src/extensions/outline'
+import type { FixtureEnvironment } from '../fixture-app-utils'
+import {
+  createFullFixtureEnvironment,
+  getFixtureEditorOptions,
+  renderFixtureEditor,
+} from '../fixture-app-utils'
 
 const initialContent: JSONContent = {
   type: 'doc',
@@ -30,28 +36,35 @@ const initialContent: JSONContent = {
   ],
 }
 
-export function OutlineFixtureApp() {
+interface OutlineFixtureAppProps {
+  environment?: FixtureEnvironment
+}
+
+export function OutlineFixtureApp({ environment = 'minimal' }: OutlineFixtureAppProps) {
+  const fullEnvironment = useMemo(() => createFullFixtureEnvironment(), [])
   const [snapshot, setSnapshot] = useState(() => JSON.stringify(initialContent, null, 2))
 
   const editor = useEditor({
-    extensions: [
-      Text,
-      Heading,
-      Outline,
-    ],
-    content: initialContent,
+    ...getFixtureEditorOptions(
+      environment,
+      fullEnvironment,
+      {
+        extensions: [
+          Text,
+          Heading,
+          Outline,
+        ],
+        content: initialContent,
+      },
+      'outline-fixture-prosemirror',
+    ),
     onCreate({ editor }) {
       setSnapshot(JSON.stringify(editor.getJSON(), null, 2))
     },
     onUpdate({ editor }) {
       setSnapshot(JSON.stringify(editor.getJSON(), null, 2))
     },
-    editorProps: {
-      attributes: {
-        class: 'outline-fixture-prosemirror',
-      },
-    },
-  })
+  }, [environment, fullEnvironment])
 
   return (
     <main className="fixture-shell">
@@ -59,7 +72,7 @@ export function OutlineFixtureApp() {
         <section className="fixture-panel">
           <h1 className="fixture-label">Editor</h1>
           <div className="fixture-editor" data-testid="outline-editor">
-            <EditorContent editor={editor} />
+            {renderFixtureEditor(environment, fullEnvironment, editor)}
           </div>
         </section>
 
