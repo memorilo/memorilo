@@ -12,12 +12,14 @@ import Strike from '@tiptap/extension-strike'
 import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
 import UniqueID from '@tiptap/extension-unique-id'
+import { Gapcursor } from '@tiptap/extensions'
 
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import Blockquote from './extensions/blockquote'
 import CodeBlock from './extensions/codeblock'
 import Heading from './extensions/heading'
+import Image from './extensions/image/index'
 import InlineCode from './extensions/inline-code'
 import Mathematics from './extensions/mathematics'
 import Outline from './extensions/outline'
@@ -49,6 +51,7 @@ export function createMemoriloEditorOptions(fragment: YDocType): Partial<EditorO
       Outline,
       Heading,
       Mathematics,
+      Image,
       Highlight.configure({
         multicolor: true,
       }),
@@ -76,6 +79,7 @@ export function createMemoriloEditorOptions(fragment: YDocType): Partial<EditorO
         },
       }),
       collaborationExtension,
+      Gapcursor,
     ],
     editorProps: {
       scrollMargin: { top: 24, bottom: 24, left: 0, right: 0 },

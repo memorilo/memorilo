@@ -1,7 +1,6 @@
 import type { ReactNodeViewProps } from '@tiptap/react'
 import type { KatexOptions } from 'katex'
 import type {
-  MutableRefObject,
   MouseEvent as ReactMouseEvent,
   RefObject,
 } from 'react'
@@ -68,7 +67,7 @@ function usePendingSelectionRestore(
 function useNodeViewSelectionSync(
   editor: BlockMathNodeViewProps['editor'],
   syncSelectionState: () => void,
-  isPointerSelectionActiveRef: MutableRefObject<boolean>,
+  isPointerSelectionActiveRef: RefObject<boolean>,
 ) {
   const selectionSyncFrameRef = useRef(0)
 

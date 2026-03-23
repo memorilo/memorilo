@@ -161,7 +161,7 @@ export function getDefaultSlashCommands(): SlashCommand[] {
       keywords: ['todo', 'checkbox', 'task'],
       icon: MdCheckBox,
       command: ({ editor, range }) => {
-        runAfterDelete(editor, range, chain => chain.toggleTaskList())
+        runAfterDelete(editor, range, chain => chain.toggleTodoItem())
       },
     },
     {
