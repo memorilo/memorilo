@@ -18,6 +18,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import Blockquote from './extensions/blockquote'
 import CodeBlock from './extensions/codeblock'
+import { EmojiExtension } from './extensions/emoji'
 import Heading from './extensions/heading'
 import Image from './extensions/image/index'
 import InlineCode from './extensions/inline-code'
@@ -48,6 +49,7 @@ export function createMemoriloEditorOptions(fragment: YDocType): Partial<EditorO
       Underline,
       Strike,
       Text,
+      EmojiExtension,
       Outline,
       Heading,
       Mathematics,

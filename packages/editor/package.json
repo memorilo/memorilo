@@ -62,6 +62,7 @@
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
     "dayjs": "catalog:",
+    "emoji-picker-react": "catalog:",
     "effect": "catalog:",
     "es-toolkit": "catalog:",
     "i18next": "catalog:",
