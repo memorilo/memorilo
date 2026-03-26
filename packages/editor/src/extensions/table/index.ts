@@ -1,9 +1,14 @@
-import type { TableCellOptions, TableHeaderOptions, TableOptions, TableRowOptions } from '@tiptap/extension-table'
+import type {
+  TableCellOptions as TiptapTableCellOptions,
+  TableHeaderOptions as TiptapTableHeaderOptions,
+  TableOptions as TiptapTableOptions,
+  TableRowOptions as TiptapTableRowOptions,
+} from '@tiptap/extension-table'
 import type { Node as ProseMirrorNode, ResolvedPos, Schema } from '@tiptap/pm/model'
 import { Extension } from '@tiptap/core'
 import {
   createTable,
-  Table,
+  Table as TiptapTable,
   TableCell,
   TableHeader,
   TableRow,
@@ -11,14 +16,14 @@ import {
 import { createTextAlignAttribute } from './table-align'
 import './table.css'
 
-export interface TableExtensionOptions {
+export interface TableOptions {
   rows: number
   cols: number
   withHeaderRow: boolean
-  table: Partial<TableOptions>
-  tableRow: Partial<TableRowOptions>
-  tableHeader: Partial<TableHeaderOptions>
-  tableCell: Partial<TableCellOptions>
+  table: Partial<TiptapTableOptions>
+  tableRow: Partial<TiptapTableRowOptions>
+  tableHeader: Partial<TiptapTableHeaderOptions>
+  tableCell: Partial<TiptapTableCellOptions>
 }
 
 const AlignedTableCell = TableCell.extend({
@@ -63,7 +68,7 @@ function createBulletListWithTable(
   return bulletListType.create(null, listItem)
 }
 
-export const TableExtension = Extension.create<TableExtensionOptions>({
+export const Table = Extension.create<TableOptions>({
   name: 'tableExtension',
 
   addOptions() {
@@ -89,7 +94,7 @@ export const TableExtension = Extension.create<TableExtensionOptions>({
 
   addExtensions() {
     return [
-      Table.configure(this.options.table),
+      TiptapTable.configure(this.options.table),
       TableRow.configure(this.options.tableRow),
       AlignedTableHeader.configure(this.options.tableHeader),
       AlignedTableCell.configure(this.options.tableCell),

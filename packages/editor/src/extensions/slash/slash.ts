@@ -4,13 +4,12 @@ import type { Transaction } from '@tiptap/pm/state'
 import type { SlashCommand } from './slash-types'
 import { Extension } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
-import { Option } from 'effect'
 import { filterSlashCommands, getDefaultSlashCommands } from './slash-items'
 import { slashSuggestionPluginKey } from './slash-plugin-key'
 import { slashSuggestionRenderer } from './slash-suggestion'
 import './slash.css'
 
-export interface SlashExtensionOptions {
+export interface SlashOptions {
   items: (editor: Editor) => SlashCommand[]
 }
 
@@ -83,14 +82,13 @@ function shouldShowSlashSession(
   return slash.sessionActive
 }
 
-export const SlashExtension = Extension.create<SlashExtensionOptions>({
+export const Slash = Extension.create<SlashOptions>({
   name: 'slash',
   priority: 1100,
 
   addOptions() {
     return {
       items: () => getDefaultSlashCommands(),
-      maxItems: 12,
     }
   },
 
@@ -115,7 +113,7 @@ export const SlashExtension = Extension.create<SlashExtensionOptions>({
         shouldShow: ({ editor, transaction, range }) => shouldShowSlashSession(editor, transaction, range),
         items: ({ query }) => {
           const items = this.options.items(this.editor)
-          return filterSlashCommands(items, query, this.editor, Option.none())
+          return filterSlashCommands(items, query, this.editor)
         },
         command: ({ editor, range, props }) => {
           props.command({ editor, range })

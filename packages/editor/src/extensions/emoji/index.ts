@@ -1,6 +1,6 @@
 import type { EmojiItem } from '@tiptap/extension-emoji'
 import type { SuggestionOptions } from '@tiptap/suggestion'
-import Emoji, { gitHubEmojis } from '@tiptap/extension-emoji'
+import TiptapEmoji, { gitHubEmojis } from '@tiptap/extension-emoji'
 import { emojiSuggestion } from './suggestion'
 import './emoji.css'
 
@@ -25,7 +25,7 @@ const insertEmojiWithoutTrailingSpace: NonNullable<SuggestionOptions<EmojiItem>[
     .run()
 }
 
-export const EmojiExtension = Emoji.configure({
+export const Emoji = TiptapEmoji.configure({
   emojis: gitHubEmojis,
   suggestion: {
     ...emojiSuggestion,

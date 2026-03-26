@@ -2,7 +2,6 @@ import type { EditorOptions } from '@tiptap/core'
 import type { HTMLAttributes } from 'react'
 import type { XmlElement, XmlFragment } from 'yjs'
 import { cn } from '@memorilo/utils'
-
 import Bold from '@tiptap/extension-bold'
 import Collaboration, { isChangeOrigin } from '@tiptap/extension-collaboration'
 import HardBreak from '@tiptap/extension-hard-break'
@@ -13,27 +12,29 @@ import Text from '@tiptap/extension-text'
 import Underline from '@tiptap/extension-underline'
 import UniqueID from '@tiptap/extension-unique-id'
 import { Gapcursor } from '@tiptap/extensions'
-
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo } from 'react'
 import Blockquote from './extensions/blockquote'
+import { EditorBubbleMenu } from './extensions/bubble-menu'
 import CodeBlock from './extensions/codeblock'
-import { EmojiExtension } from './extensions/emoji'
+import { Emoji } from './extensions/emoji'
 import Heading from './extensions/heading'
 import Image from './extensions/image/index'
 import InlineCode from './extensions/inline-code'
 import Mathematics from './extensions/mathematics'
 import Outline from './extensions/outline'
-
 import { OutlineOrdItem } from './extensions/outline/outline-ord-item'
 import { OutlineUordItem } from './extensions/outline/outline-uord-item'
+import { Slash } from './extensions/slash'
+import { Table } from './extensions/table'
 import { YjsDocumentContext } from './provider/yjs'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
-  fragment: XmlFragment | XmlElement
+  fragment: YDocType
   onOutlineClick?: (uuid: string) => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function createMemoriloEditorOptions(fragment: YDocType): Partial<EditorOptions> {
   const collaborationExtension = Collaboration.configure({ fragment })
 
@@ -49,11 +50,13 @@ export function createMemoriloEditorOptions(fragment: YDocType): Partial<EditorO
       Underline,
       Strike,
       Text,
-      EmojiExtension,
       Outline,
+      Emoji,
       Heading,
+      Table,
       Mathematics,
       Image,
+      Slash,
       Highlight.configure({
         multicolor: true,
       }),
@@ -99,7 +102,7 @@ export function MemoriloEditor({
 
   const editor = useEditor(
     editorOptions,
-    [editorOptions, onOutlineClick],
+    [editorOptions],
   )
   const yjsDocumentValue = useMemo(() => ({ fragment }), [fragment])
 
@@ -112,7 +115,7 @@ export function MemoriloEditor({
         )}
         {...props}
       >
-        {/* {editor ? <EditorBubbleMenu editor={editor} /> : null} */}
+        {editor ? <EditorBubbleMenu editor={editor} /> : null}
         <EditorContent editor={editor} />
       </div>
     </YjsDocumentContext>

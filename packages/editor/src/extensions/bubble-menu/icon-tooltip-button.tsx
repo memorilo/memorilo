@@ -11,6 +11,7 @@ export interface IconTooltipButtonProps {
   active?: boolean
   className?: string
   activeClassName?: string
+  testId?: string
 }
 
 export function IconTooltipButton({
@@ -21,6 +22,7 @@ export function IconTooltipButton({
   active,
   className,
   activeClassName,
+  testId,
 }: IconTooltipButtonProps) {
   const ariaPressed = typeof active === 'boolean' ? active : undefined
 
@@ -37,6 +39,7 @@ export function IconTooltipButton({
           type="button"
           variant="ghost"
           disabled={disabled}
+          data-testid={testId}
         >
           <Icon size={16} />
         </Button>

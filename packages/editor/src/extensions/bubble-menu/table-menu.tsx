@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import { useMemo } from 'react'
+import type { IconType } from 'react-icons'
 import { useTranslation } from 'react-i18next'
 import {
   LuAlignCenter,
@@ -19,6 +19,83 @@ import { getTableContext, isMultiCellSelection } from './table-menu-utils'
 type Chain = ReturnType<Editor['chain']>
 type TableCommand = (chain: Chain) => Chain
 
+interface TableMenuAction {
+  id: string
+  labelKey: string
+  Icon: IconType
+  run: TableCommand
+  isVisible?: (editor: Editor) => boolean
+  isEnabled?: (editor: Editor) => boolean
+}
+
+const tableMenuActions: TableMenuAction[] = [
+  {
+    id: 'align-left',
+    labelKey: 'editor.table.align_left',
+    Icon: LuAlignLeft,
+    run: chain => chain.setCellAttribute('textAlign', 'left'),
+    isEnabled: editor => editor.can().chain().focus().setCellAttribute('textAlign', 'left').run(),
+  },
+  {
+    id: 'align-center',
+    labelKey: 'editor.table.align_center',
+    Icon: LuAlignCenter,
+    run: chain => chain.setCellAttribute('textAlign', 'center'),
+    isEnabled: editor => editor.can().chain().focus().setCellAttribute('textAlign', 'center').run(),
+  },
+  {
+    id: 'align-right',
+    labelKey: 'editor.table.align_right',
+    Icon: LuAlignRight,
+    run: chain => chain.setCellAttribute('textAlign', 'right'),
+    isEnabled: editor => editor.can().chain().focus().setCellAttribute('textAlign', 'right').run(),
+  },
+  {
+    id: 'insert-row-above',
+    labelKey: 'editor.table.insert_row_above',
+    Icon: LuArrowUpToLine,
+    run: chain => chain.addRowBefore(),
+    isEnabled: editor => editor.can().chain().focus().addRowBefore().run(),
+  },
+  {
+    id: 'insert-row-below',
+    labelKey: 'editor.table.insert_row_below',
+    Icon: LuArrowDownToLine,
+    run: chain => chain.addRowAfter(),
+    isEnabled: editor => editor.can().chain().focus().addRowAfter().run(),
+  },
+  {
+    id: 'insert-column-left',
+    labelKey: 'editor.table.insert_column_left',
+    Icon: LuArrowLeftToLine,
+    run: chain => chain.addColumnBefore(),
+    isEnabled: editor => editor.can().chain().focus().addColumnBefore().run(),
+  },
+  {
+    id: 'insert-column-right',
+    labelKey: 'editor.table.insert_column_right',
+    Icon: LuArrowRightToLine,
+    run: chain => chain.addColumnAfter(),
+    isEnabled: editor => editor.can().chain().focus().addColumnAfter().run(),
+  },
+  {
+    id: 'split-cell',
+    labelKey: 'editor.table.split_cell',
+    Icon: LuTableCellsSplit,
+    run: chain => chain.splitCell(),
+    isVisible: editor => editor.can().splitCell(),
+    isEnabled: editor => editor.can().chain().focus().splitCell().run(),
+  },
+  {
+    id: 'merge-cells',
+    labelKey: 'editor.table.merge_cells',
+    Icon: LuTableCellsMerge,
+    run: chain => chain.mergeCells(),
+    isVisible: editor => isMultiCellSelection(editor.state.selection) && editor.can().mergeCells(),
+    isEnabled: editor => editor.can().chain().focus().mergeCells().run(),
+  },
+]
+
 // Ensure focus before executing table commands so the selection is anchored to the active cell.
 function runTableCommand(editor: Editor, action: TableCommand) {
   return () => action(editor.chain().focus()).run()
@@ -30,70 +107,30 @@ interface TableMenuProps {
 
 export function TableMenu({ editor }: TableMenuProps) {
   const { t } = useTranslation('app')
-  const tableContext = useMemo(() => getTableContext(editor.state), [editor.state])
+  const tableContext = getTableContext(editor.state)
   if (!tableContext) {
     return null
   }
 
-  const canSplit = editor.can().splitCell()
-  const canMerge = isMultiCellSelection(editor.state.selection) && editor.can().mergeCells()
-
   return (
     <div className="flex items-center gap-1">
       <TableSettingsPopover editor={editor} tableContext={tableContext} />
-      <IconTooltipButton
-        label={t('editor.table.align_left')}
-        Icon={LuAlignLeft}
-        onClick={runTableCommand(editor, chain => chain.setCellAttribute('textAlign', 'left'))}
-      />
-      <IconTooltipButton
-        label={t('editor.table.align_center')}
-        Icon={LuAlignCenter}
-        onClick={runTableCommand(editor, chain => chain.setCellAttribute('textAlign', 'center'))}
-      />
-      <IconTooltipButton
-        label={t('editor.table.align_right')}
-        Icon={LuAlignRight}
-        onClick={runTableCommand(editor, chain => chain.setCellAttribute('textAlign', 'right'))}
-      />
-      <IconTooltipButton
-        label={t('editor.table.insert_row_above')}
-        Icon={LuArrowUpToLine}
-        onClick={runTableCommand(editor, chain => chain.addRowBefore())}
-      />
-      <IconTooltipButton
-        label={t('editor.table.insert_row_below')}
-        Icon={LuArrowDownToLine}
-        onClick={runTableCommand(editor, chain => chain.addRowAfter())}
-      />
-      <IconTooltipButton
-        label={t('editor.table.insert_column_left')}
-        Icon={LuArrowLeftToLine}
-        onClick={runTableCommand(editor, chain => chain.addColumnBefore())}
-      />
-      <IconTooltipButton
-        label={t('editor.table.insert_column_right')}
-        Icon={LuArrowRightToLine}
-        onClick={runTableCommand(editor, chain => chain.addColumnAfter())}
-      />
-      {canSplit
-        ? (
-            <IconTooltipButton
-              label={t('editor.table.split_cell')}
-              Icon={LuTableCellsSplit}
-              onClick={runTableCommand(editor, chain => chain.splitCell())}
-            />
-          )
-        : null}
-      {canMerge
-        ? (
-            <IconTooltipButton
-              label={t('editor.table.merge_cells')}
-              Icon={LuTableCellsMerge}
-              onClick={runTableCommand(editor, chain => chain.mergeCells())}
-            />
-          )
-        : null}
+      {tableMenuActions.map((action) => {
+        if (action.isVisible && !action.isVisible(editor)) {
+          return null
+        }
+
+        return (
+          <IconTooltipButton
+            key={action.id}
+            label={t(action.labelKey)}
+            Icon={action.Icon}
+            onClick={runTableCommand(editor, action.run)}
+            disabled={action.isEnabled ? !action.isEnabled(editor) : false}
+            testId={`bubble-table-${action.id}`}
+          />
+        )
+      })}
     </div>
   )
 }

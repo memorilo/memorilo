@@ -9,7 +9,7 @@ import { cn } from '@memorilo/utils'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MdGridOn, MdSettings } from 'react-icons/md'
-import { clamp, getTableContext, resizeTable, selectCell } from './table-menu-utils'
+import { getTableContext, resizeTable, selectCell } from './table-menu-utils'
 
 interface TableSettingsPopoverProps {
   editor: Editor
@@ -17,19 +17,40 @@ interface TableSettingsPopoverProps {
 }
 
 const GRID_MAX = 10
+const TABLE_ROW_LIMIT = 50
+const TABLE_COLUMN_LIMIT = 20
+
+function parseTableDimension(value: string, min: number, max: number) {
+  if (!/^\d+$/.test(value)) {
+    return null
+  }
+
+  const parsedValue = Number.parseInt(value, 10)
+  if (!Number.isInteger(parsedValue) || parsedValue < min || parsedValue > max) {
+    return null
+  }
+
+  return parsedValue
+}
 
 export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopoverProps) {
   const { t } = useTranslation('app')
   const [open, setOpen] = useState(false)
-  const [rows, setRows] = useState(tableContext.rows)
-  const [cols, setCols] = useState(tableContext.cols)
+  const [rowInput, setRowInput] = useState(String(tableContext.rows))
+  const [columnInput, setColumnInput] = useState(String(tableContext.cols))
   const [withHeaderRow, setWithHeaderRow] = useState(tableContext.hasHeaderRow)
   const [hoveredSize, setHoveredSize] = useState<{ rows: number, cols: number } | null>(null)
-  const displaySize = hoveredSize ?? { rows, cols }
+  const parsedRows = parseTableDimension(rowInput, 1, TABLE_ROW_LIMIT)
+  const parsedCols = parseTableDimension(columnInput, 1, TABLE_COLUMN_LIMIT)
+  const displaySize = hoveredSize ?? (parsedRows && parsedCols
+    ? { rows: parsedRows, cols: parsedCols }
+    : null)
 
   const handleApply = () => {
-    const nextRows = clamp(rows, 1, 50)
-    const nextCols = clamp(cols, 1, 20)
+    if (parsedRows === null || parsedCols === null) {
+      return
+    }
+
     editor.chain().focus().run()
     const context = getTableContext(editor.state)
     if (!context) {
@@ -41,13 +62,13 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
       editor.commands.toggleHeaderRow()
     }
 
-    resizeTable(editor, nextRows, nextCols)
+    resizeTable(editor, parsedRows, parsedCols)
     setOpen(false)
   }
 
   const handleGridSelect = (nextRows: number, nextCols: number) => {
-    setRows(nextRows)
-    setCols(nextCols)
+    setRowInput(String(nextRows))
+    setColumnInput(String(nextCols))
   }
 
   const handleGridHover = (nextRows: number, nextCols: number) => {
@@ -67,8 +88,8 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
     if (!context) {
       return
     }
-    setRows(context.rows)
-    setCols(context.cols)
+    setRowInput(String(context.rows))
+    setColumnInput(String(context.cols))
     setWithHeaderRow(context.hasHeaderRow)
     setHoveredSize(null)
   }
@@ -85,6 +106,7 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
               size="icon-sm"
               type="button"
               variant="ghost"
+              data-testid="bubble-table-settings"
             >
               <MdSettings size={16} />
             </Button>
@@ -97,7 +119,11 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
       <PopoverContent side="top" align="start" className="w-64 p-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">{t('editor.table.header_row')}</span>
-          <Switch checked={withHeaderRow} onCheckedChange={setWithHeaderRow} />
+          <Switch
+            checked={withHeaderRow}
+            onCheckedChange={setWithHeaderRow}
+            data-testid="bubble-table-header-switch"
+          />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -105,8 +131,12 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
             <Input
               type="number"
               min={1}
-              value={rows}
-              onChange={event => setRows(Number(event.target.value) || 1)}
+              max={TABLE_ROW_LIMIT}
+              inputMode="numeric"
+              value={rowInput}
+              onChange={event => setRowInput(event.target.value)}
+              aria-invalid={parsedRows === null}
+              data-testid="bubble-table-rows-input"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -114,8 +144,12 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
             <Input
               type="number"
               min={1}
-              value={cols}
-              onChange={event => setCols(Number(event.target.value) || 1)}
+              max={TABLE_COLUMN_LIMIT}
+              inputMode="numeric"
+              value={columnInput}
+              onChange={event => setColumnInput(event.target.value)}
+              aria-invalid={parsedCols === null}
+              data-testid="bubble-table-columns-input"
             />
           </label>
         </div>
@@ -130,12 +164,17 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
         />
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {displaySize.rows}
-            {' '}
-            ×
-            {displaySize.cols}
+            {displaySize
+              ? `${displaySize.rows} × ${displaySize.cols}`
+              : t('editor.table.select_size')}
           </span>
-          <Button size="sm" type="button" onClick={handleApply}>
+          <Button
+            size="sm"
+            type="button"
+            onClick={handleApply}
+            disabled={parsedRows === null || parsedCols === null}
+            data-testid="bubble-table-apply"
+          >
             {t('editor.table.apply')}
           </Button>
         </div>
@@ -145,7 +184,7 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
 }
 
 interface TableSizeGridProps {
-  hovered: { rows: number, cols: number }
+  hovered: { rows: number, cols: number } | null
   onHover: (rows: number, cols: number) => void
   onLeave: () => void
   onSelect: (rows: number, cols: number) => void
@@ -174,7 +213,9 @@ function TableSizeGrid({
         {Array.from({ length: GRID_MAX * GRID_MAX }).map((_, index) => {
           const row = Math.floor(index / GRID_MAX) + 1
           const col = (index % GRID_MAX) + 1
-          const isActive = row <= hovered.rows && col <= hovered.cols
+          const isActive = hovered !== null
+            && row <= hovered.rows
+            && col <= hovered.cols
           return (
             <button
               key={`${row}-${col}`}

@@ -5,8 +5,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@memorilo/components/ui/select'
+import { cn } from '@memorilo/utils'
 import { useTranslation } from 'react-i18next'
 import { headingLabelKeyByLevel, headingLevels } from '../heading'
 
@@ -26,7 +26,11 @@ function getHeadingValue(editor: Editor): HeadingValue {
   }
 
   const level = parent.attrs.level as HeadingLevel
-  return headingLevelSet.has(level) ? String(level) as HeadingValue : 'paragraph'
+  if (!headingLevelSet.has(level)) {
+    throw new Error(`Unsupported heading level in selection: ${String(level)}`)
+  }
+
+  return String(level) as HeadingValue
 }
 
 function applyHeadingValue(editor: Editor, value: HeadingValue) {
@@ -41,9 +45,10 @@ function applyHeadingValue(editor: Editor, value: HeadingValue) {
 
 interface HeadingSelectProps {
   editor: Editor
+  compact?: boolean
 }
 
-export function HeadingSelect({ editor }: HeadingSelectProps) {
+export function HeadingSelect({ editor, compact = false }: HeadingSelectProps) {
   const { t } = useTranslation('app')
   const translate = (key: string) => t(key as never) as string
   const headingValue = getHeadingValue(editor)
@@ -55,6 +60,10 @@ export function HeadingSelect({ editor }: HeadingSelectProps) {
       icon: `H${level}`,
     })),
   ]
+  const selectedOption = headingOptions.find(option => option.value === headingValue)
+  if (!selectedOption) {
+    throw new Error(`Unsupported heading value: ${headingValue}`)
+  }
 
   return (
     <Select
@@ -63,18 +72,44 @@ export function HeadingSelect({ editor }: HeadingSelectProps) {
     >
       <SelectTrigger
         aria-label={translate('editor.heading.level')}
-        className="min-w-[110px] border-none ring-none box-shadow-none outline-none"
-        onMouseDown={event => event.preventDefault()}
+        className={cn(
+          'max-w-full shrink-0 border-none bg-transparent shadow-none ring-0 outline-none',
+          'h-8 min-w-[112px] px-2',
+          compact ? 'h-7 min-w-0 w-10 gap-0.5 px-1 [&_svg]:size-3.5' : 'h-8 min-w-[112px] px-2',
+        )}
         size="sm"
+        data-testid="bubble-heading-trigger"
       >
-        <SelectValue
-          placeholder={translate('editor.heading.paragraph')}
-          className="border-none ring-none box-shadow-none outline-none"
-        />
+        <span
+          className="min-w-0 flex-1"
+          data-testid="bubble-heading-trigger-label"
+        >
+          {compact
+            ? (
+                <span className="flex min-w-0 flex-1 items-center justify-center text-sm font-medium">
+                  {selectedOption.icon.trim()}
+                </span>
+              )
+            : (
+                <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left">
+                  <span className="w-[2em] shrink-0 text-center font-bold">
+                    {selectedOption.icon}
+                  </span>
+                  <span className="truncate">
+                    {selectedOption.label}
+                  </span>
+                </span>
+              )}
+        </span>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" side="bottom" align="start" sideOffset={8}>
         {headingOptions.map(option => (
-          <SelectItem key={option.value} value={option.value}>
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            textValue={option.label}
+            data-testid={`bubble-heading-option-${option.value}`}
+          >
             <span className="w-[2em] text-center font-bold">
               {option.icon}
             </span>

@@ -3,8 +3,8 @@ import type { FixtureEnvironment } from '../fixture-app-utils'
 import Text from '@tiptap/extension-text'
 import { useEditor } from '@tiptap/react'
 import { useMemo, useState } from 'react'
-import { Emoji } from '../../src/extensions/emoji'
 import Outline from '../../src/extensions/outline'
+import { Table } from '../../src/extensions/table'
 import {
   createFullFixtureEnvironment,
   getFixtureEditorOptions,
@@ -30,11 +30,11 @@ const initialContent: JSONContent = {
   ],
 }
 
-interface EmojiFixtureAppProps {
+interface TableFixtureAppProps {
   environment?: FixtureEnvironment
 }
 
-export function EmojiFixtureApp({ environment = 'minimal' }: EmojiFixtureAppProps) {
+export function TableFixtureApp({ environment = 'minimal' }: TableFixtureAppProps) {
   const fullEnvironment = useMemo(() => createFullFixtureEnvironment(), [])
   const [snapshot, setSnapshot] = useState(() => JSON.stringify(initialContent, null, 2))
 
@@ -46,11 +46,11 @@ export function EmojiFixtureApp({ environment = 'minimal' }: EmojiFixtureAppProp
         extensions: [
           Text,
           Outline,
-          Emoji,
+          Table,
         ],
         content: initialContent,
       },
-      'emoji-fixture-prosemirror',
+      'table-fixture-prosemirror',
     ),
     onCreate({ editor }) {
       setSnapshot(JSON.stringify(editor.getJSON(), null, 2))
@@ -65,14 +65,14 @@ export function EmojiFixtureApp({ environment = 'minimal' }: EmojiFixtureAppProp
       <div className="fixture-grid">
         <section className="fixture-panel">
           <h1 className="fixture-label">Editor</h1>
-          <div className="fixture-editor" data-testid="emoji-editor">
+          <div className="fixture-editor" data-testid="table-editor">
             {renderFixtureEditor(environment, fullEnvironment, editor)}
           </div>
         </section>
 
         <aside className="fixture-sidebar">
           <h2 className="fixture-label">JSON</h2>
-          <pre className="fixture-pre" data-testid="emoji-json">
+          <pre className="fixture-pre" data-testid="table-json">
             {snapshot}
           </pre>
         </aside>

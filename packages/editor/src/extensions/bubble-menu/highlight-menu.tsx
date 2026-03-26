@@ -22,24 +22,25 @@ const highlightPalette = [
   '#f5d0fe',
 ]
 
+const sharedHighlightButtonClassName = 'px-0 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground'
+
 interface HighlightMenuProps {
   editor: Editor
+  compact?: boolean
 }
 
-export function HighlightMenu({ editor }: HighlightMenuProps) {
+export function HighlightMenu({ editor, compact = false }: HighlightMenuProps) {
   const { t } = useTranslation('app')
   const [open, setOpen] = useState(false)
   const currentColor = editor.getAttributes('highlight').color as string | undefined
   const isActive = editor.isActive('highlight')
 
   const applyHighlight = () => {
-    editor.commands.focus()
-    editor.commands.setHighlight({ color: currentColor ?? defaultHighlightColor })
+    editor.chain().focus().setHighlight({ color: currentColor ?? defaultHighlightColor }).run()
   }
 
   const handleColorChange = (color: ColorResult) => {
-    editor.commands.focus()
-    editor.commands.setHighlight({ color: color.hex })
+    editor.chain().focus().setHighlight({ color: color.hex }).run()
     setOpen(false)
   }
 
@@ -49,7 +50,8 @@ export function HighlightMenu({ editor }: HighlightMenuProps) {
         aria-label={t('editor.highlight.mark')}
         aria-pressed={isActive}
         className={cn(
-          'h-8 w-8 rounded-r-none px-0',
+          sharedHighlightButtonClassName,
+          compact ? 'h-7 w-7 rounded-r-none' : 'h-8 w-8 rounded-r-none',
           isActive && 'bg-accent text-accent-foreground',
         )}
         onMouseDown={event => event.preventDefault()}
@@ -57,6 +59,7 @@ export function HighlightMenu({ editor }: HighlightMenuProps) {
         size="icon-sm"
         type="button"
         variant="ghost"
+        data-testid="bubble-highlight-toggle"
       >
         <MdOutlineHighlight size={16} />
       </Button>
@@ -65,13 +68,15 @@ export function HighlightMenu({ editor }: HighlightMenuProps) {
           <Button
             aria-label={t('editor.highlight.mark_options')}
             className={cn(
-              'h-8 w-6 rounded-l-none px-0',
+              sharedHighlightButtonClassName,
+              compact ? 'h-7 w-5 rounded-l-none' : 'h-8 w-6 rounded-l-none',
               isActive && 'bg-accent text-accent-foreground',
             )}
             onMouseDown={event => event.preventDefault()}
             size="icon-sm"
             type="button"
             variant="ghost"
+            data-testid="bubble-highlight-options"
           >
             <MdArrowDropDown size={16} />
           </Button>
