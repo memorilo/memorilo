@@ -31,13 +31,13 @@ function isSelectionInTable(state: EditorState) {
   return false
 }
 
-function shouldShowBubbleMenu(state: EditorState) {
+function shouldShowBubbleMenu(editor: Editor, state: EditorState) {
   const { selection } = state
   const isInTable = isSelectionInTable(state)
   const isCellSelection = selection instanceof CellSelection
   const hasRangeSelection = selection.from !== selection.to
   if (isInTable) {
-    return hasRangeSelection || isCellSelection
+    return hasRangeSelection || isCellSelection || editor.can().splitCell()
   }
   return hasRangeSelection
 }
@@ -78,7 +78,20 @@ function getBubbleChromeBounds(floatingElement: HTMLElement) {
 }
 
 function getBubbleBoundaryElement(editor: Editor) {
-  const boundary = editor.view.dom.closest('.memorilo-editor')
+  if (!editor.isInitialized) {
+    return null
+  }
+
+  const editorElement = editor.options.element
+  if (!(editorElement instanceof HTMLElement)) {
+    return null
+  }
+
+  if (!editorElement.isConnected) {
+    return null
+  }
+
+  const boundary = editorElement.closest('.memorilo-editor')
   if (boundary instanceof HTMLElement) {
     return boundary
   }
@@ -86,15 +99,17 @@ function getBubbleBoundaryElement(editor: Editor) {
   // Some fixtures and embedded editor surfaces render the editable node without
   // the outer `.memorilo-editor` shell. In that case, keep the bubble menu
   // bounded to the editor DOM itself instead of crashing the entire surface.
-  return editor.view.dom
+  return editorElement
 }
 
 function getBubbleBoundaryRect(editor: Editor, floatingElement: HTMLElement) {
   const boundary = getBubbleBoundaryElement(editor)
 
-  const boundaryRect = boundary.getBoundingClientRect()
+  const boundaryRect = boundary?.getBoundingClientRect()
   const chromeBounds = getBubbleChromeBounds(floatingElement)
-  const hasMeasuredBoundary = boundaryRect.width > 0 && boundaryRect.height > 0
+  const hasMeasuredBoundary = boundaryRect !== undefined
+    && boundaryRect.width > 0
+    && boundaryRect.height > 0
   const left = window.innerWidth <= bubbleMenuViewportBoundaryBreakpoint
     || !hasMeasuredBoundary
     ? chromeBounds.left
@@ -178,7 +193,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
     )
   }, [editor])
   useEditorSelectionUpdate(editor)
-  const showMenu = shouldShowBubbleMenu(editor.state)
+  const showMenu = shouldShowBubbleMenu(editor, editor.state)
   const isTableSelection = isSelectionInTable(editor.state)
 
   useEffect(() => {
@@ -201,6 +216,12 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
     }
 
     const boundaryElement = getBubbleBoundaryElement(editor)
+    if (!boundaryElement) {
+      return () => {
+        window.removeEventListener('resize', refresh)
+      }
+    }
+
     const observer = new ResizeObserver(refresh)
     observer.observe(boundaryElement)
     return () => {
@@ -240,7 +261,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
         isCompact ? 'rounded-lg px-1.5 py-1' : 'rounded-xl px-2 py-1.5',
       )}
       shouldShow={({ editor: currentEditor, state }) =>
-        currentEditor.isEditable && shouldShowBubbleMenu(state)}
+        currentEditor.isEditable && shouldShowBubbleMenu(currentEditor, state)}
     >
       <div className="w-full overflow-hidden" data-testid="bubble-menu">
         <div

@@ -3,10 +3,37 @@ import process from 'node:process'
 import { expect } from '@playwright/test'
 import {
   focusParagraph,
+  readFixtureDoc,
   selectTextInParagraph,
 } from '../editor-test-utils'
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+
+declare global {
+  interface Window {
+    __bubbleFixture?: {
+      getJSON: () => unknown
+      selectTableCells: (anchorRow: number, anchorCol: number, headRow: number, headCol: number) => void
+      mergeSelectedCells: () => boolean
+      focusTableCell: (row: number, col: number) => boolean
+      readSelectionState: () => {
+        empty: boolean
+        from: number
+        to: number
+        type: string
+        anchorCellPos: number | null
+        headCellPos: number | null
+        canMergeCells: boolean
+        canSplitCell: boolean
+      }
+      renderError: {
+        message: string
+        stack: string | null
+        componentStack: string | null
+      } | null
+    }
+  }
+}
 
 export async function gotoBubbleFixture(page: Page) {
   await page.goto('bubble/')
@@ -280,6 +307,118 @@ export async function readBubbleParagraphHtml(page: Page, index: number) {
 
 export async function countBubbleTableRows(page: Page) {
   return await page.locator('[data-testid="bubble-editor"] .ProseMirror table tr').count()
+}
+
+export async function selectBubbleTableCells(
+  page: Page,
+  anchorRow: number,
+  anchorCol: number,
+  headRow: number,
+  headCol: number,
+) {
+  await page.evaluate(({ startRow, startCol, endRow, endCol }) => {
+    if (!window.__bubbleFixture) {
+      throw new TypeError('Bubble fixture helpers are unavailable')
+    }
+
+    window.__bubbleFixture.selectTableCells(startRow, startCol, endRow, endCol)
+  }, {
+    startRow: anchorRow,
+    startCol: anchorCol,
+    endRow: headRow,
+    endCol: headCol,
+  })
+}
+
+export async function dragSelectBubbleTableCells(
+  page: Page,
+  anchorRow: number,
+  anchorCol: number,
+  headRow: number,
+  headCol: number,
+) {
+  const selectionPoints = await page.evaluate(({ startRow, startCol, endRow, endCol }) => {
+    const getCellCenter = (row: number, col: number) => {
+      const rows = document.querySelectorAll('[data-testid="bubble-editor"] .ProseMirror table tr')
+      const currentRow = rows.item(row)
+      if (!(currentRow instanceof HTMLTableRowElement)) {
+        throw new TypeError(`Table row ${row} not found`)
+      }
+
+      const currentCell = currentRow.querySelectorAll('th, td').item(col)
+      if (!(currentCell instanceof HTMLTableCellElement)) {
+        throw new TypeError(`Table cell ${row}:${col} not found`)
+      }
+
+      const rect = currentCell.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) {
+        throw new TypeError(`Table cell ${row}:${col} is not visible`)
+      }
+
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      }
+    }
+
+    return {
+      start: getCellCenter(startRow, startCol),
+      end: getCellCenter(endRow, endCol),
+    }
+  }, {
+    startRow: anchorRow,
+    startCol: anchorCol,
+    endRow: headRow,
+    endCol: headCol,
+  })
+
+  await page.mouse.move(selectionPoints.start.x, selectionPoints.start.y)
+  await page.mouse.down()
+  await page.mouse.move(selectionPoints.end.x, selectionPoints.end.y, { steps: 8 })
+  await page.mouse.up()
+}
+
+export async function mergeBubbleSelectedTableCells(page: Page) {
+  return await page.evaluate(() => {
+    if (!window.__bubbleFixture) {
+      throw new TypeError('Bubble fixture helpers are unavailable')
+    }
+
+    return window.__bubbleFixture.mergeSelectedCells()
+  })
+}
+
+export async function focusBubbleTableCell(page: Page, row: number, col: number) {
+  return await page.evaluate(({ targetRow, targetCol }) => {
+    if (!window.__bubbleFixture) {
+      throw new TypeError('Bubble fixture helpers are unavailable')
+    }
+
+    return window.__bubbleFixture.focusTableCell(targetRow, targetCol)
+  }, {
+    targetRow: row,
+    targetCol: col,
+  })
+}
+
+export async function readBubbleFixtureSelectionState(page: Page) {
+  return await page.evaluate(() => {
+    if (!window.__bubbleFixture) {
+      throw new TypeError('Bubble fixture helpers are unavailable')
+    }
+
+    return window.__bubbleFixture.readSelectionState()
+  })
+}
+
+export async function readBubbleFixtureRenderError(page: Page) {
+  return await page.evaluate(() => {
+    return window.__bubbleFixture?.renderError ?? null
+  })
+}
+
+export async function readBubbleDoc(page: Page) {
+  return await readFixtureDoc(page, 'bubble-json')
 }
 
 export async function readBubbleMenuGapToParagraph(

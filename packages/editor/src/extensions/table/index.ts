@@ -4,7 +4,8 @@ import type {
   TableOptions as TiptapTableOptions,
   TableRowOptions as TiptapTableRowOptions,
 } from '@tiptap/extension-table'
-import type { Node as ProseMirrorNode, ResolvedPos, Schema } from '@tiptap/pm/model'
+import type { Node as ProseMirrorNode, NodeType, ResolvedPos, Schema } from '@tiptap/pm/model'
+import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
 import {
   createTable,
@@ -13,6 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@tiptap/extension-table'
+import {
+  columnIsHeader,
+  rowIsHeader,
+  selectedRect,
+  splitCellWithType,
+  tableNodeTypes,
+} from '@tiptap/pm/tables'
 import { createTextAlignAttribute } from './table-align'
 import './table.css'
 
@@ -66,6 +74,21 @@ function createBulletListWithTable(
 
   const listItem = listItemType.create(null, tableNode)
   return bulletListType.create(null, listItem)
+}
+
+function getSplitCellType(state: EditorState, row: number, col: number): NodeType {
+  const types = tableNodeTypes(state.schema)
+  const rect = selectedRect(state)
+
+  if (rowIsHeader(rect.map, rect.table, row) || columnIsHeader(rect.map, rect.table, col)) {
+    return types.header_cell
+  }
+
+  return types.cell
+}
+
+export function splitCellPreservingCellTypes(state: EditorState, dispatch?: (tr: Transaction) => void) {
+  return splitCellWithType(({ row, col }) => getSplitCellType(state, row, col))(state, dispatch)
 }
 
 export const Table = Extension.create<TableOptions>({
@@ -138,6 +161,14 @@ export const Table = Extension.create<TableOptions>({
         const tr = state.tr.replaceSelectionWith(listNode, false)
         view.dispatch(tr.scrollIntoView())
         return true
+      },
+    }
+  },
+
+  addCommands() {
+    return {
+      splitCell: () => ({ state, dispatch }) => {
+        return splitCellPreservingCellTypes(state, dispatch)
       },
     }
   },

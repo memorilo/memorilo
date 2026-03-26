@@ -12,6 +12,7 @@ import {
   LuTableCellsMerge,
   LuTableCellsSplit,
 } from 'react-icons/lu'
+import { splitCellPreservingCellTypes } from '../table'
 import { IconTooltipButton } from './icon-tooltip-button'
 import { TableSettingsPopover } from './table-menu-settings'
 import { getTableContext, isMultiCellSelection } from './table-menu-utils'
@@ -82,9 +83,10 @@ const tableMenuActions: TableMenuAction[] = [
     id: 'split-cell',
     labelKey: 'editor.table.split_cell',
     Icon: LuTableCellsSplit,
-    run: chain => chain.splitCell(),
+    run: chain => chain.command(({ state, dispatch }) => splitCellPreservingCellTypes(state, dispatch)),
     isVisible: editor => editor.can().splitCell(),
-    isEnabled: editor => editor.can().chain().focus().splitCell().run(),
+    isEnabled: editor => editor.can().chain().focus().command(({ state, dispatch }) =>
+      splitCellPreservingCellTypes(state, dispatch)).run(),
   },
   {
     id: 'merge-cells',

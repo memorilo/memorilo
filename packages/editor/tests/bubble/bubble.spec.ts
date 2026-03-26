@@ -3,13 +3,17 @@ import {
   constrainBubbleEditorPanel,
   countBubbleTableRows,
   dragSelectBubbleParagraphText,
+  dragSelectBubbleTableCells,
   focusBubbleParagraph,
+  focusBubbleTableCell,
   getBubbleButton,
   getBubbleMenu,
   getBubbleTableButton,
   gotoBubbleFixture,
+  mergeBubbleSelectedTableCells,
   mountBubbleOcclusionPanel,
   readBubbleHeadingTriggerLayout,
+  readBubbleFixtureSelectionState,
   pressInsertTableShortcut,
   readBubbleMenuGapToParagraph,
   readBubbleInlineControlsLayout,
@@ -17,6 +21,7 @@ import {
   readBubbleParagraphHtml,
   readBubbleMenuViewportMetrics,
   readBubbleSelectionAlignment,
+  selectBubbleTableCells,
   selectBubbleParagraphText,
   setBubbleParagraphTextAlign,
   setBubbleParagraphText,
@@ -216,5 +221,107 @@ test.describe('bubble menu integration', () => {
     await expect.poll(async () => {
       return await countBubbleTableRows(page)
     }).toBe(rowCountBefore + 1)
+  })
+
+  test('shows the split cell control after returning the caret to a merged table cell', async ({ page }) => {
+    await focusBubbleParagraph(page, 0)
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await pressInsertTableShortcut(page)
+
+    await expect(page.locator('[data-testid="bubble-editor"] .ProseMirror table')).toHaveCount(1)
+
+    await selectBubbleTableCells(page, 1, 0, 1, 1)
+    await expect(getBubbleTableButton(page, 'merge-cells')).toBeVisible()
+
+    expect(await mergeBubbleSelectedTableCells(page)).toBe(true)
+
+    await focusBubbleTableCell(page, 1, 0)
+    await expect.poll(async () => {
+      return await readBubbleFixtureSelectionState(page)
+    }).toMatchObject({
+      empty: true,
+      canSplitCell: true,
+    })
+
+    await expect(getBubbleMenu(page)).toBeVisible()
+    await expect(getBubbleTableButton(page, 'split-cell')).toBeVisible()
+  })
+
+  test('shows split and hides merge when a merged cell remains singly selected', async ({ page }) => {
+    await focusBubbleParagraph(page, 0)
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await pressInsertTableShortcut(page)
+
+    await expect(page.locator('[data-testid="bubble-editor"] .ProseMirror table')).toHaveCount(1)
+
+    await selectBubbleTableCells(page, 1, 0, 1, 1)
+    await expect(getBubbleTableButton(page, 'merge-cells')).toBeVisible()
+
+    await getBubbleTableButton(page, 'merge-cells').click()
+
+    await expect.poll(async () => {
+      return await readBubbleFixtureSelectionState(page)
+    }).toMatchObject({
+      canSplitCell: true,
+    })
+
+    await expect(getBubbleMenu(page)).toBeVisible()
+    await expect(getBubbleTableButton(page, 'split-cell')).toBeVisible()
+    await expect(getBubbleTableButton(page, 'merge-cells')).toHaveCount(0)
+  })
+
+  test('shows split and hides merge after merging a mouse-selected cell range', async ({ page }) => {
+    await focusBubbleParagraph(page, 0)
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await pressInsertTableShortcut(page)
+
+    await expect(page.locator('[data-testid="bubble-editor"] .ProseMirror table')).toHaveCount(1)
+
+    await dragSelectBubbleTableCells(page, 1, 0, 1, 1)
+    await expect(getBubbleTableButton(page, 'merge-cells')).toBeVisible()
+
+    await getBubbleTableButton(page, 'merge-cells').click()
+
+    await expect.poll(async () => {
+      return await readBubbleFixtureSelectionState(page)
+    }).toMatchObject({
+      canSplitCell: true,
+    })
+
+    await expect(getBubbleMenu(page)).toBeVisible()
+    await expect(getBubbleTableButton(page, 'split-cell')).toBeVisible()
+    await expect(getBubbleTableButton(page, 'merge-cells')).toHaveCount(0)
+  })
+
+  test('restores a body cell when a merged header and body cell is split', async ({ page }) => {
+    await focusBubbleParagraph(page, 0)
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await pressInsertTableShortcut(page)
+
+    await expect(page.locator('[data-testid="bubble-editor"] .ProseMirror table')).toHaveCount(1)
+
+    await selectBubbleTableCells(page, 0, 0, 1, 0)
+    await expect(getBubbleTableButton(page, 'merge-cells')).toBeVisible()
+    expect(await mergeBubbleSelectedTableCells(page)).toBe(true)
+
+    await focusBubbleTableCell(page, 0, 0)
+    await expect(getBubbleTableButton(page, 'split-cell')).toBeVisible()
+    await getBubbleTableButton(page, 'split-cell').click()
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('[data-testid="bubble-editor"] .ProseMirror table tr'))
+        return rows.map(row =>
+          Array.from(row.querySelectorAll('th, td')).map(cell => cell.tagName.toLowerCase()),
+        )
+      })
+    }).toMatchObject({
+      0: ['th', 'th', 'th'],
+      1: ['td', 'td', 'td'],
+    })
   })
 })
