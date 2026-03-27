@@ -29,29 +29,19 @@ export function getFixtureEditorOptions(
   minimalOptions: Partial<EditorOptions>,
   proseMirrorClass: string,
 ): Partial<EditorOptions> {
-  const editorProps = environment === 'full'
-    ? {
-        ...fullEnvironment.editorOptions.editorProps,
-        attributes: {
-          class: proseMirrorClass,
-        },
-      }
-    : {
-        ...minimalOptions.editorProps,
-        attributes: {
-          class: proseMirrorClass,
-        },
-      }
+  const options = environment === 'full' ? fullEnvironment.editorOptions : minimalOptions
+  const attributes = options.editorProps?.attributes
 
-  return environment === 'full'
-    ? {
-        ...fullEnvironment.editorOptions,
-        editorProps,
-      }
-    : {
-        ...minimalOptions,
-        editorProps,
-      }
+  return {
+    ...options,
+    editorProps: {
+      ...options.editorProps,
+      attributes: {
+        ...attributes,
+        class: attributes?.class ? `${attributes.class} ${proseMirrorClass}` : proseMirrorClass,
+      },
+    },
+  }
 }
 
 export function renderFixtureEditor(
