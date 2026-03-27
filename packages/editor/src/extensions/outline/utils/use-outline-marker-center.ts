@@ -20,17 +20,111 @@ function findFirstTextNode(node: Node): Text | null {
   return null
 }
 
-function measureFirstLineCenterY(wrapper: HTMLElement, firstBlock: HTMLElement): number | null {
-  const range = document.createRange()
-  const firstTextNode = findFirstTextNode(firstBlock)
+function resolveFirstMeasureElement(content: HTMLElement): HTMLElement | null {
+  let current = content.firstElementChild
 
-  if (firstTextNode) {
-    range.setStart(firstTextNode, 0)
-    range.setEnd(firstTextNode, Math.min(1, firstTextNode.length))
+  while (current instanceof HTMLElement) {
+    if (current.hasAttribute('data-node-view-content-react')) {
+      current = current.firstElementChild
+      continue
+    }
+
+    return current
   }
-  else {
-    range.selectNodeContents(firstBlock)
+
+  return null
+}
+
+function resolveMeasureContainer(content: HTMLElement): HTMLElement {
+  const current = content.firstElementChild
+
+  if (current instanceof HTMLElement && current.hasAttribute('data-node-view-content-react')) {
+    return current
   }
+
+  return content
+}
+
+export function measureDefaultParagraphCenterY(wrapper: HTMLElement): number | null {
+  const content = wrapper.querySelector<HTMLElement>('[data-node-view-content]')
+  const measureTarget = content ? resolveMeasureContainer(content) : wrapper
+
+  const targets = [
+    measureTarget,
+    wrapper.closest('.ProseMirror'),
+  ]
+
+  for (const target of targets) {
+    if (!(target instanceof HTMLElement)) {
+      continue
+    }
+
+    const lineHeight = Number.parseFloat(window.getComputedStyle(target).lineHeight)
+    if (Number.isFinite(lineHeight) && lineHeight > 0) {
+      return lineHeight / 2
+    }
+  }
+
+  return null
+}
+
+function setOutlineMarkerCenterY(wrapper: HTMLElement, centerY: number) {
+  wrapper.style.setProperty('--outline-marker-center-y', `${centerY}px`)
+}
+
+function applyDefaultOutlineMarkerCenterY(wrapper: HTMLElement): boolean {
+  const defaultCenterY = measureDefaultParagraphCenterY(wrapper)
+  if (defaultCenterY === null) {
+    return false
+  }
+
+  setOutlineMarkerCenterY(wrapper, defaultCenterY)
+  return true
+}
+
+function applyOutlineMarkerCenterY(wrapper: HTMLElement, centerY: number | null): boolean {
+  if (centerY !== null) {
+    setOutlineMarkerCenterY(wrapper, centerY)
+    return true
+  }
+
+  if (wrapper.style.getPropertyValue('--outline-marker-center-y') !== '') {
+    return true
+  }
+
+  return applyDefaultOutlineMarkerCenterY(wrapper)
+}
+
+function resolveOutlineMarkerCenter(wrapper: HTMLElement): number | null {
+  const content = wrapper.querySelector<HTMLElement>('[data-node-view-content]')
+  const firstBlock = content ? resolveFirstMeasureElement(content) : null
+
+  if (firstBlock instanceof HTMLElement) {
+    return measureFirstLineCenterY(wrapper, firstBlock)
+  }
+
+  return measureDefaultParagraphCenterY(wrapper)
+}
+
+function measureEmptyBlockCenterY(wrapper: HTMLElement, firstBlock: HTMLElement): number | null {
+  const wrapperRect = wrapper.getBoundingClientRect()
+  const firstBlockRect = firstBlock.getBoundingClientRect()
+  if (firstBlockRect.height <= 0) {
+    return null
+  }
+
+  return firstBlockRect.top - wrapperRect.top + firstBlockRect.height / 2
+}
+
+function measureFirstLineCenterY(wrapper: HTMLElement, firstBlock: HTMLElement): number | null {
+  const firstTextNode = findFirstTextNode(firstBlock)
+  if (!firstTextNode) {
+    return measureEmptyBlockCenterY(wrapper, firstBlock)
+  }
+
+  const range = document.createRange()
+  range.setStart(firstTextNode, 0)
+  range.setEnd(firstTextNode, Math.min(1, firstTextNode.length))
 
   const lineRect = Array
     .from(range.getClientRects())
@@ -44,7 +138,7 @@ function measureFirstLineCenterY(wrapper: HTMLElement, firstBlock: HTMLElement):
   return lineRect.top - wrapperRect.top + lineRect.height / 2
 }
 
-export function useOutlineMarkerCenter(
+export function useOutlineMarkerCenterStyle(
   wrapperRef: RefObject<HTMLElement | null>,
   node: PMNode,
 ) {
@@ -56,35 +150,45 @@ export function useOutlineMarkerCenter(
       return
     }
 
-    let disposed = false
+    const nextCenterY = resolveOutlineMarkerCenter(wrapper)
+    // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
+    setCenterY(currentCenterY => nextCenterY ?? currentCenterY)
 
-    const measure = () => {
-      const content = wrapper.querySelector<HTMLElement>('[data-node-view-content]')
-      const firstBlock = content?.firstElementChild
-      if (!(firstBlock instanceof HTMLElement)) {
-        if (!disposed) {
-          // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
-          setCenterY(null)
-        }
-        return
-      }
-
-      const nextCenterY = measureFirstLineCenterY(wrapper, firstBlock)
-      if (disposed) {
-        return
-      }
-      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
-      setCenterY(nextCenterY)
+    if (nextCenterY !== null) {
+      return
     }
 
-    measure()
-    const frame = requestAnimationFrame(measure)
+    const frame = requestAnimationFrame(() => {
+      const deferredCenterY = resolveOutlineMarkerCenter(wrapper)
+      setCenterY(currentCenterY => deferredCenterY ?? currentCenterY)
+    })
 
     return () => {
-      disposed = true
       cancelAnimationFrame(frame)
     }
   }, [node, wrapperRef])
 
-  return centerY
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    if (centerY !== null) {
+      applyOutlineMarkerCenterY(wrapper, centerY)
+      return
+    }
+
+    if (applyOutlineMarkerCenterY(wrapper, null)) {
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      applyOutlineMarkerCenterY(wrapper, null)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [centerY, wrapperRef])
 }

@@ -2,11 +2,11 @@ import type { ReactNodeViewProps } from '@tiptap/react'
 import { TextSelection } from '@tiptap/pm/state'
 import { mergeAttributes, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import { Match, Option } from 'effect'
-import { useLayoutEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { LuCircle, LuCircleAlert, LuCircleCheck, LuCircleDot, LuCircleOff } from 'react-icons/lu'
 import { OutlineUordItem } from './outline-uord-item'
 import { getParentOutlineItem } from './utils/outlines'
-import { useOutlineMarkerCenter } from './utils/use-outline-marker-center'
+import { useOutlineMarkerCenterStyle } from './utils/use-outline-marker-center'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -22,21 +22,7 @@ type TodoStatus = typeof todoStatus[number]
 
 function OutlineTaskItemView(props: ReactNodeViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const markerCenterY = useOutlineMarkerCenter(wrapperRef, props.node)
-
-  useLayoutEffect(() => {
-    const wrapper = wrapperRef.current
-    if (!wrapper) {
-      return
-    }
-
-    if (markerCenterY === null) {
-      wrapper.style.removeProperty('--outline-marker-center-y')
-      return
-    }
-
-    wrapper.style.setProperty('--outline-marker-center-y', `${markerCenterY}px`)
-  }, [markerCenterY])
+  useOutlineMarkerCenterStyle(wrapperRef, props.node)
 
   const icon = Match.value(props.node.attrs.status as TodoStatus).pipe(
     Match.when('todo', () => <LuCircle className="size-5" />),

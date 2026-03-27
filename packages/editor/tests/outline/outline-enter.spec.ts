@@ -4,6 +4,7 @@ import {
   focusParagraph,
   gotoOutlineFixture,
   readOutlineDoc,
+  readOutlineItemMarkerAlignment,
   selectTextInParagraph,
 } from './outline-test-utils'
 
@@ -192,5 +193,46 @@ test.describe('outline enter interactions', () => {
       childTexts: ['a', 'Ordered child'],
       childNumbers: [1, 2],
     })
+  })
+
+  test('keeps the unordered marker aligned when Enter creates an empty sibling from an empty item', async ({ page }) => {
+    // Arrange: clear the initial item so the editor is reduced to one empty outline item.
+    await gotoOutlineFixture(page)
+    await selectTextInParagraph(page, 0, 0, 5)
+    await page.keyboard.press('Backspace')
+
+    await expect.poll(async () => {
+      const doc = await readOutlineDoc(page)
+      return {
+        topLevelCount: doc.content?.length ?? 0,
+        firstText: doc.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.text ?? '',
+      }
+    }).toEqual({
+      topLevelCount: 1,
+      firstText: '',
+    })
+
+    // Act: press Enter to create an empty sibling outline item.
+    await focusParagraph(page, 0)
+    await page.keyboard.press('Enter')
+
+    // Assert: the new empty item stays visually aligned before any text is typed.
+    await expect.poll(async () => {
+      const doc = await readOutlineDoc(page)
+      return {
+        topLevelCount: doc.content?.length ?? 0,
+        firstText: doc.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.text ?? '',
+        secondText: doc.content?.[1]?.content?.[0]?.content?.[0]?.content?.[0]?.text ?? '',
+      }
+    }).toEqual({
+      topLevelCount: 2,
+      firstText: '',
+      secondText: '',
+    })
+
+    await expect.poll(async () => {
+      const alignment = await readOutlineItemMarkerAlignment(page, 1)
+      return Math.abs(alignment.deltaY)
+    }).toBeLessThan(1.5)
   })
 })

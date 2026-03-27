@@ -2,29 +2,15 @@ import type { ReactNodeViewProps } from '@tiptap/react'
 import { mergeAttributes } from '@tiptap/core'
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, useEditorState } from '@tiptap/react'
 import { Option } from 'effect'
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { OutlineOrdList } from './outline-ord-list'
 import { OutlineUordItem } from './outline-uord-item'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
-import { useOutlineMarkerCenter } from './utils/use-outline-marker-center'
+import { useOutlineMarkerCenterStyle } from './utils/use-outline-marker-center'
 
 function OutlineOrdItemView(props: ReactNodeViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const markerCenterY = useOutlineMarkerCenter(wrapperRef, props.node)
-
-  useLayoutEffect(() => {
-    const wrapper = wrapperRef.current
-    if (!wrapper) {
-      return
-    }
-
-    if (markerCenterY === null) {
-      wrapper.style.removeProperty('--outline-marker-center-y')
-      return
-    }
-
-    wrapper.style.setProperty('--outline-marker-center-y', `${markerCenterY}px`)
-  }, [markerCenterY])
+  useOutlineMarkerCenterStyle(wrapperRef, props.node)
 
   const index = useEditorState({
     editor: props.editor,
