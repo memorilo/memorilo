@@ -401,6 +401,40 @@ export async function focusBubbleTableCell(page: Page, row: number, col: number)
   })
 }
 
+export async function clickBubbleTableCell(
+  page: Page,
+  row: number,
+  col: number,
+) {
+  const clickPoint = await page.evaluate(({ targetRow, targetCol }) => {
+    const rows = document.querySelectorAll('[data-testid="bubble-editor"] .ProseMirror table tr')
+    const currentRow = rows.item(targetRow)
+    if (!(currentRow instanceof HTMLTableRowElement)) {
+      throw new TypeError(`Table row ${targetRow} not found`)
+    }
+
+    const currentCell = currentRow.querySelectorAll('th, td').item(targetCol)
+    if (!(currentCell instanceof HTMLTableCellElement)) {
+      throw new TypeError(`Table cell ${targetRow}:${targetCol} not found`)
+    }
+
+    const rect = currentCell.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) {
+      throw new TypeError(`Table cell ${targetRow}:${targetCol} is not visible`)
+    }
+
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    }
+  }, {
+    targetRow: row,
+    targetCol: col,
+  })
+
+  await page.mouse.click(clickPoint.x, clickPoint.y)
+}
+
 export async function readBubbleFixtureSelectionState(page: Page) {
   return await page.evaluate(() => {
     if (!window.__bubbleFixture) {

@@ -16,12 +16,12 @@ import {
 } from '@tiptap/extension-table'
 import {
   columnIsHeader,
-  rowIsHeader,
   selectedRect,
   splitCellWithType,
   tableNodeTypes,
 } from '@tiptap/pm/tables'
 import { createTextAlignAttribute } from './table-align'
+import { handleTableDeleteKey } from './table-delete'
 import './table.css'
 
 export interface TableOptions {
@@ -76,11 +76,19 @@ function createBulletListWithTable(
   return bulletListType.create(null, listItem)
 }
 
+function tableHasHeaderRow(tableNode: ProseMirrorNode) {
+  return tableNode.childCount > 0 && tableNode.child(0).firstChild?.type.name === 'tableHeader'
+}
+
 function getSplitCellType(state: EditorState, row: number, col: number): NodeType {
   const types = tableNodeTypes(state.schema)
   const rect = selectedRect(state)
+  const hasHeaderRow = tableHasHeaderRow(rect.table)
 
-  if (rowIsHeader(rect.map, rect.table, row) || columnIsHeader(rect.map, rect.table, col)) {
+  // When a merged header cell spans body rows, table-map header checks report
+  // every covered row/column as a header. Preserve this editor's explicit
+  // first-row header model instead so split restores body cells correctly.
+  if ((hasHeaderRow && row === 0) || (!hasHeaderRow && columnIsHeader(rect.map, rect.table, col))) {
     return types.header_cell
   }
 
@@ -93,6 +101,7 @@ export function splitCellPreservingCellTypes(state: EditorState, dispatch?: (tr:
 
 export const Table = Extension.create<TableOptions>({
   name: 'tableExtension',
+  priority: 1000,
 
   addOptions() {
     return {
@@ -126,6 +135,10 @@ export const Table = Extension.create<TableOptions>({
 
   addKeyboardShortcuts() {
     return {
+      'Backspace': () => handleTableDeleteKey(this.editor, 'backward'),
+      'Mod-Backspace': () => handleTableDeleteKey(this.editor, 'backward'),
+      'Delete': () => handleTableDeleteKey(this.editor, 'forward'),
+      'Mod-Delete': () => handleTableDeleteKey(this.editor, 'forward'),
       'Mod-Alt-t': () => {
         if (this.editor.isActive('table')) {
           return false

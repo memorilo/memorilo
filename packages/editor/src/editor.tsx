@@ -27,6 +27,7 @@ import { OutlineOrdItem } from './extensions/outline/outline-ord-item'
 import { OutlineUordItem } from './extensions/outline/outline-uord-item'
 import { Slash } from './extensions/slash'
 import { Table } from './extensions/table'
+import { TableDeleteAlertHost } from './extensions/table/table-delete-alert'
 import { YjsDocumentContext } from './provider/yjs'
 
 export interface MemoriloEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
@@ -115,6 +116,7 @@ export function MemoriloEditor({
         )}
         {...props}
       >
+        <TableDeleteAlertHost editor={editor} />
         {editor ? <EditorBubbleMenu editor={editor} /> : null}
         <EditorContent editor={editor} />
       </div>

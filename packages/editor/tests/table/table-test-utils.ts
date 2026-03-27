@@ -159,3 +159,78 @@ export async function focusTableCell(
     document.dispatchEvent(new Event('selectionchange'))
   }, { row: rowIndex, col: columnIndex, targetEdge: edge })
 }
+
+export async function selectTableCells(
+  page: Page,
+  anchorRow: number,
+  anchorCol: number,
+  headRow: number,
+  headCol: number,
+) {
+  await page.evaluate(({ startRow, startCol, endRow, endCol }) => {
+    if (!window.__tableFixture) {
+      throw new TypeError('Table fixture helpers are unavailable')
+    }
+
+    window.__tableFixture.selectTableCells(startRow, startCol, endRow, endCol)
+  }, {
+    startRow: anchorRow,
+    startCol: anchorCol,
+    endRow: headRow,
+    endCol: headCol,
+  })
+}
+
+export async function selectTableRows(
+  page: Page,
+  anchorRow: number,
+  headRow: number,
+) {
+  await page.evaluate(({ startRow, endRow }) => {
+    if (!window.__tableFixture) {
+      throw new TypeError('Table fixture helpers are unavailable')
+    }
+
+    window.__tableFixture.selectTableRows(startRow, endRow)
+  }, {
+    startRow: anchorRow,
+    endRow: headRow,
+  })
+}
+
+export async function selectTableColumns(
+  page: Page,
+  anchorCol: number,
+  headCol: number,
+) {
+  await page.evaluate(({ startCol, endCol }) => {
+    if (!window.__tableFixture) {
+      throw new TypeError('Table fixture helpers are unavailable')
+    }
+
+    window.__tableFixture.selectTableColumns(startCol, endCol)
+  }, {
+    startCol: anchorCol,
+    endCol: headCol,
+  })
+}
+
+export async function mergeSelectedTableCells(page: Page) {
+  return await page.evaluate(() => {
+    if (!window.__tableFixture) {
+      throw new TypeError('Table fixture helpers are unavailable')
+    }
+
+    return window.__tableFixture.mergeSelectedCells()
+  })
+}
+
+export async function focusGapCursorAfterTable(page: Page) {
+  return await page.evaluate(() => {
+    if (!window.__tableFixture) {
+      throw new TypeError('Table fixture helpers are unavailable')
+    }
+
+    return window.__tableFixture.focusGapCursorAfterTable()
+  })
+}

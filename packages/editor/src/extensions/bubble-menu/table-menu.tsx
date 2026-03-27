@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import type { IconType } from 'react-icons'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuAlignCenter,
@@ -109,7 +110,18 @@ interface TableMenuProps {
 
 export function TableMenu({ editor }: TableMenuProps) {
   const { t } = useTranslation('app')
+  const [, forcePostCommitRefresh] = useState(0)
+  const { selection } = editor.state
   const tableContext = getTableContext(editor.state)
+
+  useEffect(() => {
+    // WebKit/Tauri can briefly leave the bubble menu on the pre-merge table
+    // selection. Re-render once after commit so the controls read the settled
+    // post-transaction selection state.
+    // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
+    forcePostCommitRefresh(value => value + 1)
+  }, [selection])
+
   if (!tableContext) {
     return null
   }

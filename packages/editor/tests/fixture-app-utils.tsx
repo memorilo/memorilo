@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react'
 import { EditorContent } from '@tiptap/react'
 import { Doc } from 'yjs'
 import { createMemoriloEditorOptions } from '../src/editor'
+import { TableDeleteAlertHost } from '../src/extensions/table/table-delete-alert'
 import { YjsDocumentContext } from '../src/provider/yjs'
 
 export type FixtureEnvironment = 'minimal' | 'full'
@@ -59,12 +60,18 @@ export function renderFixtureEditor(
   editor: Editor | null,
 ) {
   if (environment !== 'full') {
-    return <EditorContent editor={editor} />
+    return (
+      <>
+        <TableDeleteAlertHost editor={editor} />
+        <EditorContent editor={editor} />
+      </>
+    )
   }
 
   return (
     <YjsDocumentContext value={{ fragment: fullEnvironment.fragment }}>
       <div className="memorilo-editor px-8 py-4 [&_.ProseMirror]:outline-none">
+        <TableDeleteAlertHost editor={editor} />
         <EditorContent editor={editor} />
       </div>
     </YjsDocumentContext>
