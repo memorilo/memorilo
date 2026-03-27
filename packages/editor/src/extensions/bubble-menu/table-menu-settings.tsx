@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui
 import { Switch } from '@memorilo/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@memorilo/components/ui/tooltip'
 import { cn } from '@memorilo/utils'
+import { Console, Effect } from 'effect'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MdGridOn, MdSettings } from 'react-icons/md'
@@ -57,13 +58,18 @@ export function TableSettingsPopover({ editor, tableContext }: TableSettingsPopo
       return
     }
 
-    if (context.hasHeaderRow !== withHeaderRow) {
-      selectCell(editor, context, 0, 0)
-      editor.commands.toggleHeaderRow()
-    }
+    try {
+      if (context.hasHeaderRow !== withHeaderRow) {
+        selectCell(editor, context, 0, 0)
+        editor.commands.toggleHeaderRow()
+      }
 
-    resizeTable(editor, parsedRows, parsedCols)
-    setOpen(false)
+      resizeTable(editor, parsedRows, parsedCols)
+      setOpen(false)
+    }
+    catch (error) {
+      Effect.runFork(Console.error('Failed to apply table settings', error))
+    }
   }
 
   const handleGridSelect = (nextRows: number, nextCols: number) => {

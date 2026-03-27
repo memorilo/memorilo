@@ -1,5 +1,5 @@
 import { mergeAttributes } from '@tiptap/core'
-import { Heading as HeadingPrivimitive } from '@tiptap/extension-heading'
+import { Heading as HeadingPrimitive } from '@tiptap/extension-heading'
 
 export const headingLevels = [1, 2, 3, 4, 5, 6] as const
 
@@ -23,7 +23,7 @@ const headingClassByLevel: Record<HeadingLevel, string> = {
   6: 'text-base',
 }
 
-const Heading = HeadingPrivimitive.extend({
+const Heading = HeadingPrimitive.extend({
   renderHTML({ node, HTMLAttributes }) {
     const rawLevel = Number(node.attrs.level)
     const level = headingLevels.includes(rawLevel as HeadingLevel)
