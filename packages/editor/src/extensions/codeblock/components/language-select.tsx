@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui
 import { cn } from '@memorilo/utils'
 import { useMemo, useState } from 'react'
 import { LuCheck, LuChevronDown } from 'react-icons/lu'
-import { languageMap, languages } from '../libs/languages'
+import { languages } from '../libs/languages'
 import { CODE_BLOCK_AUTO_LANGUAGE } from '../libs/resolved-language'
 
 interface LanguageSelectProps {

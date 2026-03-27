@@ -1,10 +1,10 @@
 import type { JSONContent } from '@tiptap/core'
+import type { FixtureEnvironment } from '../fixture-app-utils'
 import Heading from '@tiptap/extension-heading'
 import Text from '@tiptap/extension-text'
 import { useEditor } from '@tiptap/react'
 import { useMemo, useState } from 'react'
 import Outline from '../../src/extensions/outline'
-import type { FixtureEnvironment } from '../fixture-app-utils'
 import {
   createFullFixtureEnvironment,
   getFixtureEditorOptions,

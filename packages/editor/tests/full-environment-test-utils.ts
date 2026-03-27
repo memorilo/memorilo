@@ -13,7 +13,7 @@ export async function bootstrapFullMathFixture(page: Page) {
   }
 
   const currentDoc = await readFixtureDoc(page, 'math-json')
-  const currentTexts = (currentDoc.content ?? []).map((node) => getNodeText(node.content?.[0]))
+  const currentTexts = (currentDoc.content ?? []).map(node => getNodeText(node.content?.[0]))
   if (currentTexts.length === 3 && currentTexts[0] === '' && currentTexts[1] === 'Alpha' && currentTexts[2] === 'Beta') {
     return
   }
@@ -26,7 +26,7 @@ export async function bootstrapFullMathFixture(page: Page) {
 
   await expect.poll(async () => {
     const doc = await readFixtureDoc(page, 'math-json')
-    return (doc.content ?? []).map((node) => getNodeText(node.content?.[0]))
+    return (doc.content ?? []).map(node => getNodeText(node.content?.[0]))
   }).toEqual(['', 'Alpha', 'Beta'])
 }
 

@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 import {
   focusParagraph,
-  getTopLevelBlocks,
   getNodeText,
+  getTopLevelBlocks,
   getTopLevelOutlineItem,
   gotoMathFixture,
   pressBlockMathShortcut,

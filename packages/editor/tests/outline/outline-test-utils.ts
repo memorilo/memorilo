@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
-import { expect } from '@playwright/test'
 import type { JsonNode } from '../editor-test-utils'
+import { expect } from '@playwright/test'
 import {
   findParagraphIndexByText,
   focusParagraph as focusFixtureParagraph,
@@ -8,6 +8,7 @@ import {
   selectTextInParagraph as selectFixtureTextInParagraph,
 } from '../editor-test-utils'
 import { bootstrapFullOutlineFixture } from '../full-environment-test-utils'
+
 export type { JsonNode } from '../editor-test-utils'
 
 export async function gotoOutlineFixture(page: Page) {

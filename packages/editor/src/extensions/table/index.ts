@@ -4,15 +4,15 @@ import type {
   TableOptions as TiptapTableOptions,
   TableRowOptions as TiptapTableRowOptions,
 } from '@tiptap/extension-table'
-import type { Node as ProseMirrorNode, NodeType, ResolvedPos, Schema } from '@tiptap/pm/model'
+import type { NodeType, Node as ProseMirrorNode, ResolvedPos, Schema } from '@tiptap/pm/model'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
 import {
   createTable,
-  Table as TiptapTable,
   TableCell,
   TableHeader,
   TableRow,
+  Table as TiptapTable,
 } from '@tiptap/extension-table'
 import {
   columnIsHeader,

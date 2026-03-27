@@ -4,9 +4,9 @@ import { CellSelection } from '@tiptap/pm/tables'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { Component, useEffect, useMemo, useState } from 'react'
 import { Doc } from 'yjs'
+import { createMemoriloEditorOptions } from '../../src/editor'
 import { EditorBubbleMenu } from '../../src/extensions/bubble-menu'
 import { getTableContext } from '../../src/extensions/bubble-menu/table-menu-utils'
-import { createMemoriloEditorOptions } from '../../src/editor'
 import { YjsDocumentContext } from '../../src/provider/yjs'
 
 const initialContent: JSONContent = {

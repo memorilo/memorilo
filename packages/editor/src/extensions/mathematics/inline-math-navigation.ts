@@ -1,5 +1,6 @@
+import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { EditorState, Selection, TextSelection, Transaction } from '@tiptap/pm/state'
+import { Selection, TextSelection } from '@tiptap/pm/state'
 
 function findVerticalCaretTarget(view: EditorView, pos: number, dir: -1 | 1) {
   const coords = view.coordsAtPos(pos)

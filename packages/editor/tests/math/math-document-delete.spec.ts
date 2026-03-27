@@ -17,10 +17,10 @@ function installErrorTrackers(page: Page) {
   const pageErrors: string[] = []
   const consoleErrors: string[] = []
 
-  page.on('pageerror', error => {
+  page.on('pageerror', (error) => {
     pageErrors.push(error.message)
   })
-  page.on('console', message => {
+  page.on('console', (message) => {
     if (message.type() === 'error') {
       consoleErrors.push(message.text())
     }

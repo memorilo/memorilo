@@ -1,13 +1,15 @@
 import type { Page } from '@playwright/test'
 import type { JSONContent } from '@tiptap/core'
-import { expect } from '@playwright/test'
 import type { JsonNode } from '../editor-test-utils'
+import process from 'node:process'
+import { expect } from '@playwright/test'
 import {
   focusParagraph as focusFixtureParagraph,
   readFixtureDoc,
   selectTextInParagraph as selectFixtureTextInParagraph,
 } from '../editor-test-utils'
 import { bootstrapFullMathFixture } from '../full-environment-test-utils'
+
 export { getNodeText } from '../editor-test-utils'
 export type { JsonNode } from '../editor-test-utils'
 
@@ -160,7 +162,7 @@ export async function clickInlineMath(page: Page, index: number) {
   await page.evaluate(({ inlineMathSelector, inlineMathIndex }) => {
     const inlineMath = document.querySelectorAll(inlineMathSelector).item(inlineMathIndex)
     if (!(inlineMath instanceof HTMLElement)) {
-      throw new Error(`Inline math node ${inlineMathIndex} not found`)
+      throw new TypeError(`Inline math node ${inlineMathIndex} not found`)
     }
 
     inlineMath.scrollIntoView({ block: 'center', inline: 'center' })
@@ -169,7 +171,7 @@ export async function clickInlineMath(page: Page, index: number) {
   const clickTarget = await page.evaluate(({ inlineMathSelector, inlineMathIndex }) => {
     const inlineMath = document.querySelectorAll(inlineMathSelector).item(inlineMathIndex)
     if (!(inlineMath instanceof HTMLElement)) {
-      throw new Error(`Inline math node ${inlineMathIndex} not found`)
+      throw new TypeError(`Inline math node ${inlineMathIndex} not found`)
     }
 
     const rect = inlineMath.getBoundingClientRect()

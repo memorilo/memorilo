@@ -7,13 +7,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const serverURL = 'http://127.0.0.1:5176'
 const baseURL = `${serverURL}/`
 
-const createProject = (name: string, deviceName: keyof typeof devices, projectBaseURL: string) => ({
-  name,
-  use: {
-    ...devices[deviceName],
-    baseURL: projectBaseURL,
-  },
-})
+function createProject(name: string, deviceName: keyof typeof devices, projectBaseURL: string) {
+  return {
+    name,
+    use: {
+      ...devices[deviceName],
+      baseURL: projectBaseURL,
+    },
+  }
+}
 
 export default defineConfig({
   testDir: './tests',

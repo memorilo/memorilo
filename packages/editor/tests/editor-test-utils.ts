@@ -45,12 +45,12 @@ export async function focusParagraph(
   await page.evaluate(({ paragraphSelector, paragraphIndex, targetEdge }) => {
     const paragraph = document.querySelectorAll(paragraphSelector).item(paragraphIndex)
     if (!(paragraph instanceof HTMLParagraphElement)) {
-      throw new Error(`Paragraph ${paragraphIndex} not found for selector ${paragraphSelector}`)
+      throw new TypeError(`Paragraph ${paragraphIndex} not found for selector ${paragraphSelector}`)
     }
 
     const editor = paragraph.closest('.ProseMirror')
     if (!(editor instanceof HTMLElement)) {
-      throw new Error('Editor root not found')
+      throw new TypeError('Editor root not found')
     }
 
     editor.focus()
@@ -107,12 +107,12 @@ export async function selectTextInParagraph(
   await page.evaluate(({ paragraphSelector, paragraphIndex, range }) => {
     const paragraph = document.querySelectorAll(paragraphSelector).item(paragraphIndex)
     if (!(paragraph instanceof HTMLParagraphElement)) {
-      throw new Error(`Paragraph ${paragraphIndex} not found for selector ${paragraphSelector}`)
+      throw new TypeError(`Paragraph ${paragraphIndex} not found for selector ${paragraphSelector}`)
     }
 
     const editor = paragraph.closest('.ProseMirror')
     if (!(editor instanceof HTMLElement)) {
-      throw new Error('Editor root not found')
+      throw new TypeError('Editor root not found')
     }
 
     const textNode = Array.from(paragraph.childNodes).find(child => child.nodeType === Node.TEXT_NODE) as Text | undefined
