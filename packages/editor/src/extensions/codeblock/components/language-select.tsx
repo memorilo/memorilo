@@ -1,7 +1,8 @@
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@memorilo/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@memorilo/components/ui/popover'
 import { cn } from '@memorilo/utils'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuCheck, LuChevronDown } from 'react-icons/lu'
 import { languages } from '../libs/languages'
 import { CODE_BLOCK_AUTO_LANGUAGE } from '../libs/resolved-language'
@@ -12,15 +13,13 @@ interface LanguageSelectProps {
 }
 
 export function LanguageSelect(props: LanguageSelectProps) {
+  const { t } = useTranslation('app')
   const [open, setOpen] = useState(false)
   const languageOptions = [
-    { key: CODE_BLOCK_AUTO_LANGUAGE, label: 'Auto-Detect' },
-    { key: 'text', label: 'Text' },
+    { key: CODE_BLOCK_AUTO_LANGUAGE, label: t('editor.codeblock.auto_detect') as string },
+    { key: 'text', label: t('editor.codeblock.text') as string },
   ].concat(...languages)
-  const displayLanguage = useMemo(() =>
-    languageOptions.find(option => option.key === props.value)
-      ?.label
-      ?? props.value, [props.value, languageOptions])
+  const displayLanguage = languageOptions.find(option => option.key === props.value)?.label ?? props.value
 
   const handleSelect = (value: string) => {
     if (value !== props.value) {
@@ -44,10 +43,10 @@ export function LanguageSelect(props: LanguageSelectProps) {
 
       <PopoverContent contentEditable={false} className="overflow-hidden gap-0 p-0">
         <Command>
-          <CommandInput placeholder="Search" />
+          <CommandInput placeholder={t('editor.codeblock.search_language') as string} />
           <CommandList>
             <CommandEmpty>
-              No language found
+              {t('editor.codeblock.no_language_found')}
             </CommandEmpty>
             {languageOptions.map(language => (
               <CommandItem

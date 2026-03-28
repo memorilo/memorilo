@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from '@memorilo/components/ui/alert-dialog'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   deleteTableAtPos,
   TABLE_DELETE_REQUEST_EVENT,
@@ -26,6 +27,7 @@ interface TableDeleteAlertHostProps {
 }
 
 export function TableDeleteAlertHost({ editor }: TableDeleteAlertHostProps) {
+  const { t } = useTranslation('app')
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteTable | null>(null)
   const closePendingDelete = () => setPendingDelete(null)
 
@@ -57,9 +59,9 @@ export function TableDeleteAlertHost({ editor }: TableDeleteAlertHostProps) {
     <AlertDialog open={open} onOpenChange={nextOpen => !nextOpen && closePendingDelete()}>
       <AlertDialogContent data-testid="table-delete-alert">
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete table?</AlertDialogTitle>
+          <AlertDialogTitle>{t('editor.table.delete_confirm_title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            This will remove the entire table and its contents.
+            {t('editor.table.delete_confirm_description')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -67,7 +69,7 @@ export function TableDeleteAlertHost({ editor }: TableDeleteAlertHostProps) {
             data-testid="table-delete-alert-cancel"
             onClick={closePendingDelete}
           >
-            Cancel
+            {t('editor.table.delete_confirm_cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             data-testid="table-delete-alert-confirm"
@@ -80,7 +82,7 @@ export function TableDeleteAlertHost({ editor }: TableDeleteAlertHostProps) {
               closePendingDelete()
             }}
           >
-            Delete
+            {t('editor.table.delete_confirm_action')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -6,6 +6,7 @@ import { TextSelection } from '@tiptap/pm/state'
 import { mergeAttributes, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import { Option } from 'effect'
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getParentBlock, getParentOutlineItem, getParentOutlineList } from './utils/outlines'
 import { useOutlineMarkerCenterStyle } from './utils/use-outline-marker-center'
 
@@ -23,6 +24,7 @@ export interface OutlineUordItemOptions {
 
 function OutlineItemView(props: ReactNodeViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const { t } = useTranslation('app')
   useOutlineMarkerCenterStyle(wrapperRef, props.node)
   const { onOutlineClick } = props.extension.options as OutlineUordItemOptions
 
@@ -51,7 +53,7 @@ function OutlineItemView(props: ReactNodeViewProps) {
       <button
         type="button"
         contentEditable={false}
-        aria-label="Open outline item"
+        aria-label={t('editor.outline.open_item')}
         className="outline-marker-button absolute z-10 pointer-events-auto cursor-pointer -left-8 top-(--outline-marker-center-y) -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
         onMouseDown={handleMarkerMouseDown}
         onClick={handleMarkerClick}

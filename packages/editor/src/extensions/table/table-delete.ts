@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode, ResolvedPos } from '@tiptap/pm/model'
 import { GapCursor } from '@tiptap/pm/gapcursor'
 import { NodeSelection } from '@tiptap/pm/state'
 import { CellSelection, deleteColumn, deleteRow, rowIsHeader, selectedRect } from '@tiptap/pm/tables'
+import i18next from 'i18next'
 
 export const TABLE_DELETE_REQUEST_EVENT = 'memorilo:table-delete-request'
 
@@ -61,7 +62,7 @@ function requestTableDeletion(editor: Editor, tablePos: number) {
     }
 
     // eslint-disable-next-line no-alert -- Fallback confirmation when the editor shell doesn't mount the shared alert host.
-    if (window.confirm('Delete this table?')) {
+    if (window.confirm(i18next.t('editor.table.delete_confirm_title', { ns: 'app' }) as string)) {
       return deleteTableAtPos(editor, tablePos)
     }
 

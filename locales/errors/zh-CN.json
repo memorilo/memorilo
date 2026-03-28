@@ -1,5 +1,4 @@
 {
-  "editor.fail_send_update": "发送文档更新到本地失败",
   "editor.fail_receive_update": "同步文档失败，请重新加载。",
   "rs.doc.lock_poison": "状态锁被污染：{context}",
   "rs.doc.db": "在 {context} 时发生数据库错误：{error}",

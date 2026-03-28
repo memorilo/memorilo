@@ -4,8 +4,9 @@ import type { EmojiClickData } from 'emoji-picker-react'
 import { gitHubEmojis } from '@tiptap/extension-emoji'
 import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react'
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
-const PICKER_SEARCH_INPUT_SELECTOR = 'input[aria-label="Type to search for an emoji"]'
+const PICKER_SEARCH_INPUT_SELECTOR = 'input[aria-controls="epr-search-id"]'
 const PICKER_EMOJI_BUTTON_SELECTOR = 'button.epr-emoji'
 
 export interface EmojiListRef {
@@ -89,6 +90,15 @@ function syncPickerSearchQuery(root: HTMLElement, query: string) {
   searchInput.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
+function syncPickerSearchLabel(root: HTMLElement, ariaLabel: string) {
+  const searchInput = findPickerSearchInput(root)
+  if (searchInput.getAttribute('aria-label') === ariaLabel) {
+    return
+  }
+
+  searchInput.setAttribute('aria-label', ariaLabel)
+}
+
 function resolveTiptapEmojiItem(emojiData: EmojiClickData) {
   const pickerNames = new Set(emojiData.names.map(normalizeEmojiName))
   const pickerUnifiedCandidates = new Set([
@@ -125,11 +135,15 @@ function resolveTiptapEmojiItem(emojiData: EmojiClickData) {
   return exactShortcodeMatch
 }
 export function EmojiList({ ref, items, command, query }: EmojiListProps) {
+  const { t } = useTranslation('app')
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const [selectionState, setSelectionState] = useState(() => ({
     index: 0,
     query,
   }))
+  const searchPlaceholder = t('editor.emoji.search') as string
+  const searchInputLabel = t('editor.emoji.search_input') as string
+  const searchClearLabel = t('editor.emoji.search_clear') as string
   const effectiveSelectedIndex = items.length === 0
     ? 0
     : Math.min(selectionState.query === query ? selectionState.index : 0, items.length - 1)
@@ -142,7 +156,8 @@ export function EmojiList({ ref, items, command, query }: EmojiListProps) {
     }
 
     syncPickerSearchQuery(root, query)
-  }, [query])
+    syncPickerSearchLabel(root, searchInputLabel)
+  }, [query, searchInputLabel])
 
   useLayoutEffect(() => {
     const root = pickerRef.current
@@ -235,7 +250,8 @@ export function EmojiList({ ref, items, command, query }: EmojiListProps) {
         lazyLoadEmojis
         skinTonesDisabled
         previewConfig={{ showPreview: false }}
-        searchPlaceholder="Search emoji"
+        searchPlaceholder={searchPlaceholder}
+        searchClearButtonLabel={searchClearLabel}
         width={336}
         height={384}
         onEmojiClick={(emojiData) => {
