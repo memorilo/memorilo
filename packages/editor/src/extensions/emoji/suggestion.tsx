@@ -11,6 +11,63 @@ interface FloatingElement {
   cleanup: () => void
 }
 
+function getEmojiMatchScore(emoji: EmojiItem, normalizedQuery: string) {
+  const emojiName = emoji.name.toLowerCase()
+  const normalizedShortcodes = emoji.shortcodes.map(shortcode => shortcode.toLowerCase())
+  const normalizedTags = emoji.tags.map(tag => tag.toLowerCase())
+
+  if (emojiName === normalizedQuery || normalizedShortcodes.includes(normalizedQuery)) {
+    return 0
+  }
+
+  if (
+    emojiName.startsWith(normalizedQuery)
+    || normalizedShortcodes.some(shortcode => shortcode.startsWith(normalizedQuery))
+  ) {
+    return 1
+  }
+
+  if (
+    emojiName.includes(normalizedQuery)
+    || normalizedShortcodes.some(shortcode => shortcode.includes(normalizedQuery))
+  ) {
+    return 2
+  }
+
+  if (normalizedTags.some(tag => tag.startsWith(normalizedQuery))) {
+    return 3
+  }
+
+  if (normalizedTags.some(tag => tag.includes(normalizedQuery))) {
+    return 4
+  }
+
+  return Number.POSITIVE_INFINITY
+}
+
+function updateFloatingPosition(
+  props: SuggestionProps<EmojiItem>,
+  floating: FloatingElement,
+) {
+  if (!props.clientRect) {
+    return
+  }
+
+  const virtualElement = {
+    getBoundingClientRect: props.clientRect as () => DOMRect,
+  }
+
+  computePosition(virtualElement, floating.element, {
+    placement: 'bottom-start',
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+  }).then(({ x, y }) => {
+    Object.assign(floating.element.style, {
+      left: `${x}px`,
+      top: `${y}px`,
+    })
+  })
+}
+
 function createFloatingElement(
   props: SuggestionProps<EmojiItem>,
   component: ReactRenderer<EmojiListRef>,
@@ -21,44 +78,36 @@ function createFloatingElement(
   wrapper.appendChild(component.element as HTMLElement)
   document.body.appendChild(wrapper)
 
-  const updatePosition = () => {
-    if (!props.clientRect)
-      return
-
-    const virtualElement = {
-      getBoundingClientRect: props.clientRect as () => DOMRect,
-    }
-
-    computePosition(virtualElement, wrapper, {
-      placement: 'bottom-start',
-      middleware: [offset(8), flip(), shift({ padding: 8 })],
-    }).then(({ x, y }) => {
-      Object.assign(wrapper.style, {
-        left: `${x}px`,
-        top: `${y}px`,
-      })
-    })
-  }
-
-  updatePosition()
-
-  return {
+  const floating = {
     element: wrapper,
     cleanup: () => {
       wrapper.remove()
     },
   }
+
+  updateFloatingPosition(props, floating)
+
+  return floating
 }
 
 export const emojiSuggestion: Omit<SuggestionOptions<EmojiItem>, 'editor'> = {
   items: ({ query }) => {
+    const normalizedQuery = query.toLowerCase()
+
     return gitHubEmojis
-      .filter(emoji =>
-        emoji.name.toLowerCase().includes(query.toLowerCase())
-        || emoji.shortcodes.some(sc => sc.toLowerCase().includes(query.toLowerCase()))
-        || emoji.tags?.some(tag => tag.toLowerCase().includes(query.toLowerCase())),
-      )
-      .slice(0, 10)
+      .map(emoji => ({
+        emoji,
+        score: getEmojiMatchScore(emoji, normalizedQuery),
+      }))
+      .filter(entry => Number.isFinite(entry.score))
+      .sort((left, right) => {
+        if (left.score !== right.score) {
+          return left.score - right.score
+        }
+
+        return left.emoji.name.localeCompare(right.emoji.name)
+      })
+      .map(entry => entry.emoji)
   },
 
   render: () => {
@@ -82,23 +131,11 @@ export const emojiSuggestion: Omit<SuggestionOptions<EmojiItem>, 'editor'> = {
       onUpdate(props: SuggestionProps<EmojiItem>) {
         component?.updateProps(props)
 
-        if (!props.clientRect || !floating) {
+        if (!floating) {
           return
         }
 
-        const virtualElement = {
-          getBoundingClientRect: props.clientRect as () => DOMRect,
-        }
-
-        computePosition(virtualElement, floating.element, {
-          placement: 'bottom-start',
-          middleware: [offset(8), flip(), shift({ padding: 8 })],
-        }).then(({ x, y }) => {
-          Object.assign(floating!.element.style, {
-            left: `${x}px`,
-            top: `${y}px`,
-          })
-        })
+        updateFloatingPosition(props, floating)
       },
 
       onKeyDown(props: { event: KeyboardEvent }) {
@@ -113,7 +150,9 @@ export const emojiSuggestion: Omit<SuggestionOptions<EmojiItem>, 'editor'> = {
 
       onExit() {
         floating?.cleanup()
+        floating = null
         component?.destroy()
+        component = null
       },
     }
   },

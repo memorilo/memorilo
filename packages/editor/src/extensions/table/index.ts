@@ -1,24 +1,37 @@
-import type { TableCellOptions, TableHeaderOptions, TableOptions, TableRowOptions } from '@tiptap/extension-table'
-import type { Node as ProseMirrorNode, ResolvedPos, Schema } from '@tiptap/pm/model'
+import type {
+  TableCellOptions as TiptapTableCellOptions,
+  TableHeaderOptions as TiptapTableHeaderOptions,
+  TableOptions as TiptapTableOptions,
+  TableRowOptions as TiptapTableRowOptions,
+} from '@tiptap/extension-table'
+import type { NodeType, Node as ProseMirrorNode, ResolvedPos, Schema } from '@tiptap/pm/model'
+import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Extension } from '@tiptap/core'
 import {
   createTable,
-  Table,
   TableCell,
   TableHeader,
   TableRow,
+  Table as TiptapTable,
 } from '@tiptap/extension-table'
+import {
+  columnIsHeader,
+  selectedRect,
+  splitCellWithType,
+  tableNodeTypes,
+} from '@tiptap/pm/tables'
 import { createTextAlignAttribute } from './table-align'
+import { handleTableDeleteKey } from './table-delete'
 import './table.css'
 
-export interface TableExtensionOptions {
+export interface TableOptions {
   rows: number
   cols: number
   withHeaderRow: boolean
-  table: Partial<TableOptions>
-  tableRow: Partial<TableRowOptions>
-  tableHeader: Partial<TableHeaderOptions>
-  tableCell: Partial<TableCellOptions>
+  table: Partial<TiptapTableOptions>
+  tableRow: Partial<TiptapTableRowOptions>
+  tableHeader: Partial<TiptapTableHeaderOptions>
+  tableCell: Partial<TiptapTableCellOptions>
 }
 
 const AlignedTableCell = TableCell.extend({
@@ -63,8 +76,32 @@ function createBulletListWithTable(
   return bulletListType.create(null, listItem)
 }
 
-export const TableExtension = Extension.create<TableExtensionOptions>({
+function tableHasHeaderRow(tableNode: ProseMirrorNode) {
+  return tableNode.childCount > 0 && tableNode.child(0).firstChild?.type.name === 'tableHeader'
+}
+
+function getSplitCellType(state: EditorState, row: number, col: number): NodeType {
+  const types = tableNodeTypes(state.schema)
+  const rect = selectedRect(state)
+  const hasHeaderRow = tableHasHeaderRow(rect.table)
+
+  // When a merged header cell spans body rows, table-map header checks report
+  // every covered row/column as a header. Preserve this editor's explicit
+  // first-row header model instead so split restores body cells correctly.
+  if ((hasHeaderRow && row === 0) || (!hasHeaderRow && columnIsHeader(rect.map, rect.table, col))) {
+    return types.header_cell
+  }
+
+  return types.cell
+}
+
+export function splitCellPreservingCellTypes(state: EditorState, dispatch?: (tr: Transaction) => void) {
+  return splitCellWithType(({ row, col }) => getSplitCellType(state, row, col))(state, dispatch)
+}
+
+export const Table = Extension.create<TableOptions>({
   name: 'tableExtension',
+  priority: 1000,
 
   addOptions() {
     return {
@@ -89,7 +126,7 @@ export const TableExtension = Extension.create<TableExtensionOptions>({
 
   addExtensions() {
     return [
-      Table.configure(this.options.table),
+      TiptapTable.configure(this.options.table),
       TableRow.configure(this.options.tableRow),
       AlignedTableHeader.configure(this.options.tableHeader),
       AlignedTableCell.configure(this.options.tableCell),
@@ -98,6 +135,10 @@ export const TableExtension = Extension.create<TableExtensionOptions>({
 
   addKeyboardShortcuts() {
     return {
+      'Backspace': () => handleTableDeleteKey(this.editor, 'backward'),
+      'Mod-Backspace': () => handleTableDeleteKey(this.editor, 'backward'),
+      'Delete': () => handleTableDeleteKey(this.editor, 'forward'),
+      'Mod-Delete': () => handleTableDeleteKey(this.editor, 'forward'),
       'Mod-Alt-t': () => {
         if (this.editor.isActive('table')) {
           return false
@@ -133,6 +174,14 @@ export const TableExtension = Extension.create<TableExtensionOptions>({
         const tr = state.tr.replaceSelectionWith(listNode, false)
         view.dispatch(tr.scrollIntoView())
         return true
+      },
+    }
+  },
+
+  addCommands() {
+    return {
+      splitCell: () => ({ state, dispatch }) => {
+        return splitCellPreservingCellTypes(state, dispatch)
       },
     }
   },

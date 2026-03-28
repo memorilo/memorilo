@@ -75,6 +75,11 @@ export const slashSuggestionRenderer: SuggestionOptions<SlashCommand>['render'] 
     onUpdate(props: SuggestionProps<SlashCommand>) {
       component?.updateProps(props)
 
+      if (!floating && component && props.clientRect) {
+        floating = createFloatingElement(props, component)
+        return
+      }
+
       if (!floating) {
         return
       }

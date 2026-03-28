@@ -112,7 +112,10 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
   }, [effectiveIndex, items.length])
 
   return (
-    <div className="bg-popover text-popover-foreground w-80 overflow-hidden rounded-md border shadow-md">
+    <div
+      data-testid="slash-menu"
+      className="bg-popover text-popover-foreground w-80 overflow-hidden rounded-md border shadow-md"
+    >
       <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
         {items.length === 0
           ? (
@@ -136,6 +139,7 @@ export function SlashMenu({ ref, items, command }: SlashMenuProps) {
                         <button
                           type="button"
                           key={item.id}
+                          data-slash-command-id={item.id}
                           data-slash-index={index}
                           onMouseDown={event => event.preventDefault()}
                           onClick={() => selectItem(index)}

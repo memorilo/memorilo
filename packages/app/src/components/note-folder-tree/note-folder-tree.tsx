@@ -70,6 +70,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   const { selectedIds, setSelectedIds } = useNoteFolderTree()
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
+  const pendingRenameRef = useRef(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
   useLayoutEffect(() => {
@@ -114,6 +115,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
       uuid,
       name: t('note_folder_tree.new_folder'),
     }, {
+      onSuccess: () => {},
       onError: (error) => {
         toast.error(t('note_folder_tree.create_folder_error', { error: String(error), interpolation: { escapeValue: false } }))
       },
@@ -126,6 +128,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
       parentUUID: selectedIds[0],
       name: t('note_folder_tree.new_topic'),
     }, {
+      onSuccess: () => {},
       onError: (error) => {
         toast.error(t('note_folder_tree.create_topic_error', { error: String(error), interpolation: { escapeValue: false } }))
       },
@@ -138,9 +141,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   }
 
   function handleRequestRename() {
-    requestAnimationFrame(() => {
-      handleStartRename()
-    })
+    pendingRenameRef.current = true
   }
 
   function handleCommitRename() {
@@ -204,6 +205,7 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
       {
         props.hasChildren
           ? (
+
               <TreeNodeContent hasChildren>
                 <NoteFolderTreeNodeChildren parentUUID={props.uuid} level={props.level + 1} />
               </TreeNodeContent>
@@ -214,22 +216,33 @@ function NoteFolderTreeNode(props: NoteFolderTreeNodeProps) {
   )
   return (
     <ContextMenu>
-      <ContextMenuTrigger render={treeNode} />
-      <ContextMenuContent>
+      <ContextMenuTrigger asChild>{treeNode}</ContextMenuTrigger>
+      <ContextMenuContent
+        onCloseAutoFocus={(event) => {
+          if (!pendingRenameRef.current) {
+            return
+          }
+          event.preventDefault()
+          pendingRenameRef.current = false
+          requestAnimationFrame(() => {
+            handleStartRename()
+          })
+        }}
+      >
         {
           props.typ === 'Folder'
             ? (
                 <ContextMenuSub>
                   <ContextMenuSubTrigger>{t('note_folder_tree.create')}</ContextMenuSubTrigger>
                   <ContextMenuSubContent>
-                    <ContextMenuItem onClick={handleCreateTopic}>{t('note_folder_tree.new_topic')}</ContextMenuItem>
-                    <ContextMenuItem onClick={handleCreateFolder}>{t('note_folder_tree.new_folder')}</ContextMenuItem>
+                    <ContextMenuItem onSelect={handleCreateTopic}>{t('note_folder_tree.new_topic')}</ContextMenuItem>
+                    <ContextMenuItem onSelect={handleCreateFolder}>{t('note_folder_tree.new_folder')}</ContextMenuItem>
                   </ContextMenuSubContent>
                 </ContextMenuSub>
               )
             : null
         }
-        <ContextMenuItem onClick={handleRequestRename}>
+        <ContextMenuItem onSelect={handleRequestRename}>
           {t('note_folder_tree.rename')}
         </ContextMenuItem>
         <ContextMenuSeparator />

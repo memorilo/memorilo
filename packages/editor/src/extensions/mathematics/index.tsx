@@ -1,24 +1,66 @@
 import type { Editor } from '@tiptap/core'
-import type { MathematicsOptions } from '@tiptap/extension-mathematics'
+import type { KatexOptions } from 'katex'
 import { Extension } from '@tiptap/core'
-import { BlockMath, InlineMath } from '@tiptap/extension-mathematics'
-import { NodeSelection } from '@tiptap/pm/state'
-import { ReactNodeViewRenderer } from '@tiptap/react'
-import { createBlockMathInputRule, createInlineMathInputRule } from './math-input-rules'
-import { BlockMathNodeView, InlineMathNodeView } from './math-node-view'
+import { TextSelection } from '@tiptap/pm/state'
+import { BlockMath } from './block-math-node'
+import { InlineMath } from './inline-math-node'
 import 'katex/dist/katex.min.css'
 
-function insertMathNode(editor: Editor, nodeName: 'inlineMath' | 'blockMath') {
-  const nodeType = editor.schema.nodes[nodeName]
+export interface MathNodeOptions {
+  katexOptions?: KatexOptions
+}
+
+export interface MathematicsOptions {
+  inlineOptions?: MathNodeOptions
+  blockOptions?: MathNodeOptions
+  katexOptions?: KatexOptions
+}
+
+function insertInlineMathNode(editor: Editor) {
+  const nodeType = editor.schema.nodes.inlineMath
   if (!nodeType) {
     return false
   }
 
   return editor.commands.command(({ tr, dispatch }) => {
     const { from, to } = tr.selection
-    // Replace the selection with a fresh math node and focus it.
-    tr.replaceWith(from, to, nodeType.create({ latex: '' }))
-    tr.setSelection(NodeSelection.create(tr.doc, from))
+    const selectedLatex = tr.doc.textBetween(from, to, '')
+    tr.replaceWith(
+      from,
+      to,
+      nodeType.create(
+        undefined,
+        selectedLatex ? tr.doc.type.schema.text(selectedLatex) : undefined,
+      ),
+    )
+    tr.setSelection(TextSelection.create(tr.doc, from + selectedLatex.length + 1))
+    if (dispatch) {
+      dispatch(tr)
+    }
+    return true
+  })
+}
+
+function insertBlockMathNode(editor: Editor) {
+  const nodeType = editor.schema.nodes.blockMath
+  if (!nodeType) {
+    return false
+  }
+
+  return editor.commands.command(({ tr, dispatch }) => {
+    const { $from, empty } = tr.selection
+    if (!empty) {
+      return false
+    }
+
+    const start = $from.before($from.depth)
+    const end = $from.after($from.depth)
+    tr.replaceWith(
+      start,
+      end,
+      nodeType.create(),
+    )
+    tr.setSelection(TextSelection.create(tr.doc, start + 1))
     if (dispatch) {
       dispatch(tr)
     }
@@ -39,35 +81,23 @@ export const Mathematics = Extension.create<MathematicsOptions>({
 
   addExtensions() {
     return [
-      InlineMath.extend({
-        addNodeView() {
-          return ReactNodeViewRenderer(InlineMathNodeView)
-        },
-        addInputRules() {
-          return [createInlineMathInputRule(this.type)]
-        },
-      }).configure({
+      InlineMath.configure({
         ...this.options.inlineOptions,
-        katexOptions: this.options.katexOptions,
+        katexOptions: this.options.inlineOptions?.katexOptions ?? this.options.katexOptions,
       }),
-      BlockMath.extend({
-        addNodeView() {
-          return ReactNodeViewRenderer(BlockMathNodeView)
-        },
-        addInputRules() {
-          return [createBlockMathInputRule(this.type)]
-        },
-      }).configure({
+      BlockMath.configure({
         ...this.options.blockOptions,
-        katexOptions: this.options.katexOptions,
+        katexOptions: this.options.blockOptions?.katexOptions ?? this.options.katexOptions,
       }),
     ]
   },
 
   addKeyboardShortcuts() {
     return {
-      'Mod-Shift-m': () => insertMathNode(this.editor, 'inlineMath'),
-      'Mod-Alt-m': () => insertMathNode(this.editor, 'blockMath'),
+      'Mod-Shift-m': () => insertInlineMathNode(this.editor),
+      'Mod-Alt-m': () => insertBlockMathNode(this.editor),
     }
   },
 })
+
+export default Mathematics

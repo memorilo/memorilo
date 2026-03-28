@@ -1,4 +1,5 @@
 import { Input } from '@memorilo/components/ui/input'
+import { cn } from '@memorilo/utils'
 import { useState } from 'react'
 import { useDocTitle, useMutateDocTitle } from '~/hooks/api'
 
@@ -16,7 +17,7 @@ export function DocTitleInput({ docId, readOnly = false, containerClassName, siz
 
   const currentTitle = titleQuery.data ?? ''
   const value = editing.active ? editing.value : currentTitle
-  const titleSizeClass = size === 'compact' ? '!text-xl' : '!text-2xl'
+  const titleSizeClass = size === 'compact' ? 'text-xl' : 'text-2xl'
   const titleLeadingClass = size === 'compact' ? 'leading-tight' : ''
 
   const commitTitle = (nextTitle: string) => {
@@ -57,7 +58,12 @@ export function DocTitleInput({ docId, readOnly = false, containerClassName, siz
         }}
         placeholder="Untitled"
         readOnly={readOnly}
-        className={`h-auto rounded-none border-0 bg-transparent px-0 py-0 ${titleSizeClass} ${titleLeadingClass} font-semibold shadow-none focus-visible:border-transparent focus-visible:ring-0`}
+        className={cn(
+          'h-auto rounded-none border-0 bg-transparent px-0 py-0 font-semibold shadow-none focus-visible:border-transparent focus-visible:ring-0',
+          titleSizeClass,
+          titleLeadingClass,
+          readOnly && 'cursor-default text-muted-foreground',
+        )}
       />
     </div>
   )

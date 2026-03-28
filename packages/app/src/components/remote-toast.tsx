@@ -13,21 +13,25 @@ export function RemoteToast() {
         Match.when('Info', () => {
           toast.info(t(playload.i18n_key as any, {
             ns: playload.ns as any,
+            ...playload.values,
           }))
         }),
         Match.when('Success', () => {
           toast.success(t(playload.i18n_key as any, {
             ns: playload.ns as any,
+            ...playload.values,
           }))
         }),
         Match.when('Warning', () => {
           toast.warn(t(playload.i18n_key as any, {
             ns: playload.ns as any,
+            ...playload.values,
           }))
         }),
         Match.when('Error', () => {
           toast.error(t(playload.i18n_key as any, {
             ns: playload.ns as any,
+            ...playload.values,
           }))
         }),
       )

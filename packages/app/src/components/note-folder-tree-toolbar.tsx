@@ -29,6 +29,7 @@ export function NoteFolderTreeToolbar() {
       parentUUID: targetUUID,
       name: t('note_folder_tree.new_topic'),
     }, {
+      onSuccess: () => {},
       onError: (error) => {
         toast.error(t('note_folder_tree.create_topic_error', { error: String(error), interpolation: { escapeValue: false } }))
       },
@@ -44,6 +45,7 @@ export function NoteFolderTreeToolbar() {
       uuid,
       name: t('note_folder_tree.new_folder'),
     }, {
+      onSuccess: () => {},
       onError: (error) => {
         toast.error(t('note_folder_tree.create_folder_error', { error: String(error), interpolation: { escapeValue: false } }))
       },

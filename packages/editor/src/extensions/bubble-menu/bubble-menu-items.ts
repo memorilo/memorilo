@@ -11,6 +11,7 @@ export interface BubbleMenuItem {
   labelKey: string
   Icon: ComponentType<{ size?: number }>
   command: (editor: Editor) => void
+  isEnabled: (editor: Editor) => boolean
 }
 
 export const bubbleMenuItems: BubbleMenuItem[] = [
@@ -19,29 +20,34 @@ export const bubbleMenuItems: BubbleMenuItem[] = [
     labelKey: 'editor.bubble.bold',
     Icon: BoldIcon,
     command: editor => editor.chain().focus().toggleBold().run(),
+    isEnabled: editor => editor.can().chain().focus().toggleBold().run(),
   },
   {
     name: 'italic',
     labelKey: 'editor.bubble.italic',
     Icon: ItalicIcon,
     command: editor => editor.chain().focus().toggleItalic().run(),
+    isEnabled: editor => editor.can().chain().focus().toggleItalic().run(),
   },
   {
     name: 'underline',
     labelKey: 'editor.bubble.underline',
     Icon: UnderlineIcon,
     command: editor => editor.chain().focus().toggleUnderline().run(),
+    isEnabled: editor => editor.can().chain().focus().toggleUnderline().run(),
   },
   {
     name: 'strike',
     labelKey: 'editor.bubble.strikethrough',
     Icon: StrikethroughIcon,
     command: editor => editor.chain().focus().toggleStrike().run(),
+    isEnabled: editor => editor.can().chain().focus().toggleStrike().run(),
   },
   {
     name: 'code',
     labelKey: 'editor.bubble.code',
     Icon: TerminalIcon,
     command: editor => editor.chain().focus().toggleCode().run(),
+    isEnabled: editor => editor.can().chain().focus().toggleCode().run(),
   },
 ]

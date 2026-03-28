@@ -1,0 +1,32 @@
+.emoji-suggestion-shell .EmojiPickerReact {
+  --epr-bg-color: var(--color-popover);
+  --epr-text-color: var(--color-muted-foreground);
+  --epr-highlight-color: var(--color-popover-foreground);
+  --epr-hover-bg-color: var(--color-accent);
+  --epr-focus-bg-color: var(--color-accent);
+  --epr-search-input-bg-color: var(--color-muted);
+  --epr-search-input-bg-color-active: var(--color-popover);
+  --epr-search-input-text-color: var(--color-popover-foreground);
+  --epr-search-input-placeholder-color: var(--color-muted-foreground);
+  --epr-picker-border-color: var(--color-border);
+  --epr-search-border-color: var(--color-border);
+  --epr-search-border-color-active: var(--color-ring);
+  --epr-category-label-bg-color: color-mix(in oklch, var(--color-popover) 92%, transparent);
+  --epr-category-icon-active-color: var(--color-popover-foreground);
+  --epr-picker-border-radius: calc(var(--radius) + 2px);
+  --epr-search-input-border-radius: calc(var(--radius) - 1px);
+  --epr-search-input-height: 2.5rem;
+  --epr-category-navigation-button-size: 1.85rem;
+  --epr-emoji-size: 1.45rem;
+  --epr-emoji-padding: 0.35rem;
+  border: 0;
+}
+
+.emoji-suggestion-shell .epr-header > :first-child {
+  display: none;
+}
+
+.emoji-suggestion-shell .epr-emoji[data-memorilo-selected='true'],
+.emoji-suggestion-shell .epr-emoji[data-memorilo-selected='true']:focus {
+  background-color: var(--color-accent);
+}

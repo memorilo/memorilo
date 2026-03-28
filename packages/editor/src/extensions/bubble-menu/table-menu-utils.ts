@@ -41,13 +41,25 @@ export function isMultiCellSelection(selection: EditorState['selection']) {
 }
 
 export function selectCell(editor: Editor, context: TableContext, row: number, col: number) {
-  const safeRow = clamp(row, 0, context.rows - 1)
-  const safeCol = clamp(col, 0, context.cols - 1)
-  const cellPos = context.map.positionAt(safeRow, safeCol, context.tableNode)
+  if (row < 0 || row >= context.rows) {
+    throw new RangeError(`Table row ${row} is out of bounds for ${context.rows} rows`)
+  }
+  if (col < 0 || col >= context.cols) {
+    throw new RangeError(`Table column ${col} is out of bounds for ${context.cols} columns`)
+  }
+
+  const cellPos = context.map.positionAt(row, col, context.tableNode)
   editor.commands.setTextSelection(context.tablePos + cellPos + 1)
 }
 
 export function resizeTable(editor: Editor, targetRows: number, targetCols: number) {
+  if (!Number.isInteger(targetRows) || targetRows < 1) {
+    throw new RangeError(`Invalid target row count: ${String(targetRows)}`)
+  }
+  if (!Number.isInteger(targetCols) || targetCols < 1) {
+    throw new RangeError(`Invalid target column count: ${String(targetCols)}`)
+  }
+
   let context = getTableContext(editor.state)
   if (!context) {
     return
@@ -57,28 +69,40 @@ export function resizeTable(editor: Editor, targetRows: number, targetCols: numb
   while (context.rows < targetRows) {
     selectCell(editor, context, context.rows - 1, 0)
     editor.commands.addRowAfter()
-    context = getTableContext(editor.state) ?? context
+    const nextContext = getTableContext(editor.state)
+    if (!nextContext) {
+      throw new Error('Table selection was lost after adding a row')
+    }
+    context = nextContext
   }
 
   while (context.rows > targetRows) {
     selectCell(editor, context, context.rows - 1, 0)
     editor.commands.deleteRow()
-    context = getTableContext(editor.state) ?? context
+    const nextContext = getTableContext(editor.state)
+    if (!nextContext) {
+      throw new Error('Table selection was lost after deleting a row')
+    }
+    context = nextContext
   }
 
   while (context.cols < targetCols) {
     selectCell(editor, context, 0, context.cols - 1)
     editor.commands.addColumnAfter()
-    context = getTableContext(editor.state) ?? context
+    const nextContext = getTableContext(editor.state)
+    if (!nextContext) {
+      throw new Error('Table selection was lost after adding a column')
+    }
+    context = nextContext
   }
 
   while (context.cols > targetCols) {
     selectCell(editor, context, 0, context.cols - 1)
     editor.commands.deleteColumn()
-    context = getTableContext(editor.state) ?? context
+    const nextContext = getTableContext(editor.state)
+    if (!nextContext) {
+      throw new Error('Table selection was lost after deleting a column')
+    }
+    context = nextContext
   }
-}
-
-export function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
 }

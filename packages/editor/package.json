@@ -15,10 +15,13 @@
   "types": "./dist/types/editor.d.ts",
   "scripts": {
     "build": "rollup -c",
-    "dev": "rollup -c -w",
+    "dev": "vite",
     "dev:client": "rollup -c -w",
     "dev:web": "rollup -c -w",
-    "test": "vitest",
+    "test": "playwright test",
+    "test:chrome": "playwright test --project minimal --project full",
+    "test:webkit": "playwright test --project minimal-webkit --project full-webkit",
+    "test:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -58,7 +61,9 @@
     "@types/react-color": "catalog:",
     "@vscode/vscode-languagedetection": "catalog:",
     "cmdk": "catalog:",
+    "dayjs": "catalog:",
     "effect": "catalog:",
+    "emoji-picker-react": "catalog:",
     "es-toolkit": "catalog:",
     "i18next": "catalog:",
     "katex": "catalog:",
@@ -74,15 +79,20 @@
     "yjs": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@rollup/plugin-node-resolve": "catalog:",
     "@rollup/plugin-typescript": "catalog:",
     "@tailwindcss/postcss": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@types/mime-types": "catalog:",
     "@types/prismjs": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "rollup": "catalog:",
     "rollup-plugin-postcss": "catalog:",
-    "tailwindcss": "catalog:"
+    "tailwindcss": "catalog:",
+    "vite": "catalog:",
+    "xml-beautify": "catalog:"
   }
 }

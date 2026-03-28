@@ -1,54 +1,97 @@
-[data-resize-container][data-node='image'] {
-  display: flex;
-  justify-content: center;
-  width: 100%;
+[data-resize-container][data-node="image"] {
+  display: inline-flex;
   max-width: 100%;
+  position: relative;
+  vertical-align: top;
 }
 
-[data-resize-wrapper] {
+[data-resize-container][data-node="image"] [data-resize-wrapper] {
+  display: inline-block;
   line-height: 0;
 }
 
-[data-resize-container][data-node='image'] [data-resize-handle] {
-  box-sizing: border-box;
-  background: #000000;
-  border-radius: 9999px;
-  opacity: 0;
+[data-resize-container][data-node="image"] [data-resize-wrapper]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
   pointer-events: none;
-  transition: opacity 0.15s ease-in-out;
+  transition:
+    border-color 120ms ease,
+    opacity 120ms ease;
 }
 
-[data-resize-container][data-node='image']:hover [data-resize-handle] {
-  opacity: 1;
-  pointer-events: auto;
+[data-resize-container][data-node="image"] [data-resize-wrapper] > img {
+  display: block;
+  max-width: 100%;
 }
 
-[data-resize-handle='top'],
-[data-resize-handle='bottom'] {
-  height: 1px;
+[data-resize-container][data-node="image"] [data-resize-handle] {
+  position: absolute;
+  z-index: 10;
+  user-select: none;
+  touch-action: none;
+  opacity: 0;
+  background: transparent;
+}
+
+[data-resize-container][data-node="image"] [data-resize-handle="top"],
+[data-resize-container][data-node="image"] [data-resize-handle="bottom"] {
+  height: 12px;
   cursor: ns-resize;
 }
 
-[data-resize-handle='left'],
-[data-resize-handle='right'] {
-  width: 1px;
+[data-resize-container][data-node="image"] [data-resize-handle="left"],
+[data-resize-container][data-node="image"] [data-resize-handle="right"] {
+  width: 12px;
   cursor: ew-resize;
 }
 
-[data-resize-handle='top-left'],
-[data-resize-handle='bottom-right'],
-[data-resize-handle='top-right'],
-[data-resize-handle='bottom-left'] {
-  width: 5px;
-  height: 5px;
-}
-
-[data-resize-handle='top-left'],
-[data-resize-handle='bottom-right'] {
+[data-resize-container][data-node="image"] [data-resize-handle="bottom-right"] {
+  width: 10px;
+  height: 10px;
+  right: 0;
+  bottom: 0;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border);
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--background);
   cursor: nwse-resize;
+  transform: translate(50%, 50%) scale(0.8);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 
-[data-resize-handle='top-right'],
-[data-resize-handle='bottom-left'] {
-  cursor: nesw-resize;
+[data-resize-container][data-node="image"]:hover [data-resize-wrapper]::after,
+[data-resize-container][data-node="image"] [data-resize-wrapper].ProseMirror-selectednode::after,
+[data-resize-container][data-node="image"] [data-resize-wrapper]:has(> img.ProseMirror-selectednode)::after,
+[data-resize-container][data-node="image"].ProseMirror-selectednode [data-resize-wrapper]::after,
+[data-resize-container][data-node="image"][data-resize-state="true"] [data-resize-wrapper]::after {
+  border-color: var(--border);
+}
+
+[data-resize-container][data-node="image"]:hover [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"] [data-resize-wrapper].ProseMirror-selectednode [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"] [data-resize-wrapper]:has(> img.ProseMirror-selectednode) [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"].ProseMirror-selectednode [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"][data-resize-state="true"] [data-resize-handle="bottom-right"] {
+  opacity: 1;
+  transform: translate(50%, 50%) scale(1);
+}
+
+[data-resize-container][data-node="image"] [data-resize-wrapper].ProseMirror-selectednode::after,
+[data-resize-container][data-node="image"] [data-resize-wrapper]:has(> img.ProseMirror-selectednode)::after,
+[data-resize-container][data-node="image"].ProseMirror-selectednode [data-resize-wrapper]::after,
+[data-resize-container][data-node="image"][data-resize-state="true"] [data-resize-wrapper]::after {
+  border-color: var(--ring);
+}
+
+[data-resize-container][data-node="image"] [data-resize-wrapper].ProseMirror-selectednode [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"] [data-resize-wrapper]:has(> img.ProseMirror-selectednode) [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"].ProseMirror-selectednode [data-resize-handle="bottom-right"],
+[data-resize-container][data-node="image"][data-resize-state="true"] [data-resize-handle="bottom-right"] {
+  border-color: var(--ring);
 }

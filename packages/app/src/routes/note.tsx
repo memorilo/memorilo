@@ -12,7 +12,7 @@ function RouteComponent() {
   const canGoBack = router.history.canGoBack()
 
   return (
-    <div className="size-full flex flex-col overflow-hidden">
+    <div className="flex size-full flex-col overflow-hidden">
       <div className="border-b">
         <Button
           variant="ghost"

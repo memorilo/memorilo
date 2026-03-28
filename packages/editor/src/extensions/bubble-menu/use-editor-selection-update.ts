@@ -6,8 +6,10 @@ export function useEditorSelectionUpdate(editor: Editor) {
 
   useEffect(() => {
     const update = () => forceUpdate(value => value + 1)
+
     editor.on('selectionUpdate', update)
     editor.on('transaction', update)
+
     return () => {
       editor.off('selectionUpdate', update)
       editor.off('transaction', update)

@@ -1,80 +1,72 @@
 import type { CodeBlockOptions } from '@tiptap/extension-code-block'
-import { mergeAttributes } from '@tiptap/core'
+import { InputRule } from '@tiptap/core'
 import CodeBlock from '@tiptap/extension-code-block'
-import { ReactNodeViewRenderer } from '@tiptap/react'
-import { toggleOutlineCodeBlock } from './commands'
-import { CodeblockPrismPlugin } from './decorations'
-import { resolveLanguageClass } from './language'
-import { CodeBlockNodeView } from './node-view'
-import './theme-tomorrow.css'
 
-export interface CodeBlockPrismOptions extends CodeBlockOptions {}
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { CodeBlockNodeView } from './components/node-view'
+import { CodeBlockLanguageGuessPlugin } from './language-guess-plugin'
+import { CODE_BLOCK_AUTO_LANGUAGE } from './libs/resolved-language'
+import { PrismPlugin } from './prism-plugin'
+import './themes/prism-gruvbox-light.css'
+
+export interface CodeBlockPrismOptions extends CodeBlockOptions {
+  defaultLanguage: string | null | undefined
+}
 
 export const CodeBlockPrism = CodeBlock.extend<CodeBlockPrismOptions>({
-  addKeyboardShortcuts() {
-    return {
-      ...(this.parent?.() || {}),
-      'Mod-Alt-c': () => this.editor.commands.toggleCodeBlock(),
-    }
-  },
-
-  addCommands() {
-    const parentCommands = this.parent?.()
-    return {
-      ...parentCommands,
-      toggleCodeBlock:
-        () =>
-          (props) => {
-            const handled = toggleOutlineCodeBlock(props.state, props.dispatch)
-            if (handled) {
-              return true
-            }
-
-            const parentToggle = parentCommands?.toggleCodeBlock?.()
-            return parentToggle ? parentToggle(props) : false
-          },
-    }
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^```(\w+)?\s$/,
+        handler: ({ range, match }) => {
+          const [okay, language] = match
+          if (!okay) {
+            return
+          }
+          this.editor.chain().focus().deleteRange(range).toggleCodeBlock({ language: language ?? CODE_BLOCK_AUTO_LANGUAGE }).run()
+        },
+      }),
+    ]
   },
 
   addAttributes() {
     return {
-      ...this.parent?.(),
-      guessLanguage: {
+      language: {
+        default: CODE_BLOCK_AUTO_LANGUAGE,
+      },
+      guess: {
         default: null,
-        parseHTML: element => element.getAttribute('data-guess-language'),
-        renderHTML: attributes => (
-          attributes.guessLanguage ? { 'data-guess-language': attributes.guessLanguage } : {}
-        ),
       },
     }
-  },
-
-  renderHTML({ node, HTMLAttributes }) {
-    const languageClass = resolveLanguageClass(
-      node.attrs,
-      this.options.languageClassPrefix,
-    )
-    const preAttributes = mergeAttributes(
-      this.options.HTMLAttributes,
-      HTMLAttributes,
-      { class: languageClass },
-    )
-
-    return [
-      'pre',
-      preAttributes,
-      ['code', 0],
-    ]
   },
 
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockNodeView)
   },
 
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      defaultLanguage: null,
+    } as CodeBlockPrismOptions
+  },
+
   addProseMirrorPlugins() {
     return [
       ...this.parent?.() || [],
-      CodeblockPrismPlugin(this.name),
+      PrismPlugin({
+        name: this.name,
+        defaultLanguage: this.options.defaultLanguage,
+      }),
+      CodeBlockLanguageGuessPlugin({
+        name: this.name,
+      }),
     ]
   },
+}).configure({
+  defaultLanguage: 'text',
+  enableTabIndentation: true,
+  exitOnTripleEnter: true,
 })
+
+export default CodeBlockPrism

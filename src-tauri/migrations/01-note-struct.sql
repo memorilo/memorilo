@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS doc_nodes(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     -- ProseMirror document id (one doc contains a full tree)
     doc_id TEXT NOT NULL,
-    -- ProseMirror node attribute `uuid` (when present, e.g. listItem)
-    node_uuid TEXT NULL,
+    -- ProseMirror node attribute `id` (when present, e.g. listItem)
+    node_id TEXT NULL,
     -- Adjacency list: parent node id; root ("doc") has NULL
     parent_id INTEGER NULL,
     -- Order among siblings, matches ProseMirror children sequence
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS doc_nodes(
 
 CREATE INDEX IF NOT EXISTS idx_doc_nodes_doc_id ON doc_nodes(doc_id);
 CREATE INDEX IF NOT EXISTS idx_doc_nodes_parent_id ON doc_nodes(parent_id);
-CREATE INDEX IF NOT EXISTS idx_doc_nodes_node_uuid ON doc_nodes(node_uuid);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_nodes_doc_uuid ON doc_nodes(doc_id, node_uuid);
+CREATE INDEX IF NOT EXISTS idx_doc_nodes_node_id ON doc_nodes(node_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_nodes_doc_node_id ON doc_nodes(doc_id, node_id);
 
 -- Trigger: Delete doc when a folder node with ref is removed
 CREATE TRIGGER IF NOT EXISTS delete_doc_on_folder_delete

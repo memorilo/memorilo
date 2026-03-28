@@ -9,14 +9,13 @@ export const Route = createLazyFileRoute('/note/$docId/$nodeId')({
 
 function RouteComponent() {
   const { docId, nodeId } = Route.useParams()
-
   const navigate = useNavigate()
-  const handleFocusNode = useCallback((uuid: string) => {
+  const handleFocusNode = useCallback((id: string) => {
     navigate({
       to: '/note/$docId/$nodeId',
-      params: { docId, nodeId: uuid },
+      params: { docId, nodeId: id },
     })
-  }, [navigate, docId])
+  }, [docId, navigate])
 
   return (
     <div className="size-full flex flex-col">
