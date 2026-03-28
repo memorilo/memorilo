@@ -33,3 +33,21 @@ export function findClosestAncestor(
 
   return null
 }
+
+export function findClosestAncestorInclusive(
+  $pos: ResolvedPos,
+  predicate: (node: PMNode) => boolean,
+): AncestorMatch | null {
+  for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+    const node = $pos.node(depth)
+    if (predicate(node)) {
+      return {
+        depth,
+        node,
+        pos: depth === 0 ? 0 : $pos.before(depth),
+      }
+    }
+  }
+
+  return null
+}

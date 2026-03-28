@@ -9,12 +9,12 @@ interface JournalEditorProps {
 
 export function JournalEditor({ docId }: JournalEditorProps) {
   const navigate = useNavigate()
-  const focusNode = useCallback((nodeId: string) => {
+  const handleFocusNode = useCallback((id: string) => {
     navigate({
       to: '/note/$docId/$nodeId',
-      params: { docId, nodeId },
+      params: { docId, nodeId: id },
     })
-  }, [navigate, docId])
+  }, [docId, navigate])
 
   return (
     <div className="flex flex-col gap-2">
@@ -24,11 +24,7 @@ export function JournalEditor({ docId }: JournalEditorProps) {
         containerClassName="p-0"
       />
       <div className="[&_.ProseMirror]:min-h-40">
-        <Editor
-          docId={docId}
-          onOutlineClick={focusNode}
-          hideTitle
-        />
+        <Editor docId={docId} onOutlineClick={handleFocusNode} />
       </div>
     </div>
   )

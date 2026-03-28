@@ -7,7 +7,6 @@ import { Doc } from 'yjs'
 import { createMemoriloEditorOptions } from '../../src/editor'
 import { EditorBubbleMenu } from '../../src/extensions/bubble-menu'
 import { getTableContext } from '../../src/extensions/bubble-menu/table-menu-utils'
-import { YjsDocumentContext } from '../../src/provider/yjs'
 
 const initialContent: JSONContent = {
   type: 'doc',
@@ -199,14 +198,12 @@ export function BubbleFixtureApp() {
         <section className="fixture-panel">
           <h1 className="fixture-label">Editor</h1>
           <div className="fixture-editor" data-testid="bubble-editor">
-            <YjsDocumentContext value={{ fragment }}>
-              <div className="memorilo-editor px-8 py-4 [&_.ProseMirror]:outline-none">
-                <BubbleMenuErrorBoundary>
-                  {editor ? <EditorBubbleMenu editor={editor} /> : null}
-                </BubbleMenuErrorBoundary>
-                <EditorContent editor={editor} />
-              </div>
-            </YjsDocumentContext>
+            <div className="memorilo-editor px-8 py-4 [&_.ProseMirror]:outline-none">
+              <BubbleMenuErrorBoundary>
+                {editor ? <EditorBubbleMenu editor={editor} /> : null}
+              </BubbleMenuErrorBoundary>
+              <EditorContent editor={editor} />
+            </div>
           </div>
         </section>
 

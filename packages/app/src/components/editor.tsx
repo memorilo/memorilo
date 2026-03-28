@@ -1,26 +1,54 @@
 import { Skeleton } from '@memorilo/components/ui/skeleton'
 import { MemoriloEditor } from '@memorilo/editor'
 import { DEV } from '@memorilo/utils/constants'
-import { Effect, Exit, Fiber, Iterable, Option, Schedule } from 'effect'
+import { Cause, Effect, Exit, Fiber, Option, Schedule } from 'effect'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import * as Y from 'yjs'
-import { useSetting } from '~/hooks/use-setting'
 import { useSyncYDoc } from '~/hooks/use-sync-ydoc'
 
 interface EditorProps {
   docId: string
   focusNodeId?: string
-  onOutlineClick?: (uuid: string) => void
-  hideTitle?: boolean
+  onOutlineClick?: (id: string) => void
 }
-export function Editor(props: EditorProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
 
+interface FocusedFragmentResolution {
+  doc: Y.Doc
+  focusNodeId: string
+  status: 'pending' | 'resolved' | 'error'
+  fragment: Y.XmlFragment | null
+  error: string | null
+}
+
+function findFocusedNodeById(rootFragment: Y.XmlFragment, targetId: string) {
+  const walker = rootFragment.createTreeWalker(
+    node => node instanceof Y.XmlElement && node.getAttribute('id') === targetId,
+  )
+  const next = walker[Symbol.iterator]().next()
+  return next.done ? null : (next.value as Y.XmlElement)
+}
+
+function resolveFocusedFragment(node: Y.XmlElement) {
+  if (node.nodeName === 'outlineUList' || node.nodeName === 'outlineOrdList') {
+    return node
+  }
+
+  const parent = node.parent
+  if (
+    parent instanceof Y.XmlElement
+    && (parent.nodeName === 'outlineUList' || parent.nodeName === 'outlineOrdList')
+  ) {
+    return parent
+  }
+
+  throw new Error(`Unsupported focus root for node ${node.nodeName}`)
+}
+
+export function Editor(props: EditorProps) {
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        ref={scrollRef}
         key={props.docId}
         className="size-full overflow-y-auto"
         initial={{ opacity: 0 }}
@@ -34,48 +62,96 @@ export function Editor(props: EditorProps) {
   )
 }
 
-function EditorInstance({ docId, focusNodeId, onOutlineClick, hideTitle }: EditorProps) {
+function EditorInstance({ docId, focusNodeId, onOutlineClick }: EditorProps) {
   const { doc, initialized: docInitialized, error } = useSyncYDoc(docId)
-  const { data: downloadImage } = useSetting('note::downloadImage', true)
+  const rootFragment = doc.getXmlFragment('doc')
+  const [focusedFragmentResolution, setFocusedFragmentResolution] = useState<FocusedFragmentResolution | null>(null)
+  const hasCurrentFocusedFragmentResolution = focusedFragmentResolution?.doc === doc
+    && focusedFragmentResolution.focusNodeId === focusNodeId
+  const fragment = focusNodeId
+    ? (hasCurrentFocusedFragmentResolution && focusedFragmentResolution?.status === 'resolved'
+        ? focusedFragmentResolution.fragment
+        : null)
+    : rootFragment
+  const fragmentError = focusNodeId && hasCurrentFocusedFragmentResolution && focusedFragmentResolution?.status === 'error'
+    ? focusedFragmentResolution.error
+    : null
+  const initialized = docInitialized && (!focusNodeId || (
+    hasCurrentFocusedFragmentResolution && focusedFragmentResolution?.status !== 'pending'
+  ))
 
-  const [fragment, setFragment] = useState<Option.Option<Y.XmlElement | Y.XmlFragment> | null>(null)
-  const initialized = docInitialized && fragment !== null
-
-  useEffect(() => {
-    const rootFragment = doc.getXmlFragment('doc')
+  useLayoutEffect(() => {
     if (!focusNodeId) {
-      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
-      setFragment(Option.some(rootFragment))
       return
     }
 
-    const program = Effect.sync(() => {
-      const walker = rootFragment.createTreeWalker(
-        elem =>
-          elem instanceof Y.XmlElement && elem.getAttribute('uuid') === focusNodeId,
-      )
-      return Iterable.head(walker)
-    }).pipe(
-      Effect.flatMap(Option.match({
-        onNone: () => Effect.fail('Node not found'),
-        onSome: node => Effect.succeed(node as Y.XmlElement),
-      })),
-      Effect.retry({ times: 3, schedule: Schedule.spaced(300) }),
-      Effect.map(node => Option.some(node)),
-      Effect.catchAll(() => Effect.succeed(Option.none())),
+    // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
+    setFocusedFragmentResolution({
+      doc,
+      focusNodeId,
+      status: 'pending',
+      fragment: null,
+      error: null,
+    })
+  }, [doc, focusNodeId])
+
+  useEffect(() => {
+    if (!focusNodeId) {
+      return
+    }
+
+    const rootFragment = doc.getXmlFragment('doc')
+    const program = Effect.sync(() => findFocusedNodeById(rootFragment, focusNodeId)).pipe(
+      Effect.flatMap(node =>
+        node === null
+          ? Effect.fail(new Error('Node not found'))
+          : Effect.try({
+              try: () => resolveFocusedFragment(node),
+              catch: cause => cause instanceof Error ? cause : new Error(String(cause)),
+            })),
+      Effect.retry({ times: 5, schedule: Schedule.spaced(1000) }),
     )
 
+    let active = true
     const fiber = Effect.runFork(program)
     fiber.addObserver((exit) => {
+      if (!active || Exit.isInterrupted(exit)) {
+        return
+      }
+
       if (Exit.isSuccess(exit)) {
-        setFragment(exit.value)
+        setFocusedFragmentResolution({
+          doc,
+          focusNodeId,
+          status: 'resolved',
+          fragment: exit.value,
+          error: null,
+        })
+        return
+      }
+
+      if (Exit.isFailure(exit)) {
+        const error = Cause.failureOption(exit.cause).pipe(
+          Option.match({
+            onNone: () => 'Failed to resolve focused fragment',
+            onSome: failure => failure instanceof Error ? failure.message : String(failure),
+          }),
+        )
+        setFocusedFragmentResolution({
+          doc,
+          focusNodeId,
+          status: 'error',
+          fragment: null,
+          error,
+        })
       }
     })
 
     return () => {
+      active = false
       Effect.runFork(Fiber.interruptFork(fiber))
     }
-  }, [doc, focusNodeId, initialized])
+  }, [doc, focusNodeId])
 
   // Debug only
   // Mount Y.Doc to window for easy access in devtools
@@ -113,42 +189,21 @@ function EditorInstance({ docId, focusNodeId, onOutlineClick, hideTitle }: Edito
     )
   }
 
-  if (Option.isNone(fragment)) {
+  if (fragmentError) {
     return (
       <div className="px-2 py-6">
-        <p className="text-sm text-destructive">
-          Node not found:
-          {docId}
-          /
-          {focusNodeId}
-        </p>
+        <p className="text-sm text-destructive">{fragmentError}</p>
       </div>
     )
   }
-
-  const rootNode = (() => {
-    if (!focusNodeId) {
-      return 'doc' as const
-    }
-    const rootElement = fragment.value as Y.XmlElement
-    const rawName = rootElement.nodeName
-    const normalized = typeof rawName === 'string' ? rawName.toLowerCase() : rawName
-    if (normalized === 'ordereditem') {
-      return 'orderedItem' as const
-    }
-    if (normalized === 'taskitem' || normalized === 'todoitem') {
-      return 'taskItem' as const
-    }
-    return 'listItem' as const
-  })()
+  if (!fragment) {
+    throw new Error('Editor fragment must be resolved before rendering MemoriloEditor')
+  }
 
   return (
     <MemoriloEditor
-      fragment={fragment.value}
-      rootNode={rootNode}
-      downloadImage={downloadImage}
+      fragment={fragment}
       onOutlineClick={onOutlineClick}
-      hideTitle={hideTitle}
     />
   )
 }

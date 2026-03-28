@@ -4,7 +4,6 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import { useMemo, useSyncExternalStore } from 'react'
 import { Doc } from 'yjs'
 import { createMemoriloEditorOptions } from '../../src/editor'
-import { YjsDocumentContext } from '../../src/provider/yjs'
 
 const initialContent: JSONContent = {
   type: 'doc',
@@ -65,11 +64,9 @@ export function SlashFixtureApp() {
         <section className="fixture-panel">
           <h1 className="fixture-label">Editor</h1>
           <div className="fixture-editor" data-testid="slash-editor">
-            <YjsDocumentContext value={{ fragment }}>
-              <div className="memorilo-editor px-8 py-4 [&_.ProseMirror]:outline-none">
-                <EditorContent editor={editor} />
-              </div>
-            </YjsDocumentContext>
+            <div className="memorilo-editor px-8 py-4 [&_.ProseMirror]:outline-none">
+              <EditorContent editor={editor} />
+            </div>
           </div>
         </section>
 

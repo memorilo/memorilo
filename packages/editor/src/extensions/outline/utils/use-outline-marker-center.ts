@@ -140,7 +140,7 @@ function measureFirstLineCenterY(wrapper: HTMLElement, firstBlock: HTMLElement):
 
 export function useOutlineMarkerCenterStyle(
   wrapperRef: RefObject<HTMLElement | null>,
-  node: PMNode,
+  node: PMNode | null,
 ) {
   const [centerY, setCenterY] = useState<number | null>(null)
 
@@ -191,4 +191,89 @@ export function useOutlineMarkerCenterStyle(
       cancelAnimationFrame(frame)
     }
   }, [centerY, wrapperRef])
+}
+
+function setOutlineConnectorTop(wrapper: HTMLElement, top: number) {
+  wrapper.style.setProperty('--outline-connector-top', `${top}px`)
+}
+
+function applyOutlineConnectorTop(wrapper: HTMLElement, top: number | null): boolean {
+  if (top !== null) {
+    setOutlineConnectorTop(wrapper, top)
+    return true
+  }
+
+  return wrapper.style.getPropertyValue('--outline-connector-top') !== ''
+}
+
+function resolveOutlineConnectorTop(wrapper: HTMLElement): number | null {
+  const firstMarkerButton = wrapper.querySelector<HTMLElement>('.outline-marker-button')
+  if (!firstMarkerButton) {
+    return null
+  }
+
+  const wrapperRect = wrapper.getBoundingClientRect()
+  const markerRect = firstMarkerButton.getBoundingClientRect()
+  if (markerRect.height <= 0) {
+    return null
+  }
+
+  // The synthetic subtree-root chrome should start where a normal list chrome
+  // starts: at the bottom edge of the root item's marker button.
+  return markerRect.bottom - wrapperRect.top
+}
+
+export function useOutlineRootConnectorTopStyle(
+  wrapperRef: RefObject<HTMLElement | null>,
+  node: PMNode | null,
+) {
+  const [top, setTop] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper || !wrapper.isConnected) {
+      return
+    }
+
+    const nextTop = resolveOutlineConnectorTop(wrapper)
+    // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
+    setTop(currentTop => nextTop ?? currentTop)
+
+    if (nextTop !== null) {
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const deferredTop = resolveOutlineConnectorTop(wrapper)
+      setTop(currentTop => deferredTop ?? currentTop)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [node, wrapperRef])
+
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    if (top !== null) {
+      applyOutlineConnectorTop(wrapper, top)
+      return
+    }
+
+    if (applyOutlineConnectorTop(wrapper, null)) {
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      applyOutlineConnectorTop(wrapper, null)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [top, wrapperRef])
 }

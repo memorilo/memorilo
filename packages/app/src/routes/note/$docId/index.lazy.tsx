@@ -9,23 +9,19 @@ export const Route = createLazyFileRoute('/note/$docId/')({
 
 function RouteComponent() {
   const { docId } = Route.useParams()
-
   const navigate = useNavigate()
-  const handleFocusNode = useCallback((uuid: string) => {
+  const handleFocusNode = useCallback((id: string) => {
     navigate({
       to: '/note/$docId/$nodeId',
-      params: { docId, nodeId: uuid },
+      params: { docId, nodeId: id },
     })
-  }, [navigate, docId])
+  }, [docId, navigate])
+
   return (
     <div className="size-full flex flex-col">
       <DocTitleInput docId={docId} />
       <div className="min-h-0 flex-1">
-        <Editor
-          docId={docId}
-          onOutlineClick={handleFocusNode}
-          hideTitle
-        />
+        <Editor docId={docId} onOutlineClick={handleFocusNode} />
       </div>
     </div>
   )

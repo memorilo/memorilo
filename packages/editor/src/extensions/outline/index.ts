@@ -5,7 +5,7 @@ import Paragraph from '@tiptap/extension-paragraph'
 import { Fragment } from '@tiptap/pm/model'
 import { Plugin, Selection, TextSelection } from '@tiptap/pm/state'
 import { Option } from 'effect'
-import { findClosestAncestor } from '../../utils/node-traversal'
+import { findClosestAncestorInclusive } from '../../utils/node-traversal'
 import { OutlineDocument } from './document'
 import { OutlineOrdItem } from './outline-ord-item'
 import { OutlineOrdList } from './outline-ord-list'
@@ -13,6 +13,21 @@ import { OutlineTaskItem } from './outline-task-item'
 import { OutlineUordItem } from './outline-uord-item'
 import { OutlineUList } from './outline-uord-list'
 import { getParentOutlineItem, getParentOutlineList } from './utils/outlines'
+
+export type OutlineTopNode = 'doc' | 'outlineUList' | 'outlineOrdList'
+
+export interface OutlineOptions {
+  topNode: OutlineTopNode
+  onOutlineClick?: (id: string) => void
+}
+
+const RootOutlineUList = OutlineUList.extend({
+  topNode: true,
+})
+
+const RootOutlineOrdList = OutlineOrdList.extend({
+  topNode: true,
+})
 
 /**
  * Sync the first item type of a moved outline list after indent/unindent.
@@ -82,17 +97,37 @@ declare module '@tiptap/core' {
   }
 }
 
-export const Outline = Extension.create({
+export const Outline = Extension.create<OutlineOptions>({
   priority: 0,
 
+  addOptions() {
+    return {
+      topNode: 'doc',
+      onOutlineClick: undefined,
+    }
+  },
+
   addExtensions() {
+    const listExtensions = (() => {
+      if (this.options.topNode === OutlineUList.name) {
+        return [RootOutlineUList, OutlineOrdList]
+      }
+
+      if (this.options.topNode === OutlineOrdList.name) {
+        return [OutlineUList, RootOutlineOrdList]
+      }
+
+      return [OutlineUList, OutlineOrdList]
+    })()
+
     return [
       Paragraph,
-      OutlineDocument,
-      OutlineUList,
-      OutlineUordItem,
+      ...(this.options.topNode === 'doc' ? [OutlineDocument] : []),
+      ...listExtensions,
+      OutlineUordItem.configure({
+        onOutlineClick: this.options.onOutlineClick,
+      }),
       OutlineTaskItem,
-      OutlineOrdList,
       OutlineOrdItem,
     ]
   },
@@ -219,8 +254,8 @@ export const Outline = Extension.create({
         }
         const { parentOutlineList, currentOutlineList } = ctx.value
 
-        const geparentOutlineListContainer = parentOutlineList.parent
-        if (!geparentOutlineListContainer) {
+        const grandparentOutlineListContainer = parentOutlineList.parent
+        if (!grandparentOutlineListContainer) {
           return false
         }
         const parentOutlineListEndPos = tr.selection.$from.after(parentOutlineList.depth)
@@ -255,8 +290,8 @@ export const Outline = Extension.create({
           targetPos,
           blockToUnindent.content,
         )
-        const parentListTypeName = geparentOutlineListContainer.node.type.isInGroup('outlineList')
-          ? geparentOutlineListContainer.node.type.name
+        const parentListTypeName = grandparentOutlineListContainer.node.type.isInGroup('outlineList')
+          ? grandparentOutlineListContainer.node.type.name
           : undefined
         syncMovedOutlineItemType(tr, targetPos, parentListTypeName)
         // tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos)))
@@ -276,8 +311,8 @@ export const Outline = Extension.create({
               return false
             }
 
-            const outlineItem = findClosestAncestor($from, node => node.type.isInGroup('outlineItem'))
-            const outlineList = findClosestAncestor($from, node => node.type.isInGroup('outlineList'))
+            const outlineItem = findClosestAncestorInclusive($from, node => node.type.isInGroup('outlineItem'))
+            const outlineList = findClosestAncestorInclusive($from, node => node.type.isInGroup('outlineList'))
             if (!outlineItem || !outlineList) {
               return false
             }
@@ -321,18 +356,44 @@ export const Outline = Extension.create({
 
             const mappedDirectBlockPos = tr.mapping.map(directBlockPos, -1)
             const mappedOutlineItemPos = tr.mapping.map(outlineItemPos, -1)
-            const mappedOutlineListPos = tr.mapping.map(outlineListPos, -1)
             const currentDirectBlock = tr.doc.nodeAt(mappedDirectBlockPos)
             const currentOutlineItem = tr.doc.nodeAt(mappedOutlineItemPos)
-            const currentOutlineList = tr.doc.nodeAt(mappedOutlineListPos)
-            if (!currentDirectBlock || !currentOutlineItem || !currentOutlineList) {
+            // Abort when the post-delete mapped structure no longer resolves to the
+            // expected direct block/item pair. Split only works while we can still
+            // prove the cursor stays inside one direct child block of one outline item.
+            if (!currentDirectBlock || !currentOutlineItem) {
               return false
             }
-            if (!currentOutlineItem.type.isInGroup('outlineItem') || !currentOutlineList.type.isInGroup('outlineList')) {
+            if (!currentOutlineItem.type.isInGroup('outlineItem')) {
               return false
             }
             if (directBlockIndex >= currentOutlineItem.childCount || !currentOutlineItem.child(directBlockIndex).eq(currentDirectBlock)) {
               return false
+            }
+
+            let currentOutlineList: PMNode
+            let outlineListInsertPos: number
+
+            if (outlineList.depth === 0) {
+              // In subtree mode the current outline list can be the editor top node itself,
+              // so root splits always insert into the top node children.
+              currentOutlineList = tr.doc
+              if (!currentOutlineList.type.isInGroup('outlineList')) {
+                return false
+              }
+              outlineListInsertPos = mappedOutlineItemPos + currentOutlineItem.nodeSize
+            }
+            else {
+              const mappedOutlineListPos = tr.mapping.map(outlineListPos, -1)
+              const mappedOutlineList = tr.doc.nodeAt(mappedOutlineListPos)
+              if (!mappedOutlineList || !mappedOutlineList.type.isInGroup('outlineList')) {
+                return false
+              }
+
+              currentOutlineList = mappedOutlineList
+              outlineListInsertPos = currentOutlineList.childCount > 1
+                ? mappedOutlineItemPos + currentOutlineItem.nodeSize
+                : mappedOutlineListPos + currentOutlineList.nodeSize
             }
 
             const { $from: mappedFrom } = tr.selection
@@ -401,18 +462,14 @@ export const Outline = Extension.create({
               return false
             }
 
-            // Split has two insertion modes:
-            // 1) current list has child lists -> insert the new split list into current list children,
-            // 2) current list has no child list -> insert the new split list after current list.
-            const insertIntoChildren = currentOutlineList.childCount > 1
-            const outlineListInsertPos = insertIntoChildren
-              ? mappedOutlineItemPos + currentOutlineItem.nodeSize - 1
-              : mappedOutlineListPos + currentOutlineList.nodeSize
             tr.insert(
               outlineListInsertPos,
               outlineListType.create(
                 currentOutlineList.attrs,
-                outlineItemType.create(currentOutlineItem.attrs, afterFragment),
+                // Split creates a brand-new sibling item, so it must not inherit
+                // the current item's id. Leave the new item id empty and let
+                // UniqueID assign a fresh one in the follow-up transaction.
+                outlineItemType.create({ ...currentOutlineItem.attrs, id: null }, afterFragment),
               ),
             )
 
@@ -435,7 +492,7 @@ export const Outline = Extension.create({
             // Resolve inserted list position from final structure to avoid
             // landing back in current item when mapping hits ambiguous boundaries.
             let insertedListPos: number | null = null
-            if (insertIntoChildren) {
+            if (outlineList.depth === 0 || currentOutlineList.childCount > 1) {
               const mappedItemPos = tr.mapping.map(outlineItemPos, -1)
               const mappedItemNode = tr.doc.nodeAt(mappedItemPos)
               if (mappedItemNode) {

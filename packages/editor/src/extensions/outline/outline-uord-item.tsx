@@ -17,25 +17,66 @@ declare module '@tiptap/core' {
   }
 }
 
+export interface OutlineUordItemOptions {
+  onOutlineClick?: (id: string) => void
+}
+
 function OutlineItemView(props: ReactNodeViewProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   useOutlineMarkerCenterStyle(wrapperRef, props.node)
+  const { onOutlineClick } = props.extension.options as OutlineUordItemOptions
+
+  const handleMarkerMouseDown = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const handleMarkerClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!onOutlineClick) {
+      return
+    }
+
+    const { id } = props.node.attrs
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new TypeError('outlineUordItem marker click requires a non-empty id attribute')
+    }
+
+    onOutlineClick(id)
+  }
 
   return (
     <NodeViewWrapper ref={wrapperRef} className="relative">
-      <div
+      <button
+        type="button"
         contentEditable={false}
-        className="absolute -left-8 top-(--outline-marker-center-y) -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
+        aria-label="Open outline item"
+        className="outline-marker-button absolute z-10 pointer-events-auto cursor-pointer -left-8 top-(--outline-marker-center-y) -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full group transition-all hover:bg-accent"
+        onMouseDown={handleMarkerMouseDown}
+        onClick={handleMarkerClick}
       >
-        <span className="h-[.4em] w-[.4em] rounded-full bg-black dark:bg-white transition-all group-hover:scale-125" />
-      </div>
+        <span className="pointer-events-none h-[.4em] w-[.4em] rounded-full bg-black dark:bg-white transition-all group-hover:scale-125" />
+      </button>
       <NodeViewContent />
     </NodeViewWrapper>
   )
 }
 
-export const OutlineUordItem = Node.create({
+export const OutlineUordItem = Node.create<OutlineUordItemOptions>({
   name: 'outlineUordItem',
+  addOptions() {
+    return {
+      onOutlineClick: undefined,
+    }
+  },
+  addAttributes() {
+    return {
+      id: {
+        default: null,
+      },
+    }
+  },
   content: 'block+',
   group: 'outlineItem',
   parseHTML() {
@@ -49,7 +90,15 @@ export const OutlineUordItem = Node.create({
     return ['outline-uord-item', mergeAttributes(HTMLAttributes), 0]
   },
   addNodeView() {
-    return ReactNodeViewRenderer(OutlineItemView)
+    return ReactNodeViewRenderer(OutlineItemView, {
+      stopEvent: ({ event }) => {
+        if (!(event.target instanceof Element)) {
+          return false
+        }
+
+        return Boolean(event.target.closest('.outline-marker-button'))
+      },
+    })
   },
   addInputRules() {
     if (this.name !== 'outlineUordItem') {
@@ -319,7 +368,11 @@ export const OutlineUordItem = Node.create({
           return false
         }
 
-        const outlineListIndex = selection.$from.index(outlineList.parent!.depth)
+        const parentOutlineList = outlineList.parent
+        if (!parentOutlineList) {
+          return true
+        }
+        const outlineListIndex = selection.$from.index(parentOutlineList.depth)
         // Not having parent list of current list and index = 0, which means current list is top-level
         // Prevent backspace to protect structure
         if (Option.isNone(getParentOutlineList(outlineList)) && outlineListIndex === 0) {
