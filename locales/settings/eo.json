@@ -1,8 +1,13 @@
 {
   "core.title": "Memorilo Ĝenerala",
   "core.lang": "Lingvo",
+  "core.androidFullscreen": "Plenekrane",
   "dev.title": "Programistaj opcioj",
   "dev.scan": "Montri ĝisdatigojn de vido (react-scan)",
   "dev.router": "Montri sencimigon de vojigilo (tanstack-router)",
-  "dev.query": "Montri sencimigon de informpetoj (tanstack-query)"
+  "dev.query": "Montri sencimigon de informpetoj (tanstack-query)",
+  "note.title": "Notoj",
+  "note.downloadImage": "Elŝuti bildojn dum algluado de URL-oj",
+  "journal.title": "Taglibro",
+  "journal.autoCreate": "Aŭtomate krei taglibron por pasintaj datoj"
 }

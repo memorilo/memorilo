@@ -1,1 +1,7 @@
-{}
+{
+  "editor.fail_receive_update": "Malsukcesis sinkronigi la dokumenton. Bonvolu reŝargi.",
+  "rs.doc.lock_poison": "Stata seruro estas koruptita: {context}",
+  "rs.doc.db": "Datumbaza eraro dum {context}: {error}",
+  "rs.doc.crdt_decode": "CRDT-dekoda eraro dum {context}: {error}",
+  "rs.doc.crdt_update": "CRDT-ĝisdatiga eraro dum {context}: {error}"
+}
