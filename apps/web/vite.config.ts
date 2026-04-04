@@ -5,6 +5,7 @@ import {
   i18nCompleteness,
   localesJsonPlugin,
   localesPlugin,
+  spdxLicensePlugin,
 } from '@memorilo/vite-config'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -43,6 +44,7 @@ export default defineConfig({
     localesPlugin(),
     localesJsonPlugin(),
     customI18nHmrPlugin(),
+    spdxLicensePlugin(),
     viteStaticCopy({
       targets: [
         {

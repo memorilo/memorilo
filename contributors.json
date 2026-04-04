@@ -1,0 +1,30 @@
+[
+  {
+    "avatarUrl": "https://github.com/mslxl.png",
+    "nickname": "mslxl",
+    "profileUrl": "https://github.com/mslxl",
+    "role": "Lead feature development and product design",
+    "username": "mslxl"
+  },
+  {
+    "avatarUrl": "https://github.com/GladerJ.png",
+    "nickname": "Glader",
+    "profileUrl": "https://github.com/GladerJ",
+    "role": "Java server development",
+    "username": "GladerJ"
+  },
+  {
+    "avatarUrl": "https://github.com/xia0ne.png",
+    "nickname": "YuRuiH",
+    "profileUrl": "https://github.com/xia0ne",
+    "role": "Esperanto and Japanese translation",
+    "username": "xia0ne"
+  },
+  {
+    "avatarUrl": "https://github.com/gjh303987897.png",
+    "nickname": "galong",
+    "profileUrl": "https://github.com/gjh303987897",
+    "role": "Selected test coverage",
+    "username": "gjh303987897"
+  }
+]

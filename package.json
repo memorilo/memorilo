@@ -30,6 +30,8 @@
     "eslint-plugin-react-hooks": "catalog:",
     "eslint-plugin-react-refresh": "catalog:",
     "jsdom": "catalog:",
+    "rollup-license-plugin": "catalog:",
+    "spdx-license-list": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

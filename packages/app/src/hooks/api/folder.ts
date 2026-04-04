@@ -153,31 +153,31 @@ export interface AboutInfo {
 function loadAboutInfo() {
   return Effect.gen(function* () {
     const systemService = yield* SystemService
-    return yield* Effect.all({
-      version: Effect.tryPromise(() => app.getVersion()).pipe(
-        Effect.catchAll(() => Effect.succeed('')),
-      ),
-      tauriVersion: Effect.tryPromise(() => app.getTauriVersion()).pipe(
-        Effect.catchAll(() => Effect.succeed('')),
-      ),
-      clientID: systemService.getClientId().pipe(
-        Effect.catchAll(() => Effect.succeed('')),
-      ),
-      appLocalDataDir: systemService.getAppLocalDataDir().pipe(
-        Effect.catchAll(() => Effect.succeed('')),
-      ),
-      gitCommitId: systemService.getGitCommitId().pipe(
-        Effect.catchAll(() => Effect.succeed('')),
-      ),
-      docNodesCount: systemService.getDocNodesCount().pipe(
-        Effect.map(value => Number.parseInt(value, 10) || 0),
-        Effect.catchAll(() => Effect.succeed(0)),
-      ),
-      docUpdatesCount: systemService.getDocUpdatesCount().pipe(
-        Effect.map(value => Number.parseInt(value, 10) || 0),
-        Effect.catchAll(() => Effect.succeed(0)),
-      ),
+    const result = yield* Effect.all({
+      version: Effect.tryPromise(() => app.getVersion()),
+      tauriVersion: Effect.tryPromise(() => app.getTauriVersion()),
+      clientID: systemService.getClientId(),
+      appLocalDataDir: systemService.getAppLocalDataDir(),
+      gitCommitId: systemService.getGitCommitId(),
+      docNodesCount: systemService.getDocNodesCount(),
+      docUpdatesCount: systemService.getDocUpdatesCount(),
     })
+
+    const docNodesCount = Number.parseInt(result.docNodesCount, 10)
+    if (Number.isNaN(docNodesCount)) {
+      throw new TypeError(`Invalid document nodes count: ${result.docNodesCount}`)
+    }
+
+    const docUpdatesCount = Number.parseInt(result.docUpdatesCount, 10)
+    if (Number.isNaN(docUpdatesCount)) {
+      throw new TypeError(`Invalid document updates count: ${result.docUpdatesCount}`)
+    }
+
+    return {
+      ...result,
+      docNodesCount,
+      docUpdatesCount,
+    }
   })
 }
 

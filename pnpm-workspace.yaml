@@ -5,12 +5,10 @@ cleanupUnusedCatalogs: true
 shellEmulator: true
 
 trustPolicy: no-downgrade
-
 packages:
   - apps/*
   - packages/*
   - vite-config
-
 catalog:
   '@antfu/eslint-config': ^6.7.3
   '@eslint-react/eslint-plugin': ^2.5.4
@@ -75,9 +73,9 @@ catalog:
   cmdk: ^1.1.1
   colorizr: ^4.0.1
   dayjs: 1.11.19
-  emoji-picker-react: ^4.18.0
   effect: 3.19.14
   effect-query: ^0.2.1
+  emoji-picker-react: ^4.18.0
   es-toolkit: ^1.43.0
   eslint: ^9.39.2
   eslint-plugin-react-hooks: ^7.0.1
@@ -103,8 +101,10 @@ catalog:
   react-scan: ^0.4.3
   react-toastify: ^11.0.5
   rollup: ^4.57.0
+  rollup-license-plugin: ^3.2.1
   rollup-plugin-postcss: ^4.0.2
   rollup-plugin-visualizer: ^6.0.5
+  spdx-license-list: ^6.11.0
   tailwind-merge: ^3.4.0
   tailwindcss: ^4.1.18
   turbo: ^2.8.0
@@ -120,7 +120,6 @@ catalog:
   xml-beautify: ^1.2.3
   yjs: ^13.6.29
   zod: ^4.2.0
-
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@swc/core'
