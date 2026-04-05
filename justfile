@@ -120,7 +120,7 @@ dev-desktop: download-model download-resource
 
 [windows]
 dev-desktop: download-model download-resource
-  cset PLATFORM=windows && argo tauri dev --config src-tauri/tauri.dev.conf.json
+  PLATFORM=windows cargo tauri dev --config src-tauri/tauri.dev.conf.json
 
 [linux]
 [macos]
@@ -135,7 +135,7 @@ build-desktop: download-model download-resource lint-rs
 
 [windows]
 build-desktop: download-model download-resource lint-rs
-  set PLATFORM=windows && cargo tauri build
+  PLATFORM=windows cargo tauri build
 
 build-android: download-model download-resource
   #!/usr/bin/env bash
@@ -179,7 +179,7 @@ build-client: download-resource download-model && lint-apps
 
 [windows]
 build-client: download-resource download-model && lint-apps
-  pnpm build:client
+  PLATFORM=windows pnpm build:client
 
 [linux]
 [macos]
@@ -193,7 +193,7 @@ dev-client: download-resource download-model && lint-apps
 
 [windows]
 dev-client: download-resource download-model && lint-apps
-  pnpm dev:client
+  PLATFORM=windows pnpm dev:client
 
 clean:
   find . -name 'node_modules' -prune -o -name 'dist' -type d -exec rm -rf '{}' +
@@ -207,6 +207,8 @@ build-bundle-size-stats:
   cd apps/client && PLATFORM="{{os()}}" VISUALIZER=true pnpm build
   rm -rf apps/client/dist
 
+[linux]
+[macos]
 lint-apps changed="false":
   #!/usr/bin/env bash
   run_pnpm() {
@@ -230,6 +232,11 @@ lint-apps changed="false":
     run_pnpm exec eslint apps packages
   fi
 
+[windows]
+lint-apps changed="false":
+  echo Checking all files...
+  pnpm exec eslint apps packages
+
 [linux]
 [macos]
 dev-web: download-resource download-model
@@ -243,7 +250,7 @@ dev-web: download-resource download-model
 
 [windows]
 dev-web: download-resource download-model
-  set PLATFORM=web && pnpm dev:web
+  PLATFORM=web pnpm dev:web
 
 [linux]
 [macos]
@@ -258,9 +265,11 @@ build-web: download-resource download-model lint-apps
 
 [windows]
 build-web: download-resource download-model lint-apps
-  set PLATFORM=web && pnpm build:web
+  PLATFORM=web pnpm build:web
 
 
+[linux]
+[macos]
 lint-rs changed="false":
   #!/usr/bin/env bash
   CLIPPY_CMD="cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings"
@@ -281,3 +290,8 @@ lint-rs changed="false":
   else
     $CLIPPY_CMD
   fi
+
+[windows]
+lint-rs changed="false":
+  echo Checking all files...
+  cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
