@@ -15,7 +15,7 @@ export default function Button(props: {
 }) {
   return (
     <TooltipRoot>
-      <TooltipTrigger>
+      <TooltipTrigger {...stylex.props(editorStyles.tooltipTrigger)}>
         <button
           {...stylex.props(editorStyles.actionButton, props.pressed && editorStyles.actionButtonPressed)}
           data-state={props.pressed ? 'on' : 'off'}
@@ -34,7 +34,7 @@ export default function Button(props: {
       {props.tooltip
         ? (
             <TooltipPositioner {...stylex.props(editorStyles.positioner)}>
-              <TooltipPopup {...stylex.props(editorStyles.tooltipPopup)}>
+              <TooltipPopup {...stylex.props(editorStyles.floatingSurfaceMotion, editorStyles.tooltipPopup)}>
                 {props.tooltip}
               </TooltipPopup>
             </TooltipPositioner>

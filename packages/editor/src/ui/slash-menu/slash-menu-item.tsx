@@ -11,9 +11,9 @@ export default function SlashMenuItem(props: {
   onSelect: () => void
 }) {
   return (
-    <AutocompleteItem {...stylex.props(editorStyles.menuItem)} onSelect={props.onSelect}>
+    <AutocompleteItem {...stylex.props(editorStyles.autocompleteMenuItem)} onSelect={props.onSelect}>
       <span>{props.label}</span>
-      {props.kbd && <kbd {...stylex.props(editorStyles.shortcut)}>{props.kbd}</kbd>}
+      {props.kbd && <kbd {...stylex.props(editorStyles.autocompleteKeyboard)}>{props.kbd}</kbd>}
     </AutocompleteItem>
   )
 }

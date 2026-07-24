@@ -23,8 +23,14 @@ export default function SlashMenu() {
   return (
     <AutocompleteRoot regex={regex}>
       <AutocompletePositioner {...stylex.props(editorStyles.positioner)}>
-        <AutocompletePopup {...stylex.props(editorStyles.popup)}>
-          <div {...stylex.props(editorStyles.popupContent)}>
+        <AutocompletePopup
+          {...stylex.props(
+            editorStyles.floatingSurfaceMotion,
+            editorStyles.popupSurface,
+            editorStyles.autocompletePopup,
+          )}
+        >
+          <div {...stylex.props(editorStyles.autocompletePopupContent)}>
             <SlashMenuItem
               label="Text"
               onSelect={() => editor.commands.setParagraph()}

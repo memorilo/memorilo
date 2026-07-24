@@ -87,7 +87,13 @@ export default function ImageUploadPopover(props: {
       </PopoverTrigger>
 
       <PopoverPositioner {...stylex.props(editorStyles.positioner)} placement="bottom">
-        <PopoverPopup {...stylex.props(editorStyles.popup, editorStyles.uploadCard)}>
+        <PopoverPopup
+          {...stylex.props(
+            editorStyles.floatingSurfaceMotion,
+            editorStyles.popupSurface,
+            editorStyles.uploadCard,
+          )}
+        >
           {file
             ? null
             : (
@@ -111,7 +117,7 @@ export default function ImageUploadPopover(props: {
                   <label {...stylex.props(editorStyles.formLabel)} htmlFor={`id-upload-${ariaId}`}>Upload</label>
                   <input
                     id={`id-upload-${ariaId}`}
-                    {...stylex.props(editorStyles.textInput)}
+                    {...stylex.props(editorStyles.textInput, editorStyles.fileInput)}
                     accept="image/*"
                     type="file"
                     onChange={handleFileChange}

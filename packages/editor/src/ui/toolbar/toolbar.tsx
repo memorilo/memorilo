@@ -111,7 +111,7 @@ function getToolbarItems(editor: Editor<BasicExtension>) {
   }
 }
 
-const iconSize = 17
+const iconSize = 20
 
 export default function Toolbar({ uploader }: { uploader: Uploader<string> }) {
   const items = useEditorDerivedValue(getToolbarItems)
@@ -120,19 +120,16 @@ export default function Toolbar({ uploader }: { uploader: Uploader<string> }) {
     <div {...stylex.props(editorStyles.toolbar)} aria-label="Editor toolbar" role="toolbar">
       <Button disabled={!items.undo.canExec} onClick={items.undo.run} tooltip="Undo"><Undo2 size={iconSize} /></Button>
       <Button disabled={!items.redo.canExec} onClick={items.redo.run} tooltip="Redo"><Redo2 size={iconSize} /></Button>
-      <span {...stylex.props(editorStyles.toolbarDivider)} />
       <Button pressed={items.bold.active} disabled={!items.bold.canExec} onClick={items.bold.run} tooltip="Bold"><Bold size={iconSize} /></Button>
       <Button pressed={items.italic.active} disabled={!items.italic.canExec} onClick={items.italic.run} tooltip="Italic"><Italic size={iconSize} /></Button>
       <Button pressed={items.underline.active} disabled={!items.underline.canExec} onClick={items.underline.run} tooltip="Underline"><Underline size={iconSize} /></Button>
       <Button pressed={items.strike.active} disabled={!items.strike.canExec} onClick={items.strike.run} tooltip="Strikethrough"><Strikethrough size={iconSize} /></Button>
-      <span {...stylex.props(editorStyles.toolbarDivider)} />
       <Button pressed={items.heading1.active} disabled={!items.heading1.canExec} onClick={items.heading1.run} tooltip="Heading 1"><Heading1 size={iconSize} /></Button>
       <Button pressed={items.heading2.active} disabled={!items.heading2.canExec} onClick={items.heading2.run} tooltip="Heading 2"><Heading2 size={iconSize} /></Button>
       <Button pressed={items.bulletList.active} disabled={!items.bulletList.canExec} onClick={items.bulletList.run} tooltip="Bullet list"><List size={iconSize} /></Button>
       <Button pressed={items.orderedList.active} disabled={!items.orderedList.canExec} onClick={items.orderedList.run} tooltip="Ordered list"><ListOrdered size={iconSize} /></Button>
       <Button pressed={items.taskList.active} disabled={!items.taskList.canExec} onClick={items.taskList.run} tooltip="Task list"><ListChecks size={iconSize} /></Button>
       <Button pressed={items.blockquote.active} disabled={!items.blockquote.canExec} onClick={items.blockquote.run} tooltip="Blockquote"><Quote size={iconSize} /></Button>
-      <span {...stylex.props(editorStyles.toolbarDivider)} />
       <Button pressed={items.codeBlock.active} disabled={!items.codeBlock.canExec} onClick={items.codeBlock.run} tooltip="Code block"><Code2 size={iconSize} /></Button>
       <Button pressed={items.table.active} disabled={!items.table.canExec} onClick={items.table.run} tooltip="Insert table"><Table2 size={iconSize} /></Button>
       <Button disabled={!items.horizontalRule.canExec} onClick={items.horizontalRule.run} tooltip="Divider"><Minus size={iconSize} /></Button>
