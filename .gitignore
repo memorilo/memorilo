@@ -5,6 +5,8 @@ node_modules/
 dist/
 out/
 .output/
+result/
+/.direnv/
 coverage/
 test-results/
 playwright-report/
