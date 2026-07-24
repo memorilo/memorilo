@@ -12,7 +12,7 @@ const electronEnvironment = Object.fromEntries(
   ),
 )
 
-test('opens the packaged desktop workflow', async () => {
+test('opens the editor as the only desktop page', async () => {
   const app = await electron.launch({ env: electronEnvironment, executablePath })
   const page = await app.firstWindow()
   const consoleErrors: string[] = []
@@ -22,14 +22,9 @@ test('opens the packaged desktop workflow', async () => {
       consoleErrors.push(message.text())
   })
 
-  await expect(page.getByRole('heading', { name: 'Runtime' })).toBeVisible()
-  await expect(page.getByTestId('runtime-version')).toContainText('43.')
-
-  await page.getByRole('link', { name: 'Editor' }).click()
+  await expect(page.getByRole('heading', { name: 'Editor', exact: true })).toBeVisible()
   await expect(page.locator('[contenteditable="true"]')).toBeVisible()
-
-  await page.getByRole('link', { name: 'Library' }).click()
-  await expect(page.getByText('Memory 1', { exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation')).toHaveCount(0)
 
   expect(consoleErrors).toEqual([])
   await app.close()
