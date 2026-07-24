@@ -7,7 +7,7 @@ import { editorStyles } from '../../styles/editor.stylex'
 
 export default function SlashMenuEmpty() {
   return (
-    <AutocompleteEmpty {...stylex.props(editorStyles.menuItem)}>
+    <AutocompleteEmpty {...stylex.props(editorStyles.autocompleteMenuItem)}>
       <span>No results</span>
     </AutocompleteEmpty>
   )

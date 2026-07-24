@@ -32,16 +32,22 @@ export default function TagMenu(props: { tags: { id: number, label: string }[] }
   return (
     <AutocompleteRoot regex={regex}>
       <AutocompletePositioner {...stylex.props(editorStyles.positioner)}>
-        <AutocompletePopup {...stylex.props(editorStyles.popup)}>
-          <div {...stylex.props(editorStyles.popupContent)}>
-            <AutocompleteEmpty {...stylex.props(editorStyles.menuItem)}>
+        <AutocompletePopup
+          {...stylex.props(
+            editorStyles.floatingSurfaceMotion,
+            editorStyles.popupSurface,
+            editorStyles.autocompletePopup,
+          )}
+        >
+          <div {...stylex.props(editorStyles.autocompletePopupContent)}>
+            <AutocompleteEmpty {...stylex.props(editorStyles.autocompleteMenuItem)}>
               No results
             </AutocompleteEmpty>
 
             {props.tags.map(tag => (
               <AutocompleteItem
                 key={tag.id}
-                {...stylex.props(editorStyles.menuItem)}
+                {...stylex.props(editorStyles.autocompleteMenuItem)}
                 onSelect={() => handleTagInsert(tag.id, tag.label)}
               >
                 #

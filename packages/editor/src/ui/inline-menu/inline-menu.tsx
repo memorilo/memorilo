@@ -104,7 +104,11 @@ export default function InlineMenu() {
       >
         <InlinePopoverPositioner {...stylex.props(editorStyles.positioner)}>
           <InlinePopoverPopup
-            {...stylex.props(editorStyles.popup, editorStyles.inlineMenu)}
+            {...stylex.props(
+              editorStyles.floatingSurfaceMotion,
+              editorStyles.popupSurface,
+              editorStyles.inlineMainPopup,
+            )}
             data-testid="inline-menu-main"
           >
             {items.bold && (
@@ -181,7 +185,11 @@ export default function InlineMenu() {
         >
           <InlinePopoverPositioner {...stylex.props(editorStyles.positioner)} placement="bottom">
             <InlinePopoverPopup
-              {...stylex.props(editorStyles.popup)}
+              {...stylex.props(
+                editorStyles.floatingSurfaceMotion,
+                editorStyles.popupSurface,
+                editorStyles.inlineLinkPopup,
+              )}
               data-testid="inline-menu-link"
             >
               {linkMenuOpen && (

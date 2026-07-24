@@ -70,17 +70,23 @@ export default function TableHandle(props: Props) {
     <TableHandleRoot>
       <TableHandleDragPreview />
       <TableHandleDropIndicator />
-      <TableHandleColumnPositioner {...stylex.props(editorStyles.handlePositioner)}>
-        <TableHandleColumnPopup {...stylex.props(editorStyles.handlePopup)}>
+      <TableHandleColumnPositioner {...stylex.props(editorStyles.positioner)}>
+        <TableHandleColumnPopup {...stylex.props(editorStyles.floatingSurfaceMotion, editorStyles.tableColumnPopup)}>
           <TableHandleColumnMenuRoot>
-            <TableHandleColumnMenuTrigger {...stylex.props(editorStyles.actionButton)}>
-              <GripHorizontal size={15} />
+            <TableHandleColumnMenuTrigger {...stylex.props(editorStyles.tableColumnTrigger)}>
+              <GripHorizontal size={20} />
             </TableHandleColumnMenuTrigger>
             <MenuPositioner {...stylex.props(editorStyles.positioner)}>
-              <MenuPopup {...stylex.props(editorStyles.popup)}>
+              <MenuPopup
+                {...stylex.props(
+                  editorStyles.floatingSurfaceMotion,
+                  editorStyles.popupSurface,
+                  editorStyles.tableMenuPopup,
+                )}
+              >
                 {state.addTableColumnBefore.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.addTableColumnBefore.command}
                   >
                     <span>Insert Left</span>
@@ -88,7 +94,7 @@ export default function TableHandle(props: Props) {
                 )}
                 {state.addTableColumnAfter.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.addTableColumnAfter.command}
                   >
                     <span>Insert Right</span>
@@ -96,16 +102,16 @@ export default function TableHandle(props: Props) {
                 )}
                 {state.deleteCellSelection.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.deleteCellSelection.command}
                   >
                     <span>Clear Contents</span>
-                    <span {...stylex.props(editorStyles.shortcut)}>Del</span>
+                    <span {...stylex.props(editorStyles.tableMenuShortcut)}>Del</span>
                   </MenuItem>
                 )}
                 {state.deleteTableColumn.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.deleteTableColumn.command}
                   >
                     <span>Delete Column</span>
@@ -113,7 +119,7 @@ export default function TableHandle(props: Props) {
                 )}
                 {state.deleteTable.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem, editorStyles.dangerMenuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem, editorStyles.dangerMenuItem)}
                     data-danger=""
                     onSelect={state.deleteTable.command}
                   >
@@ -126,19 +132,31 @@ export default function TableHandle(props: Props) {
         </TableHandleColumnPopup>
       </TableHandleColumnPositioner>
       <TableHandleRowPositioner
-        {...stylex.props(editorStyles.handlePositioner)}
+        {...stylex.props(editorStyles.positioner)}
         placement={props.dir === 'rtl' ? 'right' : 'left'}
       >
-        <TableHandleRowPopup {...stylex.props(editorStyles.handlePopup)}>
+        <TableHandleRowPopup
+          {...stylex.props(
+            editorStyles.floatingSurfaceMotion,
+            editorStyles.tableRowPopup,
+            props.dir === 'rtl' && editorStyles.tableRowPopupRtl,
+          )}
+        >
           <TableHandleRowMenuRoot>
-            <TableHandleRowMenuTrigger {...stylex.props(editorStyles.actionButton)}>
-              <GripVertical size={15} />
+            <TableHandleRowMenuTrigger {...stylex.props(editorStyles.tableColumnTrigger, editorStyles.tableRowTrigger)}>
+              <GripVertical size={20} />
             </TableHandleRowMenuTrigger>
             <MenuPositioner {...stylex.props(editorStyles.positioner)}>
-              <MenuPopup {...stylex.props(editorStyles.popup)}>
+              <MenuPopup
+                {...stylex.props(
+                  editorStyles.floatingSurfaceMotion,
+                  editorStyles.popupSurface,
+                  editorStyles.tableMenuPopup,
+                )}
+              >
                 {state.addTableRowAbove.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.addTableRowAbove.command}
                   >
                     <span>Insert Above</span>
@@ -146,7 +164,7 @@ export default function TableHandle(props: Props) {
                 )}
                 {state.addTableRowBelow.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.addTableRowBelow.command}
                   >
                     <span>Insert Below</span>
@@ -154,16 +172,16 @@ export default function TableHandle(props: Props) {
                 )}
                 {state.deleteCellSelection.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.deleteCellSelection.command}
                   >
                     <span>Clear Contents</span>
-                    <span {...stylex.props(editorStyles.shortcut)}>Del</span>
+                    <span {...stylex.props(editorStyles.tableMenuShortcut)}>Del</span>
                   </MenuItem>
                 )}
                 {state.deleteTableRow.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem)}
                     onSelect={state.deleteTableRow.command}
                   >
                     <span>Delete Row</span>
@@ -171,7 +189,7 @@ export default function TableHandle(props: Props) {
                 )}
                 {state.deleteTable.canExec && (
                   <MenuItem
-                    {...stylex.props(editorStyles.menuItem, editorStyles.dangerMenuItem)}
+                    {...stylex.props(editorStyles.tableMenuItem, editorStyles.dangerMenuItem)}
                     data-danger=""
                     onSelect={state.deleteTable.command}
                   >

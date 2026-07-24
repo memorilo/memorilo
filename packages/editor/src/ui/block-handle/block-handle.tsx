@@ -6,13 +6,20 @@ import { BlockHandleAdd, BlockHandleDraggable, BlockHandlePopup, BlockHandlePosi
 
 import { editorStyles } from '../../styles/editor.stylex'
 
-export default function BlockHandle() {
+interface Props {
+  dir?: 'ltr' | 'rtl'
+}
+
+export default function BlockHandle(props: Props) {
   return (
     <BlockHandleRoot>
-      <BlockHandlePositioner {...stylex.props(editorStyles.handlePositioner)} placement="left">
-        <BlockHandlePopup {...stylex.props(editorStyles.handlePopup)}>
-          <BlockHandleAdd {...stylex.props(editorStyles.actionButton)} aria-label="Add block"><Plus size={15} /></BlockHandleAdd>
-          <BlockHandleDraggable {...stylex.props(editorStyles.actionButton)} aria-label="Drag block"><GripVertical size={15} /></BlockHandleDraggable>
+      <BlockHandlePositioner
+        {...stylex.props(editorStyles.positioner)}
+        placement={props.dir === 'rtl' ? 'right' : 'left'}
+      >
+        <BlockHandlePopup {...stylex.props(editorStyles.floatingSurfaceMotion, editorStyles.blockHandlePopup)}>
+          <BlockHandleAdd {...stylex.props(editorStyles.blockHandleAdd)} aria-label="Add block"><Plus size={20} /></BlockHandleAdd>
+          <BlockHandleDraggable {...stylex.props(editorStyles.blockHandleAdd, editorStyles.blockHandleDrag)} aria-label="Drag block"><GripVertical size={20} /></BlockHandleDraggable>
         </BlockHandlePopup>
       </BlockHandlePositioner>
     </BlockHandleRoot>
