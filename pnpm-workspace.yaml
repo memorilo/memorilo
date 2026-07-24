@@ -1,0 +1,10 @@
+packages:
+  - apps/desktop
+  - apps/desktop/*
+  - packages/*
+
+ignoredBuiltDependencies:
+  - better-sqlite3
+onlyBuiltDependencies:
+  - electron
+  - esbuild

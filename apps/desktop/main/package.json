@@ -1,0 +1,28 @@
+{
+  "name": "@memorilo/desktop-main",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/ipc/services.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.1",
+    "drizzle-orm": "0.45.2",
+    "electron-ipc-decorator": "1.0.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.4",
+    "electron": "43.2.0"
+  }
+}

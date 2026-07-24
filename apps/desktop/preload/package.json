@@ -1,0 +1,21 @@
+{
+  "name": "@memorilo/desktop-preload",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/contract.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "electron-ipc-decorator": "1.0.1"
+  },
+  "devDependencies": {
+    "electron": "43.2.0"
+  }
+}

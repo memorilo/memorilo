@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tsconfig.base.json"]
+    },
+    "@memorilo/desktop#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tsconfig.base.json"],
+      "outputs": ["out/**"]
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/eslint.config.ts"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tsconfig.base.json"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.workspace.ts"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "test:e2e": {
+      "dependsOn": ["@memorilo/desktop#build"],
+      "cache": false
+    }
+  }
+}

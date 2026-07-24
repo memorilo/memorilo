@@ -1,0 +1,67 @@
+[data-editor-content].ProseMirror:focus {
+  outline: none;
+}
+
+[data-editor-content] h1,
+[data-editor-content] h2,
+[data-editor-content] h3 {
+  letter-spacing: 0;
+}
+
+[data-editor-content] h1 {
+  font-size: 30px;
+}
+
+[data-editor-content] h2 {
+  margin-top: 2em;
+  font-size: 23px;
+}
+
+[data-editor-content] blockquote {
+  border-left: 3px solid #2d7a63;
+  margin-left: 0;
+  padding-left: 18px;
+  color: #52605b;
+}
+
+[data-editor-content] table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+[data-editor-content] td,
+[data-editor-content] th {
+  border: 1px solid #cfd5da;
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+[data-editor-content] code {
+  border-radius: 3px;
+  padding: 2px 4px;
+  background: #eef1f3;
+  color: #8d2d42;
+}
+
+[data-editor-content] pre {
+  overflow-x: auto;
+  border-radius: 5px;
+  padding: 18px;
+  background: #1f2428;
+  color: #f1f3f5;
+}
+
+[data-editor-content] [data-mention-kind="user"] {
+  color: #1e5c96;
+}
+
+[data-editor-content] [data-mention-kind="tag"] {
+  color: #237056;
+}
+
+[data-code-preview] svg {
+  display: block;
+  max-width: 100%;
+  margin: auto;
+}

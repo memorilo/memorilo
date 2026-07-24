@@ -1,0 +1,31 @@
+{
+  "name": "@memorilo/desktop",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "rebuild:native": "electron-builder install-app-deps",
+    "pack:dir": "pnpm build && electron-builder --win --dir --x64",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit --module ESNext --moduleResolution Bundler --target ES2022 --skipLibCheck electron.vite.config.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.1",
+    "drizzle-orm": "0.45.2",
+    "electron-ipc-decorator": "1.0.1"
+  },
+  "devDependencies": {
+    "@stylexjs/unplugin": "0.19.0",
+    "@tanstack/router-plugin": "^1.168.23",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "unplugin": "^2.3.11",
+    "vite": "^7.0.0"
+  }
+}

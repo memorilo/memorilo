@@ -1,0 +1,104 @@
+'use client'
+
+import type { BasicExtension } from 'prosekit/basic'
+import * as stylex from '@stylexjs/stylex'
+import { canUseRegexLookbehind } from 'prosekit/core'
+import { useEditor } from 'prosekit/react'
+import { AutocompletePopup, AutocompletePositioner, AutocompleteRoot } from 'prosekit/react/autocomplete'
+
+import { editorStyles } from '../../styles/editor.stylex'
+import SlashMenuEmpty from './slash-menu-empty.tsx'
+import SlashMenuItem from './slash-menu-item.tsx'
+
+// Match inputs like "/", "/table", "/heading 1" etc. Do not match "/ heading".
+const regex = new RegExp(
+  (canUseRegexLookbehind() ? String.raw`(?<!\S)` : '')
+  + String.raw`\/(\S.*)?$`,
+  'u',
+)
+
+export default function SlashMenu() {
+  const editor = useEditor<BasicExtension>()
+
+  return (
+    <AutocompleteRoot regex={regex}>
+      <AutocompletePositioner {...stylex.props(editorStyles.positioner)}>
+        <AutocompletePopup {...stylex.props(editorStyles.popup)}>
+          <div {...stylex.props(editorStyles.popupContent)}>
+            <SlashMenuItem
+              label="Text"
+              onSelect={() => editor.commands.setParagraph()}
+            />
+
+            <SlashMenuItem
+              label="Heading 1"
+              kbd="#"
+              onSelect={() => editor.commands.setHeading({ level: 1 })}
+            />
+
+            <SlashMenuItem
+              label="Heading 2"
+              kbd="##"
+              onSelect={() => editor.commands.setHeading({ level: 2 })}
+            />
+
+            <SlashMenuItem
+              label="Heading 3"
+              kbd="###"
+              onSelect={() => editor.commands.setHeading({ level: 3 })}
+            />
+
+            <SlashMenuItem
+              label="Bullet list"
+              kbd="-"
+              onSelect={() => editor.commands.wrapInList({ kind: 'bullet' })}
+            />
+
+            <SlashMenuItem
+              label="Ordered list"
+              kbd="1."
+              onSelect={() => editor.commands.wrapInList({ kind: 'ordered' })}
+            />
+
+            <SlashMenuItem
+              label="Task list"
+              kbd="[]"
+              onSelect={() => editor.commands.wrapInList({ kind: 'task' })}
+            />
+
+            <SlashMenuItem
+              label="Toggle list"
+              kbd=">>"
+              onSelect={() => editor.commands.wrapInList({ kind: 'toggle' })}
+            />
+
+            <SlashMenuItem
+              label="Quote"
+              kbd=">"
+              onSelect={() => editor.commands.setBlockquote()}
+            />
+
+            <SlashMenuItem
+              label="Table"
+              onSelect={() => editor.commands.insertTable({ row: 3, col: 3 })}
+            />
+
+            <SlashMenuItem
+              label="Divider"
+              kbd="---"
+              onSelect={() => editor.commands.insertHorizontalRule()}
+            />
+
+            <SlashMenuItem
+              label="Code"
+              kbd="```"
+              onSelect={() => editor.commands.setCodeBlock()}
+            />
+
+            <SlashMenuEmpty />
+          </div>
+        </AutocompletePopup>
+      </AutocompletePositioner>
+    </AutocompleteRoot>
+  )
+}
