@@ -12,6 +12,7 @@ export const editorCapabilities = [
   'mermaid',
   'math',
   'inline-menu',
+  'context-menu',
   'block-dragging',
 ] as const
 

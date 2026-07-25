@@ -13,12 +13,12 @@ import { uploadErrorAtom, uploadStatusAtom } from './state/editor-atoms'
 import { createEditorStore } from './state/editor-store'
 import { editorStyles } from './styles/editor.stylex'
 import { BlockHandle } from './ui/block-handle/index.ts'
+import { ContextMenu } from './ui/context-menu/index.ts'
 import { DropIndicator } from './ui/drop-indicator/index.ts'
 import { InlineMenu } from './ui/inline-menu/index.ts'
 import { SlashMenu } from './ui/slash-menu/index.ts'
 import { TableHandle } from './ui/table-handle/index.ts'
 import { TagMenu } from './ui/tag-menu/index.ts'
-import { Toolbar } from './ui/toolbar/index.ts'
 import { UserMenu } from './ui/user-menu/index.ts'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
@@ -59,10 +59,10 @@ function EditorSurface({ adapters, initialContent, store }: EditorProps & { stor
   return (
     <ProseKit editor={editor}>
       <div {...stylex.props(editorStyles.viewport)}>
-        <Toolbar uploader={configured.uploader} />
         <UploadStatus />
         <div {...stylex.props(editorStyles.scrolling)}>
           <div ref={editor.mount} {...stylex.props(editorStyles.content)} data-editor-content="" />
+          <ContextMenu uploader={configured.uploader} />
           <InlineMenu />
           <SlashMenu />
           <UserMenu users={[...adapters.users]} />

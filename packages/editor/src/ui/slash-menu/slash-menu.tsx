@@ -1,12 +1,12 @@
 'use client'
 
-import type { BasicExtension } from 'prosekit/basic'
 import * as stylex from '@stylexjs/stylex'
 import { canUseRegexLookbehind } from 'prosekit/core'
-import { useEditor } from 'prosekit/react'
+import { useEditorDerivedValue } from 'prosekit/react'
 import { AutocompletePopup, AutocompletePositioner, AutocompleteRoot } from 'prosekit/react/autocomplete'
 
 import { editorStyles } from '../../styles/editor.stylex'
+import { getEditorActions } from '../editor-actions/index.ts'
 import SlashMenuEmpty from './slash-menu-empty.tsx'
 import SlashMenuItem from './slash-menu-item.tsx'
 
@@ -18,7 +18,7 @@ const regex = new RegExp(
 )
 
 export default function SlashMenu() {
-  const editor = useEditor<BasicExtension>()
+  const actions = useEditorDerivedValue(getEditorActions)
 
   return (
     <AutocompleteRoot regex={regex}>
@@ -33,72 +33,90 @@ export default function SlashMenu() {
           <div {...stylex.props(editorStyles.autocompletePopupContent)}>
             <SlashMenuItem
               label="Text"
-              onSelect={() => editor.commands.setParagraph()}
+              onSelect={actions.heading.paragraph.run}
             />
 
             <SlashMenuItem
               label="Heading 1"
               kbd="#"
-              onSelect={() => editor.commands.setHeading({ level: 1 })}
+              onSelect={actions.heading.heading1.run}
             />
 
             <SlashMenuItem
               label="Heading 2"
               kbd="##"
-              onSelect={() => editor.commands.setHeading({ level: 2 })}
+              onSelect={actions.heading.heading2.run}
             />
 
             <SlashMenuItem
               label="Heading 3"
               kbd="###"
-              onSelect={() => editor.commands.setHeading({ level: 3 })}
+              onSelect={actions.heading.heading3.run}
+            />
+
+            <SlashMenuItem
+              label="Heading 4"
+              kbd="####"
+              onSelect={actions.heading.heading4.run}
+            />
+
+            <SlashMenuItem
+              label="Heading 5"
+              kbd="#####"
+              onSelect={actions.heading.heading5.run}
+            />
+
+            <SlashMenuItem
+              label="Heading 6"
+              kbd="######"
+              onSelect={actions.heading.heading6.run}
             />
 
             <SlashMenuItem
               label="Bullet list"
               kbd="-"
-              onSelect={() => editor.commands.wrapInList({ kind: 'bullet' })}
+              onSelect={actions.block.bulletList.run}
             />
 
             <SlashMenuItem
               label="Ordered list"
               kbd="1."
-              onSelect={() => editor.commands.wrapInList({ kind: 'ordered' })}
+              onSelect={actions.block.orderedList.run}
             />
 
             <SlashMenuItem
               label="Task list"
               kbd="[]"
-              onSelect={() => editor.commands.wrapInList({ kind: 'task' })}
+              onSelect={actions.block.taskList.run}
             />
 
             <SlashMenuItem
               label="Toggle list"
               kbd=">>"
-              onSelect={() => editor.commands.wrapInList({ kind: 'toggle' })}
+              onSelect={actions.block.toggleList.run}
             />
 
             <SlashMenuItem
               label="Quote"
               kbd=">"
-              onSelect={() => editor.commands.setBlockquote()}
+              onSelect={actions.block.blockquote.run}
             />
 
             <SlashMenuItem
               label="Table"
-              onSelect={() => editor.commands.insertTable({ row: 3, col: 3 })}
+              onSelect={actions.insert.table.run}
             />
 
             <SlashMenuItem
               label="Divider"
               kbd="---"
-              onSelect={() => editor.commands.insertHorizontalRule()}
+              onSelect={actions.insert.divider.run}
             />
 
             <SlashMenuItem
               label="Code"
               kbd="```"
-              onSelect={() => editor.commands.setCodeBlock()}
+              onSelect={actions.block.codeBlock.run}
             />
 
             <SlashMenuEmpty />
