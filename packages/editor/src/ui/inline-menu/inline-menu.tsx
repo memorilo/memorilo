@@ -12,52 +12,15 @@ import { useState } from 'react'
 
 import { editorStyles } from '../../styles/editor.stylex'
 import { Button } from '../button/index.ts'
+import { getEditorActions } from '../editor-actions/index.ts'
+import HeadingDropdown from './heading-dropdown.tsx'
 
-function getInlineMenuItems(editor: Editor<BasicExtension>) {
+function getLinkState(editor: Editor<BasicExtension>) {
   return {
-    bold: editor.commands.toggleBold
-      ? {
-          isActive: editor.marks.bold.isActive(),
-          canExec: editor.commands.toggleBold.canExec(),
-          command: () => editor.commands.toggleBold(),
-        }
-      : undefined,
-    italic: editor.commands.toggleItalic
-      ? {
-          isActive: editor.marks.italic.isActive(),
-          canExec: editor.commands.toggleItalic.canExec(),
-          command: () => editor.commands.toggleItalic(),
-        }
-      : undefined,
-    underline: editor.commands.toggleUnderline
-      ? {
-          isActive: editor.marks.underline.isActive(),
-          canExec: editor.commands.toggleUnderline.canExec(),
-          command: () => editor.commands.toggleUnderline(),
-        }
-      : undefined,
-    strike: editor.commands.toggleStrike
-      ? {
-          isActive: editor.marks.strike.isActive(),
-          canExec: editor.commands.toggleStrike.canExec(),
-          command: () => editor.commands.toggleStrike(),
-        }
-      : undefined,
-    code: editor.commands.toggleCode
-      ? {
-          isActive: editor.marks.code.isActive(),
-          canExec: editor.commands.toggleCode.canExec(),
-          command: () => editor.commands.toggleCode(),
-        }
-      : undefined,
-    link: editor.commands.addLink
-      ? {
-          isActive: editor.marks.link.isActive(),
-          canExec: editor.commands.addLink.canExec({ href: '' }),
-          command: () => editor.commands.expandLink(),
-          currentLink: getCurrentLink(editor.state) || '',
-        }
-      : undefined,
+    isActive: editor.marks.link.isActive(),
+    canExec: editor.commands.addLink.canExec({ href: '' }),
+    command: () => editor.commands.expandLink(),
+    currentLink: getCurrentLink(editor.state) ?? '',
   }
 }
 
@@ -76,7 +39,8 @@ function getCurrentLink(state: EditorState): string | undefined {
 
 export default function InlineMenu() {
   const editor = useEditor<BasicExtension>()
-  const items = useEditorDerivedValue(getInlineMenuItems)
+  const actions = useEditorDerivedValue(getEditorActions)
+  const link = useEditorDerivedValue(getLinkState)
 
   const [linkMenuOpen, setLinkMenuOpen] = useState(false)
   const toggleLinkMenuOpen = () => setLinkMenuOpen(open => !open)
@@ -111,61 +75,52 @@ export default function InlineMenu() {
             )}
             data-testid="inline-menu-main"
           >
-            {items.bold && (
+            <HeadingDropdown actions={actions.heading} />
+            <Button
+              pressed={actions.mark.bold.active}
+              disabled={!actions.mark.bold.canExec}
+              onClick={actions.mark.bold.run}
+              tooltip="Bold"
+            >
+              <Bold size={16} />
+            </Button>
+            <Button
+              pressed={actions.mark.italic.active}
+              disabled={!actions.mark.italic.canExec}
+              onClick={actions.mark.italic.run}
+              tooltip="Italic"
+            >
+              <Italic size={16} />
+            </Button>
+            <Button
+              pressed={actions.mark.underline.active}
+              disabled={!actions.mark.underline.canExec}
+              onClick={actions.mark.underline.run}
+              tooltip="Underline"
+            >
+              <Underline size={16} />
+            </Button>
+            <Button
+              pressed={actions.mark.strike.active}
+              disabled={!actions.mark.strike.canExec}
+              onClick={actions.mark.strike.run}
+              tooltip="Strikethrough"
+            >
+              <Strikethrough size={16} />
+            </Button>
+            <Button
+              pressed={actions.mark.code.active}
+              disabled={!actions.mark.code.canExec}
+              onClick={actions.mark.code.run}
+              tooltip="Code"
+            >
+              <Code2 size={16} />
+            </Button>
+            {link.canExec && (
               <Button
-                pressed={items.bold.isActive}
-                disabled={!items.bold.canExec}
-                onClick={items.bold.command}
-                tooltip="Bold"
-              >
-                <Bold size={16} />
-              </Button>
-            )}
-            {items.italic && (
-              <Button
-                pressed={items.italic.isActive}
-                disabled={!items.italic.canExec}
-                onClick={items.italic.command}
-                tooltip="Italic"
-              >
-                <Italic size={16} />
-              </Button>
-            )}
-            {items.underline && (
-              <Button
-                pressed={items.underline.isActive}
-                disabled={!items.underline.canExec}
-                onClick={items.underline.command}
-                tooltip="Underline"
-              >
-                <Underline size={16} />
-              </Button>
-            )}
-            {items.strike && (
-              <Button
-                pressed={items.strike.isActive}
-                disabled={!items.strike.canExec}
-                onClick={items.strike.command}
-                tooltip="Strikethrough"
-              >
-                <Strikethrough size={16} />
-              </Button>
-            )}
-            {items.code && (
-              <Button
-                pressed={items.code.isActive}
-                disabled={!items.code.canExec}
-                onClick={items.code.command}
-                tooltip="Code"
-              >
-                <Code2 size={16} />
-              </Button>
-            )}
-            {items.link && items.link.canExec && (
-              <Button
-                pressed={items.link.isActive}
+                pressed={link.isActive}
                 onClick={() => {
-                  items.link?.command?.()
+                  link.command()
                   toggleLinkMenuOpen()
                 }}
                 tooltip="Link"
@@ -177,51 +132,49 @@ export default function InlineMenu() {
         </InlinePopoverPositioner>
       </InlinePopoverRoot>
 
-      {items.link && (
-        <InlinePopoverRoot
-          defaultOpen={false}
-          open={linkMenuOpen}
-          onOpenChange={event => setLinkMenuOpen(event.detail)}
-        >
-          <InlinePopoverPositioner {...stylex.props(editorStyles.positioner)} placement="bottom">
-            <InlinePopoverPopup
-              {...stylex.props(
-                editorStyles.floatingSurfaceMotion,
-                editorStyles.popupSurface,
-                editorStyles.inlineLinkPopup,
-              )}
-              data-testid="inline-menu-link"
-            >
-              {linkMenuOpen && (
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    const target = event.target as HTMLFormElement | null
-                    const href = target?.querySelector('input')?.value?.trim()
-                    handleLinkUpdate(href)
-                  }}
-                >
-                  <input
-                    {...stylex.props(editorStyles.textInput)}
-                    placeholder="Paste the link..."
-                    defaultValue={items.link.currentLink}
-                  />
-                </form>
-              )}
-              {items.link.isActive && (
-                <button
-                  {...stylex.props(editorStyles.primaryButton, editorStyles.removeButton)}
-                  type="button"
-                  onClick={() => handleLinkUpdate()}
-                  onMouseDown={event => event.preventDefault()}
-                >
-                  Remove link
-                </button>
-              )}
-            </InlinePopoverPopup>
-          </InlinePopoverPositioner>
-        </InlinePopoverRoot>
-      )}
+      <InlinePopoverRoot
+        defaultOpen={false}
+        open={linkMenuOpen}
+        onOpenChange={event => setLinkMenuOpen(event.detail)}
+      >
+        <InlinePopoverPositioner {...stylex.props(editorStyles.positioner)} placement="bottom">
+          <InlinePopoverPopup
+            {...stylex.props(
+              editorStyles.floatingSurfaceMotion,
+              editorStyles.popupSurface,
+              editorStyles.inlineLinkPopup,
+            )}
+            data-testid="inline-menu-link"
+          >
+            {linkMenuOpen && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const target = event.target as HTMLFormElement | null
+                  const href = target?.querySelector('input')?.value?.trim()
+                  handleLinkUpdate(href)
+                }}
+              >
+                <input
+                  {...stylex.props(editorStyles.textInput)}
+                  placeholder="Paste the link..."
+                  defaultValue={link.currentLink}
+                />
+              </form>
+            )}
+            {link.isActive && (
+              <button
+                {...stylex.props(editorStyles.primaryButton, editorStyles.removeButton)}
+                type="button"
+                onClick={() => handleLinkUpdate()}
+                onMouseDown={event => event.preventDefault()}
+              >
+                Remove link
+              </button>
+            )}
+          </InlinePopoverPopup>
+        </InlinePopoverPositioner>
+      </InlinePopoverRoot>
     </>
   )
 }
