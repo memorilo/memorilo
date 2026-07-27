@@ -19,7 +19,6 @@ import { InlineMenu } from './ui/inline-menu/index.ts'
 import { SlashMenu } from './ui/slash-menu/index.ts'
 import { TableHandle } from './ui/table-handle/index.ts'
 import { TagMenu } from './ui/tag-menu/index.ts'
-import { UserMenu } from './ui/user-menu/index.ts'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
@@ -65,8 +64,7 @@ function EditorSurface({ adapters, initialContent, store }: EditorProps & { stor
           <ContextMenu uploader={configured.uploader} />
           <InlineMenu />
           <SlashMenu />
-          <UserMenu users={[...adapters.users]} />
-          <TagMenu tags={[...adapters.tags]} />
+          <TagMenu runtime={configured.tagRuntime} />
           <BlockHandle />
           <TableHandle />
           <DropIndicator />

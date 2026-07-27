@@ -54,13 +54,9 @@ export const sampleContent: NodeJSON = {
       type: 'paragraph',
       content: [
         { type: 'text', text: 'Select any text to format it. Type ' },
-        { type: 'text', marks: [{ type: 'code' }], text: '@' },
-        { type: 'text', text: ' to mention ' },
-        { type: 'mention', attrs: { id: '39', value: '@someone', kind: 'user' } },
-        { type: 'text', text: ' or ' },
         { type: 'text', marks: [{ type: 'code' }], text: '#' },
-        { type: 'text', text: ' for ' },
-        { type: 'mention', attrs: { id: '1', value: '#topics', kind: 'tag' } },
+        { type: 'text', text: ' to add ' },
+        { type: 'tag', attrs: { id: 'tag-project', label: 'project' } },
         { type: 'text', text: '. Press ' },
         { type: 'text', marks: [{ type: 'code' }], text: '/' },
         { type: 'text', text: ' and discover what\'s possible.' },
@@ -235,13 +231,13 @@ export const sampleContent: NodeJSON = {
             {
               type: 'tableCell',
               attrs: {},
-              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Add mentions' }] }],
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Add tags' }] }],
             },
             {
               type: 'tableCell',
               attrs: {},
               content: [
-                { type: 'paragraph', content: [{ type: 'text', text: 'Type @ and name' }] },
+                { type: 'paragraph', content: [{ type: 'text', text: 'Type # and name' }] },
               ],
             },
             {

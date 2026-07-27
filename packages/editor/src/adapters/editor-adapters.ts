@@ -1,11 +1,12 @@
-export interface EditorUser {
-  id: number
-  name: string
+export interface EditorTag {
+  id: string
+  label: string
 }
 
-export interface EditorTag {
-  id: number
-  label: string
+export interface EditorTagStorage {
+  search: (input: { query: string }) => Promise<readonly EditorTag[]>
+  create: (tag: EditorTag) => Promise<EditorTag>
+  update: (tag: EditorTag) => Promise<EditorTag>
 }
 
 export interface ImageUploadInput {
@@ -14,7 +15,6 @@ export interface ImageUploadInput {
 }
 
 export interface EditorAdapters {
-  users: readonly EditorUser[]
-  tags: readonly EditorTag[]
+  tagStorage: EditorTagStorage
   uploadImage: (input: ImageUploadInput) => Promise<string>
 }

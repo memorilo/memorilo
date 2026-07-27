@@ -100,14 +100,6 @@
   tab-size: 2;
 }
 
-[data-editor-content] [data-mention-kind="user"] {
-  color: #1e5c96;
-}
-
-[data-editor-content] [data-mention-kind="tag"] {
-  color: #237056;
-}
-
 [data-code-preview] svg {
   display: block;
   max-width: 100%;
