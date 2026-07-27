@@ -4,6 +4,7 @@ import type { CodeBlockAttrs } from 'prosekit/extensions/code-block'
 import type { ReactNodeViewProps } from 'prosekit/react'
 import * as stylex from '@stylexjs/stylex'
 import { renderMermaidSVG, THEMES } from 'beautiful-mermaid'
+import { ChevronDown } from 'lucide-react'
 import { isCodeBlockPreviewHiddenDecoration, shikiBundledLanguagesInfo } from 'prosekit/extensions/code-block'
 import { TextSelection } from 'prosekit/pm/state'
 import { useMemo, useRef } from 'react'
@@ -49,7 +50,7 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
   }, [code, language])
 
   return (
-    <>
+    <div {...stylex.props(editorStyles.codeBlock)}>
       <div
         {...stylex.props(editorStyles.languageWrapper)}
         contentEditable={false}
@@ -68,6 +69,12 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
             </option>
           ))}
         </select>
+        <ChevronDown
+          aria-hidden="true"
+          size={12}
+          strokeWidth={2}
+          {...stylex.props(editorStyles.languageChevron)}
+        />
       </div>
       <pre
         ref={(element) => {
@@ -93,6 +100,6 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
           {mermaidPreview.svg ? <div dangerouslySetInnerHTML={{ __html: mermaidPreview.svg }}></div> : null}
         </div>
       )}
-    </>
+    </div>
   )
 }
