@@ -102,12 +102,17 @@ export const sampleContent: NodeJSON = {
         { type: 'paragraph', content: [{ type: 'text', text: 'Tasks that focus' }] },
         {
           type: 'list',
-          attrs: { kind: 'task', order: null, checked: true, collapsed: false },
+          attrs: { kind: 'task', order: null, checked: true, collapsed: false, status: 'done', elapsedMs: 4980000, startedAt: null },
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Done feels good' }] }],
         },
         {
           type: 'list',
-          attrs: { kind: 'task', order: null, checked: false, collapsed: false },
+          attrs: { kind: 'task', order: null, checked: false, collapsed: false, status: 'doing', elapsedMs: 720000, startedAt: Date.now() },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Doing keeps the clock running' }] }],
+        },
+        {
+          type: 'list',
+          attrs: { kind: 'task', order: null, checked: false, collapsed: false, status: 'todo', elapsedMs: 0, startedAt: null },
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Todo drives action' }] }],
         },
       ],

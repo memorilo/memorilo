@@ -14,6 +14,7 @@ import { renderKaTeXMathBlock, renderKaTeXMathInline } from '../sample/katex.ts'
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 import { defineCodeBlockView } from '../ui/code-block-view/index.ts'
 import { defineImageView } from '../ui/image-view/index.ts'
+import { defineTaskListView } from '../ui/task-list-view/index.ts'
 
 function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<string> {
   return async ({ file, onProgress }) => {
@@ -50,6 +51,7 @@ export function createEditorExtension(adapters: EditorAdapters, store: EditorSto
       defineHorizontalRule(),
       defineCodeBlockView(),
       defineImageView(),
+      defineTaskListView(),
       defineImageUploadHandler({
         uploader,
         onError: ({ error }) => {
