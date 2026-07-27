@@ -5,7 +5,7 @@ export const editorCapabilities = [
   'block-handles',
   'table-handles',
   'slash-menu',
-  'mentions',
+  'tags',
   'image-upload',
   'image-resize',
   'code-blocks',

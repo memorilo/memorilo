@@ -8,13 +8,15 @@ import { defineHorizontalRule } from 'prosekit/extensions/horizontal-rule'
 import { defineImageUploadHandler } from 'prosekit/extensions/image'
 import { defineMath } from 'prosekit/extensions/math'
 
-import { defineMention } from 'prosekit/extensions/mention'
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
 import { renderKaTeXMathBlock, renderKaTeXMathInline } from '../sample/katex.ts'
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
+import { TagRuntime } from '../tag/tag-runtime'
 import { defineCodeBlockView } from '../ui/code-block-view/index.ts'
 import { defineImageView } from '../ui/image-view/index.ts'
+import { defineTagView } from '../ui/tag-view/index.ts'
 import { defineTaskListView } from '../ui/task-list-view/index.ts'
+import { defineTag } from './tag-extension'
 
 function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<string> {
   return async ({ file, onProgress }) => {
@@ -37,12 +39,13 @@ function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<
 
 export function createEditorExtension(adapters: EditorAdapters, store: EditorStore) {
   const uploader = createUploader(adapters, store)
+  const tagRuntime = new TagRuntime(adapters.tagStorage)
 
   return {
     extension: union(
       defineBasicExtension(),
       definePlaceholder({ placeholder: 'Press / for commands...' }),
-      defineMention(),
+      defineTag(tagRuntime),
       defineMath({
         renderMathBlock: renderKaTeXMathBlock,
         renderMathInline: renderKaTeXMathInline,
@@ -51,6 +54,7 @@ export function createEditorExtension(adapters: EditorAdapters, store: EditorSto
       defineHorizontalRule(),
       defineCodeBlockView(),
       defineImageView(),
+      defineTagView(tagRuntime),
       defineTaskListView(),
       defineImageUploadHandler({
         uploader,
@@ -60,6 +64,7 @@ export function createEditorExtension(adapters: EditorAdapters, store: EditorSto
         },
       }),
     ),
+    tagRuntime,
     uploader,
   }
 }
