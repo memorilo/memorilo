@@ -31,7 +31,7 @@ function UploadStatus() {
   )
 }
 
-export function EditorCanvas({ session }: { session: EditorSession }) {
+export function EditorCanvas({ mode, session }: { mode: 'document' | 'outline', session: EditorSession }) {
   const { configured, editor } = session
 
   return (
@@ -51,7 +51,7 @@ export function EditorCanvas({ session }: { session: EditorSession }) {
           <InlineMenu />
           <SlashMenu />
           <TagMenu runtime={configured.tagRuntime} />
-          <BlockHandle />
+          <BlockHandle mode={mode} session={session} />
           <TableHandle />
           <DropIndicator />
         </div>

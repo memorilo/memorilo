@@ -1,8 +1,10 @@
 import type { Command, EditorState } from 'prosekit/pm/state'
 import type { OutlineRuntime } from './outline-runtime'
 import { defineKeymap, Priority, withPriority } from 'prosekit/core'
+import { joinTextblockBackward } from 'prosekit/pm/commands'
 import { TextSelection } from 'prosekit/pm/state'
 import { createIndentListCommand, isListNode } from 'prosemirror-flat-list'
+import { insertBlockSiblingAfter } from './block-sibling'
 import { currentListBlockContext } from './list-keymap-context'
 import { executeOutlineOutdent, executeOutlineOutdentForBlockIds } from './outline-outdent'
 
@@ -32,7 +34,7 @@ function trailingNestedEmptyBlockId(state: EditorState, focusBlockId: string | n
   return null
 }
 
-const insertSiblingAfterEmptyBranch: Command = (state, dispatch) => {
+const continueEmptyOutlineBlock: Command = (state, dispatch) => {
   const { selection } = state
   if (!selection.empty)
     return false
@@ -42,20 +44,17 @@ const insertSiblingAfterEmptyBranch: Command = (state, dispatch) => {
     const node = $from.node(depth)
     if (node.type.name !== 'list')
       continue
-    if ($from.index(depth) !== 0 || $from.parent.content.size !== 0 || node.childCount < 2)
+    const parent = $from.node(depth - 1)
+    const isTopLevel = parent.type.name === 'doc'
+    if ($from.index(depth) !== 0 || $from.parent.content.size !== 0 || (!isTopLevel && node.childCount < 2))
       return false
-
-    const sibling = node.type.createAndFill({ kind: node.attrs.kind })
-    if (!sibling)
-      throw new Error('Unable to create an empty Outline sibling')
-    if (!dispatch)
-      return true
-
-    const insertPosition = $from.after(depth)
-    const transaction = state.tr.insert(insertPosition, sibling)
-    transaction.setSelection(TextSelection.near(transaction.doc.resolve(insertPosition + 1), 1))
-    dispatch(transaction.scrollIntoView())
-    return true
+    const kind = node.attrs.kind
+    if (typeof kind !== 'string')
+      throw new Error('The current Outline block is missing its list kind')
+    return insertBlockSiblingAfter(state, dispatch, {
+      node,
+      pos: $from.before(depth),
+    }, kind)
   }
 
   return false
@@ -72,7 +71,7 @@ function createOutlineEnterCommand(runtime: OutlineRuntime): Command {
         executeOutlineOutdentForBlockIds(state, dispatch, runtime, [blockId])
       return true
     }
-    return insertSiblingAfterEmptyBranch(state, dispatch, view)
+    return continueEmptyOutlineBlock(state, dispatch, view)
   }
 }
 
@@ -101,8 +100,32 @@ function createOutlineOutdentCommand(runtime: OutlineRuntime): Command {
   }
 }
 
+function createOutlineBackspaceCommand(runtime: OutlineRuntime): Command {
+  return (state, dispatch, view) => {
+    if (!runtime.getSnapshot().active)
+      return false
+    if (!(state.selection instanceof TextSelection))
+      return false
+
+    const { $cursor } = state.selection
+    if (!$cursor || $cursor.parentOffset !== 0)
+      return false
+
+    const block = currentListBlockContext(state)
+    if (!block)
+      return false
+    const directBlock = $cursor.depth === block.depth + 1
+    if (!directBlock || $cursor.parent.type.name !== 'paragraph' || block.kind !== 'outline')
+      return false
+
+    joinTextblockBackward(state, dispatch, view)
+    return true
+  }
+}
+
 export function defineOutlineKeymapExtension(runtime: OutlineRuntime) {
   return withPriority(defineKeymap({
+    'Backspace': createOutlineBackspaceCommand(runtime),
     'Enter': createOutlineEnterCommand(runtime),
     'Tab': createOutlineIndentCommand(runtime),
     'Shift-Tab': createOutlineOutdentCommand(runtime),

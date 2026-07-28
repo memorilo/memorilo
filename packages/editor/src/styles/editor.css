@@ -10,12 +10,50 @@
   display: none;
 }
 
-[data-editor-mode='outline'] [data-list-kind='outline'] > .list-marker {
-  background-color: currentColor;
-  mask-image: var(--prosekit-list-bullet-icon);
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
+[data-editor-mode='outline'] {
+  --memorilo-outline-bullet-color: hsl(0deg 0% 78%);
+  --memorilo-outline-bullet-ring-color: rgb(0 0 0 / 7.1%);
+}
+
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  mask-image: none;
+}
+
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker::before,
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker::after {
+  position: absolute;
+  display: block;
+  flex: none;
+  border-radius: 9999px;
+  content: '';
+}
+
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker::before {
+  z-index: 1;
+  width: 0.4em;
+  height: 0.4em;
+  background-color: var(--memorilo-outline-bullet-color);
+  opacity: 0.8;
+  transition: transform 200ms;
+}
+
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker::after {
+  width: 1em;
+  height: 1em;
+  background-color: transparent;
+}
+
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker:hover::before {
+  transform: scale(1.2);
+}
+
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet']) > .list-marker:hover::after,
+[data-editor-mode='outline'] :is([data-list-kind='outline'], [data-list-kind='bullet'])[data-outline-view-collapsed] > .list-marker::after {
+  background-color: var(--memorilo-outline-bullet-ring-color);
 }
 
 [data-editor-mode='outline'] [data-outline-selected] {

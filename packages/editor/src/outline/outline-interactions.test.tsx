@@ -133,6 +133,68 @@ function selectedCellText(): string | null {
 }
 
 describe('outline interactions', () => {
+  it('creates a top-level Outline sibling from the block handle add control', async () => {
+    const rendered = render(
+      <div style={{ marginLeft: 100 }}>
+        <Editor
+          adapters={adapters}
+          defaultMode="outline"
+          initialContent={{ type: 'doc', content: [block('Before'), block('After')] }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Before')
+
+    await userEvent.hover(page.getByText('Before', { exact: true }))
+    await userEvent.click(page.getByLabelText('Add block'))
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(3)
+      expect(rootChildren.every(element => element.matches('[data-list-kind="outline"][data-block-id]'))).toBe(true)
+      expect(rootChildren.map(element => element.textContent)).toEqual(['Before', '', 'After'])
+    })
+
+    const ids = Array.from(rendered.container.querySelectorAll<HTMLElement>('[data-block-id]')).map((element) => {
+      const id = element.dataset.blockId
+      if (!id)
+        throw new Error('A block-handle-created Outline item is missing its stable id')
+      return id
+    })
+    expect(new Set(ids).size).toBe(3)
+    expect(selectedDomBlockId()).toBe(ids[1])
+  })
+
+  it('keeps creating top-level Outline siblings when Enter is repeated on empty items', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        defaultMode="outline"
+        initialContent={{ type: 'doc', content: [block('Before'), block('After')] }}
+      />,
+    )
+    await rendered.findByText('Before')
+
+    await userEvent.click(rendered.getByText('Before', { exact: true }))
+    await userEvent.keyboard('{End}{Enter}{Enter}{Enter}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(5)
+      expect(rootChildren.every(element => element.matches('[data-list-kind="outline"][data-block-id]'))).toBe(true)
+      expect(rootChildren.map(element => element.textContent)).toEqual(['Before', '', '', '', 'After'])
+    })
+
+    const ids = Array.from(rendered.container.querySelectorAll<HTMLElement>('[data-block-id]')).map((element) => {
+      const id = element.dataset.blockId
+      if (!id)
+        throw new Error('An Enter-created Outline item is missing its stable id')
+      return id
+    })
+    expect(new Set(ids).size).toBe(5)
+    expect(selectedDomBlockId()).toBe(ids[3])
+  })
+
   it('keeps Enter inside a code block instead of creating another Outline item', async () => {
     const rendered = render(
       <Editor
@@ -316,6 +378,57 @@ describe('outline interactions', () => {
     expect(rendered.getByText('Next semantic item').closest('[data-list-kind]')).toHaveAttribute('data-list-kind', kind)
     if (kind === 'ordered')
       expect(rendered.container.querySelector('[data-block-id="ordered"]')).toHaveAttribute('data-list-order', '6')
+  })
+
+  it('keeps the first top-level Outline item wrapped at its start on Backspace', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        defaultMode="outline"
+        initialContent={{ type: 'doc', content: [block('A'), block('B')] }}
+      />,
+    )
+    await rendered.findByText('A')
+
+    await userEvent.click(paragraph(rendered.container, 'A'))
+    await userEvent.keyboard('{Home}')
+    expect(document.getSelection()?.focusOffset).toBe(0)
+    await userEvent.keyboard('{Backspace}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(2)
+      expect(rootChildren.map(element => element.getAttribute('data-block-id'))).toEqual(['A', 'B'])
+      expect(rootChildren.map(element => element.textContent)).toEqual(['A', 'B'])
+      expect(rootChildren.every(element => element.matches('[data-list-kind="outline"]'))).toBe(true)
+    })
+    expect(selectedDomBlockId()).toBe('A')
+  })
+
+  it('merges a top-level Outline item into its predecessor on Backspace at its start', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        defaultMode="outline"
+        initialContent={{ type: 'doc', content: [block('A'), block('B')] }}
+      />,
+    )
+    await rendered.findByText('B')
+
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard('{Home}')
+    expect(document.getSelection()?.focusOffset).toBe(0)
+    await userEvent.keyboard('{Backspace}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(1)
+      expect(rootChildren[0]).toHaveAttribute('data-block-id', 'A')
+      expect(rootChildren[0]).toHaveAttribute('data-list-kind', 'outline')
+      expect(rootChildren[0]).toHaveTextContent('AB')
+      expect(rendered.container.querySelector('[data-block-id="B"]')).toBeNull()
+    })
+    expect(selectedDomBlockId()).toBe('A')
   })
 
   it('removes an empty leaf with Backspace and keeps the previous item intact', async () => {

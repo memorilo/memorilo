@@ -27,9 +27,27 @@ function focusLabel(root: HTMLElement | null, blockId: string | null): string | 
   return body?.textContent?.trim() || blockId
 }
 
+function animateFocusChange(root: HTMLElement): Animation {
+  const content = root.querySelector<HTMLElement>('[data-editor-content]')
+  if (!content)
+    throw new Error('Outline focus animation requires mounted editor content')
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  return content.animate(
+    [{ opacity: 0 }, { opacity: 1 }],
+    {
+      duration: reducedMotion ? 100 : 500,
+      easing: 'ease-in',
+    },
+  )
+}
+
 export function OutlineEditor({ options, session }: { options?: OutlineOptions, session: EditorSession }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const markerStylesRef = useRef<HTMLStyleElement>(null)
+  const focusAnimationRef = useRef<Animation>(null)
+  const previousFocusBlockIdRef = useRef<string | null>(null)
+  const focusAnimationMountedRef = useRef(false)
   const runtime = session.outlineRuntime
   const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot)
   const commandBlockIds = outlineCommandBlockIds(session.editor.state, snapshot)
@@ -48,6 +66,32 @@ export function OutlineEditor({ options, session }: { options?: OutlineOptions, 
       return
     return observeOutlineMarkerAlignment(root, markerStyles)
   }, [])
+
+  useLayoutEffect(() => {
+    const previousFocusBlockId = previousFocusBlockIdRef.current
+    previousFocusBlockIdRef.current = snapshot.focusBlockId
+
+    if (!focusAnimationMountedRef.current) {
+      focusAnimationMountedRef.current = true
+      return
+    }
+    if (previousFocusBlockId === snapshot.focusBlockId)
+      return
+
+    const root = rootRef.current
+    if (!root)
+      throw new Error('Outline focus animation requires a mounted editor')
+
+    focusAnimationRef.current?.cancel()
+    const animation = animateFocusChange(root)
+    focusAnimationRef.current = animation
+
+    return () => {
+      animation.cancel()
+      if (focusAnimationRef.current === animation)
+        focusAnimationRef.current = null
+    }
+  }, [snapshot.focusBlockId])
 
   const requestFocus = (blockId: string | null) => {
     const isControlled = Boolean(options && Object.prototype.hasOwnProperty.call(options, 'focus'))
@@ -149,7 +193,7 @@ export function OutlineEditor({ options, session }: { options?: OutlineOptions, 
       <div {...stylex.props(outlineEditorStyles.status, statusIsError && outlineEditorStyles.statusError)} aria-live="polite" role="status">
         {statusMessage}
       </div>
-      <EditorCanvas session={session} />
+      <EditorCanvas mode="outline" session={session} />
     </div>
   )
 }
