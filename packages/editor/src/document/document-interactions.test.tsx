@@ -64,7 +64,52 @@ function parentBlockId(container: HTMLElement, id: string): string | null {
   return block.parentElement?.closest<HTMLElement>('[data-block-id]')?.dataset.blockId ?? null
 }
 
+function selectedDomBlockId(): string | null {
+  const focusNode = document.getSelection()?.focusNode
+  if (!focusNode)
+    return null
+  const focusElement = focusNode.nodeType === Node.ELEMENT_NODE ? focusNode as Element : focusNode.parentElement
+  return focusElement?.closest<HTMLElement>('[data-block-id]')?.dataset.blockId ?? null
+}
+
 describe('document interactions', () => {
+  it('creates a wrapped ordinary Document block from the block handle add control', async () => {
+    const rendered = render(
+      <div style={{ marginLeft: 100 }}>
+        <Editor
+          adapters={adapters}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('Before', paragraph('Before')),
+              documentBlock('After', paragraph('After')),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Before')
+
+    await userEvent.hover(page.getByText('Before', { exact: true }))
+    await userEvent.click(page.getByLabelText('Add block'))
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(3)
+      expect(rootChildren.every(element => element.matches('[data-list-kind="outline"][data-block-id]'))).toBe(true)
+      expect(rootChildren.map(element => element.textContent)).toEqual(['Before', '', 'After'])
+    })
+
+    const ids = Array.from(rendered.container.querySelectorAll<HTMLElement>('[data-block-id]')).map((element) => {
+      const id = element.dataset.blockId
+      if (!id)
+        throw new Error('A block-handle-created Document block is missing its stable id')
+      return id
+    })
+    expect(new Set(ids).size).toBe(3)
+    expect(selectedDomBlockId()).toBe(ids[1])
+  })
+
   it('splits an ordinary block on Enter and keeps the split undoable', async () => {
     const rendered = render(
       <Editor
@@ -98,6 +143,38 @@ describe('document interactions', () => {
     await waitFor(() => expect(rendered.container.querySelectorAll('[data-list-kind="outline"]')).toHaveLength(1))
     await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
     await waitFor(() => expect(rendered.container.querySelectorAll('[data-list-kind="outline"]')).toHaveLength(2))
+  })
+
+  it('keeps repeated Enter inside wrapped ordinary Document blocks', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('paragraph', paragraph('Document paragraph'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Document paragraph')
+
+    await userEvent.click(rendered.getByText('Document paragraph'))
+    await userEvent.keyboard('{End}{Enter}{Enter}{Enter}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(4)
+      expect(rootChildren.every(element => element.matches('[data-list-kind="outline"][data-block-id]'))).toBe(true)
+      expect(rootChildren.map(element => element.textContent)).toEqual(['Document paragraph', '', '', ''])
+    })
+
+    const ids = Array.from(rendered.container.querySelectorAll<HTMLElement>('[data-block-id]')).map((element) => {
+      const id = element.dataset.blockId
+      if (!id)
+        throw new Error('A repeated-Enter Document block is missing its stable id')
+      return id
+    })
+    expect(new Set(ids).size).toBe(4)
+    expect(selectedDomBlockId()).toBe(ids[3])
   })
 
   it('keeps Enter inside a code block instead of creating another Document block', async () => {
@@ -216,6 +293,46 @@ describe('document interactions', () => {
       expect(rendered.container.querySelector('[data-block-id="ordered"]')).toHaveAttribute('data-list-order', '4')
   })
 
+  it.each([
+    { kind: 'bullet', order: null, text: 'Bullet item' },
+    { kind: 'ordered', order: 4, text: 'Ordered item' },
+  ])('exits an empty semantic $kind item into a wrapped ordinary Document block', async ({ kind, order, text }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        initialContent={{
+          type: 'doc',
+          content: [
+            {
+              ...documentBlock(kind, paragraph(text), kind),
+              attrs: { blockId: kind, checked: false, collapsed: false, kind, order },
+            },
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText(text)
+
+    await userEvent.click(rendered.getByText(text))
+    await userEvent.keyboard('{End}{Enter}')
+    await waitFor(() => expect(rendered.container.querySelectorAll(`[data-list-kind="${kind}"]`)).toHaveLength(2))
+    const emptyItem = rendered.getByRole('textbox', { name: 'Editor content' }).lastElementChild
+    const emptyItemId = emptyItem?.getAttribute('data-block-id')
+    if (!emptyItemId)
+      throw new Error(`The empty ${kind} item is missing its stable id before exiting the list`)
+
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(2)
+      expect(rootChildren.map(element => element.getAttribute('data-list-kind'))).toEqual([kind, 'outline'])
+      expect(rootChildren.map(element => element.textContent)).toEqual([text, ''])
+      expect(rootChildren[1]).toHaveAttribute('data-block-id', emptyItemId)
+    })
+    expect(selectedDomBlockId()).toBe(emptyItemId)
+  })
+
   it('keeps ordinary Document blocks flat when Tab or Shift-Tab is pressed', async () => {
     const rendered = render(
       <Editor
@@ -240,6 +357,67 @@ describe('document interactions', () => {
     expect(parentBlockId(rendered.container, 'B')).toBeNull()
     expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(2)
     expect(rendered.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('keeps the first ordinary Document block wrapped at its start on Backspace', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('A')),
+            documentBlock('B', paragraph('B')),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('A')
+
+    await userEvent.click(rendered.getByText('A', { exact: true }))
+    await userEvent.keyboard('{Home}')
+    expect(document.getSelection()?.focusOffset).toBe(0)
+    await userEvent.keyboard('{Backspace}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(2)
+      expect(rootChildren.map(element => element.getAttribute('data-block-id'))).toEqual(['A', 'B'])
+      expect(rootChildren.map(element => element.textContent)).toEqual(['A', 'B'])
+      expect(rootChildren.every(element => element.matches('[data-list-kind="outline"]'))).toBe(true)
+    })
+    expect(selectedDomBlockId()).toBe('A')
+  })
+
+  it('merges an ordinary Document block into its predecessor on Backspace at its start', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('A')),
+            documentBlock('B', paragraph('B')),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('B')
+
+    await userEvent.click(rendered.getByText('B', { exact: true }))
+    await userEvent.keyboard('{Home}')
+    expect(document.getSelection()?.focusOffset).toBe(0)
+    await userEvent.keyboard('{Backspace}')
+
+    await waitFor(() => {
+      const rootChildren = Array.from(rendered.getByRole('textbox', { name: 'Editor content' }).children)
+      expect(rootChildren).toHaveLength(1)
+      expect(rootChildren[0]).toHaveAttribute('data-block-id', 'A')
+      expect(rootChildren[0]).toHaveAttribute('data-list-kind', 'outline')
+      expect(rootChildren[0]).toHaveTextContent('AB')
+      expect(rendered.container.querySelector('[data-block-id="B"]')).toBeNull()
+    })
+    expect(selectedDomBlockId()).toBe('A')
   })
 
   it('merges an ordinary paragraph into the preceding heading without leaving bare content', async () => {
