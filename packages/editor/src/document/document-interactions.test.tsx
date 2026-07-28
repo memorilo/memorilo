@@ -73,6 +73,32 @@ function selectedDomBlockId(): string | null {
 }
 
 describe('document interactions', () => {
+  it('keeps the slash menu working after switching back to Document mode', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+
+    await userEvent.click(rendered.getByRole('button', { name: 'Outline mode' }))
+    await rendered.findByText('Outline view ready.')
+    await userEvent.click(rendered.getByRole('button', { name: 'Document mode' }))
+    const before = await rendered.findByText('Before')
+    const editor = rendered.getByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(before)
+    await userEvent.keyboard('{End}{Enter}/')
+
+    expect(editor).toHaveTextContent('Before/')
+    await rendered.findByRole('option', { name: 'Text' })
+    expect(rendered.getByRole('option', { name: 'Text' })).toBeVisible()
+    expect(rendered.getByRole('option', { name: /^Quote/ })).toBeVisible()
+  })
+
   it('creates a wrapped ordinary Document block from the block handle add control', async () => {
     const rendered = render(
       <div style={{ marginLeft: 100 }}>
