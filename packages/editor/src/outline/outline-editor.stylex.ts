@@ -14,12 +14,6 @@ const colors = {
 } as const
 
 export const outlineEditorStyles = stylex.create({
-  root: {
-    display: 'flex',
-    minHeight: 0,
-    flex: 1,
-    flexDirection: 'column',
-  },
   toolbar: {
     display: 'flex',
     minHeight: 42,

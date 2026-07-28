@@ -35,6 +35,7 @@ export interface EditorProps {
 }
 
 export function Editor(props: EditorProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
   const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
     ? {
@@ -75,7 +76,7 @@ export function Editor(props: EditorProps) {
 
   return (
     <Provider store={session.store}>
-      <div {...stylex.props(editorShellStyles.root)} data-editor-mode={activeMode}>
+      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={activeMode}>
         <div {...stylex.props(editorShellStyles.toolbar)}>
           <div {...stylex.props(editorShellStyles.modeGroup)} aria-label="Editor mode" role="group">
             <button
@@ -99,9 +100,15 @@ export function Editor(props: EditorProps) {
           </div>
         </div>
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading editor mode…</div>}>
-          {activeMode === 'document'
-            ? <DocumentEditor session={session} />
-            : <OutlineEditor options={props.outline} session={session} />}
+          <DocumentEditor mode={activeMode} session={session}>
+            {activeMode === 'outline'
+              ? (
+                  <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading Outline mode…</div>}>
+                    <OutlineEditor options={props.outline} rootRef={rootRef} session={session} />
+                  </Suspense>
+                )
+              : null}
+          </DocumentEditor>
         </Suspense>
       </div>
     </Provider>

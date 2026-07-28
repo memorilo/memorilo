@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { EditorSession } from './editor-session'
 import * as stylex from '@stylexjs/stylex'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -31,31 +32,42 @@ function UploadStatus() {
   )
 }
 
-export function EditorCanvas({ mode, session }: { mode: 'document' | 'outline', session: EditorSession }) {
+export function EditorCanvas({
+  mode,
+  modeControls,
+  session,
+}: {
+  mode: 'document' | 'outline'
+  modeControls?: ReactNode
+  session: EditorSession
+}) {
   const { configured, editor } = session
 
   return (
-    <ProseKit editor={editor}>
-      <div {...stylex.props(editorStyles.viewport)}>
-        <UploadStatus />
-        <div {...stylex.props(editorStyles.scrolling)}>
-          <div
-            ref={editor.mount}
-            {...stylex.props(editorStyles.content)}
-            aria-label="Editor content"
-            aria-multiline="true"
-            data-editor-content=""
-            role="textbox"
-          />
-          <ContextMenu uploader={configured.uploader} />
-          <InlineMenu />
-          <SlashMenu />
-          <TagMenu runtime={configured.tagRuntime} />
-          <BlockHandle mode={mode} session={session} />
-          <TableHandle />
-          <DropIndicator />
+    <>
+      <div data-editor-mode-controls="">{modeControls}</div>
+      <ProseKit editor={editor}>
+        <div {...stylex.props(editorStyles.viewport)}>
+          <UploadStatus />
+          <div {...stylex.props(editorStyles.scrolling)}>
+            <div
+              ref={editor.mount}
+              {...stylex.props(editorStyles.content)}
+              aria-label="Editor content"
+              aria-multiline="true"
+              data-editor-content=""
+              role="textbox"
+            />
+            <ContextMenu uploader={configured.uploader} />
+            <InlineMenu />
+            <SlashMenu />
+            <TagMenu runtime={configured.tagRuntime} />
+            <BlockHandle mode={mode} session={session} />
+            <TableHandle />
+            <DropIndicator />
+          </div>
         </div>
-      </div>
-    </ProseKit>
+      </ProseKit>
+    </>
   )
 }

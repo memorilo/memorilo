@@ -1,9 +1,8 @@
-import type { MouseEvent as ReactMouseEvent } from 'react'
+import type { RefObject } from 'react'
 import type { EditorSession } from '../common/editor-session'
 import type { OutlineOptions } from '../common/outline-runtime'
 import * as stylex from '@stylexjs/stylex'
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
-import { EditorCanvas } from '../common/editor-canvas'
+import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { executeOutlineOutdent, outlineCommandBlockIds, outlineOutdentBlockedMessage, planOutlineOutdent } from '../common/outline-outdent'
 import { outlineEditorStyles } from './outline-editor.stylex'
 import { observeOutlineMarkerAlignment } from './outline-marker-alignment'
@@ -42,8 +41,15 @@ function animateFocusChange(root: HTMLElement): Animation {
   )
 }
 
-export function OutlineEditor({ options, session }: { options?: OutlineOptions, session: EditorSession }) {
-  const rootRef = useRef<HTMLDivElement>(null)
+export function OutlineEditor({
+  options,
+  rootRef,
+  session,
+}: {
+  options?: OutlineOptions
+  rootRef: RefObject<HTMLDivElement | null>
+  session: EditorSession
+}) {
   const markerStylesRef = useRef<HTMLStyleElement>(null)
   const focusAnimationRef = useRef<Animation>(null)
   const previousFocusBlockIdRef = useRef<string | null>(null)
@@ -58,14 +64,22 @@ export function OutlineEditor({ options, session }: { options?: OutlineOptions, 
     ?? selectionBlockedMessage
     ?? (snapshot.selectedBlockIds.length > 0 ? `${snapshot.selectedBlockIds.length} blocks selected.` : 'Outline view ready.')
   const statusIsError = Boolean(snapshot.commandMessage || selectionBlockedMessage)
+  const controlledFocus = Boolean(options && Object.prototype.hasOwnProperty.call(options, 'focus'))
+  const onFocusChange = options?.onFocusChange
 
-  useLayoutEffect(() => {
+  const requestFocus = useCallback((blockId: string | null) => {
+    if (!controlledFocus)
+      runtime.setFocus(blockId)
+    onFocusChange?.(blockId ? { blockId } : null)
+  }, [controlledFocus, onFocusChange, runtime])
+
+  useEffect(() => {
     const root = rootRef.current
     const markerStyles = markerStylesRef.current
     if (!root || !markerStyles)
-      return
+      throw new Error('Outline marker alignment requires a mounted editor root')
     return observeOutlineMarkerAlignment(root, markerStyles)
-  }, [])
+  }, [rootRef])
 
   useLayoutEffect(() => {
     const previousFocusBlockId = previousFocusBlockIdRef.current
@@ -91,51 +105,53 @@ export function OutlineEditor({ options, session }: { options?: OutlineOptions, 
       if (focusAnimationRef.current === animation)
         focusAnimationRef.current = null
     }
-  }, [snapshot.focusBlockId])
+  }, [rootRef, snapshot.focusBlockId])
 
-  const requestFocus = (blockId: string | null) => {
-    const isControlled = Boolean(options && Object.prototype.hasOwnProperty.call(options, 'focus'))
-    if (!isControlled)
-      runtime.setFocus(blockId)
-    options?.onFocusChange?.(blockId ? { blockId } : null)
-  }
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root)
+      throw new Error('Outline interactions require a mounted editor root')
+
+    const handleMarkerClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element))
+        return
+      const marker = target.closest('.list-marker')
+      if (!marker || !root.contains(marker))
+        return
+      const block = marker.parentElement
+      if (!block)
+        throw new Error('An outline marker is not attached to a stable block')
+      const blockId = block.getAttribute('data-block-id')
+      if (!blockId)
+        throw new Error('An outline marker is attached to a block without a stable id')
+      const listKind = block.getAttribute('data-list-kind')
+      if (listKind === 'task' || listKind === 'toggle')
+        return
+
+      event.preventDefault()
+      event.stopPropagation()
+      if (event.altKey) {
+        runtime.toggleCollapsed([blockId])
+        return
+      }
+      if (event.metaKey || event.ctrlKey) {
+        runtime.selectBlock(blockId, 'toggle', visibleBlockIds(root))
+        return
+      }
+      if (event.shiftKey) {
+        runtime.selectBlock(blockId, 'range', visibleBlockIds(root))
+        return
+      }
+      requestFocus(blockId)
+    }
+
+    root.addEventListener('click', handleMarkerClick, true)
+    return () => root.removeEventListener('click', handleMarkerClick, true)
+  }, [requestFocus, rootRef, runtime])
 
   const runOutdent = () => {
     executeOutlineOutdent(session.editor.state, session.editor.view.dispatch, runtime)
-  }
-
-  const handleMarkerClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-    const target = event.target
-    if (!(target instanceof Element))
-      return
-    const marker = target.closest('.list-marker')
-    if (!marker || !rootRef.current?.contains(marker))
-      return
-    const block = marker.parentElement
-    if (!block)
-      throw new Error('An outline marker is not attached to a stable block')
-    const blockId = block.getAttribute('data-block-id')
-    if (!blockId)
-      throw new Error('An outline marker is attached to a block without a stable id')
-    const listKind = block.getAttribute('data-list-kind')
-    if (listKind === 'task' || listKind === 'toggle')
-      return
-
-    event.preventDefault()
-    event.stopPropagation()
-    if (event.altKey) {
-      runtime.toggleCollapsed([blockId])
-      return
-    }
-    if (event.metaKey || event.ctrlKey) {
-      runtime.selectBlock(blockId, 'toggle', visibleBlockIds(rootRef.current))
-      return
-    }
-    if (event.shiftKey) {
-      runtime.selectBlock(blockId, 'range', visibleBlockIds(rootRef.current))
-      return
-    }
-    requestFocus(blockId)
   }
 
   const collapseBlockIds = snapshot.selectedBlockIds.length > 0
@@ -143,7 +159,7 @@ export function OutlineEditor({ options, session }: { options?: OutlineOptions, 
     : snapshot.focusBlockId ? [snapshot.focusBlockId] : commandBlockIds
 
   return (
-    <div ref={rootRef} {...stylex.props(outlineEditorStyles.root)} onClickCapture={handleMarkerClick}>
+    <>
       <style ref={markerStylesRef} data-outline-marker-alignment="" />
       <div {...stylex.props(outlineEditorStyles.toolbar)}>
         <div {...stylex.props(outlineEditorStyles.breadcrumbs)} aria-label="Outline location">
@@ -193,7 +209,6 @@ export function OutlineEditor({ options, session }: { options?: OutlineOptions, 
       <div {...stylex.props(outlineEditorStyles.status, statusIsError && outlineEditorStyles.statusError)} aria-live="polite" role="status">
         {statusMessage}
       </div>
-      <EditorCanvas mode="outline" session={session} />
-    </div>
+    </>
   )
 }

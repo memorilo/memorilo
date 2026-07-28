@@ -133,6 +133,28 @@ function selectedCellText(): string | null {
 }
 
 describe('outline interactions', () => {
+  it('keeps the slash menu working after switching to Outline mode', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        initialContent={{ type: 'doc', content: [block('Before')] }}
+      />,
+    )
+    await rendered.findByText('Before')
+
+    await userEvent.click(rendered.getByRole('button', { name: 'Outline mode' }))
+    await rendered.findByText('Outline view ready.')
+    const before = rendered.getByText('Before')
+    const editor = rendered.getByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(before)
+    await userEvent.keyboard('{End}{Enter}/')
+
+    expect(editor).toHaveTextContent('Before/')
+    await rendered.findByRole('option', { name: 'Text' })
+    expect(rendered.getByRole('option', { name: 'Text' })).toBeVisible()
+    expect(rendered.getByRole('option', { name: /^Quote/ })).toBeVisible()
+  })
+
   it('creates a top-level Outline sibling from the block handle add control', async () => {
     const rendered = render(
       <div style={{ marginLeft: 100 }}>
