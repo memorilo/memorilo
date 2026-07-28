@@ -1,85 +1,109 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
+import type { OutlineOptions } from './common/outline-runtime'
 import * as stylex from '@stylexjs/stylex'
-import { Provider, useAtomValue, useSetAtom } from 'jotai'
-import { createEditor } from 'prosekit/core'
-
-import { ProseKit } from 'prosekit/react'
-import { useMemo } from 'react'
-import { createEditorExtension } from './extension/create-editor-extension'
-import { sampleContent } from './sample/sample-content.ts'
-import { uploadErrorAtom, uploadStatusAtom } from './state/editor-atoms'
-
-import { createEditorStore } from './state/editor-store'
-import { editorStyles } from './styles/editor.stylex'
-import { BlockHandle } from './ui/block-handle/index.ts'
-import { ContextMenu } from './ui/context-menu/index.ts'
-import { DropIndicator } from './ui/drop-indicator/index.ts'
-import { InlineMenu } from './ui/inline-menu/index.ts'
-import { SlashMenu } from './ui/slash-menu/index.ts'
-import { TableHandle } from './ui/table-handle/index.ts'
-import { TagMenu } from './ui/tag-menu/index.ts'
+import { Provider } from 'jotai'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createEditorSession } from './common/editor-session'
+import { editorShellStyles } from './common/editor-shell.stylex'
+import { resolveOutlineFocusTarget } from './common/outline-runtime'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
 import './styles/editor.css'
 
+const DocumentEditor = lazy(async () => {
+  const module = await import('./document/document-editor')
+  return { default: module.DocumentEditor }
+})
+
+const OutlineEditor = lazy(async () => {
+  const module = await import('./outline/outline-editor')
+  return { default: module.OutlineEditor }
+})
+
+export type EditorMode = 'document' | 'outline'
+
 export interface EditorProps {
   adapters: EditorAdapters
+  defaultMode?: EditorMode
   initialContent?: NodeJSON
-}
-
-function UploadStatus() {
-  const status = useAtomValue(uploadStatusAtom)
-  const error = useAtomValue(uploadErrorAtom)
-  const setError = useSetAtom(uploadErrorAtom)
-
-  if (status === 'idle' && !error)
-    return null
-
-  return (
-    <div {...stylex.props(editorStyles.uploadStatus, Boolean(error) && editorStyles.uploadStatusError)} aria-live="polite">
-      <span>{error ?? 'Uploading image...'}</span>
-      {error
-        ? <button {...stylex.props(editorStyles.uploadStatusButton)} aria-label="Dismiss upload error" type="button" onClick={() => setError(null)}>Dismiss</button>
-        : null}
-    </div>
-  )
-}
-
-function EditorSurface({ adapters, initialContent, store }: EditorProps & { store: ReturnType<typeof createEditorStore> }) {
-  const configured = useMemo(() => createEditorExtension(adapters, store), [adapters, store])
-  const defaultContent = initialContent ?? sampleContent
-  const editor = useMemo(
-    () => createEditor({ extension: configured.extension, defaultContent }),
-    [configured.extension, defaultContent],
-  )
-
-  return (
-    <ProseKit editor={editor}>
-      <div {...stylex.props(editorStyles.viewport)}>
-        <UploadStatus />
-        <div {...stylex.props(editorStyles.scrolling)}>
-          <div ref={editor.mount} {...stylex.props(editorStyles.content)} data-editor-content="" />
-          <ContextMenu uploader={configured.uploader} />
-          <InlineMenu />
-          <SlashMenu />
-          <TagMenu runtime={configured.tagRuntime} />
-          <BlockHandle />
-          <TableHandle />
-          <DropIndicator />
-        </div>
-      </div>
-    </ProseKit>
-  )
+  mode?: EditorMode
+  onDocumentChange?: (document: NodeJSON) => void
+  onModeChange?: (mode: EditorMode) => void
+  outline?: OutlineOptions
 }
 
 export function Editor(props: EditorProps) {
-  const store = useMemo(() => createEditorStore(), [])
+  const onDocumentChangeRef = useRef(props.onDocumentChange)
+  const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
+    ? {
+        defaultFocus: props.outline.defaultFocus,
+        defaultOutdentBehavior: props.outline.defaultOutdentBehavior,
+      }
+    : undefined)
+  onDocumentChangeRef.current = props.onDocumentChange
+  const [uncontrolledMode, setUncontrolledMode] = useState<EditorMode>(props.defaultMode ?? 'document')
+  const activeMode = props.mode ?? uncontrolledMode
+  const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
+  const controlledFocus = props.outline?.focus
+  const session = useMemo(() => createEditorSession({
+    adapters: props.adapters,
+    initialContent: props.initialContent,
+    onDocumentChange: document => onDocumentChangeRef.current?.(document),
+    outline: initialOutlineOptionsRef.current,
+  }), [props.adapters, props.initialContent])
+
+  useEffect(() => {
+    if (!controlledFocusProvided)
+      return
+    const blockId = controlledFocus ? resolveOutlineFocusTarget(session.editor.getDocJSON(), controlledFocus) : null
+    session.outlineRuntime.setFocus(blockId)
+  }, [controlledFocus, controlledFocusProvided, session])
+
+  useLayoutEffect(() => {
+    session.outlineRuntime.setActive(activeMode === 'outline')
+  }, [activeMode, session])
+
+  const changeMode = (nextMode: EditorMode) => {
+    if (nextMode === activeMode)
+      return
+    if (props.mode === undefined)
+      setUncontrolledMode(nextMode)
+    props.onModeChange?.(nextMode)
+  }
 
   return (
-    <Provider store={store}>
-      <EditorSurface {...props} store={store} />
+    <Provider store={session.store}>
+      <div {...stylex.props(editorShellStyles.root)} data-editor-mode={activeMode}>
+        <div {...stylex.props(editorShellStyles.toolbar)}>
+          <div {...stylex.props(editorShellStyles.modeGroup)} aria-label="Editor mode" role="group">
+            <button
+              {...stylex.props(editorShellStyles.modeButton, activeMode === 'document' && editorShellStyles.modeButtonSelected)}
+              aria-label="Document mode"
+              aria-pressed={activeMode === 'document'}
+              type="button"
+              onClick={() => changeMode('document')}
+            >
+              Document
+            </button>
+            <button
+              {...stylex.props(editorShellStyles.modeButton, activeMode === 'outline' && editorShellStyles.modeButtonSelected)}
+              aria-label="Outline mode"
+              aria-pressed={activeMode === 'outline'}
+              type="button"
+              onClick={() => changeMode('outline')}
+            >
+              Outline
+            </button>
+          </div>
+        </div>
+        <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading editor mode…</div>}>
+          {activeMode === 'document'
+            ? <DocumentEditor session={session} />
+            : <OutlineEditor options={props.outline} session={session} />}
+        </Suspense>
+      </div>
     </Provider>
   )
 }

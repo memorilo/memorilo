@@ -2,6 +2,51 @@
   outline: none;
 }
 
+[data-editor-mode='document'] [data-list-kind='outline'] {
+  margin-left: 0;
+}
+
+[data-editor-mode='document'] [data-list-kind='outline'] > .list-marker {
+  display: none;
+}
+
+[data-editor-mode='outline'] [data-list-kind='outline'] > .list-marker {
+  background-color: currentColor;
+  mask-image: var(--prosekit-list-bullet-icon);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+[data-editor-mode='outline'] [data-outline-selected] {
+  border-radius: 4px;
+  background: #edf4ff;
+  box-shadow: 0 0 0 1px #bfd6ff;
+}
+
+[data-editor-mode='outline'] [data-outline-view-collapsed] > .list-content > [data-block-id] {
+  display: none;
+}
+
+[data-editor-mode='outline'] [data-outline-focus-ancestor] {
+  margin-left: 0;
+}
+
+[data-editor-mode='outline'] [data-outline-focus-ancestor] > .list-marker,
+[data-editor-mode='outline'] [data-outline-focus-ancestor] > .list-content > :first-child {
+  display: none;
+}
+
+[data-editor-mode='outline'] [data-outline-focus-root] {
+  margin-left: 0;
+}
+
+[data-editor-mode='outline'] [data-block-id] > .list-marker {
+  min-width: 1.25rem;
+  min-height: 1.25rem;
+  cursor: pointer;
+}
+
 [data-editor-content] h1,
 [data-editor-content] h2,
 [data-editor-content] h3,
