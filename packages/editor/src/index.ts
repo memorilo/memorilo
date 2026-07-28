@@ -1,4 +1,5 @@
 export { demoEditorAdapters } from './adapters/demo-adapters'
 export type { EditorAdapters, EditorTag, EditorTagStorage, ImageUploadInput } from './adapters/editor-adapters'
+export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
-export type { EditorProps } from './editor'
+export type { EditorMode, EditorProps } from './editor'

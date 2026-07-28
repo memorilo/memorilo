@@ -23,6 +23,7 @@
     "lucide-react": "^0.468.0",
     "prosekit": "0.21.4",
     "prosemirror-flat-list": "0.6.0",
+    "prosemirror-tables": "1.8.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -36,7 +37,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "jsdom": "^26.1.0",
+    "@vitest/browser": "3.2.7",
+    "playwright": "1.61.1",
     "vite": "^7.0.0"
   }
 }

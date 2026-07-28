@@ -1,14 +1,22 @@
+import type { NodeJSON } from 'prosekit/core'
 import type { Uploader } from 'prosekit/extensions/file'
 import type { EditorAdapters } from '../adapters/editor-adapters'
+import type { OutlineRuntime } from '../common/outline-runtime'
 import type { EditorStore } from '../state/editor-store'
 import { defineBasicExtension } from 'prosekit/basic'
-import { union } from 'prosekit/core'
+import { defineDocChangeHandler, union } from 'prosekit/core'
 import { defineCodeBlockShiki } from 'prosekit/extensions/code-block'
 import { defineHorizontalRule } from 'prosekit/extensions/horizontal-rule'
 import { defineImageUploadHandler } from 'prosekit/extensions/image'
 import { defineMath } from 'prosekit/extensions/math'
 
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
+import { defineBlockIdExtension } from '../common/block-id-extension'
+import { defineEditorKeymapExtension } from '../common/editor-keymap-extension'
+import { defineOutlineKeymapExtension } from '../common/outline-keymap-extension'
+import { defineOutlineViewExtension } from '../common/outline-view-extension'
+import { defineTableKeymapExtension } from '../common/table-keymap-extension'
+import { defineDocumentKeymapExtension } from '../document/document-keymap-extension'
 import { renderKaTeXMathBlock, renderKaTeXMathInline } from '../sample/katex.ts'
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 import { TagRuntime } from '../tag/tag-runtime'
@@ -37,13 +45,27 @@ function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<
   }
 }
 
-export function createEditorExtension(adapters: EditorAdapters, store: EditorStore) {
+export function createEditorExtension(
+  adapters: EditorAdapters,
+  store: EditorStore,
+  outlineRuntime: OutlineRuntime,
+  onDocumentChange?: (document: NodeJSON) => void,
+) {
   const uploader = createUploader(adapters, store)
   const tagRuntime = new TagRuntime(adapters.tagStorage)
 
   return {
     extension: union(
       defineBasicExtension(),
+      defineBlockIdExtension(),
+      defineTableKeymapExtension(),
+      defineEditorKeymapExtension(),
+      defineDocumentKeymapExtension(outlineRuntime),
+      defineOutlineKeymapExtension(outlineRuntime),
+      defineOutlineViewExtension(outlineRuntime),
+      defineDocChangeHandler((view) => {
+        onDocumentChange?.(view.state.doc.toJSON())
+      }),
       definePlaceholder({ placeholder: 'Press / for commands...' }),
       defineTag(tagRuntime),
       defineMath({

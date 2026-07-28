@@ -1,32 +1,26 @@
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach, beforeEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
 const reactTestEnvironment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
 reactTestEnvironment.IS_REACT_ACT_ENVIRONMENT = true
 
-afterEach(cleanup)
+const originalConsoleError = console.error
+let reactActWarnings: string[] = []
 
-Object.defineProperty(window, 'matchMedia', {
-  configurable: true,
-  value: (query: string): MediaQueryList => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  }),
+beforeEach(() => {
+  reactActWarnings = []
+  console.error = (...args: unknown[]) => {
+    const message = args.map(String).join(' ')
+    if (message.includes('not wrapped in act'))
+      reactActWarnings.push(message)
+    originalConsoleError(...args)
+  }
 })
 
-Object.defineProperty(Element.prototype, 'getAnimations', {
-  configurable: true,
-  value: () => [],
-})
-
-Object.defineProperty(Element.prototype, 'scrollIntoView', {
-  configurable: true,
-  value: () => undefined,
+afterEach(() => {
+  cleanup()
+  console.error = originalConsoleError
+  if (reactActWarnings.length > 0)
+    throw new Error(`React updates escaped act(): ${reactActWarnings.length} warning(s)`)
 })

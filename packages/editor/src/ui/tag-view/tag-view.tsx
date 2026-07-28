@@ -139,7 +139,7 @@ export default function TagView(props: TagViewProps) {
           onBlur={() => {
             if (ignoreBlurRef.current)
               return
-            commitEditing()
+            commitEditing(false)
           }}
           onChange={event => setDraft(event.target.value)}
           onKeyDown={(event) => {
