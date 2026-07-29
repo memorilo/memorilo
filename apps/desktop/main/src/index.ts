@@ -37,12 +37,20 @@ function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
 
 function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  const macOSWindowOptions = process.platform === 'darwin'
+    ? {
+        backgroundColor: '#00000000',
+        titleBarStyle: 'hiddenInset' as const,
+        trafficLightPosition: { x: 20, y: 20 },
+      }
+    : {}
   const window = new BrowserWindow({
     height: 800,
     minHeight: 640,
-    minWidth: 920,
+    minWidth: 720,
     show: false,
     title: 'Memorilo',
+    ...macOSWindowOptions,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
