@@ -1,12 +1,14 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
 import type { OutlineOptions } from './common/outline-runtime'
+import type { EditorLoroOptions } from './document/loro-document'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { createEditorSession } from './common/editor-session'
 import { editorShellStyles } from './common/editor-shell.stylex'
 import { resolveOutlineFocusTarget } from './common/outline-runtime'
+import { projectEditorDocumentNodes } from './document/loro-document'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
@@ -27,6 +29,7 @@ export type EditorMode = 'document' | 'outline'
 export interface EditorProps {
   adapters: EditorAdapters
   initialContent?: NodeJSON
+  loro?: EditorLoroOptions
   mode: EditorMode
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
@@ -35,6 +38,7 @@ export interface EditorProps {
 export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
+  const onLoroChangeRef = useRef(props.loro?.onChange)
   const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
     ? {
         defaultFocus: props.outline.defaultFocus,
@@ -42,14 +46,52 @@ export function Editor(props: EditorProps) {
       }
     : undefined)
   onDocumentChangeRef.current = props.onDocumentChange
+  onLoroChangeRef.current = props.loro?.onChange
+  const loroDocument = props.loro?.document
+  const loroSnapshot = props.loro === undefined || loroDocument !== undefined ? undefined : props.loro.snapshot ?? null
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
     initialContent: props.initialContent,
+    loroDocument,
+    loroSnapshot,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
-  }), [props.adapters, props.initialContent])
+  }), [props.adapters, props.initialContent, loroDocument, loroSnapshot])
+
+  useEffect(() => {
+    const loro = session.loro
+    if (!loro)
+      return
+
+    let active = true
+    let scheduled = false
+    const publish = () => {
+      scheduled = false
+      if (!active)
+        return
+      const document = session.editor.getDocJSON()
+      onLoroChangeRef.current?.({
+        document,
+        nodes: projectEditorDocumentNodes(document),
+        snapshot: new Uint8Array(loro.doc.export({ mode: 'snapshot' })),
+      })
+    }
+    const schedule = () => {
+      if (scheduled)
+        return
+      scheduled = true
+      queueMicrotask(publish)
+    }
+    const unsubscribe = loro.doc.subscribeLocalUpdates(schedule)
+    schedule()
+
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [session])
 
   useEffect(() => {
     if (!controlledFocusProvided)

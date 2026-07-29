@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@memorilo/desktop-preload": "workspace:*",
     "@playwright/test": "1.61.1",
     "electron": "43.2.0"
   }

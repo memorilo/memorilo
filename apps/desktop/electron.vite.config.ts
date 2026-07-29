@@ -4,6 +4,7 @@ import stylex from '@stylexjs/unplugin/vite'
 import { tanstackRouter as TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
+import wasm from 'vite-plugin-wasm'
 
 const desktopRoot = dirname(fileURLToPath(import.meta.url))
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
@@ -19,7 +20,8 @@ export default defineConfig({
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/main'),
       externalizeDeps: {
-        include: ['better-sqlite3'],
+        exclude: ['@memorilo/editor-storage'],
+        include: ['@huggingface/transformers', 'better-sqlite3', 'sqlite-vec'],
       },
       rollupOptions: {
         input: resolve(desktopRoot, 'main/src/index.ts'),
@@ -47,6 +49,7 @@ export default defineConfig({
   renderer: {
     root: resolve(desktopRoot, 'renderer'),
     plugins: [
+      wasm(),
       TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
       stylex(stylexOptions),
       react(),
