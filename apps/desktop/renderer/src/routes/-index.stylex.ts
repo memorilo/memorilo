@@ -28,7 +28,7 @@ export const editorRouteStyles = stylex.create({
     zIndex: 2,
     display: 'flex',
     width: 248,
-    minWidth: 248,
+    minWidth: 0,
     minHeight: 0,
     overflow: 'hidden',
     flexDirection: 'column',

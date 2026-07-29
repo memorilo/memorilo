@@ -142,10 +142,10 @@ function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, save
           ? (
               <motion.aside
                 {...stylex.props(editorRouteStyles.sidebar)}
-                animate={{ marginLeft: 8, minWidth: 248, opacity: 1, width: 248, x: 0 }}
+                animate={{ marginLeft: 8, opacity: 1, width: 248, x: 0 }}
                 aria-label="Workspace navigation"
-                exit={{ marginLeft: 0, minWidth: 0, opacity: 0, width: 0, x: -18 }}
-                initial={{ marginLeft: 0, minWidth: 0, opacity: 0, width: 0, x: -18 }}
+                exit={{ marginLeft: 0, opacity: 0, width: 0, x: -18 }}
+                initial={{ marginLeft: 0, opacity: 0, width: 0, x: -18 }}
                 transition={transition}
               >
                 <div {...stylex.props(editorRouteStyles.sidebarTitlebar)} data-window-drag="" />
