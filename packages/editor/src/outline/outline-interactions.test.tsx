@@ -5,9 +5,10 @@ import { render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
+import { EditorTestHarness as Editor } from '../../test/browser/editor-test-harness'
 import { userEvent } from '../../test/browser/user-event'
 
-import { Editor } from '../editor'
+import { EditorMode } from '../common/editor-mode'
 import { testLayoutStyles } from '../test/test-layout.stylex'
 
 const adapters: EditorAdapters = {
@@ -162,7 +163,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('Before')] }}
       />,
     )
@@ -187,7 +188,7 @@ describe('outline interactions', () => {
       <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
         <Editor
           adapters={adapters}
-          mode="outline"
+          mode={EditorMode.Outline}
           initialContent={{ type: 'doc', content: [block('Before'), block('After')] }}
         />
       </div>,
@@ -218,7 +219,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('Before'), block('After')] }}
       />,
     )
@@ -248,7 +249,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [
@@ -277,7 +278,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [block('Root', [emptyBlock('Empty', [block('Child')])])],
@@ -300,7 +301,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('Before'), emptyBlock('Branch', [block('Child')])] }}
       />,
     )
@@ -326,7 +327,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('Parent')] }}
       />,
     )
@@ -351,7 +352,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('Parent')] }}
       />,
     )
@@ -378,7 +379,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('Before'), emptyBlock('Branch', [block('Child')])] }}
       />,
     )
@@ -405,7 +406,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [
@@ -433,7 +434,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('A'), block('B')] }}
       />,
     )
@@ -458,7 +459,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('A'), block('B')] }}
       />,
     )
@@ -484,7 +485,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('A'), emptyBlock('B')] }}
       />,
     )
@@ -499,7 +500,7 @@ describe('outline interactions', () => {
   })
 
   it('supports non-contiguous and continuous block selections as local view state', async () => {
-    const rendered = render(<EditorModeHarness adapters={adapters} initialContent={outlineDocument()} initialMode="outline" />)
+    const rendered = render(<EditorModeHarness adapters={adapters} initialContent={outlineDocument()} initialMode={EditorMode.Outline} />)
     await waitFor(() => expect(rendered.container.querySelector('[data-block-id="E"]')).not.toBeNull())
 
     await userEvent.click(marker(rendered.container, 'B'), { modifiers: ['Meta'] })
@@ -520,7 +521,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={outlineDocument()}
         outline={{ defaultFocus: { path: [0, 1] } }}
         onDocumentChange={onDocumentChange}
@@ -548,7 +549,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={outlineDocument()}
         outline={{ focus: { blockId: 'D' } }}
       />,
@@ -564,7 +565,7 @@ describe('outline interactions', () => {
       <EditorModeHarness
         adapters={adapters}
         initialContent={outlineDocument()}
-        initialMode="outline"
+        initialMode={EditorMode.Outline}
         onDocumentChange={onDocumentChange}
       />,
     )
@@ -588,7 +589,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={outlineDocument()}
         onDocumentChange={onDocumentChange}
       />,
@@ -631,7 +632,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={outlineDocument()}
         onDocumentChange={onDocumentChange}
       />,
@@ -658,7 +659,7 @@ describe('outline interactions', () => {
   })
 
   it('uses the selected blocks for Logical Outdent from Shift-Tab', async () => {
-    const rendered = render(<Editor adapters={adapters} mode="outline" initialContent={outlineDocument()} />)
+    const rendered = render(<Editor adapters={adapters} mode={EditorMode.Outline} initialContent={outlineDocument()} />)
     await waitFor(() => expect(rendered.container.querySelector('[data-block-id="D"]')).not.toBeNull())
 
     await userEvent.click(marker(rendered.container, 'B'), { modifiers: ['Meta'] })
@@ -678,7 +679,7 @@ describe('outline interactions', () => {
       <div {...stylex.props(testLayoutStyles.fixedEditorViewport)}>
         <Editor
           adapters={adapters}
-          mode="outline"
+          mode={EditorMode.Outline}
           initialContent={{
             type: 'doc',
             content: [...precedingBlocks, block('Parent', [block('Target')]), ...followingBlocks],
@@ -708,7 +709,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={outlineDocument()}
         onDocumentChange={onDocumentChange}
       />,
@@ -735,7 +736,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{ type: 'doc', content: [block('F', [block('A', [block('B')])])] }}
         outline={{ defaultFocus: { blockId: 'F' } }}
         onDocumentChange={onDocumentChange}
@@ -755,7 +756,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [{
@@ -787,7 +788,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [blockWithBody(
@@ -812,7 +813,7 @@ describe('outline interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [blockWithBody(

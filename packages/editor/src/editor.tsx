@@ -1,14 +1,14 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
 import type { OutlineOptions } from './common/outline-runtime'
-import type { EditorLoroOptions } from './document/loro-document'
+import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { EditorMode, editorModeName } from './common/editor-mode'
 import { createEditorSession } from './common/editor-session'
 import { editorShellStyles } from './common/editor-shell.stylex'
 import { resolveOutlineFocusTarget } from './common/outline-runtime'
-import { projectEditorDocumentNodes } from './document/loro-document'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
@@ -24,21 +24,19 @@ const OutlineEditor = lazy(async () => {
   return { default: module.OutlineEditor }
 })
 
-export type EditorMode = 'document' | 'outline'
-
-export interface EditorProps {
+interface EditorBaseProps {
   adapters: EditorAdapters
-  initialContent?: NodeJSON
-  loro?: EditorLoroOptions
-  mode: EditorMode
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
+}
+
+export interface EditorProps extends EditorBaseProps {
+  topic: EditorTopicDocument
 }
 
 export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
-  const onLoroChangeRef = useRef(props.loro?.onChange)
   const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
     ? {
         defaultFocus: props.outline.defaultFocus,
@@ -46,52 +44,17 @@ export function Editor(props: EditorProps) {
       }
     : undefined)
   onDocumentChangeRef.current = props.onDocumentChange
-  onLoroChangeRef.current = props.loro?.onChange
-  const loroDocument = props.loro?.document
-  const loroSnapshot = props.loro === undefined || loroDocument !== undefined ? undefined : props.loro.snapshot ?? null
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
+  const subscribeToMode = useCallback((listener: () => void) => props.topic.subscribe(listener), [props.topic])
+  const getModeSnapshot = useCallback(() => props.topic.getMode(), [props.topic])
+  const mode = useSyncExternalStore(subscribeToMode, getModeSnapshot, getModeSnapshot)
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
-    initialContent: props.initialContent,
-    loroDocument,
-    loroSnapshot,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
-  }), [props.adapters, props.initialContent, loroDocument, loroSnapshot])
-
-  useEffect(() => {
-    const loro = session.loro
-    if (!loro)
-      return
-
-    let active = true
-    let scheduled = false
-    const publish = () => {
-      scheduled = false
-      if (!active)
-        return
-      const document = session.editor.getDocJSON()
-      onLoroChangeRef.current?.({
-        document,
-        nodes: projectEditorDocumentNodes(document),
-        snapshot: new Uint8Array(loro.doc.export({ mode: 'snapshot' })),
-      })
-    }
-    const schedule = () => {
-      if (scheduled)
-        return
-      scheduled = true
-      queueMicrotask(publish)
-    }
-    const unsubscribe = loro.doc.subscribeLocalUpdates(schedule)
-    schedule()
-
-    return () => {
-      active = false
-      unsubscribe()
-    }
-  }, [session])
+    topicDocument: props.topic,
+  }), [props.adapters, props.topic])
 
   useEffect(() => {
     if (!controlledFocusProvided)
@@ -101,15 +64,15 @@ export function Editor(props: EditorProps) {
   }, [controlledFocus, controlledFocusProvided, session])
 
   useLayoutEffect(() => {
-    session.outlineRuntime.setActive(props.mode === 'outline')
-  }, [props.mode, session])
+    session.outlineRuntime.setActive(mode === EditorMode.Outline)
+  }, [mode, session])
 
   return (
     <Provider store={session.store}>
-      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={props.mode}>
+      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={editorModeName(mode)}>
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading editor mode…</div>}>
-          <DocumentEditor mode={props.mode} session={session}>
-            {props.mode === 'outline'
+          <DocumentEditor mode={mode} session={session}>
+            {mode === EditorMode.Outline
               ? (
                   <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading Outline mode…</div>}>
                     <OutlineEditor options={props.outline} rootRef={rootRef} session={session} />

@@ -5,8 +5,9 @@ import { render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it } from 'vitest'
 import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
+import { EditorTestHarness as Editor } from '../../test/browser/editor-test-harness'
 import { userEvent } from '../../test/browser/user-event'
-import { Editor } from '../editor'
+import { EditorMode } from '../common/editor-mode'
 import { testLayoutStyles } from '../test/test-layout.stylex'
 
 const adapters: EditorAdapters = {
@@ -106,7 +107,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [documentBlock('before', paragraph('Before'))],
@@ -134,7 +135,7 @@ describe('document interactions', () => {
       <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
         <Editor
           adapters={adapters}
-          mode="document"
+          mode={EditorMode.Document}
           initialContent={{
             type: 'doc',
             content: [
@@ -171,7 +172,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -207,7 +208,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [documentBlock('paragraph', paragraph('Document paragraph'))],
@@ -240,7 +241,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -269,7 +270,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -296,7 +297,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -330,7 +331,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -363,7 +364,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -401,7 +402,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -428,7 +429,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -459,7 +460,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -491,7 +492,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -522,7 +523,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -556,7 +557,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{ type: 'doc', content: [item] }}
       />,
     )
@@ -584,7 +585,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{ type: 'doc', content: [first, second] }}
       />,
     )
@@ -605,7 +606,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [
@@ -639,7 +640,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{ type: 'doc', content: [first, second] }}
       />,
     )
@@ -667,7 +668,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [{
@@ -698,7 +699,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [documentBlock('Toggle', paragraph('Toggle item'), 'toggle', [documentBlock('Child', paragraph('Child item'))])],
@@ -718,7 +719,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="document"
+        mode={EditorMode.Document}
         initialContent={{
           type: 'doc',
           content: [documentBlock('Parent', paragraph('Parent'), 'outline', [documentBlock('Table', table())])],

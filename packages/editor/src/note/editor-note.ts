@@ -1,0 +1,568 @@
+import type { LoroMap, UndoManager as LoroUndoManager } from 'loro-crdt'
+import type { NodeJSON } from 'prosekit/core'
+import type { EditorModeValue } from '../common/editor-mode'
+import type { TopicBlockProjection } from './topic-projection'
+import {
+  createNodeJsonFromLoroTree,
+  initializeLoroTreeFromJson,
+} from '@memorilo/loro-prosemirror-tree/model'
+import {
+  LoroDoc,
+  UndoManager,
+} from 'loro-crdt'
+import { assertEditorMode } from '../common/editor-mode'
+import { normalizeOutlineDocument } from '../common/outline-document'
+import { projectTopicBlocks } from './topic-projection'
+
+const NOTE_META_KEY = 'noteMeta'
+const NOTE_ENTRIES_KEY = 'entries'
+const NOTE_SCHEMA_VERSION = 3
+const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
+const ENTRY_ID_KEY = 'entryId'
+const ENTRY_KIND_KEY = 'kind'
+const FOLDER_NAME_KEY = 'name'
+const TOPIC_TITLE_KEY = 'title'
+const TOPIC_EDITOR_MODE_KEY = 'editorMode'
+const TOPIC_BLOCK_TREE_KEY = 'blockTreeKey'
+
+export type NoteEntryKind = 'folder' | 'topic'
+
+interface NoteEntryBase {
+  id: string
+  ordinal: number
+  parentId: string | null
+}
+
+export interface FolderSnapshot extends NoteEntryBase {
+  kind: 'folder'
+  name: string
+}
+
+export interface TopicSnapshot extends NoteEntryBase {
+  kind: 'topic'
+  mode: EditorModeValue
+  title: string
+}
+
+export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
+
+export interface TopicContentProjection {
+  blocks: readonly TopicBlockProjection[]
+  topicId: string
+}
+
+export interface EditorNoteChange {
+  noteId: string
+  update: Uint8Array
+}
+
+export interface EditorNoteMutation {
+  entriesChanged: boolean
+  metadataChanged: boolean
+  topicIds: readonly string[]
+}
+
+export interface EditorNoteVersion {
+  readonly counter: number
+  readonly peer: `${number}`
+}
+
+export interface CreateFolderInput {
+  index?: number
+  name: string
+  parentId?: string | null
+}
+
+export interface CreateTopicInput {
+  index?: number
+  initialContent?: NodeJSON
+  mode: EditorModeValue
+  parentId?: string | null
+  title: string
+}
+
+export interface MoveNoteEntryInput {
+  entryId: string
+  index?: number
+  parentId?: string | null
+}
+
+export type DeleteNoteEntryStrategy = 'delete-subtree' | 'promote-children'
+
+export interface DeleteNoteEntryInput {
+  entryId: string
+  strategy: DeleteNoteEntryStrategy
+}
+
+export interface EditorTopicDocument {
+  readonly getMode: () => EditorModeValue
+  readonly noteId: string
+  readonly setMode: (mode: EditorModeValue) => void
+  readonly subscribe: (listener: () => void) => () => void
+  readonly topicId: string
+}
+
+export interface EditorNote {
+  readonly id: string
+  bindTopic: (topicId: string) => EditorTopicDocument
+  checkout: (version: readonly EditorNoteVersion[]) => void
+  checkoutLatest: () => void
+  createFolder: (input: CreateFolderInput) => string
+  createTopic: (input: CreateTopicInput) => string
+  deleteEntry: (input: DeleteNoteEntryInput) => void
+  exportSnapshot: () => Uint8Array
+  exportUpdates: (from?: readonly EditorNoteVersion[]) => Uint8Array
+  getEntries: () => readonly NoteEntrySnapshot[]
+  getTopicContent: (topicId: string) => TopicContentProjection
+  getTitle: () => string
+  getVersion: () => readonly EditorNoteVersion[]
+  importUpdates: (updates: Uint8Array) => EditorNoteMutation
+  isTimeTraveling: () => boolean
+  moveEntry: (input: MoveNoteEntryInput) => void
+  renameEntry: (entryId: string, label: string) => void
+  renameNote: (title: string) => void
+  subscribe: (listener: (change: EditorNoteChange) => void) => () => void
+}
+
+export interface CreateEditorNoteOptions {
+  id: string
+  snapshot?: Uint8Array | null
+  title?: string
+  updates?: readonly Uint8Array[]
+}
+
+export interface EditorTopicBinding {
+  doc: LoroDoc
+  tree: ReturnType<LoroDoc['getTree']>
+  topicId: string
+  undoManager: LoroUndoManager
+}
+
+interface EditorNoteRuntime {
+  doc: LoroDoc
+  listeners: Set<(change: EditorNoteChange) => void>
+  note: EditorNote
+  undoManager?: LoroUndoManager
+}
+
+interface EditorTopicDocumentRuntime {
+  note: EditorNoteRuntime
+  topicId: string
+}
+
+const noteRuntimes = new WeakMap<EditorNote, EditorNoteRuntime>()
+const topicRuntimes = new WeakMap<EditorTopicDocument, EditorTopicDocumentRuntime>()
+
+function assertNonEmpty(value: string, name: string): string {
+  const normalized = value.trim()
+  if (normalized.length === 0)
+    throw new TypeError(`${name} must be a non-empty string`)
+  return normalized
+}
+
+function validateBinary(value: Uint8Array, name: string): void {
+  if (!(value instanceof Uint8Array) || value.byteLength === 0)
+    throw new TypeError(`${name} must be a non-empty Uint8Array`)
+}
+
+function readString(map: LoroMap, key: string, description: string): string {
+  const value = map.get(key)
+  if (typeof value !== 'string' || value.length === 0)
+    throw new Error(`${description} must be a non-empty string`)
+  return value
+}
+
+function readNoteTitle(doc: LoroDoc): string {
+  return readString(doc.getMap(NOTE_META_KEY), 'title', 'Note title')
+}
+
+function noteTree(doc: LoroDoc) {
+  return doc.getTree(NOTE_ENTRIES_KEY)
+}
+
+function entryNode(runtime: EditorNoteRuntime, entryId: string) {
+  assertNonEmpty(entryId, 'Note entry id')
+  const node = noteTree(runtime.doc).getNodes().find(candidate => candidate.data.get(ENTRY_ID_KEY) === entryId)
+  if (!node)
+    throw new Error(`Unknown NoteEntry: ${entryId}`)
+  return node
+}
+
+function topicBlockTree(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>) {
+  const kind = node.data.get(ENTRY_KIND_KEY)
+  if (kind !== 'topic')
+    throw new TypeError(`NoteEntry ${readString(node.data, ENTRY_ID_KEY, 'NoteEntry id')} is not a Topic`)
+  const blockTreeKey = readString(node.data, TOPIC_BLOCK_TREE_KEY, 'Topic Block tree key')
+  return runtime.doc.getTree(blockTreeKey)
+}
+
+function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
+  entries: readonly NoteEntrySnapshot[]
+  topics: readonly TopicContentProjection[]
+} {
+  const entries: NoteEntrySnapshot[] = []
+  const topics: TopicContentProjection[] = []
+  const seenEntryIds = new Set<string>()
+
+  const visit = (
+    nodes: ReturnType<ReturnType<typeof noteTree>['toArray']>,
+    parentId: string | null,
+    parentKind: NoteEntryKind | null,
+  ): void => {
+    nodes.forEach((node, ordinal) => {
+      const id = readString(node.meta, ENTRY_ID_KEY, 'NoteEntry id')
+      if (seenEntryIds.has(id))
+        throw new Error(`Duplicate NoteEntry id: ${id}`)
+      seenEntryIds.add(id)
+      const kind = node.meta.get(ENTRY_KIND_KEY)
+
+      if (kind === 'folder') {
+        if (node.meta.get(TOPIC_BLOCK_TREE_KEY) !== undefined)
+          throw new Error(`Folder ${id} must not have a Topic Block tree`)
+        if (node.meta.get(TOPIC_EDITOR_MODE_KEY) !== undefined)
+          throw new Error(`Folder ${id} must not have an Editor mode`)
+        entries.push({
+          id,
+          kind,
+          name: readString(node.meta, FOLDER_NAME_KEY, `Folder ${id} name`),
+          ordinal,
+          parentId,
+        })
+      }
+      else if (kind === 'topic') {
+        if (parentKind === 'folder')
+          throw new Error(`Topic ${id} cannot use Folder ${parentId} as its parent`)
+        const blockTreeKey = readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)
+        const blockTree = runtime.doc.getTree(blockTreeKey)
+        entries.push({
+          id,
+          kind,
+          mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+          ordinal,
+          parentId,
+          title: readString(node.meta, TOPIC_TITLE_KEY, `Topic ${id} title`),
+        })
+
+        if (includeTopics) {
+          const document = createNodeJsonFromLoroTree(blockTree) as NodeJSON | undefined
+          if (!document)
+            throw new Error(`Topic ${id} does not contain an initialized document`)
+          topics.push({
+            blocks: projectTopicBlocks(document),
+            topicId: id,
+          })
+        }
+      }
+      else {
+        throw new Error(`NoteEntry ${id} has unknown kind: ${String(kind)}`)
+      }
+
+      visit(node.children, id, kind)
+    })
+  }
+
+  visit(noteTree(runtime.doc).toArray(), null, null)
+  return { entries, topics }
+}
+
+function emitChange(runtime: EditorNoteRuntime, update: Uint8Array): void {
+  const change: EditorNoteChange = {
+    noteId: runtime.note.id,
+    update: new Uint8Array(update),
+  }
+  runtime.listeners.forEach(listener => listener(change))
+}
+
+function resolveParent(runtime: EditorNoteRuntime, parentId: string | null | undefined) {
+  if (parentId === null || parentId === undefined)
+    return undefined
+  return entryNode(runtime, parentId)
+}
+
+function assertTopicParent(parent: ReturnType<typeof entryNode> | undefined): void {
+  if (parent?.data.get(ENTRY_KIND_KEY) === 'folder') {
+    const parentId = readString(parent.data, ENTRY_ID_KEY, 'Folder id')
+    throw new TypeError(`Topic cannot use Folder ${parentId} as its parent`)
+  }
+}
+
+function emptyTopicDocument(): NodeJSON {
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph' }],
+  }
+}
+
+function mutationRoot(eventPath: readonly unknown[], targetPath: readonly unknown[]): string | undefined {
+  const root = eventPath[0] ?? targetPath[0]
+  return typeof root === 'string' ? root : undefined
+}
+
+function resolveIndex(index: number | undefined): number | undefined {
+  if (index === undefined)
+    return undefined
+  if (!Number.isInteger(index) || index < 0)
+    throw new RangeError('NoteEntry index must be a non-negative integer')
+  return index
+}
+
+function inUndoGroup<Result>(runtime: EditorNoteRuntime, operation: () => Result): Result {
+  const undoManager = runtime.undoManager
+  if (!undoManager)
+    return operation()
+  undoManager.groupStart()
+  let result: Result
+  try {
+    result = operation()
+  }
+  finally {
+    undoManager.groupEnd()
+  }
+  const meta = runtime.doc.getMap(NOTE_META_KEY)
+  const current = meta.get(NOTE_UNDO_BOUNDARY_KEY)
+  if (current !== undefined && (typeof current !== 'number' || !Number.isSafeInteger(current) || current < 0))
+    throw new Error('Note undo boundary must be a non-negative safe integer')
+  meta.set(NOTE_UNDO_BOUNDARY_KEY, (current ?? 0) + 1)
+  runtime.doc.commit({ origin: 'sys:undo-boundary' })
+  return result
+}
+
+function createEntryId(): string {
+  return crypto.randomUUID()
+}
+
+function initializeNote(doc: LoroDoc, id: string, title: string): void {
+  const meta = doc.getMap(NOTE_META_KEY)
+  meta.set('id', id)
+  meta.set('schemaVersion', NOTE_SCHEMA_VERSION)
+  meta.set('title', title)
+  doc.getTree(NOTE_ENTRIES_KEY)
+  doc.commit({ origin: 'sys:init-note' })
+}
+
+function validateRestoredNote(doc: LoroDoc, expectedId: string): void {
+  const meta = doc.getMap(NOTE_META_KEY)
+  const id = readString(meta, 'id', 'Note id')
+  if (id !== expectedId)
+    throw new Error(`Stored Note id ${id} does not match requested Note ${expectedId}`)
+  const schemaVersion = meta.get('schemaVersion')
+  if (schemaVersion !== NOTE_SCHEMA_VERSION)
+    throw new Error(`Unsupported Note schema version: ${String(schemaVersion)}`)
+  readNoteTitle(doc)
+  projectEditorNote({
+    doc,
+    listeners: new Set(),
+    note: { id: expectedId } as EditorNote,
+  })
+}
+
+export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
+  const id = assertNonEmpty(options.id, 'Note id')
+  const doc = new LoroDoc()
+  if (options.snapshot !== null && options.snapshot !== undefined) {
+    validateBinary(options.snapshot, 'Note snapshot')
+    doc.import(options.snapshot)
+  }
+  for (const update of options.updates ?? []) {
+    validateBinary(update, 'Note update')
+    doc.import(update)
+  }
+
+  let runtime: EditorNoteRuntime
+  const note: EditorNote = {
+    id,
+    bindTopic: (topicId) => {
+      const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
+      const node = entryNode(runtime, normalizedTopicId)
+      topicBlockTree(runtime, node)
+      assertEditorMode(node.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${normalizedTopicId} Editor mode`)
+      const document: EditorTopicDocument = {
+        getMode: () => {
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          return assertEditorMode(boundNode.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${normalizedTopicId} Editor mode`)
+        },
+        noteId: id,
+        setMode: (mode) => {
+          const normalizedMode = assertEditorMode(mode, `Topic ${normalizedTopicId} Editor mode`)
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          if (boundNode.data.get(TOPIC_EDITOR_MODE_KEY) === normalizedMode)
+            return
+          boundNode.data.set(TOPIC_EDITOR_MODE_KEY, normalizedMode)
+          doc.commit({ origin: 'ui:set-topic-editor-mode' })
+        },
+        subscribe: listener => doc.subscribe(() => listener()),
+        topicId: normalizedTopicId,
+      }
+      topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
+      return document
+    },
+    checkout: version => doc.checkout([...version]),
+    checkoutLatest: () => doc.checkoutToLatest(),
+    createFolder: (input) => {
+      return inUndoGroup(runtime, () => {
+        const parent = resolveParent(runtime, input.parentId)
+        const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
+        const entryId = createEntryId()
+        node.data.set(ENTRY_ID_KEY, entryId)
+        node.data.set(ENTRY_KIND_KEY, 'folder')
+        node.data.set(FOLDER_NAME_KEY, assertNonEmpty(input.name, 'Folder name'))
+        doc.commit({ origin: 'note:create-folder' })
+        return entryId
+      })
+    },
+    createTopic: (input) => {
+      return inUndoGroup(runtime, () => {
+        const parent = resolveParent(runtime, input.parentId)
+        assertTopicParent(parent)
+        const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
+        const entryId = createEntryId()
+        node.data.set(ENTRY_ID_KEY, entryId)
+        node.data.set(ENTRY_KIND_KEY, 'topic')
+        node.data.set(TOPIC_TITLE_KEY, assertNonEmpty(input.title, 'Topic title'))
+        node.data.set(TOPIC_EDITOR_MODE_KEY, assertEditorMode(input.mode, 'Topic Editor mode'))
+        const blockTreeKey = `topic:${entryId}:blocks`
+        const blockTree = doc.getTree(blockTreeKey)
+        node.data.set(TOPIC_BLOCK_TREE_KEY, blockTreeKey)
+        const initialContent = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
+        initializeLoroTreeFromJson(blockTree, initialContent)
+        doc.commit({ origin: 'note:create-topic' })
+        return entryId
+      })
+    },
+    deleteEntry: (input) => {
+      inUndoGroup(runtime, () => {
+        const node = entryNode(runtime, input.entryId)
+        const parent = node.parent()
+        const index = node.index()
+        if (index === undefined)
+          throw new Error(`NoteEntry ${input.entryId} does not have a tree position`)
+
+        if (input.strategy === 'promote-children') {
+          const children = node.children() ?? []
+          children.forEach((child, offset) => child.move(parent, index + offset))
+          noteTree(doc).delete(node.id)
+        }
+        else if (input.strategy === 'delete-subtree') {
+          const remove = (current: typeof node): void => {
+            current.children()?.forEach(remove)
+            noteTree(doc).delete(current.id)
+          }
+          remove(node)
+        }
+        else {
+          throw new TypeError(`Unknown NoteEntry deletion strategy: ${String(input.strategy)}`)
+        }
+        doc.commit({ origin: 'note:delete-entry' })
+      })
+    },
+    exportSnapshot: () => new Uint8Array(doc.export({ mode: 'snapshot' })),
+    exportUpdates: from => new Uint8Array(doc.export(from === undefined
+      ? { mode: 'update' }
+      : { mode: 'update', from: doc.frontiersToVV([...from]) })),
+    getEntries: () => projectEditorNote(runtime, false).entries,
+    getTopicContent: (topicId) => {
+      const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
+      const node = entryNode(runtime, normalizedTopicId)
+      const blockTree = topicBlockTree(runtime, node)
+      const document = createNodeJsonFromLoroTree(blockTree) as NodeJSON | undefined
+      if (!document)
+        throw new Error(`Topic ${normalizedTopicId} does not contain an initialized document`)
+      return {
+        blocks: projectTopicBlocks(document),
+        topicId: normalizedTopicId,
+      }
+    },
+    getTitle: () => readNoteTitle(doc),
+    getVersion: () => doc.frontiers().map(({ counter, peer }) => ({ counter, peer })),
+    importUpdates: (updates) => {
+      validateBinary(updates, 'Note updates')
+      const roots = new Set<string>()
+      const unsubscribe = doc.subscribe((batch) => {
+        for (const event of batch.events) {
+          const path = doc.getPathToContainer(event.target) ?? []
+          const root = mutationRoot(event.path, path)
+          if (root)
+            roots.add(root)
+        }
+      })
+      doc.import(updates)
+      unsubscribe()
+      return {
+        entriesChanged: roots.has(NOTE_ENTRIES_KEY),
+        metadataChanged: roots.has(NOTE_META_KEY),
+        topicIds: [...roots]
+          .filter(root => root.startsWith('topic:') && root.endsWith(':blocks'))
+          .map(root => root.slice('topic:'.length, -':blocks'.length)),
+      }
+    },
+    isTimeTraveling: () => doc.isDetached(),
+    moveEntry: (input) => {
+      inUndoGroup(runtime, () => {
+        const node = entryNode(runtime, input.entryId)
+        const parent = resolveParent(runtime, input.parentId)
+        if (node.data.get(ENTRY_KIND_KEY) === 'topic')
+          assertTopicParent(parent)
+        noteTree(doc).move(node.id, parent?.id, resolveIndex(input.index))
+        doc.commit({ origin: 'note:move-entry' })
+      })
+    },
+    renameEntry: (entryId, label) => {
+      inUndoGroup(runtime, () => {
+        const node = entryNode(runtime, entryId)
+        const normalized = assertNonEmpty(label, 'NoteEntry label')
+        const kind = node.data.get(ENTRY_KIND_KEY)
+        if (kind === 'folder')
+          node.data.set(FOLDER_NAME_KEY, normalized)
+        else if (kind === 'topic')
+          node.data.set(TOPIC_TITLE_KEY, normalized)
+        else
+          throw new Error(`NoteEntry ${entryId} has unknown kind: ${String(kind)}`)
+        doc.commit({ origin: 'note:rename-entry' })
+      })
+    },
+    renameNote: (title) => {
+      inUndoGroup(runtime, () => {
+        doc.getMap(NOTE_META_KEY).set('title', assertNonEmpty(title, 'Note title'))
+        doc.commit({ origin: 'note:rename' })
+      })
+    },
+    subscribe: (listener) => {
+      runtime.listeners.add(listener)
+      return () => runtime.listeners.delete(listener)
+    },
+  }
+
+  runtime = { doc, listeners: new Set(), note }
+  noteRuntimes.set(note, runtime)
+
+  if (options.snapshot === null || options.snapshot === undefined) {
+    if ((options.updates?.length ?? 0) > 0)
+      validateRestoredNote(doc, id)
+    else
+      initializeNote(doc, id, assertNonEmpty(options.title ?? 'Untitled', 'Note title'))
+  }
+  else {
+    validateRestoredNote(doc, id)
+  }
+
+  runtime.undoManager = new UndoManager(doc, { excludeOriginPrefixes: ['sys:', 'ui:'] })
+  doc.subscribeLocalUpdates(update => emitChange(runtime, update))
+  return note
+}
+
+export function resolveEditorTopicBinding(document: EditorTopicDocument): EditorTopicBinding {
+  const binding = topicRuntimes.get(document)
+  if (!binding)
+    throw new TypeError('Expected a Topic document created by EditorNote.bindTopic')
+  const node = entryNode(binding.note, binding.topicId)
+  const blockTree = topicBlockTree(binding.note, node)
+  const undoManager = binding.note.undoManager
+  if (!undoManager)
+    throw new Error('EditorNote UndoManager is not initialized')
+  return {
+    doc: binding.note.doc,
+    tree: blockTree,
+    topicId: binding.topicId,
+    undoManager,
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@memorilo/loro-prosemirror-tree",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./model": "./src/model.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "loro-crdt": "1.13.8",
+    "prosemirror-model": "1.25.11",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.42.1"
+  }
+}

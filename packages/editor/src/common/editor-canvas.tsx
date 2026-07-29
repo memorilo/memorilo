@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { EditorModeValue } from './editor-mode'
 import type { EditorSession } from './editor-session'
 import * as stylex from '@stylexjs/stylex'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -37,7 +38,7 @@ export function EditorCanvas({
   modeControls,
   session,
 }: {
-  mode: 'document' | 'outline'
+  mode: EditorModeValue
   modeControls?: ReactNode
   session: EditorSession
 }) {

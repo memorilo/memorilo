@@ -4,7 +4,28 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { v7 as createUuidV7 } from 'uuid'
 
-export interface DocumentNodeSnapshot {
+export interface FolderProjection {
+  id: string
+  kind: 'folder'
+  name: string
+  ordinal: number
+  parentId: string | null
+}
+
+export type TopicEditorMode = 0 | 1
+
+export interface TopicProjection {
+  id: string
+  kind: 'topic'
+  mode: TopicEditorMode
+  ordinal: number
+  parentId: string | null
+  title: string
+}
+
+export type NoteEntryProjection = FolderProjection | TopicProjection
+
+export interface TopicBlockProjection {
   attributes: Readonly<Record<string, unknown>>
   id: string
   kind: string
@@ -13,56 +34,84 @@ export interface DocumentNodeSnapshot {
   text: string
 }
 
-export interface StoredDocument {
+export interface TopicContentProjection {
+  blocks: readonly TopicBlockProjection[]
+  topicId: string
+}
+
+export interface StoredNoteUpdate {
+  sequence: number
+  update: Uint8Array
+}
+
+export interface StoredNote {
+  checkpointSequence: number
   id: string
+  latestSequence: number
   snapshot: Uint8Array | null
   title: string
   updatedAt: number
+  updates: readonly StoredNoteUpdate[]
 }
 
-export interface SaveDocumentInput {
-  id: string
-  nodes: readonly DocumentNodeSnapshot[]
+export interface SaveNoteUpdatesInput {
+  entries?: readonly NoteEntryProjection[]
+  noteId: string
+  title?: string
+  topics: readonly TopicContentProjection[]
+  updates: readonly Uint8Array[]
+}
+
+export interface CheckpointNoteInput {
+  noteId: string
   snapshot: Uint8Array
-  title: string
+  throughSequence: number
 }
 
-export interface GetNodeInput {
-  documentId: string
-  nodeId: string
+export interface NoteWriteReceipt {
+  latestSequence: number
+  updatedAt: number
 }
 
-export type NodeSearchMode = 'hybrid' | 'lexical' | 'semantic'
+export interface GetTopicBlockInput {
+  blockId: string
+  noteId: string
+  topicId: string
+}
 
-export interface SearchNodesInput {
-  documentId?: string
+export type TopicBlockSearchMode = 'hybrid' | 'lexical' | 'semantic'
+
+export interface SearchTopicBlocksInput {
   limit?: number
-  mode?: NodeSearchMode
+  mode?: TopicBlockSearchMode
+  noteId?: string
   query: string
 }
 
 export interface IndexPendingEmbeddingsInput {
-  documentId?: string
   limit?: number
+  noteId?: string
 }
 
-export interface StoredDocumentNode extends DocumentNodeSnapshot {
+export interface StoredTopicBlock extends TopicBlockProjection {
   contentHash: string
-  documentId: string
+  noteId: string
+  topicId: string
 }
 
-export interface NodeSearchHit extends StoredDocumentNode {
+export interface TopicBlockSearchHit extends StoredTopicBlock {
   preview: string
   rank: number
 }
 
 export interface EditorStorage {
+  checkpointNote: (input: CheckpointNoteInput) => Promise<NoteWriteReceipt>
   close: () => Promise<void>
-  getNode: (input: GetNodeInput) => Promise<StoredDocumentNode | null>
+  getTopicBlock: (input: GetTopicBlockInput) => Promise<StoredTopicBlock | null>
   indexPendingEmbeddings: (input?: IndexPendingEmbeddingsInput) => Promise<number>
-  openMostRecentDocument: () => Promise<StoredDocument>
-  saveDocument: (input: SaveDocumentInput) => Promise<StoredDocument>
-  searchNodes: (input: SearchNodesInput) => Promise<readonly NodeSearchHit[]>
+  openMostRecentNote: () => Promise<StoredNote>
+  saveNoteUpdates: (input: SaveNoteUpdatesInput) => Promise<NoteWriteReceipt>
+  searchTopicBlocks: (input: SearchTopicBlocksInput) => Promise<readonly TopicBlockSearchHit[]>
 }
 
 export interface CreateEditorStorageOptions {
@@ -70,39 +119,60 @@ export interface CreateEditorStorageOptions {
   embeddingModel: EmbeddingModel
 }
 
-interface DocumentRow {
-  crdt_snapshot: Uint8Array | null
+interface NoteRow {
+  checkpoint_sequence: number
+  checkpoint_snapshot: Uint8Array | null
   id: string
+  latest_sequence: number
   row_id: number
   title: string
   updated_at: number
 }
 
-interface ExistingNodeRow {
+interface NoteUpdateRow {
+  sequence: number
+  update_blob: Uint8Array
+}
+
+interface NoteUpdateHashRow {
+  update_hash: string
+}
+
+interface ExistingEntryRow {
+  entry_id: string
+}
+
+interface ExistingTopicRow {
+  topic_id: string
+}
+
+interface ExistingBlockRow {
+  block_id: string
   content_hash: string
-  node_id: string
   row_id: number
+  topic_id: string
 }
 
-interface DocumentNodeRow {
+interface TopicBlockRow {
   attributes_json: string
+  block_id: string
   content_hash: string
-  document_id: string
   kind: string
-  node_id: string
+  note_id: string
   ordinal: number
-  parent_node_id: string | null
+  parent_block_id: string | null
   text: string
+  topic_id: string
 }
 
-interface NodeSearchRow extends DocumentNodeRow {
+interface TopicBlockSearchRow extends TopicBlockRow {
   preview: string
   rank: number
 }
 
 interface PendingEmbeddingRow {
   content_hash: string
-  document_row_id: number
+  note_row_id: number
   row_id: number
   text: string
 }
@@ -116,53 +186,99 @@ const schema = `
   PRAGMA foreign_keys = ON;
   PRAGMA busy_timeout = 5000;
 
-  CREATE TABLE IF NOT EXISTS documents (
+  CREATE TABLE IF NOT EXISTS notes (
     row_id INTEGER PRIMARY KEY AUTOINCREMENT,
     id TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
-    crdt_snapshot BLOB,
+    checkpoint_snapshot BLOB,
+    checkpoint_sequence INTEGER NOT NULL DEFAULT 0 CHECK (checkpoint_sequence >= 0),
+    latest_sequence INTEGER NOT NULL DEFAULT 0 CHECK (latest_sequence >= checkpoint_sequence),
     updated_at INTEGER NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS document_nodes (
+  CREATE TABLE IF NOT EXISTS note_updates (
+    note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    update_hash TEXT NOT NULL,
+    update_blob BLOB NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (note_row_id, sequence),
+    UNIQUE (note_row_id, update_hash)
+  );
+
+  CREATE TABLE IF NOT EXISTS note_update_receipts (
+    note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
+    update_hash TEXT NOT NULL,
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (note_row_id, update_hash)
+  );
+
+  CREATE TABLE IF NOT EXISTS note_entries (
     row_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    document_row_id INTEGER NOT NULL REFERENCES documents(row_id) ON DELETE CASCADE,
-    node_id TEXT NOT NULL,
-    parent_node_id TEXT,
+    note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
+    entry_id TEXT NOT NULL,
+    parent_entry_id TEXT,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    kind TEXT NOT NULL CHECK (kind IN ('folder', 'topic')),
+    label TEXT NOT NULL,
+    UNIQUE (note_row_id, entry_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS note_entries_parent_order_idx
+    ON note_entries(note_row_id, parent_entry_id, ordinal);
+
+  CREATE TABLE IF NOT EXISTS topics (
+    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
+    topic_id TEXT NOT NULL,
+    editor_mode INTEGER NOT NULL CHECK (editor_mode IN (0, 1)),
+    title TEXT NOT NULL,
+    UNIQUE (note_row_id, topic_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS topic_blocks (
+    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
+    topic_id TEXT NOT NULL,
+    block_id TEXT NOT NULL,
+    parent_block_id TEXT,
     ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
     kind TEXT NOT NULL,
     text TEXT NOT NULL,
     attributes_json TEXT NOT NULL,
     content_hash TEXT NOT NULL,
-    UNIQUE (document_row_id, node_id)
+    UNIQUE (note_row_id, topic_id, block_id),
+    FOREIGN KEY (note_row_id, topic_id)
+      REFERENCES topics(note_row_id, topic_id) ON DELETE CASCADE
   );
 
-  CREATE INDEX IF NOT EXISTS document_nodes_parent_order_idx
-    ON document_nodes(document_row_id, parent_node_id, ordinal);
+  CREATE INDEX IF NOT EXISTS topic_blocks_parent_order_idx
+    ON topic_blocks(note_row_id, topic_id, parent_block_id, ordinal);
 
-  CREATE VIRTUAL TABLE IF NOT EXISTS document_nodes_fts USING fts5(
+  CREATE VIRTUAL TABLE IF NOT EXISTS topic_blocks_fts USING fts5(
     text,
-    content='document_nodes',
+    content='topic_blocks',
     content_rowid='row_id',
     tokenize='trigram'
   );
 
-  CREATE TRIGGER IF NOT EXISTS document_nodes_fts_insert
-  AFTER INSERT ON document_nodes BEGIN
-    INSERT INTO document_nodes_fts(rowid, text) VALUES (new.row_id, new.text);
+  CREATE TRIGGER IF NOT EXISTS topic_blocks_fts_insert
+  AFTER INSERT ON topic_blocks BEGIN
+    INSERT INTO topic_blocks_fts(rowid, text) VALUES (new.row_id, new.text);
   END;
 
-  CREATE TRIGGER IF NOT EXISTS document_nodes_fts_delete
-  AFTER DELETE ON document_nodes BEGIN
-    INSERT INTO document_nodes_fts(document_nodes_fts, rowid, text)
+  CREATE TRIGGER IF NOT EXISTS topic_blocks_fts_delete
+  AFTER DELETE ON topic_blocks BEGIN
+    INSERT INTO topic_blocks_fts(topic_blocks_fts, rowid, text)
       VALUES ('delete', old.row_id, old.text);
   END;
 
-  CREATE TRIGGER IF NOT EXISTS document_nodes_fts_update
-  AFTER UPDATE OF text ON document_nodes BEGIN
-    INSERT INTO document_nodes_fts(document_nodes_fts, rowid, text)
+  CREATE TRIGGER IF NOT EXISTS topic_blocks_fts_update
+  AFTER UPDATE OF text ON topic_blocks BEGIN
+    INSERT INTO topic_blocks_fts(topic_blocks_fts, rowid, text)
       VALUES ('delete', old.row_id, old.text);
-    INSERT INTO document_nodes_fts(rowid, text) VALUES (new.row_id, new.text);
+    INSERT INTO topic_blocks_fts(rowid, text) VALUES (new.row_id, new.text);
   END;
 
   CREATE TABLE IF NOT EXISTS editor_storage_embedding_configuration (
@@ -171,8 +287,8 @@ const schema = `
     dimensions INTEGER NOT NULL CHECK (dimensions > 0)
   );
 
-  CREATE TABLE IF NOT EXISTS document_node_embedding_state (
-    node_row_id INTEGER PRIMARY KEY REFERENCES document_nodes(row_id) ON DELETE CASCADE,
+  CREATE TABLE IF NOT EXISTS topic_block_embedding_state (
+    block_row_id INTEGER PRIMARY KEY REFERENCES topic_blocks(row_id) ON DELETE CASCADE,
     model_id TEXT NOT NULL,
     content_hash TEXT NOT NULL
   );
@@ -180,17 +296,22 @@ const schema = `
 
 function vectorSchema(dimensions: number): string {
   return `
-    CREATE VIRTUAL TABLE IF NOT EXISTS document_node_embeddings USING vec0(
-      node_row_id INTEGER PRIMARY KEY,
-      document_row_id INTEGER PARTITION KEY,
+    CREATE VIRTUAL TABLE IF NOT EXISTS topic_block_embeddings USING vec0(
+      block_row_id INTEGER PRIMARY KEY,
+      note_row_id INTEGER PARTITION KEY,
       embedding FLOAT[${dimensions}]
     );
   `
 }
 
 function assertNonEmpty(value: string, name: string): void {
-  if (value.length === 0)
+  if (value.trim().length === 0)
     throw new TypeError(`${name} must be a non-empty string`)
+}
+
+function validateBinary(value: Uint8Array, name: string): void {
+  if (!(value instanceof Uint8Array) || value.byteLength === 0)
+    throw new TypeError(`${name} must be a non-empty Uint8Array`)
 }
 
 function validateEmbeddingModel(model: EmbeddingModel): void {
@@ -199,44 +320,90 @@ function validateEmbeddingModel(model: EmbeddingModel): void {
     throw new RangeError('Embedding model dimensions must be a positive integer')
 }
 
-function validateNodes(nodes: readonly DocumentNodeSnapshot[]): void {
-  const byId = new Map<string, DocumentNodeSnapshot>()
+function validateHierarchy<T extends { id: string, ordinal: number, parentId: string | null }>(
+  values: readonly T[],
+  description: string,
+): Map<string, T> {
+  const byId = new Map<string, T>()
   const siblingPositions = new Set<string>()
 
-  for (const node of nodes) {
-    assertNonEmpty(node.id, 'Node id')
-    assertNonEmpty(node.kind, `Node ${node.id} kind`)
-    if (!Number.isInteger(node.ordinal) || node.ordinal < 0)
-      throw new RangeError(`Node ${node.id} ordinal must be a non-negative integer`)
-    if (byId.has(node.id))
-      throw new Error(`Duplicate node id: ${node.id}`)
-    if (node.parentId === node.id)
-      throw new Error(`Node ${node.id} cannot be its own parent`)
-    if (node.attributes === null || Array.isArray(node.attributes) || typeof node.attributes !== 'object')
-      throw new TypeError(`Node ${node.id} attributes must be an object`)
+  for (const value of values) {
+    assertNonEmpty(value.id, `${description} id`)
+    if (!Number.isInteger(value.ordinal) || value.ordinal < 0)
+      throw new RangeError(`${description} ${value.id} ordinal must be a non-negative integer`)
+    if (byId.has(value.id))
+      throw new Error(`Duplicate ${description} id: ${value.id}`)
+    if (value.parentId === value.id)
+      throw new Error(`${description} ${value.id} cannot be its own parent`)
 
-    byId.set(node.id, node)
-    const siblingPosition = `${node.parentId ?? '<root>'}\0${node.ordinal}`
-    if (siblingPositions.has(siblingPosition))
-      throw new Error(`Duplicate node ordinal ${node.ordinal} under parent ${node.parentId ?? '<root>'}`)
-    siblingPositions.add(siblingPosition)
+    byId.set(value.id, value)
+    const position = `${value.parentId ?? '<root>'}\0${value.ordinal}`
+    if (siblingPositions.has(position))
+      throw new Error(`Duplicate ${description} ordinal ${value.ordinal} under ${value.parentId ?? '<root>'}`)
+    siblingPositions.add(position)
   }
 
-  for (const node of nodes) {
-    if (node.parentId !== null && !byId.has(node.parentId))
-      throw new Error(`Node ${node.id} has unknown parent ${node.parentId}`)
-
-    const ancestors = new Set<string>([node.id])
-    let parentId = node.parentId
+  for (const value of values) {
+    const ancestors = new Set<string>([value.id])
+    let parentId = value.parentId
     while (parentId !== null) {
       if (ancestors.has(parentId))
-        throw new Error(`Node ${node.id} belongs to a parent cycle`)
+        throw new Error(`${description} ${value.id} belongs to a parent cycle`)
       ancestors.add(parentId)
       const parent = byId.get(parentId)
       if (!parent)
-        throw new Error(`Node ${node.id} has unknown parent ${parentId}`)
+        throw new Error(`${description} ${value.id} has unknown parent ${parentId}`)
       parentId = parent.parentId
     }
+  }
+  return byId
+}
+
+function validateProjectionPatch(
+  entries: readonly NoteEntryProjection[] | undefined,
+  topics: readonly TopicContentProjection[],
+): void {
+  const entriesById = entries ? validateHierarchy(entries, 'NoteEntry') : undefined
+  const topicEntries = new Map<string, TopicProjection>()
+
+  for (const entry of entries ?? []) {
+    if (entry.kind === 'folder') {
+      assertNonEmpty(entry.name, `Folder ${entry.id} name`)
+    }
+    else if (entry.kind === 'topic') {
+      assertNonEmpty(entry.title, `Topic ${entry.id} title`)
+      if (entry.mode !== 0 && entry.mode !== 1)
+        throw new TypeError(`Topic ${entry.id} Editor mode must be 0 (Document) or 1 (Outline)`)
+      topicEntries.set(entry.id, entry)
+    }
+    else {
+      throw new TypeError(`Unknown NoteEntry kind: ${String((entry as { kind: unknown }).kind)}`)
+    }
+  }
+
+  const projectedTopics = new Set<string>()
+  for (const topic of topics) {
+    assertNonEmpty(topic.topicId, 'Topic projection id')
+    if (projectedTopics.has(topic.topicId))
+      throw new Error(`Duplicate Topic projection: ${topic.topicId}`)
+    projectedTopics.add(topic.topicId)
+    const entry = topicEntries.get(topic.topicId)
+    if (entries && !entry)
+      throw new Error(`Topic projection ${topic.topicId} has no matching NoteEntry`)
+
+    validateHierarchy(topic.blocks, `Topic ${topic.topicId} Block`)
+    for (const block of topic.blocks) {
+      assertNonEmpty(block.kind, `Topic ${topic.topicId} Block ${block.id} kind`)
+      if (block.attributes === null || Array.isArray(block.attributes) || typeof block.attributes !== 'object')
+        throw new TypeError(`Topic ${topic.topicId} Block ${block.id} attributes must be an object`)
+    }
+  }
+
+  for (const entry of entries ?? []) {
+    if (entry.parentId !== null && !entriesById?.has(entry.parentId))
+      throw new Error(`NoteEntry ${entry.id} has unknown parent ${entry.parentId}`)
+    if (entry.kind === 'topic' && entry.parentId !== null && entriesById?.get(entry.parentId)?.kind === 'folder')
+      throw new Error(`Topic ${entry.id} cannot use Folder ${entry.parentId} as its parent`)
   }
 }
 
@@ -244,32 +411,28 @@ function contentHash(text: string): string {
   return bytesToHex(sha256(utf8ToBytes(text)))
 }
 
+function updateHash(update: Uint8Array): string {
+  return bytesToHex(sha256(update))
+}
+
 function parseAttributes(json: string): Readonly<Record<string, unknown>> {
   const value: unknown = JSON.parse(json)
   if (value === null || Array.isArray(value) || typeof value !== 'object')
-    throw new TypeError('Stored node attributes must be a JSON object')
+    throw new TypeError('Stored Topic Block attributes must be a JSON object')
   return value as Record<string, unknown>
 }
 
-function toStoredDocument(row: DocumentRow): StoredDocument {
-  return {
-    id: row.id,
-    snapshot: row.crdt_snapshot === null ? null : new Uint8Array(row.crdt_snapshot),
-    title: row.title,
-    updatedAt: row.updated_at,
-  }
-}
-
-function toStoredNode(row: DocumentNodeRow): StoredDocumentNode {
+function toStoredBlock(row: TopicBlockRow): StoredTopicBlock {
   return {
     attributes: parseAttributes(row.attributes_json),
     contentHash: row.content_hash,
-    documentId: row.document_id,
-    id: row.node_id,
+    id: row.block_id,
     kind: row.kind,
+    noteId: row.note_id,
     ordinal: row.ordinal,
-    parentId: row.parent_node_id,
+    parentId: row.parent_block_id,
     text: row.text,
+    topicId: row.topic_id,
   }
 }
 
@@ -297,21 +460,20 @@ function serializeVector(vector: Float32Array): Uint8Array {
   return new Uint8Array(new Float32Array(vector).buffer)
 }
 
-function nodeKey(node: StoredDocumentNode): string {
-  return `${node.documentId}\0${node.id}`
+function blockKey(block: Pick<StoredTopicBlock, 'id' | 'noteId' | 'topicId'>): string {
+  return `${block.noteId}\0${block.topicId}\0${block.id}`
 }
 
 function fuseSearchResults(
-  lexical: readonly NodeSearchHit[],
-  semantic: readonly NodeSearchHit[],
+  lexical: readonly TopicBlockSearchHit[],
+  semantic: readonly TopicBlockSearchHit[],
   limit: number,
-): readonly NodeSearchHit[] {
-  const candidates = new Map<string, { hit: NodeSearchHit, score: number }>()
-
-  const add = (hits: readonly NodeSearchHit[]) => {
+): readonly TopicBlockSearchHit[] {
+  const candidates = new Map<string, { hit: TopicBlockSearchHit, score: number }>()
+  const add = (hits: readonly TopicBlockSearchHit[]) => {
     for (const [index, hit] of hits.entries()) {
-      const key = nodeKey(hit)
-      const score = 1 / (60 + index + 1)
+      const key = blockKey(hit)
+      const score = 1 / (61 + index)
       const existing = candidates.get(key)
       if (existing) {
         existing.score += score
@@ -326,7 +488,6 @@ function fuseSearchResults(
 
   add(lexical)
   add(semantic)
-
   return [...candidates.values()]
     .sort((left, right) => right.score - left.score)
     .slice(0, limit)
@@ -336,6 +497,7 @@ function fuseSearchResults(
 class DefaultEditorStorage implements EditorStorage {
   readonly #database: EditorStorageDatabase
   readonly #embeddingModel: EmbeddingModel
+  #writeQueue: Promise<void> = Promise.resolve()
 
   private constructor(options: CreateEditorStorageOptions) {
     this.#database = options.database
@@ -351,14 +513,13 @@ class DefaultEditorStorage implements EditorStorage {
       FROM editor_storage_embedding_configuration
       WHERE singleton = 1
     `)
-
     if (configuration && (
       configuration.model_id !== options.embeddingModel.id
       || configuration.dimensions !== options.embeddingModel.dimensions
     )) {
       await options.database.batch([
-        { sql: 'DROP TABLE IF EXISTS document_node_embeddings' },
-        { sql: 'DELETE FROM document_node_embedding_state' },
+        { sql: 'DROP TABLE IF EXISTS topic_block_embeddings' },
+        { sql: 'DELETE FROM topic_block_embedding_state' },
         {
           parameters: [options.embeddingModel.id, options.embeddingModel.dimensions],
           sql: `
@@ -376,361 +537,587 @@ class DefaultEditorStorage implements EditorStorage {
       VALUES (1, ?, ?)
       ON CONFLICT(singleton) DO NOTHING
     `, [options.embeddingModel.id, options.embeddingModel.dimensions])
-
     return new DefaultEditorStorage(options)
   }
 
+  async #serializeWrite<Result>(operation: () => Promise<Result>): Promise<Result> {
+    const result = this.#writeQueue.then(operation)
+    this.#writeQueue = result.then(() => undefined, () => undefined)
+    return result
+  }
+
   async close(): Promise<void> {
+    await this.#writeQueue
     await this.#database.close()
   }
 
-  async openMostRecentDocument(): Promise<StoredDocument> {
-    const existing = await this.#database.get<DocumentRow>(`
-      SELECT row_id, id, title, crdt_snapshot, updated_at
-      FROM documents
-      ORDER BY updated_at DESC, row_id DESC
-      LIMIT 1
-    `)
+  async openMostRecentNote(): Promise<StoredNote> {
+    return this.#serializeWrite(async () => {
+      let note = await this.#database.get<NoteRow>(`
+        SELECT
+          row_id,
+          id,
+          title,
+          checkpoint_snapshot,
+          checkpoint_sequence,
+          latest_sequence,
+          updated_at
+        FROM notes
+        ORDER BY updated_at DESC, row_id DESC
+        LIMIT 1
+      `)
 
-    if (existing)
-      return toStoredDocument(existing)
+      if (!note) {
+        const now = Date.now()
+        const id = createUuidV7()
+        await this.#database.run(`
+          INSERT INTO notes (id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, updated_at)
+          VALUES (?, ?, NULL, 0, 0, ?)
+        `, [id, 'Untitled', now])
+        note = {
+          checkpoint_sequence: 0,
+          checkpoint_snapshot: null,
+          id,
+          latest_sequence: 0,
+          row_id: -1,
+          title: 'Untitled',
+          updated_at: now,
+        }
+      }
 
-    const now = Date.now()
-    const id = createUuidV7()
-    await this.#database.run(`
-      INSERT INTO documents (id, title, crdt_snapshot, updated_at)
-      VALUES (?, ?, NULL, ?)
-    `, [id, 'Untitled', now])
+      const updates = note.latest_sequence === note.checkpoint_sequence
+        ? []
+        : await this.#database.all<NoteUpdateRow>(`
+            SELECT sequence, update_blob
+            FROM note_updates
+            WHERE note_row_id = (
+              SELECT row_id FROM notes WHERE id = ?
+            ) AND sequence > ?
+            ORDER BY sequence ASC
+          `, [note.id, note.checkpoint_sequence])
 
-    return { id, snapshot: null, title: 'Untitled', updatedAt: now }
+      return {
+        checkpointSequence: note.checkpoint_sequence,
+        id: note.id,
+        latestSequence: note.latest_sequence,
+        snapshot: note.checkpoint_snapshot === null ? null : new Uint8Array(note.checkpoint_snapshot),
+        title: note.title,
+        updatedAt: note.updated_at,
+        updates: updates.map(update => ({
+          sequence: update.sequence,
+          update: new Uint8Array(update.update_blob),
+        })),
+      }
+    })
   }
 
-  async saveDocument(input: SaveDocumentInput): Promise<StoredDocument> {
-    assertNonEmpty(input.id, 'Document id')
-    assertNonEmpty(input.title, 'Document title')
-    if (!(input.snapshot instanceof Uint8Array) || input.snapshot.byteLength === 0)
-      throw new TypeError('Document snapshot must be a non-empty Uint8Array')
-    validateNodes(input.nodes)
+  async saveNoteUpdates(input: SaveNoteUpdatesInput): Promise<NoteWriteReceipt> {
+    assertNonEmpty(input.noteId, 'Note id')
+    if (input.title !== undefined)
+      assertNonEmpty(input.title, 'Note title')
+    if (input.updates.length === 0)
+      throw new TypeError('Note updates must contain at least one update')
+    input.updates.forEach((update, index) => validateBinary(update, `Note update ${index}`))
+    validateProjectionPatch(input.entries, input.topics)
+    const saved = structuredClone(input)
 
-    const document = await this.#database.get<DocumentRow>(`
-      SELECT row_id, id, title, crdt_snapshot, updated_at
-      FROM documents
-      WHERE id = ?
-    `, [input.id])
-    if (!document)
-      throw new Error(`Unknown document: ${input.id}`)
+    return this.#serializeWrite(async () => {
+      const note = await this.#database.get<NoteRow>(`
+        SELECT
+          row_id,
+          id,
+          title,
+          checkpoint_snapshot,
+          checkpoint_sequence,
+          latest_sequence,
+          updated_at
+        FROM notes
+        WHERE id = ?
+      `, [saved.noteId])
+      if (!note)
+        throw new Error(`Unknown Note: ${saved.noteId}`)
 
-    const existingNodes = await this.#database.all<ExistingNodeRow>(`
-      SELECT row_id, node_id, content_hash
-      FROM document_nodes
-      WHERE document_row_id = ?
-    `, [document.row_id])
-    const nextNodes = new Map(input.nodes.map(node => [node.id, { hash: contentHash(node.text), node }]))
-    const commands: DatabaseCommand[] = []
+      const updatesByHash = new Map(saved.updates.map(update => [updateHash(update), update]))
+      const received = await this.#database.all<NoteUpdateHashRow>(
+        'SELECT update_hash FROM note_update_receipts WHERE note_row_id = ?',
+        [note.row_id],
+      )
+      const receivedHashes = new Set(received.map(row => row.update_hash))
+      const newUpdates = [...updatesByHash]
+        .filter(([hash]) => !receivedHashes.has(hash))
+        .map(([hash, update]) => ({ hash, update }))
+      if (newUpdates.length === 0)
+        return { latestSequence: note.latest_sequence, updatedAt: note.updated_at }
 
-    for (const existing of existingNodes) {
-      const next = nextNodes.get(existing.node_id)
-      if (!next || next.hash !== existing.content_hash) {
-        commands.push(
-          { parameters: [existing.row_id], sql: 'DELETE FROM document_node_embeddings WHERE node_row_id = ?' },
-          { parameters: [existing.row_id], sql: 'DELETE FROM document_node_embedding_state WHERE node_row_id = ?' },
-        )
+      const [existingEntries, existingTopics, existingBlocksByTopic] = await Promise.all([
+        saved.entries
+          ? this.#database.all<ExistingEntryRow>(
+              'SELECT entry_id FROM note_entries WHERE note_row_id = ?',
+              [note.row_id],
+            )
+          : Promise.resolve([]),
+        saved.entries
+          ? this.#database.all<ExistingTopicRow>(
+              'SELECT topic_id FROM topics WHERE note_row_id = ?',
+              [note.row_id],
+            )
+          : Promise.resolve([]),
+        Promise.all(saved.topics.map(topic => this.#database.all<ExistingBlockRow>(`
+          SELECT row_id, topic_id, block_id, content_hash
+          FROM topic_blocks
+          WHERE note_row_id = ? AND topic_id = ?
+        `, [note.row_id, topic.topicId]))),
+      ])
+
+      const existingBlocks = existingBlocksByTopic.flat()
+      const nextEntries = new Map((saved.entries ?? []).map(entry => [entry.id, entry]))
+      const nextTopics = new Map((saved.entries ?? [])
+        .filter((entry): entry is TopicProjection => entry.kind === 'topic')
+        .map(entry => [entry.id, entry]))
+      const nextBlocks = new Map<string, {
+        block: TopicBlockProjection
+        hash: string
+        topicId: string
+      }>()
+      for (const topic of saved.topics) {
+        for (const block of topic.blocks) {
+          nextBlocks.set(`${topic.topicId}\0${block.id}`, {
+            block,
+            hash: contentHash(block.text),
+            topicId: topic.topicId,
+          })
+        }
       }
-    }
 
-    const now = Date.now()
-    commands.push({
-      parameters: [input.title, input.snapshot, now, document.row_id],
-      sql: `
-        UPDATE documents
-        SET title = ?, crdt_snapshot = ?, updated_at = ?
-        WHERE row_id = ?
-      `,
-    })
+      const commands: DatabaseCommand[] = []
+      for (const existing of existingBlocks) {
+        const next = nextBlocks.get(`${existing.topic_id}\0${existing.block_id}`)
+        if (!next || next.hash !== existing.content_hash) {
+          commands.push(
+            { parameters: [existing.row_id], sql: 'DELETE FROM topic_block_embeddings WHERE block_row_id = ?' },
+            { parameters: [existing.row_id], sql: 'DELETE FROM topic_block_embedding_state WHERE block_row_id = ?' },
+          )
+        }
+      }
 
-    for (const { hash, node } of nextNodes.values()) {
+      const now = Date.now()
+      const latestSequence = note.latest_sequence + newUpdates.length
       commands.push({
-        parameters: [
-          document.row_id,
-          node.id,
-          node.parentId,
-          node.ordinal,
-          node.kind,
-          node.text,
-          JSON.stringify(node.attributes),
-          hash,
-        ],
+        parameters: [saved.title ?? note.title, latestSequence, now, note.row_id],
         sql: `
-          INSERT INTO document_nodes (
-            document_row_id,
-            node_id,
-            parent_node_id,
-            ordinal,
-            kind,
-            text,
-            attributes_json,
-            content_hash
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(document_row_id, node_id) DO UPDATE SET
-            parent_node_id = excluded.parent_node_id,
-            ordinal = excluded.ordinal,
-            kind = excluded.kind,
-            text = excluded.text,
-            attributes_json = excluded.attributes_json,
-            content_hash = excluded.content_hash
+          UPDATE notes
+          SET title = ?, latest_sequence = ?, updated_at = ?
+          WHERE row_id = ?
         `,
       })
-    }
-
-    for (const existing of existingNodes) {
-      if (!nextNodes.has(existing.node_id)) {
+      newUpdates.forEach(({ hash, update }, index) => {
+        const sequence = note.latest_sequence + index + 1
         commands.push({
-          parameters: [document.row_id, existing.node_id],
-          sql: 'DELETE FROM document_nodes WHERE document_row_id = ? AND node_id = ?',
+          parameters: [note.row_id, sequence, hash, update, now],
+          sql: `
+            INSERT INTO note_updates (note_row_id, sequence, update_hash, update_blob, created_at)
+            VALUES (?, ?, ?, ?, ?)
+          `,
+        })
+        commands.push({
+          parameters: [note.row_id, hash, sequence, now],
+          sql: `
+            INSERT INTO note_update_receipts (note_row_id, update_hash, sequence, created_at)
+            VALUES (?, ?, ?, ?)
+          `,
+        })
+      })
+
+      for (const entry of saved.entries ?? []) {
+        commands.push({
+          parameters: [
+            note.row_id,
+            entry.id,
+            entry.parentId,
+            entry.ordinal,
+            entry.kind,
+            entry.kind === 'folder' ? entry.name : entry.title,
+          ],
+          sql: `
+            INSERT INTO note_entries (
+              note_row_id, entry_id, parent_entry_id, ordinal, kind, label
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(note_row_id, entry_id) DO UPDATE SET
+              parent_entry_id = excluded.parent_entry_id,
+              ordinal = excluded.ordinal,
+              kind = excluded.kind,
+              label = excluded.label
+          `,
         })
       }
-    }
 
-    await this.#database.batch(commands)
-    return {
-      id: input.id,
-      snapshot: new Uint8Array(input.snapshot),
-      title: input.title,
-      updatedAt: now,
-    }
+      for (const entry of nextTopics.values()) {
+        commands.push({
+          parameters: [note.row_id, entry.id, entry.mode, entry.title],
+          sql: `
+            INSERT INTO topics (note_row_id, topic_id, editor_mode, title)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(note_row_id, topic_id) DO UPDATE SET
+              editor_mode = excluded.editor_mode,
+              title = excluded.title
+          `,
+        })
+      }
+
+      for (const next of nextBlocks.values()) {
+        commands.push({
+          parameters: [
+            note.row_id,
+            next.topicId,
+            next.block.id,
+            next.block.parentId,
+            next.block.ordinal,
+            next.block.kind,
+            next.block.text,
+            JSON.stringify(next.block.attributes),
+            next.hash,
+          ],
+          sql: `
+            INSERT INTO topic_blocks (
+              note_row_id,
+              topic_id,
+              block_id,
+              parent_block_id,
+              ordinal,
+              kind,
+              text,
+              attributes_json,
+              content_hash
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(note_row_id, topic_id, block_id) DO UPDATE SET
+              parent_block_id = excluded.parent_block_id,
+              ordinal = excluded.ordinal,
+              kind = excluded.kind,
+              text = excluded.text,
+              attributes_json = excluded.attributes_json,
+              content_hash = excluded.content_hash
+          `,
+        })
+      }
+
+      for (const existing of existingBlocks) {
+        if (!nextBlocks.has(`${existing.topic_id}\0${existing.block_id}`)) {
+          commands.push({
+            parameters: [note.row_id, existing.topic_id, existing.block_id],
+            sql: 'DELETE FROM topic_blocks WHERE note_row_id = ? AND topic_id = ? AND block_id = ?',
+          })
+        }
+      }
+      for (const existing of existingTopics) {
+        if (!nextTopics.has(existing.topic_id)) {
+          commands.push({
+            parameters: [note.row_id, existing.topic_id],
+            sql: 'DELETE FROM topics WHERE note_row_id = ? AND topic_id = ?',
+          })
+        }
+      }
+      for (const existing of existingEntries) {
+        if (!nextEntries.has(existing.entry_id)) {
+          commands.push({
+            parameters: [note.row_id, existing.entry_id],
+            sql: 'DELETE FROM note_entries WHERE note_row_id = ? AND entry_id = ?',
+          })
+        }
+      }
+
+      await this.#database.batch(commands)
+      return { latestSequence, updatedAt: now }
+    })
   }
 
-  async getNode(input: GetNodeInput): Promise<StoredDocumentNode | null> {
-    assertNonEmpty(input.documentId, 'Document id')
-    assertNonEmpty(input.nodeId, 'Node id')
-    const row = await this.#database.get<DocumentNodeRow>(`
-      SELECT
-        d.id AS document_id,
-        n.node_id,
-        n.parent_node_id,
-        n.ordinal,
-        n.kind,
-        n.text,
-        n.attributes_json,
-        n.content_hash
-      FROM document_nodes n
-      JOIN documents d ON d.row_id = n.document_row_id
-      WHERE d.id = ? AND n.node_id = ?
-    `, [input.documentId, input.nodeId])
+  async checkpointNote(input: CheckpointNoteInput): Promise<NoteWriteReceipt> {
+    assertNonEmpty(input.noteId, 'Note id')
+    validateBinary(input.snapshot, 'Note checkpoint snapshot')
+    if (!Number.isInteger(input.throughSequence) || input.throughSequence < 0)
+      throw new RangeError('Note checkpoint sequence must be a non-negative integer')
+    const saved = structuredClone(input)
 
-    return row ? toStoredNode(row) : null
+    return this.#serializeWrite(async () => {
+      const note = await this.#database.get<NoteRow>(`
+        SELECT
+          row_id,
+          id,
+          title,
+          checkpoint_snapshot,
+          checkpoint_sequence,
+          latest_sequence,
+          updated_at
+        FROM notes
+        WHERE id = ?
+      `, [saved.noteId])
+      if (!note)
+        throw new Error(`Unknown Note: ${saved.noteId}`)
+      if (saved.throughSequence < note.checkpoint_sequence || saved.throughSequence > note.latest_sequence) {
+        throw new RangeError(
+          `Note checkpoint sequence ${saved.throughSequence} is outside ${note.checkpoint_sequence}..${note.latest_sequence}`,
+        )
+      }
+
+      const now = Date.now()
+      await this.#database.batch([
+        {
+          parameters: [saved.snapshot, saved.throughSequence, now, note.row_id],
+          sql: `
+            UPDATE notes
+            SET checkpoint_snapshot = ?, checkpoint_sequence = ?, updated_at = ?
+            WHERE row_id = ?
+          `,
+        },
+        {
+          parameters: [note.row_id, saved.throughSequence],
+          sql: 'DELETE FROM note_updates WHERE note_row_id = ? AND sequence <= ?',
+        },
+      ])
+      return { latestSequence: note.latest_sequence, updatedAt: now }
+    })
+  }
+
+  async getTopicBlock(input: GetTopicBlockInput): Promise<StoredTopicBlock | null> {
+    assertNonEmpty(input.noteId, 'Note id')
+    assertNonEmpty(input.topicId, 'Topic id')
+    assertNonEmpty(input.blockId, 'Topic Block id')
+    const row = await this.#database.get<TopicBlockRow>(`
+      SELECT
+        n.id AS note_id,
+        b.topic_id,
+        b.block_id,
+        b.parent_block_id,
+        b.ordinal,
+        b.kind,
+        b.text,
+        b.attributes_json,
+        b.content_hash
+      FROM topic_blocks b
+      JOIN notes n ON n.row_id = b.note_row_id
+      WHERE n.id = ? AND b.topic_id = ? AND b.block_id = ?
+    `, [input.noteId, input.topicId, input.blockId])
+    return row ? toStoredBlock(row) : null
   }
 
   async indexPendingEmbeddings(input: IndexPendingEmbeddingsInput = {}): Promise<number> {
-    if (input.documentId !== undefined)
-      assertNonEmpty(input.documentId, 'Document id')
+    if (input.noteId !== undefined)
+      assertNonEmpty(input.noteId, 'Note id')
     const limit = resolveLimit(input.limit, 32, 256)
-    const rows = await this.#database.all<PendingEmbeddingRow>(`
-      SELECT
-        n.row_id,
-        n.document_row_id,
-        n.text,
-        n.content_hash
-      FROM document_nodes n
-      JOIN documents d ON d.row_id = n.document_row_id
-      LEFT JOIN document_node_embedding_state s ON s.node_row_id = n.row_id
-      WHERE (s.node_row_id IS NULL OR s.model_id <> ? OR s.content_hash <> n.content_hash)
-        AND (? IS NULL OR d.id = ?)
-      ORDER BY d.updated_at DESC, n.row_id ASC
-      LIMIT ?
-    `, [this.#embeddingModel.id, input.documentId ?? null, input.documentId ?? null, limit])
+    return this.#serializeWrite(async () => {
+      const rows = await this.#database.all<PendingEmbeddingRow>(`
+        SELECT
+          b.row_id,
+          b.note_row_id,
+          b.text,
+          b.content_hash
+        FROM topic_blocks b
+        JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN topic_block_embedding_state s ON s.block_row_id = b.row_id
+        WHERE (s.block_row_id IS NULL OR s.model_id <> ? OR s.content_hash <> b.content_hash)
+          AND (? IS NULL OR n.id = ?)
+        ORDER BY n.updated_at DESC, b.row_id ASC
+        LIMIT ?
+      `, [this.#embeddingModel.id, input.noteId ?? null, input.noteId ?? null, limit])
+      if (rows.length === 0)
+        return 0
 
-    if (rows.length === 0)
-      return 0
+      const vectors = await this.#embeddingModel.embedDocuments(rows.map(row => row.text))
+      if (vectors.length !== rows.length)
+        throw new Error(`Embedding model ${this.#embeddingModel.id} returned ${vectors.length} vectors for ${rows.length} Topic Blocks`)
 
-    const vectors = await this.#embeddingModel.embedDocuments(rows.map(row => row.text))
-    if (vectors.length !== rows.length)
-      throw new Error(`Embedding model ${this.#embeddingModel.id} returned ${vectors.length} vectors for ${rows.length} documents`)
-
-    const commands: DatabaseCommand[] = []
-    for (const [index, row] of rows.entries()) {
-      const vector = vectors[index]
-      if (!vector)
-        throw new Error(`Embedding model ${this.#embeddingModel.id} omitted vector ${index}`)
-      validateVector(vector, this.#embeddingModel)
-      commands.push(
-        {
-          parameters: [
-            BigInt(row.row_id),
-            BigInt(row.document_row_id),
-            serializeVector(vector),
-            row.row_id,
-            row.content_hash,
-          ],
-          sql: `
-            INSERT OR REPLACE INTO document_node_embeddings (node_row_id, document_row_id, embedding)
-            SELECT ?, ?, ?
-            WHERE EXISTS (
-              SELECT 1 FROM document_nodes WHERE row_id = ? AND content_hash = ?
-            )
-          `,
-        },
-        {
-          parameters: [
-            row.row_id,
-            this.#embeddingModel.id,
-            row.content_hash,
-            row.row_id,
-            row.content_hash,
-          ],
-          sql: `
-            INSERT INTO document_node_embedding_state (node_row_id, model_id, content_hash)
-            SELECT ?, ?, ?
-            WHERE EXISTS (
-              SELECT 1 FROM document_nodes WHERE row_id = ? AND content_hash = ?
-            )
-            ON CONFLICT(node_row_id) DO UPDATE SET
-              model_id = excluded.model_id,
-              content_hash = excluded.content_hash
-          `,
-        },
-      )
-    }
-
-    await this.#database.batch(commands)
-    return rows.length
+      const commands: DatabaseCommand[] = []
+      for (const [index, row] of rows.entries()) {
+        const vector = vectors[index]
+        if (!vector)
+          throw new Error(`Embedding model ${this.#embeddingModel.id} omitted vector ${index}`)
+        validateVector(vector, this.#embeddingModel)
+        commands.push(
+          {
+            parameters: [
+              BigInt(row.row_id),
+              BigInt(row.note_row_id),
+              serializeVector(vector),
+              row.row_id,
+              row.content_hash,
+            ],
+            sql: `
+              INSERT OR REPLACE INTO topic_block_embeddings (block_row_id, note_row_id, embedding)
+              SELECT ?, ?, ?
+              WHERE EXISTS (
+                SELECT 1 FROM topic_blocks WHERE row_id = ? AND content_hash = ?
+              )
+            `,
+          },
+          {
+            parameters: [
+              row.row_id,
+              this.#embeddingModel.id,
+              row.content_hash,
+              row.row_id,
+              row.content_hash,
+            ],
+            sql: `
+              INSERT INTO topic_block_embedding_state (block_row_id, model_id, content_hash)
+              SELECT ?, ?, ?
+              WHERE EXISTS (
+                SELECT 1 FROM topic_blocks WHERE row_id = ? AND content_hash = ?
+              )
+              ON CONFLICT(block_row_id) DO UPDATE SET
+                model_id = excluded.model_id,
+                content_hash = excluded.content_hash
+            `,
+          },
+        )
+      }
+      await this.#database.batch(commands)
+      return rows.length
+    })
   }
 
-  async searchNodes(input: SearchNodesInput): Promise<readonly NodeSearchHit[]> {
+  async searchTopicBlocks(input: SearchTopicBlocksInput): Promise<readonly TopicBlockSearchHit[]> {
     const query = input.query.trim()
     if (query.length === 0)
       return []
-    if (input.documentId !== undefined)
-      assertNonEmpty(input.documentId, 'Document id')
+    if (input.noteId !== undefined)
+      assertNonEmpty(input.noteId, 'Note id')
     const limit = resolveLimit(input.limit, 20, 100)
     const mode = input.mode ?? 'hybrid'
     if (mode !== 'hybrid' && mode !== 'lexical' && mode !== 'semantic')
-      throw new TypeError(`Unknown node search mode: ${mode}`)
+      throw new TypeError(`Unknown Topic Block search mode: ${mode}`)
 
     if (mode === 'lexical')
-      return this.#searchLexically(query, input.documentId, limit)
+      return this.#searchLexically(query, input.noteId, limit)
     if (mode === 'semantic')
-      return this.#searchSemantically(query, input.documentId, limit)
+      return this.#searchSemantically(query, input.noteId, limit)
 
     const candidateLimit = Math.min(limit * 4, 100)
     const [lexical, semantic] = await Promise.all([
-      this.#searchLexically(query, input.documentId, candidateLimit),
-      this.#searchSemantically(query, input.documentId, candidateLimit),
+      this.#searchLexically(query, input.noteId, candidateLimit),
+      this.#searchSemantically(query, input.noteId, candidateLimit),
     ])
     return fuseSearchResults(lexical, semantic, limit)
   }
 
-  async #searchLexically(query: string, documentId: string | undefined, limit: number): Promise<readonly NodeSearchHit[]> {
-    let rows: readonly NodeSearchRow[]
-    const sharedParameters: DatabaseValue[] = [documentId ?? null, documentId ?? null, limit]
+  async #searchLexically(
+    query: string,
+    noteId: string | undefined,
+    limit: number,
+  ): Promise<readonly TopicBlockSearchHit[]> {
+    let rows: readonly TopicBlockSearchRow[]
+    const sharedParameters: DatabaseValue[] = [noteId ?? null, noteId ?? null, limit]
     if ([...query].length < 3) {
-      rows = await this.#database.all<NodeSearchRow>(`
+      rows = await this.#database.all<TopicBlockSearchRow>(`
         SELECT
-          d.id AS document_id,
-          n.node_id,
-          n.parent_node_id,
-          n.ordinal,
-          n.kind,
-          n.text,
-          n.attributes_json,
-          n.content_hash,
-          n.text AS preview,
+          n.id AS note_id,
+          b.topic_id,
+          b.block_id,
+          b.parent_block_id,
+          b.ordinal,
+          b.kind,
+          b.text,
+          b.attributes_json,
+          b.content_hash,
+          b.text AS preview,
           0 AS rank
-        FROM document_nodes n
-        JOIN documents d ON d.row_id = n.document_row_id
-        WHERE instr(lower(n.text), lower(?)) > 0
-          AND (? IS NULL OR d.id = ?)
-        ORDER BY d.updated_at DESC, n.ordinal ASC
+        FROM topic_blocks b
+        JOIN notes n ON n.row_id = b.note_row_id
+        WHERE instr(lower(b.text), lower(?)) > 0
+          AND (? IS NULL OR n.id = ?)
+        ORDER BY n.updated_at DESC, b.ordinal ASC
         LIMIT ?
       `, [query, ...sharedParameters])
     }
     else {
-      rows = await this.#database.all<NodeSearchRow>(`
+      rows = await this.#database.all<TopicBlockSearchRow>(`
         SELECT
-          d.id AS document_id,
-          n.node_id,
-          n.parent_node_id,
-          n.ordinal,
-          n.kind,
-          n.text,
-          n.attributes_json,
-          n.content_hash,
-          snippet(document_nodes_fts, 0, '', '', '…', 24) AS preview,
-          bm25(document_nodes_fts) AS rank
-        FROM document_nodes_fts
-        JOIN document_nodes n ON n.row_id = document_nodes_fts.rowid
-        JOIN documents d ON d.row_id = n.document_row_id
-        WHERE document_nodes_fts MATCH ?
-          AND (? IS NULL OR d.id = ?)
+          n.id AS note_id,
+          b.topic_id,
+          b.block_id,
+          b.parent_block_id,
+          b.ordinal,
+          b.kind,
+          b.text,
+          b.attributes_json,
+          b.content_hash,
+          snippet(topic_blocks_fts, 0, '', '', '…', 24) AS preview,
+          bm25(topic_blocks_fts) AS rank
+        FROM topic_blocks_fts
+        JOIN topic_blocks b ON b.row_id = topic_blocks_fts.rowid
+        JOIN notes n ON n.row_id = b.note_row_id
+        WHERE topic_blocks_fts MATCH ?
+          AND (? IS NULL OR n.id = ?)
         ORDER BY rank ASC
         LIMIT ?
       `, [quoteFtsQuery(query), ...sharedParameters])
     }
-
-    return rows.map(row => ({ ...toStoredNode(row), preview: row.preview, rank: row.rank }))
+    return rows.map(row => ({ ...toStoredBlock(row), preview: row.preview, rank: row.rank }))
   }
 
-  async #searchSemantically(query: string, documentId: string | undefined, limit: number): Promise<readonly NodeSearchHit[]> {
+  async #searchSemantically(
+    query: string,
+    noteId: string | undefined,
+    limit: number,
+  ): Promise<readonly TopicBlockSearchHit[]> {
     const vector = await this.#embeddingModel.embedQuery(query)
     validateVector(vector, this.#embeddingModel)
     const vectorBytes = serializeVector(vector)
 
-    let rows: readonly NodeSearchRow[]
-    if (documentId === undefined) {
-      rows = await this.#database.all<NodeSearchRow>(`
+    let rows: readonly TopicBlockSearchRow[]
+    if (noteId === undefined) {
+      rows = await this.#database.all<TopicBlockSearchRow>(`
         SELECT
-          d.id AS document_id,
-          n.node_id,
-          n.parent_node_id,
-          n.ordinal,
-          n.kind,
-          n.text,
-          n.attributes_json,
-          n.content_hash,
-          n.text AS preview,
+          n.id AS note_id,
+          b.topic_id,
+          b.block_id,
+          b.parent_block_id,
+          b.ordinal,
+          b.kind,
+          b.text,
+          b.attributes_json,
+          b.content_hash,
+          b.text AS preview,
           nearest.distance AS rank
         FROM (
-          SELECT node_row_id, distance
-          FROM document_node_embeddings
+          SELECT block_row_id, distance
+          FROM topic_block_embeddings
           WHERE embedding MATCH ? AND k = ?
         ) nearest
-        JOIN document_nodes n ON n.row_id = nearest.node_row_id
-        JOIN documents d ON d.row_id = n.document_row_id
+        JOIN topic_blocks b ON b.row_id = nearest.block_row_id
+        JOIN notes n ON n.row_id = b.note_row_id
         ORDER BY nearest.distance ASC
       `, [vectorBytes, limit])
     }
     else {
-      const document = await this.#database.get<{ row_id: number }>(
-        'SELECT row_id FROM documents WHERE id = ?',
-        [documentId],
+      const note = await this.#database.get<{ row_id: number }>(
+        'SELECT row_id FROM notes WHERE id = ?',
+        [noteId],
       )
-      if (!document)
+      if (!note)
         return []
-
-      rows = await this.#database.all<NodeSearchRow>(`
+      rows = await this.#database.all<TopicBlockSearchRow>(`
         SELECT
-          d.id AS document_id,
-          n.node_id,
-          n.parent_node_id,
-          n.ordinal,
-          n.kind,
-          n.text,
-          n.attributes_json,
-          n.content_hash,
-          n.text AS preview,
+          n.id AS note_id,
+          b.topic_id,
+          b.block_id,
+          b.parent_block_id,
+          b.ordinal,
+          b.kind,
+          b.text,
+          b.attributes_json,
+          b.content_hash,
+          b.text AS preview,
           nearest.distance AS rank
         FROM (
-          SELECT node_row_id, distance
-          FROM document_node_embeddings
-          WHERE embedding MATCH ? AND k = ? AND document_row_id = ?
+          SELECT block_row_id, distance
+          FROM topic_block_embeddings
+          WHERE embedding MATCH ? AND k = ? AND note_row_id = ?
         ) nearest
-        JOIN document_nodes n ON n.row_id = nearest.node_row_id
-        JOIN documents d ON d.row_id = n.document_row_id
+        JOIN topic_blocks b ON b.row_id = nearest.block_row_id
+        JOIN notes n ON n.row_id = b.note_row_id
         ORDER BY nearest.distance ASC
-      `, [vectorBytes, limit, BigInt(document.row_id)])
+      `, [vectorBytes, limit, BigInt(note.row_id)])
     }
-
-    return rows.map(row => ({ ...toStoredNode(row), preview: row.preview, rank: row.rank }))
+    return rows.map(row => ({ ...toStoredBlock(row), preview: row.preview, rank: row.rank }))
   }
 }
 

@@ -2,8 +2,11 @@ import type Database from 'better-sqlite3'
 import type {
   DatabaseCommand,
   DatabaseValue,
+  EditorStorage,
   EditorStorageDatabase,
   EmbeddingModel,
+  StoredNote,
+  TopicBlockProjection,
 } from './index'
 import BetterSqlite3 from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
@@ -83,62 +86,103 @@ async function createStorage(model: EmbeddingModel = embeddingModel) {
   return createEditorStorage({ database, embeddingModel: model })
 }
 
+async function saveTopic(
+  storage: EditorStorage,
+  note: StoredNote,
+  blocks: readonly TopicBlockProjection[],
+  title = 'Stored Note',
+): Promise<void> {
+  await storage.saveNoteUpdates({
+    entries: [{
+      id: 'topic',
+      kind: 'topic',
+      mode: 0,
+      ordinal: 0,
+      parentId: null,
+      title: 'Stored Topic',
+    }],
+    noteId: note.id,
+    title,
+    topics: [{
+      blocks,
+      topicId: 'topic',
+    }],
+    updates: [Uint8Array.from([note.latestSequence + 1])],
+  })
+}
+
 afterEach(async () => {
   await Promise.all(databases.splice(0).map(database => database.close()))
 })
 
 describe('editor storage with an in-memory SQLite database', () => {
-  it('saves and restores a CRDT snapshot and node projection', async () => {
+  it('restores a Note checkpoint, update log, and Topic Block projection', async () => {
     const storage = await createStorage()
-    const opened = await storage.openMostRecentDocument()
+    const opened = await storage.openMostRecentNote()
     const snapshot = Uint8Array.from([12, 34, 56, 78])
+    await storage.checkpointNote({ noteId: opened.id, snapshot, throughSequence: 0 })
 
-    await storage.saveDocument({
-      id: opened.id,
-      nodes: [
-        {
-          attributes: { collapsed: false },
-          id: 'parent',
-          kind: 'outline',
-          ordinal: 0,
-          parentId: null,
-          text: 'Parent node',
-        },
-        {
-          attributes: { checked: true, priority: 2 },
-          id: 'child',
-          kind: 'task',
-          ordinal: 0,
-          parentId: 'parent',
-          text: 'Nested searchable text',
-        },
-      ],
-      snapshot,
-      title: 'Stored document',
-    })
+    await saveTopic(storage, opened, [
+      {
+        attributes: { collapsed: false },
+        id: 'parent',
+        kind: 'outline',
+        ordinal: 0,
+        parentId: null,
+        text: 'Parent block',
+      },
+      {
+        attributes: { checked: true, priority: 2 },
+        id: 'child',
+        kind: 'task',
+        ordinal: 0,
+        parentId: 'parent',
+        text: 'Nested searchable text',
+      },
+    ])
 
-    const restoredDocument = await storage.openMostRecentDocument()
-    expect(restoredDocument).toMatchObject({
+    const restored = await storage.openMostRecentNote()
+    expect(restored).toMatchObject({
+      checkpointSequence: 0,
       id: opened.id,
+      latestSequence: 1,
       snapshot,
-      title: 'Stored document',
+      title: 'Stored Note',
+      updates: [{ sequence: 1, update: Uint8Array.from([1]) }],
     })
-    expect(await storage.getNode({ documentId: opened.id, nodeId: 'child' })).toEqual({
+    expect(await storage.getTopicBlock({
+      blockId: 'child',
+      noteId: opened.id,
+      topicId: 'topic',
+    })).toEqual({
       attributes: { checked: true, priority: 2 },
       contentHash: '54c92e410c74bcdf209bbab0e56e2da22e6c23b3df58d1890415775ee6443ac8',
-      documentId: opened.id,
       id: 'child',
       kind: 'task',
+      noteId: opened.id,
       ordinal: 0,
       parentId: 'parent',
       text: 'Nested searchable text',
+      topicId: 'topic',
+    })
+
+    await storage.checkpointNote({
+      noteId: opened.id,
+      snapshot: Uint8Array.from([99]),
+      throughSequence: 1,
+    })
+    expect(await storage.openMostRecentNote()).toMatchObject({
+      checkpointSequence: 1,
+      latestSequence: 1,
+      snapshot: Uint8Array.from([99]),
+      updates: [],
     })
   })
 
-  it('removes deleted nodes and refreshes lexical search after saving again', async () => {
+  it('removes deleted Topic Blocks and refreshes lexical search after saving again', async () => {
     const storage = await createStorage()
-    const document = await storage.openMostRecentDocument()
-    const initialNodes = [
+    const note = await storage.openMostRecentNote()
+    const initialBlocks = [
       {
         attributes: {},
         id: 'removed',
@@ -156,34 +200,33 @@ describe('editor storage with an in-memory SQLite database', () => {
         text: 'Old database wording',
       },
     ] as const
-    await storage.saveDocument({
-      id: document.id,
-      nodes: initialNodes,
-      snapshot: Uint8Array.from([1]),
-      title: 'Before update',
-    })
-    expect(await storage.searchNodes({ mode: 'lexical', query: 'pineapple' })).toMatchObject([
-      { documentId: document.id, id: 'removed', text: 'Obsolete pineapple note' },
+    await saveTopic(storage, note, initialBlocks, 'Before update')
+    expect(await storage.searchTopicBlocks({ mode: 'lexical', query: 'pineapple' })).toMatchObject([
+      { id: 'removed', noteId: note.id, text: 'Obsolete pineapple note', topicId: 'topic' },
     ])
 
-    await storage.saveDocument({
-      id: document.id,
-      nodes: [{ ...initialNodes[1], ordinal: 0, text: 'Current searchable database wording' }],
-      snapshot: Uint8Array.from([2]),
-      title: 'After update',
-    })
+    await saveTopic(
+      storage,
+      { ...note, latestSequence: 1 },
+      [{ ...initialBlocks[1], ordinal: 0, text: 'Current searchable database wording' }],
+      'After update',
+    )
 
-    expect(await storage.getNode({ documentId: document.id, nodeId: 'removed' })).toBeNull()
-    expect(await storage.searchNodes({ mode: 'lexical', query: 'pineapple' })).toEqual([])
-    expect(await storage.searchNodes({ mode: 'lexical', query: 'searchable database' })).toMatchObject([
-      { documentId: document.id, id: 'changed', text: 'Current searchable database wording' },
+    expect(await storage.getTopicBlock({
+      blockId: 'removed',
+      noteId: note.id,
+      topicId: 'topic',
+    })).toBeNull()
+    expect(await storage.searchTopicBlocks({ mode: 'lexical', query: 'pineapple' })).toEqual([])
+    expect(await storage.searchTopicBlocks({ mode: 'lexical', query: 'searchable database' })).toMatchObject([
+      { id: 'changed', noteId: note.id, text: 'Current searchable database wording', topicId: 'topic' },
     ])
   })
 
-  it('indexes pending nodes and ranks semantic search using sqlite-vec', async () => {
+  it('indexes pending Topic Blocks and ranks semantic search using sqlite-vec', async () => {
     const storage = await createStorage(semanticEmbeddingModel)
-    const document = await storage.openMostRecentDocument()
-    const nodes = [
+    const note = await storage.openMostRecentNote()
+    const blocks = [
       {
         attributes: {},
         id: 'animal',
@@ -201,103 +244,88 @@ describe('editor storage with an in-memory SQLite database', () => {
         text: 'SQLite database indexing architecture',
       },
     ] as const
-    await storage.saveDocument({
-      id: document.id,
-      nodes,
-      snapshot: Uint8Array.from([3]),
-      title: 'Semantic document',
-    })
+    await saveTopic(storage, note, blocks, 'Semantic Note')
 
     expect(await storage.indexPendingEmbeddings()).toBe(2)
     expect(await storage.indexPendingEmbeddings()).toBe(0)
-    const hits = await storage.searchNodes({ limit: 2, mode: 'semantic', query: 'database design' })
+    const hits = await storage.searchTopicBlocks({ limit: 2, mode: 'semantic', query: 'database design' })
     expect(hits.map(hit => hit.id)).toEqual(['database', 'animal'])
     const databaseHit = hits[0]
     const animalHit = hits[1]
     if (!databaseHit || !animalHit)
-      throw new Error('Semantic search did not return both indexed nodes')
+      throw new Error('Semantic search did not return both indexed Topic Blocks')
     expect(databaseHit.rank).toBe(0)
     expect(animalHit.rank).toBeGreaterThan(databaseHit.rank)
 
-    await storage.saveDocument({
-      id: document.id,
-      nodes: [{ ...nodes[0], text: 'An editor document about a rare animal' }, nodes[1]],
-      snapshot: Uint8Array.from([4]),
-      title: 'Changed semantic document',
-    })
+    await saveTopic(
+      storage,
+      { ...note, latestSequence: 1 },
+      [{ ...blocks[0], text: 'An editor document about a rare animal' }, blocks[1]],
+      'Changed Semantic Note',
+    )
     expect(await storage.indexPendingEmbeddings()).toBe(1)
     expect(await storage.indexPendingEmbeddings()).toBe(0)
   })
 
-  it('fuses lexical and semantic matches without duplicating nodes', async () => {
+  it('fuses lexical and semantic matches without duplicating Topic Blocks', async () => {
     const storage = await createStorage(semanticEmbeddingModel)
-    const document = await storage.openMostRecentDocument()
-    await storage.saveDocument({
-      id: document.id,
-      nodes: [
-        {
-          attributes: {},
-          id: 'both',
-          kind: 'outline',
-          ordinal: 0,
-          parentId: null,
-          text: 'Database query performance',
-        },
-        {
-          attributes: {},
-          id: 'semantic-only',
-          kind: 'outline',
-          ordinal: 1,
-          parentId: null,
-          text: 'SQLite storage engine',
-        },
-        {
-          attributes: {},
-          id: 'unrelated',
-          kind: 'outline',
-          ordinal: 2,
-          parentId: null,
-          text: 'A red panda is an animal',
-        },
-      ],
-      snapshot: Uint8Array.from([5]),
-      title: 'Hybrid search document',
-    })
+    const note = await storage.openMostRecentNote()
+    await saveTopic(storage, note, [
+      {
+        attributes: {},
+        id: 'both',
+        kind: 'outline',
+        ordinal: 0,
+        parentId: null,
+        text: 'Database query performance',
+      },
+      {
+        attributes: {},
+        id: 'semantic-only',
+        kind: 'outline',
+        ordinal: 1,
+        parentId: null,
+        text: 'SQLite storage engine',
+      },
+      {
+        attributes: {},
+        id: 'unrelated',
+        kind: 'outline',
+        ordinal: 2,
+        parentId: null,
+        text: 'A red panda is an animal',
+      },
+    ], 'Hybrid Search Note')
     expect(await storage.indexPendingEmbeddings()).toBe(3)
 
-    const hits = await storage.searchNodes({ limit: 2, mode: 'hybrid', query: 'database' })
+    const hits = await storage.searchTopicBlocks({ limit: 2, mode: 'hybrid', query: 'database' })
     expect(hits.map(hit => hit.id)).toEqual(['both', 'semantic-only'])
     expect(new Set(hits.map(hit => hit.id)).size).toBe(2)
   })
 
-  it('finds one and two character lexical queries', async () => {
+  it('finds one and two character lexical queries in Topic Blocks', async () => {
     const storage = await createStorage()
-    const document = await storage.openMostRecentDocument()
-    await storage.saveDocument({
-      id: document.id,
-      nodes: [
-        {
-          attributes: {},
-          id: 'matching',
-          kind: 'outline',
-          ordinal: 0,
-          parentId: null,
-          text: '数据库设计',
-        },
-        {
-          attributes: {},
-          id: 'other',
-          kind: 'outline',
-          ordinal: 1,
-          parentId: null,
-          text: '编辑器交互',
-        },
-      ],
-      snapshot: Uint8Array.from([6]),
-      title: 'Short query document',
-    })
+    const note = await storage.openMostRecentNote()
+    await saveTopic(storage, note, [
+      {
+        attributes: {},
+        id: 'matching',
+        kind: 'outline',
+        ordinal: 0,
+        parentId: null,
+        text: '数据库设计',
+      },
+      {
+        attributes: {},
+        id: 'other',
+        kind: 'outline',
+        ordinal: 1,
+        parentId: null,
+        text: '编辑器交互',
+      },
+    ], 'Short Query Note')
 
-    expect((await storage.searchNodes({ mode: 'lexical', query: '数' })).map(hit => hit.id)).toEqual(['matching'])
-    expect((await storage.searchNodes({ mode: 'lexical', query: '数据' })).map(hit => hit.id)).toEqual(['matching'])
+    expect((await storage.searchTopicBlocks({ mode: 'lexical', query: '数' })).map(hit => hit.id)).toEqual(['matching'])
+    expect((await storage.searchTopicBlocks({ mode: 'lexical', query: '数据' })).map(hit => hit.id)).toEqual(['matching'])
   })
 })

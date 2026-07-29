@@ -1,26 +1,28 @@
-import type { EditorMode, EditorProps } from '../../src/editor'
+import type { EditorModeValue } from '../../src/common/editor-mode'
+import type { EditorTestHarnessProps } from './editor-test-harness'
 import { useState } from 'react'
 
-import { Editor } from '../../src/editor'
+import { EditorMode } from '../../src/common/editor-mode'
+import { EditorTestHarness } from './editor-test-harness'
 
-export interface EditorModeHarnessProps extends Omit<EditorProps, 'mode'> {
-  initialMode?: EditorMode
+export interface EditorModeHarnessProps extends Omit<EditorTestHarnessProps, 'mode'> {
+  initialMode?: EditorModeValue
 }
 
-export function EditorModeHarness({ initialMode = 'document', ...editorProps }: EditorModeHarnessProps) {
-  const [mode, setMode] = useState<EditorMode>(initialMode)
+export function EditorModeHarness({ initialMode = EditorMode.Document, ...editorProps }: EditorModeHarnessProps) {
+  const [mode, setMode] = useState<EditorModeValue>(initialMode)
 
   return (
     <>
       <div aria-label="Editor mode" role="group">
-        <button aria-label="Document mode" aria-pressed={mode === 'document'} type="button" onClick={() => setMode('document')}>
+        <button aria-label="Document mode" aria-pressed={mode === EditorMode.Document} type="button" onClick={() => setMode(EditorMode.Document)}>
           Document
         </button>
-        <button aria-label="Outline mode" aria-pressed={mode === 'outline'} type="button" onClick={() => setMode('outline')}>
+        <button aria-label="Outline mode" aria-pressed={mode === EditorMode.Outline} type="button" onClick={() => setMode(EditorMode.Outline)}>
           Outline
         </button>
       </div>
-      <Editor {...editorProps} mode={mode} />
+      <EditorTestHarness {...editorProps} mode={mode} />
     </>
   )
 }
