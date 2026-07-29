@@ -1,0 +1,66 @@
+import * as stylex from '@stylexjs/stylex'
+
+export const codeBlockViewStyles = stylex.create({
+  root: {
+    position: 'relative',
+    marginBlock: '1em',
+  },
+  languageWrapper: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    zIndex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    color: '#c8cdd5',
+    userSelect: 'none',
+  },
+  languageSelect: {
+    boxSizing: 'border-box',
+    width: 132,
+    height: 24,
+    overflow: 'hidden',
+    borderColor: 'rgb(255 255 255 / 12%)',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingBlock: 2,
+    paddingLeft: 8,
+    paddingRight: 22,
+    appearance: 'none',
+    backgroundColor: {
+      'default': 'rgb(255 255 255 / 6%)',
+      ':hover': 'rgb(255 255 255 / 10%)',
+    },
+    color: '#c8cdd5',
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 500,
+    letterSpacing: '0.01em',
+    outline: 'none',
+    textOverflow: 'ellipsis',
+    transitionDuration: '120ms',
+    transitionProperty: 'background-color, border-color, box-shadow, color',
+    userSelect: 'none',
+    whiteSpace: 'nowrap',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': '0 0 0 2px rgb(97 175 239 / 55%)',
+    },
+  },
+  languageChevron: {
+    position: 'absolute',
+    right: 7,
+    pointerEvents: 'none',
+  },
+  sourceHidden: {
+    display: 'none',
+  },
+  preview: {
+    display: 'block',
+    overflow: 'auto',
+    minHeight: 96,
+    paddingTop: 36,
+    paddingBottom: 12,
+  },
+})

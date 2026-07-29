@@ -5,8 +5,9 @@ import { canUseRegexLookbehind } from 'prosekit/core'
 import { useEditorDerivedValue } from 'prosekit/react'
 import { AutocompletePopup, AutocompletePositioner, AutocompleteRoot } from 'prosekit/react/autocomplete'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
 import { getEditorActions } from '../editor-actions/index.ts'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import SlashMenuEmpty from './slash-menu-empty.tsx'
 import SlashMenuItem from './slash-menu-item.tsx'
 
@@ -22,15 +23,15 @@ export default function SlashMenu() {
 
   return (
     <AutocompleteRoot regex={regex}>
-      <AutocompletePositioner {...stylex.props(editorStyles.positioner)}>
+      <AutocompletePositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
         <AutocompletePopup
           {...stylex.props(
-            editorStyles.floatingSurfaceMotion,
-            editorStyles.popupSurface,
-            editorStyles.autocompletePopup,
+            floatingSurfaceStyles.motion,
+            floatingSurfaceStyles.surface,
+            autocompleteMenuStyles.popup,
           )}
         >
-          <div {...stylex.props(editorStyles.autocompletePopupContent)}>
+          <div {...stylex.props(autocompleteMenuStyles.content)}>
             <SlashMenuItem
               label="Text"
               onSelect={actions.heading.paragraph.run}

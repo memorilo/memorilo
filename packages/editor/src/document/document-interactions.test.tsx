@@ -1,10 +1,13 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
+import * as stylex from '@stylexjs/stylex'
 import { render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it } from 'vitest'
+import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
 import { userEvent } from '../../test/browser/user-event'
 import { Editor } from '../editor'
+import { testLayoutStyles } from '../test/test-layout.stylex'
 
 const adapters: EditorAdapters = {
   uploadImage: async () => 'memory://image',
@@ -75,7 +78,7 @@ function selectedDomBlockId(): string | null {
 describe('document interactions', () => {
   it('keeps the slash menu working after switching back to Document mode', async () => {
     const rendered = render(
-      <Editor
+      <EditorModeHarness
         adapters={adapters}
         initialContent={{
           type: 'doc',
@@ -99,11 +102,39 @@ describe('document interactions', () => {
     expect(rendered.getByRole('option', { name: /^Quote/ })).toBeVisible()
   })
 
+  it('moves the slash menu highlight with ArrowDown in Document mode', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode="document"
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+    await userEvent.keyboard('{End}{Enter}/')
+
+    const textOption = await rendered.findByRole('option', { name: 'Text' })
+    const headingOption = rendered.getByRole('option', { name: 'Heading 1 #' })
+    await waitFor(() => expect(textOption).toHaveAttribute('data-highlighted'))
+
+    await userEvent.keyboard('{ArrowDown}')
+
+    await waitFor(() => {
+      expect(textOption).not.toHaveAttribute('data-highlighted')
+      expect(headingOption).toHaveAttribute('data-highlighted')
+    })
+  })
+
   it('creates a wrapped ordinary Document block from the block handle add control', async () => {
     const rendered = render(
-      <div style={{ marginLeft: 100 }}>
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
         <Editor
           adapters={adapters}
+          mode="document"
           initialContent={{
             type: 'doc',
             content: [
@@ -140,6 +171,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -175,6 +207,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [documentBlock('paragraph', paragraph('Document paragraph'))],
@@ -207,6 +240,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -235,6 +269,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -261,6 +296,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -294,6 +330,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -326,6 +363,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -363,6 +401,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -389,6 +428,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -419,6 +459,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -450,6 +491,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -480,6 +522,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -513,6 +556,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{ type: 'doc', content: [item] }}
       />,
     )
@@ -540,6 +584,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{ type: 'doc', content: [first, second] }}
       />,
     )
@@ -560,6 +605,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [
@@ -593,6 +639,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{ type: 'doc', content: [first, second] }}
       />,
     )
@@ -620,6 +667,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [{
@@ -650,6 +698,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [documentBlock('Toggle', paragraph('Toggle item'), 'toggle', [documentBlock('Child', paragraph('Child item'))])],
@@ -669,6 +718,7 @@ describe('document interactions', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
+        mode="document"
         initialContent={{
           type: 'doc',
           content: [documentBlock('Parent', paragraph('Parent'), 'outline', [documentBlock('Table', table())])],

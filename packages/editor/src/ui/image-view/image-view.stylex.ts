@@ -1,0 +1,66 @@
+import * as stylex from '@stylexjs/stylex'
+import { editorColors } from '../../common/editor-theme.stylex'
+
+export const imageViewStyles = stylex.create({
+  resizable: {
+    position: 'relative',
+    boxSizing: 'border-box',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+    minHeight: 64,
+    maxWidth: '100%',
+    maxHeight: 600,
+    overflow: 'hidden',
+    marginBlock: 8,
+    outlineColor: 'transparent',
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+  },
+  selected: {
+    outlineColor: editorColors.blue500,
+  },
+  image: {
+    display: 'block',
+    width: '100%',
+    height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
+    objectFit: 'contain',
+  },
+  handle: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 24,
+    height: 24,
+    margin: 6,
+    borderWidth: 0,
+    borderRadius: 4,
+    padding: 4,
+    backgroundColor: 'rgb(17 24 39 / 30%)',
+    color: 'rgb(255 255 255 / 50%)',
+    opacity: {
+      'default': 0,
+      ':hover': 1,
+    },
+    transitionDuration: '150ms',
+  },
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 8,
+    backgroundColor: editorColors.gray200,
+    color: editorColors.gray800,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  error: {
+    color: editorColors.red500,
+  },
+})

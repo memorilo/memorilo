@@ -5,7 +5,9 @@ import * as stylex from '@stylexjs/stylex'
 import { Check, ChevronDown } from 'lucide-react'
 import { MenuItem, MenuPopup, MenuPositioner, MenuRoot, MenuTrigger } from 'prosekit/react/menu'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { buttonStyles } from '../button/button.stylex'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { inlineMenuStyles } from './inline-menu.stylex'
 
 interface HeadingActions {
   paragraph: EditorAction
@@ -46,9 +48,9 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
 
   return (
     <MenuRoot>
-      <MenuTrigger {...stylex.props(editorStyles.headingMenuTrigger)}>
+      <MenuTrigger {...stylex.props(inlineMenuStyles.headingTrigger)}>
         <button
-          {...stylex.props(editorStyles.actionButton, editorStyles.headingMenuButton)}
+          {...stylex.props(buttonStyles.action, inlineMenuStyles.headingButton)}
           aria-label="Text style"
           type="button"
           onMouseDown={event => event.preventDefault()}
@@ -57,12 +59,12 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
           <ChevronDown aria-hidden="true" size={14} />
         </button>
       </MenuTrigger>
-      <MenuPositioner {...stylex.props(editorStyles.positioner)} placement="bottom-start">
+      <MenuPositioner {...stylex.props(floatingSurfaceStyles.positioner)} placement="bottom-start">
         <MenuPopup
           {...stylex.props(
-            editorStyles.floatingSurfaceMotion,
-            editorStyles.popupSurface,
-            editorStyles.editorMenuPopup,
+            floatingSurfaceStyles.motion,
+            floatingSurfaceStyles.surface,
+            inlineMenuStyles.headingPopup,
           )}
           aria-label="Text style"
           onMouseDown={event => event.preventDefault()}
@@ -70,7 +72,7 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
           {items.map(({ action, label }) => (
             <MenuItem
               key={label}
-              {...stylex.props(editorStyles.editorMenuItem)}
+              {...stylex.props(inlineMenuStyles.headingItem)}
               disabled={!action.canExec}
               onSelect={action.run}
             >

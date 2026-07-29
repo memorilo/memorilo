@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore }
 import { executeOutlineOutdent, outlineCommandBlockIds, outlineOutdentBlockedMessage, planOutlineOutdent } from '../common/outline-outdent'
 import { outlineEditorStyles } from './outline-editor.stylex'
 import { observeOutlineMarkerAlignment } from './outline-marker-alignment'
+import './outline-content.stylex'
 
 function visibleBlockIds(root: HTMLElement): string[] {
   return Array.from(root.querySelectorAll<HTMLElement>('[data-block-id]'))

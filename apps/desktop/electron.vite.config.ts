@@ -8,6 +8,7 @@ import { defineConfig } from 'electron-vite'
 const desktopRoot = dirname(fileURLToPath(import.meta.url))
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
   externalPackages: ['@memorilo/editor'],
+  unstable_moduleResolution: { type: 'commonJS' },
   useCSSLayers: true,
 }
 

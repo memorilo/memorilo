@@ -3,6 +3,7 @@ import type { EditorAdapters } from './adapters/editor-adapters'
 import { render, waitFor, within } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it, vi } from 'vitest'
+import { EditorModeHarness } from '../test/browser/editor-mode-harness'
 import { userEvent } from '../test/browser/user-event'
 
 import { Editor } from './editor'
@@ -59,21 +60,18 @@ function codeFirstLineCenter(code: HTMLElement): number {
 }
 
 describe('editor modes', () => {
-  it('supports a controlled mode switch through mode and onModeChange', async () => {
-    const onModeChange = vi.fn()
+  it('accepts the mode from its caller without rendering mode controls', async () => {
     const initialContent = modeDocument()
     const rendered = render(
       <Editor
         adapters={adapters}
         initialContent={initialContent}
         mode="document"
-        onModeChange={onModeChange}
       />,
     )
     await within(rendered.container).findByText('Plain block')
 
-    await userEvent.click(page.getByRole('button', { name: 'Outline mode' }))
-    expect(onModeChange).toHaveBeenCalledExactlyOnceWith('outline')
+    expect(within(rendered.container).queryByRole('group', { name: 'Editor mode' })).not.toBeInTheDocument()
     expect(rendered.container.querySelector('[data-editor-mode="document"]')).not.toBeNull()
 
     rendered.rerender(
@@ -81,7 +79,6 @@ describe('editor modes', () => {
         adapters={adapters}
         initialContent={initialContent}
         mode="outline"
-        onModeChange={onModeChange}
       />,
     )
     await waitFor(() => expect(rendered.container.querySelector('[data-editor-mode="outline"]')).not.toBeNull())
@@ -90,7 +87,7 @@ describe('editor modes', () => {
   it('switches a non-empty document between projections without changing the document', async () => {
     const onDocumentChange = vi.fn()
     const rendered = render(
-      <Editor
+      <EditorModeHarness
         adapters={adapters}
         initialContent={modeDocument()}
         onDocumentChange={onDocumentChange}
@@ -117,7 +114,7 @@ describe('editor modes', () => {
 
   it('keeps default Outline bullets distinct from semantic bullet and ordered lists', async () => {
     const rendered = render(
-      <Editor
+      <EditorModeHarness
         adapters={adapters}
         initialContent={{
           type: 'doc',
@@ -170,7 +167,7 @@ describe('editor modes', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        defaultMode="outline"
+        mode="outline"
         initialContent={{
           type: 'doc',
           content: [
@@ -217,7 +214,7 @@ describe('editor modes', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        defaultMode="outline"
+        mode="outline"
         initialContent={{
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'First block' }] }],
@@ -261,13 +258,13 @@ describe('editor modes', () => {
     { kind: 'ordered', label: 'Ordered list' },
   ])('creates a semantic $kind list from Outline mode and preserves it in Document mode', async ({ kind, label }) => {
     const rendered = render(
-      <Editor
+      <EditorModeHarness
         adapters={adapters}
-        defaultMode="outline"
         initialContent={{
           type: 'doc',
           content: [{ type: 'paragraph' }],
         }}
+        initialMode="outline"
       />,
     )
     await waitFor(() => expect(rendered.container.querySelector('[data-list-kind="outline"] p')).not.toBeNull())
@@ -286,13 +283,13 @@ describe('editor modes', () => {
 
   it('keeps undo and redo history when switching a non-empty document between modes', async () => {
     const rendered = render(
-      <Editor
+      <EditorModeHarness
         adapters={adapters}
-        defaultMode="outline"
         initialContent={{
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'History block' }] }],
         }}
+        initialMode="outline"
       />,
     )
     await rendered.findByText('History block')

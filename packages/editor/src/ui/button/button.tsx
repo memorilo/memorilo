@@ -4,7 +4,8 @@ import type { MouseEventHandler, ReactNode } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { TooltipPopup, TooltipPositioner, TooltipRoot, TooltipTrigger } from 'prosekit/react/tooltip'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { buttonStyles } from './button.stylex'
 
 export default function Button(props: {
   pressed?: boolean
@@ -15,9 +16,9 @@ export default function Button(props: {
 }) {
   return (
     <TooltipRoot>
-      <TooltipTrigger {...stylex.props(editorStyles.tooltipTrigger)}>
+      <TooltipTrigger {...stylex.props(buttonStyles.tooltipTrigger)}>
         <button
-          {...stylex.props(editorStyles.actionButton, props.pressed && editorStyles.actionButtonPressed)}
+          {...stylex.props(buttonStyles.action, props.pressed && buttonStyles.pressed)}
           data-state={props.pressed ? 'on' : 'off'}
           disabled={props.disabled}
           type="button"
@@ -28,13 +29,13 @@ export default function Button(props: {
           }}
         >
           {props.children}
-          {props.tooltip ? <span {...stylex.props(editorStyles.visuallyHidden)}>{props.tooltip}</span> : null}
+          {props.tooltip ? <span {...stylex.props(buttonStyles.visuallyHidden)}>{props.tooltip}</span> : null}
         </button>
       </TooltipTrigger>
       {props.tooltip
         ? (
-            <TooltipPositioner {...stylex.props(editorStyles.positioner)}>
-              <TooltipPopup {...stylex.props(editorStyles.floatingSurfaceMotion, editorStyles.tooltipPopup)}>
+            <TooltipPositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
+              <TooltipPopup {...stylex.props(floatingSurfaceStyles.motion, buttonStyles.tooltipPopup)}>
                 {props.tooltip}
               </TooltipPopup>
             </TooltipPositioner>

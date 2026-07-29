@@ -16,8 +16,9 @@ import {
 } from 'prosekit/react/autocomplete'
 import { useEffect, useMemo, useState } from 'react'
 
-import { editorStyles } from '../../styles/editor.stylex'
 import { getTagLabelError, isSameTagLabel, normalizeTagLabel } from '../../tag/tag-label'
+import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 
 const regex = new RegExp(
   (canUseRegexLookbehind() ? String.raw`(?<!\S)` : '')
@@ -105,16 +106,16 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
         setTypedLabel(matchedLabel || event.detail)
       }}
     >
-      <AutocompletePositioner {...stylex.props(editorStyles.positioner)}>
+      <AutocompletePositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
         <AutocompletePopup
           {...stylex.props(
-            editorStyles.floatingSurfaceMotion,
-            editorStyles.popupSurface,
-            editorStyles.autocompletePopup,
+            floatingSurfaceStyles.motion,
+            floatingSurfaceStyles.surface,
+            autocompleteMenuStyles.popup,
           )}
         >
-          <div {...stylex.props(editorStyles.autocompletePopupContent)}>
-            <AutocompleteEmpty {...stylex.props(editorStyles.autocompleteMenuItem)}>
+          <div {...stylex.props(autocompleteMenuStyles.content)}>
+            <AutocompleteEmpty {...stylex.props(autocompleteMenuStyles.item)}>
               {loading ? 'Loading...' : error ?? labelError ?? 'No results'}
             </AutocompleteEmpty>
 
@@ -122,7 +123,7 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
               <AutocompleteItem
                 key={tag.id}
                 value={tag.label}
-                {...stylex.props(editorStyles.autocompleteMenuItem)}
+                {...stylex.props(autocompleteMenuStyles.item)}
                 onSelect={() => handleTagInsert(tag.id, tag.label)}
               >
                 #
@@ -134,14 +135,14 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
               ? (
                   <AutocompleteItem
                     value={normalizedTypedLabel}
-                    {...stylex.props(editorStyles.autocompleteMenuItem)}
+                    {...stylex.props(autocompleteMenuStyles.item)}
                     onSelect={handleTagCreate}
                   >
                     <span>
                       Create #
                       {normalizedTypedLabel}
                     </span>
-                    <span {...stylex.props(editorStyles.autocompleteKeyboard)}>Enter</span>
+                    <span {...stylex.props(autocompleteMenuStyles.keyboard)}>Enter</span>
                   </AutocompleteItem>
                 )
               : null}
