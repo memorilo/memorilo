@@ -3,10 +3,12 @@
 Memorilo is an Electron application organized as a pnpm and Turbo monorepo.
 
 - `apps/desktop` coordinates Electron development and production builds.
-- `apps/desktop/main` owns the Electron main process, IPC services, database access, and persistence.
+- `apps/desktop/main` owns the Electron main process and composes IPC services with persistence adapters.
 - `apps/desktop/preload` owns the context-isolated renderer bridge and exposed contracts.
 - `apps/desktop/renderer` owns the React application and browser-facing state.
 - `packages/editor` owns reusable editor UI, state, extensions, and integrations.
+- `packages/editor-storage` owns the platform-independent persistence workflow, SQLite schema, CRDT snapshot persistence, node projections, and search.
+- Platform packages provide database-driver and embedding-model adapters to `packages/editor-storage`.
 - `packages/e2e` owns Playwright Electron end-to-end tests.
 
 Import packages through their public entry points. Do not reach into another package's private source tree.
@@ -41,11 +43,8 @@ Use Turbo filters when working on a specific package:
 - Before considering repository-wide work complete, run `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
 - Run `pnpm test:e2e` for changes affecting Electron startup, IPC, preload contracts, persistence, packaging, or end-user workflows.
 - Rebuild native Electron dependencies after changing Electron or native modules with `pnpm --filter @memorilo/desktop rebuild:native`.
-- Generate, migrate, or inspect the database through:
-  - `pnpm --filter @memorilo/desktop-main db:generate`
-  - `pnpm --filter @memorilo/desktop-main db:migrate`
-  - `pnpm --filter @memorilo/desktop-main db:studio`
-- Review generated database migrations before applying them.
+- Keep database schema and queries inside `packages/editor-storage`; compose that module with platform adapters in the Electron main process.
+- Review editor-storage schema changes before opening an existing database.
 
 ## Design skills
 

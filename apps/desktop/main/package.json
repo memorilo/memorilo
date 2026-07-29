@@ -8,21 +8,19 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
+    "test": "pnpm --workspace-root prepare:embedding-model && vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@huggingface/transformers": "3.7.5",
+    "@memorilo/editor-storage": "workspace:*",
     "better-sqlite3": "13.0.1",
-    "drizzle-orm": "0.45.2",
-    "electron-ipc-decorator": "1.0.1"
+    "electron-ipc-decorator": "1.0.1",
+    "sqlite-vec": "0.1.9"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "drizzle-kit": "^0.31.4",
     "electron": "43.2.0"
   }
 }

@@ -3,8 +3,20 @@ packages:
   - apps/desktop/*
   - packages/*
 
+supportedArchitectures:
+  os:
+    - current
+    - darwin
+    - win32
+  cpu:
+    - current
+    - arm64
+    - x64
+
 ignoredBuiltDependencies:
   - better-sqlite3
 onlyBuiltDependencies:
   - electron
   - esbuild
+  - onnxruntime-node
+  - sharp

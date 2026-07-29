@@ -6,5 +6,5 @@
     "experimentalDecorators": true,
     "types": ["node", "electron"]
   },
-  "include": ["drizzle.config.ts", "src/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }

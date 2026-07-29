@@ -2,12 +2,14 @@ import type { NodeJSON } from 'prosekit/core'
 import type { Uploader } from 'prosekit/extensions/file'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { OutlineRuntime } from '../common/outline-runtime'
+import type { LoroEditorRuntime } from '../document/loro-document'
 import type { EditorStore } from '../state/editor-store'
 import { defineBasicExtension } from 'prosekit/basic'
 import { defineDocChangeHandler, union } from 'prosekit/core'
 import { defineCodeBlockShiki } from 'prosekit/extensions/code-block'
 import { defineHorizontalRule } from 'prosekit/extensions/horizontal-rule'
 import { defineImageUploadHandler } from 'prosekit/extensions/image'
+import { defineLoro } from 'prosekit/extensions/loro'
 import { defineMath } from 'prosekit/extensions/math'
 
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
@@ -50,42 +52,51 @@ export function createEditorExtension(
   store: EditorStore,
   outlineRuntime: OutlineRuntime,
   onDocumentChange?: (document: NodeJSON) => void,
+  loro?: LoroEditorRuntime,
 ) {
   const uploader = createUploader(adapters, store)
   const tagRuntime = new TagRuntime(adapters.tagStorage)
 
+  const editorExtension = union(
+    defineBasicExtension(),
+    defineBlockIdExtension(),
+    defineTableKeymapExtension(),
+    defineEditorKeymapExtension(),
+    defineDocumentKeymapExtension(outlineRuntime),
+    defineOutlineKeymapExtension(outlineRuntime),
+    defineOutlineViewExtension(outlineRuntime),
+    defineDocChangeHandler((view) => {
+      onDocumentChange?.(view.state.doc.toJSON())
+    }),
+    definePlaceholder({ placeholder: 'Press / for commands...' }),
+    defineTag(tagRuntime),
+    defineMath({
+      renderMathBlock: renderKaTeXMathBlock,
+      renderMathInline: renderKaTeXMathInline,
+    }),
+    defineCodeBlockShiki(),
+    defineHorizontalRule(),
+    defineCodeBlockView(),
+    defineImageView(),
+    defineTagView(tagRuntime),
+    defineTaskListView(),
+    defineImageUploadHandler({
+      uploader,
+      onError: ({ error }) => {
+        const message = error instanceof Error ? error.message : String(error)
+        store.set(uploadErrorAtom, message)
+      },
+    }),
+  )
+
   return {
-    extension: union(
-      defineBasicExtension(),
-      defineBlockIdExtension(),
-      defineTableKeymapExtension(),
-      defineEditorKeymapExtension(),
-      defineDocumentKeymapExtension(outlineRuntime),
-      defineOutlineKeymapExtension(outlineRuntime),
-      defineOutlineViewExtension(outlineRuntime),
-      defineDocChangeHandler((view) => {
-        onDocumentChange?.(view.state.doc.toJSON())
-      }),
-      definePlaceholder({ placeholder: 'Press / for commands...' }),
-      defineTag(tagRuntime),
-      defineMath({
-        renderMathBlock: renderKaTeXMathBlock,
-        renderMathInline: renderKaTeXMathInline,
-      }),
-      defineCodeBlockShiki(),
-      defineHorizontalRule(),
-      defineCodeBlockView(),
-      defineImageView(),
-      defineTagView(tagRuntime),
-      defineTaskListView(),
-      defineImageUploadHandler({
-        uploader,
-        onError: ({ error }) => {
-          const message = error instanceof Error ? error.message : String(error)
-          store.set(uploadErrorAtom, message)
-        },
-      }),
-    ),
+    extension: loro
+      ? union(editorExtension, defineLoro({
+          doc: loro.doc,
+          presence: loro.presence,
+          sync: { mapping: loro.mapping },
+        }))
+      : editorExtension,
     tagRuntime,
     uploader,
   }
