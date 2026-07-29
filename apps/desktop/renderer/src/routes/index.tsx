@@ -4,14 +4,125 @@ import type {
   EditorNoteChange,
   EditorTopicDocument,
 } from '@memorilo/editor'
-import { createEditorNote, demoEditorAdapters, Editor, EditorMode } from '@memorilo/editor'
+import type { LucideIcon } from 'lucide-react'
+import { createEditorNote, demoEditorAdapters, Editor } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  BookOpenCheck,
+  CalendarDays,
+  ChevronDown,
+  Clock3,
+  FileText,
+  Network,
+  PanelLeft,
+  Search,
+} from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { editorRouteStyles } from './-index.stylex'
 
+const sidebarSpring = {
+  bounce: 0.12,
+  type: 'spring',
+  visualDuration: 0.3,
+} as const
+
+const disclosureSpring = {
+  bounce: 0,
+  type: 'spring',
+  visualDuration: 0.22,
+} as const
+
 const saveDelay = 250
+
+interface SourceItemProps {
+  icon: LucideIcon
+  label: string
+  meta?: string
+  selected?: boolean
+}
+
+const navigationItems: readonly SourceItemProps[] = [
+  { icon: CalendarDays, label: 'Journals', selected: true },
+  { icon: Search, label: 'Search' },
+  { icon: BookOpenCheck, label: 'Learning', meta: '12' },
+  { icon: Network, label: 'Graph' },
+]
+
+const favoriteItems: readonly SourceItemProps[] = [
+  { icon: FileText, label: 'Designing Fluid Interfaces' },
+  { icon: FileText, label: 'How memory changes' },
+]
+
+const recentItems: readonly SourceItemProps[] = [
+  { icon: Clock3, label: 'Progressive reading' },
+  { icon: Clock3, label: 'Ideas for Memorilo' },
+  { icon: Clock3, label: 'The extended mind' },
+]
+
+function SourceItem({ icon: Icon, label, meta, selected = false }: SourceItemProps) {
+  return (
+    <button
+      {...stylex.props(editorRouteStyles.sourceItem, selected && editorRouteStyles.sourceItemSelected)}
+      aria-current={selected ? 'page' : undefined}
+      type="button"
+    >
+      <Icon
+        {...stylex.props(editorRouteStyles.sourceIcon, selected && editorRouteStyles.sourceIconSelected)}
+        aria-hidden="true"
+        strokeWidth={1.8}
+      />
+      <span {...stylex.props(editorRouteStyles.sourceLabel, selected && editorRouteStyles.sourceLabelSelected)}>
+        {label}
+      </span>
+      {meta ? <span {...stylex.props(editorRouteStyles.sourceMeta)}>{meta}</span> : null}
+    </button>
+  )
+}
+
+function SourceGroup({ items, label }: { items: readonly SourceItemProps[], label: string }) {
+  const [expanded, setExpanded] = useState(true)
+  const shouldReduceMotion = useReducedMotion()
+  const transition = shouldReduceMotion ? { duration: 0 } : disclosureSpring
+
+  return (
+    <section {...stylex.props(editorRouteStyles.sourceGroup)}>
+      <button
+        {...stylex.props(editorRouteStyles.groupHeading)}
+        aria-expanded={expanded}
+        type="button"
+        onClick={() => setExpanded(current => !current)}
+      >
+        <span>{label}</span>
+        <motion.span
+          {...stylex.props(editorRouteStyles.disclosureIcon)}
+          animate={{ rotate: expanded ? 0 : -90 }}
+          initial={false}
+          transition={transition}
+        >
+          <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded
+          ? (
+              <motion.div
+                {...stylex.props(editorRouteStyles.sourceList, editorRouteStyles.animatedSourceList)}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                initial={{ height: 0, opacity: 0 }}
+                transition={transition}
+              >
+                {items.map(item => <SourceItem key={item.label} {...item} />)}
+              </motion.div>
+            )
+          : null}
+      </AnimatePresence>
+    </section>
+  )
+}
 
 interface OpenEditorNote {
   note: EditorNote
@@ -20,44 +131,65 @@ interface OpenEditorNote {
 }
 
 function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, saveError: string | null }) {
-  const mode = useSyncExternalStore(opened.topic.subscribe, opened.topic.getMode, opened.topic.getMode)
+  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const shouldReduceMotion = useReducedMotion()
+  const transition = shouldReduceMotion ? { duration: 0 } : sidebarSpring
 
   return (
     <main {...stylex.props(editorRouteStyles.page)}>
-      <div {...stylex.props(editorRouteStyles.toolbar)}>
-        <div {...stylex.props(editorRouteStyles.modeGroup)} aria-label="Editor mode" role="group">
-          <button
-            {...stylex.props(editorRouteStyles.modeButton, mode === EditorMode.Document && editorRouteStyles.modeButtonSelected)}
-            aria-label="Document mode"
-            aria-pressed={mode === EditorMode.Document}
-            type="button"
-            onClick={() => opened.topic.setMode(EditorMode.Document)}
-          >
-            Document
-          </button>
-          <button
-            {...stylex.props(editorRouteStyles.modeButton, mode === EditorMode.Outline && editorRouteStyles.modeButtonSelected)}
-            aria-label="Outline mode"
-            aria-pressed={mode === EditorMode.Outline}
-            type="button"
-            onClick={() => opened.topic.setMode(EditorMode.Outline)}
-          >
-            Outline
-          </button>
-        </div>
-      </div>
-      {saveError
-        ? (
-            <div aria-live="polite" role="status">
-              Failed to save Note:
-              {saveError}
-            </div>
-          )
-        : null}
-      <Editor
-        adapters={demoEditorAdapters}
-        topic={opened.topic}
-      />
+      <AnimatePresence initial={false}>
+        {sidebarVisible
+          ? (
+              <motion.aside
+                {...stylex.props(editorRouteStyles.sidebar)}
+                animate={{ marginLeft: 8, minWidth: 248, opacity: 1, width: 248, x: 0 }}
+                aria-label="Workspace navigation"
+                exit={{ marginLeft: 0, minWidth: 0, opacity: 0, width: 0, x: -18 }}
+                initial={{ marginLeft: 0, minWidth: 0, opacity: 0, width: 0, x: -18 }}
+                transition={transition}
+              >
+                <div {...stylex.props(editorRouteStyles.sidebarTitlebar)} data-window-drag="" />
+                <nav {...stylex.props(editorRouteStyles.sidebarContent)}>
+                  <section {...stylex.props(editorRouteStyles.sourceGroup)}>
+                    <h2 {...stylex.props(editorRouteStyles.navigationHeading)}>Navigation</h2>
+                    <div {...stylex.props(editorRouteStyles.sourceList)}>
+                      {navigationItems.map(item => <SourceItem key={item.label} {...item} />)}
+                    </div>
+                  </section>
+                  <SourceGroup items={favoriteItems} label="Favorites" />
+                  <SourceGroup items={recentItems} label="Recent" />
+                </nav>
+              </motion.aside>
+            )
+          : null}
+      </AnimatePresence>
+      <motion.button
+        {...stylex.props(editorRouteStyles.sidebarToggle)}
+        animate={{ left: sidebarVisible ? 217 : 80 }}
+        aria-label={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+        data-window-no-drag=""
+        initial={false}
+        title={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+        transition={transition}
+        type="button"
+        onClick={() => setSidebarVisible(visible => !visible)}
+      >
+        <PanelLeft aria-hidden="true" size={17} strokeWidth={1.8} />
+      </motion.button>
+      <section {...stylex.props(editorRouteStyles.workspace)} aria-label={opened.stored.title}>
+        {saveError
+          ? (
+              <div {...stylex.props(editorRouteStyles.saveError)} aria-live="polite" role="status">
+                Failed to save Note:
+                {saveError}
+              </div>
+            )
+          : null}
+        <Editor
+          adapters={demoEditorAdapters}
+          topic={opened.topic}
+        />
+      </section>
     </main>
   )
 }
