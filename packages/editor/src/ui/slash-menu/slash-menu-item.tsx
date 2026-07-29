@@ -3,7 +3,7 @@
 import * as stylex from '@stylexjs/stylex'
 import { AutocompleteItem } from 'prosekit/react/autocomplete'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
 
 export default function SlashMenuItem(props: {
   label: string
@@ -11,9 +11,12 @@ export default function SlashMenuItem(props: {
   onSelect: () => void
 }) {
   return (
-    <AutocompleteItem {...stylex.props(editorStyles.autocompleteMenuItem)} onSelect={props.onSelect}>
+    <AutocompleteItem
+      {...stylex.props(autocompleteMenuStyles.item)}
+      onSelect={props.onSelect}
+    >
       <span>{props.label}</span>
-      {props.kbd && <kbd {...stylex.props(editorStyles.autocompleteKeyboard)}>{props.kbd}</kbd>}
+      {props.kbd && <kbd {...stylex.props(autocompleteMenuStyles.keyboard)}>{props.kbd}</kbd>}
     </AutocompleteItem>
   )
 }

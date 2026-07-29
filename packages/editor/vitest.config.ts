@@ -8,7 +8,14 @@ export default defineConfig({
   plugins: [
     react({
       babel: {
-        plugins: [['@stylexjs/babel-plugin', { dev: true, test: true }]],
+        plugins: [[
+          '@stylexjs/babel-plugin',
+          {
+            dev: true,
+            runtimeInjection: true,
+            unstable_moduleResolution: { type: 'commonJS' },
+          },
+        ]],
       },
     }),
   ],

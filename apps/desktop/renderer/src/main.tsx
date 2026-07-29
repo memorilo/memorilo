@@ -3,7 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { router } from './router'
-import './styles/app.css'
+import './styles/app-global.stylex'
 
 const rootElement = document.querySelector('#root')
 

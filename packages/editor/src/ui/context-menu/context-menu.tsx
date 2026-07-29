@@ -29,9 +29,10 @@ import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { editorStyles } from '../../styles/editor.stylex'
 import { getEditorActions } from '../editor-actions/index.ts'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { ImageUploadForm } from '../image-upload-popover/index.ts'
+import { contextMenuStyles } from './context-menu.stylex'
 import { copySelection, cutSelection, pasteClipboard } from './editor-clipboard.ts'
 
 interface Point {
@@ -119,8 +120,8 @@ function ContextMenuItem(props: {
     <button
       ref={props.buttonRef}
       {...stylex.props(
-        editorStyles.contextMenuItem,
-        props.open && editorStyles.contextMenuItemOpen,
+        contextMenuStyles.item,
+        props.open && contextMenuStyles.itemOpen,
       )}
       aria-expanded={props.hasSubmenu ? props.expanded : undefined}
       aria-haspopup={props.hasSubmenu ? 'menu' : undefined}
@@ -131,16 +132,16 @@ function ContextMenuItem(props: {
       onMouseEnter={props.onMouseEnter}
       onMouseDown={event => event.preventDefault()}
     >
-      <span {...stylex.props(editorStyles.contextMenuItemLabel)}>
-        <span {...stylex.props(editorStyles.contextMenuIcon)}>{props.icon}</span>
+      <span {...stylex.props(contextMenuStyles.itemLabel)}>
+        <span {...stylex.props(contextMenuStyles.icon)}>{props.icon}</span>
         <span>{props.label}</span>
       </span>
-      <span {...stylex.props(editorStyles.contextMenuTrailing)}>
+      <span {...stylex.props(contextMenuStyles.trailing)}>
         {props.trailing
           ?? (active
             ? <Check aria-hidden="true" size={15} />
             : props.shortcut
-              ? <span {...stylex.props(editorStyles.contextMenuShortcut)}>{props.shortcut}</span>
+              ? <span {...stylex.props(contextMenuStyles.shortcut)}>{props.shortcut}</span>
               : null)}
       </span>
     </button>
@@ -201,7 +202,7 @@ function ImageInsertPanel({ point, uploader, onClose }: {
 
   return (
     <div
-      {...stylex.props(editorStyles.contextMenuOverlay)}
+      {...stylex.props(contextMenuStyles.overlay)}
       onMouseDown={(event: ReactMouseEvent<HTMLDivElement>) => {
         if (event.target === event.currentTarget)
           onClose()
@@ -210,18 +211,17 @@ function ImageInsertPanel({ point, uploader, onClose }: {
       <div
         ref={panelRef}
         {...stylex.props(
-          editorStyles.popupSurface,
-          editorStyles.contextImagePanel,
+          floatingSurfaceStyles.surface,
+          contextMenuStyles.imagePanel,
         )}
         aria-label="Insert image"
         aria-modal="false"
         role="dialog"
-        style={{ left: point.x, top: point.y }}
       >
-        <div {...stylex.props(editorStyles.contextImageHeader)}>
+        <div {...stylex.props(contextMenuStyles.imageHeader)}>
           <strong>Insert image</strong>
           <button
-            {...stylex.props(editorStyles.contextImageClose)}
+            {...stylex.props(contextMenuStyles.imageClose)}
             aria-label="Close image menu"
             type="button"
             onClick={onClose}
@@ -382,10 +382,9 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
         ? (
             <div
               ref={menuRef}
-              {...stylex.props(editorStyles.popupSurface, editorStyles.contextMenuPopup)}
+              {...stylex.props(floatingSurfaceStyles.surface, contextMenuStyles.popup)}
               aria-label="Editor actions"
               role="menu"
-              style={{ left: menuPoint.x, top: menuPoint.y }}
               tabIndex={-1}
               onKeyDown={handleMainMenuKeyDown}
             >
@@ -414,7 +413,7 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
                 shortcut={`${primaryModifier}V`}
               />
 
-              <div {...stylex.props(editorStyles.contextMenuSeparator)} role="separator" />
+              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
               <ContextMenuItem
                 icon={<TextSelect aria-hidden="true" size={16} />}
@@ -430,7 +429,7 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
                 shortcut={`${primaryModifier}A`}
               />
 
-              <div {...stylex.props(editorStyles.contextMenuSeparator)} role="separator" />
+              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
               <ContextMenuItem
                 buttonRef={styleTriggerRef}
@@ -447,7 +446,7 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
               {!hasSelection
                 ? (
                     <>
-                      <div {...stylex.props(editorStyles.contextMenuSeparator)} role="separator" />
+                      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
                       <ContextMenuItem
                         action={actions.insert.table}
@@ -485,9 +484,9 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
             <div
               ref={styleMenuRef}
               {...stylex.props(
-                editorStyles.popupSurface,
-                editorStyles.contextMenuPopup,
-                editorStyles.contextSubmenuPopup,
+                floatingSurfaceStyles.surface,
+                contextMenuStyles.popup,
+                contextMenuStyles.submenuPopup,
               )}
               aria-label="Styles"
               role="menu"
@@ -519,7 +518,7 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
                 onSelect={() => runAction(editor, actions.block.toggleList, closeMenu)}
               />
 
-              <div {...stylex.props(editorStyles.contextMenuSeparator)} role="separator" />
+              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
               <ContextMenuItem
                 action={actions.block.blockquote}

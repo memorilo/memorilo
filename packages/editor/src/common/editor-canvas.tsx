@@ -5,7 +5,6 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { ProseKit } from 'prosekit/react'
 
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
-import { editorStyles } from '../styles/editor.stylex'
 import { BlockHandle } from '../ui/block-handle'
 import { ContextMenu } from '../ui/context-menu'
 import { DropIndicator } from '../ui/drop-indicator'
@@ -13,6 +12,7 @@ import { InlineMenu } from '../ui/inline-menu'
 import { SlashMenu } from '../ui/slash-menu'
 import { TableHandle } from '../ui/table-handle'
 import { TagMenu } from '../ui/tag-menu'
+import { editorCanvasStyles } from './editor-canvas.stylex'
 
 function UploadStatus() {
   const status = useAtomValue(uploadStatusAtom)
@@ -23,10 +23,10 @@ function UploadStatus() {
     return null
 
   return (
-    <div {...stylex.props(editorStyles.uploadStatus, Boolean(error) && editorStyles.uploadStatusError)} aria-live="polite">
+    <div {...stylex.props(editorCanvasStyles.uploadStatus, Boolean(error) && editorCanvasStyles.uploadStatusError)} aria-live="polite">
       <span>{error ?? 'Uploading image...'}</span>
       {error
-        ? <button {...stylex.props(editorStyles.uploadStatusButton)} aria-label="Dismiss upload error" type="button" onClick={() => setError(null)}>Dismiss</button>
+        ? <button {...stylex.props(editorCanvasStyles.uploadStatusButton)} aria-label="Dismiss upload error" type="button" onClick={() => setError(null)}>Dismiss</button>
         : null}
     </div>
   )
@@ -47,12 +47,12 @@ export function EditorCanvas({
     <>
       <div data-editor-mode-controls="">{modeControls}</div>
       <ProseKit editor={editor}>
-        <div {...stylex.props(editorStyles.viewport)}>
+        <div {...stylex.props(editorCanvasStyles.viewport)}>
           <UploadStatus />
-          <div {...stylex.props(editorStyles.scrolling)}>
+          <div {...stylex.props(editorCanvasStyles.scrolling)}>
             <div
               ref={editor.mount}
-              {...stylex.props(editorStyles.content)}
+              {...stylex.props(editorCanvasStyles.content)}
               aria-label="Editor content"
               aria-multiline="true"
               data-editor-content=""

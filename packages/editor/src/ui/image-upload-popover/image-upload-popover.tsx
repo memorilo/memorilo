@@ -7,9 +7,10 @@ import * as stylex from '@stylexjs/stylex'
 import { PopoverPopup, PopoverPositioner, PopoverRoot, PopoverTrigger } from 'prosekit/react/popover'
 import { useState } from 'react'
 
-import { editorStyles } from '../../styles/editor.stylex'
 import { Button } from '../button/index.ts'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import ImageUploadForm from './image-upload-form.tsx'
+import { imageUploadPopoverStyles } from './image-upload-popover.stylex'
 
 export default function ImageUploadPopover(props: {
   uploader: Uploader<string>
@@ -31,12 +32,12 @@ export default function ImageUploadPopover(props: {
         </Button>
       </PopoverTrigger>
 
-      <PopoverPositioner {...stylex.props(editorStyles.positioner)} placement="bottom">
+      <PopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)} placement="bottom">
         <PopoverPopup
           {...stylex.props(
-            editorStyles.floatingSurfaceMotion,
-            editorStyles.popupSurface,
-            editorStyles.uploadCard,
+            floatingSurfaceStyles.motion,
+            floatingSurfaceStyles.surface,
+            imageUploadPopoverStyles.card,
           )}
         >
           {open ? <ImageUploadForm uploader={props.uploader} onComplete={() => setOpen(false)} /> : null}

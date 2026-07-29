@@ -9,7 +9,7 @@ import { UploadTask } from 'prosekit/extensions/file'
 import { ResizableHandle, ResizableRoot } from 'prosekit/react/resizable'
 import { useEffect, useState } from 'react'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { imageViewStyles } from './image-view.stylex'
 
 export default function ImageView(props: ReactNodeViewProps) {
   const attrs = props.node.attrs as ImageAttrs
@@ -66,18 +66,18 @@ export default function ImageView(props: ReactNodeViewProps) {
       aspectRatio={aspectRatio}
       onResizeEnd={event => props.setAttrs(event.detail)}
       data-selected={props.selected ? '' : undefined}
-      {...stylex.props(editorStyles.imageResizable, props.selected && editorStyles.imageSelected)}
+      {...stylex.props(imageViewStyles.resizable, props.selected && imageViewStyles.selected)}
     >
       {url && !error && (
         <img
           src={url}
           onLoad={handleImageLoad}
           alt="upload preview"
-          {...stylex.props(editorStyles.image)}
+          {...stylex.props(imageViewStyles.image)}
         />
       )}
       {uploading && !error && (
-        <div {...stylex.props(editorStyles.imageOverlay)}>
+        <div {...stylex.props(imageViewStyles.overlay)}>
           <LoaderCircle aria-hidden="true" size={18} />
           <div>
             {Math.round(progress * 100)}
@@ -86,7 +86,7 @@ export default function ImageView(props: ReactNodeViewProps) {
         </div>
       )}
       {error && (
-        <div {...stylex.props(editorStyles.imageOverlay, editorStyles.imageError)}>
+        <div {...stylex.props(imageViewStyles.overlay, imageViewStyles.error)}>
           <ImageOff aria-hidden="true" size={18} />
           <div>
             Failed to upload image
@@ -94,7 +94,7 @@ export default function ImageView(props: ReactNodeViewProps) {
         </div>
       )}
       <ResizableHandle
-        {...stylex.props(editorStyles.imageHandle)}
+        {...stylex.props(imageViewStyles.handle)}
         position="bottom-right"
       />
     </ResizableRoot>

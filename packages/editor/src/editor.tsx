@@ -3,14 +3,14 @@ import type { EditorAdapters } from './adapters/editor-adapters'
 import type { OutlineOptions } from './common/outline-runtime'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { createEditorSession } from './common/editor-session'
 import { editorShellStyles } from './common/editor-shell.stylex'
 import { resolveOutlineFocusTarget } from './common/outline-runtime'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
-import './styles/editor.css'
+import './common/editor-content.stylex'
 
 const DocumentEditor = lazy(async () => {
   const module = await import('./document/document-editor')
@@ -26,11 +26,9 @@ export type EditorMode = 'document' | 'outline'
 
 export interface EditorProps {
   adapters: EditorAdapters
-  defaultMode?: EditorMode
   initialContent?: NodeJSON
-  mode?: EditorMode
+  mode: EditorMode
   onDocumentChange?: (document: NodeJSON) => void
-  onModeChange?: (mode: EditorMode) => void
   outline?: OutlineOptions
 }
 
@@ -44,8 +42,6 @@ export function Editor(props: EditorProps) {
       }
     : undefined)
   onDocumentChangeRef.current = props.onDocumentChange
-  const [uncontrolledMode, setUncontrolledMode] = useState<EditorMode>(props.defaultMode ?? 'document')
-  const activeMode = props.mode ?? uncontrolledMode
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const session = useMemo(() => createEditorSession({
@@ -63,45 +59,15 @@ export function Editor(props: EditorProps) {
   }, [controlledFocus, controlledFocusProvided, session])
 
   useLayoutEffect(() => {
-    session.outlineRuntime.setActive(activeMode === 'outline')
-  }, [activeMode, session])
-
-  const changeMode = (nextMode: EditorMode) => {
-    if (nextMode === activeMode)
-      return
-    if (props.mode === undefined)
-      setUncontrolledMode(nextMode)
-    props.onModeChange?.(nextMode)
-  }
+    session.outlineRuntime.setActive(props.mode === 'outline')
+  }, [props.mode, session])
 
   return (
     <Provider store={session.store}>
-      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={activeMode}>
-        <div {...stylex.props(editorShellStyles.toolbar)}>
-          <div {...stylex.props(editorShellStyles.modeGroup)} aria-label="Editor mode" role="group">
-            <button
-              {...stylex.props(editorShellStyles.modeButton, activeMode === 'document' && editorShellStyles.modeButtonSelected)}
-              aria-label="Document mode"
-              aria-pressed={activeMode === 'document'}
-              type="button"
-              onClick={() => changeMode('document')}
-            >
-              Document
-            </button>
-            <button
-              {...stylex.props(editorShellStyles.modeButton, activeMode === 'outline' && editorShellStyles.modeButtonSelected)}
-              aria-label="Outline mode"
-              aria-pressed={activeMode === 'outline'}
-              type="button"
-              onClick={() => changeMode('outline')}
-            >
-              Outline
-            </button>
-          </div>
-        </div>
+      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={props.mode}>
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading editor mode…</div>}>
-          <DocumentEditor mode={activeMode} session={session}>
-            {activeMode === 'outline'
+          <DocumentEditor mode={props.mode} session={session}>
+            {props.mode === 'outline'
               ? (
                   <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading Outline mode…</div>}>
                     <OutlineEditor options={props.outline} rootRef={rootRef} session={session} />

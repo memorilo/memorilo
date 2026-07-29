@@ -10,10 +10,12 @@ import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { InlinePopoverPopup, InlinePopoverPositioner, InlinePopoverRoot } from 'prosekit/react/inline-popover'
 import { useState } from 'react'
 
-import { editorStyles } from '../../styles/editor.stylex'
 import { Button } from '../button/index.ts'
 import { getEditorActions } from '../editor-actions/index.ts'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { formControlStyles } from '../form-controls/form-controls.stylex'
 import HeadingDropdown from './heading-dropdown.tsx'
+import { inlineMenuStyles } from './inline-menu.stylex'
 
 function getLinkState(editor: Editor<BasicExtension>) {
   return {
@@ -66,12 +68,12 @@ export default function InlineMenu() {
           }
         }}
       >
-        <InlinePopoverPositioner {...stylex.props(editorStyles.positioner)}>
+        <InlinePopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
           <InlinePopoverPopup
             {...stylex.props(
-              editorStyles.floatingSurfaceMotion,
-              editorStyles.popupSurface,
-              editorStyles.inlineMainPopup,
+              floatingSurfaceStyles.motion,
+              floatingSurfaceStyles.surface,
+              inlineMenuStyles.mainPopup,
             )}
             data-testid="inline-menu-main"
           >
@@ -137,12 +139,12 @@ export default function InlineMenu() {
         open={linkMenuOpen}
         onOpenChange={event => setLinkMenuOpen(event.detail)}
       >
-        <InlinePopoverPositioner {...stylex.props(editorStyles.positioner)} placement="bottom">
+        <InlinePopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)} placement="bottom">
           <InlinePopoverPopup
             {...stylex.props(
-              editorStyles.floatingSurfaceMotion,
-              editorStyles.popupSurface,
-              editorStyles.inlineLinkPopup,
+              floatingSurfaceStyles.motion,
+              floatingSurfaceStyles.surface,
+              inlineMenuStyles.linkPopup,
             )}
             data-testid="inline-menu-link"
           >
@@ -156,7 +158,7 @@ export default function InlineMenu() {
                 }}
               >
                 <input
-                  {...stylex.props(editorStyles.textInput)}
+                  {...stylex.props(formControlStyles.textInput)}
                   placeholder="Paste the link..."
                   defaultValue={link.currentLink}
                 />
@@ -164,7 +166,7 @@ export default function InlineMenu() {
             )}
             {link.isActive && (
               <button
-                {...stylex.props(editorStyles.primaryButton, editorStyles.removeButton)}
+                {...stylex.props(formControlStyles.primaryButton, inlineMenuStyles.removeButton)}
                 type="button"
                 onClick={() => handleLinkUpdate()}
                 onMouseDown={event => event.preventDefault()}

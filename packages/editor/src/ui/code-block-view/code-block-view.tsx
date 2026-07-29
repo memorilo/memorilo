@@ -9,7 +9,8 @@ import { isCodeBlockPreviewHiddenDecoration, shikiBundledLanguagesInfo } from 'p
 import { TextSelection } from 'prosekit/pm/state'
 import { useMemo, useRef } from 'react'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { codeBlockViewStyles } from './code-block-view.stylex'
+import './code-block-content.stylex'
 
 export default function CodeBlockView(props: ReactNodeViewProps) {
   const attrs = props.node.attrs as CodeBlockAttrs
@@ -50,15 +51,15 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
   }, [code, language])
 
   return (
-    <div {...stylex.props(editorStyles.codeBlock)}>
+    <div {...stylex.props(codeBlockViewStyles.root)}>
       <div
-        {...stylex.props(editorStyles.languageWrapper)}
+        {...stylex.props(codeBlockViewStyles.languageWrapper)}
         contentEditable={false}
         data-preview={showMermaidPreview ? '' : undefined}
       >
         <select
           aria-label="Code block language"
-          {...stylex.props(editorStyles.languageSelect)}
+          {...stylex.props(codeBlockViewStyles.languageSelect)}
           onChange={event => setLanguage(event.target.value)}
           value={language}
         >
@@ -73,7 +74,7 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
           aria-hidden="true"
           size={12}
           strokeWidth={2}
-          {...stylex.props(editorStyles.languageChevron)}
+          {...stylex.props(codeBlockViewStyles.languageChevron)}
         />
       </div>
       <pre
@@ -81,7 +82,7 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
           props.contentRef(element)
           preRef.current = element
         }}
-        {...stylex.props(showMermaidPreview && editorStyles.codeSourceHidden)}
+        {...stylex.props(showMermaidPreview && codeBlockViewStyles.sourceHidden)}
         data-preview={showMermaidPreview ? '' : undefined}
         data-language={language}
       >
@@ -89,7 +90,7 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
       {showMermaidPreview && (
         <div
           aria-label="Edit source"
-          {...stylex.props(editorStyles.codePreview)}
+          {...stylex.props(codeBlockViewStyles.preview)}
           data-code-preview=""
           contentEditable={false}
           onMouseDown={focusSource}

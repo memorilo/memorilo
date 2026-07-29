@@ -6,7 +6,8 @@ import * as stylex from '@stylexjs/stylex'
 import { useEditor } from 'prosekit/react'
 import { useId, useState } from 'react'
 
-import { editorStyles } from '../../styles/editor.stylex'
+import { formControlStyles } from '../form-controls/form-controls.stylex'
+import { imageUploadFormStyles } from './image-upload-form.stylex'
 
 export default function ImageUploadForm(props: {
   uploader: Uploader<string>
@@ -53,15 +54,15 @@ export default function ImageUploadForm(props: {
   }
 
   return (
-    <div {...stylex.props(editorStyles.imageUploadForm)}>
+    <div {...stylex.props(imageUploadFormStyles.form)}>
       {file
         ? null
         : (
             <>
-              <label {...stylex.props(editorStyles.formLabel)} htmlFor={`id-link-${ariaId}`}>Embed Link</label>
+              <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-link-${ariaId}`}>Embed Link</label>
               <input
                 id={`id-link-${ariaId}`}
-                {...stylex.props(editorStyles.textInput)}
+                {...stylex.props(formControlStyles.textInput)}
                 placeholder="Paste the image link..."
                 type="url"
                 value={url}
@@ -74,10 +75,10 @@ export default function ImageUploadForm(props: {
         ? null
         : (
             <>
-              <label {...stylex.props(editorStyles.formLabel)} htmlFor={`id-upload-${ariaId}`}>Upload</label>
+              <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-upload-${ariaId}`}>Upload</label>
               <input
                 id={`id-upload-${ariaId}`}
-                {...stylex.props(editorStyles.textInput, editorStyles.fileInput)}
+                {...stylex.props(formControlStyles.textInput, imageUploadFormStyles.fileInput)}
                 accept="image/*"
                 type="file"
                 onChange={handleFileChange}
@@ -87,7 +88,7 @@ export default function ImageUploadForm(props: {
 
       {url
         ? (
-            <button {...stylex.props(editorStyles.primaryButton)} type="button" onClick={handleSubmit}>
+            <button {...stylex.props(formControlStyles.primaryButton)} type="button" onClick={handleSubmit}>
               Insert Image
             </button>
           )
@@ -95,7 +96,7 @@ export default function ImageUploadForm(props: {
 
       {file
         ? (
-            <button {...stylex.props(editorStyles.primaryButton)} type="button" onClick={handleSubmit}>
+            <button {...stylex.props(formControlStyles.primaryButton)} type="button" onClick={handleSubmit}>
               Upload Image
             </button>
           )

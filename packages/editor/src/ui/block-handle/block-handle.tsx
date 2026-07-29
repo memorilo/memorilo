@@ -9,7 +9,8 @@ import { useRef } from 'react'
 
 import { insertBlockSiblingAfter } from '../../common/block-sibling'
 import { OUTLINE_LIST_KIND } from '../../common/outline-document'
-import { editorStyles } from '../../styles/editor.stylex'
+import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { blockHandleStyles } from './block-handle.stylex'
 
 interface Props {
   dir?: 'ltr' | 'rtl'
@@ -36,12 +37,12 @@ export default function BlockHandle(props: Props) {
   return (
     <BlockHandleRoot onStateChange={(event) => { hoveredBlockRef.current = event.detail }}>
       <BlockHandlePositioner
-        {...stylex.props(editorStyles.positioner)}
+        {...stylex.props(floatingSurfaceStyles.positioner)}
         placement={props.dir === 'rtl' ? 'right' : 'left'}
       >
-        <BlockHandlePopup {...stylex.props(editorStyles.floatingSurfaceMotion, editorStyles.blockHandlePopup)}>
-          <button {...stylex.props(editorStyles.blockHandleAdd)} aria-label="Add block" type="button" onPointerDown={addBlock}><Plus size={20} /></button>
-          <BlockHandleDraggable {...stylex.props(editorStyles.blockHandleAdd, editorStyles.blockHandleDrag)} aria-label="Drag block"><GripVertical size={20} /></BlockHandleDraggable>
+        <BlockHandlePopup {...stylex.props(floatingSurfaceStyles.motion, blockHandleStyles.popup)}>
+          <button {...stylex.props(blockHandleStyles.button)} aria-label="Add block" type="button" onPointerDown={addBlock}><Plus size={20} /></button>
+          <BlockHandleDraggable {...stylex.props(blockHandleStyles.button, blockHandleStyles.dragButton)} aria-label="Drag block"><GripVertical size={20} /></BlockHandleDraggable>
         </BlockHandlePopup>
       </BlockHandlePositioner>
     </BlockHandleRoot>
