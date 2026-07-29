@@ -1,12 +1,15 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
-import { render, waitFor, within } from '@testing-library/react'
+import { act, render, waitFor, within } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../test/browser/editor-mode-harness'
+import { EditorTestHarness as Editor } from '../test/browser/editor-test-harness'
 import { userEvent } from '../test/browser/user-event'
 
-import { Editor } from './editor'
+import { EditorMode } from './common/editor-mode'
+import { Editor as TopicEditor } from './editor'
+import { createEditorNote } from './note/editor-note'
 
 const adapters: EditorAdapters = {
   uploadImage: async () => 'memory://image',
@@ -60,13 +63,14 @@ function codeFirstLineCenter(code: HTMLElement): number {
 }
 
 describe('editor modes', () => {
-  it('accepts the mode from its caller without rendering mode controls', async () => {
-    const initialContent = modeDocument()
+  it('reads the mode from its Topic without rendering mode controls', async () => {
+    const note = createEditorNote({ id: 'editor-mode-topic' })
+    const topicId = note.createTopic({ initialContent: modeDocument(), mode: EditorMode.Document, title: 'Mode Topic' })
+    const topic = note.bindTopic(topicId)
     const rendered = render(
-      <Editor
+      <TopicEditor
         adapters={adapters}
-        initialContent={initialContent}
-        mode="document"
+        topic={topic}
       />,
     )
     await within(rendered.container).findByText('Plain block')
@@ -74,13 +78,7 @@ describe('editor modes', () => {
     expect(within(rendered.container).queryByRole('group', { name: 'Editor mode' })).not.toBeInTheDocument()
     expect(rendered.container.querySelector('[data-editor-mode="document"]')).not.toBeNull()
 
-    rendered.rerender(
-      <Editor
-        adapters={adapters}
-        initialContent={initialContent}
-        mode="outline"
-      />,
-    )
+    act(() => topic.setMode(EditorMode.Outline))
     await waitFor(() => expect(rendered.container.querySelector('[data-editor-mode="outline"]')).not.toBeNull())
   })
 
@@ -167,7 +165,7 @@ describe('editor modes', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [
@@ -214,7 +212,7 @@ describe('editor modes', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        mode="outline"
+        mode={EditorMode.Outline}
         initialContent={{
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'First block' }] }],
@@ -264,7 +262,7 @@ describe('editor modes', () => {
           type: 'doc',
           content: [{ type: 'paragraph' }],
         }}
-        initialMode="outline"
+        initialMode={EditorMode.Outline}
       />,
     )
     await waitFor(() => expect(rendered.container.querySelector('[data-list-kind="outline"] p')).not.toBeNull())
@@ -289,7 +287,7 @@ describe('editor modes', () => {
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'History block' }] }],
         }}
-        initialMode="outline"
+        initialMode={EditorMode.Outline}
       />,
     )
     await rendered.findByText('History block')

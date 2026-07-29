@@ -63,49 +63,49 @@ test('packaged desktop executes offline embedding search', async () => {
     try {
       const window = await electronApplication.firstWindow()
       await window.waitForLoadState('domcontentloaded')
-      const result = await window.evaluate(async () => {
+      const editor = window.getByRole('textbox', { name: 'Editor content' })
+      await expect(editor).toBeVisible({ timeout: 10_000 })
+      await editor.click()
+      await window.keyboard.type('数据库索引可以显著提升查询速度')
+      await window.keyboard.press('Enter')
+      await window.keyboard.type('红熊猫生活在高山森林中')
+      const noteId = await window.evaluate(async () => {
         const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
-        const document = await desktop.openMostRecentDocument()
-        await desktop.saveDocument({
-          id: document.id,
-          nodes: [
-            {
-              attributes: {},
-              id: 'database-node',
-              kind: 'outline',
-              ordinal: 0,
-              parentId: null,
-              text: '数据库索引可以显著提升查询速度',
-            },
-            {
-              attributes: {},
-              id: 'animal-node',
-              kind: 'outline',
-              ordinal: 1,
-              parentId: null,
-              text: '红熊猫生活在高山森林中',
-            },
-          ],
-          snapshot: Uint8Array.from([7, 8, 9]),
-          title: 'Packaged embedding document',
-        })
+        const note = await desktop.openMostRecentNote()
+        return note.id
+      })
 
+      await expect.poll(() => window.evaluate(async ({ noteId }) => {
+        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
+        const database = await desktop.searchTopicBlocks({ mode: 'lexical', noteId, query: '数据库索引' })
+        const animal = await desktop.searchTopicBlocks({ mode: 'lexical', noteId, query: '红熊猫' })
+        return [...database, ...animal].map(hit => hit.text)
+      }, { noteId }), { timeout: 10_000 }).toEqual([
+        '数据库索引可以显著提升查询速度',
+        '红熊猫生活在高山森林中',
+      ])
+
+      const result = await window.evaluate(async ({ noteId }) => {
+        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
         const deadline = Date.now() + 60_000
         while (Date.now() < deadline) {
-          const hits = await desktop.searchNodes({
-            documentId: document.id,
+          const hits = await desktop.searchTopicBlocks({
             limit: 2,
             mode: 'semantic',
+            noteId,
             query: '如何提升数据库查询性能',
           })
           if (hits.length === 2)
-            return hits.map(hit => hit.id)
+            return hits.map(hit => hit.text)
           await new Promise(resolve => setTimeout(resolve, 100))
         }
         throw new Error('Packaged embedding index did not become searchable within 60 seconds')
-      })
+      }, { noteId })
 
-      expect(result).toEqual(['database-node', 'animal-node'])
+      expect(result).toEqual([
+        '数据库索引可以显著提升查询速度',
+        '红熊猫生活在高山森林中',
+      ])
     }
     finally {
       await electronApplication.close()

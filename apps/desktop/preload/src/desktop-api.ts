@@ -1,31 +1,37 @@
 import type {
   DesktopApi,
-  DesktopDocument,
-  DesktopNodeSearchHit,
-  DesktopNodeSearchMode,
-  DesktopStoredNode,
+  DesktopNote,
+  DesktopNoteWriteReceipt,
+  DesktopStoredTopicBlock,
+  DesktopTopicBlockSearchHit,
+  DesktopTopicBlockSearchMode,
   RuntimeInfo,
-  SaveDesktopDocumentInput,
+  SaveDesktopNoteUpdatesInput,
 } from './contract'
 
 export interface DesktopServices {
   app: {
     getRuntimeInfo: () => Promise<RuntimeInfo>
   }
-  documents: {
-    getNode: (input: { documentId: string, nodeId: string }) => Promise<DesktopStoredNode | null>
-    openMostRecentDocument: () => Promise<DesktopDocument>
-    saveDocument: (input: SaveDesktopDocumentInput) => Promise<DesktopDocument>
-    searchNodes: (input: { query: string, documentId?: string, limit?: number, mode?: DesktopNodeSearchMode }) => Promise<readonly DesktopNodeSearchHit[]>
+  notes: {
+    getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
+    openMostRecentNote: () => Promise<DesktopNote>
+    saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
+    searchTopicBlocks: (input: {
+      limit?: number
+      mode?: DesktopTopicBlockSearchMode
+      noteId?: string
+      query: string
+    }) => Promise<readonly DesktopTopicBlockSearchHit[]>
   }
 }
 
 export function createDesktopApi(services: DesktopServices): DesktopApi {
   return {
-    getNode: input => services.documents.getNode(input),
     getRuntimeInfo: () => services.app.getRuntimeInfo(),
-    openMostRecentDocument: () => services.documents.openMostRecentDocument(),
-    saveDocument: input => services.documents.saveDocument(input),
-    searchNodes: input => services.documents.searchNodes(input),
+    getTopicBlock: input => services.notes.getTopicBlock(input),
+    openMostRecentNote: () => services.notes.openMostRecentNote(),
+    saveNoteUpdates: input => services.notes.saveNoteUpdates(input),
+    searchTopicBlocks: input => services.notes.searchTopicBlocks(input),
   }
 }

@@ -53,6 +53,9 @@ importers:
       electron-ipc-decorator:
         specifier: 1.0.1
         version: 1.0.1(electron@43.2.0)
+      loro-crdt:
+        specifier: 1.13.8
+        version: 1.13.8
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9
@@ -97,6 +100,9 @@ importers:
       '@huggingface/transformers':
         specifier: 3.7.5
         version: 3.7.5
+      '@memorilo/editor':
+        specifier: workspace:*
+        version: link:../../../packages/editor
       '@memorilo/editor-storage':
         specifier: workspace:*
         version: link:../../../packages/editor-storage
@@ -169,6 +175,9 @@ importers:
 
   packages/editor:
     dependencies:
+      '@memorilo/loro-prosemirror-tree':
+        specifier: workspace:*
+        version: link:../loro-prosemirror-tree
       '@stylexjs/stylex':
         specifier: 0.19.0
         version: 0.19.0
@@ -184,9 +193,6 @@ importers:
       loro-crdt:
         specifier: 1.13.8
         version: 1.13.8
-      loro-prosemirror:
-        specifier: 0.4.3
-        version: 0.4.3(loro-crdt@1.13.8)
       lucide:
         specifier: 0.468.0
         version: 0.468.0
@@ -267,6 +273,21 @@ importers:
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9
+
+  packages/loro-prosemirror-tree:
+    dependencies:
+      loro-crdt:
+        specifier: 1.13.8
+        version: 1.13.8
+      prosemirror-model:
+        specifier: 1.25.11
+        version: 1.25.11
+      prosemirror-state:
+        specifier: 1.4.4
+        version: 1.4.4
+      prosemirror-view:
+        specifier: 1.42.1
+        version: 1.42.1
 
 packages:
 
@@ -7932,7 +7953,8 @@ snapshots:
 
   isexe@4.0.0: {}
 
-  isomorphic.js@0.2.5: {}
+  isomorphic.js@0.2.5:
+    optional: true
 
   jake@10.9.4:
     dependencies:
@@ -8048,6 +8070,7 @@ snapshots:
   lib0@0.2.117:
     dependencies:
       isomorphic.js: 0.2.5
+    optional: true
 
   lightningcss-android-arm64@1.33.0:
     optional: true
@@ -8129,6 +8152,7 @@ snapshots:
       prosemirror-model: 1.25.11
       prosemirror-state: 1.4.4
       prosemirror-view: 1.42.1
+    optional: true
 
   loupe@3.2.1: {}
 

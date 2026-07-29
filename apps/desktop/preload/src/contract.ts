@@ -3,7 +3,7 @@ export interface RuntimeInfo {
   version: string
 }
 
-export interface DesktopDocumentNode {
+export interface DesktopTopicBlock {
   attributes: Readonly<Record<string, unknown>>
   id: string
   kind: string
@@ -12,36 +12,44 @@ export interface DesktopDocumentNode {
   text: string
 }
 
-export interface DesktopDocument {
+export interface DesktopNote {
   id: string
-  snapshot: Uint8Array | null
+  snapshot: Uint8Array
   title: string
   updatedAt: number
 }
 
-export interface SaveDesktopDocumentInput {
-  id: string
-  nodes: readonly DesktopDocumentNode[]
-  snapshot: Uint8Array
-  title: string
+export interface SaveDesktopNoteUpdatesInput {
+  noteId: string
+  updates: readonly Uint8Array[]
 }
 
-export interface DesktopStoredNode extends DesktopDocumentNode {
+export interface DesktopNoteWriteReceipt {
+  updatedAt: number
+}
+
+export interface DesktopStoredTopicBlock extends DesktopTopicBlock {
   contentHash: string
-  documentId: string
+  noteId: string
+  topicId: string
 }
 
-export interface DesktopNodeSearchHit extends DesktopStoredNode {
+export interface DesktopTopicBlockSearchHit extends DesktopStoredTopicBlock {
   preview: string
   rank: number
 }
 
-export type DesktopNodeSearchMode = 'hybrid' | 'lexical' | 'semantic'
+export type DesktopTopicBlockSearchMode = 'hybrid' | 'lexical' | 'semantic'
 
 export interface DesktopApi {
-  getNode: (input: { documentId: string, nodeId: string }) => Promise<DesktopStoredNode | null>
   getRuntimeInfo: () => Promise<RuntimeInfo>
-  openMostRecentDocument: () => Promise<DesktopDocument>
-  saveDocument: (input: SaveDesktopDocumentInput) => Promise<DesktopDocument>
-  searchNodes: (input: { query: string, documentId?: string, limit?: number, mode?: DesktopNodeSearchMode }) => Promise<readonly DesktopNodeSearchHit[]>
+  getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
+  openMostRecentNote: () => Promise<DesktopNote>
+  saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
+  searchTopicBlocks: (input: {
+    limit?: number
+    mode?: DesktopTopicBlockSearchMode
+    noteId?: string
+    query: string
+  }) => Promise<readonly DesktopTopicBlockSearchHit[]>
 }

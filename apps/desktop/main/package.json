@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "3.7.5",
+    "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
     "better-sqlite3": "13.0.1",
     "electron-ipc-decorator": "1.0.1",

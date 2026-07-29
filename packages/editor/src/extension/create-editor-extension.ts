@@ -2,14 +2,29 @@ import type { NodeJSON } from 'prosekit/core'
 import type { Uploader } from 'prosekit/extensions/file'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { OutlineRuntime } from '../common/outline-runtime'
-import type { LoroEditorRuntime } from '../document/loro-document'
+import type { EditorTopicRuntime } from '../note/editor-topic-runtime'
 import type { EditorStore } from '../state/editor-store'
+import {
+  LoroTreeEphemeralCursorPlugin,
+  LoroTreeSyncPlugin,
+  LoroTreeUndoPlugin,
+  redo,
+  undo,
+} from '@memorilo/loro-prosemirror-tree'
 import { defineBasicExtension } from 'prosekit/basic'
-import { defineDocChangeHandler, union } from 'prosekit/core'
+import {
+  defineCommands,
+  defineDocChangeHandler,
+  defineKeymap,
+  definePlugin,
+  isApple,
+  Priority,
+  union,
+  withPriority,
+} from 'prosekit/core'
 import { defineCodeBlockShiki } from 'prosekit/extensions/code-block'
 import { defineHorizontalRule } from 'prosekit/extensions/horizontal-rule'
 import { defineImageUploadHandler } from 'prosekit/extensions/image'
-import { defineLoro } from 'prosekit/extensions/loro'
 import { defineMath } from 'prosekit/extensions/math'
 
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
@@ -47,19 +62,34 @@ function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<
   }
 }
 
+function defineLoroTree(topic: EditorTopicRuntime) {
+  const keymap = {
+    'Mod-z': undo,
+    'Mod-Z': redo,
+    ...(!isApple ? { 'Mod-y': redo } : {}),
+  }
+  return withPriority(union(
+    defineKeymap(keymap),
+    defineCommands({ redo: () => redo, undo: () => undo }),
+    definePlugin(LoroTreeEphemeralCursorPlugin(topic.presence)),
+    definePlugin(LoroTreeUndoPlugin({ doc: topic.doc, manageSelection: false, undoManager: topic.undoManager })),
+    definePlugin(LoroTreeSyncPlugin(topic)),
+  ), Priority.high)
+}
+
 export function createEditorExtension(
   adapters: EditorAdapters,
   store: EditorStore,
   outlineRuntime: OutlineRuntime,
   onDocumentChange?: (document: NodeJSON) => void,
-  loro?: LoroEditorRuntime,
+  topic?: EditorTopicRuntime,
 ) {
   const uploader = createUploader(adapters, store)
   const tagRuntime = new TagRuntime(adapters.tagStorage)
 
   const editorExtension = union(
     defineBasicExtension(),
-    defineBlockIdExtension(),
+    withPriority(defineBlockIdExtension(), Priority.highest),
     defineTableKeymapExtension(),
     defineEditorKeymapExtension(),
     defineDocumentKeymapExtension(outlineRuntime),
@@ -90,12 +120,8 @@ export function createEditorExtension(
   )
 
   return {
-    extension: loro
-      ? union(editorExtension, defineLoro({
-          doc: loro.doc,
-          presence: loro.presence,
-          sync: { mapping: loro.mapping },
-        }))
+    extension: topic
+      ? union(editorExtension, defineLoroTree(topic))
       : editorExtension,
     tagRuntime,
     uploader,

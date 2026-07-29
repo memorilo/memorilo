@@ -1,16 +1,24 @@
 export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 export type {
+  CheckpointNoteInput,
   CreateEditorStorageOptions,
-  DocumentNodeSnapshot,
   EditorStorage,
-  GetNodeInput,
+  FolderProjection,
+  GetTopicBlockInput,
   IndexPendingEmbeddingsInput,
-  NodeSearchHit,
-  NodeSearchMode,
-  SaveDocumentInput,
-  SearchNodesInput,
-  StoredDocument,
-  StoredDocumentNode,
+  NoteEntryProjection,
+  NoteWriteReceipt,
+  SaveNoteUpdatesInput,
+  SearchTopicBlocksInput,
+  StoredNote,
+  StoredNoteUpdate,
+  StoredTopicBlock,
+  TopicBlockProjection,
+  TopicBlockSearchHit,
+  TopicBlockSearchMode,
+  TopicContentProjection,
+  TopicEditorMode,
+  TopicProjection,
 } from './editor-storage'
 export { createEditorStorage } from './editor-storage'
 export type { EmbeddingModel } from './embedding-model'
