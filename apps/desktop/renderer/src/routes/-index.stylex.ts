@@ -157,13 +157,30 @@ export const editorRouteStyles = stylex.create({
   animatedSourceList: {
     overflow: 'hidden',
   },
+  virtualSourceViewport: {
+    width: '100%',
+    overflowX: 'hidden',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
+  },
+  virtualSourceSizer: {
+    position: 'relative',
+    width: '100%',
+  },
+  virtualSourceItem: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 33,
+  },
   sourceItem: {
     display: 'grid',
     width: '100%',
     height: 31,
     minWidth: 0,
     alignItems: 'center',
-    gridTemplateColumns: '20px minmax(0, 1fr) auto',
+    gridTemplateColumns: '20px minmax(0, 1fr)',
     gap: 7,
     borderColor: 'transparent',
     borderStyle: 'solid',
@@ -226,18 +243,6 @@ export const editorRouteStyles = stylex.create({
   },
   sourceLabelSelected: {
     color: colors.accent,
-  },
-  sourceMeta: {
-    minWidth: 18,
-    borderRadius: 7,
-    paddingRight: 5,
-    paddingLeft: 5,
-    backgroundColor: 'rgba(60, 68, 79, 0.09)',
-    color: colors.chromeTextMuted,
-    fontSize: 11,
-    fontVariantNumeric: 'tabular-nums',
-    lineHeight: '18px',
-    textAlign: 'center',
   },
   workspace: {
     position: 'relative',
