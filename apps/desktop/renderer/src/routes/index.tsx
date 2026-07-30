@@ -11,11 +11,15 @@ import { createFileRoute } from '@tanstack/react-router'
 import {
   BookOpenCheck,
   CalendarDays,
+  CheckCircle2,
   ChevronDown,
+  Circle,
+  CircleDot,
   Clock3,
   FileText,
   Network,
   PanelLeft,
+  PanelRight,
   Search,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -33,6 +37,12 @@ const disclosureSpring = {
   bounce: 0,
   type: 'spring',
   visualDuration: 0.22,
+} as const
+
+const inspectorSpring = {
+  bounce: 0,
+  type: 'spring',
+  visualDuration: 0.28,
 } as const
 
 const saveDelay = 250
@@ -61,6 +71,72 @@ const recentItems: readonly SourceItemProps[] = [
   { icon: Clock3, label: 'Ideas for Memorilo' },
   { icon: Clock3, label: 'The extended mind' },
 ]
+
+type TopicStatus = 'current' | 'due' | 'learned' | 'new'
+
+interface TopicItem {
+  depth: 0 | 1 | 2
+  hasChildren?: boolean
+  id: string
+  label: string
+  status: TopicStatus
+}
+
+const topicItems: readonly TopicItem[] = [
+  {
+    depth: 0,
+    hasChildren: true,
+    id: 'editor-thinking',
+    label: 'The editor that thinks like you',
+    status: 'current',
+  },
+  { depth: 1, id: 'text-shines', label: 'Text that shines', status: 'learned' },
+  {
+    depth: 1,
+    hasChildren: true,
+    id: 'lists-organize',
+    label: 'Lists that organize',
+    status: 'due',
+  },
+  { depth: 2, id: 'done-feels-good', label: 'Done feels good', status: 'learned' },
+  { depth: 2, id: 'doing-clock', label: 'Doing keeps the clock running', status: 'due' },
+  { depth: 1, id: 'code-inspires', label: 'Code that inspires', status: 'new' },
+]
+
+const topicDepthStyles = [
+  editorRouteStyles.topicDepth0,
+  editorRouteStyles.topicDepth1,
+  editorRouteStyles.topicDepth2,
+] as const
+
+function TopicStatusIcon({ status }: { status: TopicStatus }) {
+  if (status === 'current') {
+    return (
+      <span {...stylex.props(editorRouteStyles.topicStatus, editorRouteStyles.topicStatusCurrent)} title="Current topic">
+        <CircleDot aria-label="Current topic" size={13} strokeWidth={2} />
+      </span>
+    )
+  }
+  if (status === 'due') {
+    return (
+      <span {...stylex.props(editorRouteStyles.topicStatus, editorRouteStyles.topicStatusDue)} title="Due for review">
+        <Clock3 aria-label="Due for review" size={13} strokeWidth={1.9} />
+      </span>
+    )
+  }
+  if (status === 'learned') {
+    return (
+      <span {...stylex.props(editorRouteStyles.topicStatus, editorRouteStyles.topicStatusLearned)} title="Reviewed">
+        <CheckCircle2 aria-label="Reviewed" size={13} strokeWidth={1.9} />
+      </span>
+    )
+  }
+  return (
+    <span {...stylex.props(editorRouteStyles.topicStatus)} title="Not scheduled">
+      <Circle aria-label="Not scheduled" size={12} strokeWidth={1.7} />
+    </span>
+  )
+}
 
 function SourceItem({ icon: Icon, label, meta, selected = false }: SourceItemProps) {
   return (
@@ -132,8 +208,11 @@ interface OpenEditorNote {
 
 function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, saveError: string | null }) {
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [inspectorVisible, setInspectorVisible] = useState(true)
+  const [selectedTopicId, setSelectedTopicId] = useState('editor-thinking')
   const shouldReduceMotion = useReducedMotion()
   const transition = shouldReduceMotion ? { duration: 0 } : sidebarSpring
+  const inspectorTransition = shouldReduceMotion ? { duration: 0 } : inspectorSpring
 
   return (
     <main {...stylex.props(editorRouteStyles.page)}>
@@ -190,6 +269,112 @@ function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, save
           topic={opened.topic}
         />
       </section>
+      <AnimatePresence initial={false}>
+        {inspectorVisible
+          ? (
+              <motion.aside
+                {...stylex.props(editorRouteStyles.inspector)}
+                animate={{ opacity: 1, width: 292, x: 0 }}
+                aria-label="Note inspector"
+                exit={{ opacity: 0, width: 0, x: 18 }}
+                initial={{ opacity: 0, width: 0, x: 18 }}
+                transition={inspectorTransition}
+              >
+                <header {...stylex.props(editorRouteStyles.inspectorTitlebar)} data-window-drag="">
+                  <div {...stylex.props(editorRouteStyles.inspectorTitleGroup)}>
+                    <h1 {...stylex.props(editorRouteStyles.inspectorTitle)}>Topics</h1>
+                    <span {...stylex.props(editorRouteStyles.inspectorCount)}>6</span>
+                  </div>
+                </header>
+                <div {...stylex.props(editorRouteStyles.inspectorContent)}>
+                  <section {...stylex.props(editorRouteStyles.inspectorSection)} aria-labelledby="topic-structure-heading">
+                    <div {...stylex.props(editorRouteStyles.inspectorSectionHeading)}>
+                      <h2 id="topic-structure-heading" {...stylex.props(editorRouteStyles.inspectorSectionTitle)}>
+                        Structure
+                      </h2>
+                      <span {...stylex.props(editorRouteStyles.inspectorSectionMeta)}>2 due</span>
+                    </div>
+                    <div {...stylex.props(editorRouteStyles.topicTree)}>
+                      {topicItems.map(topic => (
+                        <button
+                          key={topic.id}
+                          {...stylex.props(
+                            editorRouteStyles.topicRow,
+                            topicDepthStyles[topic.depth],
+                            selectedTopicId === topic.id && editorRouteStyles.topicRowSelected,
+                          )}
+                          aria-current={selectedTopicId === topic.id ? 'true' : undefined}
+                          type="button"
+                          onClick={() => setSelectedTopicId(topic.id)}
+                        >
+                          <span {...stylex.props(editorRouteStyles.topicDisclosure)}>
+                            {topic.hasChildren
+                              ? <ChevronDown aria-hidden="true" size={12} strokeWidth={1.8} />
+                              : <span {...stylex.props(editorRouteStyles.topicLeaf)} />}
+                          </span>
+                          <span {...stylex.props(editorRouteStyles.topicLabel)}>{topic.label}</span>
+                          <TopicStatusIcon status={topic.status} />
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <section
+                    {...stylex.props(editorRouteStyles.inspectorSection, editorRouteStyles.learningSection)}
+                    aria-labelledby="learning-status-heading"
+                  >
+                    <div {...stylex.props(editorRouteStyles.inspectorSectionHeading)}>
+                      <h2 id="learning-status-heading" {...stylex.props(editorRouteStyles.inspectorSectionTitle)}>
+                        Learning
+                      </h2>
+                      <span {...stylex.props(editorRouteStyles.learningState)}>
+                        <span {...stylex.props(editorRouteStyles.learningStateDot)} />
+                        Reviewing
+                      </span>
+                    </div>
+                    <dl {...stylex.props(editorRouteStyles.learningDetails)}>
+                      <div {...stylex.props(editorRouteStyles.learningDetail)}>
+                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>Next review</dt>
+                        <dd {...stylex.props(editorRouteStyles.learningValue, editorRouteStyles.learningValueDue)}>Today</dd>
+                      </div>
+                      <div {...stylex.props(editorRouteStyles.learningDetail)}>
+                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>Stability</dt>
+                        <dd {...stylex.props(editorRouteStyles.learningValue)}>3.2 days</dd>
+                      </div>
+                      <div {...stylex.props(editorRouteStyles.learningDetail)}>
+                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>Priority</dt>
+                        <dd {...stylex.props(editorRouteStyles.learningValue)}>Normal</dd>
+                      </div>
+                    </dl>
+                    <div {...stylex.props(editorRouteStyles.learningProgressHeader)}>
+                      <span>Reviewed</span>
+                      <span>3 of 6</span>
+                    </div>
+                    <div
+                      {...stylex.props(editorRouteStyles.learningProgressTrack)}
+                      aria-label="3 of 6 topics reviewed"
+                      aria-valuemax={6}
+                      aria-valuemin={0}
+                      aria-valuenow={3}
+                      role="progressbar"
+                    >
+                      <div {...stylex.props(editorRouteStyles.learningProgressFill)} />
+                    </div>
+                  </section>
+                </div>
+              </motion.aside>
+            )
+          : null}
+      </AnimatePresence>
+      <button
+        {...stylex.props(editorRouteStyles.inspectorToggle)}
+        aria-label={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
+        data-window-no-drag=""
+        title={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
+        type="button"
+        onClick={() => setInspectorVisible(visible => !visible)}
+      >
+        <PanelRight aria-hidden="true" size={17} strokeWidth={1.8} />
+      </button>
     </main>
   )
 }
