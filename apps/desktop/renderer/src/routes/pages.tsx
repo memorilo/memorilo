@@ -1,10 +1,12 @@
 import type {
+  DesktopNoteFavoriteState,
   DesktopNotePage,
   DesktopNoteSortDirection,
   DesktopNoteSortField,
   DesktopNoteSummary,
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
+  SetDesktopNoteFavoriteInput,
 } from '@memorilo/desktop-preload'
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
 import type { Cause } from 'effect'
@@ -23,6 +25,8 @@ import {
   Ellipsis,
   FileText,
   LoaderCircle,
+  Pencil,
+  Star,
   TriangleAlert,
 } from 'lucide-react'
 import {
@@ -35,11 +39,12 @@ import {
 } from 'react'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { noteQueryKeys } from '../queries/note-query-keys'
+import { router } from '../router'
 import { pagesRouteStyles } from './-pages.stylex'
 
 const pageSize = 100
 const rowHeight = 46
-const notesQueryKey = ['notes'] as const
 const effectQuery = createEffectQuery(Layer.empty)
 const columnHelper = createColumnHelper<DesktopNoteSummary>()
 const columnIds = ['title', 'createdAt', 'updatedAt'] as const
@@ -97,7 +102,18 @@ function notesQueryOptions(sortBy: DesktopNoteSortField, sortDirection: DesktopN
       sortBy,
       sortDirection,
     })),
-    queryKey: [...notesQueryKey, sortBy, sortDirection] as const,
+    queryKey: [...noteQueryKeys.lists, sortBy, sortDirection] as const,
+  })
+}
+
+function setNoteFavoriteMutationOptions() {
+  return effectQuery.mutationOptions<
+    DesktopNoteFavoriteState,
+    Cause.UnknownError,
+    never,
+    SetDesktopNoteFavoriteInput
+  >({
+    mutationFn: input => Effect.tryPromise(() => window.desktop.setNoteFavorite(input)),
   })
 }
 
@@ -133,6 +149,36 @@ function updateRenamedNote(
   return changed ? { ...data, pages } : data
 }
 
+function updateFavoriteNote(
+  data: InfiniteData<DesktopNotePage> | undefined,
+  state: DesktopNoteFavoriteState,
+): InfiniteData<DesktopNotePage> | undefined {
+  if (!data)
+    return data
+  let changed = false
+  const pages = data.pages.map((page) => {
+    let pageChanged = false
+    const items = page.items.map((note) => {
+      if (note.id !== state.noteId)
+        return note
+      changed = true
+      pageChanged = true
+      return { ...note, favorite: state.favorite }
+    })
+    return pageChanged ? { ...page, items } : page
+  })
+  return changed ? { ...data, pages } : data
+}
+
+async function openNote(noteId: string): Promise<void> {
+  const stored = await window.desktop.getNote({ noteId })
+  const { defaultTopicId } = await import('./-note-navigation')
+  await router.navigate({
+    params: { noteId: stored.id, topicId: defaultTopicId(stored) },
+    to: '/note/$noteId/$topicId',
+  })
+}
+
 function columnStyle(columnId: string) {
   switch (columnId) {
     case 'title':
@@ -152,15 +198,22 @@ function noteCountLabel(totalItems: number) {
 
 function EditableTitleCell({
   note,
+  onFavorite,
+  onOpen,
   onRename,
 }: {
   note: DesktopNoteSummary
+  onFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
+  onOpen: (noteId: string) => Promise<void>
   onRename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
 }) {
   const [draft, setDraft] = useState(note.title)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [favoritePending, setFavoritePending] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useLayoutEffect(() => {
@@ -222,70 +275,143 @@ function EditableTitleCell({
     }
   }, [draft, note.id, note.title, onRename, saving])
 
+  const toggleFavorite = useCallback(() => {
+    if (favoritePending)
+      return
+    setFavoritePending(true)
+    setActionError(null)
+    void onFavorite({ favorite: !note.favorite, noteId: note.id })
+      .catch(() => setActionError('Couldn’t update Favorite'))
+      .finally(() => setFavoritePending(false))
+  }, [favoritePending, note.favorite, note.id, onFavorite])
+
+  const openSelectedNote = useCallback(() => {
+    if (opening)
+      return
+    setOpening(true)
+    setActionError(null)
+    void onOpen(note.id)
+      .catch(() => setActionError('Couldn’t open Note'))
+      .finally(() => setOpening(false))
+  }, [note.id, onOpen, opening])
+
+  const favoriteControl = (
+    <button
+      {...stylex.props(
+        pagesRouteStyles.titleIconButton,
+        note.favorite && pagesRouteStyles.favoriteButtonActive,
+      )}
+      aria-label={`${note.favorite ? 'Remove from' : 'Add to'} Favorites: ${note.title}`}
+      aria-pressed={note.favorite}
+      disabled={favoritePending}
+      title={note.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+      type="button"
+      onClick={toggleFavorite}
+    >
+      <Star aria-hidden="true" fill={note.favorite ? 'currentColor' : 'none'} size={15} strokeWidth={1.8} />
+    </button>
+  )
+
+  const actionStatus = actionError
+    ? <span {...stylex.props(pagesRouteStyles.visuallyHidden)} role="status">{actionError}</span>
+    : null
+
   if (!editing) {
     return (
-      <button
-        {...stylex.props(pagesRouteStyles.titleEditButton)}
-        aria-label={`Rename Note: ${note.title}`}
-        title="Rename Note"
-        type="button"
-        onClick={() => {
-          setDraft(note.title)
-          setError(null)
-          setEditing(true)
-        }}
-      >
-        {note.title}
-      </button>
+      <div {...stylex.props(pagesRouteStyles.titleCellControls)}>
+        {favoriteControl}
+        <button
+          {...stylex.props(pagesRouteStyles.titleOpenButton)}
+          aria-label={`Open Note: ${note.title}`}
+          aria-busy={opening}
+          disabled={opening}
+          title={`Open ${note.title}`}
+          type="button"
+          onClick={openSelectedNote}
+        >
+          <span {...stylex.props(pagesRouteStyles.titleOpenLabel)}>{note.title}</span>
+        </button>
+        <button
+          {...stylex.props(pagesRouteStyles.titleIconButton)}
+          aria-label={`Rename Note: ${note.title}`}
+          title="Rename Note"
+          type="button"
+          onClick={() => {
+            setDraft(note.title)
+            setError(null)
+            setEditing(true)
+          }}
+        >
+          <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
+          <span {...stylex.props(pagesRouteStyles.visuallyHidden)}>{note.title}</span>
+        </button>
+        {actionStatus}
+      </div>
     )
   }
 
   return (
-    <div {...stylex.props(pagesRouteStyles.titleEditor)}>
-      <input
-        ref={inputRef}
-        {...stylex.props(pagesRouteStyles.titleInput)}
-        aria-busy={saving}
-        aria-invalid={error !== null}
-        aria-label={error ?? `Title for ${note.title}`}
-        readOnly={saving}
-        title={error ?? 'Rename Note'}
-        value={draft}
-        onBlur={() => {
-          if (saving)
-            return
-          if (draft.trim().length === 0)
-            cancel()
-          else
-            void commit()
-        }}
-        onChange={(event) => {
-          setDraft(event.target.value)
-          if (event.target.value.trim().length > 0)
-            setError(null)
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            void commit()
-          }
-          else if (event.key === 'Escape') {
-            event.preventDefault()
-            cancel()
-          }
-        }}
-      />
-      {error
-        ? <span {...stylex.props(pagesRouteStyles.visuallyHidden)} role="status">{error}</span>
-        : null}
+    <div {...stylex.props(pagesRouteStyles.titleCellControls)}>
+      {favoriteControl}
+      <div {...stylex.props(pagesRouteStyles.titleEditor)}>
+        <input
+          ref={inputRef}
+          {...stylex.props(pagesRouteStyles.titleInput)}
+          aria-busy={saving}
+          aria-invalid={error !== null}
+          aria-label={error ?? `Title for ${note.title}`}
+          readOnly={saving}
+          title={error ?? 'Rename Note'}
+          value={draft}
+          onBlur={() => {
+            if (saving)
+              return
+            if (draft.trim().length === 0)
+              cancel()
+            else
+              void commit()
+          }}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            if (event.target.value.trim().length > 0)
+              setError(null)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              void commit()
+            }
+            else if (event.key === 'Escape') {
+              event.preventDefault()
+              cancel()
+            }
+          }}
+        />
+        {error
+          ? <span {...stylex.props(pagesRouteStyles.visuallyHidden)} role="status">{error}</span>
+          : null}
+      </div>
+      <span {...stylex.props(pagesRouteStyles.titleEditSpacer)} />
+      {actionStatus}
     </div>
   )
 }
 
-function createColumns(onRename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>) {
+function createColumns(
+  onFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>,
+  onOpen: (noteId: string) => Promise<void>,
+  onRename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>,
+) {
   return [
     columnHelper.accessor('title', {
-      cell: info => <EditableTitleCell note={info.row.original} onRename={onRename} />,
+      cell: info => (
+        <EditableTitleCell
+          note={info.row.original}
+          onFavorite={onFavorite}
+          onOpen={onOpen}
+          onRename={onRename}
+        />
+      ),
       header: 'Title',
       sortDescFirst: false,
     }),
@@ -389,17 +515,37 @@ function PagesRoute() {
       if (result.status === 'duplicate-title')
         return
       queryClient.setQueriesData<InfiniteData<DesktopNotePage>>(
-        { queryKey: notesQueryKey },
+        { queryKey: noteQueryKeys.lists },
         data => updateRenamedNote(data, result.note),
       )
-      void queryClient.invalidateQueries({ queryKey: notesQueryKey })
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
+    },
+  })
+  const { mutateAsync: mutateFavoriteNote } = useMutation({
+    ...setNoteFavoriteMutationOptions(),
+    onSuccess: (state) => {
+      queryClient.setQueriesData<InfiniteData<DesktopNotePage>>(
+        { queryKey: noteQueryKeys.lists },
+        data => updateFavoriteNote(data, state),
+      )
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
     },
   })
   const renameNote = useCallback(
     (input: RenameDesktopNoteInput) => mutateRenameNote(input),
     [mutateRenameNote],
   )
-  const columns = useMemo(() => createColumns(renameNote), [renameNote])
+  const favoriteNote = useCallback(
+    (input: SetDesktopNoteFavoriteInput) => mutateFavoriteNote(input),
+    [mutateFavoriteNote],
+  )
+  const openSelectedNote = useCallback((noteId: string) => openNote(noteId), [])
+  const columns = useMemo(
+    () => createColumns(favoriteNote, openSelectedNote, renameNote),
+    [favoriteNote, openSelectedNote, renameNote],
+  )
   const notes = useMemo(() => notesQuery.data
     ? notesQuery.data.pages.flatMap(page => [...page.items])
     : [], [notesQuery.data])

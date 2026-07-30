@@ -125,20 +125,28 @@ export function createNoteService(storage: EditorStorage) {
     return load(await storage.getNote({ noteId }))
   }
 
-  const toDesktopNote = (current: AuthoritativeNote) => ({
-    createdAt: current.createdAt,
-    id: current.note.id,
-    snapshot: current.note.exportSnapshot(),
-    title: current.note.getTitle(),
-    updatedAt: current.updatedAt,
-  })
+  const toDesktopNote = async (current: AuthoritativeNote) => {
+    const favorite = await storage.getNoteFavorite({ noteId: current.note.id })
+    return {
+      createdAt: current.createdAt,
+      favorite: favorite.favorite,
+      id: current.note.id,
+      snapshot: current.note.exportSnapshot(),
+      title: current.note.getTitle(),
+      updatedAt: current.updatedAt,
+    }
+  }
 
-  const toDesktopNoteSummary = (current: AuthoritativeNote) => ({
-    createdAt: current.createdAt,
-    id: current.note.id,
-    title: current.note.getTitle(),
-    updatedAt: current.updatedAt,
-  })
+  const toDesktopNoteSummary = async (current: AuthoritativeNote) => {
+    const favorite = await storage.getNoteFavorite({ noteId: current.note.id })
+    return {
+      createdAt: current.createdAt,
+      favorite: favorite.favorite,
+      id: current.note.id,
+      title: current.note.getTitle(),
+      updatedAt: current.updatedAt,
+    }
+  }
 
   const checkpointIfNeeded = async (current: AuthoritativeNote): Promise<void> => {
     if (current.latestSequence - current.checkpointSequence < checkpointInterval)
@@ -182,6 +190,16 @@ export function createNoteService(storage: EditorStorage) {
     }
 
     @IpcMethod()
+    listFavoriteNotes(input?: Parameters<EditorStorage['listFavoriteNotes']>[0]) {
+      return storage.listFavoriteNotes(input)
+    }
+
+    @IpcMethod()
+    listRecentNotes(input?: Parameters<EditorStorage['listRecentNotes']>[0]) {
+      return storage.listRecentNotes(input)
+    }
+
+    @IpcMethod()
     openMostRecentNote() {
       return serialize(async () => {
         const current = await load(await storage.openMostRecentNote())
@@ -195,7 +213,7 @@ export function createNoteService(storage: EditorStorage) {
         const current = await openNote(input.noteId)
         const title = input.title.trim()
         if (title === current.note.getTitle())
-          return { note: toDesktopNoteSummary(current), status: 'renamed' } as const
+          return { note: await toDesktopNoteSummary(current), status: 'renamed' } as const
 
         try {
           const version = current.note.getVersion()
@@ -209,7 +227,7 @@ export function createNoteService(storage: EditorStorage) {
           current.latestSequence = receipt.latestSequence
           current.updatedAt = receipt.updatedAt
           await checkpointIfNeeded(current)
-          return { note: toDesktopNoteSummary(current), status: 'renamed' } as const
+          return { note: await toDesktopNoteSummary(current), status: 'renamed' } as const
         }
         catch (error) {
           authoritative = undefined
@@ -270,6 +288,16 @@ export function createNoteService(storage: EditorStorage) {
     @IpcMethod()
     searchTopicBlocks(input: Parameters<EditorStorage['searchTopicBlocks']>[0]) {
       return storage.searchTopicBlocks(input)
+    }
+
+    @IpcMethod()
+    recordNoteOpened(input: Parameters<EditorStorage['recordNoteOpened']>[0]) {
+      return storage.recordNoteOpened(input)
+    }
+
+    @IpcMethod()
+    setNoteFavorite(input: Parameters<EditorStorage['setNoteFavorite']>[0]) {
+      return storage.setNoteFavorite(input)
     }
   }
 

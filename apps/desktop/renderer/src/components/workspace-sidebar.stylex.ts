@@ -134,6 +134,18 @@ export const workspaceSidebarStyles = stylex.create({
     flexDirection: 'column',
     gap: 2,
   },
+  emptySourceList: {
+    height: 31,
+    margin: 0,
+    paddingRight: 9,
+    paddingLeft: 35,
+    color: colors.textQuiet,
+    fontSize: 12,
+    fontWeight: 400,
+    letterSpacing: 0,
+    lineHeight: '31px',
+    userSelect: 'none',
+  },
   animatedSourceList: {
     overflow: 'hidden',
   },

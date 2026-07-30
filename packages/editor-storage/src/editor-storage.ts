@@ -85,9 +85,42 @@ export type NoteSortField = 'createdAt' | 'title' | 'updatedAt'
 
 export interface NoteSummary {
   createdAt: number
+  favorite: boolean
   id: string
   title: string
   updatedAt: number
+}
+
+export interface ListNoteActivityInput {
+  limit?: number
+}
+
+export interface NoteFavoriteState {
+  favorite: boolean
+  noteId: string
+}
+
+export type SetNoteFavoriteInput = NoteFavoriteState
+
+export interface RecordNoteOpenedInput {
+  noteId: string
+  topicId: string
+}
+
+export interface FavoriteNoteItem {
+  favoritedAt: number
+  noteId: string
+  noteTitle: string
+  topicId: string
+  topicTitle: string
+}
+
+export interface RecentNoteItem {
+  noteId: string
+  noteTitle: string
+  openedAt: number
+  topicId: string
+  topicTitle: string
 }
 
 export interface NotePage {
@@ -183,13 +216,18 @@ export interface EditorStorage {
   close: () => Promise<void>
   createNote: (input?: CreateNoteInput) => Promise<StoredNote>
   getNote: (input: GetNoteInput) => Promise<StoredNote>
+  getNoteFavorite: (input: GetNoteInput) => Promise<NoteFavoriteState>
   getTopicBlock: (input: GetTopicBlockInput) => Promise<StoredTopicBlock | null>
   indexPendingEmbeddings: (input?: IndexPendingEmbeddingsInput) => Promise<number>
+  listFavoriteNotes: (input?: ListNoteActivityInput) => Promise<readonly FavoriteNoteItem[]>
   listNotes: (input?: ListNotesInput) => Promise<NotePage>
+  listRecentNotes: (input?: ListNoteActivityInput) => Promise<readonly RecentNoteItem[]>
   openMostRecentNote: () => Promise<StoredNote>
+  recordNoteOpened: (input: RecordNoteOpenedInput) => Promise<void>
   saveNoteUpdates: (input: SaveNoteUpdatesInput) => Promise<NoteWriteReceipt>
   searchNotes: (input: SearchNotesInput) => Promise<readonly NoteSearchHit[]>
   searchTopicBlocks: (input: SearchTopicBlocksInput) => Promise<readonly TopicBlockSearchHit[]>
+  setNoteFavorite: (input: SetNoteFavoriteInput) => Promise<NoteFavoriteState>
 }
 
 export interface CreateEditorStorageOptions {
@@ -210,9 +248,30 @@ interface NoteRow {
 
 interface NoteSummaryRow {
   created_at: number
+  favorite: number
   id: string
   title: string
   updated_at: number
+}
+
+interface FavoriteNoteRow {
+  favorited_at: number
+  note_id: string
+  note_title: string
+  topic_id: string
+  topic_title: string
+}
+
+interface RecentNoteRow {
+  note_id: string
+  note_title: string
+  opened_at: number
+  topic_id: string
+  topic_title: string
+}
+
+interface FavoriteStateRow {
+  favorite: number
 }
 
 interface CountRow {
@@ -352,6 +411,25 @@ const schema = `
     title TEXT NOT NULL,
     UNIQUE (note_row_id, topic_id)
   );
+
+  CREATE TABLE IF NOT EXISTS note_favorites (
+    note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
+    favorited_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS note_favorites_order_idx
+    ON note_favorites(favorited_at DESC, note_row_id DESC);
+
+  CREATE TABLE IF NOT EXISTS note_open_history (
+    note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
+    topic_id TEXT NOT NULL,
+    opened_at INTEGER NOT NULL,
+    FOREIGN KEY (note_row_id, topic_id)
+      REFERENCES topics(note_row_id, topic_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS note_open_history_order_idx
+    ON note_open_history(opened_at DESC, note_row_id DESC);
 
   CREATE TABLE IF NOT EXISTS topic_blocks (
     row_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -839,6 +917,62 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async getNoteFavorite(input: GetNoteInput): Promise<NoteFavoriteState> {
+    assertNonEmpty(input.noteId, 'Note id')
+    return this.#serializeWrite(async () => {
+      const row = await this.#database.get<FavoriteStateRow>(`
+        SELECT EXISTS(
+          SELECT 1
+          FROM note_favorites AS favorite
+          WHERE favorite.note_row_id = note.row_id
+        ) AS favorite
+        FROM notes AS note
+        WHERE note.id = ?
+      `, [input.noteId])
+      if (!row)
+        throw new Error(`Unknown Note: ${input.noteId}`)
+      return { favorite: row.favorite === 1, noteId: input.noteId }
+    })
+  }
+
+  async listFavoriteNotes(input: ListNoteActivityInput = {}): Promise<readonly FavoriteNoteItem[]> {
+    const limit = resolveLimit(input.limit, 6, 100)
+    return this.#serializeWrite(async () => {
+      const rows = await this.#database.all<FavoriteNoteRow>(`
+        WITH first_topics AS (
+          SELECT
+            note_row_id,
+            topic_id,
+            title,
+            ROW_NUMBER() OVER (PARTITION BY note_row_id ORDER BY row_id ASC) AS position
+          FROM topics
+        )
+        SELECT
+          note.id AS note_id,
+          note.title AS note_title,
+          COALESCE(history.topic_id, first_topic.topic_id) AS topic_id,
+          COALESCE(history_topic.title, first_topic.title) AS topic_title,
+          favorite.favorited_at
+        FROM note_favorites AS favorite
+        INNER JOIN notes AS note ON note.row_id = favorite.note_row_id
+        INNER JOIN first_topics AS first_topic
+          ON first_topic.note_row_id = note.row_id AND first_topic.position = 1
+        LEFT JOIN note_open_history AS history ON history.note_row_id = note.row_id
+        LEFT JOIN topics AS history_topic
+          ON history_topic.note_row_id = note.row_id AND history_topic.topic_id = history.topic_id
+        ORDER BY favorite.favorited_at DESC, note.id DESC
+        LIMIT ?
+      `, [limit])
+      return rows.map(row => ({
+        favoritedAt: row.favorited_at,
+        noteId: row.note_id,
+        noteTitle: row.note_title,
+        topicId: row.topic_id,
+        topicTitle: row.topic_title,
+      }))
+    })
+  }
+
   async listNotes(input: ListNotesInput = {}): Promise<NotePage> {
     const page = resolvePage(input.page)
     const pageSize = resolveLimit(input.pageSize, 50, 100)
@@ -851,8 +985,17 @@ class DefaultEditorStorage implements EditorStorage {
       const [countRow, rows] = await Promise.all([
         this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM notes'),
         this.#database.all<NoteSummaryRow>(`
-          SELECT id, title, created_at, updated_at
-          FROM notes
+          SELECT
+            note.id,
+            note.title,
+            note.created_at,
+            note.updated_at,
+            EXISTS(
+              SELECT 1
+              FROM note_favorites AS favorite
+              WHERE favorite.note_row_id = note.row_id
+            ) AS favorite
+          FROM notes AS note
           ORDER BY ${orderBy}
           LIMIT ? OFFSET ?
         `, [pageSize, offset]),
@@ -862,6 +1005,7 @@ class DefaultEditorStorage implements EditorStorage {
       return {
         items: rows.map(row => ({
           createdAt: row.created_at,
+          favorite: row.favorite === 1,
           id: row.id,
           title: row.title,
           updatedAt: row.updated_at,
@@ -871,6 +1015,33 @@ class DefaultEditorStorage implements EditorStorage {
         totalItems: countRow.count,
         totalPages: Math.ceil(countRow.count / pageSize),
       }
+    })
+  }
+
+  async listRecentNotes(input: ListNoteActivityInput = {}): Promise<readonly RecentNoteItem[]> {
+    const limit = resolveLimit(input.limit, 6, 100)
+    return this.#serializeWrite(async () => {
+      const rows = await this.#database.all<RecentNoteRow>(`
+        SELECT
+          note.id AS note_id,
+          note.title AS note_title,
+          history.topic_id,
+          topic.title AS topic_title,
+          history.opened_at
+        FROM note_open_history AS history
+        INNER JOIN notes AS note ON note.row_id = history.note_row_id
+        INNER JOIN topics AS topic
+          ON topic.note_row_id = history.note_row_id AND topic.topic_id = history.topic_id
+        ORDER BY history.opened_at DESC, note.id DESC
+        LIMIT ?
+      `, [limit])
+      return rows.map(row => ({
+        noteId: row.note_id,
+        noteTitle: row.note_title,
+        openedAt: row.opened_at,
+        topicId: row.topic_id,
+        topicTitle: row.topic_title,
+      }))
     })
   }
 
@@ -893,6 +1064,58 @@ class DefaultEditorStorage implements EditorStorage {
 
       note ??= await this.#insertNote('Untitled')
       return this.#readStoredNote(note)
+    })
+  }
+
+  async recordNoteOpened(input: RecordNoteOpenedInput): Promise<void> {
+    assertNonEmpty(input.noteId, 'Note id')
+    assertNonEmpty(input.topicId, 'Topic id')
+    return this.#serializeWrite(async () => {
+      const topic = await this.#database.get<{ note_row_id: number }>(`
+        SELECT topic.note_row_id
+        FROM topics AS topic
+        INNER JOIN notes AS note ON note.row_id = topic.note_row_id
+        WHERE note.id = ? AND topic.topic_id = ?
+      `, [input.noteId, input.topicId])
+      if (!topic)
+        throw new Error(`Note ${input.noteId} does not contain Topic ${input.topicId}`)
+
+      await this.#database.run(`
+        INSERT INTO note_open_history (note_row_id, topic_id, opened_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(note_row_id) DO UPDATE SET
+          topic_id = excluded.topic_id,
+          opened_at = excluded.opened_at
+      `, [topic.note_row_id, input.topicId, Date.now()])
+    })
+  }
+
+  async setNoteFavorite(input: SetNoteFavoriteInput): Promise<NoteFavoriteState> {
+    assertNonEmpty(input.noteId, 'Note id')
+    if (typeof input.favorite !== 'boolean')
+      throw new TypeError('Note favorite state must be a boolean')
+    return this.#serializeWrite(async () => {
+      const note = await this.#database.get<{ row_id: number }>(
+        'SELECT row_id FROM notes WHERE id = ?',
+        [input.noteId],
+      )
+      if (!note)
+        throw new Error(`Unknown Note: ${input.noteId}`)
+
+      if (input.favorite) {
+        await this.#database.run(`
+          INSERT INTO note_favorites (note_row_id, favorited_at)
+          VALUES (?, ?)
+          ON CONFLICT(note_row_id) DO NOTHING
+        `, [note.row_id, Date.now()])
+      }
+      else {
+        await this.#database.run(
+          'DELETE FROM note_favorites WHERE note_row_id = ?',
+          [note.row_id],
+        )
+      }
+      return { favorite: input.favorite, noteId: input.noteId }
     })
   }
 
