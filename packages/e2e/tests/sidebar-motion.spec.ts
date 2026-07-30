@@ -30,6 +30,9 @@ test('first sidebar collapse moves the editor continuously', async () => {
       const window = await electronApplication.firstWindow()
       await window.emulateMedia({ reducedMotion: 'no-preference' })
       await window.getByRole('button', { name: 'Hide Sidebar' }).waitFor()
+      await window.keyboard.press('Meta+P')
+      await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill('Sidebar motion Note')
+      await window.getByRole('option').filter({ hasText: 'Create Note “Sidebar motion Note”' }).click()
       await window.locator('main > section[aria-label]').waitFor()
 
       const editorPositions = await window.evaluate(async () => {
