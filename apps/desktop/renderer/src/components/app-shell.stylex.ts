@@ -1,0 +1,31 @@
+import * as stylex from '@stylexjs/stylex'
+
+export const appShellStyles = stylex.create({
+  shell: {
+    position: 'relative',
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+    minHeight: 0,
+    overflow: 'hidden',
+    flexDirection: 'column',
+    backgroundColor: '#ffffff',
+  },
+  body: {
+    position: 'relative',
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+    minWidth: 0,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  routeViewport: {
+    position: 'relative',
+    display: 'flex',
+    minWidth: 0,
+    minHeight: 0,
+    flex: 1,
+    overflow: 'hidden',
+  },
+})
