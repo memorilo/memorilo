@@ -1,18 +1,24 @@
+import type { DesktopFavoriteNoteItem, DesktopRecentNoteItem } from '@memorilo/desktop-preload'
+import type { Cause } from 'effect'
 import type { LucideIcon } from 'lucide-react'
 import * as stylex from '@stylexjs/stylex'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { Effect, Layer } from 'effect'
+import { createEffectQuery } from 'effect-query'
 import {
   CalendarDays,
   ChevronDown,
   Clock3,
   Files,
-  FileText,
   PanelLeft,
+  Star,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useId, useRef, useState } from 'react'
 
+import { noteQueryKeys } from '../queries/note-query-keys'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
 
 const sidebarSpring = {
@@ -28,9 +34,16 @@ const disclosureSpring = {
 } as const
 
 interface SourceItemProps {
+  destination: {
+    kind: 'note'
+    noteId: string
+    topicId: string
+  } | {
+    kind: 'route'
+    to: '/journals' | '/pages'
+  }
   icon: LucideIcon
   label: string
-  to?: '/journals' | '/pages'
 }
 
 interface SourceItemContentProps {
@@ -40,23 +53,27 @@ interface SourceItemContentProps {
 }
 
 const navigationItems: readonly SourceItemProps[] = [
-  { icon: CalendarDays, label: 'Journals', to: '/journals' },
-  { icon: Files, label: 'Pages', to: '/pages' },
-]
-
-const favoriteItems: readonly SourceItemProps[] = [
-  { icon: FileText, label: 'Designing Fluid Interfaces' },
-  { icon: FileText, label: 'How memory changes' },
-]
-
-const recentItems: readonly SourceItemProps[] = [
-  { icon: Clock3, label: 'Progressive reading' },
-  { icon: Clock3, label: 'Ideas for Memorilo' },
-  { icon: Clock3, label: 'The extended mind' },
+  { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: 'Journals' },
+  { destination: { kind: 'route', to: '/pages' }, icon: Files, label: 'Pages' },
 ]
 
 const sourceRowHeight = 33
 const sourceListMaxHeight = sourceRowHeight * 6
+const effectQuery = createEffectQuery(Layer.empty)
+
+function favoriteNotesQueryOptions() {
+  return effectQuery.queryOptions<readonly DesktopFavoriteNoteItem[], Cause.UnknownError, never>({
+    queryFn: () => Effect.tryPromise(() => window.desktop.listFavoriteNotes({ limit: 6 })),
+    queryKey: noteQueryKeys.favorites,
+  })
+}
+
+function recentNotesQueryOptions() {
+  return effectQuery.queryOptions<readonly DesktopRecentNoteItem[], Cause.UnknownError, never>({
+    queryFn: () => Effect.tryPromise(() => window.desktop.listRecentNotes({ limit: 6 })),
+    queryKey: noteQueryKeys.recent,
+  })
+}
 
 function estimateSourceRowSize() {
   return sourceRowHeight
@@ -77,15 +94,16 @@ function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentPro
   )
 }
 
-function SourceItem({ icon, label, to }: SourceItemProps) {
-  if (to) {
+function SourceItem({ destination, icon, label }: SourceItemProps) {
+  if (destination.kind === 'note') {
     return (
       <Link
         {...stylex.props(workspaceSidebarStyles.sourceItem)}
-        activeOptions={{ exact: true }}
         activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
+        params={{ noteId: destination.noteId, topicId: destination.topicId }}
         preload="intent"
-        to={to}
+        title={label}
+        to="/note/$noteId/$topicId"
       >
         {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
       </Link>
@@ -93,9 +111,15 @@ function SourceItem({ icon, label, to }: SourceItemProps) {
   }
 
   return (
-    <button {...stylex.props(workspaceSidebarStyles.sourceItem)} type="button">
-      <SourceItemContent icon={icon} label={label} selected={false} />
-    </button>
+    <Link
+      {...stylex.props(workspaceSidebarStyles.sourceItem)}
+      activeOptions={{ exact: true }}
+      activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
+      preload="intent"
+      to={destination.to}
+    >
+      {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
+    </Link>
   )
 }
 
@@ -153,7 +177,17 @@ function VirtualizedSourceList({
   )
 }
 
-function SourceGroup({ items, label }: { items: readonly SourceItemProps[], label: string }) {
+function SourceGroup({
+  emptyLabel,
+  items,
+  label,
+  pending,
+}: {
+  emptyLabel: string
+  items: readonly SourceItemProps[]
+  label: string
+  pending: boolean
+}) {
   const [expanded, setExpanded] = useState(true)
   const shouldReduceMotion = useReducedMotion()
   const headingId = useId()
@@ -188,7 +222,13 @@ function SourceGroup({ items, label }: { items: readonly SourceItemProps[], labe
                 initial={{ height: 0, opacity: 0 }}
                 transition={transition}
               >
-                <VirtualizedSourceList headingId={headingId} items={items} />
+                {items.length > 0
+                  ? <VirtualizedSourceList headingId={headingId} items={items} />
+                  : (
+                      <p {...stylex.props(workspaceSidebarStyles.emptySourceList)} role={pending ? 'status' : undefined}>
+                        {pending ? 'Loading…' : emptyLabel}
+                      </p>
+                    )}
               </motion.div>
             )
           : null}
@@ -200,6 +240,18 @@ function SourceGroup({ items, label }: { items: readonly SourceItemProps[], labe
 export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, visible: boolean }) {
   const shouldReduceMotion = useReducedMotion()
   const transition = shouldReduceMotion ? { duration: 0 } : sidebarSpring
+  const favoritesQuery = useQuery(favoriteNotesQueryOptions())
+  const recentQuery = useQuery(recentNotesQueryOptions())
+  const favoriteItems = (favoritesQuery.data ?? []).map(item => ({
+    destination: { kind: 'note' as const, noteId: item.noteId, topicId: item.topicId },
+    icon: Star,
+    label: item.noteTitle,
+  }))
+  const recentItems = (recentQuery.data ?? []).map(item => ({
+    destination: { kind: 'note' as const, noteId: item.noteId, topicId: item.topicId },
+    icon: Clock3,
+    label: item.noteTitle,
+  }))
 
   return (
     <>
@@ -221,8 +273,18 @@ export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, 
                       {navigationItems.map(item => <SourceItem key={item.label} {...item} />)}
                     </div>
                   </section>
-                  <SourceGroup items={favoriteItems} label="Favorites" />
-                  <SourceGroup items={recentItems} label="Recent" />
+                  <SourceGroup
+                    emptyLabel={favoritesQuery.isError ? 'Couldn’t load favorites' : 'No favorites'}
+                    items={favoriteItems}
+                    label="Favorites"
+                    pending={favoritesQuery.isPending}
+                  />
+                  <SourceGroup
+                    emptyLabel={recentQuery.isError ? 'Couldn’t load recent notes' : 'No recent notes'}
+                    items={recentItems}
+                    label="Recent"
+                    pending={recentQuery.isPending}
+                  />
                 </nav>
               </motion.aside>
             )

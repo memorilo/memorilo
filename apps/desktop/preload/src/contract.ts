@@ -14,6 +14,7 @@ export interface DesktopTopicBlock {
 
 export interface DesktopNote {
   createdAt: number
+  favorite: boolean
   id: string
   snapshot: Uint8Array
   title: string
@@ -47,9 +48,38 @@ export interface RenameDesktopNoteInput {
 
 export interface DesktopNoteSummary {
   createdAt: number
+  favorite: boolean
   id: string
   title: string
   updatedAt: number
+}
+
+export interface DesktopFavoriteNoteItem {
+  favoritedAt: number
+  noteId: string
+  noteTitle: string
+  topicId: string
+  topicTitle: string
+}
+
+export interface DesktopRecentNoteItem {
+  noteId: string
+  noteTitle: string
+  openedAt: number
+  topicId: string
+  topicTitle: string
+}
+
+export interface SetDesktopNoteFavoriteInput {
+  favorite: boolean
+  noteId: string
+}
+
+export type DesktopNoteFavoriteState = SetDesktopNoteFavoriteInput
+
+export interface RecordDesktopNoteOpenedInput {
+  noteId: string
+  topicId: string
 }
 
 export type RenameDesktopNoteResult
@@ -135,8 +165,11 @@ export interface DesktopApi {
   getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
   getRuntimeInfo: () => Promise<RuntimeInfo>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
+  listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
+  listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
   openMostRecentNote: () => Promise<DesktopNote>
+  recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
   searchNotes: (input: {
@@ -149,6 +182,7 @@ export interface DesktopApi {
     noteId?: string
     query: string
   }) => Promise<readonly DesktopTopicBlockSearchHit[]>
+  setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
   showColumnVisibilityMenu: (
     input: ShowDesktopColumnVisibilityMenuInput,
   ) => Promise<DesktopColumnVisibilityMenuSelection | null>

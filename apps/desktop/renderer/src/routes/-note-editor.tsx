@@ -3,21 +3,28 @@ import type {
   EditorNote,
   EditorNoteChange,
   EditorTopicDocument,
+  NoteEntrySnapshot,
 } from '@memorilo/editor'
+import type { Cause } from 'effect'
 import { createEditorNote, demoEditorAdapters, Editor } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { Effect, Layer } from 'effect'
+import { createEffectQuery } from 'effect-query'
 import {
-  CheckCircle2,
-  ChevronDown,
-  Circle,
-  CircleDot,
-  Clock3,
+  ChevronRight,
+  FileText,
+  Folder,
+  FolderOpen,
   PanelRight,
+  Star,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { noteQueryKeys } from '../queries/note-query-keys'
 import { editorRouteStyles } from './-note.stylex'
 
 const inspectorSpring = {
@@ -26,101 +33,173 @@ const inspectorSpring = {
   visualDuration: 0.28,
 } as const
 
+const entrySpring = {
+  bounce: 0,
+  type: 'spring',
+  visualDuration: 0.2,
+} as const
+
 const saveDelay = 250
+const effectQuery = createEffectQuery(Layer.empty)
 
-type TopicStatus = 'current' | 'due' | 'learned' | 'new'
-
-interface TopicItem {
-  depth: 0 | 1 | 2
-  hasChildren?: boolean
-  id: string
-  label: string
-  status: TopicStatus
+function setNoteFavoriteMutationOptions() {
+  return effectQuery.mutationOptions<
+    { favorite: boolean, noteId: string },
+    Cause.UnknownError,
+    never,
+    { favorite: boolean, noteId: string }
+  >({
+    mutationFn: input => Effect.tryPromise(() => window.desktop.setNoteFavorite(input)),
+  })
 }
 
-const topicItems: readonly TopicItem[] = [
-  {
-    depth: 0,
-    hasChildren: true,
-    id: 'editor-thinking',
-    label: 'The editor that thinks like you',
-    status: 'current',
-  },
-  { depth: 1, id: 'text-shines', label: 'Text that shines', status: 'learned' },
-  {
-    depth: 1,
-    hasChildren: true,
-    id: 'lists-organize',
-    label: 'Lists that organize',
-    status: 'due',
-  },
-  { depth: 2, id: 'done-feels-good', label: 'Done feels good', status: 'learned' },
-  { depth: 2, id: 'doing-clock', label: 'Doing keeps the clock running', status: 'due' },
-  { depth: 1, id: 'code-inspires', label: 'Code that inspires', status: 'new' },
-]
+interface VisibleNoteEntry {
+  depth: number
+  entry: NoteEntrySnapshot
+  hasChildren: boolean
+}
 
-const topicDepthStyles = [
-  editorRouteStyles.topicDepth0,
-  editorRouteStyles.topicDepth1,
-  editorRouteStyles.topicDepth2,
-] as const
+function visibleNoteEntries(
+  entries: readonly NoteEntrySnapshot[],
+  collapsedEntryIds: ReadonlySet<string>,
+): readonly VisibleNoteEntry[] {
+  const entriesById = new Map<string, NoteEntrySnapshot>()
+  const parentsWithChildren = new Set<string>()
+  const depths = new Map<string, number>()
 
-function TopicStatusIcon({ status }: { status: TopicStatus }) {
-  if (status === 'current') {
-    return (
-      <span {...stylex.props(editorRouteStyles.topicStatus, editorRouteStyles.topicStatusCurrent)} title="Current topic">
-        <CircleDot aria-label="Current topic" size={13} strokeWidth={2} />
-      </span>
-    )
+  for (const entry of entries) {
+    if (entriesById.has(entry.id))
+      throw new Error(`Duplicate Note entry id: ${entry.id}`)
+    entriesById.set(entry.id, entry)
+    if (entry.parentId !== null)
+      parentsWithChildren.add(entry.parentId)
   }
-  if (status === 'due') {
-    return (
-      <span {...stylex.props(editorRouteStyles.topicStatus, editorRouteStyles.topicStatusDue)} title="Due for review">
-        <Clock3 aria-label="Due for review" size={13} strokeWidth={1.9} />
-      </span>
-    )
+
+  const depthOf = (entry: NoteEntrySnapshot, visiting: Set<string>): number => {
+    const cachedDepth = depths.get(entry.id)
+    if (cachedDepth !== undefined)
+      return cachedDepth
+    if (visiting.has(entry.id))
+      throw new Error(`Cycle detected at Note entry ${entry.id}`)
+
+    visiting.add(entry.id)
+    const depth = entry.parentId === null
+      ? 0
+      : (() => {
+          const parent = entriesById.get(entry.parentId)
+          if (!parent)
+            throw new Error(`Note entry ${entry.id} has unknown parent ${entry.parentId}`)
+          return depthOf(parent, visiting) + 1
+        })()
+    visiting.delete(entry.id)
+    depths.set(entry.id, depth)
+    return depth
   }
-  if (status === 'learned') {
-    return (
-      <span {...stylex.props(editorRouteStyles.topicStatus, editorRouteStyles.topicStatusLearned)} title="Reviewed">
-        <CheckCircle2 aria-label="Reviewed" size={13} strokeWidth={1.9} />
-      </span>
-    )
-  }
-  return (
-    <span {...stylex.props(editorRouteStyles.topicStatus)} title="Not scheduled">
-      <Circle aria-label="Not scheduled" size={12} strokeWidth={1.7} />
-    </span>
-  )
+
+  for (const entry of entries)
+    depthOf(entry, new Set())
+
+  return entries.flatMap((entry) => {
+    let parentId = entry.parentId
+    while (parentId !== null) {
+      if (collapsedEntryIds.has(parentId))
+        return []
+      const parent = entriesById.get(parentId)
+      if (!parent)
+        throw new Error(`Note entry ${entry.id} has unknown parent ${parentId}`)
+      parentId = parent.parentId
+    }
+    const depth = depths.get(entry.id)
+    if (depth === undefined)
+      throw new Error(`Note entry ${entry.id} does not have a projected depth`)
+    return [{ depth, entry, hasChildren: parentsWithChildren.has(entry.id) }]
+  })
 }
 
 interface OpenEditorNote {
+  entries: readonly NoteEntrySnapshot[]
   note: EditorNote
   stored: DesktopNote
   topic: EditorTopicDocument
 }
 
 function OpenedTopicEditor({
+  collapsedEntryIds,
+  favoritePending,
   focusBlockId,
   onRenameNote,
+  onToggleEntry,
+  onToggleFavorite,
   opened,
   saveError,
 }: {
+  collapsedEntryIds: ReadonlySet<string>
+  favoritePending: boolean
   focusBlockId?: string
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
+  onToggleEntry: (entryId: string) => void
+  onToggleFavorite: () => void
   opened: OpenEditorNote
   saveError: string | null
 }) {
   const [inspectorVisible, setInspectorVisible] = useState(true)
-  const [selectedTopicId, setSelectedTopicId] = useState('editor-thinking')
   const shouldReduceMotion = useReducedMotion()
   const inspectorTransition = shouldReduceMotion ? { duration: 0 } : inspectorSpring
+  const entryTransition = shouldReduceMotion ? { duration: 0 } : entrySpring
+  const visibleEntries = useMemo(
+    () => visibleNoteEntries(opened.entries, collapsedEntryIds),
+    [collapsedEntryIds, opened.entries],
+  )
+  const topicCount = useMemo(
+    () => opened.entries.reduce((count, entry) => count + (entry.kind === 'topic' ? 1 : 0), 0),
+    [opened.entries],
+  )
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [])
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
   const titlebar = useMemo(() => ({
     onRenameTitle: renameNote,
     title: opened.stored.title,
-  }), [opened.stored.title, renameNote])
+    trailing: (
+      <>
+        <button
+          {...stylex.props(
+            editorRouteStyles.titlebarActionButton,
+            opened.stored.favorite && editorRouteStyles.titlebarFavoriteActive,
+          )}
+          aria-label={opened.stored.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+          aria-pressed={opened.stored.favorite}
+          disabled={favoritePending}
+          title={opened.stored.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+          type="button"
+          onClick={onToggleFavorite}
+        >
+          <Star
+            aria-hidden="true"
+            fill={opened.stored.favorite ? 'currentColor' : 'none'}
+            size={16}
+            strokeWidth={1.8}
+          />
+        </button>
+        <button
+          {...stylex.props(editorRouteStyles.titlebarActionButton)}
+          aria-label={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
+          title={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
+          type="button"
+          onClick={toggleInspector}
+        >
+          <PanelRight aria-hidden="true" size={17} strokeWidth={1.8} />
+        </button>
+      </>
+    ),
+  }), [
+    favoritePending,
+    inspectorVisible,
+    onToggleFavorite,
+    opened.stored.favorite,
+    opened.stored.title,
+    renameNote,
+    toggleInspector,
+  ])
   usePageTitlebar(titlebar)
 
   return (
@@ -154,7 +233,7 @@ function OpenedTopicEditor({
                 <header {...stylex.props(editorRouteStyles.inspectorTitlebar)}>
                   <div {...stylex.props(editorRouteStyles.inspectorTitleGroup)}>
                     <h1 {...stylex.props(editorRouteStyles.inspectorTitle)}>Topics</h1>
-                    <span {...stylex.props(editorRouteStyles.inspectorCount)}>6</span>
+                    <span {...stylex.props(editorRouteStyles.inspectorCount)}>{topicCount}</span>
                   </div>
                 </header>
                 <div {...stylex.props(editorRouteStyles.inspectorContent)}>
@@ -165,28 +244,102 @@ function OpenedTopicEditor({
                       </h2>
                       <span {...stylex.props(editorRouteStyles.inspectorSectionMeta)}>2 due</span>
                     </div>
-                    <div {...stylex.props(editorRouteStyles.topicTree)}>
-                      {topicItems.map(topic => (
-                        <button
-                          key={topic.id}
-                          {...stylex.props(
-                            editorRouteStyles.topicRow,
-                            topicDepthStyles[topic.depth],
-                            selectedTopicId === topic.id && editorRouteStyles.topicRowSelected,
-                          )}
-                          aria-current={selectedTopicId === topic.id ? 'true' : undefined}
-                          type="button"
-                          onClick={() => setSelectedTopicId(topic.id)}
-                        >
-                          <span {...stylex.props(editorRouteStyles.topicDisclosure)}>
-                            {topic.hasChildren
-                              ? <ChevronDown aria-hidden="true" size={12} strokeWidth={1.8} />
-                              : <span {...stylex.props(editorRouteStyles.topicLeaf)} />}
-                          </span>
-                          <span {...stylex.props(editorRouteStyles.topicLabel)}>{topic.label}</span>
-                          <TopicStatusIcon status={topic.status} />
-                        </button>
-                      ))}
+                    <div {...stylex.props(editorRouteStyles.topicTree)} role="list">
+                      <AnimatePresence initial={false}>
+                        {visibleEntries.map(({ depth, entry, hasChildren }) => {
+                          const collapsed = collapsedEntryIds.has(entry.id)
+                          const label = entry.kind === 'folder' ? entry.name : entry.title || 'Untitled Topic'
+                          const current = entry.kind === 'topic' && entry.id === opened.topic.topicId
+
+                          return (
+                            <motion.div
+                              key={entry.id}
+                              {...stylex.props(
+                                editorRouteStyles.entryRow(depth),
+                                current && editorRouteStyles.entryRowCurrent,
+                              )}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -3 }}
+                              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -3 }}
+                              layout={shouldReduceMotion ? false : 'position'}
+                              role="listitem"
+                              transition={entryTransition}
+                            >
+                              {entry.kind === 'folder'
+                                ? (
+                                    <button
+                                      {...stylex.props(editorRouteStyles.folderEntryButton)}
+                                      aria-expanded={hasChildren ? !collapsed : undefined}
+                                      disabled={!hasChildren}
+                                      title={label}
+                                      type="button"
+                                      onClick={() => onToggleEntry(entry.id)}
+                                    >
+                                      <motion.span
+                                        {...stylex.props(editorRouteStyles.entryDisclosure)}
+                                        animate={{ rotate: hasChildren && !collapsed ? 90 : 0 }}
+                                        transition={entryTransition}
+                                      >
+                                        {hasChildren
+                                          ? <ChevronRight aria-hidden="true" size={12} strokeWidth={1.9} />
+                                          : null}
+                                      </motion.span>
+                                      {hasChildren && !collapsed
+                                        ? <FolderOpen {...stylex.props(editorRouteStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />
+                                        : <Folder {...stylex.props(editorRouteStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />}
+                                      <span {...stylex.props(editorRouteStyles.entryLabel)}>{label}</span>
+                                    </button>
+                                  )
+                                : (
+                                    <div {...stylex.props(editorRouteStyles.topicEntry)}>
+                                      {hasChildren
+                                        ? (
+                                            <button
+                                              {...stylex.props(editorRouteStyles.entryDisclosureButton)}
+                                              aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
+                                              aria-expanded={!collapsed}
+                                              type="button"
+                                              onClick={() => onToggleEntry(entry.id)}
+                                            >
+                                              <motion.span
+                                                {...stylex.props(editorRouteStyles.entryDisclosure)}
+                                                animate={{ rotate: collapsed ? 0 : 90 }}
+                                                transition={entryTransition}
+                                              >
+                                                <ChevronRight aria-hidden="true" size={12} strokeWidth={1.9} />
+                                              </motion.span>
+                                            </button>
+                                          )
+                                        : <span {...stylex.props(editorRouteStyles.entryDisclosurePlaceholder)} />}
+                                      <FileText
+                                        {...stylex.props(
+                                          editorRouteStyles.topicIcon,
+                                          current && editorRouteStyles.topicIconCurrent,
+                                        )}
+                                        aria-hidden="true"
+                                        size={14}
+                                        strokeWidth={1.7}
+                                      />
+                                      <Link
+                                        {...stylex.props(
+                                          editorRouteStyles.topicLink,
+                                          current && editorRouteStyles.topicLinkCurrent,
+                                        )}
+                                        aria-current={current ? 'page' : undefined}
+                                        params={{ noteId: opened.note.id, topicId: entry.id }}
+                                        preload="intent"
+                                        search={{}}
+                                        title={label}
+                                        to="/note/$noteId/$topicId"
+                                      >
+                                        <span {...stylex.props(editorRouteStyles.entryLabel)}>{label}</span>
+                                      </Link>
+                                    </div>
+                                  )}
+                            </motion.div>
+                          )
+                        })}
+                      </AnimatePresence>
                     </div>
                   </section>
                   <section
@@ -236,37 +389,42 @@ function OpenedTopicEditor({
             )
           : null}
       </AnimatePresence>
-      <button
-        {...stylex.props(editorRouteStyles.inspectorToggle)}
-        aria-label={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
-        data-window-no-drag=""
-        title={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
-        type="button"
-        onClick={toggleInspector}
-      >
-        <PanelRight aria-hidden="true" size={17} strokeWidth={1.8} />
-      </button>
     </main>
   )
 }
 
 export function NoteEditor({
+  collapsedEntryIds,
   focusBlockId,
   noteId,
+  onToggleEntry,
   topicId,
 }: {
+  collapsedEntryIds: ReadonlySet<string>
   focusBlockId?: string
   noteId: string
+  onToggleEntry: (entryId: string) => void
   topicId: string
 }) {
   const [opened, setOpened] = useState<OpenEditorNote | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const noteRef = useRef<EditorNote | null>(null)
   const pendingChangesRef = useRef<EditorNoteChange[]>([])
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const persistingRef = useRef(false)
   const flushPendingRef = useRef<(reportError: boolean) => void>(() => undefined)
+  const { isPending: favoritePending, mutate: mutateFavorite } = useMutation({
+    ...setNoteFavoriteMutationOptions(),
+    onSuccess: (state) => {
+      setOpened(current => current && current.stored.id === state.noteId
+        ? { ...current, stored: { ...current.stored, favorite: state.favorite } }
+        : current)
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
+    },
+  })
 
   const flushPending = useCallback((reportError: boolean) => {
     const note = noteRef.current
@@ -289,6 +447,7 @@ export function NoteEditor({
         setOpened(current => current
           ? {
               ...current,
+              entries: note.getEntries(),
               stored: {
                 ...current.stored,
                 updatedAt: receipt.updatedAt,
@@ -346,7 +505,16 @@ export function NoteEditor({
         },
       }
     })
-  }, [])
+    void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
+    void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
+    void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
+  }, [queryClient])
+
+  const handleToggleFavorite = useCallback(() => {
+    if (!opened)
+      return
+    mutateFavorite({ favorite: !opened.stored.favorite, noteId: opened.stored.id })
+  }, [mutateFavorite, opened])
 
   useEffect(() => {
     let active = true
@@ -363,12 +531,18 @@ export function NoteEditor({
       if (!active)
         return
 
-      const topic = note.getEntries().find(entry => entry.kind === 'topic' && entry.id === topicId)
+      const entries = note.getEntries()
+      const topic = entries.find(entry => entry.kind === 'topic' && entry.id === topicId)
       if (!topic)
         throw new Error(`Note ${note.id} does not contain Topic ${topicId}`)
+      await window.desktop.recordNoteOpened({ noteId: note.id, topicId: topic.id })
+      if (!active)
+        return
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
       noteRef.current = note
       unsubscribe = note.subscribe(handleNoteChange)
       setOpened({
+        entries,
         note,
         stored,
         topic: note.getTopic(topic.id),
@@ -390,7 +564,7 @@ export function NoteEditor({
       }
       flushPendingRef.current(false)
     }
-  }, [handleNoteChange, noteId, topicId])
+  }, [handleNoteChange, noteId, queryClient, topicId])
 
   if (loadError) {
     return (
@@ -413,8 +587,12 @@ export function NoteEditor({
 
   return (
     <OpenedTopicEditor
+      collapsedEntryIds={collapsedEntryIds}
+      favoritePending={favoritePending}
       focusBlockId={focusBlockId}
       onRenameNote={handleRenameNote}
+      onToggleEntry={onToggleEntry}
+      onToggleFavorite={handleToggleFavorite}
       opened={opened}
       saveError={saveError}
     />

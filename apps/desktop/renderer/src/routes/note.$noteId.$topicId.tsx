@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 
 import { usePageTitlebar } from '../components/page-titlebar'
 import { editorRouteStyles } from './-note.stylex'
@@ -41,14 +41,40 @@ function NoteRoute() {
   const { noteId, topicId } = Route.useParams()
   const { focus } = Route.useSearch()
   usePageTitlebar(noteTitlebar)
+
+  return <NoteWorkspace key={noteId} focus={focus} noteId={noteId} topicId={topicId} />
+}
+
+function NoteWorkspace({
+  focus,
+  noteId,
+  topicId,
+}: {
+  focus?: string
+  noteId: string
+  topicId: string
+}) {
+  const [collapsedEntryIds, setCollapsedEntryIds] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleEntry = useCallback((entryId: string) => {
+    setCollapsedEntryIds((current) => {
+      const next = new Set(current)
+      if (next.has(entryId))
+        next.delete(entryId)
+      else
+        next.add(entryId)
+      return next
+    })
+  }, [])
   const editorKey = `${noteId}\0${topicId}\0${focus ?? ''}`
 
   return (
     <Suspense fallback={<NoteLoadingState />}>
       <NoteEditor
         key={editorKey}
+        collapsedEntryIds={collapsedEntryIds}
         focusBlockId={focus}
         noteId={noteId}
+        onToggleEntry={toggleEntry}
         topicId={topicId}
       />
     </Suspense>
