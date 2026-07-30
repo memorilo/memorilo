@@ -74,7 +74,7 @@ export interface CreateFolderInput {
   /** The zero-based position among the parent's children. Appends when omitted. */
   index?: number
   name: string
-  /** The containing entry, or `null`/omitted for a root Folder. */
+  /** The containing Folder, or `null`/omitted for a root Folder. Topics are not valid parents. */
   parentId?: string | null
 }
 
@@ -84,7 +84,7 @@ export interface CreateTopicInput {
   /** Initial ProseMirror content. A canonical empty document is created when omitted. */
   initialContent?: NodeJSON
   mode: EditorModeValue
-  /** The containing Topic, or `null`/omitted for a root Topic. Folders are not valid parents. */
+  /** The containing Topic or Folder, or `null`/omitted for a root Topic. */
   parentId?: string | null
   /** An explicit title. Use an empty string to derive the effective title from the first content line. */
   title: string
@@ -296,6 +296,8 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
       const kind = node.meta.get(ENTRY_KIND_KEY)
 
       if (kind === 'folder') {
+        if (parentKind === 'topic')
+          throw new Error(`Folder ${id} cannot use Topic ${parentId} as its parent`)
         if (node.meta.get(TOPIC_BLOCK_TREE_KEY) !== undefined)
           throw new Error(`Folder ${id} must not have a Topic Block tree`)
         if (node.meta.get(TOPIC_EDITOR_MODE_KEY) !== undefined)
@@ -309,8 +311,6 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
         })
       }
       else if (kind === 'topic') {
-        if (parentKind === 'folder')
-          throw new Error(`Topic ${id} cannot use Folder ${parentId} as its parent`)
         const blockTreeKey = readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)
         const blockTree = runtime.doc.getTree(blockTreeKey)
         const content = projectTopicContent(blockTree, id, readTopicTitle(node.meta, `Topic ${id} title`))
@@ -352,10 +352,10 @@ function resolveParent(runtime: EditorNoteRuntime, parentId: string | null | und
   return entryNode(runtime, parentId)
 }
 
-function assertTopicParent(parent: ReturnType<typeof entryNode> | undefined): void {
-  if (parent?.data.get(ENTRY_KIND_KEY) === 'folder') {
-    const parentId = readString(parent.data, ENTRY_ID_KEY, 'Folder id')
-    throw new TypeError(`Topic cannot use Folder ${parentId} as its parent`)
+function assertFolderParent(parent: ReturnType<typeof entryNode> | undefined): void {
+  if (parent?.data.get(ENTRY_KIND_KEY) === 'topic') {
+    const parentId = readString(parent.data, ENTRY_ID_KEY, 'Topic id')
+    throw new TypeError(`Folder cannot use Topic ${parentId} as its parent`)
   }
 }
 
@@ -500,6 +500,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     createFolder: (input) => {
       return inUndoGroup(runtime, () => {
         const parent = resolveParent(runtime, input.parentId)
+        assertFolderParent(parent)
         const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
         const entryId = createEntryId()
         node.data.set(ENTRY_ID_KEY, entryId)
@@ -512,7 +513,6 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     createTopic: (input) => {
       return inUndoGroup(runtime, () => {
         const parent = resolveParent(runtime, input.parentId)
-        assertTopicParent(parent)
         const entryId = createTopicNode(doc, input, parent)
         doc.commit({ origin: 'note:create-topic' })
         return entryId
@@ -587,8 +587,8 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       inUndoGroup(runtime, () => {
         const node = entryNode(runtime, input.entryId)
         const parent = resolveParent(runtime, input.parentId)
-        if (node.data.get(ENTRY_KIND_KEY) === 'topic')
-          assertTopicParent(parent)
+        if (node.data.get(ENTRY_KIND_KEY) === 'folder')
+          assertFolderParent(parent)
         noteTree(doc).move(node.id, parent?.id, resolveIndex(input.index))
         doc.commit({ origin: 'note:move-entry' })
       })
