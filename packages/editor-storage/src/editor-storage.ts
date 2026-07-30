@@ -36,6 +36,7 @@ export interface TopicBlockProjection {
 
 export interface TopicContentProjection {
   blocks: readonly TopicBlockProjection[]
+  title: string
   topicId: string
 }
 
@@ -309,6 +310,11 @@ function assertNonEmpty(value: string, name: string): void {
     throw new TypeError(`${name} must be a non-empty string`)
 }
 
+function assertString(value: unknown, name: string): asserts value is string {
+  if (typeof value !== 'string')
+    throw new TypeError(`${name} must be a string`)
+}
+
 function validateBinary(value: Uint8Array, name: string): void {
   if (!(value instanceof Uint8Array) || value.byteLength === 0)
     throw new TypeError(`${name} must be a non-empty Uint8Array`)
@@ -371,7 +377,7 @@ function validateProjectionPatch(
       assertNonEmpty(entry.name, `Folder ${entry.id} name`)
     }
     else if (entry.kind === 'topic') {
-      assertNonEmpty(entry.title, `Topic ${entry.id} title`)
+      assertString(entry.title, `Topic ${entry.id} title`)
       if (entry.mode !== 0 && entry.mode !== 1)
         throw new TypeError(`Topic ${entry.id} Editor mode must be 0 (Document) or 1 (Outline)`)
       topicEntries.set(entry.id, entry)
@@ -384,12 +390,15 @@ function validateProjectionPatch(
   const projectedTopics = new Set<string>()
   for (const topic of topics) {
     assertNonEmpty(topic.topicId, 'Topic projection id')
+    assertString(topic.title, `Topic ${topic.topicId} title`)
     if (projectedTopics.has(topic.topicId))
       throw new Error(`Duplicate Topic projection: ${topic.topicId}`)
     projectedTopics.add(topic.topicId)
     const entry = topicEntries.get(topic.topicId)
     if (entries && !entry)
       throw new Error(`Topic projection ${topic.topicId} has no matching NoteEntry`)
+    if (entry && entry.title !== topic.title)
+      throw new Error(`Topic projection ${topic.topicId} title does not match its NoteEntry`)
 
     validateHierarchy(topic.blocks, `Topic ${topic.topicId} Block`)
     for (const block of topic.blocks) {
@@ -762,6 +771,19 @@ class DefaultEditorStorage implements EditorStorage {
               title = excluded.title
           `,
         })
+      }
+
+      for (const topic of saved.topics) {
+        commands.push(
+          {
+            parameters: [topic.title, note.row_id, topic.topicId],
+            sql: 'UPDATE topics SET title = ? WHERE note_row_id = ? AND topic_id = ?',
+          },
+          {
+            parameters: [topic.title, note.row_id, topic.topicId],
+            sql: 'UPDATE note_entries SET label = ? WHERE note_row_id = ? AND entry_id = ?',
+          },
+        )
       }
 
       for (const next of nextBlocks.values()) {

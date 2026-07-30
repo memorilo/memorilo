@@ -147,14 +147,15 @@ function EditorRoute() {
       if (!active)
         return
 
+      const topic = note.getEntries().find(entry => entry.kind === 'topic')
+      if (!topic)
+        throw new Error(`Note ${note.id} does not contain a Topic`)
       noteRef.current = note
       unsubscribe = note.subscribe(handleNoteChange)
-      const existingTopic = note.getEntries().find(entry => entry.kind === 'topic')
-      const topicId = existingTopic?.id ?? note.createTopic({ mode: EditorMode.Document, title: 'Untitled Topic' })
       setOpened({
         note,
         stored,
-        topic: note.bindTopic(topicId),
+        topic: note.getTopic(topic.id),
       })
     }, (error) => {
       if (active)

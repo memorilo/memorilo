@@ -10,7 +10,7 @@ import {
   LoroDoc,
   UndoManager,
 } from 'loro-crdt'
-import { assertEditorMode } from '../common/editor-mode'
+import { assertEditorMode, EditorMode } from '../common/editor-mode'
 import { normalizeOutlineDocument } from '../common/outline-document'
 import { projectTopicBlocks } from './topic-projection'
 
@@ -41,6 +41,7 @@ export interface FolderSnapshot extends NoteEntryBase {
 export interface TopicSnapshot extends NoteEntryBase {
   kind: 'topic'
   mode: EditorModeValue
+  /** The effective title: the explicit title, or the first content line when it is empty. */
   title: string
 }
 
@@ -48,6 +49,8 @@ export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
 
 export interface TopicContentProjection {
   blocks: readonly TopicBlockProjection[]
+  /** The effective title projected from the Topic's explicit title and content. */
+  title: string
   topicId: string
 }
 
@@ -68,16 +71,22 @@ export interface EditorNoteVersion {
 }
 
 export interface CreateFolderInput {
+  /** The zero-based position among the parent's children. Appends when omitted. */
   index?: number
   name: string
+  /** The containing entry, or `null`/omitted for a root Folder. */
   parentId?: string | null
 }
 
 export interface CreateTopicInput {
+  /** The zero-based position among the parent's children. Appends when omitted. */
   index?: number
+  /** Initial ProseMirror content. A canonical empty document is created when omitted. */
   initialContent?: NodeJSON
   mode: EditorModeValue
+  /** The containing Topic, or `null`/omitted for a root Topic. Folders are not valid parents. */
   parentId?: string | null
+  /** An explicit title. Use an empty string to derive the effective title from the first content line. */
   title: string
 }
 
@@ -95,39 +104,71 @@ export interface DeleteNoteEntryInput {
 }
 
 export interface EditorTopicDocument {
+  /** Returns the current editor mode stored in the Topic. */
   readonly getMode: () => EditorModeValue
   readonly noteId: string
+  /** Changes the Topic's editor mode in the owning Note's LoroDoc. */
   readonly setMode: (mode: EditorModeValue) => void
+  /** Subscribes to changes in the owning Note's LoroDoc. */
   readonly subscribe: (listener: () => void) => () => void
   readonly topicId: string
 }
 
+/**
+ * Owns a Note's authoritative in-memory LoroDoc and exposes Note-level editing operations.
+ * Topic documents returned by `getTopic` are lightweight handles over this same LoroDoc.
+ */
 export interface EditorNote {
   readonly id: string
-  bindTopic: (topicId: string) => EditorTopicDocument
+  /** Checks out a historical version and detaches the Note from its editable latest state. */
   checkout: (version: readonly EditorNoteVersion[]) => void
+  /** Returns a time-traveling Note to its editable latest state. */
   checkoutLatest: () => void
+  /** Creates a Folder and returns its stable entry ID. */
   createFolder: (input: CreateFolderInput) => string
+  /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
+  /** Deletes an entry using the requested child-handling strategy. */
   deleteEntry: (input: DeleteNoteEntryInput) => void
+  /** Exports a complete snapshot of the current LoroDoc state. */
   exportSnapshot: () => Uint8Array
+  /** Exports all updates, or only updates after the supplied version vector. */
   exportUpdates: (from?: readonly EditorNoteVersion[]) => Uint8Array
+  /** Returns the current entry projection. Topic snapshots contain effective titles. */
   getEntries: () => readonly NoteEntrySnapshot[]
+  /**
+   * Returns an editable handle for an existing Topic in this Note.
+   * The handle does not copy, synchronize, or persist the Topic.
+   */
+  getTopic: (topicId: string) => EditorTopicDocument
+  /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
+  /** Returns the Note title stored in the LoroDoc. */
   getTitle: () => string
+  /** Returns the current Loro version vector in a serializable form. */
   getVersion: () => readonly EditorNoteVersion[]
+  /** Imports an idempotent Loro update and describes which projections became dirty. */
   importUpdates: (updates: Uint8Array) => EditorNoteMutation
+  /** Reports whether the Note is currently checked out at a historical version. */
   isTimeTraveling: () => boolean
+  /** Moves an entry within the Note entry tree. */
   moveEntry: (input: MoveNoteEntryInput) => void
+  /** Renames an entry. Topic labels may be empty; Folder names must remain non-empty. */
   renameEntry: (entryId: string, label: string) => void
+  /** Replaces the non-empty Note title. */
   renameNote: (title: string) => void
+  /** Subscribes to locally generated Loro updates that callers should persist or transmit. */
   subscribe: (listener: (change: EditorNoteChange) => void) => () => void
 }
 
 export interface CreateEditorNoteOptions {
+  /** The stable Note ID expected in restored data or assigned to a new Note. */
   id: string
+  /** A previously exported Note snapshot. */
   snapshot?: Uint8Array | null
+  /** The title for a new Note. Defaults to `Untitled` and is ignored when restoring. */
   title?: string
+  /** Updates to import after the snapshot, or the complete history when no snapshot is supplied. */
   updates?: readonly Uint8Array[]
 }
 
@@ -172,6 +213,19 @@ function readString(map: LoroMap, key: string, description: string): string {
   return value
 }
 
+function readTopicTitle(map: LoroMap, description: string): string {
+  const value = map.get(TOPIC_TITLE_KEY)
+  if (typeof value !== 'string')
+    throw new Error(`${description} must be a string`)
+  return value
+}
+
+function normalizeTopicTitle(value: string): string {
+  if (typeof value !== 'string')
+    throw new TypeError('Topic title must be a string')
+  return value.trim()
+}
+
 function readNoteTitle(doc: LoroDoc): string {
   return readString(doc.getMap(NOTE_META_KEY), 'title', 'Note title')
 }
@@ -194,6 +248,31 @@ function topicBlockTree(runtime: EditorNoteRuntime, node: ReturnType<typeof entr
     throw new TypeError(`NoteEntry ${readString(node.data, ENTRY_ID_KEY, 'NoteEntry id')} is not a Topic`)
   const blockTreeKey = readString(node.data, TOPIC_BLOCK_TREE_KEY, 'Topic Block tree key')
   return runtime.doc.getTree(blockTreeKey)
+}
+
+function effectiveTopicTitle(explicitTitle: string, blocks: readonly TopicBlockProjection[]): string {
+  if (explicitTitle.length > 0)
+    return explicitTitle
+  const firstBlock = blocks.at(0)
+  if (!firstBlock)
+    return ''
+  return firstBlock.text.split(/\r?\n/u, 1)[0]?.trim() ?? ''
+}
+
+function projectTopicContent(
+  blockTree: ReturnType<LoroDoc['getTree']>,
+  topicId: string,
+  explicitTitle: string,
+): TopicContentProjection {
+  const document = createNodeJsonFromLoroTree(blockTree) as NodeJSON | undefined
+  if (!document)
+    throw new Error(`Topic ${topicId} does not contain an initialized document`)
+  const blocks = projectTopicBlocks(document)
+  return {
+    blocks,
+    title: effectiveTopicTitle(explicitTitle, blocks),
+    topicId,
+  }
 }
 
 function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
@@ -234,24 +313,18 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
           throw new Error(`Topic ${id} cannot use Folder ${parentId} as its parent`)
         const blockTreeKey = readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)
         const blockTree = runtime.doc.getTree(blockTreeKey)
+        const content = projectTopicContent(blockTree, id, readTopicTitle(node.meta, `Topic ${id} title`))
         entries.push({
           id,
           kind,
           mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
           ordinal,
           parentId,
-          title: readString(node.meta, TOPIC_TITLE_KEY, `Topic ${id} title`),
+          title: content.title,
         })
 
-        if (includeTopics) {
-          const document = createNodeJsonFromLoroTree(blockTree) as NodeJSON | undefined
-          if (!document)
-            throw new Error(`Topic ${id} does not contain an initialized document`)
-          topics.push({
-            blocks: projectTopicBlocks(document),
-            topicId: id,
-          })
-        }
+        if (includeTopics)
+          topics.push(content)
       }
       else {
         throw new Error(`NoteEntry ${id} has unknown kind: ${String(kind)}`)
@@ -331,12 +404,31 @@ function createEntryId(): string {
   return crypto.randomUUID()
 }
 
+function createTopicNode(
+  doc: LoroDoc,
+  input: CreateTopicInput,
+  parent: ReturnType<typeof entryNode> | undefined,
+): string {
+  const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
+  const entryId = createEntryId()
+  node.data.set(ENTRY_ID_KEY, entryId)
+  node.data.set(ENTRY_KIND_KEY, 'topic')
+  node.data.set(TOPIC_TITLE_KEY, normalizeTopicTitle(input.title))
+  node.data.set(TOPIC_EDITOR_MODE_KEY, assertEditorMode(input.mode, 'Topic Editor mode'))
+  const blockTreeKey = `topic:${entryId}:blocks`
+  const blockTree = doc.getTree(blockTreeKey)
+  node.data.set(TOPIC_BLOCK_TREE_KEY, blockTreeKey)
+  const initialContent = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
+  initializeLoroTreeFromJson(blockTree, initialContent)
+  return entryId
+}
+
 function initializeNote(doc: LoroDoc, id: string, title: string): void {
   const meta = doc.getMap(NOTE_META_KEY)
   meta.set('id', id)
   meta.set('schemaVersion', NOTE_SCHEMA_VERSION)
   meta.set('title', title)
-  doc.getTree(NOTE_ENTRIES_KEY)
+  createTopicNode(doc, { mode: EditorMode.Document, title: '' }, undefined)
   doc.commit({ origin: 'sys:init-note' })
 }
 
@@ -356,6 +448,13 @@ function validateRestoredNote(doc: LoroDoc, expectedId: string): void {
   })
 }
 
+/**
+ * Creates a new Note or restores one from a snapshot and incremental updates.
+ *
+ * A new Note atomically contains one root Topic in Document mode. The default Topic has an
+ * empty explicit title and a canonical empty document, so callers can immediately obtain it
+ * through `getEntries()` and pass `getTopic(topicId)` to the Editor.
+ */
 export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   const id = assertNonEmpty(options.id, 'Note id')
   const doc = new LoroDoc()
@@ -371,7 +470,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   let runtime: EditorNoteRuntime
   const note: EditorNote = {
     id,
-    bindTopic: (topicId) => {
+    getTopic: (topicId) => {
       const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
       const node = entryNode(runtime, normalizedTopicId)
       topicBlockTree(runtime, node)
@@ -414,17 +513,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       return inUndoGroup(runtime, () => {
         const parent = resolveParent(runtime, input.parentId)
         assertTopicParent(parent)
-        const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
-        const entryId = createEntryId()
-        node.data.set(ENTRY_ID_KEY, entryId)
-        node.data.set(ENTRY_KIND_KEY, 'topic')
-        node.data.set(TOPIC_TITLE_KEY, assertNonEmpty(input.title, 'Topic title'))
-        node.data.set(TOPIC_EDITOR_MODE_KEY, assertEditorMode(input.mode, 'Topic Editor mode'))
-        const blockTreeKey = `topic:${entryId}:blocks`
-        const blockTree = doc.getTree(blockTreeKey)
-        node.data.set(TOPIC_BLOCK_TREE_KEY, blockTreeKey)
-        const initialContent = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
-        initializeLoroTreeFromJson(blockTree, initialContent)
+        const entryId = createTopicNode(doc, input, parent)
         doc.commit({ origin: 'note:create-topic' })
         return entryId
       })
@@ -464,13 +553,11 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
       const node = entryNode(runtime, normalizedTopicId)
       const blockTree = topicBlockTree(runtime, node)
-      const document = createNodeJsonFromLoroTree(blockTree) as NodeJSON | undefined
-      if (!document)
-        throw new Error(`Topic ${normalizedTopicId} does not contain an initialized document`)
-      return {
-        blocks: projectTopicBlocks(document),
-        topicId: normalizedTopicId,
-      }
+      return projectTopicContent(
+        blockTree,
+        normalizedTopicId,
+        readTopicTitle(node.data, `Topic ${normalizedTopicId} title`),
+      )
     },
     getTitle: () => readNoteTitle(doc),
     getVersion: () => doc.frontiers().map(({ counter, peer }) => ({ counter, peer })),
@@ -509,12 +596,11 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     renameEntry: (entryId, label) => {
       inUndoGroup(runtime, () => {
         const node = entryNode(runtime, entryId)
-        const normalized = assertNonEmpty(label, 'NoteEntry label')
         const kind = node.data.get(ENTRY_KIND_KEY)
         if (kind === 'folder')
-          node.data.set(FOLDER_NAME_KEY, normalized)
+          node.data.set(FOLDER_NAME_KEY, assertNonEmpty(label, 'Folder name'))
         else if (kind === 'topic')
-          node.data.set(TOPIC_TITLE_KEY, normalized)
+          node.data.set(TOPIC_TITLE_KEY, normalizeTopicTitle(label))
         else
           throw new Error(`NoteEntry ${entryId} has unknown kind: ${String(kind)}`)
         doc.commit({ origin: 'note:rename-entry' })
@@ -553,7 +639,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
 export function resolveEditorTopicBinding(document: EditorTopicDocument): EditorTopicBinding {
   const binding = topicRuntimes.get(document)
   if (!binding)
-    throw new TypeError('Expected a Topic document created by EditorNote.bindTopic')
+    throw new TypeError('Expected a Topic document created by EditorNote.getTopic')
   const node = entryNode(binding.note, binding.topicId)
   const blockTree = topicBlockTree(binding.note, node)
   const undoManager = binding.note.undoManager
