@@ -411,8 +411,8 @@ function validateProjectionPatch(
   for (const entry of entries ?? []) {
     if (entry.parentId !== null && !entriesById?.has(entry.parentId))
       throw new Error(`NoteEntry ${entry.id} has unknown parent ${entry.parentId}`)
-    if (entry.kind === 'topic' && entry.parentId !== null && entriesById?.get(entry.parentId)?.kind === 'folder')
-      throw new Error(`Topic ${entry.id} cannot use Folder ${entry.parentId} as its parent`)
+    if (entry.kind === 'folder' && entry.parentId !== null && entriesById?.get(entry.parentId)?.kind === 'topic')
+      throw new Error(`Folder ${entry.id} cannot use Topic ${entry.parentId} as its parent`)
   }
 }
 

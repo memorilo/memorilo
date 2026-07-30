@@ -22,8 +22,9 @@ import {
   PanelRight,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
+import { usePageTitlebar } from '../components/page-titlebar'
 import { editorRouteStyles } from './-index.stylex'
 
 const sidebarSpring = {
@@ -264,13 +265,30 @@ interface OpenEditorNote {
   topic: EditorTopicDocument
 }
 
-function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, saveError: string | null }) {
+function OpenedTopicEditor({
+  onRenameNote,
+  opened,
+  saveError,
+}: {
+  onRenameNote: (note: EditorNote, title: string) => void
+  opened: OpenEditorNote
+  saveError: string | null
+}) {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [inspectorVisible, setInspectorVisible] = useState(true)
   const [selectedTopicId, setSelectedTopicId] = useState('editor-thinking')
   const shouldReduceMotion = useReducedMotion()
   const transition = shouldReduceMotion ? { duration: 0 } : sidebarSpring
   const inspectorTransition = shouldReduceMotion ? { duration: 0 } : inspectorSpring
+  const toggleSidebar = useCallback(() => setSidebarVisible(visible => !visible), [])
+  const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [])
+  const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
+  const titlebar = useMemo(() => ({
+    navigationOffset: sidebarVisible ? 270 : 120,
+    onRenameTitle: renameNote,
+    title: opened.stored.title,
+  }), [opened.stored.title, renameNote, sidebarVisible])
+  usePageTitlebar(titlebar)
 
   return (
     <main {...stylex.props(editorRouteStyles.page)}>
@@ -285,7 +303,6 @@ function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, save
                 initial={{ marginLeft: 0, opacity: 0, width: 0, x: -18 }}
                 transition={transition}
               >
-                <div {...stylex.props(editorRouteStyles.sidebarTitlebar)} data-window-drag="" />
                 <nav {...stylex.props(editorRouteStyles.sidebarContent)}>
                   <section {...stylex.props(editorRouteStyles.sourceGroup)}>
                     <h2 {...stylex.props(editorRouteStyles.navigationHeading)}>Navigation</h2>
@@ -309,7 +326,7 @@ function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, save
         title={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
         transition={transition}
         type="button"
-        onClick={() => setSidebarVisible(visible => !visible)}
+        onClick={toggleSidebar}
       >
         <PanelLeft aria-hidden="true" size={17} strokeWidth={1.8} />
       </motion.button>
@@ -338,7 +355,7 @@ function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, save
                 initial={{ opacity: 0, width: 0, x: 18 }}
                 transition={inspectorTransition}
               >
-                <header {...stylex.props(editorRouteStyles.inspectorTitlebar)} data-window-drag="">
+                <header {...stylex.props(editorRouteStyles.inspectorTitlebar)}>
                   <div {...stylex.props(editorRouteStyles.inspectorTitleGroup)}>
                     <h1 {...stylex.props(editorRouteStyles.inspectorTitle)}>Topics</h1>
                     <span {...stylex.props(editorRouteStyles.inspectorCount)}>6</span>
@@ -429,7 +446,7 @@ function OpenedTopicEditor({ opened, saveError }: { opened: OpenEditorNote, save
         data-window-no-drag=""
         title={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
         type="button"
-        onClick={() => setInspectorVisible(visible => !visible)}
+        onClick={toggleInspector}
       >
         <PanelRight aria-hidden="true" size={17} strokeWidth={1.8} />
       </button>
@@ -507,6 +524,21 @@ function EditorRoute() {
     }, saveDelay)
   }, [])
 
+  const handleRenameNote = useCallback((note: EditorNote, title: string) => {
+    note.renameNote(title)
+    setOpened((current) => {
+      if (!current || current.note !== note)
+        throw new Error(`Cannot rename unopened Note ${note.id}`)
+      return {
+        ...current,
+        stored: {
+          ...current.stored,
+          title,
+        },
+      }
+    })
+  }, [])
+
   useEffect(() => {
     let active = true
     let unsubscribe: (() => void) | undefined
@@ -562,7 +594,7 @@ function EditorRoute() {
   if (!opened)
     return <main {...stylex.props(editorRouteStyles.page)} role="status">Opening Note…</main>
 
-  return <OpenedTopicEditor opened={opened} saveError={saveError} />
+  return <OpenedTopicEditor onRenameNote={handleRenameNote} opened={opened} saveError={saveError} />
 }
 
 export const Route = createFileRoute('/')({ component: EditorRoute })
