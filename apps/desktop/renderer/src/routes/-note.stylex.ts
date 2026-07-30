@@ -1,5 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 
+/** Styles shared by the Note route shell and its lazy editor wrapper. */
+
 const colors = {
   canvas: '#ffffff',
   accent: 'rgb(0, 113, 227)',

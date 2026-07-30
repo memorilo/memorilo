@@ -1,9 +1,10 @@
-import type { Dispatch, SetStateAction } from 'react'
+import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { createContext, use, useLayoutEffect } from 'react'
 
 export interface PageTitlebarOptions {
-  onRenameTitle?: (title: string) => void
+  onRenameTitle?: (title: string) => Promise<{ error?: string } | void>
   title?: string
+  trailing?: ReactNode
 }
 
 export const PageTitlebarContext = createContext<Dispatch<SetStateAction<PageTitlebarOptions | null>> | null>(null)

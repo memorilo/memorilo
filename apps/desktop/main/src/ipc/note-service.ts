@@ -1,5 +1,6 @@
 import type { EditorStorage, NoteEntryProjection, StoredNote, TopicContentProjection as StoredTopicContentProjection } from '@memorilo/editor-storage'
 import type { EditorNote, EditorNoteMutation, NoteEntrySnapshot, TopicContentProjection } from '@memorilo/editor/note'
+import { DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
 import { IpcMethod, IpcService } from 'electron-ipc-decorator'
 
@@ -7,6 +8,7 @@ const checkpointInterval = 32
 
 interface AuthoritativeNote {
   checkpointSequence: number
+  createdAt: number
   latestSequence: number
   note: EditorNote
   updatedAt: number
@@ -15,6 +17,16 @@ interface AuthoritativeNote {
 interface SaveNoteUpdatesInput {
   noteId: string
   updates: readonly Uint8Array[]
+}
+
+interface CreateNoteInput {
+  initialHeading?: string
+  title?: string
+}
+
+interface RenameNoteInput {
+  noteId: string
+  title: string
 }
 
 function mergeMutation(target: {
@@ -59,9 +71,10 @@ export function createNoteService(storage: EditorStorage) {
       .catch(error => console.error(`Failed to index Note ${noteId}`, error))
   }
 
-  const restore = async (stored: StoredNote): Promise<AuthoritativeNote> => {
+  const restore = async (stored: StoredNote, initialTopicHeading?: string): Promise<AuthoritativeNote> => {
     const note = createEditorNote({
       id: stored.id,
+      ...(initialTopicHeading === undefined ? {} : { initialTopicHeading }),
       snapshot: stored.snapshot,
       title: stored.title,
       updates: stored.updates.map(update => update.update),
@@ -94,21 +107,69 @@ export function createNoteService(storage: EditorStorage) {
     }
     return {
       checkpointSequence,
+      createdAt: stored.createdAt,
       latestSequence,
       note,
       updatedAt,
     }
   }
 
-  const open = async (): Promise<AuthoritativeNote> => {
-    if (authoritative)
+  const load = async (stored: StoredNote, initialTopicHeading?: string): Promise<AuthoritativeNote> => {
+    if (authoritative?.note.id === stored.id && authoritative.latestSequence === stored.latestSequence)
       return authoritative
-    authoritative = await restore(await storage.openMostRecentNote())
+    authoritative = await restore(stored, initialTopicHeading)
     return authoritative
+  }
+
+  const openNote = async (noteId: string): Promise<AuthoritativeNote> => {
+    return load(await storage.getNote({ noteId }))
+  }
+
+  const toDesktopNote = (current: AuthoritativeNote) => ({
+    createdAt: current.createdAt,
+    id: current.note.id,
+    snapshot: current.note.exportSnapshot(),
+    title: current.note.getTitle(),
+    updatedAt: current.updatedAt,
+  })
+
+  const toDesktopNoteSummary = (current: AuthoritativeNote) => ({
+    createdAt: current.createdAt,
+    id: current.note.id,
+    title: current.note.getTitle(),
+    updatedAt: current.updatedAt,
+  })
+
+  const checkpointIfNeeded = async (current: AuthoritativeNote): Promise<void> => {
+    if (current.latestSequence - current.checkpointSequence < checkpointInterval)
+      return
+    const checkpoint = await storage.checkpointNote({
+      noteId: current.note.id,
+      snapshot: current.note.exportSnapshot(),
+      throughSequence: current.latestSequence,
+    })
+    current.checkpointSequence = current.latestSequence
+    current.updatedAt = checkpoint.updatedAt
   }
 
   class NoteService extends IpcService {
     static override readonly groupName = 'notes'
+
+    @IpcMethod()
+    createNote(input?: CreateNoteInput) {
+      return serialize(async () => {
+        const stored = input?.title === undefined
+          ? await storage.createNote()
+          : await storage.createNote({ title: input.title })
+        const current = await load(stored, input?.initialHeading)
+        return toDesktopNote(current)
+      })
+    }
+
+    @IpcMethod()
+    getNote(input: Parameters<EditorStorage['getNote']>[0]) {
+      return serialize(async () => toDesktopNote(await openNote(input.noteId)))
+    }
 
     @IpcMethod()
     getTopicBlock(input: Parameters<EditorStorage['getTopicBlock']>[0]) {
@@ -116,14 +177,45 @@ export function createNoteService(storage: EditorStorage) {
     }
 
     @IpcMethod()
+    listNotes(input?: Parameters<EditorStorage['listNotes']>[0]) {
+      return storage.listNotes(input)
+    }
+
+    @IpcMethod()
     openMostRecentNote() {
       return serialize(async () => {
-        const current = await open()
-        return {
-          id: current.note.id,
-          snapshot: current.note.exportSnapshot(),
-          title: current.note.getTitle(),
-          updatedAt: current.updatedAt,
+        const current = await load(await storage.openMostRecentNote())
+        return toDesktopNote(current)
+      })
+    }
+
+    @IpcMethod()
+    renameNote(input: RenameNoteInput) {
+      return serialize(async () => {
+        const current = await openNote(input.noteId)
+        const title = input.title.trim()
+        if (title === current.note.getTitle())
+          return { note: toDesktopNoteSummary(current), status: 'renamed' } as const
+
+        try {
+          const version = current.note.getVersion()
+          current.note.renameNote(title)
+          const receipt = await storage.saveNoteUpdates({
+            noteId: current.note.id,
+            title: current.note.getTitle(),
+            topics: [],
+            updates: [current.note.exportUpdates(version)],
+          })
+          current.latestSequence = receipt.latestSequence
+          current.updatedAt = receipt.updatedAt
+          await checkpointIfNeeded(current)
+          return { note: toDesktopNoteSummary(current), status: 'renamed' } as const
+        }
+        catch (error) {
+          authoritative = undefined
+          if (error instanceof DuplicateNoteTitleError)
+            return { status: 'duplicate-title' } as const
+          throw error
         }
       })
     }
@@ -131,9 +223,7 @@ export function createNoteService(storage: EditorStorage) {
     @IpcMethod()
     saveNoteUpdates(input: SaveNoteUpdatesInput) {
       return serialize(async () => {
-        const current = await open()
-        if (current.note.id !== input.noteId)
-          throw new Error(`Opened Note ${current.note.id} does not match update target ${input.noteId}`)
+        const current = await openNote(input.noteId)
         if (input.updates.length === 0)
           throw new TypeError('Note updates must contain at least one update')
 
@@ -161,15 +251,7 @@ export function createNoteService(storage: EditorStorage) {
           current.latestSequence = receipt.latestSequence
           current.updatedAt = receipt.updatedAt
 
-          if (current.latestSequence - current.checkpointSequence >= checkpointInterval) {
-            const checkpoint = await storage.checkpointNote({
-              noteId: current.note.id,
-              snapshot: current.note.exportSnapshot(),
-              throughSequence: current.latestSequence,
-            })
-            current.checkpointSequence = current.latestSequence
-            current.updatedAt = checkpoint.updatedAt
-          }
+          await checkpointIfNeeded(current)
           scheduleIndex(current.note.id)
           return { updatedAt: current.updatedAt }
         }
@@ -178,6 +260,11 @@ export function createNoteService(storage: EditorStorage) {
           throw error
         }
       })
+    }
+
+    @IpcMethod()
+    searchNotes(input: Parameters<EditorStorage['searchNotes']>[0]) {
+      return storage.searchNotes(input)
     }
 
     @IpcMethod()

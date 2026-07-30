@@ -4,10 +4,11 @@ import { createServices } from 'electron-ipc-decorator'
 
 import { AppService } from './app-service'
 import { createNoteService } from './note-service'
+import { WindowService } from './window-service'
 
 export function createDesktopServices(storage: EditorStorage) {
   const NoteService = createNoteService(storage)
-  return createServices([AppService, NoteService] as const)
+  return createServices([AppService, NoteService, WindowService] as const)
 }
 
 export type IpcServices = MergeIpcService<ReturnType<typeof createDesktopServices>>

@@ -47,12 +47,55 @@ export interface StoredNoteUpdate {
 
 export interface StoredNote {
   checkpointSequence: number
+  createdAt: number
   id: string
   latestSequence: number
   snapshot: Uint8Array | null
   title: string
   updatedAt: number
   updates: readonly StoredNoteUpdate[]
+}
+
+export interface CreateNoteInput {
+  title?: string
+}
+
+export class DuplicateNoteTitleError extends Error {
+  override readonly name = 'DuplicateNoteTitleError'
+
+  constructor(readonly title: string) {
+    super(`A Note named "${title}" already exists`)
+  }
+}
+
+export interface GetNoteInput {
+  noteId: string
+}
+
+export interface ListNotesInput {
+  page?: number
+  pageSize?: number
+  sortBy?: NoteSortField
+  sortDirection?: NoteSortDirection
+}
+
+export type NoteSortDirection = 'asc' | 'desc'
+
+export type NoteSortField = 'createdAt' | 'title' | 'updatedAt'
+
+export interface NoteSummary {
+  createdAt: number
+  id: string
+  title: string
+  updatedAt: number
+}
+
+export interface NotePage {
+  items: readonly NoteSummary[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
 }
 
 export interface SaveNoteUpdatesInput {
@@ -89,6 +132,36 @@ export interface SearchTopicBlocksInput {
   query: string
 }
 
+export interface SearchNotesInput {
+  limit?: number
+  query: string
+}
+
+export type NoteSearchMatch = 'content' | 'node-start' | 'semantic' | 'title'
+
+export interface NoteTitleSearchHit {
+  kind: 'note'
+  match: 'title'
+  noteId: string
+  noteTitle: string
+  preview: string
+  rank: number
+}
+
+export interface TopicSearchHit {
+  blockId: string | null
+  kind: 'topic'
+  match: NoteSearchMatch
+  noteId: string
+  noteTitle: string
+  preview: string
+  rank: number
+  topicId: string
+  topicTitle: string
+}
+
+export type NoteSearchHit = NoteTitleSearchHit | TopicSearchHit
+
 export interface IndexPendingEmbeddingsInput {
   limit?: number
   noteId?: string
@@ -108,10 +181,14 @@ export interface TopicBlockSearchHit extends StoredTopicBlock {
 export interface EditorStorage {
   checkpointNote: (input: CheckpointNoteInput) => Promise<NoteWriteReceipt>
   close: () => Promise<void>
+  createNote: (input?: CreateNoteInput) => Promise<StoredNote>
+  getNote: (input: GetNoteInput) => Promise<StoredNote>
   getTopicBlock: (input: GetTopicBlockInput) => Promise<StoredTopicBlock | null>
   indexPendingEmbeddings: (input?: IndexPendingEmbeddingsInput) => Promise<number>
+  listNotes: (input?: ListNotesInput) => Promise<NotePage>
   openMostRecentNote: () => Promise<StoredNote>
   saveNoteUpdates: (input: SaveNoteUpdatesInput) => Promise<NoteWriteReceipt>
+  searchNotes: (input: SearchNotesInput) => Promise<readonly NoteSearchHit[]>
   searchTopicBlocks: (input: SearchTopicBlocksInput) => Promise<readonly TopicBlockSearchHit[]>
 }
 
@@ -123,11 +200,27 @@ export interface CreateEditorStorageOptions {
 interface NoteRow {
   checkpoint_sequence: number
   checkpoint_snapshot: Uint8Array | null
+  created_at: number
   id: string
   latest_sequence: number
   row_id: number
   title: string
   updated_at: number
+}
+
+interface NoteSummaryRow {
+  created_at: number
+  id: string
+  title: string
+  updated_at: number
+}
+
+interface CountRow {
+  count: number
+}
+
+interface TableColumnRow {
+  name: string
 }
 
 interface NoteUpdateRow {
@@ -171,6 +264,27 @@ interface TopicBlockSearchRow extends TopicBlockRow {
   rank: number
 }
 
+interface NoteTitleSearchRow {
+  kind: 'note' | 'topic'
+  match_position: number
+  note_id: string
+  note_title: string
+  topic_id: string | null
+  topic_title: string | null
+  updated_at: number
+}
+
+interface TopicSearchRow {
+  block_id: string
+  note_id: string
+  note_title: string
+  preview: string
+  rank: number
+  topic_id: string
+  topic_title: string
+  updated_at: number
+}
+
 interface PendingEmbeddingRow {
   content_hash: string
   note_row_id: number
@@ -194,6 +308,7 @@ const schema = `
     checkpoint_snapshot BLOB,
     checkpoint_sequence INTEGER NOT NULL DEFAULT 0 CHECK (checkpoint_sequence >= 0),
     latest_sequence INTEGER NOT NULL DEFAULT 0 CHECK (latest_sequence >= checkpoint_sequence),
+    created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
 
@@ -456,6 +571,42 @@ function resolveLimit(limit: number | undefined, fallback: number, maximum: numb
   return resolved
 }
 
+function resolvePage(page: number | undefined): number {
+  const resolved = page ?? 1
+  if (!Number.isInteger(resolved) || resolved < 1)
+    throw new RangeError('Page must be a positive integer')
+  return resolved
+}
+
+function resolveNoteOrderBy(
+  sortByInput: NoteSortField | undefined,
+  sortDirectionInput: NoteSortDirection | undefined,
+): string {
+  const sortBy = sortByInput ?? 'updatedAt'
+  const sortDirection = sortDirectionInput ?? (sortBy === 'title' ? 'asc' : 'desc')
+  const direction = (() => {
+    switch (sortDirection) {
+      case 'asc':
+        return 'ASC'
+      case 'desc':
+        return 'DESC'
+      default:
+        throw new TypeError(`Unknown Note sort direction: ${String(sortDirection)}`)
+    }
+  })()
+
+  switch (sortBy) {
+    case 'createdAt':
+      return `created_at ${direction}, id ${direction}`
+    case 'title':
+      return `title COLLATE NOCASE ${direction}, id ${direction}`
+    case 'updatedAt':
+      return `updated_at ${direction}, id ${direction}`
+    default:
+      throw new TypeError(`Unknown Note sort field: ${String(sortBy)}`)
+  }
+}
+
 function validateVector(vector: Float32Array, model: EmbeddingModel): void {
   if (vector.length !== model.dimensions)
     throw new RangeError(`Embedding model ${model.id} returned ${vector.length} dimensions; expected ${model.dimensions}`)
@@ -503,6 +654,32 @@ function fuseSearchResults(
     .map(candidate => ({ ...candidate.hit, rank: -candidate.score }))
 }
 
+function topicSearchKey(hit: Pick<TopicSearchHit, 'noteId' | 'topicId'>): string {
+  return `${hit.noteId}\0${hit.topicId}`
+}
+
+function topicSearchPreview(preview: string, topicTitle: string): string {
+  const trimmed = preview.trim()
+  return trimmed.length > 0 ? trimmed : topicTitle
+}
+
+function toTopicSearchHit(
+  row: TopicSearchRow,
+  match: Exclude<NoteSearchMatch, 'title'>,
+): TopicSearchHit {
+  return {
+    blockId: row.block_id,
+    kind: 'topic',
+    match,
+    noteId: row.note_id,
+    noteTitle: row.note_title,
+    preview: topicSearchPreview(row.preview, row.topic_title),
+    rank: row.rank,
+    topicId: row.topic_id,
+    topicTitle: row.topic_title,
+  }
+}
+
 class DefaultEditorStorage implements EditorStorage {
   readonly #database: EditorStorageDatabase
   readonly #embeddingModel: EmbeddingModel
@@ -516,6 +693,13 @@ class DefaultEditorStorage implements EditorStorage {
   static async create(options: CreateEditorStorageOptions): Promise<DefaultEditorStorage> {
     validateEmbeddingModel(options.embeddingModel)
     await options.database.exec(schema)
+
+    const noteColumns = await options.database.all<TableColumnRow>('PRAGMA table_info(notes)')
+    if (!noteColumns.some(column => column.name === 'created_at')) {
+      throw new Error(
+        'Unsupported notes schema: created_at is required; delete the existing database before starting Memorilo',
+      )
+    }
 
     const configuration = await options.database.get<EmbeddingConfigurationRow>(`
       SELECT model_id, dimensions
@@ -555,9 +739,139 @@ class DefaultEditorStorage implements EditorStorage {
     return result
   }
 
+  async #assertUniqueNoteTitle(title: string, excludedNoteId?: string): Promise<void> {
+    const duplicate = excludedNoteId === undefined
+      ? await this.#database.get<{ id: string }>(`
+          SELECT id FROM notes WHERE title = ? COLLATE NOCASE LIMIT 1
+        `, [title])
+      : await this.#database.get<{ id: string }>(`
+          SELECT id FROM notes WHERE title = ? COLLATE NOCASE AND id <> ? LIMIT 1
+        `, [title, excludedNoteId])
+    if (duplicate)
+      throw new DuplicateNoteTitleError(title)
+  }
+
+  async #insertNote(title: string): Promise<NoteRow> {
+    await this.#assertUniqueNoteTitle(title)
+    const now = Date.now()
+    const id = createUuidV7()
+    await this.#database.run(`
+      INSERT INTO notes (
+        id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, created_at, updated_at
+      )
+      VALUES (?, ?, NULL, 0, 0, ?, ?)
+    `, [id, title, now, now])
+    const note = await this.#database.get<NoteRow>(`
+      SELECT
+        row_id,
+        id,
+        title,
+        checkpoint_snapshot,
+        checkpoint_sequence,
+        latest_sequence,
+        created_at,
+        updated_at
+      FROM notes
+      WHERE id = ?
+    `, [id])
+    if (!note)
+      throw new Error(`Failed to read newly created Note: ${id}`)
+    return note
+  }
+
+  async #readStoredNote(note: NoteRow): Promise<StoredNote> {
+    const updates = note.latest_sequence === note.checkpoint_sequence
+      ? []
+      : await this.#database.all<NoteUpdateRow>(`
+          SELECT sequence, update_blob
+          FROM note_updates
+          WHERE note_row_id = (
+            SELECT row_id FROM notes WHERE id = ?
+          ) AND sequence > ?
+          ORDER BY sequence ASC
+        `, [note.id, note.checkpoint_sequence])
+
+    return {
+      checkpointSequence: note.checkpoint_sequence,
+      createdAt: note.created_at,
+      id: note.id,
+      latestSequence: note.latest_sequence,
+      snapshot: note.checkpoint_snapshot === null ? null : new Uint8Array(note.checkpoint_snapshot),
+      title: note.title,
+      updatedAt: note.updated_at,
+      updates: updates.map(update => ({
+        sequence: update.sequence,
+        update: new Uint8Array(update.update_blob),
+      })),
+    }
+  }
+
   async close(): Promise<void> {
     await this.#writeQueue
     await this.#database.close()
+  }
+
+  async createNote(input: CreateNoteInput = {}): Promise<StoredNote> {
+    const title = input.title?.trim() ?? 'Untitled'
+    assertNonEmpty(title, 'Note title')
+    return this.#serializeWrite(async () => this.#readStoredNote(await this.#insertNote(title)))
+  }
+
+  async getNote(input: GetNoteInput): Promise<StoredNote> {
+    assertNonEmpty(input.noteId, 'Note id')
+    return this.#serializeWrite(async () => {
+      const note = await this.#database.get<NoteRow>(`
+        SELECT
+          row_id,
+          id,
+          title,
+          checkpoint_snapshot,
+          checkpoint_sequence,
+          latest_sequence,
+          created_at,
+          updated_at
+        FROM notes
+        WHERE id = ?
+      `, [input.noteId])
+      if (!note)
+        throw new Error(`Unknown Note: ${input.noteId}`)
+      return this.#readStoredNote(note)
+    })
+  }
+
+  async listNotes(input: ListNotesInput = {}): Promise<NotePage> {
+    const page = resolvePage(input.page)
+    const pageSize = resolveLimit(input.pageSize, 50, 100)
+    const orderBy = resolveNoteOrderBy(input.sortBy, input.sortDirection)
+    const offset = (page - 1) * pageSize
+    if (!Number.isSafeInteger(offset))
+      throw new RangeError('Page offset exceeds the safe integer range')
+
+    return this.#serializeWrite(async () => {
+      const [countRow, rows] = await Promise.all([
+        this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM notes'),
+        this.#database.all<NoteSummaryRow>(`
+          SELECT id, title, created_at, updated_at
+          FROM notes
+          ORDER BY ${orderBy}
+          LIMIT ? OFFSET ?
+        `, [pageSize, offset]),
+      ])
+      if (!countRow)
+        throw new Error('Failed to count Notes')
+      return {
+        items: rows.map(row => ({
+          createdAt: row.created_at,
+          id: row.id,
+          title: row.title,
+          updatedAt: row.updated_at,
+        })),
+        page,
+        pageSize,
+        totalItems: countRow.count,
+        totalPages: Math.ceil(countRow.count / pageSize),
+      }
+    })
   }
 
   async openMostRecentNote(): Promise<StoredNote> {
@@ -570,53 +884,15 @@ class DefaultEditorStorage implements EditorStorage {
           checkpoint_snapshot,
           checkpoint_sequence,
           latest_sequence,
+          created_at,
           updated_at
         FROM notes
-        ORDER BY updated_at DESC, row_id DESC
+        ORDER BY updated_at DESC, id DESC
         LIMIT 1
       `)
 
-      if (!note) {
-        const now = Date.now()
-        const id = createUuidV7()
-        await this.#database.run(`
-          INSERT INTO notes (id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, updated_at)
-          VALUES (?, ?, NULL, 0, 0, ?)
-        `, [id, 'Untitled', now])
-        note = {
-          checkpoint_sequence: 0,
-          checkpoint_snapshot: null,
-          id,
-          latest_sequence: 0,
-          row_id: -1,
-          title: 'Untitled',
-          updated_at: now,
-        }
-      }
-
-      const updates = note.latest_sequence === note.checkpoint_sequence
-        ? []
-        : await this.#database.all<NoteUpdateRow>(`
-            SELECT sequence, update_blob
-            FROM note_updates
-            WHERE note_row_id = (
-              SELECT row_id FROM notes WHERE id = ?
-            ) AND sequence > ?
-            ORDER BY sequence ASC
-          `, [note.id, note.checkpoint_sequence])
-
-      return {
-        checkpointSequence: note.checkpoint_sequence,
-        id: note.id,
-        latestSequence: note.latest_sequence,
-        snapshot: note.checkpoint_snapshot === null ? null : new Uint8Array(note.checkpoint_snapshot),
-        title: note.title,
-        updatedAt: note.updated_at,
-        updates: updates.map(update => ({
-          sequence: update.sequence,
-          update: new Uint8Array(update.update_blob),
-        })),
-      }
+      note ??= await this.#insertNote('Untitled')
+      return this.#readStoredNote(note)
     })
   }
 
@@ -639,12 +915,15 @@ class DefaultEditorStorage implements EditorStorage {
           checkpoint_snapshot,
           checkpoint_sequence,
           latest_sequence,
+          created_at,
           updated_at
         FROM notes
         WHERE id = ?
       `, [saved.noteId])
       if (!note)
         throw new Error(`Unknown Note: ${saved.noteId}`)
+      if (saved.title !== undefined && saved.title !== note.title)
+        await this.#assertUniqueNoteTitle(saved.title, note.id)
 
       const updatesByHash = new Map(saved.updates.map(update => [updateHash(update), update]))
       const received = await this.#database.all<NoteUpdateHashRow>(
@@ -868,6 +1147,7 @@ class DefaultEditorStorage implements EditorStorage {
           checkpoint_snapshot,
           checkpoint_sequence,
           latest_sequence,
+          created_at,
           updated_at
         FROM notes
         WHERE id = ?
@@ -994,6 +1274,202 @@ class DefaultEditorStorage implements EditorStorage {
       await this.#database.batch(commands)
       return rows.length
     })
+  }
+
+  async searchNotes(input: SearchNotesInput): Promise<readonly NoteSearchHit[]> {
+    const query = input.query.trim()
+    if (query.length === 0)
+      return []
+    const limit = resolveLimit(input.limit, 20, 50)
+    const candidateLimit = Math.min(Math.max(limit * 4, 32), 100)
+    const [titles, nodeStarts, content, semantic] = await Promise.all([
+      this.#searchNoteTitles(query, candidateLimit),
+      this.#searchTopicNodeStarts(query, candidateLimit),
+      this.#searchTopicContent(query, candidateLimit),
+      this.#searchTopicSemantically(query, candidateLimit),
+    ])
+
+    const results: NoteSearchHit[] = []
+    const seenTopics = new Set<string>()
+    for (const hit of titles) {
+      if (hit.kind === 'topic')
+        seenTopics.add(topicSearchKey(hit))
+      results.push(hit)
+    }
+    const addTopics = (hits: readonly TopicSearchHit[]) => {
+      for (const hit of hits) {
+        const key = topicSearchKey(hit)
+        if (seenTopics.has(key))
+          continue
+        seenTopics.add(key)
+        results.push(hit)
+      }
+    }
+    addTopics(nodeStarts)
+    addTopics(content)
+    addTopics(semantic)
+    return results.slice(0, limit)
+  }
+
+  async #searchNoteTitles(query: string, limit: number): Promise<readonly NoteSearchHit[]> {
+    const rows = await this.#database.all<NoteTitleSearchRow>(`
+      SELECT
+        kind,
+        note_id,
+        note_title,
+        topic_id,
+        topic_title,
+        updated_at,
+        match_position
+      FROM (
+        SELECT
+          'note' AS kind,
+          n.id AS note_id,
+          n.title AS note_title,
+          NULL AS topic_id,
+          NULL AS topic_title,
+          n.updated_at,
+          instr(lower(n.title), lower(?)) AS match_position
+        FROM notes n
+
+        UNION ALL
+
+        SELECT
+          'topic' AS kind,
+          n.id AS note_id,
+          n.title AS note_title,
+          t.topic_id,
+          t.title AS topic_title,
+          n.updated_at,
+          instr(lower(t.title), lower(?)) AS match_position
+        FROM topics t
+        JOIN notes n ON n.row_id = t.note_row_id
+      ) title_matches
+      WHERE match_position > 0
+      ORDER BY
+        match_position ASC,
+        CASE kind WHEN 'note' THEN 0 ELSE 1 END ASC,
+        updated_at DESC,
+        note_title COLLATE NOCASE ASC
+      LIMIT ?
+    `, [query, query, limit])
+
+    return rows.map((row): NoteSearchHit => {
+      if (row.kind === 'note') {
+        return {
+          kind: 'note',
+          match: 'title',
+          noteId: row.note_id,
+          noteTitle: row.note_title,
+          preview: row.note_title,
+          rank: row.match_position,
+        }
+      }
+      if (row.topic_id === null || row.topic_title === null)
+        throw new Error(`Topic title search result for Note ${row.note_id} is missing Topic metadata`)
+      return {
+        blockId: null,
+        kind: 'topic',
+        match: 'title',
+        noteId: row.note_id,
+        noteTitle: row.note_title,
+        preview: row.topic_title,
+        rank: row.match_position,
+        topicId: row.topic_id,
+        topicTitle: row.topic_title,
+      }
+    })
+  }
+
+  async #searchTopicNodeStarts(query: string, limit: number): Promise<readonly TopicSearchHit[]> {
+    const rows = await this.#database.all<TopicSearchRow>(`
+      SELECT
+        n.id AS note_id,
+        n.title AS note_title,
+        n.updated_at,
+        t.topic_id,
+        t.title AS topic_title,
+        b.block_id,
+        b.text AS preview,
+        b.ordinal AS rank
+      FROM topic_blocks b
+      JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
+      JOIN notes n ON n.row_id = b.note_row_id
+      WHERE instr(lower(ltrim(b.text)), lower(?)) = 1
+      ORDER BY n.updated_at DESC, t.row_id ASC, b.ordinal ASC, b.row_id ASC
+      LIMIT ?
+    `, [query, limit])
+    return rows.map(row => toTopicSearchHit(row, 'node-start'))
+  }
+
+  async #searchTopicContent(query: string, limit: number): Promise<readonly TopicSearchHit[]> {
+    let rows: readonly TopicSearchRow[]
+    if ([...query].length < 3) {
+      rows = await this.#database.all<TopicSearchRow>(`
+        SELECT
+          n.id AS note_id,
+          n.title AS note_title,
+          n.updated_at,
+          t.topic_id,
+          t.title AS topic_title,
+          b.block_id,
+          b.text AS preview,
+          b.ordinal AS rank
+        FROM topic_blocks b
+        JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
+        JOIN notes n ON n.row_id = b.note_row_id
+        WHERE instr(lower(b.text), lower(?)) > 0
+        ORDER BY n.updated_at DESC, t.row_id ASC, b.ordinal ASC, b.row_id ASC
+        LIMIT ?
+      `, [query, limit])
+    }
+    else {
+      rows = await this.#database.all<TopicSearchRow>(`
+        SELECT
+          n.id AS note_id,
+          n.title AS note_title,
+          n.updated_at,
+          t.topic_id,
+          t.title AS topic_title,
+          b.block_id,
+          snippet(topic_blocks_fts, 0, '', '', '…', 24) AS preview,
+          bm25(topic_blocks_fts) AS rank
+        FROM topic_blocks_fts
+        JOIN topic_blocks b ON b.row_id = topic_blocks_fts.rowid
+        JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
+        JOIN notes n ON n.row_id = b.note_row_id
+        WHERE topic_blocks_fts MATCH ?
+        ORDER BY rank ASC, n.updated_at DESC
+        LIMIT ?
+      `, [quoteFtsQuery(query), limit])
+    }
+    return rows.map(row => toTopicSearchHit(row, 'content'))
+  }
+
+  async #searchTopicSemantically(query: string, limit: number): Promise<readonly TopicSearchHit[]> {
+    const vector = await this.#embeddingModel.embedQuery(query)
+    validateVector(vector, this.#embeddingModel)
+    const rows = await this.#database.all<TopicSearchRow>(`
+      SELECT
+        n.id AS note_id,
+        n.title AS note_title,
+        n.updated_at,
+        t.topic_id,
+        t.title AS topic_title,
+        b.block_id,
+        b.text AS preview,
+        nearest.distance AS rank
+      FROM (
+        SELECT block_row_id, distance
+        FROM topic_block_embeddings
+        WHERE embedding MATCH ? AND k = ?
+      ) nearest
+      JOIN topic_blocks b ON b.row_id = nearest.block_row_id
+      JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
+      JOIN notes n ON n.row_id = b.note_row_id
+      ORDER BY nearest.distance ASC, n.updated_at DESC
+    `, [serializeVector(vector), limit])
+    return rows.map(row => toTopicSearchHit(row, 'semantic'))
   }
 
   async searchTopicBlocks(input: SearchTopicBlocksInput): Promise<readonly TopicBlockSearchHit[]> {

@@ -3,7 +3,9 @@ import type { EditorModeValue } from './editor-mode'
 import type { EditorSession } from './editor-session'
 import * as stylex from '@stylexjs/stylex'
 import { useAtomValue, useSetAtom } from 'jotai'
+import { TextSelection } from 'prosekit/pm/state'
 import { ProseKit } from 'prosekit/react'
+import { useLayoutEffect } from 'react'
 
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 import { BlockHandle } from '../ui/block-handle'
@@ -14,6 +16,45 @@ import { SlashMenu } from '../ui/slash-menu'
 import { TableHandle } from '../ui/table-handle'
 import { TagMenu } from '../ui/tag-menu'
 import { editorCanvasStyles } from './editor-canvas.stylex'
+
+function selectionBlockId(selection: TextSelection): string | null {
+  for (let depth = selection.$from.depth; depth >= 0; depth -= 1) {
+    const node = selection.$from.node(depth)
+    if (node.type.name !== 'list')
+      continue
+    const blockId = node.attrs.blockId
+    if (typeof blockId !== 'string' || blockId.length === 0)
+      throw new Error('The focused editor Block is missing its blockId')
+    return blockId
+  }
+  return null
+}
+
+function focusBlock(session: EditorSession, blockId: string): void {
+  if (blockId.length === 0)
+    throw new TypeError('Editor focus Block id must be a non-empty string')
+
+  const { doc } = session.editor.state
+  let blockPosition: number | undefined
+  doc.descendants((node, position) => {
+    if (node.type.name !== 'list' || node.attrs.blockId !== blockId)
+      return true
+    blockPosition = position
+    return false
+  })
+  if (blockPosition === undefined)
+    throw new Error(`Unknown editor Block id: ${blockId}`)
+
+  const selection = TextSelection.near(doc.resolve(blockPosition + 1), 1)
+  if (!(selection instanceof TextSelection))
+    throw new Error(`Editor Block ${blockId} does not contain a text selection position`)
+  if (selectionBlockId(selection) !== blockId)
+    throw new Error(`Editor Block ${blockId} does not contain a text selection position`)
+
+  const view = session.editor.view
+  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView())
+  view.focus()
+}
 
 function UploadStatus() {
   const status = useAtomValue(uploadStatusAtom)
@@ -34,15 +75,22 @@ function UploadStatus() {
 }
 
 export function EditorCanvas({
+  focusBlockId,
   mode,
   modeControls,
   session,
 }: {
+  focusBlockId?: string
   mode: EditorModeValue
   modeControls?: ReactNode
   session: EditorSession
 }) {
   const { configured, editor } = session
+
+  useLayoutEffect(() => {
+    if (focusBlockId !== undefined)
+      focusBlock(session, focusBlockId)
+  }, [focusBlockId, session])
 
   return (
     <>

@@ -87,6 +87,9 @@ export const appTitlebarStyles = stylex.create({
     transitionProperty: 'background-color, box-shadow, color, transform',
     transitionTimingFunction: 'ease-out',
   },
+  trailingGroup: {
+    right: 14,
+  },
   titleSlot: {
     position: 'absolute',
     top: 11,
@@ -191,5 +194,16 @@ export const appTitlebarStyles = stylex.create({
       ':focus': '0 0 0 2px rgba(41, 97, 194, 0.2), 0 6px 16px rgba(31, 38, 49, 0.12), inset 0 1px rgba(255, 255, 255, 0.9)',
     },
     textAlign: 'center',
+  },
+  visuallyHidden: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    overflow: 'hidden',
+    padding: 0,
+    borderWidth: 0,
+    clip: 'rect(0 0 0 0)',
+    clipPath: 'inset(50%)',
+    whiteSpace: 'nowrap',
   },
 })

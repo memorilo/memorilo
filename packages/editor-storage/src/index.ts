@@ -2,13 +2,24 @@ export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './da
 export type {
   CheckpointNoteInput,
   CreateEditorStorageOptions,
+  CreateNoteInput,
   EditorStorage,
   FolderProjection,
+  GetNoteInput,
   GetTopicBlockInput,
   IndexPendingEmbeddingsInput,
+  ListNotesInput,
   NoteEntryProjection,
+  NotePage,
+  NoteSearchHit,
+  NoteSearchMatch,
+  NoteSortDirection,
+  NoteSortField,
+  NoteSummary,
+  NoteTitleSearchHit,
   NoteWriteReceipt,
   SaveNoteUpdatesInput,
+  SearchNotesInput,
   SearchTopicBlocksInput,
   StoredNote,
   StoredNoteUpdate,
@@ -19,6 +30,7 @@ export type {
   TopicContentProjection,
   TopicEditorMode,
   TopicProjection,
+  TopicSearchHit,
 } from './editor-storage'
-export { createEditorStorage } from './editor-storage'
+export { createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
 export type { EmbeddingModel } from './embedding-model'
