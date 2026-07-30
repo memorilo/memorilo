@@ -4,7 +4,7 @@ export { EditorMode } from './common/editor-mode'
 export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
-export type { EditorProps } from './editor'
+export type { EditorFocusTarget, EditorProps } from './editor'
 export type {
   CreateEditorNoteOptions,
   CreateFolderInput,

@@ -18,7 +18,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { usePageTitlebar } from '../components/page-titlebar'
-import { editorRouteStyles } from './-journals.stylex'
+import { editorRouteStyles } from './-note.stylex'
 
 const inspectorSpring = {
   bounce: 0,
@@ -101,11 +101,13 @@ interface OpenEditorNote {
 }
 
 function OpenedTopicEditor({
+  focusBlockId,
   onRenameNote,
   opened,
   saveError,
 }: {
-  onRenameNote: (note: EditorNote, title: string) => void
+  focusBlockId?: string
+  onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   opened: OpenEditorNote
   saveError: string | null
 }) {
@@ -134,6 +136,7 @@ function OpenedTopicEditor({
           : null}
         <Editor
           adapters={demoEditorAdapters}
+          focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
           topic={opened.topic}
         />
       </section>
@@ -247,7 +250,15 @@ function OpenedTopicEditor({
   )
 }
 
-export function JournalEditor() {
+export function NoteEditor({
+  focusBlockId,
+  noteId,
+  topicId,
+}: {
+  focusBlockId?: string
+  noteId: string
+  topicId: string
+}) {
   const [opened, setOpened] = useState<OpenEditorNote | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -317,8 +328,12 @@ export function JournalEditor() {
     }, saveDelay)
   }, [])
 
-  const handleRenameNote = useCallback((note: EditorNote, title: string) => {
-    note.renameNote(title)
+  const handleRenameNote = useCallback(async (note: EditorNote, title: string) => {
+    const result = await window.desktop.renameNote({ noteId: note.id, title })
+    if (result.status === 'duplicate-title')
+      return { error: 'A Note with this title already exists' }
+
+    note.renameNote(result.note.title)
     setOpened((current) => {
       if (!current || current.note !== note)
         throw new Error(`Cannot rename unopened Note ${note.id}`)
@@ -326,7 +341,8 @@ export function JournalEditor() {
         ...current,
         stored: {
           ...current.stored,
-          title,
+          title: result.note.title,
+          updatedAt: result.note.updatedAt,
         },
       }
     })
@@ -336,7 +352,7 @@ export function JournalEditor() {
     let active = true
     let unsubscribe: (() => void) | undefined
 
-    void window.desktop.openMostRecentNote().then(async (stored) => {
+    void window.desktop.getNote({ noteId }).then(async (stored) => {
       if (!active)
         return
       const note = createEditorNote({
@@ -347,9 +363,9 @@ export function JournalEditor() {
       if (!active)
         return
 
-      const topic = note.getEntries().find(entry => entry.kind === 'topic')
+      const topic = note.getEntries().find(entry => entry.kind === 'topic' && entry.id === topicId)
       if (!topic)
-        throw new Error(`Note ${note.id} does not contain a Topic`)
+        throw new Error(`Note ${note.id} does not contain Topic ${topicId}`)
       noteRef.current = note
       unsubscribe = note.subscribe(handleNoteChange)
       setOpened({
@@ -374,7 +390,7 @@ export function JournalEditor() {
       }
       flushPendingRef.current(false)
     }
-  }, [handleNoteChange])
+  }, [handleNoteChange, noteId, topicId])
 
   if (loadError) {
     return (
@@ -390,10 +406,17 @@ export function JournalEditor() {
   if (!opened) {
     return (
       <main {...stylex.props(editorRouteStyles.statusPage)}>
-        <p {...stylex.props(editorRouteStyles.statusMessage)} role="status">Opening Journal…</p>
+        <p {...stylex.props(editorRouteStyles.statusMessage)} role="status">Opening Note…</p>
       </main>
     )
   }
 
-  return <OpenedTopicEditor onRenameNote={handleRenameNote} opened={opened} saveError={saveError} />
+  return (
+    <OpenedTopicEditor
+      focusBlockId={focusBlockId}
+      onRenameNote={handleRenameNote}
+      opened={opened}
+      saveError={saveError}
+    />
+  )
 }

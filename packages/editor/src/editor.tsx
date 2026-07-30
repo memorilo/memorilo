@@ -26,8 +26,13 @@ const OutlineEditor = lazy(async () => {
 
 interface EditorBaseProps {
   adapters: EditorAdapters
+  focus?: EditorFocusTarget
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
+}
+
+export interface EditorFocusTarget {
+  blockId: string
 }
 
 export interface EditorProps extends EditorBaseProps {
@@ -71,7 +76,7 @@ export function Editor(props: EditorProps) {
     <Provider store={session.store}>
       <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={editorModeName(mode)}>
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading editor mode…</div>}>
-          <DocumentEditor mode={mode} session={session}>
+          <DocumentEditor focusBlockId={props.focus?.blockId} mode={mode} session={session}>
             {mode === EditorMode.Outline
               ? (
                   <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading Outline mode…</div>}>

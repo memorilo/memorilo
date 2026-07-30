@@ -6,12 +6,14 @@ import './document-content.stylex'
 
 export function DocumentEditor({
   children,
+  focusBlockId,
   mode,
   session,
 }: {
   children?: ReactNode
+  focusBlockId?: string
   mode: EditorModeValue
   session: EditorSession
 }) {
-  return <EditorCanvas mode={mode} modeControls={children} session={session} />
+  return <EditorCanvas focusBlockId={focusBlockId} mode={mode} modeControls={children} session={session} />
 }

@@ -29,11 +29,19 @@ function historyIndex(): number {
   return router.history.location.state.__TSR_index
 }
 
-function EditableTitle({ onRename, title }: { onRename: (title: string) => void, title: string }) {
+function EditableTitle({
+  onRename,
+  title,
+}: {
+  onRename: (title: string) => Promise<{ error?: string } | void>
+  title: string
+}) {
   const [draft, setDraft] = useState(title)
   const [editing, setEditing] = useState(false)
-  const [invalid, setInvalid] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const savingRef = useRef(false)
 
   useLayoutEffect(() => {
     if (!editing)
@@ -43,59 +51,101 @@ function EditableTitle({ onRename, title }: { onRename: (title: string) => void,
   }, [editing])
 
   const cancel = useCallback(() => {
+    if (savingRef.current)
+      return
     setDraft(title)
-    setInvalid(false)
+    setError(null)
     setEditing(false)
   }, [title])
 
-  const commit = useCallback(() => {
+  const commit = useCallback(async () => {
+    if (savingRef.current)
+      return
     const normalized = draft.trim()
     if (normalized.length === 0) {
-      setInvalid(true)
+      setError('Note title cannot be empty')
       inputRef.current?.focus()
       inputRef.current?.select()
-      return false
+      return
     }
-    if (normalized !== title)
-      onRename(normalized)
-    setDraft(normalized)
-    setInvalid(false)
-    setEditing(false)
-    return true
+    if (normalized === title) {
+      setDraft(normalized)
+      setError(null)
+      setEditing(false)
+      return
+    }
+
+    savingRef.current = true
+    setSaving(true)
+    setError(null)
+    try {
+      const result = await onRename(normalized)
+      if (result?.error) {
+        setError(result.error)
+        requestAnimationFrame(() => {
+          inputRef.current?.focus()
+          inputRef.current?.select()
+        })
+        return
+      }
+      setDraft(normalized)
+      setEditing(false)
+    }
+    catch {
+      setError('Couldn’t rename Note')
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+    finally {
+      savingRef.current = false
+      setSaving(false)
+    }
   }, [draft, onRename, title])
 
   if (editing) {
     return (
-      <input
-        ref={inputRef}
-        {...stylex.props(appTitlebarStyles.titleInput)}
-        aria-invalid={invalid}
-        aria-label={invalid ? 'Note title cannot be empty' : 'Note title'}
-        data-window-no-drag=""
-        required
-        value={draft}
-        onBlur={() => {
-          if (draft.trim().length === 0)
-            cancel()
-          else
-            commit()
-        }}
-        onChange={(event) => {
-          setDraft(event.target.value)
-          if (event.target.value.trim().length > 0)
-            setInvalid(false)
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            commit()
-          }
-          else if (event.key === 'Escape') {
-            event.preventDefault()
-            cancel()
-          }
-        }}
-      />
+      <>
+        <input
+          ref={inputRef}
+          {...stylex.props(appTitlebarStyles.titleInput)}
+          aria-busy={saving}
+          aria-invalid={error !== null}
+          aria-label={error ?? 'Note title'}
+          data-window-no-drag=""
+          readOnly={saving}
+          required
+          title={error ?? 'Rename Note'}
+          value={draft}
+          onBlur={() => {
+            if (savingRef.current)
+              return
+            if (draft.trim().length === 0)
+              cancel()
+            else
+              void commit()
+          }}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            if (event.target.value.trim().length > 0)
+              setError(null)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              void commit()
+            }
+            else if (event.key === 'Escape') {
+              event.preventDefault()
+              cancel()
+            }
+          }}
+        />
+        {error
+          ? <span {...stylex.props(appTitlebarStyles.visuallyHidden)} role="status">{error}</span>
+          : null}
+      </>
     )
   }
 
@@ -212,6 +262,16 @@ export function AppTitlebar({
               )
           : null}
       </div>
+      {page?.trailing
+        ? (
+            <div
+              {...stylex.props(appTitlebarStyles.navigationGroup, appTitlebarStyles.trailingGroup)}
+              data-window-no-drag=""
+            >
+              {page.trailing}
+            </div>
+          )
+        : null}
     </header>
   )
 }

@@ -164,6 +164,8 @@ export interface EditorNote {
 export interface CreateEditorNoteOptions {
   /** The stable Note ID expected in restored data or assigned to a new Note. */
   id: string
+  /** Creates the default Topic with this text as its first H1 Block. Only valid for a new Note. */
+  initialTopicHeading?: string
   /** A previously exported Note snapshot. */
   snapshot?: Uint8Array | null
   /** The title for a new Note. Defaults to `Untitled` and is ignored when restoring. */
@@ -366,6 +368,17 @@ function emptyTopicDocument(): NodeJSON {
   }
 }
 
+function headingTopicDocument(heading: string): NodeJSON {
+  return {
+    type: 'doc',
+    content: [{
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: assertNonEmpty(heading, 'Initial Topic heading') }],
+    }],
+  }
+}
+
 function mutationRoot(eventPath: readonly unknown[], targetPath: readonly unknown[]): string | undefined {
   const root = eventPath[0] ?? targetPath[0]
   return typeof root === 'string' ? root : undefined
@@ -423,12 +436,16 @@ function createTopicNode(
   return entryId
 }
 
-function initializeNote(doc: LoroDoc, id: string, title: string): void {
+function initializeNote(doc: LoroDoc, id: string, title: string, initialTopicHeading?: string): void {
   const meta = doc.getMap(NOTE_META_KEY)
   meta.set('id', id)
   meta.set('schemaVersion', NOTE_SCHEMA_VERSION)
   meta.set('title', title)
-  createTopicNode(doc, { mode: EditorMode.Document, title: '' }, undefined)
+  createTopicNode(doc, {
+    ...(initialTopicHeading === undefined ? {} : { initialContent: headingTopicDocument(initialTopicHeading) }),
+    mode: EditorMode.Document,
+    title: '',
+  }, undefined)
   doc.commit({ origin: 'sys:init-note' })
 }
 
@@ -452,12 +469,16 @@ function validateRestoredNote(doc: LoroDoc, expectedId: string): void {
  * Creates a new Note or restores one from a snapshot and incremental updates.
  *
  * A new Note atomically contains one root Topic in Document mode. The default Topic has an
- * empty explicit title and a canonical empty document, so callers can immediately obtain it
- * through `getEntries()` and pass `getTopic(topicId)` to the Editor.
+ * empty explicit title and either a canonical empty document or the requested initial H1, so
+ * callers can immediately obtain it through `getEntries()` and pass `getTopic(topicId)` to the Editor.
  */
 export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   const id = assertNonEmpty(options.id, 'Note id')
   const doc = new LoroDoc()
+  const restoring = (options.snapshot !== null && options.snapshot !== undefined)
+    || ((options.updates?.length ?? 0) > 0)
+  if (restoring && options.initialTopicHeading !== undefined)
+    throw new TypeError('Initial Topic heading is only valid when creating a new Note')
   if (options.snapshot !== null && options.snapshot !== undefined) {
     validateBinary(options.snapshot, 'Note snapshot')
     doc.import(options.snapshot)
@@ -622,10 +643,17 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   noteRuntimes.set(note, runtime)
 
   if (options.snapshot === null || options.snapshot === undefined) {
-    if ((options.updates?.length ?? 0) > 0)
+    if ((options.updates?.length ?? 0) > 0) {
       validateRestoredNote(doc, id)
-    else
-      initializeNote(doc, id, assertNonEmpty(options.title ?? 'Untitled', 'Note title'))
+    }
+    else {
+      initializeNote(
+        doc,
+        id,
+        assertNonEmpty(options.title ?? 'Untitled', 'Note title'),
+        options.initialTopicHeading,
+      )
+    }
   }
   else {
     validateRestoredNote(doc, id)
