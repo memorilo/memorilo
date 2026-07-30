@@ -1,12 +1,12 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 
-import { AppChrome } from '../components/app-titlebar'
+import { AppShell } from '../components/app-shell'
 
 function RootLayout() {
   return (
-    <AppChrome>
+    <AppShell>
       <Outlet />
-    </AppChrome>
+    </AppShell>
   )
 }
 

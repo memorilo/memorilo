@@ -35,6 +35,11 @@ Use Turbo filters when working on a specific package:
 - Renderer tests: `pnpm turbo run test --filter=@memorilo/desktop-renderer`
 - Preload tests: `pnpm turbo run test --filter=@memorilo/desktop-preload`
 
+## Dependency modifications
+
+- Do not add or modify dependency patches (`pnpm patch`, `patchedDependencies`, `patch-package`, or equivalent) unless the user explicitly requests a patch.
+- When a dependency defect appears to require patching, report the defect and ask the user how to proceed before changing dependency patch configuration or files.
+
 ## Debugging and verification
 
 - Reproduce issues with the smallest relevant package command before running the full workspace suite.

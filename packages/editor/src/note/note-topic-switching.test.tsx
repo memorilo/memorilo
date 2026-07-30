@@ -4,11 +4,14 @@ import type { EditorNote } from './editor-note'
 import { render, waitFor, within } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from '../../test/browser/user-event'
 import { EditorMode } from '../common/editor-mode'
 import { Editor } from '../editor'
 import { createEditorNote } from './editor-note'
+
+// Topic persistence does not exercise the pointer-driven block handle.
+vi.mock('../ui/block-handle', () => ({ BlockHandle: () => null }))
 
 const adapters: EditorAdapters = {
   uploadImage: async () => 'memory://image',

@@ -2,23 +2,11 @@ import * as stylex from '@stylexjs/stylex'
 
 const colors = {
   controlActive: 'rgba(55, 61, 72, 0.16)',
-  controlHover: 'rgba(255, 255, 255, 0.34)',
   focus: 'rgba(41, 97, 194, 0.85)',
   text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(38, 42, 49, 0.7)',
 } as const
 
 export const appTitlebarStyles = stylex.create({
-  app: {
-    position: 'relative',
-    display: 'flex',
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    overflow: 'hidden',
-    flexDirection: 'column',
-    backgroundColor: 'transparent',
-  },
   titlebar: {
     position: 'absolute',
     zIndex: 20,
@@ -30,18 +18,6 @@ export const appTitlebarStyles = stylex.create({
     backgroundColor: 'transparent',
     color: colors.text,
     userSelect: 'none',
-  },
-  titlebarMac: {
-    paddingLeft: 0,
-  },
-  trailing: {
-    position: 'absolute',
-    top: 10,
-    right: 14,
-    display: 'flex',
-    minWidth: 0,
-    alignItems: 'center',
-    gap: 6,
   },
   navigationGroup: {
     position: 'absolute',
@@ -72,24 +48,26 @@ export const appTitlebarStyles = stylex.create({
       '@media (prefers-contrast: more)': '0 4px 12px rgba(22, 27, 35, 0.16), 0 0 0 1px rgba(35, 39, 46, 0.48), inset 0 1px rgba(255, 255, 255, 0.92)',
     },
   },
-  toolButton: {
+  navigationButton: {
     display: 'grid',
     width: 32,
     height: 32,
     flex: '0 0 32px',
     alignItems: 'center',
     justifyItems: 'center',
+    borderWidth: 0,
+    borderRadius: 16,
     padding: 0,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': colors.controlHover,
-      ':active': colors.controlActive,
+      ':hover': 'rgba(255, 255, 255, 0.3)',
+      ':active': 'rgba(58, 66, 78, 0.14)',
       ':disabled': 'transparent',
     },
     color: {
-      'default': colors.textMuted,
-      ':hover': colors.text,
-      ':disabled': 'rgba(53, 53, 58, 0.25)',
+      'default': 'rgba(31, 35, 42, 0.82)',
+      ':hover': 'rgba(22, 25, 31, 0.94)',
+      ':disabled': 'rgba(44, 49, 58, 0.28)',
     },
     cursor: 'default',
     outline: 'none',
@@ -108,57 +86,6 @@ export const appTitlebarStyles = stylex.create({
     },
     transitionProperty: 'background-color, box-shadow, color, transform',
     transitionTimingFunction: 'ease-out',
-  },
-  toolButtonGrouped: {
-    borderWidth: 0,
-    borderRadius: 16,
-    backgroundColor: {
-      'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.3)',
-      ':active': 'rgba(58, 66, 78, 0.14)',
-      ':disabled': 'transparent',
-    },
-    color: {
-      'default': 'rgba(31, 35, 42, 0.82)',
-      ':hover': 'rgba(22, 25, 31, 0.94)',
-      ':disabled': 'rgba(44, 49, 58, 0.28)',
-    },
-    transform: {
-      'default': 'scale(1)',
-      ':active': 'scale(0.96)',
-      ':disabled': 'scale(1)',
-    },
-  },
-  toolButtonStandalone: {
-    width: 36,
-    height: 36,
-    flexBasis: 36,
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.8)',
-      '@media (prefers-contrast: more)': 'rgba(35, 39, 46, 0.72)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 18,
-    backgroundColor: {
-      'default': 'rgba(233, 236, 242, 0.5)',
-      ':hover': 'rgba(248, 249, 252, 0.66)',
-      ':active': 'rgba(207, 213, 223, 0.62)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgba(242, 243, 246, 0.98)',
-      '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.98)',
-    },
-    backgroundImage: 'linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.16) 52%, rgba(210, 216, 226, 0.16) 100%)',
-    backdropFilter: {
-      'default': 'blur(22px) saturate(190%) brightness(1.04)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: {
-      'default': '0 7px 18px rgba(31, 38, 49, 0.14), 0 2px 5px rgba(31, 38, 49, 0.1), inset 0 1px rgba(255, 255, 255, 0.94), inset 0 -1px rgba(107, 116, 132, 0.13)',
-      ':hover': '0 8px 20px rgba(31, 38, 49, 0.16), 0 2px 5px rgba(31, 38, 49, 0.11), inset 0 1px rgba(255, 255, 255, 1), inset 0 -1px rgba(107, 116, 132, 0.12)',
-      ':active': '0 3px 8px rgba(31, 38, 49, 0.13), inset 0 1px rgba(255, 255, 255, 0.72), inset 0 -1px rgba(82, 90, 104, 0.16)',
-      ':focus-visible': `0 0 0 2px ${colors.focus}, 0 7px 18px rgba(31, 38, 49, 0.14)`,
-      '@media (prefers-contrast: more)': '0 5px 14px rgba(22, 27, 35, 0.2), inset 0 0 0 1px rgba(35, 39, 46, 0.28)',
-    },
   },
   titleSlot: {
     position: 'absolute',
@@ -253,14 +180,5 @@ export const appTitlebarStyles = stylex.create({
       ':focus': '0 0 0 2px rgba(41, 97, 194, 0.2), 0 6px 16px rgba(31, 38, 49, 0.12), inset 0 1px rgba(255, 255, 255, 0.9)',
     },
     textAlign: 'center',
-  },
-  routeViewport: {
-    position: 'relative',
-    display: 'flex',
-    width: '100%',
-    height: '100%',
-    minWidth: 0,
-    minHeight: 0,
-    overflow: 'hidden',
   },
 })

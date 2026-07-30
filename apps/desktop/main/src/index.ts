@@ -39,24 +39,18 @@ function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
     ? {
-        backgroundColor: '#00000000',
         titleBarStyle: 'hiddenInset' as const,
         trafficLightPosition: { x: 20, y: 20 },
-        vibrancy: 'under-window' as const,
-        visualEffectState: 'active' as const,
       }
     : {}
-  const windowsWindowOptions = process.platform === 'win32'
-    ? { backgroundMaterial: 'mica' as const }
-    : {}
   const window = new BrowserWindow({
+    backgroundColor: '#ffffff',
     height: 800,
     minHeight: 640,
     minWidth: 720,
     show: false,
     title: 'Memorilo',
     ...macOSWindowOptions,
-    ...windowsWindowOptions,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

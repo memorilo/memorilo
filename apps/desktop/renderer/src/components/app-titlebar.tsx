@@ -13,7 +13,6 @@ import {
 } from 'react'
 import { router } from '../router'
 import { appTitlebarStyles } from './app-titlebar.stylex'
-import { PageTitlebarContext } from './page-titlebar'
 
 interface HistoryPosition {
   index: number
@@ -115,27 +114,22 @@ function EditableTitle({ onRename, title }: { onRename: (title: string) => void,
   )
 }
 
-export function ToolbarIconButton({
+function NavigationButton({
   children,
   disabled = false,
   label,
   onClick,
   title = label,
-  variant = 'standalone',
 }: {
   children: ReactNode
   disabled?: boolean
   label: string
   onClick: () => void
   title?: string
-  variant?: 'grouped' | 'standalone'
 }) {
   return (
     <button
-      {...stylex.props(
-        appTitlebarStyles.toolButton,
-        variant === 'grouped' ? appTitlebarStyles.toolButtonGrouped : appTitlebarStyles.toolButtonStandalone,
-      )}
+      {...stylex.props(appTitlebarStyles.navigationButton)}
       aria-label={label}
       data-window-no-drag=""
       disabled={disabled}
@@ -148,12 +142,17 @@ export function ToolbarIconButton({
   )
 }
 
-function AppTitlebar({ page }: { page: PageTitlebarOptions | null }) {
+export function AppTitlebar({
+  page,
+  sidebarVisible,
+}: {
+  page: PageTitlebarOptions | null
+  sidebarVisible: boolean
+}) {
   const [historyPosition, setHistoryPosition] = useState<HistoryPosition>(() => {
     const index = historyIndex()
     return { index, maxIndex: index }
   })
-  const isMacOS = navigator.userAgent.includes('Macintosh')
   const shouldReduceMotion = useReducedMotion()
 
   useEffect(() => router.history.subscribe(({ action, location }) => {
@@ -170,11 +169,11 @@ function AppTitlebar({ page }: { page: PageTitlebarOptions | null }) {
 
   const canGoBack = historyPosition.index > 0
   const canGoForward = historyPosition.index < historyPosition.maxIndex
-  const navigationOffset = page?.navigationOffset ?? (isMacOS ? 86 : 14)
+  const navigationOffset = sidebarVisible ? 270 : 120
 
   return (
     <header
-      {...stylex.props(appTitlebarStyles.titlebar, isMacOS && appTitlebarStyles.titlebarMac)}
+      {...stylex.props(appTitlebarStyles.titlebar)}
       data-window-drag=""
     >
       <motion.div
@@ -185,24 +184,22 @@ function AppTitlebar({ page }: { page: PageTitlebarOptions | null }) {
         role="group"
         transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
       >
-        <ToolbarIconButton
+        <NavigationButton
           disabled={!canGoBack}
           label="Back"
           title={canGoBack ? 'Back' : 'No previous page'}
-          variant="grouped"
           onClick={() => router.history.back()}
         >
           <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
-        </ToolbarIconButton>
-        <ToolbarIconButton
+        </NavigationButton>
+        <NavigationButton
           disabled={!canGoForward}
           label="Forward"
           title={canGoForward ? 'Forward' : 'No next page'}
-          variant="grouped"
           onClick={() => router.history.forward()}
         >
           <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
-        </ToolbarIconButton>
+        </NavigationButton>
       </motion.div>
       <div {...stylex.props(appTitlebarStyles.titleSlot)}>
         {page?.title
@@ -211,20 +208,6 @@ function AppTitlebar({ page }: { page: PageTitlebarOptions | null }) {
             : <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
           : null}
       </div>
-      <div {...stylex.props(appTitlebarStyles.trailing)}>{page?.trailingActions}</div>
     </header>
-  )
-}
-
-export function AppChrome({ children }: { children: ReactNode }) {
-  const [pageTitlebar, setPageTitlebar] = useState<PageTitlebarOptions | null>(null)
-
-  return (
-    <PageTitlebarContext value={setPageTitlebar}>
-      <div {...stylex.props(appTitlebarStyles.app)}>
-        <AppTitlebar page={pageTitlebar} />
-        <div {...stylex.props(appTitlebarStyles.routeViewport)}>{children}</div>
-      </div>
-    </PageTitlebarContext>
   )
 }
