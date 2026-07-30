@@ -155,23 +155,33 @@ function parentBlockId(container: HTMLElement, blockId: string): string | null {
 describe('collaborative Notes', () => {
   it('undoes and redoes Topic edits through the Loro tree history', async () => {
     const note = createEditorNote({ id: 'note-undo' })
-    const topicId = note.createTopic({ initialContent: documentWithText('undo-node', 'Before'), mode: EditorMode.Document, title: 'Undo topic' })
+    const topicId = note.createTopic({ initialContent: documentWithText('undo-node', 'Before'), mode: EditorMode.Document, title: '' })
     const rendered = render(
       <Editor
         adapters={adapters}
-        topic={note.bindTopic(topicId)}
+        topic={note.getTopic(topicId)}
       />,
     )
     await within(rendered.container).findByText('Before')
+    expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before' })
     const editor = within(rendered.container).getByRole('textbox', { name: 'Editor content' })
     await userEvent.click(editor)
     await userEvent.keyboard('{End} after')
-    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before after'))
+    await waitFor(() => {
+      expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before after')
+      expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before after' })
+    })
 
     await userEvent.keyboard('{Meta>}z{/Meta}')
-    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before'))
+    await waitFor(() => {
+      expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before')
+      expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before' })
+    })
     await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
-    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before after'))
+    await waitFor(() => {
+      expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before after')
+      expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before after' })
+    })
   })
 
   it.each([
@@ -180,7 +190,7 @@ describe('collaborative Notes', () => {
   ])('moves a Topic block with native tree identity in $mode mode and syncs it to another peer', async ({ kind, mode }) => {
     const sourceNote = createEditorNote({ id: `note-move-${mode}` })
     const topicId = sourceNote.createTopic({ initialContent: twoBlockDocument(kind), mode, title: `${mode} topic` })
-    const sourceTopic = sourceNote.bindTopic(topicId)
+    const sourceTopic = sourceNote.getTopic(topicId)
     const sourceRuntime = resolveEditorTopicDocument(sourceTopic)
     const source = render(
       <Editor
@@ -193,7 +203,7 @@ describe('collaborative Notes', () => {
 
     const snapshot = sourceNote.exportSnapshot()
     const receiverNote = createEditorNote({ id: `note-move-${mode}`, snapshot })
-    const receiverTopic = receiverNote.bindTopic(topicId)
+    const receiverTopic = receiverNote.getTopic(topicId)
     const receiverRuntime = resolveEditorTopicDocument(receiverTopic)
     const receiver = render(<Editor adapters={adapters} topic={receiverTopic} />)
     await within(receiver.container).findByText('Second')
@@ -221,20 +231,24 @@ describe('collaborative Notes', () => {
 
   it('exports a snapshot containing a Folder and an initialized Topic', async () => {
     const note = createEditorNote({ id: 'note-initialized' })
+    const defaultTopic = note.getEntries()[0]
+    if (defaultTopic?.kind !== 'topic')
+      throw new Error('New Note is missing its default Topic')
     const folderId = note.createFolder({ name: 'Research' })
-    const topicId = note.createTopic({ initialContent: documentWithText('initial', 'Initial document'), mode: EditorMode.Document, title: 'Initial topic' })
+    const topicId = note.createTopic({ initialContent: documentWithText('initial', 'Initial document'), mode: EditorMode.Document, title: '' })
     const rendered = render(
       <Editor
         adapters={adapters}
-        topic={note.bindTopic(topicId)}
+        topic={note.getTopic(topicId)}
       />,
     )
 
     await within(rendered.container).findByText('Initial document')
     await waitFor(() => expect(note.exportSnapshot().byteLength).toBeGreaterThan(0))
     expect(note.getEntries()).toMatchObject([
+      { id: defaultTopic.id, kind: 'topic', parentId: null, title: '' },
       { id: folderId, kind: 'folder', name: 'Research', parentId: null },
-      { id: topicId, kind: 'topic', parentId: null, title: 'Initial topic' },
+      { id: topicId, kind: 'topic', parentId: null, title: 'Initial document' },
     ])
   })
 
@@ -244,7 +258,7 @@ describe('collaborative Notes', () => {
     const first = render(
       <Editor
         adapters={adapters}
-        topic={original.bindTopic(topicId)}
+        topic={original.getTopic(topicId)}
       />,
     )
     await within(first.container).findByText('Saved entirely in memory')
@@ -253,7 +267,7 @@ describe('collaborative Notes', () => {
 
     const restored = createEditorNote({ id: 'note-restore', snapshot })
     const second = render(
-      <Editor adapters={adapters} topic={restored.bindTopic(topicId)} />,
+      <Editor adapters={adapters} topic={restored.getTopic(topicId)} />,
     )
 
     const block = await waitFor(() => {
@@ -270,22 +284,22 @@ describe('collaborative Notes', () => {
     const initialized = render(
       <Editor
         adapters={adapters}
-        topic={source.bindTopic(topicId)}
+        topic={source.getTopic(topicId)}
       />,
     )
     await within(initialized.container).findByText('Mode content')
-    expect(source.getEntries()).toMatchObject([{
+    expect(source.getEntries().find(entry => entry.id === topicId)).toMatchObject({
       id: topicId,
       kind: 'topic',
       mode: EditorMode.Document,
-    }])
+    })
     const snapshot = source.exportSnapshot()
     initialized.unmount()
 
     const leftNote = createEditorNote({ id: 'note-mode-sync', snapshot })
     const rightNote = createEditorNote({ id: 'note-mode-sync', snapshot })
-    const leftTopic = leftNote.bindTopic(topicId)
-    const rightTopic = rightNote.bindTopic(topicId)
+    const leftTopic = leftNote.getTopic(topicId)
+    const rightTopic = rightNote.getTopic(topicId)
     const left = render(<Editor adapters={adapters} topic={leftTopic} />)
     const right = render(<Editor adapters={adapters} topic={rightTopic} />)
     await within(left.container).findByText('Mode content')
@@ -323,7 +337,7 @@ describe('collaborative Notes', () => {
     const initialized = render(
       <Editor
         adapters={adapters}
-        topic={source.bindTopic(topicId)}
+        topic={source.getTopic(topicId)}
       />,
     )
     await within(initialized.container).findByText('Shared text')
@@ -332,8 +346,8 @@ describe('collaborative Notes', () => {
 
     const senderNote = createEditorNote({ id: 'note-sync', snapshot })
     const receiverNote = createEditorNote({ id: 'note-sync', snapshot })
-    const sender = render(<Editor adapters={adapters} topic={senderNote.bindTopic(topicId)} />)
-    const receiver = render(<Editor adapters={adapters} topic={receiverNote.bindTopic(topicId)} />)
+    const sender = render(<Editor adapters={adapters} topic={senderNote.getTopic(topicId)} />)
+    const receiver = render(<Editor adapters={adapters} topic={receiverNote.getTopic(topicId)} />)
     await within(sender.container).findByText('Shared text')
     await within(receiver.container).findByText('Shared text')
     const receiverVersion = receiverNote.getVersion()
@@ -359,7 +373,7 @@ describe('collaborative Notes', () => {
     const initialized = render(
       <Editor
         adapters={adapters}
-        topic={source.bindTopic(topicId)}
+        topic={source.getTopic(topicId)}
       />,
     )
     await within(initialized.container).findByText('Common')
@@ -368,8 +382,8 @@ describe('collaborative Notes', () => {
 
     const leftNote = createEditorNote({ id: 'note-convergence', snapshot })
     const rightNote = createEditorNote({ id: 'note-convergence', snapshot })
-    const left = render(<Editor adapters={adapters} topic={leftNote.bindTopic(topicId)} />)
-    const right = render(<Editor adapters={adapters} topic={rightNote.bindTopic(topicId)} />)
+    const left = render(<Editor adapters={adapters} topic={leftNote.getTopic(topicId)} />)
+    const right = render(<Editor adapters={adapters} topic={rightNote.getTopic(topicId)} />)
     await within(left.container).findByText('Common')
     await within(right.container).findByText('Common')
     const sharedVersion = leftNote.getVersion()
@@ -406,7 +420,7 @@ describe('collaborative Notes', () => {
     const initialized = render(
       <Editor
         adapters={adapters}
-        topic={source.bindTopic(topicId)}
+        topic={source.getTopic(topicId)}
       />,
     )
     await within(initialized.container).findByText('Gamma')
@@ -415,8 +429,8 @@ describe('collaborative Notes', () => {
 
     const leftNote = createEditorNote({ id: 'note-online-interleaved', snapshot })
     const rightNote = createEditorNote({ id: 'note-online-interleaved', snapshot })
-    const leftTopic = leftNote.bindTopic(topicId)
-    const rightTopic = rightNote.bindTopic(topicId)
+    const leftTopic = leftNote.getTopic(topicId)
+    const rightTopic = rightNote.getTopic(topicId)
     const leftRuntime = resolveEditorTopicDocument(leftTopic)
     const rightRuntime = resolveEditorTopicDocument(rightTopic)
     const left = render(<Editor adapters={adapters} topic={leftTopic} />)
@@ -495,7 +509,7 @@ describe('collaborative Notes', () => {
     const initialized = render(
       <Editor
         adapters={adapters}
-        topic={source.bindTopic(topicId)}
+        topic={source.getTopic(topicId)}
       />,
     )
     await within(initialized.container).findByText('Movable')
@@ -504,8 +518,8 @@ describe('collaborative Notes', () => {
 
     const leftNote = createEditorNote({ id: 'note-offline-reconnect', snapshot })
     const rightNote = createEditorNote({ id: 'note-offline-reconnect', snapshot })
-    const leftTopic = leftNote.bindTopic(topicId)
-    const rightTopic = rightNote.bindTopic(topicId)
+    const leftTopic = leftNote.getTopic(topicId)
+    const rightTopic = rightNote.getTopic(topicId)
     const leftRuntime = resolveEditorTopicDocument(leftTopic)
     const rightRuntime = resolveEditorTopicDocument(rightTopic)
     const left = render(<Editor adapters={adapters} topic={leftTopic} />)
@@ -581,7 +595,7 @@ describe('collaborative Notes', () => {
     const rendered = render(
       <Editor
         adapters={adapters}
-        topic={note.bindTopic(topicId)}
+        topic={note.getTopic(topicId)}
       />,
     )
     await within(rendered.container).findByText('Before')

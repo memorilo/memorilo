@@ -66,7 +66,7 @@ describe('editor modes', () => {
   it('reads the mode from its Topic without rendering mode controls', async () => {
     const note = createEditorNote({ id: 'editor-mode-topic' })
     const topicId = note.createTopic({ initialContent: modeDocument(), mode: EditorMode.Document, title: 'Mode Topic' })
-    const topic = note.bindTopic(topicId)
+    const topic = note.getTopic(topicId)
     const rendered = render(
       <TopicEditor
         adapters={adapters}

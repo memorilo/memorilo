@@ -15,7 +15,7 @@ export function EditorTestHarness({ initialContent, mode = EditorMode.Document, 
   const [topic] = useState(() => {
     const note = createEditorNote({ id: crypto.randomUUID() })
     const topicId = note.createTopic({ initialContent, mode, title: 'Test Topic' })
-    return note.bindTopic(topicId)
+    return note.getTopic(topicId)
   })
 
   useEffect(() => topic.setMode(mode), [mode, topic])

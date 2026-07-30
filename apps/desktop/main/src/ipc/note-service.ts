@@ -66,18 +66,35 @@ export function createNoteService(storage: EditorStorage) {
       title: stored.title,
       updates: stored.updates.map(update => update.update),
     })
+    let checkpointSequence = stored.checkpointSequence
+    let latestSequence = stored.latestSequence
     let updatedAt = stored.updatedAt
     if (stored.snapshot === null) {
+      if (stored.updates.length === 0) {
+        const entries = note.getEntries()
+        const initialized = await storage.saveNoteUpdates({
+          entries: toStoredEntries(entries),
+          noteId: note.id,
+          title: note.getTitle(),
+          topics: entries
+            .filter(entry => entry.kind === 'topic')
+            .map(entry => toStoredTopic(note.getTopicContent(entry.id))),
+          updates: [note.exportUpdates()],
+        })
+        latestSequence = initialized.latestSequence
+        updatedAt = initialized.updatedAt
+      }
       const checkpoint = await storage.checkpointNote({
         noteId: stored.id,
         snapshot: note.exportSnapshot(),
-        throughSequence: 0,
+        throughSequence: latestSequence,
       })
+      checkpointSequence = latestSequence
       updatedAt = checkpoint.updatedAt
     }
     return {
-      checkpointSequence: stored.checkpointSequence,
-      latestSequence: stored.latestSequence,
+      checkpointSequence,
+      latestSequence,
       note,
       updatedAt,
     }
