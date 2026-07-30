@@ -14,6 +14,32 @@ const colors = {
 } as const
 
 export const editorRouteStyles = stylex.create({
+  statusPage: {
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+    minWidth: 0,
+    minHeight: 0,
+    boxSizing: 'border-box',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 56,
+    backgroundColor: colors.canvas,
+    color: colors.chromeText,
+  },
+  statusMessage: {
+    margin: 0,
+    color: colors.chromeTextMuted,
+    fontSize: 13,
+    fontWeight: 500,
+    letterSpacing: 0,
+    lineHeight: '18px',
+  },
+  errorMessage: {
+    maxWidth: 'min(520px, calc(100% - 48px))',
+    color: 'rgb(151, 45, 45)',
+    textAlign: 'center',
+  },
   page: {
     position: 'relative',
     display: 'flex',

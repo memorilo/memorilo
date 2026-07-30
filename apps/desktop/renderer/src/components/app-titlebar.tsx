@@ -205,7 +205,11 @@ export function AppTitlebar({
         {page?.title
           ? page.onRenameTitle
             ? <EditableTitle key={page.title} onRename={page.onRenameTitle} title={page.title} />
-            : <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
+            : (
+                <div {...stylex.props(appTitlebarStyles.staticTitle)}>
+                  <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
+                </div>
+              )
           : null}
       </div>
     </header>

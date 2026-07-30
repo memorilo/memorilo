@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import * as stylex from '@stylexjs/stylex'
+import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   CalendarDays,
@@ -29,12 +30,18 @@ const disclosureSpring = {
 interface SourceItemProps {
   icon: LucideIcon
   label: string
-  selected?: boolean
+  to?: '/journals' | '/pages'
+}
+
+interface SourceItemContentProps {
+  icon: LucideIcon
+  label: string
+  selected: boolean
 }
 
 const navigationItems: readonly SourceItemProps[] = [
-  { icon: CalendarDays, label: 'Journals', selected: true },
-  { icon: Files, label: 'Pages' },
+  { icon: CalendarDays, label: 'Journals', to: '/journals' },
+  { icon: Files, label: 'Pages', to: '/pages' },
 ]
 
 const favoriteItems: readonly SourceItemProps[] = [
@@ -55,13 +62,9 @@ function estimateSourceRowSize() {
   return sourceRowHeight
 }
 
-function SourceItem({ icon: Icon, label, selected = false }: SourceItemProps) {
+function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentProps) {
   return (
-    <button
-      {...stylex.props(workspaceSidebarStyles.sourceItem, selected && workspaceSidebarStyles.sourceItemSelected)}
-      aria-current={selected ? 'page' : undefined}
-      type="button"
-    >
+    <>
       <Icon
         {...stylex.props(workspaceSidebarStyles.sourceIcon, selected && workspaceSidebarStyles.sourceIconSelected)}
         aria-hidden="true"
@@ -70,6 +73,28 @@ function SourceItem({ icon: Icon, label, selected = false }: SourceItemProps) {
       <span {...stylex.props(workspaceSidebarStyles.sourceLabel, selected && workspaceSidebarStyles.sourceLabelSelected)}>
         {label}
       </span>
+    </>
+  )
+}
+
+function SourceItem({ icon, label, to }: SourceItemProps) {
+  if (to) {
+    return (
+      <Link
+        {...stylex.props(workspaceSidebarStyles.sourceItem)}
+        activeOptions={{ exact: true }}
+        activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
+        preload="intent"
+        to={to}
+      >
+        {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
+      </Link>
+    )
+  }
+
+  return (
+    <button {...stylex.props(workspaceSidebarStyles.sourceItem)} type="button">
+      <SourceItemContent icon={icon} label={label} selected={false} />
     </button>
   )
 }
