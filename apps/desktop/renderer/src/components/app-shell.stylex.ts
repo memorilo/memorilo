@@ -9,7 +9,7 @@ export const appShellStyles = stylex.create({
     minHeight: 0,
     overflow: 'hidden',
     flexDirection: 'column',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
   },
   body: {
     position: 'relative',

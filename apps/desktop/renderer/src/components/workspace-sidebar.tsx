@@ -3,6 +3,7 @@ import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
+  BookOpen,
   CalendarDays,
   ChevronDown,
   Clock3,
@@ -30,7 +31,7 @@ const disclosureSpring = {
 interface SourceItemProps {
   icon: LucideIcon
   label: string
-  to?: '/journals' | '/pages'
+  to?: '/journals' | '/pages' | '/shelf'
 }
 
 interface SourceItemContentProps {
@@ -42,6 +43,7 @@ interface SourceItemContentProps {
 const navigationItems: readonly SourceItemProps[] = [
   { icon: CalendarDays, label: 'Journals', to: '/journals' },
   { icon: Files, label: 'Pages', to: '/pages' },
+  { icon: BookOpen, label: 'Shelf', to: '/shelf' },
 ]
 
 const favoriteItems: readonly SourceItemProps[] = [
