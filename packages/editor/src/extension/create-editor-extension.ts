@@ -33,6 +33,7 @@ import { defineEditorKeymapExtension } from '../common/editor-keymap-extension'
 import { defineOutlineKeymapExtension } from '../common/outline-keymap-extension'
 import { defineOutlineViewExtension } from '../common/outline-view-extension'
 import { defineTableKeymapExtension } from '../common/table-keymap-extension'
+import { defineDocumentDropExtension } from '../document/document-drop-extension'
 import { defineDocumentKeymapExtension } from '../document/document-keymap-extension'
 import { renderKaTeXMathBlock, renderKaTeXMathInline } from '../sample/katex.ts'
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
@@ -41,6 +42,8 @@ import { defineCodeBlockView } from '../ui/code-block-view/index.ts'
 import { defineImageView } from '../ui/image-view/index.ts'
 import { defineTagView } from '../ui/tag-view/index.ts'
 import { defineTaskListView } from '../ui/task-list-view/index.ts'
+import { defineInlineMathInputRule } from './inline-math-input-rule'
+import { defineMathKeymapExtension } from './math-keymap-extension'
 import { defineTag } from './tag-extension'
 
 function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<string> {
@@ -92,6 +95,8 @@ export function createEditorExtension(
     withPriority(defineBlockIdExtension(), Priority.highest),
     defineTableKeymapExtension(),
     defineEditorKeymapExtension(),
+    defineMathKeymapExtension(),
+    defineDocumentDropExtension(outlineRuntime),
     defineDocumentKeymapExtension(outlineRuntime),
     defineOutlineKeymapExtension(outlineRuntime),
     defineOutlineViewExtension(outlineRuntime),
@@ -104,6 +109,7 @@ export function createEditorExtension(
       renderMathBlock: renderKaTeXMathBlock,
       renderMathInline: renderKaTeXMathInline,
     }),
+    defineInlineMathInputRule(),
     defineCodeBlockShiki(),
     defineHorizontalRule(),
     defineCodeBlockView(),

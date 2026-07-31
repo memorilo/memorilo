@@ -18,6 +18,16 @@ function isSemanticListKind(kind: unknown): kind is string {
   return typeof kind === 'string' && semanticListKinds.has(kind)
 }
 
+function isDirectListTextCursor(state: EditorState, blockDepth: number): boolean {
+  if (!(state.selection instanceof TextSelection))
+    return false
+  const { $cursor } = state.selection
+  return $cursor !== null
+    && $cursor.depth === blockDepth + 1
+    && $cursor.parent.isTextblock
+    && $cursor.parent.type.spec.code !== true
+}
+
 function convertDocumentBlockToOrdinary(state: EditorState, dispatch: DispatchTransaction | undefined, position: number): boolean {
   if (!dispatch)
     return true
@@ -38,12 +48,19 @@ function createDocumentIndentCommand(runtime: OutlineRuntime): Command {
   return (state, dispatch, view) => {
     if (runtime.getSnapshot().active)
       return false
+    if (!(state.selection instanceof TextSelection) || !state.selection.$cursor)
+      return true
 
     const block = currentListBlockContext(state)
     if (!block)
       return false
-    if (!isSemanticListKind(block.kind) || !block.hasPreviousSiblingBlock)
+    if (
+      !isSemanticListKind(block.kind)
+      || !isDirectListTextCursor(state, block.depth)
+      || !isSemanticListKind(block.previousSiblingKind)
+    ) {
       return true
+    }
 
     indentList(state, dispatch, view)
     return true
@@ -54,12 +71,19 @@ function createDocumentDedentCommand(runtime: OutlineRuntime): Command {
   return (state, dispatch, view) => {
     if (runtime.getSnapshot().active)
       return false
+    if (!(state.selection instanceof TextSelection) || !state.selection.$cursor)
+      return true
 
     const block = currentListBlockContext(state)
     if (!block)
       return false
-    if (!isSemanticListKind(block.kind) || !block.nested)
+    if (
+      !isSemanticListKind(block.kind)
+      || !isDirectListTextCursor(state, block.depth)
+      || !block.nested
+    ) {
       return true
+    }
 
     dedentList(state, dispatch, view)
     return true

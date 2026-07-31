@@ -7,6 +7,7 @@ export interface ListBlockContext {
   kind: unknown
   nested: boolean
   position: number
+  previousSiblingKind: unknown
 }
 
 export function currentListBlockContext(state: EditorState): ListBlockContext | null {
@@ -27,6 +28,7 @@ export function currentListBlockContext(state: EditorState): ListBlockContext | 
       kind: node.attrs.kind,
       nested: isListNode(parent),
       position: $from.before(depth),
+      previousSiblingKind: previousSibling?.attrs.kind,
     }
   }
   return null

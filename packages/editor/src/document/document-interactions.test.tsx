@@ -1,7 +1,8 @@
+import type { RenderResult } from '@testing-library/react'
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import * as stylex from '@stylexjs/stylex'
-import { render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it } from 'vitest'
 import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
@@ -19,6 +20,20 @@ const adapters: EditorAdapters = {
   },
 }
 
+const semanticListCases = [
+  { kind: 'bullet', order: null },
+  { kind: 'ordered', order: 4 },
+  { kind: 'task', order: null },
+  { kind: 'toggle', order: null },
+] as const
+
+const mixedSemanticListCases = [
+  { childKind: 'ordered', childOrder: 4, parentKind: 'bullet', parentOrder: null },
+  { childKind: 'task', childOrder: null, parentKind: 'ordered', parentOrder: 4 },
+  { childKind: 'toggle', childOrder: null, parentKind: 'task', parentOrder: null },
+  { childKind: 'bullet', childOrder: null, parentKind: 'toggle', parentOrder: null },
+] as const
+
 function documentBlock(id: string, body: NodeJSON, kind = 'outline', children: NodeJSON[] = []): NodeJSON {
   return {
     type: 'list',
@@ -29,6 +44,26 @@ function documentBlock(id: string, body: NodeJSON, kind = 'outline', children: N
 
 function paragraph(text: string): NodeJSON {
   return { type: 'paragraph', content: [{ type: 'text', text }] }
+}
+
+function semanticBlock(id: string, text: string, kind: 'bullet' | 'ordered' | 'task' | 'toggle', order: number | null): NodeJSON {
+  const attrs = kind === 'task'
+    ? {
+        blockId: id,
+        checked: false,
+        collapsed: false,
+        elapsedMs: 0,
+        kind,
+        order,
+        startedAt: null,
+        status: 'todo',
+      }
+    : { blockId: id, checked: false, collapsed: false, kind, order }
+  return {
+    type: 'list',
+    attrs,
+    content: [paragraph(text)],
+  }
 }
 
 function table(): NodeJSON {
@@ -66,6 +101,49 @@ function parentBlockId(container: HTMLElement, id: string): string | null {
   if (!block)
     throw new Error(`Document block ${id} was not rendered`)
   return block.parentElement?.closest<HTMLElement>('[data-block-id]')?.dataset.blockId ?? null
+}
+
+function rootBlockIds(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll<HTMLElement>('[data-editor-content] > [data-block-id]')).map((block) => {
+    const id = block.dataset.blockId
+    if (!id)
+      throw new Error('A root Document block is missing its stable id')
+    return id
+  })
+}
+
+async function dragBlockToText(rendered: RenderResult, sourceText: string, targetText: string, targetEdge: 'top' | 'middle' | 'bottom'): Promise<void> {
+  await userEvent.hover(page.getByText(sourceText, { exact: true }))
+  await act(async () => {
+    await new Promise<void>(resolve => setTimeout(resolve, 250))
+  })
+
+  const dragHandle = rendered.getByLabelText('Drag block')
+  expect(dragHandle).toBeVisible()
+  await act(async () => {
+    fireEvent.pointerDown(dragHandle)
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  })
+
+  const target = rendered.getByText(targetText, { exact: true })
+  const targetRect = target.getBoundingClientRect()
+  const dataTransfer = new DataTransfer()
+  const dragEventInit = {
+    clientX: targetRect.left + 1,
+    clientY: targetEdge === 'top'
+      ? targetRect.top + 1
+      : targetEdge === 'middle'
+        ? targetRect.top + targetRect.height / 2
+        : targetRect.bottom - 1,
+    dataTransfer,
+  }
+  await act(async () => {
+    fireEvent.dragStart(dragHandle, dragEventInit)
+    fireEvent.dragOver(target, dragEventInit)
+    fireEvent.drop(target, dragEventInit)
+    fireEvent.dragEnd(dragHandle, dragEventInit)
+    await new Promise<void>(resolve => setTimeout(resolve, 50))
+  })
 }
 
 function selectedDomBlockId(): string | null {
@@ -130,6 +208,154 @@ describe('document interactions', () => {
     })
   })
 
+  it('filters slash commands from user input and runs the remaining result with Enter', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+
+    await userEvent.keyboard('{End}{Enter}/quote')
+
+    expect(await rendered.findByRole('option', { name: 'Quote >' })).toBeVisible()
+    expect(rendered.queryByRole('option', { name: 'Text' })).not.toBeInTheDocument()
+    expect(rendered.queryByRole('option', { name: 'Heading 1 #' })).not.toBeInTheDocument()
+
+    await userEvent.keyboard('{Enter}')
+
+    expect(rendered.container.querySelectorAll('blockquote')).toHaveLength(1)
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).not.toHaveTextContent('/quote')
+  })
+
+  it('searches slash commands by aliases such as h1', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+
+    await userEvent.keyboard('{End}{Enter}/h1')
+
+    expect(await rendered.findByRole('option', { name: 'Heading 1 #' })).toBeVisible()
+    expect(rendered.queryByRole('option', { name: 'Heading 2 ##' })).not.toBeInTheDocument()
+
+    await userEvent.keyboard('{Enter}')
+
+    expect(rendered.container.querySelectorAll('h1')).toHaveLength(1)
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).not.toHaveTextContent('/h1')
+  })
+
+  it('creates inline math when the user types a dollar-delimited expression', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+
+    await userEvent.keyboard('{End} $E=mc^2$')
+
+    const inlineMath = rendered.container.querySelector('.prosemirror-math-inline')
+    expect(inlineMath).toHaveTextContent('E=mc^2')
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).not.toHaveTextContent('$E=mc^2$')
+  })
+
+  it('creates editable inline math when the user types double dollar followed by Space', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+
+    await userEvent.keyboard('{End} $$ ')
+
+    expect(rendered.container.querySelectorAll('.prosemirror-math-inline')).toHaveLength(1)
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).not.toHaveTextContent('$$')
+
+    await userEvent.keyboard('x^2')
+
+    expect(rendered.container.querySelector('.prosemirror-math-inline')).toHaveTextContent('x^2')
+  })
+
+  it('creates inline math from a filtered slash command', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+    await userEvent.keyboard('{End}{Enter}/inline')
+
+    const inlineMathOption = await rendered.findByRole('option', { name: 'Inline math $' })
+    expect(inlineMathOption).toBeVisible()
+    await userEvent.click(inlineMathOption)
+
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).not.toHaveTextContent('/inline')
+    expect(rendered.container.querySelectorAll('.prosemirror-math-inline')).toHaveLength(1)
+
+    await userEvent.keyboard('x^2')
+
+    expect(rendered.container.querySelector('.prosemirror-math-inline')).toHaveTextContent('x^2')
+  })
+
+  it('deletes an empty math block with Backspace and restores an editable paragraph', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('before', paragraph('Before'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Before')
+    await userEvent.click(page.getByText('Before', { exact: true }))
+
+    await userEvent.keyboard('{End}{Enter}$$')
+    await userEvent.keyboard('{Enter}')
+
+    expect(rendered.container.querySelectorAll('.prosemirror-math-block')).toHaveLength(1)
+
+    await userEvent.keyboard('{Backspace}After')
+
+    expect(rendered.container.querySelectorAll('.prosemirror-math-block')).toHaveLength(0)
+    expect(rendered.getByText('After')).toBeVisible()
+  })
+
   it('creates a wrapped ordinary Document block from the block handle add control', async () => {
     const rendered = render(
       <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
@@ -166,6 +392,116 @@ describe('document interactions', () => {
     })
     expect(new Set(ids).size).toBe(3)
     expect(selectedDomBlockId()).toBe(ids[1])
+  })
+
+  it('keeps ordinary Document blocks flat when one block is dragged onto another', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('First block'), 'outline', [
+                documentBlock('C', paragraph('Existing child')),
+              ]),
+              documentBlock('B', paragraph('Second block')),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Second block')
+    await dragBlockToText(rendered, 'Second block', 'Existing child', 'bottom')
+
+    await waitFor(() => {
+      expect(rootBlockIds(rendered.container)).toEqual(['A', 'B'])
+      expect(parentBlockId(rendered.container, 'A')).toBeNull()
+      expect(parentBlockId(rendered.container, 'B')).toBeNull()
+      expect(parentBlockId(rendered.container, 'C')).toBe('A')
+    })
+  })
+
+  it('keeps a nested Document block under its parent when it is dragged toward the root', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('Parent block'), 'outline', [
+                documentBlock('C', paragraph('Nested block')),
+              ]),
+              documentBlock('B', paragraph('Root sibling')),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Nested block')
+    await dragBlockToText(rendered, 'Nested block', 'Root sibling', 'bottom')
+
+    await waitFor(() => {
+      expect(rootBlockIds(rendered.container)).toEqual(['A', 'B'])
+      expect(parentBlockId(rendered.container, 'C')).toBe('A')
+    })
+  })
+
+  it('reorders Document blocks when a block is dragged within the same parent', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('First block'), 'outline', [
+                documentBlock('C', paragraph('Existing child')),
+              ]),
+              documentBlock('B', paragraph('Second block')),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Second block')
+    await dragBlockToText(rendered, 'Second block', 'First block', 'top')
+
+    await waitFor(() => {
+      expect(rootBlockIds(rendered.container)).toEqual(['B', 'A'])
+      expect(parentBlockId(rendered.container, 'C')).toBe('A')
+    })
+  })
+
+  it('does not turn a top-level Document block into a child when dropped inside sibling text', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('First block')),
+              documentBlock('B', paragraph('Second block')),
+              documentBlock('C', paragraph('Third block')),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Third block')
+
+    await dragBlockToText(rendered, 'Third block', 'Second block', 'middle')
+
+    await waitFor(() => {
+      expect(new Set(rootBlockIds(rendered.container))).toEqual(new Set(['A', 'B', 'C']))
+      expect(parentBlockId(rendered.container, 'C')).toBeNull()
+    })
   })
 
   it('splits an ordinary block on Enter and keeps the split undoable', async () => {
@@ -425,6 +761,212 @@ describe('document interactions', () => {
     expect(rendered.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('keeps nested ordinary Document blocks at their existing level for Tab and Shift-Tab', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('P', paragraph('Parent'), 'outline', [
+              documentBlock('A', paragraph('First child')),
+              documentBlock('B', paragraph('Second child')),
+            ]),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Second child')
+
+    await userEvent.click(rendered.getByText('Second child'))
+    await userEvent.keyboard('{Tab}{Shift>}{Tab}{/Shift}')
+
+    expect(parentBlockId(rendered.container, 'A')).toBe('P')
+    expect(parentBlockId(rendered.container, 'B')).toBe('P')
+  })
+
+  it.each(semanticListCases)('does not indent a semantic $kind item beneath an ordinary Document block', async ({ kind, order }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('Ordinary block')),
+            semanticBlock('B', 'Semantic item', kind, order),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Semantic item')
+
+    await userEvent.click(rendered.getByText('Semantic item'))
+    await userEvent.keyboard('{Tab}')
+
+    expect(parentBlockId(rendered.container, 'A')).toBeNull()
+    expect(parentBlockId(rendered.container, 'B')).toBeNull()
+  })
+
+  it.each(mixedSemanticListCases)(
+    'indents a semantic $childKind item beneath a semantic $parentKind item',
+    async ({ childKind, childOrder, parentKind, parentOrder }) => {
+      const rendered = render(
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              semanticBlock('A', 'Parent item', parentKind, parentOrder),
+              semanticBlock('B', 'Child item', childKind, childOrder),
+            ],
+          }}
+        />,
+      )
+      await rendered.findByText('Child item')
+
+      await userEvent.click(rendered.getByText('Child item'))
+      await userEvent.keyboard('{Tab}')
+      await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('A'))
+      expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', parentKind)
+      expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', childKind)
+
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+      await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
+    },
+  )
+
+  it('does not indent an outer semantic list item when Tab is pressed inside its code block', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('First item'), 'bullet'),
+            documentBlock('B', {
+              type: 'codeBlock',
+              attrs: { language: 'javascript' },
+              content: [{ type: 'text', text: 'const value = 1' }],
+            }, 'bullet'),
+          ],
+        }}
+      />,
+    )
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="B"] pre[data-language]')).toHaveTextContent('const value = 1'))
+    const codeBlock = rendered.container.querySelector<HTMLElement>('[data-block-id="B"] pre[data-language]')
+    if (!codeBlock)
+      throw new Error('Expected the second semantic item to contain a code block')
+    await userEvent.click(codeBlock)
+    await userEvent.keyboard('{Tab}')
+
+    expect(parentBlockId(rendered.container, 'B')).toBeNull()
+    expect(codeBlock).toHaveTextContent('const value = 1')
+  })
+
+  it('does not outdent an outer semantic list item when Shift-Tab is pressed inside its code block', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('Parent item'), 'bullet', [
+              documentBlock('B', {
+                type: 'codeBlock',
+                attrs: { language: 'javascript' },
+                content: [{ type: 'text', text: 'const nested = true' }],
+              }, 'bullet'),
+            ]),
+          ],
+        }}
+      />,
+    )
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="B"] pre[data-language]')).toHaveTextContent('const nested = true'))
+    const codeBlock = rendered.container.querySelector<HTMLElement>('[data-block-id="B"] pre[data-language]')
+    if (!codeBlock)
+      throw new Error('Expected the nested semantic item to contain a code block')
+    await userEvent.click(codeBlock)
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+    expect(parentBlockId(rendered.container, 'B')).toBe('A')
+    expect(codeBlock).toHaveTextContent('const nested = true')
+  })
+
+  it('does not indent semantic list items from a cross-block text selection', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('First item'), 'bullet'),
+            documentBlock('B', paragraph('Second item'), 'bullet'),
+            documentBlock('C', paragraph('Third item'), 'bullet'),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Third item')
+
+    await userEvent.click(rendered.getByText('Second item'))
+    await userEvent.keyboard('{Home}{Shift>}{ArrowDown}{/Shift}')
+    expect(document.getSelection()?.isCollapsed).toBe(false)
+    expect(selectedDomBlockId()).toBe('C')
+
+    await userEvent.keyboard('{Tab}')
+
+    expect(rootBlockIds(rendered.container)).toEqual(['A', 'B', 'C'])
+  })
+
+  it('keeps a handler-selected block and editor focus unchanged for Tab and Shift-Tab', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('First item'), 'bullet'),
+              documentBlock('B', paragraph('Second item'), 'bullet'),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Second item')
+
+    await userEvent.hover(page.getByText('Second item', { exact: true }))
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 250))
+    })
+    const dragHandle = rendered.getByLabelText('Drag block')
+    await act(async () => {
+      fireEvent.pointerDown(dragHandle)
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    })
+    const selectedBlock = rendered.container.querySelector('[data-block-id="B"]')
+    expect(selectedBlock).toHaveClass('ProseMirror-selectednode')
+
+    await userEvent.keyboard('{Tab}')
+
+    expect(rootBlockIds(rendered.container)).toEqual(['A', 'B'])
+    expect(selectedBlock).toHaveClass('ProseMirror-selectednode')
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).toHaveFocus()
+
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+    expect(rootBlockIds(rendered.container)).toEqual(['A', 'B'])
+    expect(selectedBlock).toHaveClass('ProseMirror-selectednode')
+    expect(rendered.getByRole('textbox', { name: 'Editor content' })).toHaveFocus()
+  })
+
   it('keeps the first ordinary Document block wrapped at its start on Backspace', async () => {
     const rendered = render(
       <Editor
@@ -629,14 +1171,9 @@ describe('document interactions', () => {
     expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(2)
   })
 
-  it.each([
-    { kind: 'bullet', order: null },
-    { kind: 'ordered', order: 4 },
-  ])('indents a semantic $kind list only beneath a real preceding item', async ({ kind, order }) => {
-    const first = documentBlock('A', paragraph('First item'), kind)
-    const second = documentBlock('B', paragraph('Second item'), kind)
-    first.attrs = { ...first.attrs, order }
-    second.attrs = { ...second.attrs, order }
+  it.each(semanticListCases)('indents a semantic $kind list only beneath a real preceding item', async ({ kind, order }) => {
+    const first = semanticBlock('A', 'First item', kind, order)
+    const second = semanticBlock('B', 'Second item', kind, order)
     const rendered = render(
       <Editor
         adapters={adapters}
@@ -662,6 +1199,28 @@ describe('document interactions', () => {
     await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
     await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
     expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(2)
+  })
+
+  it.each(semanticListCases)('keeps the first semantic $kind item at the root for Tab and Shift-Tab', async ({ kind, order }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            semanticBlock('A', 'First item', kind, order),
+            semanticBlock('B', 'Second item', kind, order),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('First item')
+
+    await userEvent.click(rendered.getByText('First item'))
+    await userEvent.keyboard('{Tab}{Shift>}{Tab}{/Shift}')
+
+    expect(rootBlockIds(rendered.container)).toEqual(['A', 'B'])
   })
 
   it('keeps task controls interactive in Document mode', async () => {
