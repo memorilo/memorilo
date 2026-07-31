@@ -38,10 +38,8 @@ test('switches a non-empty Topic between Document and Outline without losing edi
 
       const editor = window.getByRole('textbox', { name: 'Editor content' })
       const heading = editor.getByRole('heading', { name: title })
-      const modeGroup = window.getByRole('group', { name: 'Editor mode' })
-      const documentMode = modeGroup.getByRole('button', { name: 'Document mode' })
-      const outlineMode = modeGroup.getByRole('button', { name: 'Outline mode' })
-      await expect(documentMode).toHaveAttribute('aria-pressed', 'true')
+      const editorShell = window.locator('[data-editor-mode]')
+      await expect(editorShell).toHaveAttribute('data-editor-mode', 'document')
 
       await heading.click()
       await window.keyboard.press('End')
@@ -68,14 +66,18 @@ test('switches a non-empty Topic between Document and Outline without losing edi
         focusOffset: title.length,
       })
 
-      await outlineMode.click()
+      await window.keyboard.press('Meta+P')
+      await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill('Switch to Outline Mode')
+      await window.getByRole('option').filter({ hasText: 'Switch to Outline Mode' }).click()
 
-      await expect(outlineMode).toHaveAttribute('aria-pressed', 'true')
+      await expect(editorShell).toHaveAttribute('data-editor-mode', 'outline')
       await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
       await expect.poll(readSelection).toEqual(selectionBeforeSwitch)
 
-      await documentMode.click()
-      await expect(documentMode).toHaveAttribute('aria-pressed', 'true')
+      await window.keyboard.press('Meta+P')
+      await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill('Switch to Document Mode')
+      await window.getByRole('option').filter({ hasText: 'Switch to Document Mode' }).click()
+      await expect(editorShell).toHaveAttribute('data-editor-mode', 'document')
       await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
       await expect.poll(readSelection).toEqual(selectionBeforeSwitch)
     }

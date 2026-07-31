@@ -2,6 +2,7 @@ import type { CreateDesktopNoteInput, DesktopNote, DesktopNoteSearchHit } from '
 import type { Cause } from 'effect'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { PaletteCommand, ResultAccent } from './command-palette-context'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Effect, Layer } from 'effect'
@@ -33,9 +34,6 @@ import {
 import { router } from '../router'
 import { commandPaletteStyles } from './command-palette.stylex'
 
-type CommandSection = 'History' | 'Navigation' | 'Window'
-type ResultAccent = 'blue' | 'graphite' | 'violet'
-
 interface PaletteResult {
   accent: ResultAccent
   action: string
@@ -46,11 +44,6 @@ interface PaletteResult {
   id: string
   label: string
   run: () => void
-}
-
-interface PaletteCommand extends PaletteResult {
-  keywords: readonly string[]
-  section: CommandSection
 }
 
 interface HistoryPosition {
@@ -149,9 +142,11 @@ function toPaletteSearchResult(hit: DesktopNoteSearchHit): PaletteResult {
 }
 
 export function CommandPalette({
+  contextualCommands,
   onToggleSidebar,
   sidebarVisible,
 }: {
+  contextualCommands: readonly PaletteCommand[]
   onToggleSidebar: () => void
   sidebarVisible: boolean
 }) {
@@ -242,6 +237,7 @@ export function CommandPalette({
       })
     }
     return [
+      ...contextualCommands,
       ...navigation,
       ...history,
       {
@@ -256,7 +252,7 @@ export function CommandPalette({
         section: 'Window',
       },
     ]
-  }, [historyPosition.index, historyPosition.maxIndex, onToggleSidebar, sidebarVisible])
+  }, [contextualCommands, historyPosition.index, historyPosition.maxIndex, onToggleSidebar, sidebarVisible])
 
   const trimmedQuery = query.trim()
   const normalizedQuery = trimmedQuery.toLocaleLowerCase()
@@ -586,7 +582,7 @@ export function CommandPalette({
                                       tabIndex={-1}
                                       type="button"
                                       onClick={() => executeResult(result)}
-                                      onMouseEnter={() => setSelectedId(result.id)}
+                                      onPointerMove={() => setSelectedId(result.id)}
                                     >
                                       <span
                                         {...stylex.props(
