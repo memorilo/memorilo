@@ -4,11 +4,13 @@ import type { BasicExtension } from 'prosekit/basic'
 import type { Editor } from 'prosekit/core'
 import type { LinkAttrs } from 'prosekit/extensions/link'
 import type { EditorState } from 'prosekit/pm/state'
+import type { CardExtension } from '../../card/card-extension'
 import * as stylex from '@stylexjs/stylex'
-import { Bold, Code2, Italic, Link2, Strikethrough, Underline } from 'lucide-react'
+import { Bold, Brackets, Code2, Highlighter, Italic, Link2, Strikethrough, Underline } from 'lucide-react'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { InlinePopoverPopup, InlinePopoverPositioner, InlinePopoverRoot } from 'prosekit/react/inline-popover'
 import { useState } from 'react'
+import { getSelectedCardDefinitionId } from '../../card/card-extension'
 
 import { Button } from '../button/index.ts'
 import { getEditorActions } from '../editor-actions/index.ts'
@@ -39,10 +41,29 @@ function getCurrentLink(state: EditorState): string | undefined {
   }
 }
 
+type InlineMenuExtension = BasicExtension & CardExtension
+
+function getCardSelectionState(editor: Editor<InlineMenuExtension>) {
+  const cloze = editor.marks.cloze.isActive()
+  const highlight = editor.marks.inlineHighlight.isActive()
+  const canAddMathCloze = editor.commands.addCloze.canExec({ anchorKind: 'math-source' })
+  const canAddRichCloze = editor.commands.addCloze.canExec({ anchorKind: 'rich-content' })
+  return {
+    cardUiSelected: getSelectedCardDefinitionId(editor.state) !== null,
+    canCloze: cloze || canAddMathCloze || canAddRichCloze,
+    canHighlight: highlight || editor.commands.setInlineHighlight.canExec({ color: 'yellow' }),
+    cloze,
+    clozeAnchorKind: canAddMathCloze ? 'math-source' as const : 'rich-content' as const,
+    highlight,
+    mathSourceSelection: canAddMathCloze,
+  }
+}
+
 export default function InlineMenu() {
-  const editor = useEditor<BasicExtension>()
+  const editor = useEditor<InlineMenuExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
   const link = useEditorDerivedValue(getLinkState)
+  const cardSelection = useEditorDerivedValue(getCardSelectionState)
 
   const [linkMenuOpen, setLinkMenuOpen] = useState(false)
   const toggleLinkMenuOpen = () => setLinkMenuOpen(open => !open)
@@ -58,6 +79,9 @@ export default function InlineMenu() {
     setLinkMenuOpen(false)
     editor.focus()
   }
+
+  if (cardSelection.cardUiSelected || cardSelection.mathSourceSelection)
+    return null
 
   return (
     <>
@@ -117,6 +141,32 @@ export default function InlineMenu() {
               tooltip="Code"
             >
               <Code2 size={16} />
+            </Button>
+            <Button
+              pressed={cardSelection.cloze}
+              disabled={!cardSelection.canCloze}
+              onClick={() => {
+                if (cardSelection.cloze)
+                  editor.commands.removeCloze()
+                else
+                  editor.commands.addCloze({ anchorKind: cardSelection.clozeAnchorKind })
+              }}
+              tooltip={cardSelection.cloze ? 'Remove cloze' : 'Cloze'}
+            >
+              <Brackets size={16} />
+            </Button>
+            <Button
+              pressed={cardSelection.highlight}
+              disabled={!cardSelection.canHighlight}
+              onClick={() => {
+                if (cardSelection.highlight)
+                  editor.commands.removeInlineHighlight()
+                else
+                  editor.commands.setInlineHighlight({ color: 'yellow' })
+              }}
+              tooltip={cardSelection.highlight ? 'Remove highlight' : 'Highlight'}
+            >
+              <Highlighter size={16} />
             </Button>
             {link.canExec && (
               <Button

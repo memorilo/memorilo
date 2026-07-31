@@ -9,9 +9,11 @@ import { useLayoutEffect } from 'react'
 
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 import { BlockHandle } from '../ui/block-handle'
+import { CardMenu } from '../ui/card-menu'
 import { ContextMenu } from '../ui/context-menu'
 import { DropIndicator } from '../ui/drop-indicator'
 import { InlineMenu } from '../ui/inline-menu'
+import { MathClozeMenu } from '../ui/math-cloze-menu'
 import { SlashMenu } from '../ui/slash-menu'
 import { TableHandle } from '../ui/table-handle'
 import { TagMenu } from '../ui/tag-menu'
@@ -109,6 +111,8 @@ export function EditorCanvas({
             />
             <ContextMenu uploader={configured.uploader} />
             <InlineMenu />
+            <MathClozeMenu />
+            <CardMenu />
             <SlashMenu />
             <TagMenu runtime={configured.tagRuntime} />
             <BlockHandle mode={mode} session={session} />

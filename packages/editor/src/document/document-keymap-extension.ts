@@ -4,6 +4,7 @@ import { defineKeymap, Priority, unsetBlockType, withPriority } from 'prosekit/c
 import { joinTextblockBackward } from 'prosekit/pm/commands'
 import { TextSelection } from 'prosekit/pm/state'
 import { createDedentListCommand, createIndentListCommand } from 'prosemirror-flat-list'
+import { addBlockToCardBackCommand } from '../card/card-extension'
 import { insertBlockSiblingAfter } from '../common/block-sibling'
 import { currentListBlockContext } from '../common/list-keymap-context'
 import { OUTLINE_LIST_KIND } from '../common/outline-document'
@@ -54,6 +55,8 @@ function createDocumentIndentCommand(runtime: OutlineRuntime): Command {
     const block = currentListBlockContext(state)
     if (!block)
       return false
+    if (addBlockToCardBackCommand()(state, dispatch, view))
+      return true
     if (
       !isSemanticListKind(block.kind)
       || !isDirectListTextCursor(state, block.depth)

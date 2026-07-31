@@ -1,8 +1,11 @@
 'use client'
 
+import type { BasicExtension } from 'prosekit/basic'
+import type { Editor } from 'prosekit/core'
+import type { CardExtension } from '../../card/card-extension'
 import * as stylex from '@stylexjs/stylex'
 import { canUseRegexLookbehind } from 'prosekit/core'
-import { useEditorDerivedValue } from 'prosekit/react'
+import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { AutocompletePopup, AutocompletePositioner, AutocompleteRoot } from 'prosekit/react/autocomplete'
 
 import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
@@ -18,8 +21,37 @@ const regex = new RegExp(
   'u',
 )
 
+type SlashMenuExtension = BasicExtension & CardExtension
+
+function getCardActions(editor: Editor<SlashMenuExtension>) {
+  const { $from } = editor.state.selection
+  let blockHighlight: unknown = null
+  let cardMember = false
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth)
+    if (node.type.name !== 'list')
+      continue
+    blockHighlight = node.attrs.blockHighlight
+    cardMember = node.attrs.cardItemDefinitionId !== null && node.attrs.cardItemDefinitionId !== undefined
+    break
+  }
+  return {
+    addToBack: editor.commands.addBlockToCardBack.canExec(),
+    blockHighlighted: blockHighlight !== null && blockHighlight !== undefined,
+    cardMember,
+    canInsert: {
+      backward: editor.commands.insertBasicCard.canExec({ direction: 'backward' }),
+      both: editor.commands.insertBasicCard.canExec({ direction: 'both' }),
+      forward: editor.commands.insertBasicCard.canExec({ direction: 'forward' }),
+    },
+    canSetPresentation: editor.commands.setCardPresentation.canExec({ presentation: 'set' }),
+  }
+}
+
 export default function SlashMenu() {
+  const editor = useEditor<SlashMenuExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
+  const cardActions = useEditorDerivedValue(getCardActions)
 
   return (
     <AutocompleteRoot regex={regex}>
@@ -140,6 +172,37 @@ export default function SlashMenu() {
               label="Inline math"
               kbd="$"
               onSelect={actions.insert.inlineMath.run}
+            />
+
+            {cardActions.canInsert.forward
+              ? <SlashMenuItem label="Basic card" kbd=":->" onSelect={() => editor.commands.insertBasicCard({ direction: 'forward' })} />
+              : null}
+            {cardActions.canInsert.backward
+              ? <SlashMenuItem label="Reverse card" kbd=":-<" onSelect={() => editor.commands.insertBasicCard({ direction: 'backward' })} />
+              : null}
+            {cardActions.canInsert.both
+              ? <SlashMenuItem label="Bidirectional card" kbd=":<>" onSelect={() => editor.commands.insertBasicCard({ direction: 'both' })} />
+              : null}
+            {cardActions.canSetPresentation
+              ? <SlashMenuItem label="Set card answers" onSelect={() => editor.commands.setCardPresentation({ presentation: 'set' })} />
+              : null}
+            {cardActions.canSetPresentation
+              ? <SlashMenuItem label="List card answers" onSelect={() => editor.commands.setCardPresentation({ presentation: 'list' })} />
+              : null}
+            {cardActions.addToBack
+              ? <SlashMenuItem label="Add to card back" onSelect={() => editor.commands.addBlockToCardBack()} />
+              : null}
+            {cardActions.cardMember
+              ? <SlashMenuItem label="Remove from card back" onSelect={() => editor.commands.removeBlockFromCardBack()} />
+              : null}
+            <SlashMenuItem
+              label={cardActions.blockHighlighted ? 'Remove block highlight' : 'Highlight block'}
+              onSelect={() => {
+                if (cardActions.blockHighlighted)
+                  editor.commands.removeBlockHighlight()
+                else
+                  editor.commands.setBlockHighlight({ color: 'yellow' })
+              }}
             />
 
             <SlashMenuEmpty />

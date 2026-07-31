@@ -1,5 +1,6 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
+import type { EditorCardIntegration } from './card/card-sync'
 import type { OutlineOptions } from './common/outline-runtime'
 import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
@@ -13,6 +14,7 @@ import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
 import './common/editor-content.stylex'
+import './card/card-content.stylex'
 
 const DocumentEditor = lazy(async () => {
   const module = await import('./document/document-editor')
@@ -26,6 +28,7 @@ const OutlineEditor = lazy(async () => {
 
 interface EditorBaseProps {
   adapters: EditorAdapters
+  cards?: EditorCardIntegration
   focus?: EditorFocusTarget
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
@@ -42,6 +45,7 @@ export interface EditorProps extends EditorBaseProps {
 export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
+  const onCardSyncErrorRef = useRef(props.cards?.onSyncError)
   const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
     ? {
         defaultFocus: props.outline.defaultFocus,
@@ -49,6 +53,19 @@ export function Editor(props: EditorProps) {
       }
     : undefined)
   onDocumentChangeRef.current = props.onDocumentChange
+  onCardSyncErrorRef.current = props.cards?.onSyncError
+  const cardRepository = props.cards?.repository
+  const cardIntegration = useMemo<EditorCardIntegration | undefined>(() => cardRepository
+    ? {
+        onSyncError: (input) => {
+          const handler = onCardSyncErrorRef.current
+          if (!handler)
+            throw new Error('Editor Card integration requires an onSyncError handler')
+          handler(input)
+        },
+        repository: cardRepository,
+      }
+    : undefined, [cardRepository])
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const subscribeToMode = useCallback((listener: () => void) => props.topic.subscribe(listener), [props.topic])
@@ -56,10 +73,11 @@ export function Editor(props: EditorProps) {
   const mode = useSyncExternalStore(subscribeToMode, getModeSnapshot, getModeSnapshot)
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
+    cards: cardIntegration,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
     topicDocument: props.topic,
-  }), [props.adapters, props.topic])
+  }), [props.adapters, cardIntegration, props.topic])
 
   useEffect(() => {
     if (!controlledFocusProvided)
