@@ -20,7 +20,7 @@ export default defineConfig({
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/main'),
       externalizeDeps: {
-        exclude: ['@memorilo/editor-storage'],
+        exclude: ['@memorilo/editor-storage', '@memorilo/shelf', 'effect', 'fast-xml-parser'],
         include: ['@huggingface/transformers', 'better-sqlite3', 'loro-crdt', 'sqlite-vec'],
       },
       rollupOptions: {
