@@ -1,17 +1,32 @@
+import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
+import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { createConfigurationStore } from '@memorilo/config'
+import { createJsonFileConfigurationAdapter } from '@memorilo/config/node'
+import {
+  desktopConfigurationChangedChannel,
+  desktopConfigurationDefinition,
+  migrateDesktopConfiguration,
+} from '@memorilo/desktop-config'
 import { createEditorStorage } from '@memorilo/editor-storage'
 import { app, BrowserWindow, shell } from 'electron'
 
+import { installApplicationMenu } from './application-menu'
 import { createDesktopServices } from './ipc/services'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
+import { createSettingsWindowController } from './windows/settings-window'
 
 let editorStorage: EditorStorage | null = null
+let configurationStore: ConfigurationStore<DesktopConfiguration> | null = null
+let unsubscribeConfiguration: (() => void) | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
+
+app.setName('Memorilo')
 
 function databasePath(userDataPath: string): string {
   const configured = process.env.MEMORILO_DATABASE_PATH
@@ -26,6 +41,23 @@ function embeddingModelCacheDirectory(): string {
   if (app.isPackaged)
     return join(process.resourcesPath, 'embedding-models')
   return resolve(mainDirectory, '../../../../.cache/embedding-models')
+}
+
+function desktopConfigurationAdapter(userDataPath: string): ConfigurationAdapter {
+  const adapter = createJsonFileConfigurationAdapter(join(userDataPath, 'configuration.json'))
+  return {
+    read: async () => {
+      const stored = await adapter.read()
+      if (stored === null)
+        return null
+      const migrated = migrateDesktopConfiguration(stored)
+      if (migrated !== stored)
+        await adapter.write(migrated)
+      return migrated
+    },
+    subscribe: adapter.subscribe,
+    write: adapter.write,
+  }
 }
 
 function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
@@ -79,6 +111,13 @@ function createWindow() {
 
 async function startApplication(): Promise<void> {
   const userDataPath = app.getPath('userData')
+  configurationStore = await createConfigurationStore(
+    desktopConfigurationDefinition,
+    desktopConfigurationAdapter(userDataPath),
+    {
+      onError: error => console.error('Failed to hot reload desktop configuration', error),
+    },
+  )
   editorStorage = await createEditorStorage({
     database: new BetterSqliteDatabase(databasePath(userDataPath)),
     embeddingModel: new TransformersEmbeddingModel({
@@ -86,7 +125,16 @@ async function startApplication(): Promise<void> {
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
   })
-  createDesktopServices(editorStorage)
+  createDesktopServices(editorStorage, configurationStore)
+  unsubscribeConfiguration = configurationStore.subscribe(() => {
+    const configuration = configurationStore?.getSnapshot()
+    if (!configuration)
+      throw new Error('Desktop configuration store closed before broadcasting an update')
+    for (const window of BrowserWindow.getAllWindows())
+      window.webContents.send(desktopConfigurationChangedChannel, configuration)
+  })
+  const settingsWindow = createSettingsWindowController(mainDirectory)
+  installApplicationMenu(settingsWindow.show)
   createWindow()
 
   app.on('activate', () => {
@@ -103,6 +151,10 @@ void app.whenReady()
   })
 
 app.on('will-quit', () => {
+  unsubscribeConfiguration?.()
+  unsubscribeConfiguration = null
+  configurationStore?.close()
+  configurationStore = null
   if (editorStorage === null)
     return
   void editorStorage.close()

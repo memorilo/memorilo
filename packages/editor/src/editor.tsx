@@ -5,11 +5,12 @@ import type { OutlineOptions } from './common/outline-runtime'
 import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { EditorMode, editorModeName } from './common/editor-mode'
 import { createEditorSession } from './common/editor-session'
 import { editorShellStyles } from './common/editor-shell.stylex'
 import { resolveOutlineFocusTarget } from './common/outline-runtime'
+import { useEditorTopicMode } from './note/use-editor-topic-mode'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
@@ -46,10 +47,18 @@ export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
   const onCardSyncErrorRef = useRef(props.cards?.onSyncError)
+  const controlledOutdentBehaviorProvided = Boolean(
+    props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'outdentBehavior'),
+  )
+  const controlledOutdentBehavior = props.outline?.outdentBehavior
+  if (controlledOutdentBehaviorProvided && controlledOutdentBehavior === undefined)
+    throw new TypeError('Controlled Outline outdent behavior cannot be undefined')
   const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
     ? {
         defaultFocus: props.outline.defaultFocus,
-        defaultOutdentBehavior: props.outline.defaultOutdentBehavior,
+        defaultOutdentBehavior: controlledOutdentBehaviorProvided
+          ? controlledOutdentBehavior
+          : props.outline.defaultOutdentBehavior,
       }
     : undefined)
   onDocumentChangeRef.current = props.onDocumentChange
@@ -68,9 +77,7 @@ export function Editor(props: EditorProps) {
     : undefined, [cardRepository])
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
-  const subscribeToMode = useCallback((listener: () => void) => props.topic.subscribe(listener), [props.topic])
-  const getModeSnapshot = useCallback(() => props.topic.getMode(), [props.topic])
-  const mode = useSyncExternalStore(subscribeToMode, getModeSnapshot, getModeSnapshot)
+  const mode = useEditorTopicMode(props.topic)
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
     cards: cardIntegration,
@@ -85,6 +92,14 @@ export function Editor(props: EditorProps) {
     const blockId = controlledFocus ? resolveOutlineFocusTarget(session.editor.getDocJSON(), controlledFocus) : null
     session.outlineRuntime.setFocus(blockId)
   }, [controlledFocus, controlledFocusProvided, session])
+
+  useEffect(() => {
+    if (!controlledOutdentBehaviorProvided)
+      return
+    if (controlledOutdentBehavior === undefined)
+      throw new TypeError('Controlled Outline outdent behavior cannot be undefined')
+    session.outlineRuntime.setOutdentBehavior(controlledOutdentBehavior)
+  }, [controlledOutdentBehavior, controlledOutdentBehaviorProvided, session])
 
   useLayoutEffect(() => {
     session.outlineRuntime.setActive(mode === EditorMode.Outline)

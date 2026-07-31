@@ -8,8 +8,6 @@ import { insertBlockSiblingAfter } from './block-sibling'
 import { currentListBlockContext } from './list-keymap-context'
 import { executeOutlineOutdent, executeOutlineOutdentForBlockIds } from './outline-outdent'
 
-const indentList = createIndentListCommand()
-
 function trailingNestedEmptyBlockId(state: EditorState, focusBlockId: string | null): string | null {
   const { $from } = state.selection
   if (!$from.parent.isTextblock || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0)
@@ -75,18 +73,21 @@ function createOutlineEnterCommand(runtime: OutlineRuntime): Command {
   }
 }
 
-function hasPreviousSiblingBlock(state: EditorState): boolean {
-  const block = currentListBlockContext(state)
-  return block !== null && block.hasPreviousSiblingBlock
-}
-
 function createOutlineIndentCommand(runtime: OutlineRuntime): Command {
   return (state, dispatch, view) => {
     if (!runtime.getSnapshot().active)
       return false
-    if (!hasPreviousSiblingBlock(state))
+    const block = currentListBlockContext(state)
+    if (!block?.hasPreviousSiblingBlock)
       return true
-    return indentList(state, dispatch, view)
+
+    const blockNode = state.doc.nodeAt(block.position)
+    if (!blockNode || !isListNode(blockNode))
+      throw new Error('The current Outline selection is outside its resolved list block')
+    return createIndentListCommand({
+      from: block.position + 1,
+      to: block.position + blockNode.nodeSize - 1,
+    })(state, dispatch, view)
   }
 }
 

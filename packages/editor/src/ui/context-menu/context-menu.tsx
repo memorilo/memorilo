@@ -4,11 +4,14 @@ import type { BasicExtension } from 'prosekit/basic'
 import type { Editor } from 'prosekit/core'
 import type { Uploader } from 'prosekit/extensions/file'
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref } from 'react'
+import type { OutlineRuntime } from '../../common/outline-runtime'
 import type { EditorAction } from '../editor-actions/index.ts'
 import * as stylex from '@stylexjs/stylex'
 import {
   Check,
   ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
   ClipboardPaste,
   Code2,
   Copy,
@@ -26,7 +29,7 @@ import {
 } from 'lucide-react'
 import { AllSelection, TextSelection } from 'prosekit/pm/state'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 
 import { getEditorActions } from '../editor-actions/index.ts'
@@ -73,19 +76,47 @@ function getContextPoint(editor: Editor<BasicExtension>, event: MouseEvent): Poi
   return { x: coords.left, y: coords.bottom }
 }
 
-function moveSelectionToContextPoint(editor: Editor<BasicExtension>, point: Point) {
+function blockIdAtPosition(editor: Editor<BasicExtension>, position: number): string | null {
+  const $position = editor.state.doc.resolve(position)
+  for (let depth = $position.depth; depth > 0; depth -= 1) {
+    const node = $position.node(depth)
+    if (node.type.name !== 'list')
+      continue
+    const blockId = node.attrs.blockId
+    if (typeof blockId !== 'string' || blockId.length === 0)
+      throw new Error('The context menu Outline block is missing its stable id')
+    return blockId
+  }
+  return null
+}
+
+function blockIdFromEventTarget(target: EventTarget | null): string | null {
+  if (!(target instanceof Element))
+    return null
+  const block = target.closest<HTMLElement>('[data-block-id]')
+  if (!block)
+    return null
+  const blockId = block.dataset.blockId
+  if (!blockId)
+    throw new Error('The context menu target block is missing its stable id')
+  return blockId
+}
+
+function moveSelectionToContextPoint(editor: Editor<BasicExtension>, point: Point): string | null {
   const view = editor.view
   const result = view.posAtCoords({ left: point.x, top: point.y })
   if (!result)
-    return
+    return null
+  const blockId = blockIdAtPosition(editor, result.pos)
 
   const { selection } = view.state
   const clickIsInsideSelection = !selection.empty && result.pos >= selection.from && result.pos <= selection.to
   if (clickIsInsideSelection)
-    return
+    return blockId
 
   const nextSelection = TextSelection.near(view.state.doc.resolve(result.pos))
   view.dispatch(view.state.tr.setSelection(nextSelection))
+  return blockId
 }
 
 function runAction(editor: Editor<BasicExtension>, action: EditorAction, close: () => void) {
@@ -235,11 +266,12 @@ function ImageInsertPanel({ point, uploader, onClose }: {
   )
 }
 
-export default function ContextMenu({ uploader }: { uploader: Uploader<string> }) {
+export default function ContextMenu({ outlineRuntime, uploader }: { outlineRuntime: OutlineRuntime, uploader: Uploader<string> }) {
   const editor = useEditor<BasicExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
   const [menuPoint, setMenuPoint] = useState<Point | null>(null)
   const [imagePoint, setImagePoint] = useState<Point | null>(null)
+  const [outlineBlockId, setOutlineBlockId] = useState<string | null>(null)
   const [styleMenuOpen, setStyleMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const styleTriggerRef = useRef<HTMLButtonElement>(null)
@@ -248,6 +280,7 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
 
   const closeMenu = () => {
     setMenuPoint(null)
+    setOutlineBlockId(null)
     setStyleMenuOpen(false)
   }
   const closeImagePanel = () => {
@@ -293,13 +326,26 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
   const canWriteClipboard = typeof navigator.clipboard?.write === 'function'
     && typeof ClipboardItem !== 'undefined'
   const primaryModifier = navigator.userAgent.includes('Macintosh') ? '⌘' : 'Ctrl+'
+  const outlineSnapshot = useSyncExternalStore(
+    outlineRuntime.subscribe,
+    outlineRuntime.getSnapshot,
+    outlineRuntime.getSnapshot,
+  )
+  const outlineCollapseBlockIds = outlineBlockId && outlineSnapshot.active
+    ? outlineSnapshot.selectedBlockIds.includes(outlineBlockId)
+      ? outlineSnapshot.selectedBlockIds
+      : [outlineBlockId]
+    : []
+  const shouldCollapseOutlineBlocks = outlineCollapseBlockIds.some(blockId => !outlineSnapshot.collapsedBlockIds.includes(blockId))
 
   useEffect(() => {
     const editorElement = editor.view.dom
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault()
       const point = getContextPoint(editor, event)
-      moveSelectionToContextPoint(editor, point)
+      const targetBlockId = blockIdFromEventTarget(event.target)
+      const selectedBlockId = moveSelectionToContextPoint(editor, point)
+      setOutlineBlockId(targetBlockId ?? selectedBlockId)
       setImagePoint(null)
       setStyleMenuOpen(false)
       setMenuPoint(point)
@@ -428,6 +474,26 @@ export default function ContextMenu({ uploader }: { uploader: Uploader<string> }
                 }}
                 shortcut={`${primaryModifier}A`}
               />
+
+              {outlineCollapseBlockIds.length > 0
+                ? (
+                    <>
+                      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+                      <ContextMenuItem
+                        icon={shouldCollapseOutlineBlocks
+                          ? <ChevronsUp aria-hidden="true" size={16} />
+                          : <ChevronsDown aria-hidden="true" size={16} />}
+                        label={shouldCollapseOutlineBlocks ? 'Collapse' : 'Expand'}
+                        onMouseEnter={() => setStyleMenuOpen(false)}
+                        onSelect={() => {
+                          outlineRuntime.toggleCollapsed(outlineCollapseBlockIds)
+                          closeMenu()
+                          editor.focus()
+                        }}
+                      />
+                    </>
+                  )
+                : null}
 
               <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 

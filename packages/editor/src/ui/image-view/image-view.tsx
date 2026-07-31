@@ -64,6 +64,7 @@ export default function ImageView(props: ReactNodeViewProps) {
       width={attrs.width ?? undefined}
       height={attrs.height ?? undefined}
       aspectRatio={aspectRatio}
+      onMouseDown={() => props.view.focus()}
       onResizeEnd={event => props.setAttrs(event.detail)}
       data-selected={props.selected ? '' : undefined}
       {...stylex.props(imageViewStyles.resizable, props.selected && imageViewStyles.selected)}

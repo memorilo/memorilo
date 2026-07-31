@@ -108,6 +108,65 @@ function blockWithBody(id: string, body: NodeJSON, children: NodeJSON[] = [], ki
   }
 }
 
+function richSubtree(targetIsNested: boolean): NodeJSON[] {
+  const target = blockWithBody('B', { type: 'paragraph', content: [{ type: 'text', text: 'Target B' }] }, [
+    blockWithBody('C', {
+      type: 'image',
+      attrs: { src: 'memory://rich-subtree-image' },
+    }, [
+      blockWithBody('D', {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Basic front' },
+          {
+            type: 'cardDelimiter',
+            attrs: {
+              backwardCardId: null,
+              definitionId: 'definition-rich-basic',
+              direction: 'forward',
+              forwardCardId: 'card-rich-basic',
+            },
+          },
+          { type: 'text', text: 'Basic back' },
+        ],
+      }, [
+        blockWithBody('E', {
+          type: 'paragraph',
+          content: [{ type: 'text', marks: [{ type: 'bold' }], text: 'Bold level E' }],
+        }, [
+          blockWithBody('F', {
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              marks: [{
+                type: 'cloze',
+                attrs: {
+                  anchorKind: 'rich-content',
+                  cardId: 'card-rich-cloze',
+                  definitionId: 'definition-rich-cloze',
+                  groupId: 'group-rich-cloze',
+                },
+              }],
+              text: 'Cloze level F',
+            }],
+          }, [], 'bullet'),
+        ], 'bullet'),
+      ], 'bullet'),
+    ], 'bullet'),
+  ], 'bullet')
+  const candidates = targetIsNested
+    ? [block('A', [target], 'bullet')]
+    : [block('A', [], 'bullet'), target]
+
+  return [
+    block('Root', [
+      block('Level-1', [
+        block('Level-2', candidates, 'bullet'),
+      ], 'bullet'),
+    ], 'bullet'),
+  ]
+}
+
 function listKindBlock(id: string, kind: 'outline' | 'bullet' | 'ordered' | 'task' | 'toggle', order: number | null): NodeJSON {
   const attrs = kind === 'task'
     ? {
@@ -143,6 +202,28 @@ function blockElement(container: HTMLElement, id: string): HTMLElement {
   if (!element)
     throw new Error(`Block ${id} was not rendered`)
   return element
+}
+
+function expectRichSubtreeContent(container: HTMLElement): void {
+  expect(blockElement(container, 'C').querySelector('img')).toHaveAttribute('src', 'memory://rich-subtree-image')
+  expect(blockElement(container, 'D')).toHaveTextContent('Basic front')
+  expect(blockElement(container, 'D')).toHaveTextContent('Basic back')
+  expect(blockElement(container, 'D').querySelector('[data-card-delimiter]')).toMatchObject({
+    dataset: {
+      cardDefinitionId: 'definition-rich-basic',
+      cardDirection: 'forward',
+      forwardCardId: 'card-rich-basic',
+    },
+  })
+  expect(blockElement(container, 'E').querySelector('strong')).toHaveTextContent('Bold level E')
+  expect(blockElement(container, 'F').querySelector('[data-cloze-group-id="group-rich-cloze"]')).toMatchObject({
+    dataset: {
+      clozeAnchorKind: 'rich-content',
+      clozeCardId: 'card-rich-cloze',
+      clozeDefinitionId: 'definition-rich-cloze',
+    },
+    textContent: 'Cloze level F',
+  })
 }
 
 function marker(container: HTMLElement, id: string): HTMLElement {
@@ -225,7 +306,7 @@ describe('outline interactions', () => {
     await rendered.findByText('Before')
 
     await userEvent.click(rendered.getByRole('button', { name: 'Outline mode' }))
-    await rendered.findByText('Outline view ready.')
+    await waitFor(() => expect(rendered.container.querySelector('[data-editor-mode="outline"]')).not.toBeNull())
     const before = rendered.getByText('Before')
     const editor = rendered.getByRole('textbox', { name: 'Editor content' })
     await userEvent.click(before)
@@ -478,6 +559,69 @@ describe('outline interactions', () => {
     await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
     await waitFor(() => expect(parentBlockId(rendered.container, childId)).toBeNull())
   })
+
+  it('indents an eight-level rich Outline subtree without losing any descendant content', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={{
+          type: 'doc',
+          content: richSubtree(false),
+        }}
+      />,
+    )
+    await rendered.findByText('Cloze level F')
+
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard('{Tab}')
+
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('A'))
+    expect(parentBlockId(rendered.container, 'Root')).toBeNull()
+    expect(parentBlockId(rendered.container, 'Level-1')).toBe('Root')
+    expect(parentBlockId(rendered.container, 'Level-2')).toBe('Level-1')
+    expect(parentBlockId(rendered.container, 'A')).toBe('Level-2')
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expect(parentBlockId(rendered.container, 'D')).toBe('C')
+    expect(parentBlockId(rendered.container, 'E')).toBe('D')
+    expect(parentBlockId(rendered.container, 'F')).toBe('E')
+    expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(9)
+    for (const id of ['Root', 'Level-1', 'Level-2', 'A', 'B', 'C', 'D', 'E', 'F'])
+      expect(blockElement(rendered.container, id)).toHaveAttribute('data-list-kind', 'bullet')
+    expectRichSubtreeContent(rendered.container)
+  })
+
+  it.each(['logical', 'traditional'] as const)(
+    'outdents an eight-level rich Outline subtree without losing any descendant content in %s mode',
+    async (outdentBehavior) => {
+      const rendered = render(
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Outline}
+          initialContent={{ type: 'doc', content: richSubtree(true) }}
+          outline={{ outdentBehavior }}
+        />,
+      )
+      await rendered.findByText('Cloze level F')
+
+      await userEvent.click(paragraph(rendered.container, 'B'))
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+      await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('Level-2'))
+      expect(parentBlockId(rendered.container, 'Root')).toBeNull()
+      expect(parentBlockId(rendered.container, 'Level-1')).toBe('Root')
+      expect(parentBlockId(rendered.container, 'Level-2')).toBe('Level-1')
+      expect(parentBlockId(rendered.container, 'A')).toBe('Level-2')
+      expect(parentBlockId(rendered.container, 'C')).toBe('B')
+      expect(parentBlockId(rendered.container, 'D')).toBe('C')
+      expect(parentBlockId(rendered.container, 'E')).toBe('D')
+      expect(parentBlockId(rendered.container, 'F')).toBe('E')
+      expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(9)
+      for (const id of ['Root', 'Level-1', 'Level-2', 'A', 'B', 'C', 'D', 'E', 'F'])
+        expect(blockElement(rendered.container, id)).toHaveAttribute('data-list-kind', 'bullet')
+      expectRichSubtreeContent(rendered.container)
+    },
+  )
 
   it.each(outlineListKindCases)('indents and outdents a $kind list item in Outline mode', async ({ kind, order }) => {
     const rendered = render(
@@ -772,48 +916,33 @@ describe('outline interactions', () => {
     expect(onDocumentChange).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-contiguous Traditional Outdent and applies Logical Outdent as one undoable transaction', async () => {
-    const onDocumentChange = vi.fn()
-    const rendered = render(
-      <Editor
-        adapters={adapters}
-        mode={EditorMode.Outline}
-        initialContent={outlineDocument()}
-        onDocumentChange={onDocumentChange}
-      />,
-    )
-    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="D"]')).not.toBeNull())
+  it.each([
+    { behavior: 'logical', followingParentId: 'P' },
+    { behavior: 'traditional', followingParentId: 'B' },
+  ] as const)(
+    'applies $behavior Outdent semantics to one active Outline block',
+    async ({ behavior, followingParentId }) => {
+      const rendered = render(
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Outline}
+          initialContent={{
+            type: 'doc',
+            content: [block('P', [block('A'), block('B'), block('C')])],
+          }}
+          outline={{ outdentBehavior: behavior }}
+        />,
+      )
+      await waitFor(() => expect(blockElement(rendered.container, 'C')).toBeInTheDocument())
 
-    await userEvent.click(marker(rendered.container, 'B'), { modifiers: ['Meta'] })
-    await userEvent.click(marker(rendered.container, 'D'), { modifiers: ['Meta'] })
-    await userEvent.selectOptions(rendered.getByRole('combobox', { name: 'Outdent behavior' }), 'traditional')
+      await userEvent.click(paragraph(rendered.container, 'B'))
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
 
-    const outdent = rendered.getByRole('button', { name: 'Outdent selected blocks' })
-    expect(outdent).toBeDisabled()
-    expect(rendered.getByRole('status')).toHaveTextContent(
-      'Traditional outdent requires consecutive blocks under the same parent. Adjust the selection or switch to Logical outdent.',
-    )
-    expect(onDocumentChange).not.toHaveBeenCalled()
-
-    await userEvent.selectOptions(rendered.getByRole('combobox', { name: 'Outdent behavior' }), 'logical')
-    expect(outdent).toBeEnabled()
-    await userEvent.click(outdent)
-
-    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
-    expect(parentBlockId(rendered.container, 'D')).toBeNull()
-    expect(parentBlockId(rendered.container, 'C')).toBe('P')
-    expect(selectedIds(rendered.container)).toEqual(['B', 'D'])
-    expect(onDocumentChange).toHaveBeenCalledTimes(1)
-
-    await userEvent.click(paragraph(rendered.container, 'B'))
-    await userEvent.keyboard('{Meta>}z{/Meta}')
-    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('P'))
-    expect(parentBlockId(rendered.container, 'D')).toBe('P')
-
-    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
-    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
-    expect(parentBlockId(rendered.container, 'D')).toBeNull()
-  })
+      await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
+      expect(parentBlockId(rendered.container, 'A')).toBe('P')
+      expect(parentBlockId(rendered.container, 'C')).toBe(followingParentId)
+    },
+  )
 
   it('applies Traditional Outdent to one contiguous sibling range', async () => {
     const onDocumentChange = vi.fn()
@@ -822,6 +951,7 @@ describe('outline interactions', () => {
         adapters={adapters}
         mode={EditorMode.Outline}
         initialContent={outlineDocument()}
+        outline={{ defaultOutdentBehavior: 'traditional' }}
         onDocumentChange={onDocumentChange}
       />,
     )
@@ -829,8 +959,8 @@ describe('outline interactions', () => {
 
     await userEvent.click(marker(rendered.container, 'B'), { modifiers: ['Meta'] })
     await userEvent.click(marker(rendered.container, 'C'), { modifiers: ['Shift'] })
-    await userEvent.selectOptions(rendered.getByRole('combobox', { name: 'Outdent behavior' }), 'traditional')
-    await userEvent.click(rendered.getByRole('button', { name: 'Outdent selected blocks' }))
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
 
     await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
     expect(parentBlockId(rendered.container, 'C')).toBeNull()
@@ -844,6 +974,32 @@ describe('outline interactions', () => {
     expect(parentBlockId(rendered.container, 'C')).toBe('P')
     expect(parentBlockId(rendered.container, 'D')).toBe('P')
     expect(parentBlockId(rendered.container, 'E')).toBe('P')
+  })
+
+  it('applies an updated controlled Outdent behavior without remounting the editor', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+        outline={{ outdentBehavior: 'logical' }}
+      />,
+    )
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="C"]')).not.toBeNull())
+
+    rendered.rerender(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+        outline={{ outdentBehavior: 'traditional' }}
+      />,
+    )
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
   })
 
   it('uses the selected blocks for Logical Outdent from Shift-Tab', async () => {
@@ -899,6 +1055,7 @@ describe('outline interactions', () => {
         adapters={adapters}
         mode={EditorMode.Outline}
         initialContent={outlineDocument()}
+        outline={{ defaultOutdentBehavior: 'traditional' }}
         onDocumentChange={onDocumentChange}
       />,
     )
@@ -906,16 +1063,12 @@ describe('outline interactions', () => {
 
     await userEvent.click(marker(rendered.container, 'B'), { modifiers: ['Meta'] })
     await userEvent.click(marker(rendered.container, 'D'), { modifiers: ['Meta'] })
-    await userEvent.selectOptions(rendered.getByRole('combobox', { name: 'Outdent behavior' }), 'traditional')
     await userEvent.click(page.getByText('B', { exact: true }))
     await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
 
     expect(parentBlockId(rendered.container, 'B')).toBe('P')
     expect(parentBlockId(rendered.container, 'D')).toBe('P')
     expect(selectedIds(rendered.container)).toEqual(['B', 'D'])
-    expect(rendered.getByRole('status')).toHaveTextContent(
-      'Traditional outdent requires consecutive blocks under the same parent. Adjust the selection or switch to Logical outdent.',
-    )
     expect(onDocumentChange).not.toHaveBeenCalled()
   })
 
@@ -933,9 +1086,9 @@ describe('outline interactions', () => {
     await waitFor(() => expect(blockElement(rendered.container, 'F')).toHaveAttribute('data-outline-focus-root'))
 
     await userEvent.click(marker(rendered.container, 'A'), { modifiers: ['Meta'] })
+    await userEvent.click(paragraph(rendered.container, 'A'))
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
 
-    expect(rendered.getByRole('button', { name: 'Outdent selected blocks' })).toBeDisabled()
-    expect(rendered.getByRole('status')).toHaveTextContent('This block cannot move outside the current Focus view.')
     expect(parentBlockId(rendered.container, 'A')).toBe('F')
     expect(onDocumentChange).not.toHaveBeenCalled()
   })

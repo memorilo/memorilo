@@ -6,17 +6,19 @@ import type {
   NoteEntrySnapshot,
 } from '@memorilo/editor'
 import type { Cause } from 'effect'
-import { createEditorNote, demoEditorAdapters, Editor } from '@memorilo/editor'
+import { createEditorNote, demoEditorAdapters, Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Effect, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
 import {
+  AlignLeft,
   ChevronRight,
   FileText,
   Folder,
   FolderOpen,
+  ListTree,
   PanelRight,
   Star,
 } from 'lucide-react'
@@ -24,6 +26,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { useDesktopConfiguration } from '../configuration-context'
 import { noteQueryKeys } from '../queries/note-query-keys'
 import { editorRouteStyles } from './-note.stylex'
 
@@ -143,6 +146,7 @@ function OpenedTopicEditor({
   saveError: string | null
 }) {
   const [inspectorVisible, setInspectorVisible] = useState(true)
+  const configuration = useDesktopConfiguration()
   const shouldReduceMotion = useReducedMotion()
   const inspectorTransition = shouldReduceMotion ? { duration: 0 } : inspectorSpring
   const entryTransition = shouldReduceMotion ? { duration: 0 } : entrySpring
@@ -154,13 +158,50 @@ function OpenedTopicEditor({
     () => opened.entries.reduce((count, entry) => count + (entry.kind === 'topic' ? 1 : 0), 0),
     [opened.entries],
   )
+  const mode = useEditorTopicMode(opened.topic)
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [])
+  const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
+  const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
   const titlebar = useMemo(() => ({
     onRenameTitle: renameNote,
     title: opened.stored.title,
     trailing: (
       <>
+        <div {...stylex.props(editorRouteStyles.titlebarModeGroup)} aria-label="Editor mode" role="group">
+          <button
+            {...stylex.props(
+              editorRouteStyles.titlebarActionButton,
+              editorRouteStyles.titlebarModeButton,
+              mode === EditorMode.Document && editorRouteStyles.titlebarModeActive,
+            )}
+            aria-label="Document mode"
+            aria-pressed={mode === EditorMode.Document}
+            title="Document mode"
+            type="button"
+            onClick={showDocumentMode}
+            onPointerDown={event => event.preventDefault()}
+          >
+            <AlignLeft aria-hidden="true" size={16} strokeWidth={1.8} />
+            <span>Document</span>
+          </button>
+          <button
+            {...stylex.props(
+              editorRouteStyles.titlebarActionButton,
+              editorRouteStyles.titlebarModeButton,
+              mode === EditorMode.Outline && editorRouteStyles.titlebarModeActive,
+            )}
+            aria-label="Outline mode"
+            aria-pressed={mode === EditorMode.Outline}
+            title="Outline mode"
+            type="button"
+            onClick={showOutlineMode}
+            onPointerDown={event => event.preventDefault()}
+          >
+            <ListTree aria-hidden="true" size={16} strokeWidth={1.8} />
+            <span>Outline</span>
+          </button>
+        </div>
         <button
           {...stylex.props(
             editorRouteStyles.titlebarActionButton,
@@ -194,10 +235,13 @@ function OpenedTopicEditor({
   }), [
     favoritePending,
     inspectorVisible,
+    mode,
     onToggleFavorite,
     opened.stored.favorite,
     opened.stored.title,
     renameNote,
+    showDocumentMode,
+    showOutlineMode,
     toggleInspector,
   ])
   usePageTitlebar(titlebar)
@@ -216,6 +260,7 @@ function OpenedTopicEditor({
         <Editor
           adapters={demoEditorAdapters}
           focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
+          outline={{ outdentBehavior: configuration.outdentBehavior }}
           topic={opened.topic}
         />
       </section>

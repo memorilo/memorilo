@@ -10,6 +10,7 @@ export interface OutlineOptions {
   defaultOutdentBehavior?: OutdentBehavior
   focus?: OutlineFocusTarget | null
   onFocusChange?: (focus: { blockId: string } | null) => void
+  outdentBehavior?: OutdentBehavior
 }
 
 export interface OutlineRuntimeSnapshot {

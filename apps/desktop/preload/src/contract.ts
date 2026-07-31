@@ -1,3 +1,7 @@
+import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+
+export type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+
 export interface RuntimeInfo {
   platform: string
   version: string
@@ -162,6 +166,7 @@ export type DesktopNoteSearchHit = DesktopNoteTitleSearchHit | DesktopTopicSearc
 
 export interface DesktopApi {
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
+  getConfiguration: () => Promise<DesktopConfiguration>
   getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
   getRuntimeInfo: () => Promise<RuntimeInfo>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
@@ -183,7 +188,9 @@ export interface DesktopApi {
     query: string
   }) => Promise<readonly DesktopTopicBlockSearchHit[]>
   setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
+  setConfiguration: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
   showColumnVisibilityMenu: (
     input: ShowDesktopColumnVisibilityMenuInput,
   ) => Promise<DesktopColumnVisibilityMenuSelection | null>
+  subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
 }

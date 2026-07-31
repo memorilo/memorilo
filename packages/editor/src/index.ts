@@ -69,3 +69,4 @@ export type {
 export { createEditorNote } from './note/editor-note'
 export type { TopicBlockProjection } from './note/topic-projection'
 export { projectTopicBlocks } from './note/topic-projection'
+export { useEditorTopicMode } from './note/use-editor-topic-mode'
