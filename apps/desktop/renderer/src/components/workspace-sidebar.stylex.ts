@@ -111,7 +111,7 @@ export const workspaceSidebarStyles = stylex.create({
     paddingLeft: 8,
     backgroundColor: 'transparent',
     color: colors.textMuted,
-    cursor: 'pointer',
+    cursor: 'default',
     fontSize: 11,
     fontWeight: 600,
     letterSpacing: 0,
