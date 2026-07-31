@@ -967,6 +967,192 @@ describe('document interactions', () => {
     expect(rendered.getByRole('textbox', { name: 'Editor content' })).toHaveFocus()
   })
 
+  it('creates a semantic Card answer child when Enter follows a typed Card delimiter', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('question', paragraph('Question'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Question')
+
+    await userEvent.click(rendered.getByText('Question'))
+    await userEvent.keyboard('{End}:-> {Enter}Answer')
+
+    await waitFor(() => expect(rendered.getByText('Answer')).toBeInTheDocument())
+    const delimiter = rendered.container.querySelector<HTMLElement>('[data-card-delimiter]')
+    const definitionId = delimiter?.dataset.cardDefinitionId
+    if (!definitionId)
+      throw new Error('Typed Basic Card is missing its stable DefinitionID')
+    const member = rendered.container.querySelector<HTMLElement>(`[data-card-item-definition-id="${definitionId}"]`)
+    const memberId = member?.dataset.blockId
+    if (!memberId)
+      throw new Error('Card answer member is missing its stable BlockID')
+
+    expect(delimiter).toHaveAttribute('data-card-direction', 'forward')
+    expect(member).toHaveAttribute('data-list-kind', 'outline')
+    expect(member).toHaveTextContent('Answer')
+    expect(parentBlockId(rendered.container, memberId)).toBe('question')
+  })
+
+  it('keeps content after delimiter-adjacent spaces in an outline Card answer member', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('question', paragraph('Question'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Question')
+
+    await userEvent.click(rendered.getByText('Question'))
+    await userEvent.keyboard('{End}:->    Answer')
+    const delimiter = await waitFor(() => {
+      const element = rendered.container.querySelector<HTMLElement>('[data-card-delimiter]')
+      expect(element).not.toBeNull()
+      return element
+    })
+    const definitionId = delimiter?.dataset.cardDefinitionId
+    if (!definitionId)
+      throw new Error('Spaced Basic Card is missing its stable DefinitionID')
+    for (let index = 0; index < 'Answer'.length; index += 1)
+      await userEvent.keyboard('{ArrowLeft}')
+
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => {
+      const member = rendered.container.querySelector<HTMLElement>(`[data-card-item-definition-id="${definitionId}"]`)
+      const memberId = member?.dataset.blockId
+      if (!memberId)
+        throw new Error('Spaced Card answer is missing its stable BlockID')
+      expect(member).toHaveAttribute('data-list-kind', 'outline')
+      expect(member).toHaveTextContent('Answer')
+      expect(parentBlockId(rendered.container, memberId)).toBe('question')
+      expect(rendered.container.querySelector('[data-block-id="question"] > .list-content > p')).toHaveTextContent('Question→')
+    })
+  })
+
+  it('continues Card answer membership when Enter creates another direct member', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('question', paragraph('Question'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Question')
+
+    await userEvent.click(rendered.getByText('Question'))
+    await userEvent.keyboard('{End}:-> {Enter}First answer{Enter}Second answer')
+
+    await waitFor(() => expect(rendered.getByText('Second answer')).toBeInTheDocument())
+    const delimiter = rendered.container.querySelector<HTMLElement>('[data-card-delimiter]')
+    const definitionId = delimiter?.dataset.cardDefinitionId
+    if (!definitionId)
+      throw new Error('Typed Card is missing its stable DefinitionID')
+    const members = rendered.container.querySelectorAll(`[data-card-item-definition-id="${definitionId}"]`)
+
+    expect(members).toHaveLength(2)
+    expect(members[0]).toHaveAttribute('data-list-kind', 'outline')
+    expect(members[1]).toHaveAttribute('data-list-kind', 'outline')
+    expect(members[0]).toHaveTextContent('First answer')
+    expect(members[1]).toHaveTextContent('Second answer')
+  })
+
+  it('uses Tab on a following Document block as an explicit Add to Card Back command', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('question', {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'Question' },
+                {
+                  type: 'cardDelimiter',
+                  attrs: {
+                    backwardCardId: null,
+                    definitionId: 'definition-question',
+                    direction: 'forward',
+                    forwardCardId: 'card-question',
+                  },
+                },
+              ],
+            }),
+            documentBlock('answer', paragraph('Existing answer block')),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Existing answer block')
+
+    await userEvent.click(rendered.getByText('Existing answer block'))
+    await userEvent.keyboard('{Tab}')
+
+    await waitFor(() => {
+      expect(parentBlockId(rendered.container, 'answer')).toBe('question')
+      expect(rendered.container.querySelector('[data-block-id="answer"]')).toHaveAttribute(
+        'data-card-item-definition-id',
+        'definition-question',
+      )
+      expect(rendered.container.querySelector('[data-block-id="answer"]')).toHaveAttribute('data-list-kind', 'outline')
+    })
+  })
+
+  it('preserves a task Block kind when Tab adds it to a Set Card Back', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('question', {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'Question' },
+                {
+                  type: 'cardDelimiter',
+                  attrs: {
+                    backwardCardId: null,
+                    definitionId: 'definition-question',
+                    direction: 'forward',
+                    forwardCardId: 'card-question',
+                  },
+                },
+              ],
+            }),
+            documentBlock('answer', paragraph('Task answer block'), 'task'),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Task answer block')
+
+    await userEvent.click(rendered.getByText('Task answer block'))
+    await userEvent.keyboard('{Tab}')
+
+    await waitFor(() => {
+      const answer = rendered.container.querySelector('[data-block-id="answer"]')
+      expect(parentBlockId(rendered.container, 'answer')).toBe('question')
+      expect(answer).toHaveAttribute('data-card-item-definition-id', 'definition-question')
+      expect(answer).toHaveAttribute('data-list-kind', 'task')
+    })
+  })
+
   it('keeps the first ordinary Document block wrapped at its start on Backspace', async () => {
     const rendered = render(
       <Editor

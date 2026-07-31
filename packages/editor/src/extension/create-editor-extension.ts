@@ -28,6 +28,7 @@ import { defineImageUploadHandler } from 'prosekit/extensions/image'
 import { defineMath } from 'prosekit/extensions/math'
 
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
+import { defineCardExtension } from '../card/card-extension'
 import { defineBlockIdExtension } from '../common/block-id-extension'
 import { defineEditorKeymapExtension } from '../common/editor-keymap-extension'
 import { defineOutlineKeymapExtension } from '../common/outline-keymap-extension'
@@ -92,6 +93,7 @@ export function createEditorExtension(
 
   const editorExtension = union(
     defineBasicExtension(),
+    defineCardExtension(),
     withPriority(defineBlockIdExtension(), Priority.highest),
     defineTableKeymapExtension(),
     defineEditorKeymapExtension(),

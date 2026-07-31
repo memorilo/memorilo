@@ -475,6 +475,10 @@ function validateRestoredNote(doc: LoroDoc, expectedId: string): void {
 export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   const id = assertNonEmpty(options.id, 'Note id')
   const doc = new LoroDoc()
+  doc.configTextStyle({
+    cloze: { expand: 'none' },
+    inlineHighlight: { expand: 'both' },
+  })
   const restoring = (options.snapshot !== null && options.snapshot !== undefined)
     || ((options.updates?.length ?? 0) > 0)
   if (restoring && options.initialTopicHeading !== undefined)
