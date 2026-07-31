@@ -1,7 +1,9 @@
 import type { LucideIcon } from 'lucide-react'
 import * as stylex from '@stylexjs/stylex'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
+  BookOpen,
   CalendarDays,
   ChevronDown,
   Clock3,
@@ -30,11 +32,13 @@ interface SourceItemProps {
   icon: LucideIcon
   label: string
   selected?: boolean
+  to?: '/' | '/reader'
 }
 
 const navigationItems: readonly SourceItemProps[] = [
-  { icon: CalendarDays, label: 'Journals', selected: true },
+  { icon: CalendarDays, label: 'Journals', to: '/' },
   { icon: Files, label: 'Pages' },
+  { icon: BookOpen, label: 'Reader', to: '/reader' },
 ]
 
 const favoriteItems: readonly SourceItemProps[] = [
@@ -55,21 +59,41 @@ function estimateSourceRowSize() {
   return sourceRowHeight
 }
 
-function SourceItem({ icon: Icon, label, selected = false }: SourceItemProps) {
-  return (
-    <button
-      {...stylex.props(workspaceSidebarStyles.sourceItem, selected && workspaceSidebarStyles.sourceItemSelected)}
-      aria-current={selected ? 'page' : undefined}
-      type="button"
-    >
+function SourceItem({ icon: Icon, label, selected = false, to }: SourceItemProps) {
+  const pathname = useRouterState({ select: state => state.location.pathname })
+  const isSelected = to ? pathname === to : selected
+  const content = (
+    <>
       <Icon
-        {...stylex.props(workspaceSidebarStyles.sourceIcon, selected && workspaceSidebarStyles.sourceIconSelected)}
+        {...stylex.props(workspaceSidebarStyles.sourceIcon, isSelected && workspaceSidebarStyles.sourceIconSelected)}
         aria-hidden="true"
         strokeWidth={1.8}
       />
-      <span {...stylex.props(workspaceSidebarStyles.sourceLabel, selected && workspaceSidebarStyles.sourceLabelSelected)}>
+      <span {...stylex.props(workspaceSidebarStyles.sourceLabel, isSelected && workspaceSidebarStyles.sourceLabelSelected)}>
         {label}
       </span>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link
+        {...stylex.props(workspaceSidebarStyles.sourceItem, isSelected && workspaceSidebarStyles.sourceItemSelected)}
+        aria-current={isSelected ? 'page' : undefined}
+        to={to}
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      {...stylex.props(workspaceSidebarStyles.sourceItem, isSelected && workspaceSidebarStyles.sourceItemSelected)}
+      aria-current={isSelected ? 'page' : undefined}
+      type="button"
+    >
+      {content}
     </button>
   )
 }
