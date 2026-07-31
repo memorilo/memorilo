@@ -12,13 +12,21 @@ Memorilo 的 Document 与 Outline 是同一份文档、同一个编辑器状态�
 | --- | --- | --- |
 | 普通非空块 `Enter` | 在光标处分割为下一个可编辑块 | 创建同级 Outline 项；新项获得唯一稳定 ID |
 | 空父分支 `Enter` | 使用基础 flat-list 行为 | 保留父分支及其子树，创建一个同级空项；整个结构变化可一次撤销 |
-| `Tab` | 使用基础列表缩进，将当前项放到前一项之下 | 将当前 Outline 项缩进到前一项之下 |
-| `Shift-Tab` | 使用基础列表反缩进 | 对当前项或块选择执行当前 Outdent 策略 |
+| `Tab` | 仅允许语义列表项在直接文本光标处缩进到前一个语义列表项之下；其他情况不改变层级 | 将当前 Outline 项缩进到前一项之下 |
+| `Shift-Tab` | 仅允许嵌套语义列表项在直接文本光标处反缩进；其他情况不改变层级 | 对当前项或块选择执行当前 Outdent 策略 |
 | 空叶项 `Backspace` | 使用基础列表合并/删除行为 | 删除空叶项，并保留前一项 |
 | `Cmd/Ctrl-Z` | 撤销同一文档历史 | 撤销同一文档历史，包括 Outline 结构事务 |
 | `Cmd/Ctrl-Shift-Z` | 重做同一文档历史 | 重做同一文档历史，包括 Outline 结构事务 |
 
-Outline 的 Enter 和 Shift-Tab 由模式感知的 ProseMirror keymap 提供。Outline 未激活时命令返回 `false`，后续基础 keymap 会继续处理事件，所以 Document 不会经过 Outline 的空分支或 Outdent 逻辑。
+Outline 的 Enter 和 Shift-Tab 由模式感知的 ProseMirror keymap 提供。Outline 未激活时命令返回 `false`，后续基础 keymap 会继续处理事件，所以 Document 不会经过 Outline 的空分支或 Outdent 逻辑。Document 的 Tab keymap 会明确消费被禁止的结构操作，避免它们回落到底层通用列表 keymap 后绕过模式约束。
+
+### Document structural boundaries
+
+Document 中的层级变化只服务于真正的语义列表。`bullet`、`ordered`、`task` 和 `toggle` 可以互相作为合法的父子列表项，但普通 `outline` Document 块不能成为它们的缩进目标。
+
+键盘缩进还要求选区是语义列表项直接文本块里的折叠光标。代码块、引用、表格等复杂后代、跨块文本选区和 block handler 创建的节点选区都不会移动外层列表项。表格中的 Tab/Shift-Tab 只负责单元格导航。
+
+Document 中通过 block handler 拖动只允许在同一个父节点下重新排序；不能把块拖成其他块的子元素，也不能把嵌套块拖到另一个父节点。Outline 模式继续允许结构化 reparent。
 
 ## Node-specific Enter behavior
 
@@ -114,6 +122,6 @@ C
 
 所有交互测试都通过公开 `Editor` UI，在独立 Vitest Browser 页面内启动真实 Chrome，并由 Playwright provider 驱动；测试不依赖 Electron，也不依赖桌面 renderer 页面结构。
 
-- `packages/editor/src/document/document-interactions.test.tsx`：普通块 Enter 与历史、代码块、标题、引用、语义无序/有序列表、Document 原生 Tab/Shift-Tab。
-- `packages/editor/src/outline/outline-interactions.test.tsx`：代码块、空分支回归、Enter/Tab/Shift-Tab、空叶 Backspace、语义列表、连续/非连续选择、Focus、折叠、Logical/Traditional Outdent 及原子撤销。
+- `packages/editor/src/document/document-interactions.test.tsx`：普通块 Enter 与历史、代码块、标题、引用、四种语义列表及混合 kind 嵌套、Document Tab/Shift-Tab 的选区和层级边界，以及同父排序与禁止拖拽 reparent。
+- `packages/editor/src/outline/outline-interactions.test.tsx`：代码块、空分支回归、五种 list kind 与 paragraph/heading/blockquote/code/math/image/horizontal-rule/table 的 Tab/Shift-Tab、空叶 Backspace、连续/非连续选择、Focus、折叠、Logical/Traditional Outdent 及原子撤销。
 - `packages/editor/src/editor-mode.test.tsx`：受控/非受控切换、非空文档自由切换、两种列表语义、圆点对齐和跨模式历史。

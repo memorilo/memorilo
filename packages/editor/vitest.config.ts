@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['prosekit/pm/commands', 'prosekit/pm/view'],
+    include: ['prosekit/extensions/drop-indicator', 'prosekit/pm/commands', 'prosekit/pm/view'],
   },
   plugins: [
     wasm(),

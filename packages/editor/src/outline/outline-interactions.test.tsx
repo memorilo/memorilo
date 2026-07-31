@@ -1,7 +1,7 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import * as stylex from '@stylexjs/stylex'
-import { render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
@@ -19,6 +19,64 @@ const adapters: EditorAdapters = {
     update: async tag => tag,
   },
 }
+
+const outlineListKindCases = [
+  { kind: 'outline', order: null },
+  { kind: 'bullet', order: null },
+  { kind: 'ordered', order: 4 },
+  { kind: 'task', order: null },
+  { kind: 'toggle', order: null },
+] as const
+
+const outlineBodyCases: Array<{ body: NodeJSON, name: string, selector: string }> = [
+  {
+    body: {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Heading target' }],
+    },
+    name: 'heading',
+    selector: 'h2',
+  },
+  {
+    body: {
+      type: 'blockquote',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Quote target' }] }],
+    },
+    name: 'blockquote',
+    selector: 'blockquote p',
+  },
+  {
+    body: {
+      type: 'codeBlock',
+      attrs: { language: 'javascript' },
+      content: [{ type: 'text', text: 'const target = true' }],
+    },
+    name: 'code block',
+    selector: 'pre[data-language]',
+  },
+  {
+    body: {
+      type: 'mathBlock',
+      content: [{ type: 'text', text: 'x^2' }],
+    },
+    name: 'math block',
+    selector: '.prosemirror-math-source code',
+  },
+  {
+    body: {
+      type: 'image',
+      attrs: { src: 'memory://outline-image' },
+    },
+    name: 'image',
+    selector: 'img[alt="upload preview"]',
+  },
+  {
+    body: { type: 'horizontalRule' },
+    name: 'horizontal rule',
+    selector: 'hr',
+  },
+]
 
 function block(id: string, children: NodeJSON[] = [], kind = 'outline'): NodeJSON {
   return {
@@ -47,6 +105,26 @@ function blockWithBody(id: string, body: NodeJSON, children: NodeJSON[] = [], ki
     type: 'list',
     attrs: { blockId: id, checked: false, collapsed: false, kind, order: null },
     content: [body, ...children],
+  }
+}
+
+function listKindBlock(id: string, kind: 'outline' | 'bullet' | 'ordered' | 'task' | 'toggle', order: number | null): NodeJSON {
+  const attrs = kind === 'task'
+    ? {
+        blockId: id,
+        checked: false,
+        collapsed: false,
+        elapsedMs: 0,
+        kind,
+        order,
+        startedAt: null,
+        status: 'todo',
+      }
+    : { blockId: id, checked: false, collapsed: false, kind, order }
+  return {
+    type: 'list',
+    attrs,
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: id }] }],
   }
 }
 
@@ -215,6 +293,59 @@ describe('outline interactions', () => {
     expect(selectedDomBlockId()).toBe(ids[1])
   })
 
+  it('reparents an Outline block when it is dragged onto another block', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Outline}
+          initialContent={{
+            type: 'doc',
+            content: [
+              block('A', [block('C')]),
+              block('B'),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('B')
+
+    await userEvent.hover(page.getByText('B', { exact: true }))
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 250))
+    })
+    const dragHandle = rendered.getByLabelText('Drag block')
+    expect(dragHandle).toBeVisible()
+    await act(async () => {
+      fireEvent.pointerDown(dragHandle)
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    })
+    expect(blockElement(rendered.container, 'B')).toHaveClass('ProseMirror-selectednode')
+
+    const target = rendered.getByText('C', { exact: true })
+    const targetRect = target.getBoundingClientRect()
+    const dataTransfer = new DataTransfer()
+    const dragEventInit = {
+      clientX: targetRect.left + 1,
+      clientY: targetRect.bottom - 1,
+      dataTransfer,
+    }
+    await act(async () => {
+      fireEvent.dragStart(dragHandle, dragEventInit)
+      fireEvent.dragOver(target, dragEventInit)
+      fireEvent.drop(target, dragEventInit)
+      fireEvent.dragEnd(dragHandle, dragEventInit)
+      await new Promise<void>(resolve => setTimeout(resolve, 50))
+    })
+
+    await waitFor(() => {
+      expect(parentBlockId(rendered.container, 'A')).toBeNull()
+      expect(parentBlockId(rendered.container, 'C')).toBe('A')
+      expect(parentBlockId(rendered.container, 'B')).toBe('C')
+    })
+  })
+
   it('keeps creating top-level Outline siblings when Enter is repeated on empty items', async () => {
     const rendered = render(
       <Editor
@@ -346,6 +477,63 @@ describe('outline interactions', () => {
 
     await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
     await waitFor(() => expect(parentBlockId(rendered.container, childId)).toBeNull())
+  })
+
+  it.each(outlineListKindCases)('indents and outdents a $kind list item in Outline mode', async ({ kind, order }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={{
+          type: 'doc',
+          content: [
+            listKindBlock('Previous', kind, order),
+            listKindBlock('Target', kind, order),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Target')
+
+    await userEvent.click(rendered.getByText('Previous'))
+    await userEvent.keyboard('{Tab}{Shift>}{Tab}{/Shift}')
+    expect(parentBlockId(rendered.container, 'Previous')).toBeNull()
+    expect(parentBlockId(rendered.container, 'Target')).toBeNull()
+
+    await userEvent.click(rendered.getByText('Target'))
+    await userEvent.keyboard('{Tab}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'Target')).toBe('Previous'))
+    expect(blockElement(rendered.container, 'Target')).toHaveAttribute('data-list-kind', kind)
+
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'Target')).toBeNull())
+  })
+
+  it.each(outlineBodyCases)('indents and outdents an Outline item with a $name body', async ({ body, selector }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={{
+          type: 'doc',
+          content: [
+            block('Previous'),
+            blockWithBody('Target', body),
+          ],
+        }}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'Target').querySelector(selector)).not.toBeNull())
+    const target = blockElement(rendered.container, 'Target').querySelector<HTMLElement>(selector)
+    if (!target)
+      throw new Error(`Outline target body ${selector} was not rendered`)
+
+    await userEvent.click(target)
+    await userEvent.keyboard('{Tab}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'Target')).toBe('Previous'))
+
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'Target')).toBeNull())
   })
 
   it('limits repeated Tab presses on a new item to one Logseq-style indent', async () => {

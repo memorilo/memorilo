@@ -1,5 +1,6 @@
 import type { BasicExtension } from 'prosekit/basic'
 import type { Editor } from 'prosekit/core'
+import { TextSelection } from 'prosekit/pm/state'
 
 export interface EditorAction {
   active: boolean
@@ -9,6 +10,19 @@ export interface EditorAction {
 
 function action(active: boolean, canExec: boolean, run: () => void): EditorAction {
   return { active, canExec, run }
+}
+
+function insertInlineMath(editor: Editor<BasicExtension>): void {
+  const { state, view } = editor
+  const mathInline = state.schema.nodes.mathInline
+  if (!mathInline)
+    throw new Error('Inserting inline math requires the mathInline node')
+
+  const position = state.selection.from
+  const transaction = state.tr.replaceSelectionWith(mathInline.create())
+  transaction.setSelection(TextSelection.create(transaction.doc, position + 1))
+  view.dispatch(transaction.scrollIntoView())
+  view.focus()
 }
 
 export function getEditorActions(editor: Editor<BasicExtension>) {
@@ -91,6 +105,11 @@ export function getEditorActions(editor: Editor<BasicExtension>) {
       image: {
         canExec: editor.commands.insertImage.canExec(),
       },
+      inlineMath: action(
+        false,
+        editor.commands.insertNode.canExec({ type: 'mathInline' }),
+        () => insertInlineMath(editor),
+      ),
       table: action(
         false,
         editor.commands.insertTable.canExec({ row: 3, col: 3 }),
