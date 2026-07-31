@@ -46,6 +46,94 @@ function paragraph(text: string): NodeJSON {
   return { type: 'paragraph', content: [{ type: 'text', text }] }
 }
 
+function richSubtree(targetIsNested: boolean): NodeJSON[] {
+  const target = documentBlock('B', paragraph('Target B'), 'bullet', [
+    documentBlock('C', {
+      type: 'image',
+      attrs: { src: 'memory://rich-subtree-image' },
+    }, 'bullet', [
+      documentBlock('D', {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Basic front' },
+          {
+            type: 'cardDelimiter',
+            attrs: {
+              backwardCardId: null,
+              definitionId: 'definition-rich-basic',
+              direction: 'forward',
+              forwardCardId: 'card-rich-basic',
+            },
+          },
+          { type: 'text', text: 'Basic back' },
+        ],
+      }, 'bullet', [
+        documentBlock('E', {
+          type: 'paragraph',
+          content: [{ type: 'text', marks: [{ type: 'bold' }], text: 'Bold level E' }],
+        }, 'bullet', [
+          documentBlock('F', {
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              marks: [{
+                type: 'cloze',
+                attrs: {
+                  anchorKind: 'rich-content',
+                  cardId: 'card-rich-cloze',
+                  definitionId: 'definition-rich-cloze',
+                  groupId: 'group-rich-cloze',
+                },
+              }],
+              text: 'Cloze level F',
+            }],
+          }, 'bullet'),
+        ]),
+      ]),
+    ]),
+  ])
+  const candidates = targetIsNested
+    ? [documentBlock('A', paragraph('Previous A'), 'bullet', [target])]
+    : [documentBlock('A', paragraph('Previous A'), 'bullet'), target]
+
+  return [
+    documentBlock('Root', paragraph('Root'), 'bullet', [
+      documentBlock('Level-1', paragraph('Level 1'), 'bullet', [
+        documentBlock('Level-2', paragraph('Level 2'), 'bullet', candidates),
+      ]),
+    ]),
+  ]
+}
+
+function blockElement(container: HTMLElement, id: string): HTMLElement {
+  const element = container.querySelector<HTMLElement>(`[data-block-id="${id}"]`)
+  if (!element)
+    throw new Error(`Document block ${id} was not rendered`)
+  return element
+}
+
+function expectRichSubtreeContent(container: HTMLElement): void {
+  expect(blockElement(container, 'C').querySelector('img')).toHaveAttribute('src', 'memory://rich-subtree-image')
+  expect(blockElement(container, 'D')).toHaveTextContent('Basic front')
+  expect(blockElement(container, 'D')).toHaveTextContent('Basic back')
+  expect(blockElement(container, 'D').querySelector('[data-card-delimiter]')).toMatchObject({
+    dataset: {
+      cardDefinitionId: 'definition-rich-basic',
+      cardDirection: 'forward',
+      forwardCardId: 'card-rich-basic',
+    },
+  })
+  expect(blockElement(container, 'E').querySelector('strong')).toHaveTextContent('Bold level E')
+  expect(blockElement(container, 'F').querySelector('[data-cloze-group-id="group-rich-cloze"]')).toMatchObject({
+    dataset: {
+      clozeAnchorKind: 'rich-content',
+      clozeCardId: 'card-rich-cloze',
+      clozeDefinitionId: 'definition-rich-cloze',
+    },
+    textContent: 'Cloze level F',
+  })
+}
+
 function semanticBlock(id: string, text: string, kind: 'bullet' | 'ordered' | 'task' | 'toggle', order: number | null): NodeJSON {
   const attrs = kind === 'task'
     ? {
@@ -168,7 +256,7 @@ describe('document interactions', () => {
     await rendered.findByText('Before')
 
     await userEvent.click(rendered.getByRole('button', { name: 'Outline mode' }))
-    await rendered.findByText('Outline view ready.')
+    await waitFor(() => expect(rendered.container.querySelector('[data-editor-mode="outline"]')).not.toBeNull())
     await userEvent.click(rendered.getByRole('button', { name: 'Document mode' }))
     const before = await rendered.findByText('Before')
     const editor = rendered.getByRole('textbox', { name: 'Editor content' })
@@ -423,6 +511,61 @@ describe('document interactions', () => {
     })
   })
 
+  it('nests a bulleted Document block when it is dragged onto another bulleted block', async () => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('Parent bullet'), 'bullet'),
+              documentBlock('B', paragraph('Child bullet'), 'bullet'),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Child bullet')
+
+    await dragBlockToText(rendered, 'Child bullet', 'Parent bullet', 'middle')
+
+    await waitFor(() => {
+      expect(rootBlockIds(rendered.container)).toEqual(['A'])
+      expect(parentBlockId(rendered.container, 'B')).toBe('A')
+      expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', 'bullet')
+    })
+  })
+
+  it.each(semanticListCases)('nests a $kind Document item beneath an unmarked block without marking the parent', async ({ kind, order }) => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('Document paragraph')),
+              semanticBlock('B', 'Visible list item', kind, order),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Visible list item')
+
+    await dragBlockToText(rendered, 'Visible list item', 'Document paragraph', 'middle')
+
+    await waitFor(() => {
+      expect(rootBlockIds(rendered.container)).toEqual(['A'])
+      expect(parentBlockId(rendered.container, 'B')).toBe('A')
+      expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'outline')
+      expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', kind)
+    })
+  })
+
   it('keeps a nested Document block under its parent when it is dragged toward the root', async () => {
     const rendered = render(
       <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
@@ -447,6 +590,35 @@ describe('document interactions', () => {
     await waitFor(() => {
       expect(rootBlockIds(rendered.container)).toEqual(['A', 'B'])
       expect(parentBlockId(rendered.container, 'C')).toBe('A')
+    })
+  })
+
+  it.each(semanticListCases)('outdents a nested $kind Document item when it is dragged toward the root', async ({ kind, order }) => {
+    const rendered = render(
+      <div {...stylex.props(testLayoutStyles.blockHandleOffset)}>
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('A', paragraph('Parent block'), 'outline', [
+                semanticBlock('C', 'Nested list item', kind, order),
+              ]),
+              documentBlock('B', paragraph('Root sibling')),
+            ],
+          }}
+        />
+      </div>,
+    )
+    await rendered.findByText('Nested list item')
+
+    await dragBlockToText(rendered, 'Nested list item', 'Root sibling', 'bottom')
+
+    await waitFor(() => {
+      expect(rootBlockIds(rendered.container)).toEqual(['A', 'B', 'C'])
+      expect(parentBlockId(rendered.container, 'C')).toBeNull()
+      expect(rendered.container.querySelector('[data-block-id="C"]')).toHaveAttribute('data-list-kind', kind)
     })
   })
 
@@ -734,7 +906,7 @@ describe('document interactions', () => {
     expect(selectedDomBlockId()).toBe(emptyItemId)
   })
 
-  it('keeps ordinary Document blocks flat when Tab or Shift-Tab is pressed', async () => {
+  it('shows and hides a root Document block bullet with Tab and Shift-Tab', async () => {
     const rendered = render(
       <Editor
         adapters={adapters}
@@ -751,15 +923,249 @@ describe('document interactions', () => {
     await waitFor(() => expect(rendered.getByText('Second block')).toBeInTheDocument())
 
     await userEvent.click(rendered.getByText('Second block'))
-    await userEvent.keyboard('{Tab}{Tab}{Tab}')
+    await userEvent.keyboard('{Tab}')
+
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', 'bullet'))
     expect(parentBlockId(rendered.container, 'B')).toBeNull()
     expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(2)
 
     await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', 'outline'))
     expect(parentBlockId(rendered.container, 'B')).toBeNull()
     expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(2)
     expect(rendered.queryByRole('status')).not.toBeInTheDocument()
   })
+
+  it('indents a Document block without revealing the parent bullet', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('Parent block')),
+            documentBlock('B', paragraph('Child block')),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Child block')
+
+    await userEvent.click(rendered.getByText('Child block'))
+    await userEvent.keyboard('{Tab}')
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', 'bullet'))
+
+    await userEvent.keyboard('{Tab}')
+
+    await waitFor(() => {
+      expect(parentBlockId(rendered.container, 'B')).toBe('A')
+      expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'outline')
+    })
+  })
+
+  it('indents an eight-level rich Document subtree without losing any descendant content', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: richSubtree(false),
+        }}
+      />,
+    )
+    await rendered.findByText('Cloze level F')
+
+    await userEvent.click(rendered.getByText('Target B'))
+    await userEvent.keyboard('{Tab}')
+
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('A'))
+    expect(parentBlockId(rendered.container, 'Root')).toBeNull()
+    expect(parentBlockId(rendered.container, 'Level-1')).toBe('Root')
+    expect(parentBlockId(rendered.container, 'Level-2')).toBe('Level-1')
+    expect(parentBlockId(rendered.container, 'A')).toBe('Level-2')
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expect(parentBlockId(rendered.container, 'D')).toBe('C')
+    expect(parentBlockId(rendered.container, 'E')).toBe('D')
+    expect(parentBlockId(rendered.container, 'F')).toBe('E')
+    expect(rootBlockIds(rendered.container)).toEqual(['Root'])
+    expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(9)
+    for (const id of ['Root', 'Level-1', 'Level-2', 'A', 'B', 'C', 'D', 'E', 'F'])
+      expect(blockElement(rendered.container, id)).toHaveAttribute('data-list-kind', 'bullet')
+    expectRichSubtreeContent(rendered.container)
+  })
+
+  it.each(['logical', 'traditional'] as const)(
+    'outdents an eight-level rich Document subtree without losing any descendant content with %s configured',
+    async (outdentBehavior) => {
+      const rendered = render(
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{ type: 'doc', content: richSubtree(true) }}
+          outline={{ outdentBehavior }}
+        />,
+      )
+      await rendered.findByText('Cloze level F')
+
+      await userEvent.click(rendered.getByText('Target B'))
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+      await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('Level-2'))
+      expect(parentBlockId(rendered.container, 'Root')).toBeNull()
+      expect(parentBlockId(rendered.container, 'Level-1')).toBe('Root')
+      expect(parentBlockId(rendered.container, 'Level-2')).toBe('Level-1')
+      expect(parentBlockId(rendered.container, 'A')).toBe('Level-2')
+      expect(parentBlockId(rendered.container, 'C')).toBe('B')
+      expect(parentBlockId(rendered.container, 'D')).toBe('C')
+      expect(parentBlockId(rendered.container, 'E')).toBe('D')
+      expect(parentBlockId(rendered.container, 'F')).toBe('E')
+      expect(rootBlockIds(rendered.container)).toEqual(['Root'])
+      expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(9)
+      for (const id of ['Root', 'Level-1', 'Level-2', 'A', 'B', 'C', 'D', 'E', 'F'])
+        expect(blockElement(rendered.container, id)).toHaveAttribute('data-list-kind', 'bullet')
+      expectRichSubtreeContent(rendered.container)
+    },
+  )
+
+  it('preserves an eight-level rich subtree through Tab, history, mode switching, and Shift-Tab', async () => {
+    const rendered = render(
+      <EditorModeHarness
+        adapters={adapters}
+        initialContent={{ type: 'doc', content: richSubtree(false) }}
+      />,
+    )
+    await rendered.findByText('Cloze level F')
+
+    await userEvent.click(rendered.getByText('Target B'))
+    await userEvent.keyboard('{Tab}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('A'))
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expect(parentBlockId(rendered.container, 'F')).toBe('E')
+    expectRichSubtreeContent(rendered.container)
+
+    await userEvent.keyboard('{Meta>}z{/Meta}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('Level-2'))
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expectRichSubtreeContent(rendered.container)
+
+    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('A'))
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expectRichSubtreeContent(rendered.container)
+
+    await userEvent.click(rendered.getByRole('button', { name: 'Outline mode' }))
+    await waitFor(() => expect(rendered.container.querySelector('[data-editor-mode="outline"]')).not.toBeNull())
+    expect(parentBlockId(rendered.container, 'B')).toBe('A')
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expectRichSubtreeContent(rendered.container)
+
+    await userEvent.click(rendered.getByText('Target B'))
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+    await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBe('Level-2'))
+    expect(parentBlockId(rendered.container, 'A')).toBe('Level-2')
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expect(parentBlockId(rendered.container, 'D')).toBe('C')
+    expect(parentBlockId(rendered.container, 'E')).toBe('D')
+    expect(parentBlockId(rendered.container, 'F')).toBe('E')
+    expectRichSubtreeContent(rendered.container)
+
+    await userEvent.click(rendered.getByRole('button', { name: 'Document mode' }))
+    await waitFor(() => expect(rendered.container.querySelector('[data-editor-mode="document"]')).not.toBeNull())
+    expect(parentBlockId(rendered.container, 'B')).toBe('Level-2')
+    expect(parentBlockId(rendered.container, 'C')).toBe('B')
+    expect(rendered.container.querySelectorAll('[data-block-id]')).toHaveLength(9)
+    expectRichSubtreeContent(rendered.container)
+  })
+
+  it('undoes and redoes a Document bullet change through the Loro editor history', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('A', paragraph('Document block'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Document block')
+
+    await userEvent.click(rendered.getByText('Document block'))
+    await userEvent.keyboard('{Tab}')
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'bullet'))
+
+    await userEvent.keyboard('{Meta>}z{/Meta}')
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'outline'))
+
+    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
+    await waitFor(() => expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'bullet'))
+  })
+
+  it('keeps a root Document bullet visible while it owns child blocks', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('A', paragraph('Parent bullet'), 'bullet', [
+              documentBlock('B', paragraph('Child bullet'), 'bullet'),
+            ]),
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Parent bullet')
+
+    await userEvent.click(rendered.getByText('Parent bullet'))
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+    expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'bullet')
+    expect(parentBlockId(rendered.container, 'B')).toBe('A')
+  })
+
+  it.each(['logical', 'traditional'] as const)(
+    'keeps Document Shift-Tab semantics when Outline Outdent behavior is %s',
+    async (outdentBehavior) => {
+      const rendered = render(
+        <Editor
+          adapters={adapters}
+          mode={EditorMode.Document}
+          initialContent={{
+            type: 'doc',
+            content: [
+              documentBlock('P', paragraph('Parent block'), 'outline', [
+                semanticBlock('A', 'First child', 'bullet', null),
+                semanticBlock('B', 'Target child', 'bullet', null),
+                semanticBlock('C', 'Following child', 'bullet', null),
+              ]),
+              semanticBlock('R', 'Root bullet', 'bullet', null),
+            ],
+          }}
+          outline={{ outdentBehavior }}
+        />,
+      )
+      await rendered.findByText('Target child')
+
+      await userEvent.click(rendered.getByText('Target child'))
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+      await waitFor(() => expect(parentBlockId(rendered.container, 'B')).toBeNull())
+      expect(parentBlockId(rendered.container, 'A')).toBe('P')
+      expect(parentBlockId(rendered.container, 'C')).toBe('B')
+      expect(rendered.container.querySelector('[data-block-id="B"]')).toHaveAttribute('data-list-kind', 'bullet')
+
+      await userEvent.click(rendered.getByText('Root bullet'))
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+
+      await waitFor(() => expect(rendered.container.querySelector('[data-block-id="R"]')).toHaveAttribute('data-list-kind', 'outline'))
+      expect(parentBlockId(rendered.container, 'R')).toBeNull()
+    },
+  )
 
   it('keeps nested ordinary Document blocks at their existing level for Tab and Shift-Tab', async () => {
     const rendered = render(
@@ -786,7 +1192,7 @@ describe('document interactions', () => {
     expect(parentBlockId(rendered.container, 'B')).toBe('P')
   })
 
-  it.each(semanticListCases)('does not indent a semantic $kind item beneath an ordinary Document block', async ({ kind, order }) => {
+  it.each(semanticListCases)('keeps an ordinary Document parent unmarked when indenting a $kind item', async ({ kind, order }) => {
     const rendered = render(
       <Editor
         adapters={adapters}
@@ -805,8 +1211,10 @@ describe('document interactions', () => {
     await userEvent.click(rendered.getByText('Semantic item'))
     await userEvent.keyboard('{Tab}')
 
-    expect(parentBlockId(rendered.container, 'A')).toBeNull()
-    expect(parentBlockId(rendered.container, 'B')).toBeNull()
+    await waitFor(() => {
+      expect(parentBlockId(rendered.container, 'B')).toBe('A')
+      expect(rendered.container.querySelector('[data-block-id="A"]')).toHaveAttribute('data-list-kind', 'outline')
+    })
   })
 
   it.each(mixedSemanticListCases)(

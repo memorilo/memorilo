@@ -3,8 +3,12 @@ import { RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import {
+  DesktopConfigurationEnvironment,
+} from './configuration'
+import { createRendererConfigurationStore } from './configuration-store'
 import { router } from './router'
-import './styles/app-global.stylex'
+import './styles/renderer-global.css'
 
 const rootElement = document.querySelector('#root')
 
@@ -21,10 +25,23 @@ const queryClient = new QueryClient({
   },
 })
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-)
+const root = createRoot(rootElement)
+
+void createRendererConfigurationStore().then((store) => {
+  window.addEventListener('beforeunload', () => store.close(), { once: true })
+  root.render(
+    <StrictMode>
+      <DesktopConfigurationEnvironment store={store}>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </DesktopConfigurationEnvironment>
+    </StrictMode>,
+  )
+}, (error) => {
+  root.render(
+    <main role="alert">
+      {error instanceof Error ? error.message : String(error)}
+    </main>,
+  )
+})

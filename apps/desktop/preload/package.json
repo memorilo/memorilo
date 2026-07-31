@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@memorilo/desktop-config": "workspace:*",
     "electron-ipc-decorator": "1.0.1"
   },
   "devDependencies": {

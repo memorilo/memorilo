@@ -2,6 +2,7 @@ import type {
   CreateDesktopNoteInput,
   DesktopApi,
   DesktopColumnVisibilityMenuSelection,
+  DesktopConfiguration,
   DesktopFavoriteNoteItem,
   DesktopNote,
   DesktopNoteFavoriteState,
@@ -26,6 +27,10 @@ import type {
 export interface DesktopServices {
   app: {
     getRuntimeInfo: () => Promise<RuntimeInfo>
+  }
+  configuration: {
+    get: () => Promise<DesktopConfiguration>
+    set: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
   }
   notes: {
     createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
@@ -57,9 +62,13 @@ export interface DesktopServices {
   }
 }
 
-export function createDesktopApi(services: DesktopServices): DesktopApi {
+export function createDesktopApi(
+  services: DesktopServices,
+  subscribeConfiguration: DesktopApi['subscribeConfiguration'],
+): DesktopApi {
   return {
     createNote: input => services.notes.createNote(input),
+    getConfiguration: () => services.configuration.get(),
     getNote: input => services.notes.getNote(input),
     getRuntimeInfo: () => services.app.getRuntimeInfo(),
     getTopicBlock: input => services.notes.getTopicBlock(input),
@@ -73,6 +82,8 @@ export function createDesktopApi(services: DesktopServices): DesktopApi {
     searchNotes: input => services.notes.searchNotes(input),
     searchTopicBlocks: input => services.notes.searchTopicBlocks(input),
     setNoteFavorite: input => services.notes.setNoteFavorite(input),
+    setConfiguration: configuration => services.configuration.set(configuration),
     showColumnVisibilityMenu: input => services.window.showColumnVisibilityMenu(input),
+    subscribeConfiguration,
   }
 }

@@ -476,6 +476,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   const id = assertNonEmpty(options.id, 'Note id')
   const doc = new LoroDoc()
   doc.configTextStyle({
+    bold: { expand: 'after' },
     cloze: { expand: 'none' },
     inlineHighlight: { expand: 'both' },
   })

@@ -3,14 +3,13 @@ import type { OutlineRuntime } from '../common/outline-runtime'
 import { defineKeymap, Priority, unsetBlockType, withPriority } from 'prosekit/core'
 import { joinTextblockBackward } from 'prosekit/pm/commands'
 import { TextSelection } from 'prosekit/pm/state'
-import { createDedentListCommand, createIndentListCommand } from 'prosemirror-flat-list'
+import { createDedentListCommand, createIndentListCommand, isListNode } from 'prosemirror-flat-list'
 import { addBlockToCardBackCommand } from '../card/card-extension'
 import { insertBlockSiblingAfter } from '../common/block-sibling'
 import { currentListBlockContext } from '../common/list-keymap-context'
 import { OUTLINE_LIST_KIND } from '../common/outline-document'
 
 const dedentList = createDedentListCommand()
-const indentList = createIndentListCommand()
 const unsetBlock = unsetBlockType()
 const semanticListKinds = new Set(['bullet', 'ordered', 'task', 'toggle'])
 type DispatchTransaction = (transaction: Transaction) => void
@@ -29,19 +28,34 @@ function isDirectListTextCursor(state: EditorState, blockDepth: number): boolean
     && $cursor.parent.type.spec.code !== true
 }
 
-function convertDocumentBlockToOrdinary(state: EditorState, dispatch: DispatchTransaction | undefined, position: number): boolean {
-  if (!dispatch)
-    return true
+function setDocumentBlockKind(state: EditorState, transaction: Transaction, position: number, kind: string): void {
   const node = state.doc.nodeAt(position)
   if (!node)
     throw new Error(`Document list block is missing at position ${position}`)
-  dispatch(state.tr.setNodeMarkup(position, undefined, {
+  transaction.setNodeMarkup(position, undefined, {
     ...node.attrs,
     checked: false,
     collapsed: false,
-    kind: OUTLINE_LIST_KIND,
+    kind,
     order: null,
-  }))
+  })
+}
+
+function convertDocumentBlockToOrdinary(state: EditorState, dispatch: DispatchTransaction | undefined, position: number): boolean {
+  if (!dispatch)
+    return true
+  const transaction = state.tr
+  setDocumentBlockKind(state, transaction, position, OUTLINE_LIST_KIND)
+  dispatch(transaction)
+  return true
+}
+
+function convertDocumentBlockToBullet(state: EditorState, dispatch: DispatchTransaction | undefined, position: number): boolean {
+  if (!dispatch)
+    return true
+  const transaction = state.tr
+  setDocumentBlockKind(state, transaction, position, 'bullet')
+  dispatch(transaction)
   return true
 }
 
@@ -58,14 +72,30 @@ function createDocumentIndentCommand(runtime: OutlineRuntime): Command {
     if (addBlockToCardBackCommand()(state, dispatch, view))
       return true
     if (
+      block.kind === OUTLINE_LIST_KIND
+      && !block.nested
+      && isDirectListTextCursor(state, block.depth)
+    ) {
+      return convertDocumentBlockToBullet(state, dispatch, block.position)
+    }
+    if (
       !isSemanticListKind(block.kind)
       || !isDirectListTextCursor(state, block.depth)
-      || !isSemanticListKind(block.previousSiblingKind)
+      || (
+        block.previousSiblingKind !== OUTLINE_LIST_KIND
+        && !isSemanticListKind(block.previousSiblingKind)
+      )
     ) {
       return true
     }
 
-    indentList(state, dispatch, view)
+    const blockNode = state.doc.nodeAt(block.position)
+    if (!blockNode || !isListNode(blockNode))
+      throw new Error('The current Document selection is outside its resolved list block')
+    createIndentListCommand({
+      from: block.position + 1,
+      to: block.position + blockNode.nodeSize - 1,
+    })(state, dispatch, view)
     return true
   }
 }
@@ -83,12 +113,31 @@ function createDocumentDedentCommand(runtime: OutlineRuntime): Command {
     if (
       !isSemanticListKind(block.kind)
       || !isDirectListTextCursor(state, block.depth)
-      || !block.nested
     ) {
       return true
     }
 
-    dedentList(state, dispatch, view)
+    if (!block.nested) {
+      if (block.kind !== 'bullet')
+        return true
+      const node = state.doc.nodeAt(block.position)
+      if (!node)
+        throw new Error(`Document list block is missing at position ${block.position}`)
+      let ownsChildBlock = false
+      node.forEach((child) => {
+        if (isListNode(child))
+          ownsChildBlock = true
+      })
+      return ownsChildBlock ? true : convertDocumentBlockToOrdinary(state, dispatch, block.position)
+    }
+
+    const blockNode = state.doc.nodeAt(block.position)
+    if (!blockNode || !isListNode(blockNode))
+      throw new Error('The current Document selection is outside its resolved list block')
+    createDedentListCommand({
+      from: block.position + 1,
+      to: block.position + blockNode.nodeSize - 1,
+    })(state, dispatch, view)
     return true
   }
 }

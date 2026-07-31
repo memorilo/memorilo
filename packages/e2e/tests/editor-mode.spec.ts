@@ -1,0 +1,89 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { dirname, resolve } from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+
+import { _electron as electron, expect, test } from '@playwright/test'
+
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const desktopDirectory = resolve(repositoryRoot, 'apps/desktop')
+const electronModule: unknown = createRequire(import.meta.url)('electron')
+if (typeof electronModule !== 'string')
+  throw new TypeError('Electron package did not resolve to an executable path')
+const electronExecutablePath = electronModule
+
+test('switches a non-empty Topic between Document and Outline without losing editor focus', async () => {
+  const userDataDirectory = await mkdtemp(resolve(tmpdir(), 'memorilo-editor-mode-'))
+  try {
+    const electronApplication = await electron.launch({
+      args: [desktopDirectory, `--user-data-dir=${userDataDirectory}`],
+      cwd: repositoryRoot,
+      env: {
+        ...process.env,
+        MEMORILO_DATABASE_PATH: ':memory:',
+        MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
+      },
+      executablePath: electronExecutablePath,
+    })
+    try {
+      const window = await electronApplication.firstWindow()
+      const title = 'Dynamic editor mode 7e21c4'
+
+      await window.getByRole('link', { name: 'Journals' }).waitFor()
+      await window.keyboard.press('Meta+P')
+      await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill(title)
+      await window.getByRole('option').filter({ hasText: `Create Note “${title}”` }).click()
+
+      const editor = window.getByRole('textbox', { name: 'Editor content' })
+      const heading = editor.getByRole('heading', { name: title })
+      const modeGroup = window.getByRole('group', { name: 'Editor mode' })
+      const documentMode = modeGroup.getByRole('button', { name: 'Document mode' })
+      const outlineMode = modeGroup.getByRole('button', { name: 'Outline mode' })
+      await expect(documentMode).toHaveAttribute('aria-pressed', 'true')
+
+      await heading.click()
+      await window.keyboard.press('End')
+      const readSelection = () => heading.evaluate((element) => {
+        const selection = document.getSelection()
+        if (!selection?.anchorNode || !selection.focusNode)
+          throw new Error('Editor heading has no active DOM selection')
+        return {
+          activeEditor: document.activeElement?.matches('[data-editor-content].ProseMirror') === true,
+          anchorInHeading: element.contains(selection.anchorNode),
+          anchorOffset: selection.anchorOffset,
+          collapsed: selection.isCollapsed,
+          focusInHeading: element.contains(selection.focusNode),
+          focusOffset: selection.focusOffset,
+        }
+      })
+      const selectionBeforeSwitch = await readSelection()
+      expect(selectionBeforeSwitch).toEqual({
+        activeEditor: true,
+        anchorInHeading: true,
+        anchorOffset: title.length,
+        collapsed: true,
+        focusInHeading: true,
+        focusOffset: title.length,
+      })
+
+      await outlineMode.click()
+
+      await expect(outlineMode).toHaveAttribute('aria-pressed', 'true')
+      await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
+      await expect.poll(readSelection).toEqual(selectionBeforeSwitch)
+
+      await documentMode.click()
+      await expect(documentMode).toHaveAttribute('aria-pressed', 'true')
+      await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
+      await expect.poll(readSelection).toEqual(selectionBeforeSwitch)
+    }
+    finally {
+      await electronApplication.close()
+    }
+  }
+  finally {
+    await rm(userDataDirectory, { force: true, recursive: true })
+  }
+})

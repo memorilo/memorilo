@@ -8,7 +8,8 @@ import wasm from 'vite-plugin-wasm'
 
 const desktopRoot = dirname(fileURLToPath(import.meta.url))
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
-  externalPackages: ['@memorilo/editor'],
+  cssInjectionTarget: fileName => fileName.includes('renderer-global'),
+  externalPackages: ['@memorilo/config', '@memorilo/editor'],
   unstable_moduleResolution: { type: 'commonJS' },
   useCSSLayers: true,
 }
@@ -58,7 +59,10 @@ export default defineConfig({
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/renderer'),
       rollupOptions: {
-        input: resolve(desktopRoot, 'renderer/index.html'),
+        input: {
+          index: resolve(desktopRoot, 'renderer/index.html'),
+          settings: resolve(desktopRoot, 'renderer/settings.html'),
+        },
       },
     },
   },

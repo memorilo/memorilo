@@ -2,8 +2,8 @@ import type { RefObject } from 'react'
 import type { EditorSession } from '../common/editor-session'
 import type { OutlineOptions } from '../common/outline-runtime'
 import * as stylex from '@stylexjs/stylex'
+import { ArrowLeft } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
-import { executeOutlineOutdent, outlineCommandBlockIds, outlineOutdentBlockedMessage, planOutlineOutdent } from '../common/outline-outdent'
 import { outlineEditorStyles } from './outline-editor.stylex'
 import { observeOutlineMarkerAlignment } from './outline-marker-alignment'
 import './outline-content.stylex'
@@ -57,22 +57,22 @@ export function OutlineEditor({
   const focusAnimationMountedRef = useRef(false)
   const runtime = session.outlineRuntime
   const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot)
-  const commandBlockIds = outlineCommandBlockIds(session.editor.state, snapshot)
-  const outdentPlan = planOutlineOutdent(session.editor.state, snapshot)
-  const blockedMessage = outdentPlan.status === 'blocked' ? outlineOutdentBlockedMessage(outdentPlan.reason) : null
-  const selectionBlockedMessage = snapshot.selectedBlockIds.length > 0 ? blockedMessage : null
-  const statusMessage = snapshot.commandMessage
-    ?? selectionBlockedMessage
-    ?? (snapshot.selectedBlockIds.length > 0 ? `${snapshot.selectedBlockIds.length} blocks selected.` : 'Outline view ready.')
-  const statusIsError = Boolean(snapshot.commandMessage || selectionBlockedMessage)
   const controlledFocus = Boolean(options && Object.prototype.hasOwnProperty.call(options, 'focus'))
   const onFocusChange = options?.onFocusChange
+  const focusCollapsed = snapshot.focusBlockId !== null
+    && snapshot.collapsedBlockIds.includes(snapshot.focusBlockId)
 
   const requestFocus = useCallback((blockId: string | null) => {
     if (!controlledFocus)
       runtime.setFocus(blockId)
     onFocusChange?.(blockId ? { blockId } : null)
   }, [controlledFocus, onFocusChange, runtime])
+  const toggleFocusCollapsed = () => {
+    const focusBlockId = snapshot.focusBlockId
+    if (!focusBlockId)
+      throw new Error('Cannot collapse Outline Focus without a focus root')
+    runtime.toggleCollapsed([focusBlockId])
+  }
 
   useEffect(() => {
     const root = rootRef.current
@@ -151,65 +151,37 @@ export function OutlineEditor({
     return () => root.removeEventListener('click', handleMarkerClick, true)
   }, [requestFocus, rootRef, runtime])
 
-  const runOutdent = () => {
-    executeOutlineOutdent(session.editor.state, session.editor.view.dispatch, runtime)
-  }
-
-  const collapseBlockIds = snapshot.selectedBlockIds.length > 0
-    ? snapshot.selectedBlockIds
-    : snapshot.focusBlockId ? [snapshot.focusBlockId] : commandBlockIds
-
   return (
     <>
       <style ref={markerStylesRef} data-outline-marker-alignment="" />
-      <div {...stylex.props(outlineEditorStyles.toolbar)}>
-        <div {...stylex.props(outlineEditorStyles.breadcrumbs)} aria-label="Outline location">
-          {snapshot.focusBlockId
-            ? (
-                <>
-                  <button {...stylex.props(outlineEditorStyles.button)} aria-label="Show all blocks" type="button" onClick={() => requestFocus(null)}>All blocks</button>
-                  <span aria-hidden="true">/</span>
-                  <span {...stylex.props(outlineEditorStyles.focusLabel)}>{focusLabel(rootRef.current, snapshot.focusBlockId) ?? snapshot.focusBlockId}</span>
-                </>
-              )
-            : <span>All blocks</span>}
-        </div>
-        <div {...stylex.props(outlineEditorStyles.controls)}>
-          {snapshot.selectedBlockIds.length > 0
-            ? <button {...stylex.props(outlineEditorStyles.button)} type="button" onClick={() => runtime.clearSelection()}>Clear selection</button>
-            : null}
-          <button
-            {...stylex.props(outlineEditorStyles.button)}
-            disabled={collapseBlockIds.length === 0}
-            type="button"
-            onClick={() => runtime.toggleCollapsed(collapseBlockIds)}
-          >
-            Collapse / expand
-          </button>
-          <select
-            {...stylex.props(outlineEditorStyles.select)}
-            aria-label="Outdent behavior"
-            value={snapshot.outdentBehavior}
-            onChange={event => runtime.setOutdentBehavior(event.target.value === 'traditional' ? 'traditional' : 'logical')}
-          >
-            <option value="logical">Logical — move selected blocks only</option>
-            <option value="traditional">Traditional — preserve visible order</option>
-          </select>
-          <button
-            {...stylex.props(outlineEditorStyles.button)}
-            aria-label="Outdent selected blocks"
-            disabled={outdentPlan.status === 'blocked'}
-            title={blockedMessage ?? 'Move selected blocks one level toward the root'}
-            type="button"
-            onClick={runOutdent}
-          >
-            Outdent
-          </button>
-        </div>
-      </div>
-      <div {...stylex.props(outlineEditorStyles.status, statusIsError && outlineEditorStyles.statusError)} aria-live="polite" role="status">
-        {statusMessage}
-      </div>
+      {snapshot.focusBlockId
+        ? (
+            <div {...stylex.props(outlineEditorStyles.focusNavigation)}>
+              <button
+                {...stylex.props(outlineEditorStyles.backButton)}
+                aria-label="Show all blocks"
+                title="Show all blocks"
+                type="button"
+                onClick={() => requestFocus(null)}
+              >
+                <ArrowLeft aria-hidden="true" size={16} strokeWidth={1.9} />
+              </button>
+              <div {...stylex.props(outlineEditorStyles.breadcrumbs)} aria-label="Outline location">
+                <span>All blocks</span>
+                <span aria-hidden="true">/</span>
+                <span {...stylex.props(outlineEditorStyles.focusLabel)}>{focusLabel(rootRef.current, snapshot.focusBlockId) ?? snapshot.focusBlockId}</span>
+              </div>
+              <button
+                {...stylex.props(outlineEditorStyles.collapseButton)}
+                aria-label={focusCollapsed ? 'Expand focused block' : 'Collapse focused block'}
+                type="button"
+                onClick={toggleFocusCollapsed}
+              >
+                {focusCollapsed ? 'Expand' : 'Collapse'}
+              </button>
+            </div>
+          )
+        : null}
     </>
   )
 }

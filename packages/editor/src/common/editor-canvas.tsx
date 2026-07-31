@@ -109,7 +109,7 @@ export function EditorCanvas({
               data-editor-content=""
               role="textbox"
             />
-            <ContextMenu uploader={configured.uploader} />
+            <ContextMenu outlineRuntime={session.outlineRuntime} uploader={configured.uploader} />
             <InlineMenu />
             <MathClozeMenu />
             <CardMenu />

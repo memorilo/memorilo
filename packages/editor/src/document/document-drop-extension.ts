@@ -4,6 +4,7 @@ import type { OutlineRuntime } from '../common/outline-runtime'
 import { defineDOMEventHandler, union } from 'prosekit/core'
 import { defineDropIndicator } from 'prosekit/extensions/drop-indicator'
 import { NodeSelection } from 'prosekit/pm/state'
+import { OUTLINE_LIST_KIND } from '../common/outline-document'
 
 interface DropBoundary {
   distance: number
@@ -13,6 +14,12 @@ interface DropBoundary {
 interface DropTarget {
   node: ProseMirrorNode
   parent: ProseMirrorNode
+  position: number
+}
+
+function hasVisibleDocumentMarker(node: ProseMirrorNode): boolean {
+  const kind = node.attrs.kind
+  return node.type.name === 'list' && typeof kind === 'string' && kind !== OUTLINE_LIST_KIND
 }
 
 function elementRectAt(view: EditorView, position: number): DOMRect {
@@ -29,19 +36,19 @@ function blockAtDropTarget(view: EditorView, event: DragEvent): DropTarget | nul
 
   const targetElement = eventTarget.closest<HTMLElement>('[data-block-id]')
   if (!targetElement)
-    return { node: view.state.doc, parent: view.state.doc }
+    return { node: view.state.doc, parent: view.state.doc, position: 0 }
 
   const targetBlockId = targetElement.dataset.blockId
   if (!targetBlockId)
     throw new Error('Document drop target is missing its stable id')
 
   let target: DropTarget | null = null
-  view.state.doc.descendants((node, _position, parent) => {
+  view.state.doc.descendants((node, position, parent) => {
     if (node.attrs.blockId !== targetBlockId)
       return true
     if (!parent)
       throw new Error(`Document drop target ${targetBlockId} has no parent`)
-    target = { node, parent }
+    target = { node, parent, position }
     return false
   })
   if (!target)
@@ -53,6 +60,23 @@ function rejectDrop(view: EditorView, event: DragEvent): true {
   event.preventDefault()
   view.dragging = null
   return true
+}
+
+function targetBoundary(target: DropTarget, event: DragEvent): number | null {
+  const eventTarget = event.target
+  if (!(eventTarget instanceof Element))
+    return null
+  const targetElement = eventTarget.closest<HTMLElement>('[data-block-id]')
+  if (!targetElement)
+    return null
+
+  const rect = targetElement.getBoundingClientRect()
+  const edgeSize = rect.height / 4
+  if (event.clientY <= rect.top + edgeSize)
+    return target.position
+  if (event.clientY >= rect.bottom - edgeSize)
+    return target.position + target.node.nodeSize
+  return null
 }
 
 function nearestSameParentBoundary(view: EditorView, source: NodeSelection, event: DragEvent): number | null {
@@ -96,9 +120,8 @@ function nearestSameParentBoundary(view: EditorView, source: NodeSelection, even
   return boundaries[0]?.position ?? null
 }
 
-function moveWithinCurrentParent(view: EditorView, source: NodeSelection, event: DragEvent): boolean {
+function moveBlockToPosition(view: EditorView, source: NodeSelection, event: DragEvent, targetPosition: number | null): boolean {
   event.preventDefault()
-  const targetPosition = nearestSameParentBoundary(view, source, event)
   view.dragging = null
   if (targetPosition === null)
     return true
@@ -113,6 +136,10 @@ function moveWithinCurrentParent(view: EditorView, source: NodeSelection, event:
   return true
 }
 
+function moveWithinCurrentParent(view: EditorView, source: NodeSelection, event: DragEvent): boolean {
+  return moveBlockToPosition(view, source, event, nearestSameParentBoundary(view, source, event))
+}
+
 export function defineDocumentDropExtension(runtime: OutlineRuntime) {
   return union(
     defineDropIndicator({
@@ -122,6 +149,8 @@ export function defineDocumentDropExtension(runtime: OutlineRuntime) {
 
         const source = view.state.selection
         if (!(source instanceof NodeSelection))
+          return true
+        if (hasVisibleDocumentMarker(source.node))
           return true
 
         return source.$from.parent === view.state.doc.resolve(pos).parent
@@ -137,7 +166,15 @@ export function defineDocumentDropExtension(runtime: OutlineRuntime) {
         return false
 
       const target = blockAtDropTarget(view, event)
-      if (!target || target.node === source.node || target.parent !== source.$from.parent)
+      if (!target || target.node === source.node)
+        return rejectDrop(view, event)
+      if (hasVisibleDocumentMarker(source.node)) {
+        if (target.parent === source.$from.parent)
+          return false
+        const boundary = targetBoundary(target, event)
+        return boundary === null ? false : moveBlockToPosition(view, source, event, boundary)
+      }
+      if (target.parent !== source.$from.parent)
         return rejectDrop(view, event)
 
       return moveWithinCurrentParent(view, source, event)
