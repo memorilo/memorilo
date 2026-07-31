@@ -1371,9 +1371,9 @@ function defineCardInputRules(createId: CreateCardId): Extension {
     },
   ))
   return union(
-    rule(/:-> $/u, 'forward'),
-    rule(/:-< $/u, 'backward'),
-    rule(/:<> $/u, 'both'),
+    rule(/(?::->|：-》) $/u, 'forward'),
+    rule(/(?::-<|：-《) $/u, 'backward'),
+    rule(/(?::<>|：《》) $/u, 'both'),
   )
 }
 

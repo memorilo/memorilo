@@ -14,10 +14,10 @@ import { floatingSurfaceStyles } from '../floating-surface/floating-surface.styl
 import SlashMenuEmpty from './slash-menu-empty.tsx'
 import SlashMenuItem from './slash-menu-item.tsx'
 
-// Match inputs like "/", "/table", "/heading 1" etc. Do not match "/ heading".
+// Match inputs like "/table" or "、table". Do not match a trigger followed by a space.
 const regex = new RegExp(
   (canUseRegexLookbehind() ? String.raw`(?<!\S)` : '')
-  + String.raw`\/(\S.*)?$`,
+  + String.raw`[/、](\S.*)?$`,
   'u',
 )
 
