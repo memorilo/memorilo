@@ -1,6 +1,6 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
-import { act, render, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../test/browser/editor-mode-harness'
@@ -249,6 +249,64 @@ describe('editor modes', () => {
       return id
     })
     expect(new Set(ids).size).toBe(2)
+  })
+
+  it.each([
+    { entry: 'Cmd+A', mode: EditorMode.Document, name: 'Document' },
+    { entry: 'Cmd+A', mode: EditorMode.Outline, name: 'Outline' },
+    { entry: 'Select all action', mode: EditorMode.Document, name: 'Document' },
+    { entry: 'Select all action', mode: EditorMode.Outline, name: 'Outline' },
+  ])('keeps a canonical editable root after $entry and Delete in $name mode', async ({ entry, mode }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={mode}
+        initialContent={{
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'First root' }] },
+            {
+              type: 'list',
+              attrs: { blockId: 'second-root', kind: 'bullet' },
+              content: [
+                { type: 'paragraph', content: [{ type: 'text', text: 'Second root' }] },
+                {
+                  type: 'list',
+                  attrs: { blockId: 'nested-child', kind: 'bullet' },
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Nested child' }] }],
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    )
+    await rendered.findByText('Nested child')
+
+    if (entry === 'Cmd+A') {
+      await userEvent.click(page.getByText('First root', { exact: true }))
+      await userEvent.keyboard('{Meta>}a{/Meta}')
+    }
+    else {
+      fireEvent.contextMenu(rendered.getByText('First root', { exact: true }), { clientX: 320, clientY: 180 })
+      await userEvent.click(await rendered.findByRole('menuitem', { name: /Select all/ }))
+    }
+    await userEvent.keyboard('{Delete}')
+
+    const editor = rendered.getByRole('textbox', { name: 'Editor content' })
+    await waitFor(() => {
+      expect(editor.querySelectorAll('[data-block-id]')).toHaveLength(1)
+      expect(editor.children).toHaveLength(1)
+      expect(editor.firstElementChild).toMatchObject({
+        dataset: { listKind: 'outline' },
+        textContent: '',
+      })
+      expect(editor.querySelector(':scope > [data-block-id] > .list-content > p')).not.toBeNull()
+    })
+
+    await userEvent.keyboard('Replacement')
+    expect(editor).toHaveTextContent('Replacement')
+    expect(editor.querySelectorAll('[data-block-id]')).toHaveLength(1)
   })
 
   it.each([
