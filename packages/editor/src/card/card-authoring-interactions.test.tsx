@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import { EditorTestHarness as Editor } from '../../test/browser/editor-test-harness'
 import { userEvent } from '../../test/browser/user-event'
+import { EditorMode } from '../common/editor-mode'
 
 const adapters: EditorAdapters = {
   uploadImage: async () => 'memory://image',
@@ -57,6 +58,33 @@ async function selectTextRange(element: HTMLElement, from: number, to: number): 
 }
 
 describe('card authoring interactions', () => {
+  it.each([
+    { direction: 'forward', mode: EditorMode.Document, modeName: 'Document', symbol: '→', trigger: '：-》' },
+    { direction: 'backward', mode: EditorMode.Document, modeName: 'Document', symbol: '←', trigger: '：-《' },
+    { direction: 'both', mode: EditorMode.Document, modeName: 'Document', symbol: '↔', trigger: '：《》' },
+    { direction: 'forward', mode: EditorMode.Outline, modeName: 'Outline', symbol: '→', trigger: '：-》' },
+    { direction: 'backward', mode: EditorMode.Outline, modeName: 'Outline', symbol: '←', trigger: '：-《' },
+    { direction: 'both', mode: EditorMode.Outline, modeName: 'Outline', symbol: '↔', trigger: '：《》' },
+  ] as const)('creates a $direction Basic Card from $trigger in $modeName mode', async ({ direction, mode, symbol, trigger }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={mode}
+        initialContent={{ type: 'doc', content: [block('question', paragraph('Question'))] }}
+      />,
+    )
+    await rendered.findByText('Question')
+
+    await userEvent.click(rendered.getByText('Question'))
+    await userEvent.keyboard(`{End}${trigger} `)
+
+    await waitFor(() => {
+      expect(rendered.container.querySelector('[data-card-delimiter]')).toHaveAttribute('data-card-direction', direction)
+      expect(rendered.getByRole('textbox', { name: 'Editor content' })).toHaveTextContent(`Question${symbol}`)
+      expect(rendered.getByRole('textbox', { name: 'Editor content' })).not.toHaveTextContent(trigger)
+    })
+  })
+
   it('inserts Basic, Reverse, and Bidirectional Cards from the ordinary slash menu', async () => {
     const rendered = render(
       <Editor

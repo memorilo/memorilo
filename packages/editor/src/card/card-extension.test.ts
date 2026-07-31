@@ -61,6 +61,9 @@ describe('card authoring extension', () => {
     { direction: 'forward', symbol: '→', trigger: ':-> ' },
     { direction: 'backward', symbol: '←', trigger: ':-< ' },
     { direction: 'both', symbol: '↔', trigger: ':<> ' },
+    { direction: 'forward', symbol: '→', trigger: '：-》 ' },
+    { direction: 'backward', symbol: '←', trigger: '：-《 ' },
+    { direction: 'both', symbol: '↔', trigger: '：《》 ' },
   ] as const)('converts $trigger into a stable $direction delimiter', ({ direction, symbol, trigger }) => {
     const ids = direction === 'both'
       ? ['definition-trigger', 'card-trigger-forward', 'card-trigger-backward']
