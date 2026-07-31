@@ -179,6 +179,7 @@ export const workspaceSidebarStyles = stylex.create({
     fontWeight: 400,
     letterSpacing: 0,
     lineHeight: '18px',
+    textDecoration: 'none',
     outline: 'none',
     boxShadow: {
       'default': 'none',

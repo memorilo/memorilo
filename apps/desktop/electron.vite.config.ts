@@ -8,7 +8,7 @@ import wasm from 'vite-plugin-wasm'
 
 const desktopRoot = dirname(fileURLToPath(import.meta.url))
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
-  externalPackages: ['@memorilo/editor'],
+  externalPackages: ['@memorilo/editor', '@memorilo/reader'],
   unstable_moduleResolution: { type: 'commonJS' },
   useCSSLayers: true,
 }
