@@ -1,9 +1,10 @@
 import type { EditorStorage } from '@memorilo/editor-storage'
+import { mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { createEditorStorage } from '@memorilo/editor-storage'
+import { createEditorStorage, createShelfImageCache, createShelfStorage } from '@memorilo/editor-storage'
 import { app, BrowserWindow, shell } from 'electron'
 
 import { createDesktopServices } from './ipc/services'
@@ -11,6 +12,7 @@ import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
 
 let editorStorage: EditorStorage | null = null
+let shelfImageCacheDatabase: BetterSqliteDatabase | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 function databasePath(userDataPath: string): string {
@@ -28,6 +30,23 @@ function embeddingModelCacheDirectory(): string {
   return resolve(mainDirectory, '../../../../.cache/embedding-models')
 }
 
+function shelfImageCacheDatabasePath(): string {
+  const configured = process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH
+  if (configured !== undefined) {
+    if (configured.length === 0)
+      throw new TypeError('MEMORILO_SHELF_IMAGE_CACHE_PATH must not be empty')
+    return configured
+  }
+  const homePath = app.getPath('home')
+  const cacheDirectory = process.platform === 'darwin'
+    ? join(homePath, 'Library', 'Caches', 'Memorilo')
+    : process.platform === 'win32'
+      ? join(process.env.LOCALAPPDATA || app.getPath('sessionData'), 'Memorilo', 'Cache')
+      : join(process.env.XDG_CACHE_HOME || join(homePath, '.cache'), 'memorilo')
+  mkdirSync(cacheDirectory, { recursive: true })
+  return join(cacheDirectory, 'shelf-images.sqlite')
+}
+
 function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
   if (rendererUrl)
     return new URL(target).origin === new URL(rendererUrl).origin
@@ -39,8 +58,11 @@ function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
     ? {
+        backgroundColor: '#00000000',
         titleBarStyle: 'hiddenInset' as const,
         trafficLightPosition: { x: 20, y: 20 },
+        vibrancy: 'under-window' as const,
+        visualEffectState: 'active' as const,
       }
     : {}
   const window = new BrowserWindow({
@@ -79,14 +101,20 @@ function createWindow() {
 
 async function startApplication(): Promise<void> {
   const userDataPath = app.getPath('userData')
+  const database = new BetterSqliteDatabase(databasePath(userDataPath))
   editorStorage = await createEditorStorage({
-    database: new BetterSqliteDatabase(databasePath(userDataPath)),
+    database,
     embeddingModel: new TransformersEmbeddingModel({
       allowRemoteModels: !app.isPackaged && process.env.MEMORILO_EMBEDDING_MODEL_OFFLINE !== '1',
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
   })
-  createDesktopServices(editorStorage)
+  const shelfStorage = await createShelfStorage({ database })
+  shelfImageCacheDatabase = new BetterSqliteDatabase(shelfImageCacheDatabasePath(), {
+    loadVectorExtension: false,
+  })
+  const shelfImageCache = await createShelfImageCache({ database: shelfImageCacheDatabase })
+  createDesktopServices(editorStorage, shelfStorage, shelfImageCache)
   createWindow()
 
   app.on('activate', () => {
@@ -103,10 +131,14 @@ void app.whenReady()
   })
 
 app.on('will-quit', () => {
-  if (editorStorage === null)
-    return
-  void editorStorage.close()
-  editorStorage = null
+  if (editorStorage !== null) {
+    void editorStorage.close()
+    editorStorage = null
+  }
+  if (shelfImageCacheDatabase !== null) {
+    void shelfImageCacheDatabase.close()
+    shelfImageCacheDatabase = null
+  }
 })
 
 app.on('window-all-closed', () => {

@@ -16,7 +16,9 @@
     "@huggingface/transformers": "3.7.5",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
+    "@memorilo/shelf": "workspace:*",
     "better-sqlite3": "13.0.1",
+    "effect": "4.0.0-beta.23",
     "electron-ipc-decorator": "1.0.1",
     "sqlite-vec": "0.1.9"
   },

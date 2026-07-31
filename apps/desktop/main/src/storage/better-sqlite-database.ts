@@ -15,15 +15,20 @@ function unpackedAsarPath(path: string): string {
   return path.replace(/([\\/])app\.asar([\\/])/u, '$1app.asar.unpacked$2')
 }
 
+export interface BetterSqliteDatabaseOptions {
+  loadVectorExtension?: boolean
+}
+
 export class BetterSqliteDatabase implements EditorStorageDatabase {
   readonly #database: Database.Database
 
-  constructor(path: string) {
+  constructor(path: string, options: BetterSqliteDatabaseOptions = {}) {
     if (path.length === 0)
       throw new TypeError('Database path must be a non-empty string')
 
     this.#database = new BetterSqlite3(path)
-    this.#database.loadExtension(unpackedAsarPath(getSqliteVecPath()))
+    if (options.loadVectorExtension !== false)
+      this.#database.loadExtension(unpackedAsarPath(getSqliteVecPath()))
     this.#database.pragma('journal_mode = WAL')
   }
 
