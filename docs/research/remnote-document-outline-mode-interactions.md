@@ -21,7 +21,7 @@
 3. `Hide Bullets` 不只是隐藏圆点的 CSS。它隐藏 Document 直接 children 的圆点，并改变 `Tab`、`Shift+Tab`、标题折叠与可建立的真实 parent/child 关系；因此 Memorilo 的两个模式也不应只有视觉差异。[Hiding Bullets](https://help.remnote.com/en/articles/10113772-hiding-bullets)（访问于 2026-07-31）
 4. RemNote 允许在无圆点正文里就地进入局部大纲：直接 child 的行首输入 `-` 或 `*`，或按 `Tab`，该行会重新出现圆点；按 `Shift+Tab` 会再次隐藏。RemNote 的公开说明要求 parent 也有圆点；Memorilo 当前产品决策有意不采用这一限制，详见 5.3。[Hiding Bullets](https://help.remnote.com/en/articles/10113772-hiding-bullets)（访问于 2026-07-31）
 5. RemNote 官方允许对已有 Document 随时开关 `Hide Bullets`，并没有“只在空文档可切换”的限制。只在空文档提供全局模式选择是 Memorilo 的产品约束，不是要逐字复制的 RemNote 行为。[Documents and Folders](https://help.remnote.com/en/articles/6030703-documents-and-folders)（访问于 2026-07-31）；[Hiding Bullets](https://help.remnote.com/en/articles/10113772-hiding-bullets)（访问于 2026-07-31）
-6. Memorilo 最终采用同一份 Topic 内容上的两层策略：标题栏可随时切换整个编辑器的 `Document` / `Outline` 展示与交互策略；在 Document 中，顶层无圆点块可用 `Tab` 变成有圆点块，有圆点叶子可用 `Shift+Tab` 恢复无圆点。模式切换复用同一编辑器实例，局部圆点变化则是正常的内容事务；这是基于调研作出的产品决策。
+6. Memorilo 最终采用同一份 Topic 内容上的两层策略：通过全局 Command Palette 可随时切换整个编辑器的 `Document` / `Outline` 展示与交互策略；在 Document 中，顶层无圆点块可用 `Tab` 变成有圆点块，有圆点叶子可用 `Shift+Tab` 恢复无圆点。模式切换复用同一编辑器实例，局部圆点变化则是正常的内容事务；这是基于调研作出的产品决策。
 
 ## 1. RemNote 实际拥有的模型
 
@@ -123,16 +123,16 @@ Bullet 可通过拖拽移动，左右移动鼠标决定落点缩进；也可用 
 
 模式切换不受内容是否为空限制，也不批量改写已有块的 `kind`。Document 中的局部圆点属于块自身结构：用户只对当前顶层块执行显式 `Tab` / `Shift+Tab` 时，才在 `outline` 与 `bullet` 间转换；拖拽永远不创建圆点。
 
-### 5.2 模式控件
+### 5.2 模式入口
 
-Topic 打开后，标题栏提供紧凑的 `Document` / `Outline` 分段控件。它对空和非空内容均可用，并通过 `aria-pressed` 暴露当前状态。
+Topic 打开后，标题栏不常驻模式切换控件。用户通过 `Cmd/Ctrl+P` 打开全局 Command Palette；Document 中只提供 `Switch to Outline Mode`，Outline 中只提供 `Switch to Document Mode`。切换命令对空和非空内容均可用。
 
 两个选项的文案应描述写作模型，而不是技术实现：
 
 - `Document`：无默认 outline marker；已有 marker 的语义列表可按列表规则 reparent，无 marker 的普通正文拖拽只做同层排序。
 - `Outline`：显示节点 marker，允许层级、折叠、focus 与结构拖动。
 
-切换复用同一个 editor view/session，并保持 editor focus 与块内 selection。指针点击控件不把焦点移出编辑器；键盘用户仍可正常聚焦并激活控件。
+切换复用同一个 editor view/session。Command Palette 关闭后将焦点恢复到打开前的编辑位置，并保持块内 selection。
 
 ### 5.3 Document 的键盘和拖动规则
 
@@ -161,8 +161,8 @@ Outline 模式仍使用原有键盘和层级拖动实现，不经过上述 Docum
 
 | 初始状态 | 用户操作 | 结果 |
 | --- | --- | --- |
-| 任意内容 + Document | 点击 `Outline` | 同一 editor/session 切到 Outline；内容、focus、selection 保持 |
-| 任意内容 + Outline | 点击 `Document` | 同一 editor/session 切到 Document；不产生内容事务 |
+| 任意内容 + Document | Command Palette 执行 `Switch to Outline Mode` | 同一 editor/session 切到 Outline；内容、focus、selection 保持 |
+| 任意内容 + Outline | Command Palette 执行 `Switch to Document Mode` | 同一 editor/session 切到 Document；不产生内容事务 |
 | 顶层无圆点块 + Document | `Tab` | 当前块显示圆点，仍处于根层级 |
 | 顶层 bullet 叶子 + Document | `Shift+Tab` | 当前块隐藏圆点，仍处于根层级 |
 | 顶层 bullet parent + Document | `Shift+Tab` | 保持圆点及 children |

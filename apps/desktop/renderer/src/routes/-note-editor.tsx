@@ -6,6 +6,7 @@ import type {
   NoteEntrySnapshot,
 } from '@memorilo/editor'
 import type { Cause } from 'effect'
+import type { PaletteCommand } from '../components/command-palette-context'
 import { createEditorNote, demoEditorAdapters, Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -25,6 +26,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useCommandPaletteCommands } from '../components/command-palette-context'
 import { usePageTitlebar } from '../components/page-titlebar'
 import { useDesktopConfiguration } from '../configuration-context'
 import { noteQueryKeys } from '../queries/note-query-keys'
@@ -162,46 +164,36 @@ function OpenedTopicEditor({
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [])
   const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
   const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
+  const modeCommands = useMemo<readonly PaletteCommand[]>(() => mode === EditorMode.Document
+    ? [{
+        accent: 'violet',
+        action: 'Switch',
+        description: 'Work with visible hierarchy and focus',
+        icon: ListTree,
+        id: 'editor-mode-outline',
+        keywords: ['outline', 'mode', 'bullets', 'hierarchy'],
+        label: 'Switch to Outline Mode',
+        run: showOutlineMode,
+        section: 'Editor',
+      }]
+    : [{
+        accent: 'blue',
+        action: 'Switch',
+        description: 'Write without default outline markers',
+        icon: AlignLeft,
+        id: 'editor-mode-document',
+        keywords: ['document', 'mode', 'writing', 'no bullets'],
+        label: 'Switch to Document Mode',
+        run: showDocumentMode,
+        section: 'Editor',
+      }], [mode, showDocumentMode, showOutlineMode])
+  useCommandPaletteCommands(modeCommands)
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
   const titlebar = useMemo(() => ({
     onRenameTitle: renameNote,
     title: opened.stored.title,
     trailing: (
       <>
-        <div {...stylex.props(editorRouteStyles.titlebarModeGroup)} aria-label="Editor mode" role="group">
-          <button
-            {...stylex.props(
-              editorRouteStyles.titlebarActionButton,
-              editorRouteStyles.titlebarModeButton,
-              mode === EditorMode.Document && editorRouteStyles.titlebarModeActive,
-            )}
-            aria-label="Document mode"
-            aria-pressed={mode === EditorMode.Document}
-            title="Document mode"
-            type="button"
-            onClick={showDocumentMode}
-            onPointerDown={event => event.preventDefault()}
-          >
-            <AlignLeft aria-hidden="true" size={16} strokeWidth={1.8} />
-            <span>Document</span>
-          </button>
-          <button
-            {...stylex.props(
-              editorRouteStyles.titlebarActionButton,
-              editorRouteStyles.titlebarModeButton,
-              mode === EditorMode.Outline && editorRouteStyles.titlebarModeActive,
-            )}
-            aria-label="Outline mode"
-            aria-pressed={mode === EditorMode.Outline}
-            title="Outline mode"
-            type="button"
-            onClick={showOutlineMode}
-            onPointerDown={event => event.preventDefault()}
-          >
-            <ListTree aria-hidden="true" size={16} strokeWidth={1.8} />
-            <span>Outline</span>
-          </button>
-        </div>
         <button
           {...stylex.props(
             editorRouteStyles.titlebarActionButton,
@@ -235,13 +227,10 @@ function OpenedTopicEditor({
   }), [
     favoritePending,
     inspectorVisible,
-    mode,
     onToggleFavorite,
     opened.stored.favorite,
     opened.stored.title,
     renameNote,
-    showDocumentMode,
-    showOutlineMode,
     toggleInspector,
   ])
   usePageTitlebar(titlebar)
