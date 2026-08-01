@@ -3,77 +3,18 @@ import type { Attrs } from 'prosekit/pm/model'
 import type { Command } from 'prosekit/pm/state'
 import type { ListAttributes } from 'prosemirror-flat-list'
 import type { TaskHistory, TaskTimingAttrs } from './task-status'
-import { defineCommands, defineKeymap, defineNodeAttr, defineNodeView, union } from 'prosekit/core'
+import { defineCommands, defineKeymap, defineNodeView, union } from 'prosekit/core'
 import { createToggleListCommand, createUnwrapListCommand } from 'prosemirror-flat-list'
 
+import { defineTaskAttrs, parseTaskHistory } from '../../schema/task-schema'
 import { createTaskListView } from './task-list-view.tsx'
-import { effectiveStatus, parseTaskHistory, pauseTask, resumeTask, transitionAttrs } from './task-status'
+import { effectiveStatus, pauseTask, resumeTask, transitionAttrs } from './task-status'
 
 const EMPTY_TASK_ATTRS: TaskTimingAttrs = {
   status: 'todo',
   elapsedMs: 0,
   startedAt: null,
   checked: false,
-}
-
-function defineTaskAttrs(): Extension {
-  return union(
-    defineNodeAttr<'list', 'status', 'todo' | 'doing' | 'done' | null>({
-      type: 'list',
-      attr: 'status',
-      default: null,
-      splittable: false,
-      toDOM: value => (value ? ['data-task-status', value] : null),
-      parseDOM: (element) => {
-        const value = element.getAttribute('data-task-status')
-        return value === 'todo' || value === 'doing' || value === 'done' ? value : null
-      },
-    }),
-    defineNodeAttr({
-      type: 'list',
-      attr: 'elapsedMs',
-      default: 0,
-      splittable: false,
-      toDOM: value => (value ? ['data-task-elapsed', String(value)] : null),
-      parseDOM: (element) => {
-        const raw = element.getAttribute('data-task-elapsed')
-        const parsed = raw == null ? 0 : Number.parseInt(raw, 10)
-        return Number.isFinite(parsed) ? parsed : 0
-      },
-    }),
-    defineNodeAttr<'list', 'startedAt', number | null>({
-      type: 'list',
-      attr: 'startedAt',
-      default: null,
-      splittable: false,
-      toDOM: value => (value != null ? ['data-task-started-at', String(value)] : null),
-      parseDOM: (element) => {
-        const raw = element.getAttribute('data-task-started-at')
-        if (raw == null)
-          return null
-        const parsed = Number.parseInt(raw, 10)
-        return Number.isFinite(parsed) ? parsed : null
-      },
-    }),
-    defineNodeAttr<'paragraph', 'taskHistory', TaskHistory | null>({
-      type: 'paragraph',
-      attr: 'taskHistory',
-      default: null,
-      splittable: false,
-      toDOM: value => (value ? ['data-task-history', JSON.stringify(value)] : null),
-      parseDOM: (element) => {
-        const raw = element.getAttribute('data-task-history')
-        if (raw == null)
-          return null
-        try {
-          return parseTaskHistory(JSON.parse(raw))
-        }
-        catch {
-          return null
-        }
-      },
-    }),
-  )
 }
 
 function taskAttrsAtSelection(state: Parameters<Command>[0]): TaskTimingAttrs {

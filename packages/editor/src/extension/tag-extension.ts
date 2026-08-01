@@ -1,48 +1,16 @@
 import type { Extension, Union } from 'prosekit/core'
 import type { Command } from 'prosekit/pm/state'
 import type { EditorTag } from '../adapters/editor-adapters'
+import type { TagSpecExtension } from '../schema/tag-schema'
 import type { TagEditEntry, TagRuntime } from '../tag/tag-runtime'
-import { defineCommands, defineKeymap, defineNodeSpec, definePlugin, insertNode, union } from 'prosekit/core'
+import { defineCommands, defineKeymap, definePlugin, insertNode, union } from 'prosekit/core'
 import { defineInputRule } from 'prosekit/extensions/input-rule'
 import { InputRule } from 'prosekit/pm/inputrules'
 import { NodeSelection, Plugin, PluginKey, TextSelection } from 'prosekit/pm/state'
+import { defineTagSpec } from '../schema/tag-schema'
 import { getTagLabelError } from '../tag/tag-label'
 
-export interface TagAttrs extends EditorTag {}
-
-type TagSpecExtension = Extension<{
-  Nodes: {
-    tag: TagAttrs
-  }
-}>
-
-function defineTagSpec(): TagSpecExtension {
-  return defineNodeSpec<'tag', TagAttrs>({
-    name: 'tag',
-    atom: true,
-    group: 'inline',
-    attrs: {
-      id: { validate: 'string' },
-      label: { validate: 'string' },
-    },
-    inline: true,
-    leafText: node => `#${(node.attrs as TagAttrs).label}`,
-    parseDOM: [{
-      tag: 'span[data-tag]',
-      getAttrs: (dom: HTMLElement) => {
-        const id = dom.getAttribute('data-id')
-        const label = dom.getAttribute('data-tag')
-        if (!id || !label || getTagLabelError(label))
-          return false
-        return { id, label } satisfies TagAttrs
-      },
-    }],
-    toDOM(node) {
-      const attrs = node.attrs as TagAttrs
-      return ['span', { 'data-id': attrs.id, 'data-tag': attrs.label }, `#${attrs.label}`]
-    },
-  })
-}
+export type { TagAttrs } from '../schema/tag-schema'
 
 type TagCommandsExtension = Extension<{
   Commands: {

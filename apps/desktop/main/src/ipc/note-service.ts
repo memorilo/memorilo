@@ -2,6 +2,7 @@ import type { EditorStorage, NoteEntryProjection, StoredNote, TopicContentProjec
 import type { EditorNote, EditorNoteMutation, NoteEntrySnapshot, TopicContentProjection } from '@memorilo/editor/note'
 import { DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
+import { Effect } from 'effect'
 import { IpcMethod, IpcService } from 'electron-ipc-decorator'
 
 const checkpointInterval = 32
@@ -252,6 +253,10 @@ export function createNoteService(storage: EditorStorage) {
         }
         try {
           input.updates.forEach(update => mergeMutation(changed, current.note.importUpdates(update)))
+          for (const entry of current.note.getEntries()) {
+            if (entry.kind === 'topic')
+              await Effect.runPromise(current.note.validateTopic(entry.id))
+          }
           const entries = changed.entriesChanged ? current.note.getEntries() : undefined
           const topicEntries = new Set((entries ?? current.note.getEntries())
             .filter(entry => entry.kind === 'topic')

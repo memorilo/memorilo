@@ -15,6 +15,7 @@ export type {
   NoteEntrySnapshot,
   TopicContentProjection,
   TopicSnapshot,
+  TopicValidationInput,
 } from './editor-note'
 export { createEditorNote } from './editor-note'
 export type { TopicBlockProjection } from './topic-projection'
