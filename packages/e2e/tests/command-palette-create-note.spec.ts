@@ -24,6 +24,7 @@ test('creates a Note with an H1 first line from an unmatched search', async () =
         ...process.env,
         MEMORILO_DATABASE_PATH: ':memory:',
         MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
+        MEMORILO_E2E_HIDE_WINDOW: '1',
       },
       executablePath: electronExecutablePath,
     })

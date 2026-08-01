@@ -67,6 +67,10 @@ function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
   return new URL(target).protocol === 'file:'
 }
 
+function shouldShowWindow(): boolean {
+  return process.env.MEMORILO_E2E_HIDE_WINDOW !== '1'
+}
+
 function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
@@ -92,7 +96,8 @@ function createWindow() {
     width: 1200,
   })
 
-  window.once('ready-to-show', () => window.show())
+  if (shouldShowWindow())
+    window.once('ready-to-show', () => window.show())
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://'))
       void shell.openExternal(url)
