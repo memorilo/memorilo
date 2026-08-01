@@ -1,4 +1,8 @@
 {
+  "title": "Settings",
+  "categories": "Settings categories",
+  "generalDescription": "Language and accessibility preferences.",
+  "editorDescription": "Tune the writing experience in Memorilo.",
   "generalSection": "General",
   "editorSection": "Editor",
   "language": "Language",
