@@ -27,6 +27,8 @@ Run commands from the repository root unless stated otherwise.
 - Run unit and component tests: `pnpm test`
 - Run Electron end-to-end tests: `pnpm test:e2e`
 
+Electron E2E tests must set `MEMORILO_E2E_HIDE_WINDOW=1` when launching the app so tests do not show a native window. Do not set this variable for normal development or production launches.
+
 Use Turbo filters when working on a specific package:
 
 - Editor tests: `pnpm turbo run test --filter=@memorilo/editor`
