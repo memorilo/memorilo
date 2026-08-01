@@ -9,32 +9,37 @@ export interface SettingsWindowController {
 
 export function createSettingsWindowController(mainDirectory: string): SettingsWindowController {
   let settingsWindow: BrowserWindow | null = null
+  const shouldShowWindow = process.env.MEMORILO_E2E_HIDE_WINDOW !== '1'
 
   const show = () => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       if (settingsWindow.isMinimized())
         settingsWindow.restore()
-      settingsWindow.show()
-      settingsWindow.focus()
+      if (shouldShowWindow) {
+        settingsWindow.show()
+        settingsWindow.focus()
+      }
       return
     }
 
     const macOSOptions: BrowserWindowConstructorOptions = process.platform === 'darwin'
       ? {
-          vibrancy: 'under-window',
-          visualEffectState: 'followWindow',
+          titleBarStyle: 'hiddenInset',
+          trafficLightPosition: { x: 20, y: 20 },
         }
       : {}
     settingsWindow = new BrowserWindow({
-      backgroundColor: process.platform === 'darwin' ? '#00f4f5f7' : '#f4f5f7',
+      backgroundColor: '#ffffff',
       fullscreenable: false,
-      height: 276,
+      height: 560,
       maximizable: false,
       minimizable: false,
-      resizable: false,
+      minHeight: 480,
+      minWidth: 680,
+      resizable: true,
       show: false,
       title: 'Memorilo Settings',
-      width: 540,
+      width: 780,
       ...macOSOptions,
       webPreferences: {
         contextIsolation: true,
@@ -44,7 +49,8 @@ export function createSettingsWindowController(mainDirectory: string): SettingsW
       },
     })
 
-    settingsWindow.once('ready-to-show', () => settingsWindow?.show())
+    if (shouldShowWindow)
+      settingsWindow.once('ready-to-show', () => settingsWindow?.show())
     settingsWindow.on('closed', () => {
       settingsWindow = null
     })
