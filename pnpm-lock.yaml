@@ -47,6 +47,9 @@ importers:
       '@memorilo/editor-storage':
         specifier: workspace:*
         version: link:../../packages/editor-storage
+      '@open-spaced-repetition/binding':
+        specifier: 0.5.0
+        version: 0.5.0
       better-sqlite3:
         specifier: 13.0.1
         version: 13.0.1
@@ -155,6 +158,9 @@ importers:
       '@memorilo/desktop-config':
         specifier: workspace:*
         version: link:../config
+      '@memorilo/editor-storage':
+        specifier: workspace:*
+        version: link:../../../packages/editor-storage
       electron-ipc-decorator:
         specifier: 1.0.1
         version: 1.0.1(electron@43.2.0)
@@ -396,6 +402,12 @@ importers:
       '@noble/hashes':
         specifier: 2.2.0
         version: 2.2.0
+      '@open-spaced-repetition/binding':
+        specifier: 0.5.0
+        version: 0.5.0
+      ts-fsrs:
+        specifier: 5.4.1
+        version: 5.4.1
       uuid:
         specifier: 14.0.1
         version: 14.0.1
@@ -689,8 +701,14 @@ packages:
     engines: {node: '>=14.14'}
     hasBin: true
 
+  '@emnapi/core@1.11.3':
+    resolution: {integrity: sha512-zLpS5asjEb7lq8jYLq37N6XKaE41DIexlY1rF/z4/tIl3wo13Sqm28fRyfIsKZD+NZ8mM5RoKkpW/rBcuoSZSg==}
+
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
+
+  '@emnapi/wasi-threads@1.2.3':
+    resolution: {integrity: sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==}
 
   '@es-joy/jsdoccomment@0.52.0':
     resolution: {integrity: sha512-BXuN7BII+8AyNtn57euU2Yxo9yA/KUDNzrpXyi3pfqKmBhhysR6ZWOebFh3vyPoqA3/j1SOvGgucElMGwlXing==}
@@ -1365,6 +1383,13 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@napi-rs/wasm-runtime@1.2.2':
+    resolution: {integrity: sha512-JfB4kuJQjaoHuCTseIINHtHWeJnvgEcxjwA5t/Y00ZgaOO1Crz3fjT/p8kT28zA/Caz7oiUMn3d6H2yOVCVwuw==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=23.5.0}
+    peerDependencies:
+      '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.3
+      '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.3
+
   '@noble/hashes@1.4.0':
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
     engines: {node: '>= 16'}
@@ -1375,6 +1400,75 @@ packages:
 
   '@ocavue/utils@1.7.0':
     resolution: {integrity: sha512-yEk9ATNBjTZTtuVFMB/MAIF6zJBvJ2+lVNQvK2+O+ggEBGTgx2tp27d4FPgmD5bRsNHHP3D0SleQia/bvIeV8w==}
+
+  '@open-spaced-repetition/binding-android-arm64@0.5.0':
+    resolution: {integrity: sha512-v5w8bUYQqAaVUGzETr1aTL9Mkc1XT65e2gSgA4Bw7zwXeRYj/2wk3hufEghffNJA6ktTksxxDf1sbHUvXtdfdw==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [android]
+
+  '@open-spaced-repetition/binding-darwin-arm64@0.5.0':
+    resolution: {integrity: sha512-+1EUlq+5SXWCTG7rhTRRLoc9hmqAmbiT8zPe6dByXCK4Mh5PyfhqT/xo5cHOYZYNn9qmDDbSSu+eEiw/7IWeaQ==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@open-spaced-repetition/binding-darwin-x64@0.5.0':
+    resolution: {integrity: sha512-AO8vkAyM2Vu57mjcOrxLB3e/Sn6vC5Nra2Ct6jTBRpvHDLb0Lp3UjM1qr8opeZ6q7d5Iqgpmkv1KDwPDcGXesg==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@open-spaced-repetition/binding-linux-arm64-gnu@0.5.0':
+    resolution: {integrity: sha512-eKe0J+TB/b6+R4pTWH4tCvn7bVFdgS5nHENwlAf60F2ZgOTfMqWX1ZtwLF2js8Qbqja2ra6Qfjt/iRFeLs5j7Q==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@open-spaced-repetition/binding-linux-arm64-musl@0.5.0':
+    resolution: {integrity: sha512-X19J5BffnsTQpeHjdU1aQABDH2LApc0JkoQXg+fUsMgWozGCc0NiIFYvShQTZyA6cPlR+I+uoRznutfSUjAqdg==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@open-spaced-repetition/binding-linux-x64-gnu@0.5.0':
+    resolution: {integrity: sha512-RW375lgxYpCmIwzLJ47BF2dsv9XgxhOLCP3m+zj88z/U1KWGo4qKp1P0+0AZVCJM5TyGWTKzJdmg1BabYv13/A==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [linux]
+
+  '@open-spaced-repetition/binding-linux-x64-musl@0.5.0':
+    resolution: {integrity: sha512-UiMUSMsQAcsH1pVOSvZGtBFq0xBLKhqpoFRzbTr2MIUH1nEuhZpS5YvYHvv3T88+V0Ps64RYbDHqj5LaTSvEcA==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [linux]
+
+  '@open-spaced-repetition/binding-wasm32-wasi@0.5.0':
+    resolution: {integrity: sha512-nS5xPO7vUmsUifbnuR/jU5z4iDjYJC6ERkDbkuYUGrnFgLsOgcQMMfj3Sf0ITSjlki+aNaE0UaTAwKaZdQrRfw==}
+    engines: {node: '>=14.0.0'}
+    cpu: [wasm32]
+
+  '@open-spaced-repetition/binding-win32-arm64-msvc@0.5.0':
+    resolution: {integrity: sha512-sBqDj+/eNFDPabxeHyuVYDtVGZBOaKEJsl9kf/A/oBpRRWNPHms+Gt1WZJJKkKzb+uulj+94ctD8JD9QJjmnDA==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@open-spaced-repetition/binding-win32-ia32-msvc@0.5.0':
+    resolution: {integrity: sha512-SvLc/Uh9jCtPSWvFa8WaYSN1put96tP6kqpu3clDLsoI9scuHuNQ+uoB4dzlApzHNsFmImNYvrbs5IOZ4z8TpA==}
+    engines: {node: '>= 20'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@open-spaced-repetition/binding-win32-x64-msvc@0.5.0':
+    resolution: {integrity: sha512-V6p+7dkK7K4Abol7AKh5c160wPhA7bpdmLgym1Nj60xRSwvKJ3DXhrZmt8kE0u/gp0In7YuCvYdetcHS2lYZSg==}
+    engines: {node: '>= 20'}
+    cpu: [x64]
+    os: [win32]
+
+  '@open-spaced-repetition/binding@0.5.0':
+    resolution: {integrity: sha512-rSpW08/f5/liA6t+V/qLrgK44FTA5yuYCR+PUp0daZmYd3r6XmSPKvob85Y81b1i0ii9a9fjKHqjRWQHBUea9Q==}
+    engines: {node: '>= 20'}
 
   '@peculiar/asn1-schema@2.8.0':
     resolution: {integrity: sha512-7YT0U/ze0tF2QOBbE15gKZwy5tvgGyLRiRHLzhlbOpf7BT032oBSd0haZqXn5W6l26WLlu3dyxzjM+2638/z2Q==}
@@ -1886,6 +1980,9 @@ packages:
     resolution: {integrity: sha512-emWVdriXsaSVS5VXJxy4DppQ0UnGD+PUKu40DGjC3E5JXeoszL09B/1xU6B+Y8lJQg38cFoaB1NqGC4ayY5SQQ==}
     cpu: [arm64]
     os: [win32]
+
+  '@tybys/wasm-util@0.10.3':
+    resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
 
   '@types/aria-query@5.0.4':
     resolution: {integrity: sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==}
@@ -4898,6 +4995,10 @@ packages:
     peerDependencies:
       typescript: '>=4.0.0'
 
+  ts-fsrs@5.4.1:
+    resolution: {integrity: sha512-mOp9+oexJexBTkwjg/jQI1aSUQRLIAvbimeKHLSmVdNJPwObugFNKmZkoggH5d6kZ0uaWLboP1Al1DnXAfIb9w==}
+    engines: {node: '>=20.0.0'}
+
   ts-pattern@5.9.0:
     resolution: {integrity: sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg==}
 
@@ -5634,7 +5735,18 @@ snapshots:
       - supports-color
     optional: true
 
+  '@emnapi/core@1.11.3':
+    dependencies:
+      '@emnapi/wasi-threads': 1.2.3
+      tslib: 2.8.1
+    optional: true
+
   '@emnapi/runtime@1.11.3':
+    dependencies:
+      tslib: 2.8.1
+    optional: true
+
+  '@emnapi/wasi-threads@1.2.3':
     dependencies:
       tslib: 2.8.1
     optional: true
@@ -6202,11 +6314,69 @@ snapshots:
   '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4':
     optional: true
 
+  '@napi-rs/wasm-runtime@1.2.2(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
+    dependencies:
+      '@emnapi/core': 1.11.3
+      '@emnapi/runtime': 1.11.3
+      '@tybys/wasm-util': 0.10.3
+    optional: true
+
   '@noble/hashes@1.4.0': {}
 
   '@noble/hashes@2.2.0': {}
 
   '@ocavue/utils@1.7.0': {}
+
+  '@open-spaced-repetition/binding-android-arm64@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-darwin-arm64@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-darwin-x64@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-linux-arm64-gnu@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-linux-arm64-musl@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-linux-x64-gnu@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-linux-x64-musl@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-wasm32-wasi@0.5.0':
+    dependencies:
+      '@emnapi/core': 1.11.3
+      '@emnapi/runtime': 1.11.3
+      '@napi-rs/wasm-runtime': 1.2.2(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+    optional: true
+
+  '@open-spaced-repetition/binding-win32-arm64-msvc@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-win32-ia32-msvc@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding-win32-x64-msvc@0.5.0':
+    optional: true
+
+  '@open-spaced-repetition/binding@0.5.0':
+    optionalDependencies:
+      '@open-spaced-repetition/binding-android-arm64': 0.5.0
+      '@open-spaced-repetition/binding-darwin-arm64': 0.5.0
+      '@open-spaced-repetition/binding-darwin-x64': 0.5.0
+      '@open-spaced-repetition/binding-linux-arm64-gnu': 0.5.0
+      '@open-spaced-repetition/binding-linux-arm64-musl': 0.5.0
+      '@open-spaced-repetition/binding-linux-x64-gnu': 0.5.0
+      '@open-spaced-repetition/binding-linux-x64-musl': 0.5.0
+      '@open-spaced-repetition/binding-wasm32-wasi': 0.5.0
+      '@open-spaced-repetition/binding-win32-arm64-msvc': 0.5.0
+      '@open-spaced-repetition/binding-win32-ia32-msvc': 0.5.0
+      '@open-spaced-repetition/binding-win32-x64-msvc': 0.5.0
 
   '@peculiar/asn1-schema@2.8.0':
     dependencies:
@@ -6883,6 +7053,11 @@ snapshots:
     optional: true
 
   '@turbo/windows-arm64@2.10.6':
+    optional: true
+
+  '@tybys/wasm-util@0.10.3':
+    dependencies:
+      tslib: 2.8.1
     optional: true
 
   '@types/aria-query@5.0.4': {}
@@ -10421,6 +10596,8 @@ snapshots:
     dependencies:
       picomatch: 4.0.5
       typescript: 5.9.3
+
+  ts-fsrs@5.4.1: {}
 
   ts-pattern@5.9.0: {}
 

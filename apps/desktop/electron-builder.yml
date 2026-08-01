@@ -17,6 +17,7 @@ asar: true
 asarUnpack:
   - node_modules/@huggingface/transformers/**
   - node_modules/@img/**
+  - node_modules/@open-spaced-repetition/**
   - node_modules/better-sqlite3/**
   - node_modules/loro-crdt/**
   - node_modules/onnxruntime-node/**

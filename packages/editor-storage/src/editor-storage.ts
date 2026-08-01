@@ -1,8 +1,10 @@
 import type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 import type { EmbeddingModel } from './embedding-model'
+import type { LearningStorage } from './learning'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { v7 as createUuidV7 } from 'uuid'
+import { createLearningStorage } from './learning'
 
 export interface FolderProjection {
   id: string
@@ -223,6 +225,7 @@ export interface EditorStorage {
   listFavoriteNotes: (input?: ListNoteActivityInput) => Promise<readonly FavoriteNoteItem[]>
   listNotes: (input?: ListNotesInput) => Promise<NotePage>
   listRecentNotes: (input?: ListNoteActivityInput) => Promise<readonly RecentNoteItem[]>
+  readonly learning: LearningStorage
   openMostRecentNote: () => Promise<StoredNote>
   recordNoteOpened: (input: RecordNoteOpenedInput) => Promise<void>
   saveNoteUpdates: (input: SaveNoteUpdatesInput) => Promise<NoteWriteReceipt>
@@ -762,11 +765,13 @@ function toTopicSearchHit(
 class DefaultEditorStorage implements EditorStorage {
   readonly #database: EditorStorageDatabase
   readonly #embeddingModel: EmbeddingModel
+  readonly learning: LearningStorage
   #writeQueue: Promise<void> = Promise.resolve()
 
-  private constructor(options: CreateEditorStorageOptions) {
+  private constructor(options: CreateEditorStorageOptions, learning: LearningStorage) {
     this.#database = options.database
     this.#embeddingModel = options.embeddingModel
+    this.learning = learning
   }
 
   static async create(options: CreateEditorStorageOptions): Promise<DefaultEditorStorage> {
@@ -809,7 +814,8 @@ class DefaultEditorStorage implements EditorStorage {
       VALUES (1, ?, ?)
       ON CONFLICT(singleton) DO NOTHING
     `, [options.embeddingModel.id, options.embeddingModel.dimensions])
-    return new DefaultEditorStorage(options)
+    const learning = await createLearningStorage(options.database)
+    return new DefaultEditorStorage(options, learning)
   }
 
   async #serializeWrite<Result>(operation: () => Promise<Result>): Promise<Result> {
