@@ -11,7 +11,7 @@ import type {
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, getRouteApi } from '@tanstack/react-router'
+import { createFileRoute, getRouteApi, Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   AlertCircle,
@@ -45,7 +45,9 @@ import {
 import { createPortal } from 'react-dom'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { useShelfCover } from './-shelf-cover'
 import { desktopEffect, shelfEffectQuery } from './-shelf-data'
+import { cacheShelfPublication, shelfFormatName, shelfPublicationQueryKey } from './-shelf-publication'
 import { shelfRouteStyles } from './-shelf.stylex'
 
 const shelfTitlebar = { title: 'Shelf' } as const
@@ -205,13 +207,6 @@ function formatAuthors(publication: ShelfPublication): string {
   return publication.authors.length === 0 ? 'Unknown author' : publication.authors.join(', ')
 }
 
-type ShelfCoverState = 'error' | 'idle' | 'loaded' | 'loading' | 'missing'
-
-interface ShelfCoverResult {
-  imageUrl: string | null
-  state: ShelfCoverState
-}
-
 function useLoadWhenVisible(rootRef: RefObject<HTMLElement | null>): [RefObject<HTMLDivElement | null>, boolean] {
   const elementRef = useRef<HTMLDivElement>(null)
   const [hasEnteredViewport, setHasEnteredViewport] = useState(false)
@@ -237,39 +232,6 @@ function useLoadWhenVisible(rootRef: RefObject<HTMLElement | null>): [RefObject<
   }, [hasEnteredViewport, rootRef])
 
   return [elementRef, hasEnteredViewport]
-}
-
-function useShelfCover(sourceId: string, coverUrl: string | null, enabled: boolean): ShelfCoverResult {
-  const assetQuery = useQuery(shelfEffectQuery.queryOptions({
-    enabled: enabled && coverUrl !== null,
-    queryFn: () => desktopEffect(() => {
-      if (coverUrl === null)
-        throw new Error('Shelf cover URL is missing')
-      return window.desktop.getShelfAsset({ sourceId, url: coverUrl })
-    }),
-    queryKey: ['shelf-asset', sourceId, coverUrl],
-    retry: 1,
-    staleTime: Infinity,
-  }))
-  const imageUrl = useMemo(() => {
-    if (!assetQuery.data)
-      return null
-    const bytes = new Uint8Array(assetQuery.data.bytes)
-    let binary = ''
-    for (const byte of bytes)
-      binary += String.fromCharCode(byte)
-    return `data:${assetQuery.data.mimeType};base64,${btoa(binary)}`
-  }, [assetQuery.data])
-
-  if (coverUrl === null)
-    return { imageUrl: null, state: 'missing' }
-  if (assetQuery.isError)
-    return { imageUrl: null, state: 'error' }
-  if (imageUrl !== null)
-    return { imageUrl, state: 'loaded' }
-  if (!enabled)
-    return { imageUrl: null, state: 'idle' }
-  return { imageUrl: null, state: 'loading' }
 }
 
 function PublicationCover({
@@ -331,32 +293,42 @@ function PublicationCover({
 function PublicationItem({
   publication,
   scrollElementRef,
-  sourceId,
+  source,
 }: {
   publication: ShelfPublication
   scrollElementRef: RefObject<HTMLDivElement | null>
-  sourceId: string
+  source: ShelfSource
 }) {
+  const queryClient = useQueryClient()
   const format = publication.links.find(link => link.rel.includes('acquisition'))?.type
-  const formatName = format === 'application/epub+zip'
-    ? 'EPUB'
-    : format === 'application/pdf'
-      ? 'PDF'
-      : format?.split('/').at(-1)?.toLocaleUpperCase()
+  const formatName = format ? shelfFormatName(format) : null
+  const cacheDetails = () => queryClient.setQueryData(
+    shelfPublicationQueryKey(source.id, publication.id),
+    cacheShelfPublication(publication, source),
+  )
 
   return (
-    <article {...stylex.props(shelfRouteStyles.publication)}>
-      <PublicationCover publication={publication} scrollElementRef={scrollElementRef} sourceId={sourceId} />
-      <div {...stylex.props(shelfRouteStyles.publicationText)}>
-        <h3 {...stylex.props(shelfRouteStyles.publicationTitle)} title={publication.title}>{publication.title}</h3>
-        <p {...stylex.props(shelfRouteStyles.publicationAuthor)} title={formatAuthors(publication)}>
-          {formatAuthors(publication)}
-        </p>
-        {formatName
-          ? <span {...stylex.props(shelfRouteStyles.formatLabel)}>{formatName}</span>
-          : null}
-      </div>
-    </article>
+    <Link
+      {...stylex.props(shelfRouteStyles.publicationLink)}
+      aria-label={`View details for ${publication.title}`}
+      search={{ publication: publication.id, source: source.id }}
+      to="/shelf/book"
+      onClick={cacheDetails}
+      onPointerDown={cacheDetails}
+    >
+      <article {...stylex.props(shelfRouteStyles.publication)}>
+        <PublicationCover publication={publication} scrollElementRef={scrollElementRef} sourceId={source.id} />
+        <div {...stylex.props(shelfRouteStyles.publicationText)}>
+          <h3 {...stylex.props(shelfRouteStyles.publicationTitle)} title={publication.title}>{publication.title}</h3>
+          <p {...stylex.props(shelfRouteStyles.publicationAuthor)} title={formatAuthors(publication)}>
+            {formatAuthors(publication)}
+          </p>
+          {formatName
+            ? <span {...stylex.props(shelfRouteStyles.formatLabel)}>{formatName}</span>
+            : null}
+        </div>
+      </article>
+    </Link>
   )
 }
 
@@ -485,7 +457,7 @@ function VirtualShelf({
                         key={publication.id}
                         publication={publication}
                         scrollElementRef={scrollElementRef}
-                        sourceId={row.group.source.id}
+                        source={row.group.source}
                       />
                     ))}
                   </div>
@@ -685,7 +657,7 @@ function HorizontalPublicationShelf({
                 data-index={virtualItem.index}
                 style={{ transform: `translateX(${virtualItem.start}px)` }}
               >
-                <PublicationItem publication={publication} scrollElementRef={scrollElementRef} sourceId={sourceId} />
+                <PublicationItem publication={publication} scrollElementRef={scrollElementRef} source={initialGroup.source} />
               </div>
             )
           }

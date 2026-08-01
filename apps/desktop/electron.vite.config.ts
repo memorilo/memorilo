@@ -55,6 +55,7 @@ export default defineConfig({
       react(),
     ],
     build: {
+      cssCodeSplit: false,
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/renderer'),
       rollupOptions: {
