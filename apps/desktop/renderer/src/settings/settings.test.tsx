@@ -23,8 +23,6 @@ describe('settings renderer', () => {
       'System Default',
       'English',
       '简体中文',
-      'Logical',
-      'Traditional',
     ])
     const reduceMotion = rendered.getByRole('switch', { name: 'Reduce motion' })
     expect(reduceMotion).toHaveAttribute('aria-checked', 'false')

@@ -1,6 +1,7 @@
 import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
+import type { MessageBoxOptions } from 'electron'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -13,7 +14,7 @@ import {
   migrateDesktopConfiguration,
 } from '@memorilo/desktop-config'
 import { createEditorStorage } from '@memorilo/editor-storage'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, dialog, shell } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
 import { createDesktopServices } from './ipc/services'
@@ -43,6 +44,26 @@ function embeddingModelCacheDirectory(): string {
   return resolve(mainDirectory, '../../../../.cache/embedding-models')
 }
 
+async function reportInvalidConfiguration(configurationPath: string, phase: 'reload' | 'startup'): Promise<void> {
+  const consequence = phase === 'startup'
+    ? 'Memorilo could not start.'
+    : 'The changes were not applied. Memorilo will keep using the last valid settings.'
+  console.error(`Invalid Memorilo configuration during ${phase}: ${configurationPath}`)
+  const options: MessageBoxOptions = {
+    buttons: ['OK'],
+    defaultId: 0,
+    detail: `One or more recognized settings have an invalid format. ${consequence}\n\nCheck the configuration file at:\n${configurationPath}`,
+    message: 'Invalid Memorilo Configuration',
+    noLink: true,
+    type: 'error',
+  }
+  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  if (owner)
+    await dialog.showMessageBox(owner, options)
+  else
+    await dialog.showMessageBox(options)
+}
+
 function desktopConfigurationAdapter(userDataPath: string): ConfigurationAdapter {
   const adapter = createJsonFileConfigurationAdapter(join(userDataPath, 'configuration.json'))
   return {
@@ -57,6 +78,23 @@ function desktopConfigurationAdapter(userDataPath: string): ConfigurationAdapter
     },
     subscribe: adapter.subscribe,
     write: adapter.write,
+  }
+}
+
+async function createDesktopConfigurationStore(userDataPath: string): Promise<ConfigurationStore<DesktopConfiguration>> {
+  const configurationPath = join(userDataPath, 'configuration.json')
+  try {
+    return await createConfigurationStore(
+      desktopConfigurationDefinition,
+      desktopConfigurationAdapter(userDataPath),
+      {
+        onError: () => void reportInvalidConfiguration(configurationPath, 'reload'),
+      },
+    )
+  }
+  catch {
+    await reportInvalidConfiguration(configurationPath, 'startup')
+    throw new Error(`Invalid Memorilo configuration: ${configurationPath}`)
   }
 }
 
@@ -116,13 +154,7 @@ function createWindow() {
 
 async function startApplication(): Promise<void> {
   const userDataPath = app.getPath('userData')
-  configurationStore = await createConfigurationStore(
-    desktopConfigurationDefinition,
-    desktopConfigurationAdapter(userDataPath),
-    {
-      onError: error => console.error('Failed to hot reload desktop configuration', error),
-    },
-  )
+  configurationStore = await createDesktopConfigurationStore(userDataPath)
   editorStorage = await createEditorStorage({
     database: new BetterSqliteDatabase(databasePath(userDataPath)),
     embeddingModel: new TransformersEmbeddingModel({

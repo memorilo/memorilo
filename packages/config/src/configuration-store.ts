@@ -63,7 +63,7 @@ export async function createConfigurationStore<S extends Schema.Top & {
   const decode = EffectSchema.decodeUnknownSync(definition.schema)
   const stored = await adapter.read()
   let snapshot: Configuration = deepFreeze(decode(stored === null ? definition.defaults : stored, {
-    onExcessProperty: 'error',
+    onExcessProperty: 'preserve',
   }) as Configuration)
   if (stored === null && options.persistDefaults !== false)
     await adapter.write(snapshot)
@@ -98,7 +98,7 @@ export async function createConfigurationStore<S extends Schema.Top & {
       const next = await adapter.read()
       if (next === null)
         throw new Error(`Configuration ${definition.id} disappeared from storage`)
-      return publish(decode(next, { onExcessProperty: 'error' }) as Configuration)
+      return publish(decode(next, { onExcessProperty: 'preserve' }) as Configuration)
     })
   }
 
@@ -123,7 +123,7 @@ export async function createConfigurationStore<S extends Schema.Top & {
     refresh,
     set: async (configuration) => {
       assertOpen()
-      const next = decode(configuration, { onExcessProperty: 'error' }) as Configuration
+      const next = decode(configuration, { onExcessProperty: 'preserve' }) as Configuration
       return enqueue(async () => {
         await adapter.write(next)
         return publish(next)
@@ -134,7 +134,7 @@ export async function createConfigurationStore<S extends Schema.Top & {
       return enqueue(async () => {
         const next = decode(
           setConfigurationValue(snapshot, path, value),
-          { onExcessProperty: 'error' },
+          { onExcessProperty: 'preserve' },
         ) as Configuration
         await adapter.write(next)
         return publish(next)
