@@ -46,6 +46,10 @@ Renderer and editor styles use StyleX. Keep component-level styles in `*.stylex.
 and reserve plain CSS for global resets, font faces, and third-party content styles. The
 electron-vite build extracts StyleX output into the packaged renderer CSS bundle.
 
+Renderer notifications use the globally mounted React-Toastify container. See
+[`docs/renderer-toasts.md`](docs/renderer-toasts.md) for severity guidance, actions,
+loading states, progress, dismissal, and accessibility usage.
+
 ## Native Dependencies
 
 `better-sqlite3` ships a Node-API binary for supported Windows architectures, so the default
