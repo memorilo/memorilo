@@ -1,0 +1,13 @@
+{
+  "generalSection": "General",
+  "editorSection": "Editor",
+  "language": "Language",
+  "systemDefault": "System Default",
+  "english": "English",
+  "chinese": "简体中文",
+  "reduceMotion": "Reduce motion",
+  "outdentBehavior": "Outdent behavior",
+  "outdentBehaviorDescription": "Choose how Shift-Tab moves selected blocks in Outline mode.",
+  "outdentLogical": "Logical",
+  "outdentTraditional": "Traditional"
+}

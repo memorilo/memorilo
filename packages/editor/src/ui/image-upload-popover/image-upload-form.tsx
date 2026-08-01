@@ -5,6 +5,7 @@ import type { ImageExtension } from 'prosekit/extensions/image'
 import * as stylex from '@stylexjs/stylex'
 import { useEditor } from 'prosekit/react'
 import { useId, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { formControlStyles } from '../form-controls/form-controls.stylex'
 import { imageUploadFormStyles } from './image-upload-form.stylex'
@@ -17,6 +18,7 @@ export default function ImageUploadForm(props: {
   const [file, setFile] = useState<File | null>(null)
   const ariaId = useId()
   const editor = useEditor<ImageExtension>()
+  const { t } = useTranslation('editor')
 
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
     const nextFile = event.target.files?.[0]
@@ -59,11 +61,11 @@ export default function ImageUploadForm(props: {
         ? null
         : (
             <>
-              <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-link-${ariaId}`}>Embed Link</label>
+              <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-link-${ariaId}`}>{t('ui.embedLink')}</label>
               <input
                 id={`id-link-${ariaId}`}
                 {...stylex.props(formControlStyles.textInput)}
-                placeholder="Paste the image link..."
+                placeholder={t('ui.pasteImageLinkPlaceholder')}
                 type="url"
                 value={url}
                 onChange={handleUrlChange}
@@ -75,7 +77,7 @@ export default function ImageUploadForm(props: {
         ? null
         : (
             <>
-              <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-upload-${ariaId}`}>Upload</label>
+              <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-upload-${ariaId}`}>{t('ui.upload')}</label>
               <input
                 id={`id-upload-${ariaId}`}
                 {...stylex.props(formControlStyles.textInput, imageUploadFormStyles.fileInput)}
@@ -89,15 +91,14 @@ export default function ImageUploadForm(props: {
       {url
         ? (
             <button {...stylex.props(formControlStyles.primaryButton)} type="button" onClick={handleSubmit}>
-              Insert Image
+              {t('ui.insertImageButton')}
             </button>
           )
         : null}
-
       {file
         ? (
             <button {...stylex.props(formControlStyles.primaryButton)} type="button" onClick={handleSubmit}>
-              Upload Image
+              {t('ui.uploadImage')}
             </button>
           )
         : null}

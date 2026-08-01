@@ -12,6 +12,7 @@ import type {
   HighlightColor,
   InlineHighlightMarkAttrs,
 } from './card-model'
+import i18next from 'i18next'
 import {
   addMark,
   defineCommands,
@@ -213,13 +214,20 @@ const createCardDelimiterView: NodeViewConstructor = (initialNode, view, getPos)
   symbol.dataset.cardDirectionSymbol = ''
   const controls = document.createElement('span')
   controls.dataset.cardHoverControls = ''
-  controls.setAttribute('aria-label', 'Card controls')
+  controls.setAttribute('aria-label', i18next.t('ui.cardControls', { ns: 'editor' }))
   controls.setAttribute('role', 'group')
 
-  const previewControl = createCardControl('preview', 'Preview card')
-  const optionsControl = createCardControl('options', 'Card options')
+  const previewControl = createCardControl('preview', i18next.t('ui.previewCard', { ns: 'editor' }))
+  const optionsControl = createCardControl('options', i18next.t('ui.cardOptions', { ns: 'editor' }))
   controls.append(previewControl, optionsControl)
   dom.append(symbol, controls)
+
+  const renderTranslations = () => {
+    controls.setAttribute('aria-label', i18next.t('ui.cardControls', { ns: 'editor' }))
+    previewControl.setAttribute('aria-label', i18next.t('ui.previewCard', { ns: 'editor' }))
+    optionsControl.setAttribute('aria-label', i18next.t('ui.cardOptions', { ns: 'editor' }))
+  }
+  i18next.on('languageChanged', renderTranslations)
 
   let node = initialNode
   const render = () => {
@@ -273,6 +281,7 @@ const createCardDelimiterView: NodeViewConstructor = (initialNode, view, getPos)
     },
     stopEvent: event => event.target instanceof Element && event.target.closest('[data-card-control]') !== null,
     destroy: () => {
+      i18next.off('languageChanged', renderTranslations)
       previewControl.removeEventListener('mousedown', preserveEditorSelection)
       previewControl.removeEventListener('click', openPreview)
       optionsControl.removeEventListener('mousedown', preserveEditorSelection)
@@ -424,9 +433,9 @@ function createClozePreviewControls(
     controls.style.right = `${rightOffset}px`
     if (active)
       controls.dataset.clozeCardControlsActive = ''
-    controls.setAttribute('aria-label', 'Card controls')
+    controls.setAttribute('aria-label', i18next.t('ui.cardControls', { ns: 'editor' }))
     controls.setAttribute('role', 'group')
-    const previewControl = createCardControl('preview', 'Preview card')
+    const previewControl = createCardControl('preview', i18next.t('ui.previewCard', { ns: 'editor' }))
     const preserveEditorSelection = (event: MouseEvent) => {
       event.preventDefault()
       event.stopPropagation()
@@ -526,7 +535,7 @@ function defineCardDelimiterUi(): Extension {
               ),
               {
                 ignoreSelection: true,
-                key: `cloze-card-controls:${definition.definitionId}`,
+                key: `cloze-card-controls:${definition.definitionId}:${i18next.resolvedLanguage}`,
                 side: 1,
                 stopEvent: event => event.target instanceof Element && event.target.closest('[data-card-control]') !== null,
               },

@@ -7,6 +7,7 @@ import { defineConfig } from 'electron-vite'
 import wasm from 'vite-plugin-wasm'
 
 const desktopRoot = dirname(fileURLToPath(import.meta.url))
+const repositoryRoot = resolve(desktopRoot, '../..')
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
   cssInjectionTarget: fileName => fileName.includes('renderer-global'),
   externalPackages: ['@memorilo/config', '@memorilo/editor'],
@@ -49,12 +50,20 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(desktopRoot, 'renderer'),
+    define: {
+      __MEMORILO_REPO_ROOT__: JSON.stringify(repositoryRoot),
+    },
     plugins: [
       wasm(),
       TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
       stylex(stylexOptions),
       react(),
     ],
+    server: {
+      fs: {
+        allow: [repositoryRoot],
+      },
+    },
     build: {
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/renderer'),

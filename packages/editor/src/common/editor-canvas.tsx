@@ -2,10 +2,12 @@ import type { ReactNode } from 'react'
 import type { EditorModeValue } from './editor-mode'
 import type { EditorSession } from './editor-session'
 import * as stylex from '@stylexjs/stylex'
+import i18next from 'i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { TextSelection } from 'prosekit/pm/state'
 import { ProseKit } from 'prosekit/react'
-import { useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 import { BlockHandle } from '../ui/block-handle'
@@ -62,15 +64,16 @@ function UploadStatus() {
   const status = useAtomValue(uploadStatusAtom)
   const error = useAtomValue(uploadErrorAtom)
   const setError = useSetAtom(uploadErrorAtom)
+  const { t } = useTranslation('editor')
 
   if (status === 'idle' && !error)
     return null
 
   return (
     <div {...stylex.props(editorCanvasStyles.uploadStatus, Boolean(error) && editorCanvasStyles.uploadStatusError)} aria-live="polite">
-      <span>{error ?? 'Uploading image...'}</span>
+      <span>{error ?? t('ui.uploadingImage')}</span>
       {error
-        ? <button {...stylex.props(editorCanvasStyles.uploadStatusButton)} aria-label="Dismiss upload error" type="button" onClick={() => setError(null)}>Dismiss</button>
+        ? <button {...stylex.props(editorCanvasStyles.uploadStatusButton)} aria-label={t('ui.dismissUploadError')} type="button" onClick={() => setError(null)}>{t('ui.dismiss')}</button>
         : null}
     </div>
   )
@@ -88,11 +91,26 @@ export function EditorCanvas({
   session: EditorSession
 }) {
   const { configured, editor } = session
+  const { t } = useTranslation('editor')
 
   useLayoutEffect(() => {
     if (focusBlockId !== undefined)
       focusBlock(session, focusBlockId)
   }, [focusBlockId, session])
+
+  // The placeholder (and any other state-dependent plugin text) is evaluated on
+  // every editor transaction, so it won't update until the user edits after a
+  // language switch. Dispatch a no-op transaction when i18next changes language
+  // so decorations re-run and pick up the newly translated strings immediately.
+  useEffect(() => {
+    const refresh = (): void => {
+      const view = session.editor.view
+      if (view)
+        view.dispatch(view.state.tr)
+    }
+    i18next.on('languageChanged', refresh)
+    return () => i18next.off('languageChanged', refresh)
+  }, [session])
 
   return (
     <>
@@ -104,7 +122,7 @@ export function EditorCanvas({
             <div
               ref={editor.mount}
               {...stylex.props(editorCanvasStyles.content)}
-              aria-label="Editor content"
+              aria-label={t('ui.editorContent')}
               aria-multiline="true"
               data-editor-content=""
               role="textbox"

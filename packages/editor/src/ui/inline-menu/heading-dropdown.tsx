@@ -1,9 +1,11 @@
 'use client'
 
+import type { TFunction } from 'i18next'
 import type { EditorAction } from '../editor-actions/index.ts'
 import * as stylex from '@stylexjs/stylex'
 import { Check, ChevronDown } from 'lucide-react'
 import { MenuItem, MenuPopup, MenuPositioner, MenuRoot, MenuTrigger } from 'prosekit/react/menu'
+import { useTranslation } from 'react-i18next'
 
 import { buttonStyles } from '../button/button.stylex'
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
@@ -19,7 +21,7 @@ interface HeadingActions {
   heading6: EditorAction
 }
 
-function getCurrentLabel(actions: HeadingActions): string {
+function getCurrentLabel(actions: HeadingActions, t: TFunction): string {
   if (actions.heading1.active)
     return 'H1'
   if (actions.heading2.active)
@@ -32,18 +34,19 @@ function getCurrentLabel(actions: HeadingActions): string {
     return 'H5'
   if (actions.heading6.active)
     return 'H6'
-  return 'Text'
+  return t('ui.text')
 }
 
 export default function HeadingDropdown({ actions }: { actions: HeadingActions }) {
+  const { t } = useTranslation('editor')
   const items = [
-    { action: actions.paragraph, label: 'Text' },
-    { action: actions.heading1, label: 'Heading 1' },
-    { action: actions.heading2, label: 'Heading 2' },
-    { action: actions.heading3, label: 'Heading 3' },
-    { action: actions.heading4, label: 'Heading 4' },
-    { action: actions.heading5, label: 'Heading 5' },
-    { action: actions.heading6, label: 'Heading 6' },
+    { action: actions.paragraph, label: t('ui.text') },
+    { action: actions.heading1, label: t('ui.heading', { level: 1 }) },
+    { action: actions.heading2, label: t('ui.heading', { level: 2 }) },
+    { action: actions.heading3, label: t('ui.heading', { level: 3 }) },
+    { action: actions.heading4, label: t('ui.heading', { level: 4 }) },
+    { action: actions.heading5, label: t('ui.heading', { level: 5 }) },
+    { action: actions.heading6, label: t('ui.heading', { level: 6 }) },
   ]
 
   return (
@@ -51,11 +54,11 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
       <MenuTrigger {...stylex.props(inlineMenuStyles.headingTrigger)}>
         <button
           {...stylex.props(buttonStyles.action, inlineMenuStyles.headingButton)}
-          aria-label="Text style"
+          aria-label={t('ui.textStyle')}
           type="button"
           onMouseDown={event => event.preventDefault()}
         >
-          <span>{getCurrentLabel(actions)}</span>
+          <span>{getCurrentLabel(actions, t)}</span>
           <ChevronDown aria-hidden="true" size={14} />
         </button>
       </MenuTrigger>
@@ -66,7 +69,7 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
             floatingSurfaceStyles.surface,
             inlineMenuStyles.headingPopup,
           )}
-          aria-label="Text style"
+          aria-label={t('ui.textStyle')}
           onMouseDown={event => event.preventDefault()}
         >
           {items.map(({ action, label }) => (

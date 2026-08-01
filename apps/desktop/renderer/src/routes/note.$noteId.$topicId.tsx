@@ -1,6 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
 import { lazy, Suspense, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../components/page-titlebar'
 import { editorRouteStyles } from './-note.stylex'
@@ -9,8 +10,6 @@ const NoteEditor = lazy(async () => {
   const module = await import('./-note-editor')
   return { default: module.NoteEditor }
 })
-
-const noteTitlebar = { title: 'Note' } as const
 
 interface NoteSearch {
   focus?: string
@@ -25,9 +24,10 @@ function validateNoteSearch(search: Record<string, unknown>): NoteSearch {
 }
 
 function NoteLoadingState() {
+  const { t } = useTranslation('editor')
   return (
     <main {...stylex.props(editorRouteStyles.statusPage)}>
-      <p {...stylex.props(editorRouteStyles.statusMessage)} role="status">Loading editor…</p>
+      <p {...stylex.props(editorRouteStyles.statusMessage)} role="status">{t('loadingEditor')}</p>
     </main>
   )
 }
@@ -38,9 +38,10 @@ export const Route = createFileRoute('/note/$noteId/$topicId')({
 })
 
 function NoteRoute() {
+  const { t } = useTranslation('editor')
   const { noteId, topicId } = Route.useParams()
   const { focus } = Route.useSearch()
-  usePageTitlebar(noteTitlebar)
+  usePageTitlebar({ title: t('noteTitle') })
 
   return <NoteWorkspace key={noteId} focus={focus} noteId={noteId} topicId={topicId} />
 }

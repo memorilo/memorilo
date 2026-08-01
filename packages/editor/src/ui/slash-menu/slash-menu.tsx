@@ -7,6 +7,7 @@ import * as stylex from '@stylexjs/stylex'
 import { canUseRegexLookbehind } from 'prosekit/core'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { AutocompletePopup, AutocompletePositioner, AutocompleteRoot } from 'prosekit/react/autocomplete'
+import { useTranslation } from 'react-i18next'
 
 import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
 import { getEditorActions } from '../editor-actions/index.ts'
@@ -52,6 +53,7 @@ export default function SlashMenu() {
   const editor = useEditor<SlashMenuExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
   const cardActions = useEditorDerivedValue(getCardActions)
+  const { t } = useTranslation('editor')
 
   return (
     <AutocompleteRoot regex={regex}>
@@ -66,137 +68,137 @@ export default function SlashMenu() {
           <div {...stylex.props(autocompleteMenuStyles.content)}>
             <SlashMenuItem
               aliases={['paragraph', 'p']}
-              label="Text"
+              label={t('ui.text')}
               onSelect={actions.heading.paragraph.run}
             />
 
             <SlashMenuItem
               aliases={['h1']}
-              label="Heading 1"
+              label={t('ui.heading', { level: 1 })}
               kbd="#"
               onSelect={actions.heading.heading1.run}
             />
 
             <SlashMenuItem
               aliases={['h2']}
-              label="Heading 2"
+              label={t('ui.heading', { level: 2 })}
               kbd="##"
               onSelect={actions.heading.heading2.run}
             />
 
             <SlashMenuItem
               aliases={['h3']}
-              label="Heading 3"
+              label={t('ui.heading', { level: 3 })}
               kbd="###"
               onSelect={actions.heading.heading3.run}
             />
 
             <SlashMenuItem
               aliases={['h4']}
-              label="Heading 4"
+              label={t('ui.heading', { level: 4 })}
               kbd="####"
               onSelect={actions.heading.heading4.run}
             />
 
             <SlashMenuItem
               aliases={['h5']}
-              label="Heading 5"
+              label={t('ui.heading', { level: 5 })}
               kbd="#####"
               onSelect={actions.heading.heading5.run}
             />
 
             <SlashMenuItem
               aliases={['h6']}
-              label="Heading 6"
+              label={t('ui.heading', { level: 6 })}
               kbd="######"
               onSelect={actions.heading.heading6.run}
             />
 
             <SlashMenuItem
               aliases={['unordered list', 'ul']}
-              label="Bullet list"
+              label={t('ui.bulletList')}
               kbd="-"
               onSelect={actions.block.bulletList.run}
             />
 
             <SlashMenuItem
               aliases={['numbered list', 'ol']}
-              label="Ordered list"
+              label={t('ui.orderedList')}
               kbd="1."
               onSelect={actions.block.orderedList.run}
             />
 
             <SlashMenuItem
               aliases={['todo', 'checklist']}
-              label="Task list"
+              label={t('ui.taskList')}
               kbd="[]"
               onSelect={actions.block.taskList.run}
             />
 
             <SlashMenuItem
               aliases={['collapsible', 'details']}
-              label="Toggle list"
+              label={t('ui.toggleList')}
               kbd=">>"
               onSelect={actions.block.toggleList.run}
             />
 
             <SlashMenuItem
               aliases={['blockquote']}
-              label="Quote"
+              label={t('ui.quote')}
               kbd=">"
               onSelect={actions.block.blockquote.run}
             />
 
             <SlashMenuItem
               aliases={['grid']}
-              label="Table"
+              label={t('ui.table')}
               onSelect={actions.insert.table.run}
             />
 
             <SlashMenuItem
               aliases={['horizontal rule', 'hr']}
-              label="Divider"
+              label={t('ui.divider')}
               kbd="---"
               onSelect={actions.insert.divider.run}
             />
 
             <SlashMenuItem
               aliases={['code block', 'pre']}
-              label="Code"
+              label={t('ui.code')}
               kbd="```"
               onSelect={actions.block.codeBlock.run}
             />
 
             <SlashMenuItem
               aliases={['math', 'formula', 'equation', 'latex']}
-              label="Inline math"
+              label={t('ui.inlineMath')}
               kbd="$"
               onSelect={actions.insert.inlineMath.run}
             />
 
             {cardActions.canInsert.forward
-              ? <SlashMenuItem label="Basic card" kbd=":->" onSelect={() => editor.commands.insertBasicCard({ direction: 'forward' })} />
+              ? <SlashMenuItem label={t('ui.basicCard')} kbd=":->" onSelect={() => editor.commands.insertBasicCard({ direction: 'forward' })} />
               : null}
             {cardActions.canInsert.backward
-              ? <SlashMenuItem label="Reverse card" kbd=":-<" onSelect={() => editor.commands.insertBasicCard({ direction: 'backward' })} />
+              ? <SlashMenuItem label={t('ui.reverseCard')} kbd=":-<" onSelect={() => editor.commands.insertBasicCard({ direction: 'backward' })} />
               : null}
             {cardActions.canInsert.both
-              ? <SlashMenuItem label="Bidirectional card" kbd=":<>" onSelect={() => editor.commands.insertBasicCard({ direction: 'both' })} />
+              ? <SlashMenuItem label={t('ui.bidirectionalCard')} kbd=":<>" onSelect={() => editor.commands.insertBasicCard({ direction: 'both' })} />
               : null}
             {cardActions.canSetPresentation
-              ? <SlashMenuItem label="Set card answers" onSelect={() => editor.commands.setCardPresentation({ presentation: 'set' })} />
+              ? <SlashMenuItem label={t('ui.setCardAnswers')} onSelect={() => editor.commands.setCardPresentation({ presentation: 'set' })} />
               : null}
             {cardActions.canSetPresentation
-              ? <SlashMenuItem label="List card answers" onSelect={() => editor.commands.setCardPresentation({ presentation: 'list' })} />
+              ? <SlashMenuItem label={t('ui.listCardAnswers')} onSelect={() => editor.commands.setCardPresentation({ presentation: 'list' })} />
               : null}
             {cardActions.addToBack
-              ? <SlashMenuItem label="Add to card back" onSelect={() => editor.commands.addBlockToCardBack()} />
+              ? <SlashMenuItem label={t('ui.addToCardBack')} onSelect={() => editor.commands.addBlockToCardBack()} />
               : null}
             {cardActions.cardMember
-              ? <SlashMenuItem label="Remove from card back" onSelect={() => editor.commands.removeBlockFromCardBack()} />
+              ? <SlashMenuItem label={t('ui.removeFromCardBack')} onSelect={() => editor.commands.removeBlockFromCardBack()} />
               : null}
             <SlashMenuItem
-              label={cardActions.blockHighlighted ? 'Remove block highlight' : 'Highlight block'}
+              label={cardActions.blockHighlighted ? t('ui.removeBlockHighlight') : t('ui.highlightBlock')}
               onSelect={() => {
                 if (cardActions.blockHighlighted)
                   editor.commands.removeBlockHighlight()

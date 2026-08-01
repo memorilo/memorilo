@@ -8,6 +8,7 @@ import { ChevronDown } from 'lucide-react'
 import { isCodeBlockPreviewHiddenDecoration, shikiBundledLanguagesInfo } from 'prosekit/extensions/code-block'
 import { TextSelection } from 'prosekit/pm/state'
 import { useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { codeBlockViewStyles } from './code-block-view.stylex'
 import './code-block-content.stylex'
@@ -16,6 +17,7 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
   const attrs = props.node.attrs as CodeBlockAttrs
   const language = attrs.language || ''
   const hidePreview = props.decorations.some(isCodeBlockPreviewHiddenDecoration)
+  const { t } = useTranslation('editor')
   const preRef = useRef<HTMLElement | null>(null)
 
   const showMermaidPreview = !hidePreview && language === 'mermaid'
@@ -58,12 +60,12 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
         data-preview={showMermaidPreview ? '' : undefined}
       >
         <select
-          aria-label="Code block language"
+          aria-label={t('ui.codeBlockLanguage')}
           {...stylex.props(codeBlockViewStyles.languageSelect)}
           onChange={event => setLanguage(event.target.value)}
           value={language}
         >
-          <option value="">Plain Text</option>
+          <option value="">{t('ui.plainText')}</option>
           {shikiBundledLanguagesInfo.map(info => (
             <option key={info.id} value={info.id}>
               {info.name}
@@ -89,7 +91,7 @@ export default function CodeBlockView(props: ReactNodeViewProps) {
       </pre>
       {showMermaidPreview && (
         <div
-          aria-label="Edit source"
+          aria-label={t('ui.editSource')}
           {...stylex.props(codeBlockViewStyles.preview)}
           data-code-preview=""
           contentEditable={false}

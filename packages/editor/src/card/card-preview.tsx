@@ -7,8 +7,10 @@ import type {
   MultiLineCardItemProjection,
 } from './card-model'
 import * as stylex from '@stylexjs/stylex'
+import i18next from 'i18next'
 import { render as renderKaTeX } from 'katex'
 import { Fragment, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { cardPreviewStyles } from './card-preview.stylex'
 
@@ -49,7 +51,7 @@ function readClozeAttrs(node: NodeJSON, cardId: string | undefined): ClozeMarkAt
 
 function hiddenCloze(key: string): ReactNode {
   return (
-    <span key={key} {...stylex.props(cardPreviewStyles.hiddenCloze)} aria-label="Hidden cloze">
+    <span key={key} {...stylex.props(cardPreviewStyles.hiddenCloze)} aria-label={i18next.t('ui.hiddenCloze', { ns: 'editor' })}>
       ···
     </span>
   )
@@ -371,7 +373,7 @@ function BasicPreview({ card, mode }: {
             </div>
           )
         : null}
-      {mode === 'interactive' && !revealed ? <RevealButton onClick={() => setRevealed(true)}>Show answer</RevealButton> : null}
+      {mode === 'interactive' && !revealed ? <RevealButton onClick={() => setRevealed(true)}>{i18next.t('ui.showAnswer', { ns: 'editor' })}</RevealButton> : null}
     </>
   )
 }
@@ -385,7 +387,7 @@ function ClozePreview({ card, mode }: {
   return (
     <>
       <RichContent clozeCardId={card.id} nodes={card.content} revealCloze={showAnswer} />
-      {mode === 'interactive' && !revealed ? <RevealButton onClick={() => setRevealed(true)}>Show answer</RevealButton> : null}
+      {mode === 'interactive' && !revealed ? <RevealButton onClick={() => setRevealed(true)}>{i18next.t('ui.showAnswer', { ns: 'editor' })}</RevealButton> : null}
     </>
   )
 }
@@ -411,7 +413,7 @@ function MultiLinePreview({ card, mode }: {
               </div>
             )
           : null}
-        {mode === 'interactive' && !revealed ? <RevealButton onClick={() => setRevealed(true)}>Show answer</RevealButton> : null}
+        {mode === 'interactive' && !revealed ? <RevealButton onClick={() => setRevealed(true)}>{i18next.t('ui.showAnswer', { ns: 'editor' })}</RevealButton> : null}
       </>
     )
   }
@@ -431,12 +433,12 @@ function MultiLinePreview({ card, mode }: {
       {canRevealNext
         ? (
             <RevealButton onClick={() => setRevealedItems(count => count + 1)}>
-              {`Show next item (${visibleCount + 1} of ${card.items.length})`}
+              {i18next.t('ui.showNextItem', { visibleCount: visibleCount + 1, total: card.items.length, ns: 'editor' })}
             </RevealButton>
           )
         : null}
       {mode === 'interactive' && card.kind === 'set' && !revealed
-        ? <RevealButton onClick={() => setRevealed(true)}>Show answer</RevealButton>
+        ? <RevealButton onClick={() => setRevealed(true)}>{i18next.t('ui.showAnswer', { ns: 'editor' })}</RevealButton>
         : null}
       {/* TODO(storage/FSRS): persist per-item ratings/history and generate Partial Cards with independent scheduling. */}
     </>
@@ -465,5 +467,6 @@ function CardPreviewSession({ appearance, card, mode }: Required<CardPreviewProp
 }
 
 export function CardPreview({ appearance = 'standalone', card, mode = 'interactive' }: CardPreviewProps) {
+  useTranslation('editor')
   return <CardPreviewSession key={`${card.id}:${mode}`} appearance={appearance} card={card} mode={mode} />
 }
