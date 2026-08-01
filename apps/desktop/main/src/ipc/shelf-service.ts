@@ -6,6 +6,8 @@ import type {
   ShelfBrowseIssue,
   ShelfBrowseResult,
   ShelfImageCache,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
   ShelfRequestCredentials,
   ShelfSource,
   ShelfStorage,
@@ -276,6 +278,20 @@ export function createShelfService(storage: ShelfStorage, imageCache: ShelfImage
       return {
         groups: await Promise.all(sources.map(source => cachedGroup(storage, source, input))),
         refreshedAt: null,
+      }
+    }
+
+    @IpcMethod()
+    async getPublicationDetails(input: ShelfPublicationDetailsInput): Promise<ShelfPublicationDetails> {
+      const source = await storage.getSource(input.sourceId)
+      if (!source)
+        throw new Error(`Unknown Shelf source: ${input.sourceId}`)
+      const publication = await storage.getCachedPublication(source.id, input.publicationId)
+      if (!publication)
+        throw new Error('This book is no longer available in the saved Shelf catalog.')
+      return {
+        publication,
+        source: publicSource(source),
       }
     }
 

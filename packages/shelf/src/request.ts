@@ -2,7 +2,11 @@ import type {
   ShelfNavigationItem,
   ShelfPage,
   ShelfPublication,
+  ShelfPublicationCollection,
+  ShelfPublicationContributor,
   ShelfPublicationLink,
+  ShelfPublicationMetadata,
+  ShelfPublicationSubject,
 } from './model'
 import { Data, Effect } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
@@ -119,6 +123,32 @@ function textValue(value: unknown): string | null {
   return record ? optionalString(record['#text']) : null
 }
 
+function contentTextValue(value: unknown): string | null {
+  const values = asArray(value).flatMap((candidate): readonly string[] => {
+    const direct = optionalString(candidate)
+    if (direct !== null)
+      return [direct]
+    const record = asRecord(candidate)
+    if (record === null)
+      return []
+    return Object.entries(record)
+      .filter(([key]) => !key.startsWith('@_'))
+      .flatMap(([, child]) => {
+        const text = contentTextValue(child)
+        return text === null ? [] : [text]
+      })
+  })
+  return values.length === 0 ? null : values.join('\n\n')
+}
+
+function summaryTextValue(value: unknown): string | null {
+  const text = contentTextValue(value)
+  if (text === null)
+    return null
+  const blocks = text.split(/\n{2,}/u).filter(block => !/^TAGS:\s*/iu.test(block.trim()))
+  return blocks.length === 0 ? null : blocks.join('\n\n')
+}
+
 function requiredTitle(value: unknown, description: string): string {
   const title = textValue(value)
   if (title === null)
@@ -181,6 +211,147 @@ function normalizeContributors(value: unknown): readonly string[] {
   })
 }
 
+function normalizeTextList(value: unknown): readonly string[] {
+  return asArray(value).flatMap((candidate) => {
+    const text = textValue(candidate)
+    return text === null ? [] : [text]
+  })
+}
+
+function optionalNonNegativeNumber(value: unknown): number | null {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim().length > 0
+      ? Number(value)
+      : Number.NaN
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null
+}
+
+function normalizeSubjects(value: unknown): readonly ShelfPublicationSubject[] {
+  return asArray(value).flatMap((candidate) => {
+    const direct = optionalString(candidate)
+    if (direct !== null)
+      return [{ code: null, name: direct, scheme: null }]
+    const subject = asRecord(candidate)
+    if (subject === null)
+      return []
+    const name = textValue(subject.name)
+      ?? optionalString(subject['@_label'])
+      ?? optionalString(subject.label)
+      ?? optionalString(subject['@_term'])
+      ?? optionalString(subject.code)
+    if (name === null)
+      return []
+    return [{
+      code: optionalString(subject.code) ?? optionalString(subject['@_term']),
+      name,
+      scheme: optionalString(subject.scheme) ?? optionalString(subject['@_scheme']),
+    }]
+  })
+}
+
+function normalizeCollections(
+  value: unknown,
+  type: ShelfPublicationCollection['type'],
+  fallbackPosition: unknown = null,
+): readonly ShelfPublicationCollection[] {
+  const collections = asArray(value).flatMap((candidate) => {
+    const direct = optionalString(candidate)
+    if (direct !== null)
+      return [{ name: direct, position: null, type }]
+    const collection = asRecord(candidate)
+    if (collection === null)
+      return []
+    const name = textValue(collection.name) ?? textValue(collection.title)
+    if (name === null)
+      return []
+    return [{
+      name,
+      position: optionalNonNegativeNumber(collection.position ?? collection.number),
+      type,
+    }]
+  })
+  const position = optionalNonNegativeNumber(fallbackPosition)
+  if (collections.length !== 1 || collections[0]?.position !== null || position === null)
+    return collections
+  return [{ ...collections[0], position }]
+}
+
+const contributorRoles = [
+  'translator',
+  'editor',
+  'artist',
+  'illustrator',
+  'letterer',
+  'penciler',
+  'colorist',
+  'inker',
+  'narrator',
+  'contributor',
+] as const
+
+function normalizeContributorRoles(metadata: UnknownRecord): readonly ShelfPublicationContributor[] {
+  return contributorRoles.flatMap(role => normalizeContributors(metadata[role]).map(name => ({ name, role })))
+}
+
+function normalizeJsonPublicationMetadata(metadata: UnknownRecord): ShelfPublicationMetadata {
+  const belongsTo = asRecord(metadata.belongsTo)
+  const accessibility = asRecord(metadata.accessibility)
+  return {
+    accessibilityFeatures: normalizeTextList(accessibility?.feature ?? metadata.accessibilityFeature),
+    accessibilityHazards: normalizeTextList(accessibility?.hazard ?? metadata.accessibilityHazard),
+    accessibilityModes: normalizeTextList(accessibility?.accessMode ?? metadata.accessMode),
+    accessibilitySummary: contentTextValue(accessibility?.summary ?? metadata.accessibilitySummary),
+    collections: belongsTo === null
+      ? []
+      : [
+          ...normalizeCollections(belongsTo.series, 'series'),
+          ...normalizeCollections(belongsTo.collection, 'collection'),
+        ],
+    conformsTo: normalizeTextList(metadata.conformsTo),
+    contributors: normalizeContributorRoles(metadata),
+    duration: optionalNonNegativeNumber(metadata.duration),
+    identifiers: normalizeTextList(metadata.identifier),
+    imprints: normalizeContributors(metadata.imprint),
+    languages: normalizeTextList(metadata.language ?? metadata.languages),
+    modified: textValue(metadata.modified),
+    numberOfPages: optionalNonNegativeNumber(metadata.numberOfPages),
+    published: textValue(metadata.published),
+    publishers: normalizeContributors(metadata.publisher),
+    readingProgression: optionalString(metadata.readingProgression),
+    rights: contentTextValue(metadata.rights),
+    subjects: normalizeSubjects(metadata.subject),
+    types: normalizeTextList(metadata['@type'] ?? metadata.type),
+  }
+}
+
+function normalizeAtomPublicationMetadata(entry: UnknownRecord): ShelfPublicationMetadata {
+  return {
+    accessibilityFeatures: normalizeTextList(entry.accessibilityFeature),
+    accessibilityHazards: normalizeTextList(entry.accessibilityHazard),
+    accessibilityModes: normalizeTextList(entry.accessMode),
+    accessibilitySummary: contentTextValue(entry.accessibilitySummary),
+    collections: [
+      ...normalizeCollections(entry.series, 'series', entry.series_index),
+      ...normalizeCollections(entry.collection, 'collection', entry.collection_index),
+    ],
+    conformsTo: normalizeTextList(entry.conformsTo),
+    contributors: normalizeContributors(entry.contributor).map(name => ({ name, role: 'contributor' })),
+    duration: optionalNonNegativeNumber(entry.duration),
+    identifiers: normalizeTextList(entry.identifier ?? entry.id),
+    imprints: normalizeContributors(entry.imprint),
+    languages: normalizeTextList(entry.language),
+    modified: textValue(entry.updated),
+    numberOfPages: optionalNonNegativeNumber(entry.numberOfPages ?? entry.extent),
+    published: textValue(entry.published ?? entry.issued),
+    publishers: normalizeContributors(entry.publisher),
+    readingProgression: optionalString(entry.readingProgression),
+    rights: contentTextValue(entry.rights),
+    subjects: normalizeSubjects(entry.category ?? entry.subject),
+    types: normalizeTextList(entry.type),
+  }
+}
+
 function publicationId(record: UnknownRecord, links: readonly ShelfPublicationLink[], title: string): string {
   const metadata = asRecord(record.metadata)
   return optionalString(metadata?.identifier)
@@ -204,9 +375,10 @@ function normalizeJsonPublication(value: unknown, baseUrl: string, section: stri
     coverUrl: cover?.href ?? null,
     id: publicationId(publication, links, title),
     links,
+    metadata: normalizeJsonPublicationMetadata(metadata),
     section,
     subtitle: optionalString(metadata.subtitle),
-    summary: textValue(metadata.description ?? metadata.summary),
+    summary: summaryTextValue(metadata.description ?? metadata.summary),
     title,
   }
 }
@@ -315,9 +487,10 @@ function parseAtom(value: unknown, requestUrl: string): ShelfPage {
       coverUrl: cover?.href ?? null,
       id: textValue(entry.id) ?? firstNamedLink(links, 'alternate') ?? `${title}\0${links[0]?.href ?? ''}`,
       links,
+      metadata: normalizeAtomPublicationMetadata(entry),
       section: null,
       subtitle: null,
-      summary: textValue(entry.summary ?? entry.content),
+      summary: summaryTextValue(entry.summary ?? entry.content),
       title,
     })
   }

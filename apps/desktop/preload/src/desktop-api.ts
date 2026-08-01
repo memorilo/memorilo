@@ -12,6 +12,8 @@ import type {
   ShelfAssetInput,
   ShelfAssetResult,
   ShelfBrowseResult,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from './contract'
@@ -35,6 +37,7 @@ export interface DesktopServices {
     addSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
     getAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
     getCachedView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+    getPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
     listSources: () => Promise<readonly ShelfSource[]>
     refreshView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
     removeSource: (sourceId: string) => Promise<void>
@@ -46,6 +49,7 @@ export function createDesktopApi(services: DesktopServices): DesktopApi {
   return {
     addShelfSource: input => services.shelf.addSource(input),
     getCachedShelfView: input => services.shelf.getCachedView(input),
+    getShelfPublicationDetails: input => services.shelf.getPublicationDetails(input),
     getRuntimeInfo: () => services.app.getRuntimeInfo(),
     getShelfAsset: input => services.shelf.getAsset(input),
     getTopicBlock: input => services.notes.getTopicBlock(input),

@@ -46,15 +46,65 @@ export interface ShelfPublicationLink {
   type: string | null
 }
 
+export interface ShelfPublicationContributor {
+  name: string
+  role: string
+}
+
+export interface ShelfPublicationCollection {
+  name: string
+  position: number | null
+  type: 'collection' | 'series'
+}
+
+export interface ShelfPublicationSubject {
+  code: string | null
+  name: string
+  scheme: string | null
+}
+
+export interface ShelfPublicationMetadata {
+  accessibilityFeatures: readonly string[]
+  accessibilityHazards: readonly string[]
+  accessibilityModes: readonly string[]
+  accessibilitySummary: string | null
+  collections: readonly ShelfPublicationCollection[]
+  conformsTo: readonly string[]
+  contributors: readonly ShelfPublicationContributor[]
+  duration: number | null
+  identifiers: readonly string[]
+  imprints: readonly string[]
+  languages: readonly string[]
+  modified: string | null
+  numberOfPages: number | null
+  published: string | null
+  publishers: readonly string[]
+  readingProgression: string | null
+  rights: string | null
+  subjects: readonly ShelfPublicationSubject[]
+  types: readonly string[]
+}
+
 export interface ShelfPublication {
   authors: readonly string[]
   coverUrl: string | null
   id: string
   links: readonly ShelfPublicationLink[]
+  metadata?: ShelfPublicationMetadata
   section: string | null
   subtitle: string | null
   summary: string | null
   title: string
+}
+
+export interface ShelfPublicationDetailsInput {
+  publicationId: string
+  sourceId: string
+}
+
+export interface ShelfPublicationDetails {
+  publication: ShelfPublication
+  source: ShelfSource
 }
 
 export interface ShelfPage {
@@ -119,6 +169,7 @@ export interface ShelfStorage {
   acknowledgeOperations: (operationIds: readonly string[]) => Promise<void>
   deleteSource: (sourceId: string) => Promise<void>
   getCachedPage: (sourceId: string, url: string) => Promise<CachedShelfPage | null>
+  getCachedPublication: (sourceId: string, publicationId: string) => Promise<ShelfPublication | null>
   getSource: (sourceId: string) => Promise<StoredShelfSource | null>
   listPendingOperations: (limit?: number) => Promise<readonly ShelfSourceOperation[]>
   listSources: () => Promise<readonly StoredShelfSource[]>
