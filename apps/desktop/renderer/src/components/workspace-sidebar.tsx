@@ -31,7 +31,7 @@ const disclosureSpring = {
 interface SourceItemProps {
   icon: LucideIcon
   label: string
-  to?: '/journals' | '/pages' | '/shelf'
+  to?: '/journals' | '/pages' | '/reader' | '/shelf'
 }
 
 interface SourceItemContentProps {
@@ -44,6 +44,7 @@ const navigationItems: readonly SourceItemProps[] = [
   { icon: CalendarDays, label: 'Journals', to: '/journals' },
   { icon: Files, label: 'Pages', to: '/pages' },
   { icon: BookOpen, label: 'Shelf', to: '/shelf' },
+  { icon: BookOpen, label: 'Reader', to: '/reader' },
 ]
 
 const favoriteItems: readonly SourceItemProps[] = [
