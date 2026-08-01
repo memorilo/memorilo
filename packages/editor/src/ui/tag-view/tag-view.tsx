@@ -7,7 +7,8 @@ import * as stylex from '@stylexjs/stylex'
 import { TextSelection } from 'prosekit/pm/state'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 
-import { getTagLabelError, normalizeTagLabel } from '../../tag/tag-label'
+import { useTranslation } from 'react-i18next'
+import { getTagLabelError, normalizeTagLabel, TAG_LABEL_ERROR_TRANSLATION_KEYS } from '../../tag/tag-label'
 import { updateTagInDocument } from './tag-document'
 import { tagViewStyles } from './tag-view.stylex'
 
@@ -18,6 +19,7 @@ export interface TagViewProps extends ReactNodeViewProps {
 export default function TagView(props: TagViewProps) {
   const tag = props.node.attrs as TagAttrs
   const { getPos, runtime, view } = props
+  const { t } = useTranslation('editor')
   const operation = useSyncExternalStore(
     runtime.subscribe,
     () => runtime.getSnapshot(tag.id),
@@ -87,7 +89,7 @@ export default function TagView(props: TagViewProps) {
     const label = normalizeTagLabel(draft)
     const error = getTagLabelError(label)
     if (error) {
-      setValidationError(error)
+      setValidationError(t(TAG_LABEL_ERROR_TRANSLATION_KEYS[error], { count: 64 }))
       queueMicrotask(() => inputRef.current?.focus())
       return false
     }
@@ -131,7 +133,7 @@ export default function TagView(props: TagViewProps) {
           ref={inputRef}
           autoFocus
           aria-invalid={Boolean(validationError)}
-          aria-label={`Edit tag ${tag.label}`}
+          aria-label={t('ui.editTag', { label: tag.label })}
           disabled={operation.status === 'saving'}
           size={Math.max(2, Math.min(draft.length, 24))}
           value={draft}
@@ -171,13 +173,16 @@ export default function TagView(props: TagViewProps) {
   }
 
   const hasError = operation.status === 'error'
-  const statusText = operation.status === 'saving' ? 'Saving' : hasError ? 'Not saved' : ''
-  const title = hasError ? `${operation.error}. Click to edit and retry.` : `Edit #${tag.label}`
+  const statusText = operation.status === 'saving' ? t('ui.saving') : hasError ? t('ui.notSaved') : ''
+  const operationError = hasError && typeof operation.error !== 'string'
+    ? t(TAG_LABEL_ERROR_TRANSLATION_KEYS[operation.error.tagLabelError], { count: 64 })
+    : hasError ? operation.error : ''
+  const title = hasError ? t('ui.editTagErrorTitle', { message: operationError }) : t('ui.editTagTitle', { label: tag.label })
 
   return (
     <button
       type="button"
-      aria-label={`Edit tag ${tag.label}${statusText ? `, ${statusText}` : ''}`}
+      aria-label={statusText ? t('ui.editTagStatus', { label: tag.label, status: statusText }) : t('ui.editTag', { label: tag.label })}
       contentEditable={false}
       data-tag-interactive=""
       title={title}

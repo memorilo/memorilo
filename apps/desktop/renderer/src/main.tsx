@@ -7,6 +7,8 @@ import {
   DesktopConfigurationEnvironment,
 } from './configuration'
 import { createRendererConfigurationStore } from './configuration-store'
+import { resolveConfigLanguage } from './i18n'
+import { initI18n } from './i18n/init'
 import { router } from './router'
 import './styles/renderer-global.css'
 
@@ -28,16 +30,20 @@ const queryClient = new QueryClient({
 const root = createRoot(rootElement)
 
 void createRendererConfigurationStore().then((store) => {
-  window.addEventListener('beforeunload', () => store.close(), { once: true })
-  root.render(
-    <StrictMode>
-      <DesktopConfigurationEnvironment store={store}>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
-      </DesktopConfigurationEnvironment>
-    </StrictMode>,
-  )
+  const configuration = store.getSnapshot()
+  const language = resolveConfigLanguage(configuration.language)
+  return initI18n(language).then(() => {
+    window.addEventListener('beforeunload', () => store.close(), { once: true })
+    root.render(
+      <StrictMode>
+        <DesktopConfigurationEnvironment store={store}>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </DesktopConfigurationEnvironment>
+      </StrictMode>,
+    )
+  })
 }, (error) => {
   root.render(
     <main role="alert">

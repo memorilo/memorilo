@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { MotionConfig } from 'motion/react'
 import { useEffect, useSyncExternalStore } from 'react'
 import { DesktopConfigurationContext } from './configuration-context'
+import { resolveConfigLanguage, setI18nLanguage } from './i18n'
 
 export function DesktopConfigurationEnvironment({
   children,
@@ -18,8 +19,12 @@ export function DesktopConfigurationEnvironment({
     document.documentElement.lang = configuration.language === 'system'
       ? navigator.language
       : configuration.language
+    setI18nLanguage(resolveConfigLanguage(configuration.language))
+  }, [configuration.language])
+
+  useEffect(() => {
     document.documentElement.dataset.reduceMotion = String(configuration.reduceMotion)
-  }, [configuration.language, configuration.reduceMotion])
+  }, [configuration.reduceMotion])
 
   return (
     <DesktopConfigurationContext value={configuration}>

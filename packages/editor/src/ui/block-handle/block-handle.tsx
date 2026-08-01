@@ -7,6 +7,7 @@ import * as stylex from '@stylexjs/stylex'
 import { GripVertical, Plus } from 'lucide-react'
 import { BlockHandleDraggable, BlockHandlePopup, BlockHandlePositioner, BlockHandleRoot } from 'prosekit/react/block-handle'
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { insertBlockSiblingAfter } from '../../common/block-sibling'
 import { EditorMode } from '../../common/editor-mode'
@@ -22,6 +23,7 @@ interface Props {
 
 export default function BlockHandle(props: Props) {
   const hoveredBlockRef = useRef<Parameters<typeof insertBlockSiblingAfter>[2] | null>(null)
+  const { t } = useTranslation('editor')
 
   const addBlock = (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -43,8 +45,8 @@ export default function BlockHandle(props: Props) {
         placement={props.dir === 'rtl' ? 'right' : 'left'}
       >
         <BlockHandlePopup {...stylex.props(floatingSurfaceStyles.motion, blockHandleStyles.popup)}>
-          <button {...stylex.props(blockHandleStyles.button)} aria-label="Add block" type="button" onPointerDown={addBlock}><Plus size={20} /></button>
-          <BlockHandleDraggable {...stylex.props(blockHandleStyles.button, blockHandleStyles.dragButton)} aria-label="Drag block"><GripVertical size={20} /></BlockHandleDraggable>
+          <button {...stylex.props(blockHandleStyles.button)} aria-label={t('ui.addBlock')} type="button" onPointerDown={addBlock}><Plus size={20} /></button>
+          <BlockHandleDraggable {...stylex.props(blockHandleStyles.button, blockHandleStyles.dragButton)} aria-label={t('ui.dragBlock')}><GripVertical size={20} /></BlockHandleDraggable>
         </BlockHandlePopup>
       </BlockHandlePositioner>
     </BlockHandleRoot>

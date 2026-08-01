@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useId, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { noteQueryKeys } from '../queries/note-query-keys'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
@@ -52,10 +53,12 @@ interface SourceItemContentProps {
   selected: boolean
 }
 
-const navigationItems: readonly SourceItemProps[] = [
-  { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: 'Journals' },
-  { destination: { kind: 'route', to: '/pages' }, icon: Files, label: 'Pages' },
-]
+function navigationItems(t: (key: string) => string): readonly SourceItemProps[] {
+  return [
+    { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
+    { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
+  ]
+}
 
 const sourceRowHeight = 33
 const sourceListMaxHeight = sourceRowHeight * 6
@@ -182,11 +185,13 @@ function SourceGroup({
   items,
   label,
   pending,
+  t,
 }: {
   emptyLabel: string
   items: readonly SourceItemProps[]
   label: string
   pending: boolean
+  t: (key: string) => string
 }) {
   const [expanded, setExpanded] = useState(true)
   const shouldReduceMotion = useReducedMotion()
@@ -226,7 +231,7 @@ function SourceGroup({
                   ? <VirtualizedSourceList headingId={headingId} items={items} />
                   : (
                       <p {...stylex.props(workspaceSidebarStyles.emptySourceList)} role={pending ? 'status' : undefined}>
-                        {pending ? 'Loading…' : emptyLabel}
+                        {pending ? t('sidebarLoading') : emptyLabel}
                       </p>
                     )}
               </motion.div>
@@ -238,6 +243,7 @@ function SourceGroup({
 }
 
 export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, visible: boolean }) {
+  const { t } = useTranslation('app')
   const shouldReduceMotion = useReducedMotion()
   const transition = shouldReduceMotion ? { duration: 0 } : sidebarSpring
   const favoritesQuery = useQuery(favoriteNotesQueryOptions())
@@ -261,29 +267,31 @@ export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, 
               <motion.aside
                 {...stylex.props(workspaceSidebarStyles.sidebar)}
                 animate={{ marginLeft: 8, opacity: 1, width: 248, x: 0 }}
-                aria-label="Workspace navigation"
+                aria-label={t('sidebarLabel')}
                 exit={{ marginLeft: 0, opacity: 0, width: 0, x: -18 }}
                 initial={{ marginLeft: 0, opacity: 0, width: 0, x: -18 }}
                 transition={transition}
               >
                 <nav {...stylex.props(workspaceSidebarStyles.content)}>
                   <section {...stylex.props(workspaceSidebarStyles.sourceGroup)}>
-                    <h2 {...stylex.props(workspaceSidebarStyles.navigationHeading)}>Navigation</h2>
+                    <h2 {...stylex.props(workspaceSidebarStyles.navigationHeading)}>{t('navigation')}</h2>
                     <div {...stylex.props(workspaceSidebarStyles.sourceList)}>
-                      {navigationItems.map(item => <SourceItem key={item.label} {...item} />)}
+                      {navigationItems(t).map(item => <SourceItem key={item.label} {...item} />)}
                     </div>
                   </section>
                   <SourceGroup
-                    emptyLabel={favoritesQuery.isError ? 'Couldn’t load favorites' : 'No favorites'}
+                    emptyLabel={favoritesQuery.isError ? t('favoritesEmptyError') : t('favoritesEmpty')}
                     items={favoriteItems}
-                    label="Favorites"
+                    label={t('favorites')}
                     pending={favoritesQuery.isPending}
+                    t={t}
                   />
                   <SourceGroup
-                    emptyLabel={recentQuery.isError ? 'Couldn’t load recent notes' : 'No recent notes'}
+                    emptyLabel={recentQuery.isError ? t('recentEmptyError') : t('recentEmpty')}
                     items={recentItems}
-                    label="Recent"
+                    label={t('recent')}
                     pending={recentQuery.isPending}
+                    t={t}
                   />
                 </nav>
               </motion.aside>
@@ -293,10 +301,10 @@ export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, 
       <motion.button
         {...stylex.props(workspaceSidebarStyles.toggle)}
         animate={{ left: visible ? 217 : 80 }}
-        aria-label={visible ? 'Hide Sidebar' : 'Show Sidebar'}
+        aria-label={visible ? t('hideSidebar') : t('showSidebar')}
         data-window-no-drag=""
         initial={false}
-        title={visible ? 'Hide Sidebar' : 'Show Sidebar'}
+        title={visible ? t('hideSidebar') : t('showSidebar')}
         transition={transition}
         type="button"
         onClick={onToggle}

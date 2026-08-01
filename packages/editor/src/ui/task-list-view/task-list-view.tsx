@@ -1,5 +1,6 @@
 import type { NodeViewConstructor } from 'prosekit/pm/view'
 import * as stylex from '@stylexjs/stylex'
+import i18next from 'i18next'
 import { Check } from 'lucide'
 import { DOMSerializer } from 'prosekit/pm/model'
 import { createListNodeView } from 'prosemirror-flat-list'
@@ -22,10 +23,20 @@ function createIcon([tag, attrs, children]: typeof Check) {
   return element
 }
 
+function taskStatusLabel(status: ReturnType<typeof effectiveStatus>) {
+  const statusKey = status === 'todo'
+    ? 'ui.taskStatusTodo'
+    : status === 'doing' ? 'ui.taskStatusDoing' : 'ui.taskStatusDone'
+  return i18next.t('ui.taskStatus', {
+    ns: 'editor',
+    status: i18next.t(statusKey, { ns: 'editor' }),
+  })
+}
+
 function createTaskControl(status: ReturnType<typeof effectiveStatus>) {
   const button = document.createElement('button')
   button.type = 'button'
-  button.setAttribute('aria-label', `Task status: ${status}`)
+  button.setAttribute('aria-label', taskStatusLabel(status))
   button.setAttribute('aria-pressed', String(status === 'done'))
   button.dataset.status = status
   applyStylex(button, stylex.props(taskStyles.control))
@@ -114,6 +125,10 @@ export const createTaskListView: NodeViewConstructor = (initialNode, view, getPo
     view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attrs }))
   }
 
+  const renderTranslation = () => {
+    button.setAttribute('aria-label', taskStatusLabel(effectiveStatus(node.attrs)))
+  }
+  i18next.on('languageChanged', renderTranslation)
   button.addEventListener('mousedown', onMouseDown)
   button.addEventListener('click', onClick)
 
@@ -132,9 +147,11 @@ export const createTaskListView: NodeViewConstructor = (initialNode, view, getPo
         return false
 
       node = nextNode
+      renderTranslation()
       return true
     },
     destroy: () => {
+      i18next.off('languageChanged', renderTranslation)
       if (timer !== null)
         window.clearInterval(timer)
       if (missingStartTimer !== null)

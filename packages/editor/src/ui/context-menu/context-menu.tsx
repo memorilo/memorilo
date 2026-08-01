@@ -32,6 +32,7 @@ import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useTranslation } from 'react-i18next'
 import { getEditorActions } from '../editor-actions/index.ts'
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { ImageUploadForm } from '../image-upload-popover/index.ts'
@@ -213,6 +214,7 @@ function ImageInsertPanel({ point, uploader, onClose }: {
   onClose: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const { t } = useTranslation('editor')
 
   useLayoutEffect(() => {
     const panel = panelRef.current
@@ -245,15 +247,15 @@ function ImageInsertPanel({ point, uploader, onClose }: {
           floatingSurfaceStyles.surface,
           contextMenuStyles.imagePanel,
         )}
-        aria-label="Insert image"
+        aria-label={t('ui.insertImage')}
         aria-modal="false"
         role="dialog"
       >
         <div {...stylex.props(contextMenuStyles.imageHeader)}>
-          <strong>Insert image</strong>
+          <strong>{t('ui.insertImageTitle')}</strong>
           <button
             {...stylex.props(contextMenuStyles.imageClose)}
-            aria-label="Close image menu"
+            aria-label={t('ui.closeImageMenu')}
             type="button"
             onClick={onClose}
           >
@@ -269,6 +271,7 @@ function ImageInsertPanel({ point, uploader, onClose }: {
 export default function ContextMenu({ outlineRuntime, uploader }: { outlineRuntime: OutlineRuntime, uploader: Uploader<string> }) {
   const editor = useEditor<BasicExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
+  const { t } = useTranslation('editor')
   const [menuPoint, setMenuPoint] = useState<Point | null>(null)
   const [imagePoint, setImagePoint] = useState<Point | null>(null)
   const [outlineBlockId, setOutlineBlockId] = useState<string | null>(null)
@@ -429,7 +432,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
             <div
               ref={menuRef}
               {...stylex.props(floatingSurfaceStyles.surface, contextMenuStyles.popup)}
-              aria-label="Editor actions"
+              aria-label={t('ui.editorActions')}
               role="menu"
               tabIndex={-1}
               onKeyDown={handleMainMenuKeyDown}
@@ -437,7 +440,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
               <ContextMenuItem
                 disabled={!hasSelection || !canWriteClipboard}
                 icon={<Scissors aria-hidden="true" size={16} />}
-                label="Cut"
+                label={t('ui.cut')}
                 onMouseEnter={() => setStyleMenuOpen(false)}
                 onSelect={() => handleClipboardAction('Cut', () => cutSelection(editor))}
                 shortcut={`${primaryModifier}X`}
@@ -445,7 +448,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
               <ContextMenuItem
                 disabled={!hasSelection || !canWriteClipboard}
                 icon={<Copy aria-hidden="true" size={16} />}
-                label="Copy"
+                label={t('ui.copy')}
                 onMouseEnter={() => setStyleMenuOpen(false)}
                 onSelect={() => handleClipboardAction('Copy', () => copySelection(editor))}
                 shortcut={`${primaryModifier}C`}
@@ -453,7 +456,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
               <ContextMenuItem
                 disabled={!canReadClipboard}
                 icon={<ClipboardPaste aria-hidden="true" size={16} />}
-                label="Paste"
+                label={t('ui.paste')}
                 onMouseEnter={() => setStyleMenuOpen(false)}
                 onSelect={() => handleClipboardAction('Paste', () => pasteClipboard(editor))}
                 shortcut={`${primaryModifier}V`}
@@ -463,7 +466,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
 
               <ContextMenuItem
                 icon={<TextSelect aria-hidden="true" size={16} />}
-                label="Select all"
+                label={t('ui.selectAll')}
                 onMouseEnter={() => setStyleMenuOpen(false)}
                 onSelect={() => {
                   editor.view.dispatch(
@@ -483,7 +486,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
                         icon={shouldCollapseOutlineBlocks
                           ? <ChevronsUp aria-hidden="true" size={16} />
                           : <ChevronsDown aria-hidden="true" size={16} />}
-                        label={shouldCollapseOutlineBlocks ? 'Collapse' : 'Expand'}
+                        label={shouldCollapseOutlineBlocks ? t('ui.collapse') : t('ui.expand')}
                         onMouseEnter={() => setStyleMenuOpen(false)}
                         onSelect={() => {
                           outlineRuntime.toggleCollapsed(outlineCollapseBlockIds)
@@ -502,7 +505,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
                 expanded={styleMenuOpen}
                 hasSubmenu
                 icon={<Pilcrow aria-hidden="true" size={16} />}
-                label="Style"
+                label={t('ui.style')}
                 open={styleMenuOpen}
                 onMouseEnter={() => openStyleMenu(false)}
                 onSelect={() => openStyleMenu(true)}
@@ -517,21 +520,21 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
                       <ContextMenuItem
                         action={actions.insert.table}
                         icon={<Table2 aria-hidden="true" size={16} />}
-                        label="Insert table"
+                        label={t('ui.insertTable')}
                         onMouseEnter={() => setStyleMenuOpen(false)}
                         onSelect={() => runAction(editor, actions.insert.table, closeMenu)}
                       />
                       <ContextMenuItem
                         action={actions.insert.divider}
                         icon={<Minus aria-hidden="true" size={16} />}
-                        label="Insert divider"
+                        label={t('ui.insertDivider')}
                         onMouseEnter={() => setStyleMenuOpen(false)}
                         onSelect={() => runAction(editor, actions.insert.divider, closeMenu)}
                       />
                       <ContextMenuItem
                         disabled={!actions.insert.image.canExec}
                         icon={<ImagePlus aria-hidden="true" size={16} />}
-                        label="Insert image…"
+                        label={t('ui.insertImageELLIPSIS')}
                         onMouseEnter={() => setStyleMenuOpen(false)}
                         onSelect={() => {
                           setImagePoint(menuPoint)
@@ -554,7 +557,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
                 contextMenuStyles.popup,
                 contextMenuStyles.submenuPopup,
               )}
-              aria-label="Styles"
+              aria-label={t('ui.objectStyles')}
               role="menu"
               tabIndex={-1}
               onKeyDown={handleStyleMenuKeyDown}
@@ -562,25 +565,25 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
               <ContextMenuItem
                 action={actions.block.bulletList}
                 icon={<List aria-hidden="true" size={16} />}
-                label="Bullet list"
+                label={t('ui.bulletList')}
                 onSelect={() => runAction(editor, actions.block.bulletList, closeMenu)}
               />
               <ContextMenuItem
                 action={actions.block.orderedList}
                 icon={<ListOrdered aria-hidden="true" size={16} />}
-                label="Ordered list"
+                label={t('ui.orderedList')}
                 onSelect={() => runAction(editor, actions.block.orderedList, closeMenu)}
               />
               <ContextMenuItem
                 action={actions.block.taskList}
                 icon={<ListChecks aria-hidden="true" size={16} />}
-                label="Task list"
+                label={t('ui.taskList')}
                 onSelect={() => runAction(editor, actions.block.taskList, closeMenu)}
               />
               <ContextMenuItem
                 action={actions.block.toggleList}
                 icon={<List aria-hidden="true" size={16} />}
-                label="Toggle list"
+                label={t('ui.toggleList')}
                 onSelect={() => runAction(editor, actions.block.toggleList, closeMenu)}
               />
 
@@ -589,13 +592,13 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
               <ContextMenuItem
                 action={actions.block.blockquote}
                 icon={<Quote aria-hidden="true" size={16} />}
-                label="Blockquote"
+                label={t('ui.blockquote')}
                 onSelect={() => runAction(editor, actions.block.blockquote, closeMenu)}
               />
               <ContextMenuItem
                 action={actions.block.codeBlock}
                 icon={<Code2 aria-hidden="true" size={16} />}
-                label="Code block"
+                label={t('ui.codeBlock')}
                 onSelect={() => runAction(editor, actions.block.codeBlock, closeMenu)}
               />
             </div>

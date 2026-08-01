@@ -37,6 +37,19 @@ Use Turbo filters when working on a specific package:
 - Renderer tests: `pnpm turbo run test --filter=@memorilo/desktop-renderer`
 - Preload tests: `pnpm turbo run test --filter=@memorilo/desktop-preload`
 
+## Internationalization
+
+- Locale resources live at `locales/<namespace>/<language>.json`. Keep every supported language in a namespace structurally aligned: adding, renaming, or removing a key requires the same change in every language file.
+- The desktop renderer owns production i18next initialization in `apps/desktop/renderer/src/i18n`. Add supported languages and namespaces in `locales.ts`; do not initialize a second i18next instance in renderer or editor production code.
+- `packages/editor` consumes the renderer's shared i18next instance. Its `src/i18n/init.ts` helper is for isolated editor tests only and must load the real root locale bundles.
+- React components should call `useTranslation('<namespace>')` and render through the returned `t`. When multiple namespaces are needed, declare all of them and use an explicit `ns` for cross-namespace keys.
+- Non-React UI such as ProseMirror NodeViews may call `i18next.t(key, { ns })`, but persistent DOM must subscribe to `languageChanged` and unsubscribe on destroy, or use a language-dependent decoration/widget key that guarantees reconstruction.
+- Translate at the UI boundary. Domain and persistence code should return structured error/status codes rather than localized strings or translation keys intended for direct display.
+- Use i18next JSON v4/CLDR plural suffixes such as `_one` and `_other`; do not add legacy `_plural` keys.
+- Locale-aware Day.js formats (`L`, `LL`, `lll`, and related tokens) rely on the renderer's `LocalizedFormat` setup. Change application language through `setI18nLanguage` so the Day.js locale is applied before i18next emits `languageChanged`; do not call `dayjs.locale` or `i18next.changeLanguage` independently from feature code.
+- Renderer development hot-reloads root locale JSON through the Vite configuration. Keep locale paths repository-relative and ensure production bundles do not contain `/@fs` URLs or local absolute paths.
+- After i18n changes, at minimum run targeted lint, type checking, and tests for affected packages. For renderer loading, locale HMR, language persistence, or runtime switching, also run the relevant Electron E2E coverage and a production desktop build.
+
 ## Dependency modifications
 
 - Do not add or modify dependency patches (`pnpm patch`, `patchedDependencies`, `patch-package`, or equivalent) unless the user explicitly requests a patch.

@@ -6,6 +6,7 @@ import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { EditorMode, editorModeName } from './common/editor-mode'
 import { createEditorSession } from './common/editor-session'
 import { editorShellStyles } from './common/editor-shell.stylex'
@@ -78,6 +79,7 @@ export function Editor(props: EditorProps) {
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const mode = useEditorTopicMode(props.topic)
+  const { t } = useTranslation('editor')
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
     cards: cardIntegration,
@@ -108,11 +110,11 @@ export function Editor(props: EditorProps) {
   return (
     <Provider store={session.store}>
       <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={editorModeName(mode)}>
-        <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading editor mode…</div>}>
+        <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingEditorMode')}</div>}>
           <DocumentEditor focusBlockId={props.focus?.blockId} mode={mode} session={session}>
             {mode === EditorMode.Outline
               ? (
-                  <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">Loading Outline mode…</div>}>
+                  <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingOutlineMode')}</div>}>
                     <OutlineEditor options={props.outline} rootRef={rootRef} session={session} />
                   </Suspense>
                 )

@@ -8,6 +8,7 @@ import { Brackets } from 'lucide-react'
 import { TextSelection } from 'prosekit/pm/state'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { mathClozeMenuStyles } from './math-cloze-menu.stylex'
 
@@ -99,6 +100,7 @@ export default function MathClozeMenu() {
   const editor = useEditor<CardExtension>()
   const selectionKey = useEditorDerivedValue(getMathClozeSelectionKey)
   const retainedSelectionKey = useRef(selectionKey)
+  const { t } = useTranslation('editor')
   const [, renderAfterDismissal] = useReducer(count => count + 1, 0)
   const [position, setPosition] = useState<MenuPosition | null>(null)
   if (selectionKey)
@@ -149,8 +151,8 @@ export default function MathClozeMenu() {
       throw new Error('Formula Cloze action could not update the selected source')
   }
   const label = selected.clozeSelected
-    ? 'Remove Cloze from formula selection'
-    : 'Create Cloze from formula selection'
+    ? t('ui.removeClozeFromFormula')
+    : t('ui.createClozeFromFormula')
   const popupStyle: CSSProperties = {
     '--math-cloze-transform-origin': position.transformOrigin,
     'left': position.left,
@@ -161,7 +163,7 @@ export default function MathClozeMenu() {
   return (
     <div
       {...stylex.props(mathClozeMenuStyles.toolbar)}
-      aria-label="Formula selection"
+      aria-label={t('ui.formulaSelection')}
       data-math-cloze-kind={selected.kind}
       role="toolbar"
       style={popupStyle}
@@ -183,7 +185,7 @@ export default function MathClozeMenu() {
         }}
       >
         <Brackets {...stylex.props(mathClozeMenuStyles.icon)} aria-hidden="true" size={14} strokeWidth={1.8} />
-        <span>{selected.clozeSelected ? 'Remove Cloze' : 'Cloze'}</span>
+        <span>{selected.clozeSelected ? t('ui.removeCloze') : t('ui.cloze')}</span>
       </button>
     </div>
   )

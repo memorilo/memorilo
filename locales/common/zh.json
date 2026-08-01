@@ -1,0 +1,17 @@
+{
+  "loading": "加载中…",
+  "tryAgain": "重试",
+  "copy": "复制",
+  "copied": "已复制",
+  "copyFailed": "复制失败",
+  "back": "后退",
+  "forward": "前进",
+  "open": "打开",
+  "go": "前往",
+  "toggle": "切换",
+  "create": "创建",
+  "noteCount_one": "{{count}} 条笔记",
+  "noteCount_other": "{{count}} 条笔记",
+  "ascending": "升序",
+  "descending": "降序"
+}

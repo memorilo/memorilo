@@ -11,11 +11,13 @@ import type {
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
 import type { Cause } from 'effect'
 import type { InfiniteData } from 'effect-query'
+import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import dayjs from 'dayjs'
 import { Effect, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
 import {
@@ -37,6 +39,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../components/page-titlebar'
 import { noteQueryKeys } from '../queries/note-query-keys'
@@ -48,15 +51,17 @@ const rowHeight = 46
 const effectQuery = createEffectQuery(Layer.empty)
 const columnHelper = createColumnHelper<DesktopNoteSummary>()
 const columnIds = ['title', 'createdAt', 'updatedAt'] as const
-const columnLabels: Record<ColumnId, string> = {
-  createdAt: 'Created',
-  title: 'Title',
-  updatedAt: 'Modified',
+const columnLabels: Record<ColumnId, (t: TFunction) => string> = {
+  createdAt: t => t('createdColumn'),
+  title: t => t('titleColumn'),
+  updatedAt: t => t('modifiedColumn'),
 }
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
+
+// Format column dates with dayjs's locale-aware `lll` token. The active dayjs
+// locale follows the app language (see i18n/date.ts), so dates are rendered in
+// the selected UI language rather than the system locale. `createColumns` re-runs
+// when `t` changes, which re-renders every cell after a language switch.
+const formatDate = (value: unknown): string => dayjs(value as Date).format('lll')
 
 type ColumnId = typeof columnIds[number]
 
@@ -192,8 +197,8 @@ function columnStyle(columnId: string) {
   }
 }
 
-function noteCountLabel(totalItems: number) {
-  return `${totalItems.toLocaleString()} ${totalItems === 1 ? 'note' : 'notes'}`
+function noteCountLabel(totalItems: number, t: TFunction) {
+  return t('noteCount', { count: totalItems })
 }
 
 function EditableTitleCell({
@@ -201,11 +206,13 @@ function EditableTitleCell({
   onFavorite,
   onOpen,
   onRename,
+  t,
 }: {
   note: DesktopNoteSummary
   onFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
   onOpen: (noteId: string) => Promise<void>
   onRename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
+  t: TFunction
 }) {
   const [draft, setDraft] = useState(note.title)
   const [editing, setEditing] = useState(false)
@@ -236,7 +243,7 @@ function EditableTitleCell({
       return
     const title = draft.trim()
     if (title.length === 0) {
-      setError('Note title cannot be empty')
+      setError(t('noteTitleCannotBeEmpty'))
       inputRef.current?.focus()
       inputRef.current?.select()
       return
@@ -253,7 +260,7 @@ function EditableTitleCell({
     try {
       const result = await onRename({ noteId: note.id, title })
       if (result.status === 'duplicate-title') {
-        setError('A Note with this title already exists')
+        setError(t('duplicateTitle'))
         requestAnimationFrame(() => {
           inputRef.current?.focus()
           inputRef.current?.select()
@@ -264,7 +271,7 @@ function EditableTitleCell({
       setEditing(false)
     }
     catch {
-      setError('Couldn’t rename Note')
+      setError(t('couldNotRename'))
       requestAnimationFrame(() => {
         inputRef.current?.focus()
         inputRef.current?.select()
@@ -273,7 +280,7 @@ function EditableTitleCell({
     finally {
       setSaving(false)
     }
-  }, [draft, note.id, note.title, onRename, saving])
+  }, [draft, note.id, note.title, onRename, saving, t])
 
   const toggleFavorite = useCallback(() => {
     if (favoritePending)
@@ -281,9 +288,9 @@ function EditableTitleCell({
     setFavoritePending(true)
     setActionError(null)
     void onFavorite({ favorite: !note.favorite, noteId: note.id })
-      .catch(() => setActionError('Couldn’t update Favorite'))
+      .catch(() => setActionError(t('couldNotUpdateFavorite')))
       .finally(() => setFavoritePending(false))
-  }, [favoritePending, note.favorite, note.id, onFavorite])
+  }, [favoritePending, note.favorite, note.id, onFavorite, t])
 
   const openSelectedNote = useCallback(() => {
     if (opening)
@@ -291,9 +298,9 @@ function EditableTitleCell({
     setOpening(true)
     setActionError(null)
     void onOpen(note.id)
-      .catch(() => setActionError('Couldn’t open Note'))
+      .catch(() => setActionError(t('couldNotOpenNote')))
       .finally(() => setOpening(false))
-  }, [note.id, onOpen, opening])
+  }, [note.id, onOpen, opening, t])
 
   const favoriteControl = (
     <button
@@ -301,10 +308,13 @@ function EditableTitleCell({
         pagesRouteStyles.titleIconButton,
         note.favorite && pagesRouteStyles.favoriteButtonActive,
       )}
-      aria-label={`${note.favorite ? 'Remove from' : 'Add to'} Favorites: ${note.title}`}
+      aria-label={t('addRemoveFavoritesFor', {
+        name: note.favorite ? t('removeFrom') : t('addTo'),
+        title: note.title,
+      })}
       aria-pressed={note.favorite}
       disabled={favoritePending}
-      title={note.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+      title={note.favorite ? t('removeFromFavorites') : t('addToFavorites')}
       type="button"
       onClick={toggleFavorite}
     >
@@ -322,10 +332,10 @@ function EditableTitleCell({
         {favoriteControl}
         <button
           {...stylex.props(pagesRouteStyles.titleOpenButton)}
-          aria-label={`Open Note: ${note.title}`}
+          aria-label={t('openNoteFor', { title: note.title })}
           aria-busy={opening}
           disabled={opening}
-          title={`Open ${note.title}`}
+          title={t('openTitle', { title: note.title })}
           type="button"
           onClick={openSelectedNote}
         >
@@ -333,8 +343,8 @@ function EditableTitleCell({
         </button>
         <button
           {...stylex.props(pagesRouteStyles.titleIconButton)}
-          aria-label={`Rename Note: ${note.title}`}
-          title="Rename Note"
+          aria-label={t('renameNoteFor', { title: note.title })}
+          title={t('renameNote')}
           type="button"
           onClick={() => {
             setDraft(note.title)
@@ -359,9 +369,9 @@ function EditableTitleCell({
           {...stylex.props(pagesRouteStyles.titleInput)}
           aria-busy={saving}
           aria-invalid={error !== null}
-          aria-label={error ?? `Title for ${note.title}`}
+          aria-label={error ?? t('titleFor', { title: note.title })}
           readOnly={saving}
-          title={error ?? 'Rename Note'}
+          title={error ?? t('renameNote')}
           value={draft}
           onBlur={() => {
             if (saving)
@@ -401,6 +411,7 @@ function createColumns(
   onFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>,
   onOpen: (noteId: string) => Promise<void>,
   onRename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>,
+  t: TFunction,
 ) {
   return [
     columnHelper.accessor('title', {
@@ -410,19 +421,20 @@ function createColumns(
           onFavorite={onFavorite}
           onOpen={onOpen}
           onRename={onRename}
+          t={t}
         />
       ),
-      header: 'Title',
+      header: t('titleColumn'),
       sortDescFirst: false,
     }),
     columnHelper.accessor('createdAt', {
-      cell: info => dateFormatter.format(info.getValue()),
-      header: 'Created',
+      cell: info => formatDate(info.getValue()),
+      header: t('createdColumn'),
       sortDescFirst: true,
     }),
     columnHelper.accessor('updatedAt', {
-      cell: info => dateFormatter.format(info.getValue()),
-      header: 'Modified',
+      cell: info => formatDate(info.getValue()),
+      header: t('modifiedColumn'),
       sortDescFirst: true,
     }),
   ]
@@ -431,9 +443,11 @@ function createColumns(
 function PagesViewMenu({
   columnVisibility,
   onToggleColumn,
+  t,
 }: {
   columnVisibility: VisibilityState
   onToggleColumn: (columnId: ColumnId) => void
+  t: TFunction
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -454,7 +468,7 @@ function PagesViewMenu({
         columns: columnIds.map(columnId => ({
           canToggle: columnVisibility[columnId] === false || visibleCount > 1,
           id: columnId,
-          label: columnLabels[columnId],
+          label: columnLabels[columnId](t),
           visible: columnVisibility[columnId] !== false,
         })),
       })
@@ -476,7 +490,7 @@ function PagesViewMenu({
     finally {
       setOpen(false)
     }
-  }, [columnVisibility, onToggleColumn, visibleCount])
+  }, [columnVisibility, onToggleColumn, t, visibleCount])
 
   return (
     <div {...stylex.props(pagesRouteStyles.viewMenuRoot)}>
@@ -485,8 +499,8 @@ function PagesViewMenu({
         {...stylex.props(pagesRouteStyles.viewMenuButton)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="View options"
-        title="View options"
+        aria-label={t('viewOptions')}
+        title={t('viewOptions')}
         type="button"
         onClick={() => void showMenu()}
       >
@@ -503,6 +517,7 @@ function PagesViewMenu({
 }
 
 function PagesRoute() {
+  const { t } = useTranslation('pages')
   const scrollElementRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const [sorting, setSorting] = useState<SortingState>(() => [{ desc: true, id: 'updatedAt' }])
@@ -543,8 +558,8 @@ function PagesRoute() {
   )
   const openSelectedNote = useCallback((noteId: string) => openNote(noteId), [])
   const columns = useMemo(
-    () => createColumns(favoriteNote, openSelectedNote, renameNote),
-    [favoriteNote, openSelectedNote, renameNote],
+    () => createColumns(favoriteNote, openSelectedNote, renameNote, t),
+    [favoriteNote, openSelectedNote, renameNote, t],
   )
   const notes = useMemo(() => notesQuery.data
     ? notesQuery.data.pages.flatMap(page => [...page.items])
@@ -579,14 +594,15 @@ function PagesRoute() {
     })
   }, [])
   const titlebar = useMemo(() => ({
-    title: 'Pages',
+    title: t('pageLabel'),
     trailing: (
       <PagesViewMenu
         columnVisibility={columnVisibility}
         onToggleColumn={toggleColumnVisibility}
+        t={t}
       />
     ),
-  }), [columnVisibility, toggleColumnVisibility])
+  }), [columnVisibility, t, toggleColumnVisibility])
   usePageTitlebar(titlebar)
 
   const {
@@ -641,11 +657,11 @@ function PagesRoute() {
   const totalItems = firstPage?.totalItems
 
   return (
-    <main {...stylex.props(pagesRouteStyles.page)} aria-label="Pages">
-      <section {...stylex.props(pagesRouteStyles.content)} aria-label="Note library">
+    <main {...stylex.props(pagesRouteStyles.page)} aria-label={t('pageLabel')}>
+      <section {...stylex.props(pagesRouteStyles.content)} aria-label={t('libraryLabel')}>
         <div {...stylex.props(pagesRouteStyles.summary)}>
           <p {...stylex.props(pagesRouteStyles.resultCount)} aria-live="polite">
-            {totalItems === undefined ? 'Notes' : noteCountLabel(totalItems)}
+            {totalItems === undefined ? t('notes') : noteCountLabel(totalItems, t)}
           </p>
         </div>
 
@@ -661,9 +677,7 @@ function PagesRoute() {
                   <tr key={headerGroup.id} {...stylex.props(pagesRouteStyles.headerRow)}>
                     {headerGroup.headers.map((header) => {
                       const sorted = header.column.getIsSorted()
-                      const label = columnLabels[header.column.id as ColumnId]
-                      if (!label)
-                        throw new Error(`Unknown Pages table header: ${header.column.id}`)
+                      const label = columnLabels[header.column.id as ColumnId](t)
                       return (
                         <th
                           key={header.id}
@@ -679,8 +693,10 @@ function PagesRoute() {
                               pagesRouteStyles.headerButton,
                               sorted !== false && pagesRouteStyles.headerButtonSorted,
                             )}
-                            aria-label={`Sort by ${label}${sorted ? `, currently ${sorted === 'asc' ? 'ascending' : 'descending'}` : ''}`}
-                            title={`Sort by ${label}`}
+                            aria-label={sorted
+                              ? t('sortByCurrent', { direction: sorted === 'asc' ? t('ascending', { ns: 'common' }) : t('descending', { ns: 'common' }), label })
+                              : t('sortBy', { label })}
+                            title={t('sortBy', { label })}
                             type="button"
                             onClick={header.column.getToggleSortingHandler()}
                           >
@@ -712,7 +728,7 @@ function PagesRoute() {
                             aria-hidden="true"
                             strokeWidth={1.7}
                           />
-                          <span role="status">Loading notes…</span>
+                          <span role="status">{t('loadingNotes')}</span>
                         </td>
                       </tr>
                     </tbody>
@@ -723,13 +739,13 @@ function PagesRoute() {
                         <tr {...stylex.props(pagesRouteStyles.statusRow)}>
                           <td {...stylex.props(pagesRouteStyles.statusCell)} colSpan={visibleColumnCount}>
                             <TriangleAlert {...stylex.props(pagesRouteStyles.errorIcon)} aria-hidden="true" strokeWidth={1.7} />
-                            <span>Couldn’t load notes</span>
+                            <span>{t('couldNotLoadNotes')}</span>
                             <button
                               {...stylex.props(pagesRouteStyles.retryButton)}
                               type="button"
                               onClick={() => void notesQuery.refetch()}
                             >
-                              Try Again
+                              {t('tryAgain', { ns: 'common' })}
                             </button>
                           </td>
                         </tr>
@@ -741,7 +757,7 @@ function PagesRoute() {
                           <tr {...stylex.props(pagesRouteStyles.statusRow)}>
                             <td {...stylex.props(pagesRouteStyles.statusCell)} colSpan={visibleColumnCount}>
                               <FileText {...stylex.props(pagesRouteStyles.statusIcon)} aria-hidden="true" strokeWidth={1.5} />
-                              <span>No notes</span>
+                              <span>{t('noNotes')}</span>
                             </td>
                           </tr>
                         </tbody>
@@ -770,7 +786,7 @@ function PagesRoute() {
                                             type="button"
                                             onClick={() => void fetchNextPage()}
                                           >
-                                            Try Again
+                                            {t('tryAgain', { ns: 'common' })}
                                           </button>
                                         )
                                       : (
@@ -780,7 +796,7 @@ function PagesRoute() {
                                               aria-hidden="true"
                                               strokeWidth={1.8}
                                             />
-                                            <span>Loading more…</span>
+                                            <span>{t('loadingMore')}</span>
                                           </>
                                         )}
                                   </td>

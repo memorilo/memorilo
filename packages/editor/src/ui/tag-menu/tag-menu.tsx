@@ -15,8 +15,10 @@ import {
   AutocompleteRoot,
 } from 'prosekit/react/autocomplete'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
-import { getTagLabelError, isSameTagLabel, normalizeTagLabel } from '../../tag/tag-label'
+import { getTagLabelError, isSameTagLabel, normalizeTagLabel, TAG_LABEL_ERROR_TRANSLATION_KEYS } from '../../tag/tag-label'
+import { InvalidStoredTagError } from '../../tag/tag-runtime'
 import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 
@@ -34,6 +36,7 @@ function readMatchedLabel(editorElement: HTMLElement) {
 
 export default function TagMenu(props: { runtime: TagRuntime }) {
   const editor = useEditor<Union<[TagExtension, BasicExtension]>>()
+  const { t } = useTranslation('editor')
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [typedLabel, setTypedLabel] = useState('')
@@ -57,7 +60,9 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
         if (!active)
           return
         setTags([])
-        setError(searchError instanceof Error ? searchError.message : String(searchError))
+        setError(searchError instanceof InvalidStoredTagError
+          ? t(TAG_LABEL_ERROR_TRANSLATION_KEYS[searchError.reason], { count: 64 })
+          : searchError instanceof Error ? searchError.message : String(searchError))
         setLoading(false)
       },
     )
@@ -65,7 +70,7 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
     return () => {
       active = false
     }
-  }, [open, props.runtime, query])
+  }, [open, props.runtime, query, t])
 
   const normalizedTypedLabel = normalizeTagLabel(typedLabel)
   const exactTag = tags.find(tag => isSameTagLabel(tag.label, normalizedTypedLabel))
@@ -116,7 +121,7 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
         >
           <div {...stylex.props(autocompleteMenuStyles.content)}>
             <AutocompleteEmpty {...stylex.props(autocompleteMenuStyles.item)}>
-              {loading ? 'Loading...' : error ?? labelError ?? 'No results'}
+              {loading ? t('ui.loading') : error ?? (labelError ? t(TAG_LABEL_ERROR_TRANSLATION_KEYS[labelError], { count: 64 }) : t('ui.noResults'))}
             </AutocompleteEmpty>
 
             {sortedTags.map(tag => (
@@ -138,11 +143,8 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
                     {...stylex.props(autocompleteMenuStyles.item)}
                     onSelect={handleTagCreate}
                   >
-                    <span>
-                      Create #
-                      {normalizedTypedLabel}
-                    </span>
-                    <span {...stylex.props(autocompleteMenuStyles.keyboard)}>Enter</span>
+                    <span>{t('ui.createTag', { label: normalizedTypedLabel })}</span>
+                    <span {...stylex.props(autocompleteMenuStyles.keyboard)}>{t('ui.enter')}</span>
                   </AutocompleteItem>
                 )
               : null}
