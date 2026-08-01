@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react'
 
 import { appShellStyles } from './app-shell.stylex'
 import { AppTitlebar } from './app-titlebar'
+import { AppToastContainer } from './app-toast'
 import { CommandPalette } from './command-palette'
 import { CommandPaletteCommandsContext } from './command-palette-context'
 import { PageTitlebarContext } from './page-titlebar'
@@ -34,6 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             sidebarVisible={sidebarVisible}
             onToggleSidebar={toggleSidebar}
           />
+          <AppToastContainer />
         </div>
       </CommandPaletteCommandsContext>
     </PageTitlebarContext>
