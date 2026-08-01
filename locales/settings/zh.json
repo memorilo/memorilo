@@ -1,4 +1,8 @@
 {
+  "title": "设置",
+  "categories": "设置类别",
+  "generalDescription": "语言和辅助功能偏好设置。",
+  "editorDescription": "调整 Memorilo 中的写作体验。",
   "generalSection": "通用",
   "editorSection": "编辑器",
   "language": "语言",

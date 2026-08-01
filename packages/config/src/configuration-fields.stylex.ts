@@ -22,9 +22,9 @@ export const configurationFieldStyles = stylex.create({
     gridTemplateColumns: 'minmax(0, 1fr) minmax(138px, 42%)',
     columnGap: 28,
     paddingTop: 11,
-    paddingRight: 2,
+    paddingRight: 18,
     paddingBottom: 11,
-    paddingLeft: 2,
+    paddingLeft: 18,
     borderBottomColor: {
       'default': 'rgba(57, 62, 70, 0.1)',
       '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
