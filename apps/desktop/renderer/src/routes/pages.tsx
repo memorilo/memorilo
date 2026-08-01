@@ -17,6 +17,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { createFileRoute } from '@tanstack/react-router'
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import dayjs from 'dayjs'
 import { Effect, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
 import {
@@ -55,10 +56,12 @@ const columnLabels: Record<ColumnId, (t: TFunction) => string> = {
   title: t => t('titleColumn'),
   updatedAt: t => t('modifiedColumn'),
 }
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
+
+// Format column dates with dayjs's locale-aware `lll` token. The active dayjs
+// locale follows the app language (see i18n/date.ts), so dates are rendered in
+// the selected UI language rather than the system locale. `createColumns` re-runs
+// when `t` changes, which re-renders every cell after a language switch.
+const formatDate = (value: unknown): string => dayjs(value as Date).format('lll')
 
 type ColumnId = typeof columnIds[number]
 
@@ -425,12 +428,12 @@ function createColumns(
       sortDescFirst: false,
     }),
     columnHelper.accessor('createdAt', {
-      cell: info => dateFormatter.format(info.getValue()),
+      cell: info => formatDate(info.getValue()),
       header: t('createdColumn'),
       sortDescFirst: true,
     }),
     columnHelper.accessor('updatedAt', {
-      cell: info => dateFormatter.format(info.getValue()),
+      cell: info => formatDate(info.getValue()),
       header: t('modifiedColumn'),
       sortDescFirst: true,
     }),

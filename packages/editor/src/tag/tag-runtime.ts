@@ -1,4 +1,5 @@
 import type { EditorTag, EditorTagStorage } from '../adapters/editor-adapters'
+import type { TagLabelError } from './tag-label'
 import { getTagLabelError, normalizeTagLabel } from './tag-label'
 
 type TagOperationAction = 'create' | 'update'
@@ -9,24 +10,35 @@ interface TagEditSubscription {
   listener: (entry: TagEditEntry) => void
 }
 
+export type TagOperationError = string | { tagLabelError: TagLabelError }
+
 export type TagOperationSnapshot
   = | { status: 'idle' }
     | { status: 'saving', action: TagOperationAction }
     | { status: 'saved', action: TagOperationAction, canonicalTag: EditorTag }
-    | { status: 'error', action: TagOperationAction, error: string }
+    | { status: 'error', action: TagOperationAction, error: TagOperationError }
 
 const idleSnapshot: TagOperationSnapshot = { status: 'idle' }
+
+export class InvalidStoredTagError extends Error {
+  constructor(readonly reason: TagLabelError) {
+    super('Tag storage returned an invalid tag')
+    this.name = 'InvalidStoredTagError'
+  }
+}
 
 function requireValidTag(tag: EditorTag) {
   const error = getTagLabelError(tag.label)
   if (error)
-    throw new Error(`Tag storage returned an invalid tag: ${error}`)
+    throw new InvalidStoredTagError(error)
   if (!tag.id)
     throw new Error('Tag storage returned a tag without an id')
   return { ...tag, label: normalizeTagLabel(tag.label) }
 }
 
-function errorMessage(error: unknown) {
+function operationError(error: unknown): TagOperationError {
+  if (error instanceof InvalidStoredTagError)
+    return { tagLabelError: error.reason }
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -106,14 +118,19 @@ export class TagRuntime {
     const operation = action === 'create' ? this.#storage.create(tag) : this.#storage.update(tag)
     void operation.then(
       (storedTag) => {
-        const canonicalTag = requireValidTag(storedTag)
-        this.#removeCachedTag(tag.id)
-        this.#cache(canonicalTag)
-        this.#operations.set(tag.id, { status: 'saved', action, canonicalTag })
+        try {
+          const canonicalTag = requireValidTag(storedTag)
+          this.#removeCachedTag(tag.id)
+          this.#cache(canonicalTag)
+          this.#operations.set(tag.id, { status: 'saved', action, canonicalTag })
+        }
+        catch (error) {
+          this.#operations.set(tag.id, { status: 'error', action, error: operationError(error) })
+        }
         this.#emit()
       },
       (error) => {
-        this.#operations.set(tag.id, { status: 'error', action, error: errorMessage(error) })
+        this.#operations.set(tag.id, { status: 'error', action, error: operationError(error) })
         this.#emit()
       },
     )

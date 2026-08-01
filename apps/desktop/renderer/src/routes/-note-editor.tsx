@@ -529,7 +529,7 @@ export function NoteEditor({
   onToggleEntry: (entryId: string) => void
   topicId: string
 }) {
-  const { t } = useTranslation('editor')
+  const { t } = useTranslation(['editor', 'pages'])
   const [opened, setOpened] = useState<OpenEditorNote | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -673,7 +673,7 @@ export function NoteEditor({
       console.error('Topic entry projection failed; restoring the latest valid Note snapshot', effectOutput)
       rebuildFromLatestValidSnapshot({
         diagnostics: formatTopicValidationDiagnostics(note, topicId, effectOutput),
-        message: 'That edit created an invalid Topic structure and was reverted.',
+        message: t('invalidStructureReverted', { ns: 'editor' }),
       })
       return
     }
@@ -688,7 +688,7 @@ export function NoteEditor({
       console.error('Topic validation failed; restoring the latest valid Note snapshot', effectOutput)
       rebuildFromLatestValidSnapshot({
         diagnostics: formatTopicValidationDiagnostics(note, entry.id, effectOutput),
-        message: 'That edit created an invalid Topic structure and was reverted.',
+        message: t('invalidStructureReverted', { ns: 'editor' }),
       })
       return
     }
@@ -702,7 +702,7 @@ export function NoteEditor({
       saveTimerRef.current = null
       flushPendingRef.current(true)
     }, saveDelay)
-  }, [rebuildFromLatestValidSnapshot, topicId])
+  }, [rebuildFromLatestValidSnapshot, t, topicId])
   handleNoteChangeRef.current = handleNoteChange
 
   const resetViewState = useCallback(() => {
@@ -715,7 +715,7 @@ export function NoteEditor({
   const handleRenameNote = useCallback(async (note: EditorNote, title: string) => {
     const result = await window.desktop.renameNote({ noteId: note.id, title })
     if (result.status === 'duplicate-title')
-      return { error: 'A Note with this title already exists' }
+      return { error: t('duplicateTitle', { ns: 'pages' }) }
 
     if (noteRef.current !== note)
       return
@@ -742,7 +742,7 @@ export function NoteEditor({
     void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
     void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
     void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
-  }, [queryClient])
+  }, [queryClient, t])
 
   const handleToggleFavorite = useCallback(() => {
     if (!opened)

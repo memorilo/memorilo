@@ -10,8 +10,8 @@
   "go": "Go",
   "toggle": "Toggle",
   "create": "Create",
-  "noteCount": "{{count}} note",
-  "noteCount_plural": "{{count}} notes",
+  "noteCount_one": "{{count}} note",
+  "noteCount_other": "{{count}} notes",
   "ascending": "ascending",
   "descending": "descending"
 }

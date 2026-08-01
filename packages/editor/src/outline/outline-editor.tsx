@@ -4,6 +4,7 @@ import type { OutlineOptions } from '../common/outline-runtime'
 import * as stylex from '@stylexjs/stylex'
 import { ArrowLeft } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { useTranslation } from 'react-i18next'
 import { outlineEditorStyles } from './outline-editor.stylex'
 import { observeOutlineMarkerAlignment } from './outline-marker-alignment'
 import './outline-content.stylex'
@@ -57,6 +58,7 @@ export function OutlineEditor({
   const focusAnimationMountedRef = useRef(false)
   const runtime = session.outlineRuntime
   const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot)
+  const { t } = useTranslation('editor')
   const controlledFocus = Boolean(options && Object.prototype.hasOwnProperty.call(options, 'focus'))
   const onFocusChange = options?.onFocusChange
   const focusCollapsed = snapshot.focusBlockId !== null
@@ -159,25 +161,25 @@ export function OutlineEditor({
             <div {...stylex.props(outlineEditorStyles.focusNavigation)}>
               <button
                 {...stylex.props(outlineEditorStyles.backButton)}
-                aria-label="Show all blocks"
-                title="Show all blocks"
+                aria-label={t('ui.showAllBlocks')}
+                title={t('ui.showAllBlocks')}
                 type="button"
                 onClick={() => requestFocus(null)}
               >
                 <ArrowLeft aria-hidden="true" size={16} strokeWidth={1.9} />
               </button>
-              <div {...stylex.props(outlineEditorStyles.breadcrumbs)} aria-label="Outline location">
-                <span>All blocks</span>
+              <div {...stylex.props(outlineEditorStyles.breadcrumbs)} aria-label={t('ui.outlineLocation')}>
+                <span>{t('ui.allBlocks')}</span>
                 <span aria-hidden="true">/</span>
                 <span {...stylex.props(outlineEditorStyles.focusLabel)}>{focusLabel(rootRef.current, snapshot.focusBlockId) ?? snapshot.focusBlockId}</span>
               </div>
               <button
                 {...stylex.props(outlineEditorStyles.collapseButton)}
-                aria-label={focusCollapsed ? 'Expand focused block' : 'Collapse focused block'}
+                aria-label={focusCollapsed ? t('ui.expandFocusedBlock') : t('ui.collapseFocusedBlock')}
                 type="button"
                 onClick={toggleFocusCollapsed}
               >
-                {focusCollapsed ? 'Expand' : 'Collapse'}
+                {focusCollapsed ? t('ui.expand') : t('ui.collapse')}
               </button>
             </div>
           )

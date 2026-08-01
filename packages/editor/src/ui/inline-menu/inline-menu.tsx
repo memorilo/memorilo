@@ -10,6 +10,7 @@ import { Bold, Brackets, Code2, Highlighter, Italic, Link2, Strikethrough, Under
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { InlinePopoverPopup, InlinePopoverPositioner, InlinePopoverRoot } from 'prosekit/react/inline-popover'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getSelectedCardDefinitionId } from '../../card/card-extension'
 
 import { Button } from '../button/index.ts'
@@ -64,6 +65,7 @@ export default function InlineMenu() {
   const actions = useEditorDerivedValue(getEditorActions)
   const link = useEditorDerivedValue(getLinkState)
   const cardSelection = useEditorDerivedValue(getCardSelectionState)
+  const { t } = useTranslation('editor')
 
   const [linkMenuOpen, setLinkMenuOpen] = useState(false)
   const toggleLinkMenuOpen = () => setLinkMenuOpen(open => !open)
@@ -106,7 +108,7 @@ export default function InlineMenu() {
               pressed={actions.mark.bold.active}
               disabled={!actions.mark.bold.canExec}
               onClick={actions.mark.bold.run}
-              tooltip="Bold"
+              tooltip={t('ui.bold')}
             >
               <Bold size={16} />
             </Button>
@@ -114,7 +116,7 @@ export default function InlineMenu() {
               pressed={actions.mark.italic.active}
               disabled={!actions.mark.italic.canExec}
               onClick={actions.mark.italic.run}
-              tooltip="Italic"
+              tooltip={t('ui.italic')}
             >
               <Italic size={16} />
             </Button>
@@ -122,7 +124,7 @@ export default function InlineMenu() {
               pressed={actions.mark.underline.active}
               disabled={!actions.mark.underline.canExec}
               onClick={actions.mark.underline.run}
-              tooltip="Underline"
+              tooltip={t('ui.underline')}
             >
               <Underline size={16} />
             </Button>
@@ -130,7 +132,7 @@ export default function InlineMenu() {
               pressed={actions.mark.strike.active}
               disabled={!actions.mark.strike.canExec}
               onClick={actions.mark.strike.run}
-              tooltip="Strikethrough"
+              tooltip={t('ui.strikethrough')}
             >
               <Strikethrough size={16} />
             </Button>
@@ -138,7 +140,7 @@ export default function InlineMenu() {
               pressed={actions.mark.code.active}
               disabled={!actions.mark.code.canExec}
               onClick={actions.mark.code.run}
-              tooltip="Code"
+              tooltip={t('ui.code')}
             >
               <Code2 size={16} />
             </Button>
@@ -151,7 +153,7 @@ export default function InlineMenu() {
                 else
                   editor.commands.addCloze({ anchorKind: cardSelection.clozeAnchorKind })
               }}
-              tooltip={cardSelection.cloze ? 'Remove cloze' : 'Cloze'}
+              tooltip={cardSelection.cloze ? t('ui.removeCloze') : t('ui.cloze')}
             >
               <Brackets size={16} />
             </Button>
@@ -164,7 +166,7 @@ export default function InlineMenu() {
                 else
                   editor.commands.setInlineHighlight({ color: 'yellow' })
               }}
-              tooltip={cardSelection.highlight ? 'Remove highlight' : 'Highlight'}
+              tooltip={cardSelection.highlight ? t('ui.removeHighlight') : t('ui.highlight')}
             >
               <Highlighter size={16} />
             </Button>
@@ -175,7 +177,7 @@ export default function InlineMenu() {
                   link.command()
                   toggleLinkMenuOpen()
                 }}
-                tooltip="Link"
+                tooltip={t('ui.link')}
               >
                 <Link2 size={16} />
               </Button>
@@ -209,7 +211,7 @@ export default function InlineMenu() {
               >
                 <input
                   {...stylex.props(formControlStyles.textInput)}
-                  placeholder="Paste the link..."
+                  placeholder={t('ui.pasteLinkPlaceholder')}
                   defaultValue={link.currentLink}
                 />
               </form>
@@ -221,7 +223,7 @@ export default function InlineMenu() {
                 onClick={() => handleLinkUpdate()}
                 onMouseDown={event => event.preventDefault()}
               >
-                Remove link
+                {t('ui.removeLink')}
               </button>
             )}
           </InlinePopoverPopup>

@@ -19,6 +19,7 @@ import {
   TableHandleRowPopup,
   TableHandleRowPositioner,
 } from 'prosekit/react/table-handle'
+import { useTranslation } from 'react-i18next'
 
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { tableHandleStyles } from './table-handle.stylex'
@@ -66,6 +67,7 @@ interface Props {
 
 export default function TableHandle(props: Props) {
   const state = useEditorDerivedValue(getTableHandleState)
+  const { t } = useTranslation('editor')
 
   return (
     <TableHandleRoot>
@@ -90,7 +92,7 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.addTableColumnBefore.command}
                   >
-                    <span>Insert Left</span>
+                    <span>{t('ui.insertLeft')}</span>
                   </MenuItem>
                 )}
                 {state.addTableColumnAfter.canExec && (
@@ -98,7 +100,7 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.addTableColumnAfter.command}
                   >
-                    <span>Insert Right</span>
+                    <span>{t('ui.insertRight')}</span>
                   </MenuItem>
                 )}
                 {state.deleteCellSelection.canExec && (
@@ -106,8 +108,8 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.deleteCellSelection.command}
                   >
-                    <span>Clear Contents</span>
-                    <span {...stylex.props(tableHandleStyles.shortcut)}>Del</span>
+                    <span>{t('ui.clearContents')}</span>
+                    <span {...stylex.props(tableHandleStyles.shortcut)}>{t('ui.del')}</span>
                   </MenuItem>
                 )}
                 {state.deleteTableColumn.canExec && (
@@ -115,7 +117,7 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.deleteTableColumn.command}
                   >
-                    <span>Delete Column</span>
+                    <span>{t('ui.deleteColumn')}</span>
                   </MenuItem>
                 )}
                 {state.deleteTable.canExec && (
@@ -124,7 +126,7 @@ export default function TableHandle(props: Props) {
                     data-danger=""
                     onSelect={state.deleteTable.command}
                   >
-                    <span>Delete Table</span>
+                    <span>{t('ui.deleteTable')}</span>
                   </MenuItem>
                 )}
               </MenuPopup>
@@ -160,7 +162,7 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.addTableRowAbove.command}
                   >
-                    <span>Insert Above</span>
+                    <span>{t('ui.insertAbove')}</span>
                   </MenuItem>
                 )}
                 {state.addTableRowBelow.canExec && (
@@ -168,7 +170,7 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.addTableRowBelow.command}
                   >
-                    <span>Insert Below</span>
+                    <span>{t('ui.insertBelow')}</span>
                   </MenuItem>
                 )}
                 {state.deleteCellSelection.canExec && (
@@ -176,8 +178,8 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.deleteCellSelection.command}
                   >
-                    <span>Clear Contents</span>
-                    <span {...stylex.props(tableHandleStyles.shortcut)}>Del</span>
+                    <span>{t('ui.clearContents')}</span>
+                    <span {...stylex.props(tableHandleStyles.shortcut)}>{t('ui.del')}</span>
                   </MenuItem>
                 )}
                 {state.deleteTableRow.canExec && (
@@ -185,7 +187,7 @@ export default function TableHandle(props: Props) {
                     {...stylex.props(tableHandleStyles.menuItem)}
                     onSelect={state.deleteTableRow.command}
                   >
-                    <span>Delete Row</span>
+                    <span>{t('ui.deleteRow')}</span>
                   </MenuItem>
                 )}
                 {state.deleteTable.canExec && (
@@ -194,7 +196,7 @@ export default function TableHandle(props: Props) {
                     data-danger=""
                     onSelect={state.deleteTable.command}
                   >
-                    <span>Delete Table</span>
+                    <span>{t('ui.deleteTable')}</span>
                   </MenuItem>
                 )}
               </MenuPopup>

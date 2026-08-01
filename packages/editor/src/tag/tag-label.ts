@@ -1,19 +1,27 @@
 const MAX_TAG_LABEL_LENGTH = 64
 const TAG_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u
 
+export type TagLabelError = 'empty' | 'too-long' | 'invalid-format'
+
+export const TAG_LABEL_ERROR_TRANSLATION_KEYS: Record<TagLabelError, string> = {
+  'empty': 'ui.enterTagName',
+  'too-long': 'ui.tagNameTooLong',
+  'invalid-format': 'ui.invalidTagLabel',
+}
+
 export function normalizeTagLabel(value: string) {
   const trimmed = value.trim()
   return trimmed.startsWith('#') ? trimmed.slice(1) : trimmed
 }
 
-export function getTagLabelError(value: string): string | null {
+export function getTagLabelError(value: string): TagLabelError | null {
   const label = normalizeTagLabel(value)
   if (!label)
-    return 'Enter a tag name'
+    return 'empty'
   if (label.length > MAX_TAG_LABEL_LENGTH)
-    return `Tag names must be ${MAX_TAG_LABEL_LENGTH} characters or fewer`
+    return 'too-long'
   if (!TAG_LABEL_PATTERN.test(label))
-    return 'Use letters, numbers, underscores, or hyphens'
+    return 'invalid-format'
   return null
 }
 
