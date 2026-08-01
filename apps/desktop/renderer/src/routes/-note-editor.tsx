@@ -5,17 +5,17 @@ import type {
   EditorTopicDocument,
   NoteEntrySnapshot,
 } from '@memorilo/editor'
-import type { Cause } from 'effect'
 import type { PaletteCommand } from '../components/command-palette-context'
 import { createEditorNote, demoEditorAdapters, Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Effect, Layer } from 'effect'
+import { Cause, Effect, Exit, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
 import {
   AlignLeft,
   ChevronRight,
+  Copy,
   FileText,
   Folder,
   FolderOpen,
@@ -128,6 +128,35 @@ interface OpenEditorNote {
   topic: EditorTopicDocument
 }
 
+interface TopicValidationError {
+  diagnostics: string
+  message: string
+}
+
+type CopyStatus = 'copied' | 'failed'
+
+interface CopyFeedback {
+  diagnostics: string
+  status: CopyStatus
+}
+
+function formatTopicValidationDiagnostics(
+  note: EditorNote,
+  topicId: string,
+  effectOutput: string,
+): string {
+  const sections = [`Topic ID: ${topicId}`]
+  try {
+    const input = note.getTopicValidationInput(topicId)
+    sections.push(`Invalid Topic JSON:\n${JSON.stringify(input, null, 2)}`)
+  }
+  catch (error) {
+    sections.push(`Invalid Topic JSON:\nUnable to project Topic: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  sections.push(`Effect validation output:\n${effectOutput}`)
+  return sections.join('\n\n')
+}
+
 function OpenedTopicEditor({
   collapsedEntryIds,
   favoritePending,
@@ -137,6 +166,7 @@ function OpenedTopicEditor({
   onToggleFavorite,
   opened,
   saveError,
+  validationError,
 }: {
   collapsedEntryIds: ReadonlySet<string>
   favoritePending: boolean
@@ -146,7 +176,9 @@ function OpenedTopicEditor({
   onToggleFavorite: () => void
   opened: OpenEditorNote
   saveError: string | null
+  validationError: TopicValidationError | null
 }) {
+  const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
   const [inspectorVisible, setInspectorVisible] = useState(true)
   const configuration = useDesktopConfiguration()
   const shouldReduceMotion = useReducedMotion()
@@ -189,6 +221,23 @@ function OpenedTopicEditor({
       }], [mode, showDocumentMode, showOutlineMode])
   useCommandPaletteCommands(modeCommands)
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
+  const copyValidationDiagnostics = useCallback(async () => {
+    if (!validationError)
+      return
+    try {
+      if (typeof navigator.clipboard?.writeText !== 'function')
+        throw new Error('The Clipboard API is unavailable')
+      await navigator.clipboard.writeText(validationError.diagnostics)
+      setCopyFeedback({ diagnostics: validationError.diagnostics, status: 'copied' })
+    }
+    catch (error) {
+      console.error('Failed to copy Topic validation diagnostics', error)
+      setCopyFeedback({ diagnostics: validationError.diagnostics, status: 'failed' })
+    }
+  }, [validationError])
+  const copyStatus = copyFeedback !== null && copyFeedback.diagnostics === validationError?.diagnostics
+    ? copyFeedback.status
+    : null
   const titlebar = useMemo(() => ({
     onRenameTitle: renameNote,
     title: opened.stored.title,
@@ -238,11 +287,42 @@ function OpenedTopicEditor({
   return (
     <main {...stylex.props(editorRouteStyles.page)}>
       <section {...stylex.props(editorRouteStyles.workspace)} aria-label={opened.stored.title}>
-        {saveError
+        {saveError || validationError
           ? (
-              <div {...stylex.props(editorRouteStyles.saveError)} aria-live="polite" role="status">
-                Failed to save Note:
-                {saveError}
+              <div {...stylex.props(editorRouteStyles.alertStack)}>
+                {validationError
+                  ? (
+                      <div {...stylex.props(editorRouteStyles.validationError)}>
+                        <span {...stylex.props(editorRouteStyles.validationErrorMessage)} aria-live="assertive" role="alert">
+                          {validationError.message}
+                        </span>
+                        <div {...stylex.props(editorRouteStyles.validationErrorActions)}>
+                          <button
+                            {...stylex.props(editorRouteStyles.copyDiagnosticsButton)}
+                            aria-label="Copy invalid Topic JSON and Effect validation output"
+                            title="Copy invalid Topic JSON and Effect validation output"
+                            type="button"
+                            onClick={copyValidationDiagnostics}
+                          >
+                            <Copy aria-hidden="true" size={14} strokeWidth={1.9} />
+                            <span>Copy diagnostics</span>
+                          </button>
+                          <span {...stylex.props(editorRouteStyles.copyDiagnosticsStatus)} aria-live="polite" role="status">
+                            {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : ''}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  : null}
+                {saveError
+                  ? (
+                      <div {...stylex.props(editorRouteStyles.saveError)} aria-live="polite" role="status">
+                        Failed to save Note:
+                        {' '}
+                        {saveError}
+                      </div>
+                    )
+                  : null}
               </div>
             )
           : null}
@@ -443,11 +523,18 @@ export function NoteEditor({
   const [opened, setOpened] = useState<OpenEditorNote | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [validationError, setValidationError] = useState<TopicValidationError | null>(null)
   const queryClient = useQueryClient()
   const noteRef = useRef<EditorNote | null>(null)
+  const storedRef = useRef<DesktopNote | null>(null)
   const pendingChangesRef = useRef<EditorNoteChange[]>([])
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const persistingRef = useRef(false)
+  const persistingChangesRef = useRef<EditorNoteChange[]>([])
+  const restoringRef = useRef(false)
+  const unsubscribeRef = useRef<(() => void) | undefined>(undefined)
+  const latestValidSnapshotRef = useRef<Uint8Array | null>(null)
+  const handleNoteChangeRef = useRef<(change: EditorNoteChange) => void>(() => undefined)
   const flushPendingRef = useRef<(reportError: boolean) => void>(() => undefined)
   const { isPending: favoritePending, mutate: mutateFavorite } = useMutation({
     ...setNoteFavoriteMutationOptions(),
@@ -461,45 +548,51 @@ export function NoteEditor({
   })
 
   const flushPending = useCallback((reportError: boolean) => {
-    const note = noteRef.current
-    if (!note || persistingRef.current || pendingChangesRef.current.length === 0)
+    if (persistingRef.current || pendingChangesRef.current.length === 0)
       return
     if (saveTimerRef.current !== null) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
 
-    const changes = pendingChangesRef.current.splice(0)
+    const firstChange = pendingChangesRef.current[0]
+    if (!firstChange)
+      return
+    const noteId = firstChange.noteId
+    const changes = pendingChangesRef.current.filter(change => change.noteId === noteId)
+    pendingChangesRef.current = pendingChangesRef.current.filter(change => change.noteId !== noteId)
     persistingRef.current = true
+    persistingChangesRef.current = changes
 
     void (async () => {
       try {
         const receipt = await window.desktop.saveNoteUpdates({
-          noteId: note.id,
+          noteId,
           updates: changes.map(change => change.update),
         })
-        setOpened(current => current
-          ? {
-              ...current,
-              entries: note.getEntries(),
-              stored: {
-                ...current.stored,
-                updatedAt: receipt.updatedAt,
-              },
-            }
-          : current)
-        if (reportError)
-          setSaveError(null)
+        const currentNote = noteRef.current
+        if (currentNote?.id === noteId) {
+          setOpened((current) => {
+            if (!current || current.note !== currentNote)
+              return current
+            const stored = { ...current.stored, updatedAt: receipt.updatedAt }
+            storedRef.current = stored
+            return { ...current, entries: currentNote.getEntries(), stored }
+          })
+          if (reportError)
+            setSaveError(null)
+        }
       }
       catch (error) {
-        pendingChangesRef.current.unshift(...changes)
-        if (reportError)
+        pendingChangesRef.current.push(...changes)
+        if (reportError && noteRef.current?.id === noteId)
           setSaveError(error instanceof Error ? error.message : String(error))
         else
-          console.error('Failed to flush the current Note', error)
+          console.error(`Failed to flush Note ${noteId}`, error)
       }
       finally {
         persistingRef.current = false
+        persistingChangesRef.current = []
         if (pendingChangesRef.current.length > 0 && saveTimerRef.current === null) {
           saveTimerRef.current = setTimeout(() => {
             saveTimerRef.current = null
@@ -511,7 +604,87 @@ export function NoteEditor({
   }, [])
   flushPendingRef.current = flushPending
 
+  const rebuildFromLatestValidSnapshot = useCallback((validationError: TopicValidationError) => {
+    const current = noteRef.current
+    const snapshot = latestValidSnapshotRef.current
+    const stored = storedRef.current
+    if (!current || !snapshot || !stored || restoringRef.current)
+      return
+
+    restoringRef.current = true
+    pendingChangesRef.current = pendingChangesRef.current.filter(change => change.noteId !== current.id)
+    unsubscribeRef.current?.()
+    unsubscribeRef.current = undefined
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    const restored = createEditorNote({ id: current.id, snapshot })
+    const restoredTopic = restored.getEntries().find(entry => entry.kind === 'topic' && entry.id === topicId)
+    if (!restoredTopic) {
+      restoringRef.current = false
+      setValidationError({
+        diagnostics: validationError.diagnostics,
+        message: `无法回退 Note：找不到 Topic ${topicId}`,
+      })
+      return
+    }
+    noteRef.current = restored
+    latestValidSnapshotRef.current = restored.exportSnapshot()
+    pendingChangesRef.current.push({ noteId: restored.id, update: restored.exportUpdates() })
+    unsubscribeRef.current = restored.subscribe(change => handleNoteChangeRef.current(change))
+    setOpened({
+      entries: restored.getEntries(),
+      note: restored,
+      stored,
+      topic: restored.getTopic(topicId),
+    })
+    setValidationError(validationError)
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null
+      flushPendingRef.current(true)
+    }, saveDelay)
+    restoringRef.current = false
+  }, [topicId])
+
   const handleNoteChange = useCallback((change: EditorNoteChange) => {
+    if (restoringRef.current)
+      return
+    const note = noteRef.current
+    if (!note)
+      return
+
+    const entriesExit = Effect.runSyncExit(Effect.try({
+      try: () => note.getEntries(),
+      catch: error => error instanceof Error ? error : new Error(String(error)),
+    }))
+    if (Exit.isFailure(entriesExit)) {
+      const effectOutput = Cause.pretty(entriesExit.cause)
+      console.error('Topic entry projection failed; restoring the latest valid Note snapshot', effectOutput)
+      rebuildFromLatestValidSnapshot({
+        diagnostics: formatTopicValidationDiagnostics(note, topicId, effectOutput),
+        message: 'That edit created an invalid Topic structure and was reverted.',
+      })
+      return
+    }
+
+    for (const entry of entriesExit.value) {
+      if (entry.kind !== 'topic')
+        continue
+      const validationExit = Effect.runSyncExit(note.validateTopic(entry.id))
+      if (Exit.isSuccess(validationExit))
+        continue
+      const effectOutput = Cause.pretty(validationExit.cause)
+      console.error('Topic validation failed; restoring the latest valid Note snapshot', effectOutput)
+      rebuildFromLatestValidSnapshot({
+        diagnostics: formatTopicValidationDiagnostics(note, entry.id, effectOutput),
+        message: 'That edit created an invalid Topic structure and was reverted.',
+      })
+      return
+    }
+
+    setValidationError(null)
+    latestValidSnapshotRef.current = note.exportSnapshot()
     pendingChangesRef.current.push(change)
     if (saveTimerRef.current !== null)
       clearTimeout(saveTimerRef.current)
@@ -519,6 +692,14 @@ export function NoteEditor({
       saveTimerRef.current = null
       flushPendingRef.current(true)
     }, saveDelay)
+  }, [rebuildFromLatestValidSnapshot, topicId])
+  handleNoteChangeRef.current = handleNoteChange
+
+  const resetViewState = useCallback(() => {
+    setOpened(null)
+    setLoadError(null)
+    setSaveError(null)
+    setValidationError(null)
   }, [])
 
   const handleRenameNote = useCallback(async (note: EditorNote, title: string) => {
@@ -526,10 +707,19 @@ export function NoteEditor({
     if (result.status === 'duplicate-title')
       return { error: 'A Note with this title already exists' }
 
+    if (noteRef.current !== note)
+      return
     note.renameNote(result.note.title)
+    if (storedRef.current?.id === note.id) {
+      storedRef.current = {
+        ...storedRef.current,
+        title: result.note.title,
+        updatedAt: result.note.updatedAt,
+      }
+    }
     setOpened((current) => {
       if (!current || current.note !== note)
-        throw new Error(`Cannot rename unopened Note ${note.id}`)
+        return current
       return {
         ...current,
         stored: {
@@ -552,7 +742,10 @@ export function NoteEditor({
 
   useEffect(() => {
     let active = true
-    let unsubscribe: (() => void) | undefined
+    queueMicrotask(() => {
+      if (active)
+        resetViewState()
+    })
 
     void window.desktop.getNote({ noteId }).then(async (stored) => {
       if (!active)
@@ -562,6 +755,17 @@ export function NoteEditor({
         snapshot: stored.snapshot,
         title: stored.title,
       })
+      const unpersistedChanges = [...persistingChangesRef.current, ...pendingChangesRef.current]
+      unpersistedChanges
+        .filter(change => change.noteId === note.id)
+        .forEach(change => note.importUpdates(change.update))
+      if (!active)
+        return
+
+      for (const entry of note.getEntries()) {
+        if (entry.kind === 'topic')
+          await Effect.runPromise(note.validateTopic(entry.id))
+      }
       if (!active)
         return
 
@@ -574,7 +778,9 @@ export function NoteEditor({
         return
       void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
       noteRef.current = note
-      unsubscribe = note.subscribe(handleNoteChange)
+      storedRef.current = stored
+      latestValidSnapshotRef.current = note.exportSnapshot()
+      unsubscribeRef.current = note.subscribe(handleNoteChange)
       setOpened({
         entries,
         note,
@@ -591,14 +797,18 @@ export function NoteEditor({
 
     return () => {
       active = false
-      unsubscribe?.()
+      unsubscribeRef.current?.()
+      unsubscribeRef.current = undefined
+      noteRef.current = null
+      storedRef.current = null
+      latestValidSnapshotRef.current = null
       if (saveTimerRef.current !== null) {
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
       }
       flushPendingRef.current(false)
     }
-  }, [handleNoteChange, noteId, queryClient, topicId])
+  }, [handleNoteChange, noteId, queryClient, resetViewState, topicId])
 
   if (loadError) {
     return (
@@ -629,6 +839,7 @@ export function NoteEditor({
       onToggleFavorite={handleToggleFavorite}
       opened={opened}
       saveError={saveError}
+      validationError={validationError}
     />
   )
 }

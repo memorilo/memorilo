@@ -1,17 +1,21 @@
+import type { Effect } from 'effect'
 import type { LoroMap, UndoManager as LoroUndoManager } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorModeValue } from '../common/editor-mode'
+import type { LoroTopic } from '../schema/topic-schema'
 import type { TopicBlockProjection } from './topic-projection'
 import {
   createNodeJsonFromLoroTree,
   initializeLoroTreeFromJson,
 } from '@memorilo/loro-prosemirror-tree/model'
+import { Effect as EffectRuntime } from 'effect'
 import {
   LoroDoc,
   UndoManager,
 } from 'loro-crdt'
 import { assertEditorMode, EditorMode } from '../common/editor-mode'
 import { normalizeOutlineDocument } from '../common/outline-document'
+import { validateLoroTopic } from '../schema/topic-schema'
 import { projectTopicBlocks } from './topic-projection'
 
 const NOTE_META_KEY = 'noteMeta'
@@ -103,6 +107,11 @@ export interface DeleteNoteEntryInput {
   strategy: DeleteNoteEntryStrategy
 }
 
+export interface TopicValidationInput {
+  readonly document: NodeJSON
+  readonly entry: unknown
+}
+
 export interface EditorTopicDocument {
   /** Returns the current editor mode stored in the Topic. */
   readonly getMode: () => EditorModeValue
@@ -143,6 +152,10 @@ export interface EditorNote {
   getTopic: (topicId: string) => EditorTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
+  /** Returns the exact plain JavaScript object passed to Topic validation. */
+  getTopicValidationInput: (topicId: string) => TopicValidationInput
+  /** Validates a Topic's Loro entry and referenced content tree as one complete object. */
+  validateTopic: (topicId: string) => Effect.Effect<LoroTopic, Error>
   /** Returns the Note title stored in the LoroDoc. */
   getTitle: () => string
   /** Returns the current Loro version vector in a serializable form. */
@@ -494,6 +507,18 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   }
 
   let runtime: EditorNoteRuntime
+  const getTopicValidationInput = (topicId: string): TopicValidationInput => {
+    const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
+    const node = entryNode(runtime, normalizedTopicId)
+    const blockTree = topicBlockTree(runtime, node)
+    const document = createNodeJsonFromLoroTree(blockTree)
+    if (!document)
+      throw new Error(`Topic ${normalizedTopicId} does not contain an initialized document`)
+    return {
+      document,
+      entry: node.data.toJSON(),
+    }
+  }
   const note: EditorNote = {
     id,
     getTopic: (topicId) => {
@@ -586,6 +611,16 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       )
     },
     getTitle: () => readNoteTitle(doc),
+    getTopicValidationInput,
+    validateTopic: (topicId) => {
+      return EffectRuntime.flatMap(
+        EffectRuntime.try({
+          try: () => getTopicValidationInput(topicId),
+          catch: error => error instanceof Error ? error : new Error(String(error)),
+        }),
+        validateLoroTopic,
+      )
+    },
     getVersion: () => doc.frontiers().map(({ counter, peer }) => ({ counter, peer })),
     importUpdates: (updates) => {
       validateBinary(updates, 'Note updates')

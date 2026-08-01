@@ -1,6 +1,7 @@
 import type { Attrs } from 'prosekit/pm/model'
+import type { TaskHistory, TaskStatus } from '../../schema/task-schema'
 
-export type TaskStatus = 'todo' | 'doing' | 'done'
+export type { TaskHistory, TaskStatus } from '../../schema/task-schema'
 
 export const TASK_STATUSES: readonly TaskStatus[] = ['todo', 'doing', 'done']
 
@@ -34,11 +35,6 @@ export interface TaskTimingAttrs {
   elapsedMs: number
   startedAt: number | null
   checked: boolean
-}
-
-export interface TaskHistory {
-  status: TaskStatus
-  elapsedMs: number
 }
 
 /**
@@ -80,19 +76,6 @@ export function resumeTask(history: TaskHistory, now = Date.now()): TaskTimingAt
     startedAt: history.status === 'doing' ? now : null,
     checked: history.status === 'done',
   }
-}
-
-export function parseTaskHistory(value: unknown): TaskHistory | null {
-  if (typeof value !== 'object' || value === null)
-    return null
-
-  const { status, elapsedMs } = value as Record<string, unknown>
-  if (status !== 'todo' && status !== 'doing' && status !== 'done')
-    return null
-  if (typeof elapsedMs !== 'number' || !Number.isFinite(elapsedMs) || elapsedMs < 0)
-    return null
-
-  return { status, elapsedMs }
 }
 
 /** Total elapsed milliseconds, including the live span while `doing`. */
