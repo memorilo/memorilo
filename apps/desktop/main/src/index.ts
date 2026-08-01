@@ -1,11 +1,11 @@
 import type { EditorStorage } from '@memorilo/editor-storage'
 import { mkdirSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { createEditorStorage, createShelfImageCache, createShelfStorage } from '@memorilo/editor-storage'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, net, protocol, shell } from 'electron'
 
 import { createDesktopServices } from './ipc/services'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
@@ -14,6 +14,17 @@ import { TransformersEmbeddingModel } from './storage/transformers-embedding-mod
 let editorStorage: EditorStorage | null = null
 let shelfImageCacheDatabase: BetterSqliteDatabase | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
+const productionRendererOrigin = 'memorilo://app'
+
+protocol.registerSchemesAsPrivileged([{
+  privileges: {
+    corsEnabled: true,
+    secure: true,
+    standard: true,
+    supportFetchAPI: true,
+  },
+  scheme: 'memorilo',
+}])
 
 function databasePath(userDataPath: string): string {
   const configured = process.env.MEMORILO_DATABASE_PATH
@@ -51,7 +62,24 @@ function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
   if (rendererUrl)
     return new URL(target).origin === new URL(rendererUrl).origin
 
-  return new URL(target).protocol === 'file:'
+  const targetUrl = new URL(target)
+  return targetUrl.protocol === 'memorilo:' && targetUrl.hostname === 'app'
+}
+
+async function registerRendererProtocol() {
+  const rendererDirectory = resolve(mainDirectory, '../renderer')
+  await protocol.handle('memorilo', (request) => {
+    const requestUrl = new URL(request.url)
+    if (requestUrl.hostname !== 'app')
+      return new Response('Not found', { status: 404 })
+
+    const pathname = decodeURIComponent(requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname)
+    const target = resolve(rendererDirectory, `.${pathname}`)
+    const targetRelativePath = relative(rendererDirectory, target)
+    if (targetRelativePath.startsWith('..') || isAbsolute(targetRelativePath))
+      return new Response('Not found', { status: 404 })
+    return net.fetch(pathToFileURL(target).toString())
+  })
 }
 
 function createWindow() {
@@ -96,10 +124,12 @@ function createWindow() {
   if (rendererUrl)
     void window.loadURL(rendererUrl)
   else
-    void window.loadFile(join(mainDirectory, '../renderer/index.html'))
+    void window.loadURL(`${productionRendererOrigin}/index.html`)
 }
 
 async function startApplication(): Promise<void> {
+  if (!process.env.ELECTRON_RENDERER_URL)
+    await registerRendererProtocol()
   const userDataPath = app.getPath('userData')
   const database = new BetterSqliteDatabase(databasePath(userDataPath))
   editorStorage = await createEditorStorage({

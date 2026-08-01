@@ -179,8 +179,8 @@ export const workspaceSidebarStyles = stylex.create({
     fontWeight: 400,
     letterSpacing: 0,
     lineHeight: '18px',
-    outline: 'none',
     textDecoration: 'none',
+    outline: 'none',
     boxShadow: {
       'default': 'none',
       ':focus-visible': `0 0 0 2px ${colors.focus}`,
