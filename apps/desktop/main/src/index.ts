@@ -202,7 +202,7 @@ async function startApplication(): Promise<void> {
   closeMcpServer = mcpServer.close
   closeNoteApplication = notes.close
 
-  createDesktopServices(notes, configurationStore)
+  createDesktopServices(notes, editorStorage.learning, configurationStore)
   void mcpServer.update(configuration.mcp)
   unsubscribeConfiguration = configurationStore.subscribe(() => {
     const next = configurationStore?.getSnapshot()

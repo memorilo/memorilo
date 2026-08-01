@@ -40,3 +40,34 @@ export type {
 } from './editor-storage'
 export { createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
 export type { EmbeddingModel } from './embedding-model'
+export { GLOBAL_OPTIMIZER_ID } from './learning'
+export type {
+  AcknowledgeLearningSyncInput,
+  AssignNoteOptimizerInput,
+  CreateFsrsOptimizerInput,
+  FsrsOptimizer,
+  FsrsOptimizerConfiguration,
+  LearningCardDirection,
+  LearningCardKind,
+  LearningCardProjection,
+  LearningMaintenanceEstimate,
+  LearningMaintenanceResult,
+  LearningPhase,
+  LearningQueueItem,
+  LearningQueuePolicy,
+  LearningState,
+  LearningStorage,
+  LearningSyncChange,
+  LearningTarget,
+  LearningTargetKind,
+  ListLearningQueueInput,
+  OptimizeFsrsOptimizerInput,
+  RateLearningTargetInput,
+  ReconcileLearningCardsInput,
+  RenameFsrsOptimizerInput,
+  ResetLearningTargetInput,
+  ReviewRating,
+  ReviewResult,
+  UndoLearningReviewInput,
+  UpdateFsrsOptimizerInput,
+} from './learning'

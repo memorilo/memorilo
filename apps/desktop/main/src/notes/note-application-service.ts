@@ -1,4 +1,11 @@
-import type { EditorStorage, NoteEntryProjection, StoredNote, TopicContentProjection as StoredTopicContentProjection } from '@memorilo/editor-storage'
+import type {
+  EditorStorage,
+  LearningCardProjection,
+  NoteEntryProjection,
+  StoredNote,
+  TopicContentProjection as StoredTopicContentProjection,
+} from '@memorilo/editor-storage'
+import type { EditorCardProjection } from '@memorilo/editor/card'
 import type {
   EditorNote,
   EditorNoteMutation,
@@ -9,6 +16,7 @@ import type {
 } from '@memorilo/editor/note'
 import { createHash } from 'node:crypto'
 import { DuplicateNoteTitleError } from '@memorilo/editor-storage'
+import { projectEditorCards } from '@memorilo/editor/card'
 import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 
@@ -99,6 +107,49 @@ function toStoredTopic(topic: TopicContentProjection): StoredTopicContentProject
   return structuredClone(topic)
 }
 
+function toLearningCard(card: EditorCardProjection): LearningCardProjection {
+  return {
+    cardId: card.id,
+    direction: card.kind === 'cloze' ? 'forward' : card.direction,
+    itemBlockIds: (card.kind === 'list' || card.kind === 'set') && card.direction === 'forward'
+      ? card.items.map(item => item.blockId)
+      : [],
+    kind: card.kind,
+    sourceBlockId: card.sourceBlockId,
+  }
+}
+
+async function reconcileTopicCards(
+  storage: EditorStorage,
+  note: EditorNote,
+  topicId: string,
+): Promise<void> {
+  const entries = note.getEntries()
+  const topicOrder = entries.findIndex(candidate => candidate.id === topicId)
+  const entry = topicOrder === -1 ? undefined : entries[topicOrder]
+  const cards = entry?.kind === 'topic'
+    ? projectEditorCards(note.getTopicValidationInput(topicId).document).map(toLearningCard)
+    : []
+  await storage.learning.reconcileTopicCards({
+    cards,
+    noteId: note.id,
+    topicId,
+    topicOrder: topicOrder === -1 ? 0 : topicOrder,
+  })
+}
+
+async function reconcileNoteCards(storage: EditorStorage, note: EditorNote): Promise<void> {
+  const currentTopicIds = note.getEntries()
+    .filter(entry => entry.kind === 'topic')
+    .map(entry => entry.id)
+  const topicIds = new Set([
+    ...currentTopicIds,
+    ...await storage.learning.listNoteTopicIds(note.id),
+  ])
+  for (const topicId of topicIds)
+    await reconcileTopicCards(storage, note, topicId)
+}
+
 function updateHash(update: Uint8Array): string {
   return createHash('sha256').update(update).digest('hex')
 }
@@ -176,6 +227,7 @@ export function createNoteApplicationService(
       checkpointSequence = latestSequence
       updatedAt = checkpoint.updatedAt
     }
+    await reconcileNoteCards(storage, note)
     return { checkpointSequence, createdAt: stored.createdAt, latestSequence, note, updatedAt }
   }
 
@@ -277,6 +329,8 @@ export function createNoteApplicationService(
     })
     current.latestSequence = receipt.latestSequence
     current.updatedAt = receipt.updatedAt
+    for (const topicId of options.topicIds ?? [])
+      await reconcileTopicCards(storage, current.note, topicId)
     await checkpointIfNeeded(current)
     if (receipt.acceptedUpdateHashes.length > 0)
       scheduleIndex(current.note.id)
@@ -437,6 +491,8 @@ export function createNoteApplicationService(
         })
         current.latestSequence = receipt.latestSequence
         current.updatedAt = receipt.updatedAt
+        for (const topicId of changed.topicIds)
+          await reconcileTopicCards(storage, current.note, topicId)
         await checkpointIfNeeded(current)
         const acceptedHashes = new Set(receipt.acceptedUpdateHashes)
         if (acceptedHashes.size > 0)

@@ -1,6 +1,6 @@
 # FSRS Learning System Design
 
-本文记录 Memorilo 原生 FSRS 学习系统的已确认设计。当前阶段只固定领域、数据和事务边界，不实现 Learning UI、数据库 schema 或调度器代码。
+本文记录 Memorilo 原生 FSRS 学习系统的已确认设计及当前实现合同。当前实现覆盖本地 schema、FSRS 调度与优化、Card reconciliation、队列、Undo/Reset、维护、同步 outbox 和 Electron IPC；Learning 评分 UI、CardSurface 以及远端同步服务不在本次实现范围。
 
 相关调研：
 
@@ -123,6 +123,7 @@ Review Event 不以外键绑定历史 revision。参数变化后的重放必须�
 | card_id | 来自 editor projection 的稳定 CardID |
 | note_id / topic_id | 内容定位与训练分组 |
 | source_block_id | Sibling Group identity |
+| topic_order / source_order | 不含内容的投影顺序，用于 New gather |
 | kind / direction | 不含内容的投影类型元数据 |
 | active | 当前是否仍由 Note 投影 |
 | first_seen_at / last_seen_at / inactive_at | reconciliation 审计 |
@@ -138,6 +139,7 @@ Review Event 不以外键绑定历史 revision。参数变化后的重放必须�
 | card_id | 所属 CardID |
 | target_kind | whole 或 item |
 | item_block_id | item Target 必填，whole 为 null |
+| target_order | List/Set member 的投影顺序 |
 | active | 当前是否仍由 Card 投影 |
 | partial_active | item 是否处于 Partial 补救流程 |
 
@@ -207,7 +209,7 @@ Bury、Partial withholding 和 Study Day 临时过滤不混入 FSRS state。queu
 
 ### 5.9 learning_sync_state 与 tombstones
 
-客户端保存 device identity、last server sequence、schema generation、full-sync-required 和最近 sanity hash。永久清理不为每条历史制造海量墓碑，而是发布按 Card/Optimizer scope 的 purge tombstone 与 generation；所有已知设备确认 prune watermark 后，服务器和客户端才可丢弃对应历史与 tombstone。
+客户端保存 device identity、last server sequence、schema generation、full-sync-required 和最近 sanity hash。永久清理不为每条历史制造海量墓碑，而是发布按 Card/Optimizer scope 的 purge tombstone 与 generation；active List/Set 中单独消失的 item 使用 Target scope tombstone。所有已知设备确认 prune watermark 后，服务器和客户端才可丢弃对应历史与 tombstone。
 
 ## 6. 写入与重放事务
 
@@ -323,7 +325,7 @@ Settings 的 Maintain Database 是显式破坏性操作，执行前必须显示�
 
 在支持同步后，维护必须先达到 clean sync 和 prune watermark；离线或存在未确认设备时不允许假装完成账户级永久删除。确认后按 scope：
 
-1. 删除 inactive Card 和其 inactive Target；
+1. 删除 inactive Card、其 Target，以及 active List/Set 中单独 inactive 的 item Target；
 2. 删除这些 Target 的 Review Event、Learning State 和 queue exclusions；
 3. 删除 archived Optimizer 及不再被 current pointer 使用的 revision；
 4. 写入 purge tombstone/generation，防止旧设备复活数据；

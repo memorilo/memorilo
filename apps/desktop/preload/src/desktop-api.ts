@@ -4,6 +4,7 @@ import type {
   DesktopColumnVisibilityMenuSelection,
   DesktopConfiguration,
   DesktopFavoriteNoteItem,
+  DesktopLearningApi,
   DesktopNote,
   DesktopNoteExternalUpdate,
   DesktopNoteFavoriteState,
@@ -33,6 +34,7 @@ export interface DesktopServices {
     get: () => Promise<DesktopConfiguration>
     set: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
   }
+  learning: DesktopLearningApi
   notes: {
     createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
     getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
@@ -63,6 +65,32 @@ export interface DesktopServices {
   }
 }
 
+function createDesktopLearningApi(service: DesktopServices['learning']): DesktopLearningApi {
+  return {
+    archiveOptimizer: optimizerId => service.archiveOptimizer(optimizerId),
+    assignNoteOptimizer: input => service.assignNoteOptimizer(input),
+    createOptimizer: input => service.createOptimizer(input),
+    getLearningState: targetId => service.getLearningState(targetId),
+    getMaintenanceEstimate: () => service.getMaintenanceEstimate(),
+    getNoteOptimizer: noteId => service.getNoteOptimizer(noteId),
+    getOptimizer: optimizerId => service.getOptimizer(optimizerId),
+    getOptimizerNoteCount: optimizerId => service.getOptimizerNoteCount(optimizerId),
+    listOptimizers: () => service.listOptimizers(),
+    listQueue: input => service.listQueue(input),
+    listTargets: cardId => service.listTargets(cardId),
+    maintainDatabase: () => service.maintainDatabase(),
+    optimizeOptimizer: input => service.optimizeOptimizer(input),
+    rateTarget: input => service.rateTarget(input),
+    renameOptimizer: input => service.renameOptimizer(input),
+    resetOptimizerDefaults: (optimizerId, rescheduleNow) => (
+      service.resetOptimizerDefaults(optimizerId, rescheduleNow)
+    ),
+    resetTarget: input => service.resetTarget(input),
+    undoLastReview: input => service.undoLastReview(input),
+    updateOptimizer: input => service.updateOptimizer(input),
+  }
+}
+
 export function createDesktopApi(
   services: DesktopServices,
   subscribeConfiguration: DesktopApi['subscribeConfiguration'],
@@ -78,6 +106,7 @@ export function createDesktopApi(
     listFavoriteNotes: input => services.notes.listFavoriteNotes(input),
     listNotes: input => services.notes.listNotes(input),
     listRecentNotes: input => services.notes.listRecentNotes(input),
+    learning: createDesktopLearningApi(services.learning),
     openMostRecentNote: () => services.notes.openMostRecentNote(),
     recordNoteOpened: input => services.notes.recordNoteOpened(input),
     renameNote: input => services.notes.renameNote(input),

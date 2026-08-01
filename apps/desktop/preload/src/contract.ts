@@ -1,4 +1,5 @@
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+import type { LearningStorage } from '@memorilo/editor-storage'
 
 export type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 
@@ -6,6 +7,26 @@ export interface RuntimeInfo {
   platform: string
   version: string
 }
+
+export type DesktopLearningApi = Pick<LearningStorage, | 'archiveOptimizer'
+  | 'assignNoteOptimizer'
+  | 'createOptimizer'
+  | 'getLearningState'
+  | 'getMaintenanceEstimate'
+  | 'getNoteOptimizer'
+  | 'getOptimizer'
+  | 'getOptimizerNoteCount'
+  | 'listOptimizers'
+  | 'listQueue'
+  | 'listTargets'
+  | 'maintainDatabase'
+  | 'optimizeOptimizer'
+  | 'rateTarget'
+  | 'renameOptimizer'
+  | 'resetOptimizerDefaults'
+  | 'resetTarget'
+  | 'undoLastReview'
+  | 'updateOptimizer'>
 
 export interface DesktopTopicBlock {
   attributes: Readonly<Record<string, unknown>>
@@ -179,6 +200,7 @@ export interface DesktopApi {
   listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
+  learning: DesktopLearningApi
   openMostRecentNote: () => Promise<DesktopNote>
   recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>

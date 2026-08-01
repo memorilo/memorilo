@@ -23,7 +23,13 @@ export default defineConfig({
       outDir: resolve(desktopRoot, 'out/main'),
       externalizeDeps: {
         exclude: ['@memorilo/editor-storage'],
-        include: ['@huggingface/transformers', 'better-sqlite3', 'loro-crdt', 'sqlite-vec'],
+        include: [
+          '@huggingface/transformers',
+          '@open-spaced-repetition/binding',
+          'better-sqlite3',
+          'loro-crdt',
+          'sqlite-vec',
+        ],
       },
       rollupOptions: {
         input: resolve(desktopRoot, 'main/src/index.ts'),
