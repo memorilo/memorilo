@@ -12,6 +12,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Cause, Effect, Exit, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
+import { useAtom } from 'jotai'
+import { atomWithStorage } from 'jotai/utils'
 import {
   AlignLeft,
   ChevronRight,
@@ -46,6 +48,12 @@ const entrySpring = {
 
 const saveDelay = 250
 const effectQuery = createEffectQuery(Layer.empty)
+const noteInspectorVisibleAtom = atomWithStorage(
+  'memorilo.note-inspector-visible.v1',
+  false,
+  undefined,
+  { getOnInit: true },
+)
 
 function setNoteFavoriteMutationOptions() {
   return effectQuery.mutationOptions<
@@ -179,7 +187,7 @@ function OpenedTopicEditor({
   validationError: TopicValidationError | null
 }) {
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
-  const [inspectorVisible, setInspectorVisible] = useState(true)
+  const [inspectorVisible, setInspectorVisible] = useAtom(noteInspectorVisibleAtom)
   const configuration = useDesktopConfiguration()
   const shouldReduceMotion = useReducedMotion()
   const inspectorTransition = shouldReduceMotion ? { duration: 0 } : inspectorSpring
@@ -193,7 +201,7 @@ function OpenedTopicEditor({
     [opened.entries],
   )
   const mode = useEditorTopicMode(opened.topic)
-  const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [])
+  const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
   const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
   const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
   const modeCommands = useMemo<readonly PaletteCommand[]>(() => mode === EditorMode.Document
