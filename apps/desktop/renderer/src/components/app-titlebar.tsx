@@ -1,9 +1,9 @@
+import type { TFunction } from 'i18next'
 import type { ReactNode } from 'react'
 import type { PageTitlebarOptions } from './page-titlebar'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-
 import {
   useCallback,
   useEffect,
@@ -11,6 +11,8 @@ import {
   useRef,
   useState,
 } from 'react'
+
+import { useTranslation } from 'react-i18next'
 import { router } from '../router'
 import { appTitlebarStyles } from './app-titlebar.stylex'
 
@@ -31,9 +33,11 @@ function historyIndex(): number {
 
 function EditableTitle({
   onRename,
+  t,
   title,
 }: {
   onRename: (title: string) => Promise<{ error?: string } | void>
+  t: TFunction
   title: string
 }) {
   const [draft, setDraft] = useState(title)
@@ -63,7 +67,7 @@ function EditableTitle({
       return
     const normalized = draft.trim()
     if (normalized.length === 0) {
-      setError('Note title cannot be empty')
+      setError(t('noteTitleCannotBeEmpty'))
       inputRef.current?.focus()
       inputRef.current?.select()
       return
@@ -92,7 +96,7 @@ function EditableTitle({
       setEditing(false)
     }
     catch {
-      setError('Couldn’t rename Note')
+      setError(t('couldNotRename'))
       requestAnimationFrame(() => {
         inputRef.current?.focus()
         inputRef.current?.select()
@@ -102,7 +106,7 @@ function EditableTitle({
       savingRef.current = false
       setSaving(false)
     }
-  }, [draft, onRename, title])
+  }, [draft, onRename, t, title])
 
   if (editing) {
     return (
@@ -112,11 +116,11 @@ function EditableTitle({
           {...stylex.props(appTitlebarStyles.titleInput)}
           aria-busy={saving}
           aria-invalid={error !== null}
-          aria-label={error ?? 'Note title'}
+          aria-label={error ?? t('noteTitle')}
           data-window-no-drag=""
           readOnly={saving}
           required
-          title={error ?? 'Rename Note'}
+          title={error ?? t('renameNote')}
           value={draft}
           onBlur={() => {
             if (savingRef.current)
@@ -152,9 +156,9 @@ function EditableTitle({
   return (
     <button
       {...stylex.props(appTitlebarStyles.titleButton)}
-      aria-label={`Rename Note: ${title}`}
+      aria-label={t('renameNoteFor', { title })}
       data-window-no-drag=""
-      title="Rename Note"
+      title={t('renameNote')}
       type="button"
       onClick={() => setEditing(true)}
     >
@@ -199,6 +203,7 @@ export function AppTitlebar({
   page: PageTitlebarOptions | null
   sidebarVisible: boolean
 }) {
+  const { t } = useTranslation('app')
   const [historyPosition, setHistoryPosition] = useState<HistoryPosition>(() => {
     const index = historyIndex()
     return { index, maxIndex: index }
@@ -214,8 +219,8 @@ export function AppTitlebar({
   }), [])
 
   useEffect(() => {
-    document.title = page?.title ? `${page.title} — Memorilo` : 'Memorilo'
-  }, [page?.title])
+    document.title = page?.title ? `${page.title} ${t('appTitleSuffix')}` : t('appTitle')
+  }, [page?.title, t])
 
   const canGoBack = historyPosition.index > 0
   const canGoForward = historyPosition.index < historyPosition.maxIndex
@@ -229,23 +234,23 @@ export function AppTitlebar({
       <motion.div
         {...stylex.props(appTitlebarStyles.navigationGroup)}
         animate={{ left: navigationOffset }}
-        aria-label="Page navigation"
+        aria-label={t('pageNavigation')}
         initial={false}
         role="group"
         transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
       >
         <NavigationButton
           disabled={!canGoBack}
-          label="Back"
-          title={canGoBack ? 'Back' : 'No previous page'}
+          label={t('back')}
+          title={canGoBack ? t('back') : t('noPreviousPage')}
           onClick={() => router.history.back()}
         >
           <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
         </NavigationButton>
         <NavigationButton
           disabled={!canGoForward}
-          label="Forward"
-          title={canGoForward ? 'Forward' : 'No next page'}
+          label={t('forward')}
+          title={canGoForward ? t('forward') : t('noNextPage')}
           onClick={() => router.history.forward()}
         >
           <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
@@ -254,7 +259,7 @@ export function AppTitlebar({
       <div {...stylex.props(appTitlebarStyles.titleSlot)}>
         {page?.title
           ? page.onRenameTitle
-            ? <EditableTitle key={page.title} onRename={page.onRenameTitle} title={page.title} />
+            ? <EditableTitle key={page.title} onRename={page.onRenameTitle} t={t} title={page.title} />
             : (
                 <div {...stylex.props(appTitlebarStyles.staticTitle)}>
                   <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>

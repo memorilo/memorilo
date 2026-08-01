@@ -1,0 +1,17 @@
+{
+  "loading": "Loading…",
+  "tryAgain": "Try Again",
+  "copy": "Copy",
+  "copied": "Copied",
+  "copyFailed": "Copy failed",
+  "back": "Back",
+  "forward": "Forward",
+  "open": "Open",
+  "go": "Go",
+  "toggle": "Toggle",
+  "create": "Create",
+  "noteCount": "{{count}} note",
+  "noteCount_plural": "{{count}} notes",
+  "ascending": "ascending",
+  "descending": "descending"
+}
