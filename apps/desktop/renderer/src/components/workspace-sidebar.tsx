@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Clock3,
   Files,
+  GraduationCap,
   PanelLeft,
   Star,
 } from 'lucide-react'
@@ -41,7 +42,7 @@ interface SourceItemProps {
     topicId: string
   } | {
     kind: 'route'
-    to: '/journals' | '/pages'
+    to: '/journals' | '/learning' | '/pages'
   }
   icon: LucideIcon
   label: string
@@ -57,6 +58,7 @@ function navigationItems(t: (key: string) => string): readonly SourceItemProps[]
   return [
     { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
     { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
+    { destination: { kind: 'route', to: '/learning' }, icon: GraduationCap, label: t('learning') },
   ]
 }
 
