@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { useCommandPaletteCommands } from '../components/command-palette-context'
 import { usePageTitlebar } from '../components/page-titlebar'
@@ -186,6 +187,7 @@ function OpenedTopicEditor({
   saveError: string | null
   validationError: TopicValidationError | null
 }) {
+  const { t } = useTranslation('editor')
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
   const [inspectorVisible, setInspectorVisible] = useAtom(noteInspectorVisibleAtom)
   const configuration = useDesktopConfiguration()
@@ -207,26 +209,26 @@ function OpenedTopicEditor({
   const modeCommands = useMemo<readonly PaletteCommand[]>(() => mode === EditorMode.Document
     ? [{
         accent: 'violet',
-        action: 'Switch',
-        description: 'Work with visible hierarchy and focus',
+        action: t('switchMode'),
+        description: t('switchToOutlineDescription'),
         icon: ListTree,
         id: 'editor-mode-outline',
-        keywords: ['outline', 'mode', 'bullets', 'hierarchy'],
-        label: 'Switch to Outline Mode',
+        keywords: t('switchToOutlineKeywords') as unknown as readonly string[],
+        label: t('switchToOutlineMode'),
         run: showOutlineMode,
-        section: 'Editor',
+        section: t('editorSection') as PaletteCommand['section'],
       }]
     : [{
         accent: 'blue',
-        action: 'Switch',
-        description: 'Write without default outline markers',
+        action: t('switchMode'),
+        description: t('switchToDocumentDescription'),
         icon: AlignLeft,
         id: 'editor-mode-document',
-        keywords: ['document', 'mode', 'writing', 'no bullets'],
-        label: 'Switch to Document Mode',
+        keywords: t('switchToDocumentKeywords') as unknown as readonly string[],
+        label: t('switchToDocumentMode'),
         run: showDocumentMode,
-        section: 'Editor',
-      }], [mode, showDocumentMode, showOutlineMode])
+        section: t('editorSection') as PaletteCommand['section'],
+      }], [mode, showDocumentMode, showOutlineMode, t])
   useCommandPaletteCommands(modeCommands)
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
   const copyValidationDiagnostics = useCallback(async () => {
@@ -256,10 +258,10 @@ function OpenedTopicEditor({
             editorRouteStyles.titlebarActionButton,
             opened.stored.favorite && editorRouteStyles.titlebarFavoriteActive,
           )}
-          aria-label={opened.stored.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+          aria-label={opened.stored.favorite ? t('removeFromFavorites') : t('addToFavorites')}
           aria-pressed={opened.stored.favorite}
           disabled={favoritePending}
-          title={opened.stored.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+          title={opened.stored.favorite ? t('removeFromFavorites') : t('addToFavorites')}
           type="button"
           onClick={onToggleFavorite}
         >
@@ -272,8 +274,8 @@ function OpenedTopicEditor({
         </button>
         <button
           {...stylex.props(editorRouteStyles.titlebarActionButton)}
-          aria-label={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
-          title={inspectorVisible ? 'Hide Note Inspector' : 'Show Note Inspector'}
+          aria-label={inspectorVisible ? t('hideNoteInspector') : t('showNoteInspector')}
+          title={inspectorVisible ? t('hideNoteInspector') : t('showNoteInspector')}
           type="button"
           onClick={toggleInspector}
         >
@@ -288,6 +290,7 @@ function OpenedTopicEditor({
     opened.stored.favorite,
     opened.stored.title,
     renameNote,
+    t,
     toggleInspector,
   ])
   usePageTitlebar(titlebar)
@@ -307,16 +310,16 @@ function OpenedTopicEditor({
                         <div {...stylex.props(editorRouteStyles.validationErrorActions)}>
                           <button
                             {...stylex.props(editorRouteStyles.copyDiagnosticsButton)}
-                            aria-label="Copy invalid Topic JSON and Effect validation output"
-                            title="Copy invalid Topic JSON and Effect validation output"
+                            aria-label={t('copyDiagnosticsLabel')}
+                            title={t('copyDiagnosticsLabel')}
                             type="button"
                             onClick={copyValidationDiagnostics}
                           >
                             <Copy aria-hidden="true" size={14} strokeWidth={1.9} />
-                            <span>Copy diagnostics</span>
+                            <span>{t('copyDiagnostics')}</span>
                           </button>
                           <span {...stylex.props(editorRouteStyles.copyDiagnosticsStatus)} aria-live="polite" role="status">
-                            {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : ''}
+                            {copyStatus === 'copied' ? t('copied', { ns: 'common' }) : copyStatus === 'failed' ? t('copyFailed', { ns: 'common' }) : ''}
                           </span>
                         </div>
                       </div>
@@ -325,9 +328,7 @@ function OpenedTopicEditor({
                 {saveError
                   ? (
                       <div {...stylex.props(editorRouteStyles.saveError)} aria-live="polite" role="status">
-                        Failed to save Note:
-                        {' '}
-                        {saveError}
+                        {t('failedToSaveNote', { message: saveError })}
                       </div>
                     )
                   : null}
@@ -347,14 +348,14 @@ function OpenedTopicEditor({
               <motion.aside
                 {...stylex.props(editorRouteStyles.inspector)}
                 animate={{ opacity: 1, width: 292, x: 0 }}
-                aria-label="Note inspector"
+                aria-label={t('noteInspector')}
                 exit={{ opacity: 0, width: 0, x: 18 }}
                 initial={{ opacity: 0, width: 0, x: 18 }}
                 transition={inspectorTransition}
               >
                 <header {...stylex.props(editorRouteStyles.inspectorTitlebar)}>
                   <div {...stylex.props(editorRouteStyles.inspectorTitleGroup)}>
-                    <h1 {...stylex.props(editorRouteStyles.inspectorTitle)}>Topics</h1>
+                    <h1 {...stylex.props(editorRouteStyles.inspectorTitle)}>{t('topics')}</h1>
                     <span {...stylex.props(editorRouteStyles.inspectorCount)}>{topicCount}</span>
                   </div>
                 </header>
@@ -362,15 +363,15 @@ function OpenedTopicEditor({
                   <section {...stylex.props(editorRouteStyles.inspectorSection)} aria-labelledby="topic-structure-heading">
                     <div {...stylex.props(editorRouteStyles.inspectorSectionHeading)}>
                       <h2 id="topic-structure-heading" {...stylex.props(editorRouteStyles.inspectorSectionTitle)}>
-                        Structure
+                        {t('structure')}
                       </h2>
-                      <span {...stylex.props(editorRouteStyles.inspectorSectionMeta)}>2 due</span>
+                      <span {...stylex.props(editorRouteStyles.inspectorSectionMeta)}>{t('due', { count: 2 })}</span>
                     </div>
                     <div {...stylex.props(editorRouteStyles.topicTree)} role="list">
                       <AnimatePresence initial={false}>
                         {visibleEntries.map(({ depth, entry, hasChildren }) => {
                           const collapsed = collapsedEntryIds.has(entry.id)
-                          const label = entry.kind === 'folder' ? entry.name : entry.title || 'Untitled Topic'
+                          const label = entry.kind === 'folder' ? entry.name : entry.title || t('untitledTopic')
                           const current = entry.kind === 'topic' && entry.id === opened.topic.topicId
 
                           return (
@@ -418,7 +419,7 @@ function OpenedTopicEditor({
                                         ? (
                                             <button
                                               {...stylex.props(editorRouteStyles.entryDisclosureButton)}
-                                              aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
+                                              aria-label={t('collapsedExpand', { action: collapsed ? t('expand') : t('collapse'), label })}
                                               aria-expanded={!collapsed}
                                               type="button"
                                               onClick={() => onToggleEntry(entry.id)}
@@ -470,34 +471,34 @@ function OpenedTopicEditor({
                   >
                     <div {...stylex.props(editorRouteStyles.inspectorSectionHeading)}>
                       <h2 id="learning-status-heading" {...stylex.props(editorRouteStyles.inspectorSectionTitle)}>
-                        Learning
+                        {t('learning')}
                       </h2>
                       <span {...stylex.props(editorRouteStyles.learningState)}>
                         <span {...stylex.props(editorRouteStyles.learningStateDot)} />
-                        Reviewing
+                        {t('reviewing')}
                       </span>
                     </div>
                     <dl {...stylex.props(editorRouteStyles.learningDetails)}>
                       <div {...stylex.props(editorRouteStyles.learningDetail)}>
-                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>Next review</dt>
-                        <dd {...stylex.props(editorRouteStyles.learningValue, editorRouteStyles.learningValueDue)}>Today</dd>
+                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>{t('nextReview')}</dt>
+                        <dd {...stylex.props(editorRouteStyles.learningValue, editorRouteStyles.learningValueDue)}>{t('today')}</dd>
                       </div>
                       <div {...stylex.props(editorRouteStyles.learningDetail)}>
-                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>Stability</dt>
+                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>{t('stability')}</dt>
                         <dd {...stylex.props(editorRouteStyles.learningValue)}>3.2 days</dd>
                       </div>
                       <div {...stylex.props(editorRouteStyles.learningDetail)}>
-                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>Priority</dt>
-                        <dd {...stylex.props(editorRouteStyles.learningValue)}>Normal</dd>
+                        <dt {...stylex.props(editorRouteStyles.learningTerm)}>{t('priority')}</dt>
+                        <dd {...stylex.props(editorRouteStyles.learningValue)}>{t('normal')}</dd>
                       </div>
                     </dl>
                     <div {...stylex.props(editorRouteStyles.learningProgressHeader)}>
-                      <span>Reviewed</span>
-                      <span>3 of 6</span>
+                      <span>{t('reviewed')}</span>
+                      <span>{t('topicsProgress', { count: 3, total: 6 })}</span>
                     </div>
                     <div
                       {...stylex.props(editorRouteStyles.learningProgressTrack)}
-                      aria-label="3 of 6 topics reviewed"
+                      aria-label={t('topicsReviewed', { count: 3, total: 6 })}
                       aria-valuemax={6}
                       aria-valuemin={0}
                       aria-valuenow={3}
@@ -528,6 +529,7 @@ export function NoteEditor({
   onToggleEntry: (entryId: string) => void
   topicId: string
 }) {
+  const { t } = useTranslation('editor')
   const [opened, setOpened] = useState<OpenEditorNote | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -633,7 +635,7 @@ export function NoteEditor({
       restoringRef.current = false
       setValidationError({
         diagnostics: validationError.diagnostics,
-        message: `无法回退 Note：找不到 Topic ${topicId}`,
+        message: t('restoreFailedMessage', { topicId }),
       })
       return
     }
@@ -653,7 +655,7 @@ export function NoteEditor({
       flushPendingRef.current(true)
     }, saveDelay)
     restoringRef.current = false
-  }, [topicId])
+  }, [t, topicId])
 
   const handleNoteChange = useCallback((change: EditorNoteChange) => {
     if (restoringRef.current)
@@ -822,9 +824,7 @@ export function NoteEditor({
     return (
       <main {...stylex.props(editorRouteStyles.statusPage)}>
         <p {...stylex.props(editorRouteStyles.statusMessage, editorRouteStyles.errorMessage)} role="alert">
-          Failed to open Note:
-          {' '}
-          {loadError}
+          {t('failedToOpenNote', { message: loadError })}
         </p>
       </main>
     )
@@ -832,7 +832,7 @@ export function NoteEditor({
   if (!opened) {
     return (
       <main {...stylex.props(editorRouteStyles.statusPage)}>
-        <p {...stylex.props(editorRouteStyles.statusMessage)} role="status">Opening Note…</p>
+        <p {...stylex.props(editorRouteStyles.statusMessage)} role="status">{t('openingNote')}</p>
       </main>
     )
   }

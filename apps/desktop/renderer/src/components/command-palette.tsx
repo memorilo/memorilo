@@ -1,5 +1,6 @@
 import type { CreateDesktopNoteInput, DesktopNote, DesktopNoteSearchHit } from '@memorilo/desktop-preload'
 import type { Cause } from 'effect'
+import type { TFunction } from 'i18next'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { PaletteCommand, ResultAccent } from './command-palette-context'
@@ -31,6 +32,7 @@ import {
   useState,
 } from 'react'
 
+import { useTranslation } from 'react-i18next'
 import { router } from '../router'
 import { commandPaletteStyles } from './command-palette.stylex'
 
@@ -90,21 +92,21 @@ function matchesQuery(command: PaletteCommand, normalizedQuery: string): boolean
     .some(value => value.toLocaleLowerCase().includes(normalizedQuery))
 }
 
-function searchMatchLabel(hit: DesktopNoteSearchHit): string {
+function searchMatchLabel(hit: DesktopNoteSearchHit, t: TFunction): string {
   switch (hit.match) {
     case 'title':
-      return hit.kind === 'note' ? 'Note title' : 'Topic title'
+      return hit.kind === 'note' ? t('noteTitleMatch') : t('topicTitleMatch')
     case 'node-start':
-      return 'Node starts with query'
+      return t('nodeStartsWith')
     case 'content':
-      return 'Content match'
+      return t('contentMatch')
     case 'semantic':
-      return 'Related meaning'
+      return t('relatedMeaning')
   }
 }
 
-function searchResultDescription(hit: DesktopNoteSearchHit): string {
-  const match = searchMatchLabel(hit)
+function searchResultDescription(hit: DesktopNoteSearchHit, t: TFunction): string {
+  const match = searchMatchLabel(hit, t)
   if (hit.kind === 'note')
     return match
   if (hit.match === 'title')
@@ -112,12 +114,12 @@ function searchResultDescription(hit: DesktopNoteSearchHit): string {
   return `${match} · ${hit.preview} · ${hit.noteTitle}`
 }
 
-function toPaletteSearchResult(hit: DesktopNoteSearchHit): PaletteResult {
+function toPaletteSearchResult(hit: DesktopNoteSearchHit, t: TFunction): PaletteResult {
   if (hit.kind === 'note') {
     return {
       accent: 'blue',
-      action: 'Open',
-      description: searchResultDescription(hit),
+      action: t('open'),
+      description: searchResultDescription(hit, t),
       icon: FileText,
       id: `note:${hit.noteId}`,
       label: hit.noteTitle,
@@ -128,8 +130,8 @@ function toPaletteSearchResult(hit: DesktopNoteSearchHit): PaletteResult {
   const search = hit.blockId === null ? {} : { focus: hit.blockId }
   return {
     accent: 'violet',
-    action: 'Open',
-    description: searchResultDescription(hit),
+    action: t('open'),
+    description: searchResultDescription(hit, t),
     icon: ListTree,
     id: `topic:${hit.noteId}:${hit.topicId}`,
     label: hit.topicTitle,
@@ -150,6 +152,7 @@ export function CommandPalette({
   onToggleSidebar: () => void
   sidebarVisible: boolean
 }) {
+  const { t } = useTranslation('app')
   const [open, setOpen] = useState(false)
   const [panelHeight, setPanelHeight] = useState(58)
   const [query, setQuery] = useState('')
@@ -188,52 +191,52 @@ export function CommandPalette({
     const navigation: PaletteCommand[] = [
       {
         accent: 'blue',
-        action: 'Open',
-        description: 'Open the editor',
+        action: t('open'),
+        description: t('openJournalsDescription'),
         icon: CalendarDays,
         id: 'open-journals',
-        keywords: ['journal', 'editor', 'write', 'note'],
-        label: 'Open Journals',
+        keywords: t('openJournalsKeywords') as unknown as readonly string[],
+        label: t('openJournals'),
         run: () => void router.navigate({ to: '/journals' }),
-        section: 'Navigation',
+        section: t('navigationSection') as PaletteCommand['section'],
       },
       {
         accent: 'violet',
-        action: 'Open',
-        description: 'Browse every Note',
+        action: t('open'),
+        description: t('openPagesDescription'),
         icon: Files,
         id: 'open-pages',
-        keywords: ['pages', 'library', 'table', 'notes'],
-        label: 'Open Pages',
+        keywords: t('openPagesKeywords') as unknown as readonly string[],
+        label: t('openPages'),
         run: () => void router.navigate({ to: '/pages' }),
-        section: 'Navigation',
+        section: t('navigationSection') as PaletteCommand['section'],
       },
     ]
     const history: PaletteCommand[] = []
     if (historyPosition.index > 0) {
       history.push({
         accent: 'graphite',
-        action: 'Go',
-        description: 'Return to the previous page',
+        action: t('go'),
+        description: t('goBackDescription'),
         icon: ArrowLeft,
         id: 'go-back',
-        keywords: ['back', 'previous', 'history'],
-        label: 'Go Back',
+        keywords: t('goBackKeywords') as unknown as readonly string[],
+        label: t('goBack'),
         run: () => router.history.back(),
-        section: 'History',
+        section: t('historySection') as PaletteCommand['section'],
       })
     }
     if (historyPosition.index < historyPosition.maxIndex) {
       history.push({
         accent: 'graphite',
-        action: 'Go',
-        description: 'Move to the next page',
+        action: t('go'),
+        description: t('goForwardDescription'),
         icon: ArrowRight,
         id: 'go-forward',
-        keywords: ['forward', 'next', 'history'],
-        label: 'Go Forward',
+        keywords: t('goForwardKeywords') as unknown as readonly string[],
+        label: t('goForward'),
         run: () => router.history.forward(),
-        section: 'History',
+        section: t('historySection') as PaletteCommand['section'],
       })
     }
     return [
@@ -242,17 +245,17 @@ export function CommandPalette({
       ...history,
       {
         accent: 'graphite',
-        action: 'Toggle',
-        description: sidebarVisible ? 'Hide workspace navigation' : 'Show workspace navigation',
+        action: t('toggle'),
+        description: sidebarVisible ? t('toggleSidebarDescription') : t('toggleSidebarDescriptionShow'),
         icon: PanelLeft,
         id: 'toggle-sidebar',
-        keywords: ['sidebar', 'navigation', 'panel', 'toggle', 'hide', 'show'],
-        label: 'Toggle Sidebar',
+        keywords: t('toggleSidebarKeywords') as unknown as readonly string[],
+        label: t('toggleSidebar'),
         run: onToggleSidebar,
-        section: 'Window',
+        section: t('windowSection') as PaletteCommand['section'],
       },
     ]
-  }, [contextualCommands, historyPosition.index, historyPosition.maxIndex, onToggleSidebar, sidebarVisible])
+  }, [t, contextualCommands, historyPosition.index, historyPosition.maxIndex, onToggleSidebar, sidebarVisible])
 
   const trimmedQuery = query.trim()
   const normalizedQuery = trimmedQuery.toLocaleLowerCase()
@@ -265,9 +268,9 @@ export function CommandPalette({
   )
   const noteResults = useMemo(
     () => deferredQuery === normalizedQuery
-      ? (noteSearch.data ?? []).map(toPaletteSearchResult)
+      ? (noteSearch.data ?? []).map(hit => toPaletteSearchResult(hit, t))
       : [],
-    [deferredQuery, normalizedQuery, noteSearch.data],
+    [deferredQuery, normalizedQuery, noteSearch.data, t],
   )
   const searchPending = hasQuery && (deferredQuery !== normalizedQuery || noteSearch.isPending || noteSearch.isFetching)
   const searchFailed = deferredQuery === normalizedQuery && noteSearch.isError
@@ -282,16 +285,16 @@ export function CommandPalette({
   const createResult = useMemo<PaletteResult | null>(() => canCreateNote
     ? {
         accent: 'blue',
-        action: 'Create',
+        action: t('create'),
         deferClose: true,
-        description: 'Use this text as the Note title and first H1 heading',
+        description: t('createNoteDescription'),
         disabled: createNotePending,
         icon: FilePlus2,
         id: 'create-note',
-        label: `Create Note “${trimmedQuery}”`,
+        label: t('createNoteLabel', { query: trimmedQuery }),
         run: () => mutateCreateNote({ initialHeading: trimmedQuery, title: trimmedQuery }),
       }
-    : null, [canCreateNote, createNotePending, mutateCreateNote, trimmedQuery])
+    : null, [canCreateNote, createNotePending, mutateCreateNote, t, trimmedQuery])
   const visibleResults = useMemo<readonly PaletteResult[]>(
     () => [...matchingCommands, ...(createResult ? [createResult] : []), ...noteResults],
     [createResult, matchingCommands, noteResults],
@@ -428,28 +431,28 @@ export function CommandPalette({
   if (createNoteFailed) {
     resultStatus = (
       <div {...stylex.props(commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError)} role="alert">
-        Couldn’t create Note
+        {t('couldNotCreateNote')}
       </div>
     )
   }
   else if (searchPending && visibleResults.length === 0) {
     resultStatus = (
       <div {...stylex.props(commandPaletteStyles.searchStatus)} role="status">
-        Searching Notes…
+        {t('searchingNotes')}
       </div>
     )
   }
   else if (searchFailed) {
     resultStatus = (
       <div {...stylex.props(commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError)} role="alert">
-        Couldn’t search Notes
+        {t('couldNotSearchNotes')}
       </div>
     )
   }
   else if (visibleResults.length === 0) {
     resultStatus = (
       <div {...stylex.props(commandPaletteStyles.searchStatus)} role="status">
-        No matching commands or Notes
+        {t('noMatches')}
       </div>
     )
   }
@@ -473,7 +476,7 @@ export function CommandPalette({
               <motion.section
                 {...stylex.props(commandPaletteStyles.panel)}
                 animate={{ height: panelHeight, opacity: 1 }}
-                aria-label="Search Memorilo"
+                aria-label={t('searchDialogLabel')}
                 aria-modal="true"
                 exit={{ opacity: 0 }}
                 initial={{ height: 58, opacity: 0 }}
@@ -484,7 +487,7 @@ export function CommandPalette({
                 }}
                 onPointerDown={event => event.stopPropagation()}
               >
-                <h2 {...stylex.props(commandPaletteStyles.visuallyHidden)}>Search Memorilo</h2>
+                <h2 {...stylex.props(commandPaletteStyles.visuallyHidden)}>{t('searchDialogLabel')}</h2>
                 <div
                   {...stylex.props(
                     commandPaletteStyles.searchRow,
@@ -504,9 +507,9 @@ export function CommandPalette({
                       aria-busy={createNotePending}
                       aria-controls={hasQuery ? listboxId : undefined}
                       aria-expanded={hasQuery}
-                      aria-label="Search commands and Notes"
+                      aria-label={t('searchLabel')}
                       autoComplete="off"
-                      placeholder="Search Memorilo"
+                      placeholder={t('searchPlaceholder')}
                       readOnly={createNotePending}
                       role="combobox"
                       spellCheck={false}
@@ -528,7 +531,7 @@ export function CommandPalette({
                       : null}
                   </div>
                   {createNotePending
-                    ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label="Creating Note" />
+                    ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label={t('creatingNote')} />
                     : SelectedIcon
                       ? (
                           <span
@@ -544,7 +547,7 @@ export function CommandPalette({
                           </span>
                         )
                       : searchPending
-                        ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label="Searching Notes" />
+                        ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label={t('searchingNotes')} />
                         : null}
                 </div>
 
@@ -558,7 +561,7 @@ export function CommandPalette({
                             key="search-results"
                             {...stylex.props(commandPaletteStyles.resultsViewport)}
                             animate={{ opacity: 1 }}
-                            aria-label="Commands and Notes"
+                            aria-label={t('commandsAndNotesLabel')}
                             exit={{ opacity: 0 }}
                             initial={{ opacity: 0 }}
                             role="listbox"
