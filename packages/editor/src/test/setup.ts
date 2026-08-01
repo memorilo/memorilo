@@ -1,6 +1,12 @@
 import { cleanup } from '@testing-library/react'
-import { afterEach, beforeEach } from 'vitest'
+import { afterEach, beforeAll, beforeEach } from 'vitest'
+import { initEditorI18nForTests } from '../i18n/init'
+
 import '@testing-library/jest-dom/vitest'
+
+beforeAll(async () => {
+  await initEditorI18nForTests()
+})
 
 const reactTestEnvironment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
 reactTestEnvironment.IS_REACT_ACT_ENVIRONMENT = true

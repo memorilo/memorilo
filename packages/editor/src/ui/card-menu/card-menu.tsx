@@ -11,6 +11,7 @@ import { useEditor, useEditorDerivedValue } from 'prosekit/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useTranslation } from 'react-i18next'
 import { getSelectedCardDefinitionId, getSelectedCardDelimiterPosition, getSelectedCardDelimiterSurface, setSelectedCardDelimiterDefinitionId } from '../../card/card-extension'
 import { projectEditorCards } from '../../card/card-model'
 import { CardPreview } from '../../card/card-preview'
@@ -144,6 +145,7 @@ export default function CardMenu() {
   const editor = useEditor<CardExtension>()
   const selected = useEditorDerivedValue(getSelectedCard)
   const popupRef = useRef<HTMLDivElement>(null)
+  const { t } = useTranslation('editor')
   const [position, setPosition] = useState<MenuPosition | null>(null)
   const [previewState, setPreviewState] = useState<{ cardId: string, definitionId: string } | null>(null)
 
@@ -270,7 +272,7 @@ export default function CardMenu() {
       <div
         ref={popupRef}
         {...stylex.props(floatingSurfaceStyles.motion, floatingSurfaceStyles.surface, cardMenuStyles.previewPopup)}
-        aria-label="Card preview"
+        aria-label={t('ui.cardPreview')}
         aria-modal="false"
         role="dialog"
         style={popupStyle}
@@ -278,11 +280,11 @@ export default function CardMenu() {
         <div {...stylex.props(cardMenuStyles.previewHeader)}>
           <div {...stylex.props(cardMenuStyles.previewTitle)}>
             <Eye aria-hidden="true" size={15} strokeWidth={1.8} />
-            <span>Preview</span>
+            <span>{t('ui.preview')}</span>
           </div>
           <button
             {...stylex.props(cardMenuStyles.iconButton)}
-            aria-label="Close preview"
+            aria-label={t('ui.closePreview')}
             type="button"
             onClick={closePreview}
             onMouseDown={event => event.preventDefault()}
@@ -292,15 +294,15 @@ export default function CardMenu() {
         </div>
         {directionalCards.length > 1
           ? (
-              <div {...stylex.props(cardMenuStyles.previewDirection)} aria-label="Preview direction" role="group">
+              <div {...stylex.props(cardMenuStyles.previewDirection)} aria-label={t('ui.previewDirection')} role="group">
                 {directionalCards.map(candidate => (
                   <CardMenuButton
                     key={candidate.id}
-                    label={candidate.direction === 'forward' ? 'Preview forward Card' : 'Preview reverse Card'}
+                    label={candidate.direction === 'forward' ? t('ui.previewForwardCard') : t('ui.previewReverseCard')}
                     selected={candidate.id === card.id}
                     onClick={() => setPreviewState({ cardId: candidate.id, definitionId: selected.definitionId })}
                   >
-                    {candidate.direction === 'forward' ? 'Question → Answer' : 'Answer → Question'}
+                    {candidate.direction === 'forward' ? t('ui.questionToAnswer') : t('ui.answerToQuestion')}
                   </CardMenuButton>
                 ))}
               </div>
@@ -321,23 +323,23 @@ export default function CardMenu() {
     <div
       ref={popupRef}
       {...stylex.props(floatingSurfaceStyles.motion, floatingSurfaceStyles.surface, cardMenuStyles.popup)}
-      aria-label="Card options"
+      aria-label={t('ui.cardOptions')}
       role="toolbar"
       style={popupStyle}
     >
       <div {...stylex.props(cardMenuStyles.row)}>
-        <span {...stylex.props(cardMenuStyles.label)}>Direction</span>
-        <div {...stylex.props(cardMenuStyles.group)} aria-label="Card direction" role="group">
-          <CardMenuButton label="Basic direction" selected={selected.delimiter.attrs.direction === 'forward'} onClick={() => runDirectionCommand('forward')}>→</CardMenuButton>
-          <CardMenuButton label="Reverse direction" selected={selected.delimiter.attrs.direction === 'backward'} onClick={() => runDirectionCommand('backward')}>←</CardMenuButton>
-          <CardMenuButton label="Bidirectional" selected={selected.delimiter.attrs.direction === 'both'} onClick={() => runDirectionCommand('both')}>↔</CardMenuButton>
+        <span {...stylex.props(cardMenuStyles.label)}>{t('ui.direction')}</span>
+        <div {...stylex.props(cardMenuStyles.group)} aria-label={t('ui.cardDirection')} role="group">
+          <CardMenuButton label={t('ui.basicDirection')} selected={selected.delimiter.attrs.direction === 'forward'} onClick={() => runDirectionCommand('forward')}>→</CardMenuButton>
+          <CardMenuButton label={t('ui.reverseDirection')} selected={selected.delimiter.attrs.direction === 'backward'} onClick={() => runDirectionCommand('backward')}>←</CardMenuButton>
+          <CardMenuButton label={t('ui.bidirectional')} selected={selected.delimiter.attrs.direction === 'both'} onClick={() => runDirectionCommand('both')}>↔</CardMenuButton>
         </div>
       </div>
       <div {...stylex.props(cardMenuStyles.row)}>
-        <span {...stylex.props(cardMenuStyles.label)}>Multi-line</span>
-        <div {...stylex.props(cardMenuStyles.group)} aria-label="Card answer presentation" role="group">
-          <CardMenuButton label="Set answer" selected={selected.delimiter.presentation === 'set'} onClick={() => runPresentationCommand('set')}>Set</CardMenuButton>
-          <CardMenuButton label="List answer" selected={selected.delimiter.presentation === 'list'} onClick={() => runPresentationCommand('list')}>List</CardMenuButton>
+        <span {...stylex.props(cardMenuStyles.label)}>{t('ui.multiLine')}</span>
+        <div {...stylex.props(cardMenuStyles.group)} aria-label={t('ui.cardAnswerPresentation')} role="group">
+          <CardMenuButton label={t('ui.setAnswer')} selected={selected.delimiter.presentation === 'set'} onClick={() => runPresentationCommand('set')}>{t('ui.set')}</CardMenuButton>
+          <CardMenuButton label={t('ui.listAnswer')} selected={selected.delimiter.presentation === 'list'} onClick={() => runPresentationCommand('list')}>{t('ui.list')}</CardMenuButton>
         </div>
       </div>
     </div>,

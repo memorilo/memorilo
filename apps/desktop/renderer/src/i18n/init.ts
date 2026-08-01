@@ -3,6 +3,7 @@ import type { Resource } from 'i18next'
 import type { SupportedLanguage } from './locales'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { applyDayjsLocale } from './date'
 import {
   DEFAULT_LANGUAGE,
   FALLBACK_LANGUAGE,
@@ -29,8 +30,8 @@ const localeModules = import.meta.glob<LocaleModule>(
   { eager: true },
 )
 
-// Injected only by the Vite dev server (renderer-vite.config.ts) for the HMR handler
-// below, which re-reads locale files through their `/@fs` dev URL.
+// Injected by the renderer Vite configs for the HMR handler below, which re-reads
+// locale files through their `/@fs` dev URL.
 declare const __MEMORILO_REPO_ROOT__: string | undefined
 
 function parseLocalePath(path: string): { language: string, namespace: string } {
@@ -75,12 +76,38 @@ export async function initI18n(language: string): Promise<typeof i18n> {
     resources: resources as unknown as Resource,
     returnObjects: true,
   })
+  await applyDayjsLocale(resolved)
   return i18n
 }
 
+let requestedLanguage: SupportedLanguage | null = null
+let changingLanguage = false
+
+async function applyRequestedLanguage(): Promise<void> {
+  if (changingLanguage)
+    return
+  changingLanguage = true
+  try {
+    while (requestedLanguage) {
+      const language = requestedLanguage
+      requestedLanguage = null
+      await applyDayjsLocale(language)
+      if (requestedLanguage)
+        continue
+      if (i18next.language !== language)
+        await i18next.changeLanguage(language)
+    }
+  }
+  finally {
+    changingLanguage = false
+    if (requestedLanguage)
+      void applyRequestedLanguage()
+  }
+}
+
 export function setI18nLanguage(language: SupportedLanguage): void {
-  if (i18next.language !== language)
-    void i18next.changeLanguage(language)
+  requestedLanguage = language
+  void applyRequestedLanguage()
 }
 
 export function resolveConfigLanguage(language: DesktopLanguage): SupportedLanguage {
@@ -102,7 +129,9 @@ export function resolveConfigLanguage(language: DesktopLanguage): SupportedLangu
 if (import.meta.hot) {
   // `import.meta.hot` is false in production builds, so this block (and the
   // `/@fs`-fetching below) is eliminated before `__MEMORILO_REPO_ROOT__` is read.
-  const repositoryRoot = typeof __MEMORILO_REPO_ROOT__ === 'string' ? __MEMORILO_REPO_ROOT__ : ''
+  const repositoryRoot = typeof __MEMORILO_REPO_ROOT__ === 'string'
+    ? __MEMORILO_REPO_ROOT__.replaceAll('\\', '/')
+    : ''
   const localeKeys = Object.keys(localeModules)
 
   async function hotReloadLocaleResources(): Promise<void> {
@@ -111,7 +140,10 @@ if (import.meta.hot) {
         // `key` looks like `../../../../../locales/<ns>/<lang>.json` relative to init.ts;
         // normalize it to a repository-root-relative `locales/<ns>/<lang>.json` path.
         const fromRepositoryRoot = key.split('/').filter(segment => segment && segment !== '.' && segment !== '..').join('/')
-        const response = await fetch(`/@fs${repositoryRoot}/${fromRepositoryRoot}?t=${Date.now()}`)
+        const absoluteLocalePath = repositoryRoot.startsWith('/')
+          ? repositoryRoot
+          : `/${repositoryRoot}`
+        const response = await fetch(`/@fs${absoluteLocalePath}/${fromRepositoryRoot}?t=${Date.now()}`)
         if (!response.ok)
           return
         const bundle = await response.json() as Record<string, Record<string, unknown>>

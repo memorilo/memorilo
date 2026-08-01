@@ -11,6 +11,7 @@ import {
   redo,
   undo,
 } from '@memorilo/loro-prosemirror-tree'
+import i18next from 'i18next'
 import { defineBasicExtension } from 'prosekit/basic'
 import {
   defineCommands,
@@ -105,7 +106,12 @@ export function createEditorExtension(
     defineDocChangeHandler((view) => {
       onDocumentChange?.(view.state.doc.toJSON())
     }),
-    definePlaceholder({ placeholder: 'Press / for commands...' }),
+    // Resolve the placeholder at render time from the current locale so it stays
+    // in sync with the active language, reading through the shared global i18next
+    // instance without needing to recreate the editor on language change.
+    definePlaceholder({
+      placeholder: () => i18next.t('ui.placeholder', { ns: 'editor' }),
+    }),
     defineTag(tagRuntime),
     defineMath({
       renderMathBlock: renderKaTeXMathBlock,

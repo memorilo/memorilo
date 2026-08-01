@@ -10,8 +10,8 @@
   "go": "前往",
   "toggle": "切换",
   "create": "创建",
-  "noteCount": "{{count}} 条笔记",
-  "noteCount_plural": "{{count}} 条笔记",
+  "noteCount_one": "{{count}} 条笔记",
+  "noteCount_other": "{{count}} 条笔记",
   "ascending": "升序",
   "descending": "降序"
 }
