@@ -4,6 +4,8 @@ import type {
   ShelfAssetInput,
   ShelfAssetResult,
   ShelfBrowseResult,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -14,6 +16,8 @@ export type {
   ShelfAssetInput,
   ShelfAssetResult,
   ShelfBrowseResult,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -64,6 +68,7 @@ export type DesktopTopicBlockSearchMode = 'hybrid' | 'lexical' | 'semantic'
 export interface DesktopApi {
   addShelfSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
   getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+  getShelfPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
   getRuntimeInfo: () => Promise<RuntimeInfo>
   getShelfAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>

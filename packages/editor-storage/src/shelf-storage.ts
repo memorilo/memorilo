@@ -2,6 +2,7 @@ import type {
   CachedShelfPage,
   SaveShelfSourceInput,
   ShelfPage,
+  ShelfPublication,
   ShelfSource,
   ShelfSourceField,
   ShelfSourceFieldClocks,
@@ -393,6 +394,23 @@ class DefaultShelfStorage implements ShelfStorage {
           url: row.url,
         }
       : null
+  }
+
+  async getCachedPublication(sourceId: string, publicationId: string): Promise<ShelfPublication | null> {
+    assertNonEmpty(sourceId, 'Shelf source id')
+    assertNonEmpty(publicationId, 'Shelf publication id')
+    const rows = await this.#database.all<Pick<ShelfPageRow, 'page_json'>>(`
+      SELECT page_json
+      FROM shelf_pages
+      WHERE source_id = ?
+      ORDER BY fetched_at DESC
+    `, [sourceId])
+    for (const row of rows) {
+      const publication = parsePage(row.page_json).publications.find(candidate => candidate.id === publicationId)
+      if (publication)
+        return publication
+    }
+    return null
   }
 
   async getSource(sourceId: string): Promise<StoredShelfSource | null> {
