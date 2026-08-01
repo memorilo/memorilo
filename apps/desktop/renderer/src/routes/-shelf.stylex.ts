@@ -626,6 +626,27 @@ export const shelfRouteStyles = stylex.create({
   publication: {
     minWidth: 0,
   },
+  publicationLink: {
+    display: 'block',
+    minWidth: 0,
+    borderRadius: 6,
+    color: 'inherit',
+    cursor: 'default',
+    outline: 'none',
+    textDecoration: 'none',
+    WebkitTouchCallout: 'none',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 3px ${colors.focus}`,
+    },
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.985)',
+    },
+    transitionDuration: controlTransition,
+    transitionProperty: 'box-shadow, transform',
+    transitionTimingFunction: 'ease-out',
+  },
   coverFrame: {
     position: 'relative',
     width: '100%',
