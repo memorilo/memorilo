@@ -18,10 +18,12 @@
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "better-sqlite3": "13.0.1",
     "effect": "4.0.0-beta.23",
     "electron-ipc-decorator": "1.0.1",
-    "sqlite-vec": "0.1.9"
+    "sqlite-vec": "0.1.9",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
