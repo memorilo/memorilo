@@ -1,5 +1,6 @@
 import stylexBabelPlugin from '@stylexjs/babel-plugin'
 import react from '@vitejs/plugin-react'
+import wasm from 'vite-plugin-wasm'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
@@ -7,6 +8,7 @@ export default defineConfig({
     include: ['@stylexjs/stylex/lib/stylex-inject'],
   },
   plugins: [
+    wasm(),
     react({
       babel: {
         plugins: [[
@@ -22,6 +24,7 @@ export default defineConfig({
   ],
   test: {
     browser: {
+      api: { port: 63316, strictPort: true },
       enabled: true,
       headless: true,
       instances: [{ browser: 'chromium', launch: { channel: 'chrome' } }],

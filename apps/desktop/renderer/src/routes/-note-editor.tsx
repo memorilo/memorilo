@@ -32,6 +32,7 @@ import { useCommandPaletteCommands } from '../components/command-palette-context
 import { usePageTitlebar } from '../components/page-titlebar'
 import { useDesktopConfiguration } from '../configuration-context'
 import { noteQueryKeys } from '../queries/note-query-keys'
+import { applyExternalNoteUpdate } from './-note-external-update'
 import { editorRouteStyles } from './-note.stylex'
 
 const inspectorSpring = {
@@ -702,6 +703,29 @@ export function NoteEditor({
     }, saveDelay)
   }, [rebuildFromLatestValidSnapshot, topicId])
   handleNoteChangeRef.current = handleNoteChange
+
+  useEffect(() => window.desktop.subscribeNoteUpdates((external) => {
+    const note = noteRef.current
+    if (!note || note.id !== external.noteId)
+      return
+    try {
+      const applied = applyExternalNoteUpdate(note, external)
+      if (!applied)
+        return
+      latestValidSnapshotRef.current = applied.snapshot
+      setOpened((current) => {
+        if (!current || current.note !== note)
+          return current
+        const stored = { ...current.stored, updatedAt: applied.updatedAt }
+        storedRef.current = stored
+        return { ...current, entries: applied.entries, stored }
+      })
+      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
+    }
+    catch (error) {
+      console.error(`Failed to apply external update for Note ${external.noteId}`, error)
+    }
+  }), [queryClient])
 
   const resetViewState = useCallback(() => {
     setOpened(null)

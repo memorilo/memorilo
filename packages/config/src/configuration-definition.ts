@@ -28,6 +28,7 @@ export interface SelectConfigurationField extends ConfigurationFieldBase {
 export interface TextConfigurationField extends ConfigurationFieldBase {
   control: 'text'
   placeholder?: string
+  sensitive?: boolean
 }
 
 export interface ToggleConfigurationField extends ConfigurationFieldBase {

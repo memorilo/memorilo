@@ -96,10 +96,11 @@ function FieldControl<T extends object>({
           key={`${field.path}:${value}`}
           {...stylex.props(configurationFieldStyles.input)}
           aria-label={field.label}
+          autoComplete={field.sensitive ? 'off' : undefined}
           defaultValue={value}
           disabled={pending}
           placeholder={field.placeholder}
-          type="text"
+          type={field.sensitive ? 'password' : 'text'}
           onBlur={commit}
           onKeyDown={(event) => {
             if (event.key === 'Enter')

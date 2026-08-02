@@ -7,14 +7,17 @@ import type { TopicBlockProjection } from './topic-projection'
 import {
   createNodeJsonFromLoroTree,
   initializeLoroTreeFromJson,
+  updateLoroTreeFromPmState,
 } from '@memorilo/loro-prosemirror-tree/model'
 import { Effect as EffectRuntime } from 'effect'
 import {
   LoroDoc,
   UndoManager,
 } from 'loro-crdt'
+import { EditorState } from 'prosekit/pm/state'
 import { assertEditorMode, EditorMode } from '../common/editor-mode'
 import { normalizeOutlineDocument } from '../common/outline-document'
+import { topicProseMirrorSchema } from '../schema/topic-prosemirror-schema'
 import { validateLoroTopic } from '../schema/topic-schema'
 import { projectTopicBlocks } from './topic-projection'
 
@@ -55,6 +58,43 @@ export interface TopicContentProjection {
   blocks: readonly TopicBlockProjection[]
   /** The effective title projected from the Topic's explicit title and content. */
   title: string
+  topicId: string
+}
+
+export type TopicBlockEdit
+  = | {
+    attributes?: Readonly<Record<string, unknown>>
+    blockId?: string
+    content: readonly NodeJSON[]
+    index?: number
+    kind: string
+    operation: 'insert-block'
+    parentId?: string | null
+  }
+  | {
+    blockId: string
+    content: readonly NodeJSON[]
+    operation: 'update-block-content'
+  }
+  | {
+    attributes: Readonly<Record<string, unknown>>
+    blockId: string
+    operation: 'update-block-attributes'
+  }
+  | {
+    blockId: string
+    index?: number
+    operation: 'move-block'
+    parentId?: string | null
+  }
+  | {
+    blockId: string
+    operation: 'delete-block'
+    strategy: DeleteNoteEntryStrategy
+  }
+
+export interface ApplyTopicBlockEditsInput {
+  edits: readonly TopicBlockEdit[]
   topicId: string
 }
 
@@ -129,6 +169,8 @@ export interface EditorTopicDocument {
  */
 export interface EditorNote {
   readonly id: string
+  /** Atomically applies validated structural Block edits to one Topic. */
+  applyTopicBlockEdits: (input: ApplyTopicBlockEditsInput) => void
   /** Checks out a historical version and detaches the Note from its editable latest state. */
   checkout: (version: readonly EditorNoteVersion[]) => void
   /** Returns a time-traveling Note to its editable latest state. */
@@ -288,6 +330,104 @@ function projectTopicContent(
     title: effectiveTopicTitle(explicitTitle, blocks),
     topicId,
   }
+}
+
+function applyTopicBlockEdits(document: NodeJSON, edits: readonly TopicBlockEdit[]): NodeJSON {
+  const next = structuredClone(document)
+
+  const childrenOf = (node: NodeJSON): NodeJSON[] => {
+    node.content ??= []
+    return node.content
+  }
+  const blockChildren = (node: NodeJSON): NodeJSON[] => childrenOf(node).filter(child => child.type === 'list')
+  const find = (blockId: string): { block: NodeJSON, index: number, siblings: NodeJSON[] } => {
+    const visit = (siblings: NodeJSON[]): { block: NodeJSON, index: number, siblings: NodeJSON[] } | undefined => {
+      for (const [index, block] of siblings.entries()) {
+        if (block.type !== 'list')
+          continue
+        if (block.attrs?.blockId === blockId)
+          return { block, index, siblings }
+        const nested = visit(childrenOf(block))
+        if (nested)
+          return nested
+      }
+    }
+    const result = visit(childrenOf(next))
+    if (!result)
+      throw new Error(`Unknown Topic Block: ${blockId}`)
+    return result
+  }
+  const destination = (parentId: string | null | undefined): NodeJSON[] => parentId == null
+    ? childrenOf(next)
+    : childrenOf(find(parentId).block)
+  const insertionIndex = (index: number | undefined, siblings: readonly NodeJSON[]): number => {
+    const blockIndexes = siblings.flatMap((node, nodeIndex) => node.type === 'list' ? [nodeIndex] : [])
+    const blockIndex = index ?? blockIndexes.length
+    if (!Number.isSafeInteger(blockIndex) || blockIndex < 0 || blockIndex > blockIndexes.length)
+      throw new RangeError(`Topic Block index must be between 0 and ${blockIndexes.length}`)
+    return blockIndexes[blockIndex] ?? siblings.length
+  }
+  const assertBlockBody = (content: readonly NodeJSON[]): void => {
+    if (content.some(node => node.type === 'list'))
+      throw new TypeError('Topic Block content must not contain direct child Blocks; use structural Block edits instead')
+  }
+  const hasDescendant = (block: NodeJSON, blockId: string): boolean => blockChildren(block)
+    .some(child => child.attrs?.blockId === blockId || hasDescendant(child, blockId))
+  const containsBlock = (nodes: readonly NodeJSON[], blockId: string): boolean => nodes
+    .some(node => node.attrs?.blockId === blockId || containsBlock(node.content ?? [], blockId))
+
+  for (const edit of edits) {
+    switch (edit.operation) {
+      case 'insert-block': {
+        assertBlockBody(edit.content)
+        if (edit.blockId !== undefined && containsBlock(next.content ?? [], edit.blockId))
+          throw new TypeError(`Topic Block ${edit.blockId} already exists`)
+        const siblings = destination(edit.parentId)
+        const blockId = edit.blockId ?? crypto.randomUUID()
+        siblings.splice(insertionIndex(edit.index, siblings), 0, {
+          attrs: { ...structuredClone(edit.attributes ?? {}), blockId, kind: edit.kind },
+          content: structuredClone([...edit.content]),
+          type: 'list',
+        })
+        break
+      }
+      case 'update-block-content': {
+        assertBlockBody(edit.content)
+        const { block } = find(edit.blockId)
+        block.content = [...structuredClone([...edit.content]), ...blockChildren(block)]
+        break
+      }
+      case 'update-block-attributes': {
+        const { block } = find(edit.blockId)
+        block.attrs = {
+          ...structuredClone(edit.attributes),
+          blockId: edit.blockId,
+          kind: edit.attributes.kind ?? block.attrs?.kind,
+        }
+        break
+      }
+      case 'move-block': {
+        const source = find(edit.blockId)
+        if (edit.parentId === edit.blockId || (edit.parentId && hasDescendant(source.block, edit.parentId)))
+          throw new TypeError(`Topic Block ${edit.blockId} cannot be moved into itself or its descendant`)
+        source.siblings.splice(source.index, 1)
+        const siblings = destination(edit.parentId)
+        siblings.splice(insertionIndex(edit.index, siblings), 0, source.block)
+        break
+      }
+      case 'delete-block': {
+        const source = find(edit.blockId)
+        if (edit.strategy === 'promote-children')
+          source.siblings.splice(source.index, 1, ...blockChildren(source.block))
+        else if (edit.strategy === 'delete-subtree')
+          source.siblings.splice(source.index, 1)
+        else
+          throw new TypeError(`Unknown Topic Block deletion strategy: ${String(edit.strategy)}`)
+        break
+      }
+    }
+  }
+  return next
 }
 
 function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
@@ -521,6 +661,22 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   }
   const note: EditorNote = {
     id,
+    applyTopicBlockEdits: (input) => {
+      if (input.edits.length === 0)
+        throw new TypeError('Topic Block edits must contain at least one operation')
+      inUndoGroup(runtime, () => {
+        const validation = getTopicValidationInput(input.topicId)
+        const document = applyTopicBlockEdits(validation.document, input.edits)
+        const topic = EffectRuntime.runSync(validateLoroTopic({ ...validation, document }))
+        const node = entryNode(runtime, input.topicId)
+        const blockTree = topicBlockTree(runtime, node)
+        const state = EditorState.create({
+          doc: topicProseMirrorSchema.nodeFromJSON(topic.document),
+          schema: topicProseMirrorSchema,
+        })
+        updateLoroTreeFromPmState(doc, blockTree, new Map(), state)
+      })
+    },
     getTopic: (topicId) => {
       const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
       const node = entryNode(runtime, normalizedTopicId)
