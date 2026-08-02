@@ -1,4 +1,4 @@
-import type { DesktopConfiguration } from './contract'
+import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from './contract'
 import type { DesktopServices } from './desktop-api'
 import { desktopConfigurationChangedChannel } from '@memorilo/desktop-config/contract'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -19,4 +19,12 @@ function subscribeConfiguration(listener: (configuration: DesktopConfiguration) 
   return () => ipcRenderer.removeListener(desktopConfigurationChangedChannel, handleChange)
 }
 
-contextBridge.exposeInMainWorld('desktop', createDesktopApi(services, subscribeConfiguration))
+function subscribeNoteUpdates(listener: Parameters<DesktopApi['subscribeNoteUpdates']>[0]): () => void {
+  const handleUpdate = (_event: Electron.IpcRendererEvent, update: DesktopNoteExternalUpdate) => {
+    listener(update)
+  }
+  ipcRenderer.on('memorilo:note-update', handleUpdate)
+  return () => ipcRenderer.removeListener('memorilo:note-update', handleUpdate)
+}
+
+contextBridge.exposeInMainWorld('desktop', createDesktopApi(services, subscribeConfiguration, subscribeNoteUpdates))

@@ -1,4 +1,5 @@
 export type {
+  ApplyTopicBlockEditsInput,
   CreateEditorNoteOptions,
   CreateFolderInput,
   CreateTopicInput,
@@ -13,6 +14,7 @@ export type {
   MoveNoteEntryInput,
   NoteEntryKind,
   NoteEntrySnapshot,
+  TopicBlockEdit,
   TopicContentProjection,
   TopicSnapshot,
   TopicValidationInput,
