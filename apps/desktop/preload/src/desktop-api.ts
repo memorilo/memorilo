@@ -5,6 +5,7 @@ import type {
   DesktopConfiguration,
   DesktopFavoriteNoteItem,
   DesktopNote,
+  DesktopNoteExternalUpdate,
   DesktopNoteFavoriteState,
   DesktopNotePage,
   DesktopNoteSearchHit,
@@ -65,6 +66,7 @@ export interface DesktopServices {
 export function createDesktopApi(
   services: DesktopServices,
   subscribeConfiguration: DesktopApi['subscribeConfiguration'],
+  subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void,
 ): DesktopApi {
   return {
     createNote: input => services.notes.createNote(input),
@@ -85,5 +87,6 @@ export function createDesktopApi(
     setConfiguration: configuration => services.configuration.set(configuration),
     showColumnVisibilityMenu: input => services.window.showColumnVisibilityMenu(input),
     subscribeConfiguration,
+    subscribeNoteUpdates,
   }
 }

@@ -126,6 +126,12 @@ export interface DesktopNoteWriteReceipt {
   updatedAt: number
 }
 
+export interface DesktopNoteExternalUpdate {
+  noteId: string
+  update: Uint8Array
+  updatedAt: number
+}
+
 export interface DesktopStoredTopicBlock extends DesktopTopicBlock {
   contentHash: string
   noteId: string
@@ -193,4 +199,5 @@ export interface DesktopApi {
     input: ShowDesktopColumnVisibilityMenuInput,
   ) => Promise<DesktopColumnVisibilityMenuSelection | null>
   subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
+  subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void
 }

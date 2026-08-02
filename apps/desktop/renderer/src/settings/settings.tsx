@@ -28,8 +28,10 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('generalSection')
     case 'editor':
       return t('editorSection')
+    case 'mcp':
+      return t('mcpSection')
     default:
-      return t('generalSection')
+      return sectionId
   }
 }
 
@@ -145,7 +147,11 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
                 <header {...stylex.props(settingsStyles.contentHeader)}>
                   <h1 id="active-settings-heading" {...stylex.props(settingsStyles.pageTitle)}>{activeSection.label}</h1>
                   <p {...stylex.props(settingsStyles.pageDescription)}>
-                    {activeSection.id === 'general' ? t('generalDescription') : t('editorDescription')}
+                    {activeSection.id === 'general'
+                      ? t('generalDescription')
+                      : activeSection.id === 'editor'
+                        ? t('editorDescription')
+                        : t('mcpDescription')}
                   </p>
                 </header>
                 <div {...stylex.props(settingsStyles.settingsGroup)} data-window-no-drag="">

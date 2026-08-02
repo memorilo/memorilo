@@ -2,6 +2,7 @@ import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
+import { randomBytes } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +19,8 @@ import { app, BrowserWindow, dialog, shell } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
 import { createDesktopServices } from './ipc/services'
+import { createMcpServerController } from './mcp/mcp-server-controller'
+import { createNoteApplicationService } from './notes/note-application-service'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
 import { createSettingsWindowController } from './windows/settings-window'
@@ -25,6 +28,10 @@ import { createSettingsWindowController } from './windows/settings-window'
 let editorStorage: EditorStorage | null = null
 let configurationStore: ConfigurationStore<DesktopConfiguration> | null = null
 let unsubscribeConfiguration: (() => void) | null = null
+let closeMcpServer: (() => Promise<void>) | null = null
+let closeNoteApplication: (() => Promise<void>) | null = null
+let shutdownPromise: Promise<void> | null = null
+let shutdownComplete = false
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 app.setName('Memorilo')
@@ -162,13 +169,31 @@ async function startApplication(): Promise<void> {
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
   })
-  createDesktopServices(editorStorage, configurationStore)
+  let configuration = configurationStore.getSnapshot()
+  if (configuration.mcp.accessToken.length < 32) {
+    configuration = await configurationStore.set({
+      ...configuration,
+      mcp: { ...configuration.mcp, accessToken: randomBytes(32).toString('base64url') },
+    })
+  }
+
+  const notes = createNoteApplicationService(editorStorage, ({ noteId, update, updatedAt }) => {
+    for (const window of BrowserWindow.getAllWindows())
+      window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
+  })
+  const mcpServer = createMcpServerController(notes)
+  closeMcpServer = mcpServer.close
+  closeNoteApplication = notes.close
+
+  createDesktopServices(notes, configurationStore)
+  void mcpServer.update(configuration.mcp)
   unsubscribeConfiguration = configurationStore.subscribe(() => {
-    const configuration = configurationStore?.getSnapshot()
-    if (!configuration)
+    const next = configurationStore?.getSnapshot()
+    if (!next)
       throw new Error('Desktop configuration store closed before broadcasting an update')
     for (const window of BrowserWindow.getAllWindows())
-      window.webContents.send(desktopConfigurationChangedChannel, configuration)
+      window.webContents.send(desktopConfigurationChangedChannel, next)
+    void mcpServer.update(next.mcp)
   })
   const settingsWindow = createSettingsWindowController(mainDirectory)
   installApplicationMenu(settingsWindow.show)
@@ -187,15 +212,37 @@ void app.whenReady()
     app.quit()
   })
 
-app.on('will-quit', () => {
+async function shutdownApplication(): Promise<void> {
   unsubscribeConfiguration?.()
   unsubscribeConfiguration = null
   configurationStore?.close()
   configurationStore = null
-  if (editorStorage === null)
-    return
-  void editorStorage.close()
+
+  const stopMcp = closeMcpServer
+  closeMcpServer = null
+  await stopMcp?.()
+
+  const closeNotes = closeNoteApplication
+  closeNoteApplication = null
+  await closeNotes?.()
+
+  const storage = editorStorage
   editorStorage = null
+  await storage?.close()
+}
+
+app.on('before-quit', (event) => {
+  if (shutdownComplete)
+    return
+  event.preventDefault()
+  if (shutdownPromise)
+    return
+  shutdownPromise = shutdownApplication()
+    .catch(error => console.error('Failed to shut down Memorilo cleanly', error))
+    .finally(() => {
+      shutdownComplete = true
+      app.quit()
+    })
 })
 
 app.on('window-all-closed', () => {

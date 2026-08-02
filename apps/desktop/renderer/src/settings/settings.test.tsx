@@ -17,6 +17,23 @@ describe('settings renderer', () => {
     )
 
     expect(rendered.getByRole('heading', { name: 'General' })).toBeInTheDocument()
+    fireEvent.click(rendered.getByRole('button', { name: 'MCP' }))
+    expect(await rendered.findByRole('heading', { name: 'MCP' })).toBeInTheDocument()
+    expect(rendered.getByRole('switch', { name: 'Enable MCP server' })).toHaveAttribute('aria-checked', 'false')
+    expect(rendered.getByRole('spinbutton', { name: 'MCP port' })).toHaveValue(8765)
+    const accessToken = rendered.getByLabelText('MCP access token')
+    expect(accessToken).toHaveAttribute('type', 'password')
+    const token = '0123456789abcdef0123456789abcdef'
+    fireEvent.change(accessToken, { target: { value: token } })
+    fireEvent.blur(accessToken)
+    await waitFor(() => expect(store.getSnapshot().mcp.accessToken).toBe(token))
+
+    fireEvent.click(rendered.getByRole('switch', { name: 'Enable MCP server' }))
+    await waitFor(() => expect(store.getSnapshot().mcp.enabled).toBe(true))
+    expect(rendered.getByRole('switch', { name: 'Enable MCP server' })).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(rendered.getByRole('button', { name: 'General' }))
+    await rendered.findByRole('heading', { name: 'General' })
     const language = rendered.getByRole('combobox', { name: 'Language' })
     expect(language).toHaveValue('system')
     expect(rendered.getAllByRole('option').map(option => option.textContent)).toEqual([
@@ -29,13 +46,23 @@ describe('settings renderer', () => {
 
     fireEvent.change(language, { target: { value: 'zh-CN' } })
     await waitFor(() => {
-      expect(store.getSnapshot()).toEqual({ language: 'zh-CN', outdentBehavior: 'logical', reduceMotion: false })
+      expect(store.getSnapshot()).toEqual({
+        language: 'zh-CN',
+        mcp: { accessToken: token, enabled: true, port: 8765 },
+        outdentBehavior: 'logical',
+        reduceMotion: false,
+      })
       expect(document.documentElement.lang).toBe('zh-CN')
     })
 
     fireEvent.click(reduceMotion)
     await waitFor(() => {
-      expect(store.getSnapshot()).toEqual({ language: 'zh-CN', outdentBehavior: 'logical', reduceMotion: true })
+      expect(store.getSnapshot()).toEqual({
+        language: 'zh-CN',
+        mcp: { accessToken: token, enabled: true, port: 8765 },
+        outdentBehavior: 'logical',
+        reduceMotion: true,
+      })
       expect(document.documentElement).toHaveAttribute('data-reduce-motion', 'true')
     })
 
