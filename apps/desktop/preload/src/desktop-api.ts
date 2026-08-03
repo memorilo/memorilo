@@ -66,6 +66,7 @@ export interface DesktopServices {
 export function createDesktopApi(
   services: DesktopServices,
   subscribeConfiguration: DesktopApi['subscribeConfiguration'],
+  subscribeNoteSaveRequests: DesktopApi['subscribeNoteSaveRequests'],
   subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void,
 ): DesktopApi {
   return {
@@ -87,6 +88,7 @@ export function createDesktopApi(
     setConfiguration: configuration => services.configuration.set(configuration),
     showColumnVisibilityMenu: input => services.window.showColumnVisibilityMenu(input),
     subscribeConfiguration,
+    subscribeNoteSaveRequests,
     subscribeNoteUpdates,
   }
 }

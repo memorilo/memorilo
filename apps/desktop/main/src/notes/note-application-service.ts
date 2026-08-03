@@ -13,6 +13,7 @@ import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 
 const checkpointInterval = 32
+const noteCacheCapacity = 32
 
 interface AuthoritativeNote {
   checkpointSequence: number
@@ -64,6 +65,14 @@ export interface NoteExternalUpdate {
   updatedAt: number
 }
 
+export class NoteApplicationServiceClosedError extends Error {
+  override readonly name = 'NoteApplicationServiceClosedError'
+
+  constructor() {
+    super('The Note application service is closing')
+  }
+}
+
 export class NoteRevisionConflictError extends Error {
   override readonly name = 'NoteRevisionConflictError'
 
@@ -90,6 +99,10 @@ function toStoredTopic(topic: TopicContentProjection): StoredTopicContentProject
   return structuredClone(topic)
 }
 
+function updateHash(update: Uint8Array): string {
+  return createHash('sha256').update(update).digest('hex')
+}
+
 function noteRevision(version: readonly EditorNoteVersion[]): string {
   const normalized = [...version]
     .sort((left, right) => left.peer.localeCompare(right.peer) || left.counter - right.counter)
@@ -109,11 +122,15 @@ export function createNoteApplicationService(
   storage: EditorStorage,
   onExternalUpdate?: (update: NoteExternalUpdate) => void,
 ) {
-  let authoritative: AuthoritativeNote | undefined
+  const cache = new Map<string, AuthoritativeNote>()
   let operations = Promise.resolve()
   let indexing = Promise.resolve()
+  let closePromise: Promise<void> | null = null
+  let closing = false
 
   const serialize = <Result>(operation: () => Promise<Result>): Promise<Result> => {
+    if (closing)
+      return Promise.reject(new NoteApplicationServiceClosedError())
     const result = operations.then(operation)
     operations = result.then(() => undefined, () => undefined)
     return result
@@ -162,14 +179,60 @@ export function createNoteApplicationService(
     return { checkpointSequence, createdAt: stored.createdAt, latestSequence, note, updatedAt }
   }
 
-  const load = async (stored: StoredNote, initialTopicHeading?: string): Promise<AuthoritativeNote> => {
-    if (authoritative?.note.id === stored.id && authoritative.latestSequence === stored.latestSequence)
-      return authoritative
-    authoritative = await restore(stored, initialTopicHeading)
-    return authoritative
+  const checkpoint = async (current: AuthoritativeNote): Promise<void> => {
+    if (current.latestSequence === current.checkpointSequence)
+      return
+    try {
+      const receipt = await storage.checkpointNote({
+        noteId: current.note.id,
+        snapshot: current.note.exportSnapshot(),
+        throughSequence: current.latestSequence,
+      })
+      current.checkpointSequence = current.latestSequence
+      current.updatedAt = receipt.updatedAt
+    }
+    catch (error) {
+      console.error(`Failed to checkpoint Note ${current.note.id}; the persisted update log remains authoritative`, error)
+    }
   }
 
-  const openNote = async (noteId: string): Promise<AuthoritativeNote> => load(await storage.getNote({ noteId }))
+  const cacheNote = async (current: AuthoritativeNote): Promise<AuthoritativeNote> => {
+    cache.delete(current.note.id)
+    cache.set(current.note.id, current)
+    if (cache.size <= noteCacheCapacity)
+      return current
+
+    const leastRecentlyUsedId = cache.keys().next().value
+    if (leastRecentlyUsedId === undefined)
+      return current
+    const leastRecentlyUsed = cache.get(leastRecentlyUsedId)
+    cache.delete(leastRecentlyUsedId)
+    if (leastRecentlyUsed)
+      await checkpoint(leastRecentlyUsed)
+    return current
+  }
+
+  const load = async (stored: StoredNote, initialTopicHeading?: string): Promise<AuthoritativeNote> => {
+    const cached = cache.get(stored.id)
+    if (cached && cached.latestSequence === stored.latestSequence)
+      return cacheNote(cached)
+    if (cached) {
+      cache.delete(stored.id)
+      await checkpoint(cached)
+    }
+    return cacheNote(await restore(stored, initialTopicHeading))
+  }
+
+  const openNote = async (noteId: string): Promise<AuthoritativeNote> => {
+    const cached = cache.get(noteId)
+    if (cached)
+      return cacheNote(cached)
+    return load(await storage.getNote({ noteId }))
+  }
+
+  const invalidate = (noteId: string): void => {
+    cache.delete(noteId)
+  }
 
   const toDesktopNote = async (current: AuthoritativeNote) => {
     const favorite = await storage.getNoteFavorite({ noteId: current.note.id })
@@ -195,20 +258,8 @@ export function createNoteApplicationService(
   }
 
   const checkpointIfNeeded = async (current: AuthoritativeNote): Promise<void> => {
-    if (current.latestSequence - current.checkpointSequence < checkpointInterval)
-      return
-    try {
-      const checkpoint = await storage.checkpointNote({
-        noteId: current.note.id,
-        snapshot: current.note.exportSnapshot(),
-        throughSequence: current.latestSequence,
-      })
-      current.checkpointSequence = current.latestSequence
-      current.updatedAt = checkpoint.updatedAt
-    }
-    catch (error) {
-      console.error(`Failed to checkpoint Note ${current.note.id}; the persisted update log remains authoritative`, error)
-    }
+    if (current.latestSequence - current.checkpointSequence >= checkpointInterval)
+      await checkpoint(current)
   }
 
   const persistLocalMutation = async (
@@ -227,8 +278,9 @@ export function createNoteApplicationService(
     current.latestSequence = receipt.latestSequence
     current.updatedAt = receipt.updatedAt
     await checkpointIfNeeded(current)
-    scheduleIndex(current.note.id)
-    if (options.broadcast && onExternalUpdate) {
+    if (receipt.acceptedUpdateHashes.length > 0)
+      scheduleIndex(current.note.id)
+    if (options.broadcast && receipt.acceptedUpdateHashes.length > 0 && onExternalUpdate) {
       try {
         onExternalUpdate({ noteId: current.note.id, update, updatedAt: current.updatedAt })
       }
@@ -245,11 +297,22 @@ export function createNoteApplicationService(
       throw new NoteRevisionConflictError(revision)
   }
 
-  return {
-    close: async (): Promise<void> => {
+  const close = (): Promise<void> => {
+    if (closePromise)
+      return closePromise
+    closing = true
+    closePromise = (async () => {
       await operations
+      for (const current of cache.values())
+        await checkpoint(current)
+      cache.clear()
       await indexing
-    },
+    })()
+    return closePromise
+  }
+
+  return {
+    close,
     applyTopicEdits: (input: ApplyTopicEditsInput) => serialize(async () => {
       const current = await openNote(input.noteId)
       assertRevision(current, input.expectedRevision)
@@ -260,7 +323,7 @@ export function createNoteApplicationService(
         return await persistLocalMutation(current, version, { broadcast: true, topicIds: [input.topicId] })
       }
       catch (error) {
-        authoritative = undefined
+        invalidate(input.noteId)
         throw error
       }
     }),
@@ -297,12 +360,12 @@ export function createNoteApplicationService(
         updatedAt: current.updatedAt,
       }
     }),
-    getTopicBlock: (input: Parameters<EditorStorage['getTopicBlock']>[0]) => storage.getTopicBlock(input),
-    listFavoriteNotes: (input?: Parameters<EditorStorage['listFavoriteNotes']>[0]) => storage.listFavoriteNotes(input),
-    listNotes: (input?: Parameters<EditorStorage['listNotes']>[0]) => storage.listNotes(input),
-    listRecentNotes: (input?: Parameters<EditorStorage['listRecentNotes']>[0]) => storage.listRecentNotes(input),
+    getTopicBlock: (input: Parameters<EditorStorage['getTopicBlock']>[0]) => serialize(() => storage.getTopicBlock(input)),
+    listFavoriteNotes: (input?: Parameters<EditorStorage['listFavoriteNotes']>[0]) => serialize(() => storage.listFavoriteNotes(input)),
+    listNotes: (input?: Parameters<EditorStorage['listNotes']>[0]) => serialize(() => storage.listNotes(input)),
+    listRecentNotes: (input?: Parameters<EditorStorage['listRecentNotes']>[0]) => serialize(() => storage.listRecentNotes(input)),
     openMostRecentNote: () => serialize(async () => toDesktopNote(await load(await storage.openMostRecentNote()))),
-    recordNoteOpened: (input: Parameters<EditorStorage['recordNoteOpened']>[0]) => storage.recordNoteOpened(input),
+    recordNoteOpened: (input: Parameters<EditorStorage['recordNoteOpened']>[0]) => serialize(() => storage.recordNoteOpened(input)),
     renameNote: (input: RenameNoteInput) => serialize(async () => {
       const current = await openNote(input.noteId)
       const title = input.title.trim()
@@ -315,7 +378,7 @@ export function createNoteApplicationService(
         return { note: await toDesktopNoteSummary(current), status: 'renamed' } as const
       }
       catch (error) {
-        authoritative = undefined
+        invalidate(input.noteId)
         if (error instanceof DuplicateNoteTitleError)
           return { status: 'duplicate-title' } as const
         throw error
@@ -330,7 +393,7 @@ export function createNoteApplicationService(
         return await persistLocalMutation(current, version, { broadcast: true, entries: true, topicIds: [input.topicId] })
       }
       catch (error) {
-        authoritative = undefined
+        invalidate(input.noteId)
         throw error
       }
     }),
@@ -343,7 +406,7 @@ export function createNoteApplicationService(
         return await persistLocalMutation(current, version, { broadcast: true, entries: true })
       }
       catch (error) {
-        authoritative = undefined
+        invalidate(input.noteId)
         throw error
       }
     }),
@@ -375,17 +438,32 @@ export function createNoteApplicationService(
         current.latestSequence = receipt.latestSequence
         current.updatedAt = receipt.updatedAt
         await checkpointIfNeeded(current)
-        scheduleIndex(current.note.id)
+        const acceptedHashes = new Set(receipt.acceptedUpdateHashes)
+        if (acceptedHashes.size > 0)
+          scheduleIndex(current.note.id)
+        if (onExternalUpdate) {
+          for (const update of input.updates) {
+            const hash = updateHash(update)
+            if (!acceptedHashes.delete(hash))
+              continue
+            try {
+              onExternalUpdate({ noteId: current.note.id, update, updatedAt: current.updatedAt })
+            }
+            catch (error) {
+              console.error(`Failed to broadcast persisted update for Note ${current.note.id}`, error)
+            }
+          }
+        }
         return { updatedAt: current.updatedAt }
       }
       catch (error) {
-        authoritative = undefined
+        invalidate(input.noteId)
         throw error
       }
     }),
-    searchNotes: (input: Parameters<EditorStorage['searchNotes']>[0]) => storage.searchNotes(input),
-    searchTopicBlocks: (input: Parameters<EditorStorage['searchTopicBlocks']>[0]) => storage.searchTopicBlocks(input),
-    setNoteFavorite: (input: Parameters<EditorStorage['setNoteFavorite']>[0]) => storage.setNoteFavorite(input),
+    searchNotes: (input: Parameters<EditorStorage['searchNotes']>[0]) => serialize(() => storage.searchNotes(input)),
+    searchTopicBlocks: (input: Parameters<EditorStorage['searchTopicBlocks']>[0]) => serialize(() => storage.searchTopicBlocks(input)),
+    setNoteFavorite: (input: Parameters<EditorStorage['setNoteFavorite']>[0]) => serialize(() => storage.setNoteFavorite(input)),
   }
 }
 

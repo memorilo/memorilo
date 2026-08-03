@@ -15,10 +15,11 @@ import {
   migrateDesktopConfiguration,
 } from '@memorilo/desktop-config'
 import { createEditorStorage } from '@memorilo/editor-storage'
-import { app, BrowserWindow, dialog, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
 import { createDesktopServices } from './ipc/services'
+import { flushRendererNotes } from './lifecycle/note-save-handshake'
 import { createMcpServerController } from './mcp/mcp-server-controller'
 import { createNoteApplicationService } from './notes/note-application-service'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
@@ -30,8 +31,10 @@ let configurationStore: ConfigurationStore<DesktopConfiguration> | null = null
 let unsubscribeConfiguration: (() => void) | null = null
 let closeMcpServer: (() => Promise<void>) | null = null
 let closeNoteApplication: (() => Promise<void>) | null = null
-let shutdownPromise: Promise<void> | null = null
+let shutdownPromise: Promise<boolean> | null = null
 let shutdownComplete = false
+let quitting = false
+const windowsReadyToClose = new WeakSet<BrowserWindow>()
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 app.setName('Memorilo')
@@ -152,6 +155,20 @@ function createWindow() {
     if (!isAllowedNavigation(url, rendererUrl))
       event.preventDefault()
   })
+  window.on('close', (event) => {
+    if (quitting || windowsReadyToClose.has(window) || window.webContents.isDestroyed())
+      return
+    event.preventDefault()
+    window.setEnabled(false)
+    void requestRendererSave([window.webContents], window).then((saved) => {
+      if (!saved) {
+        window.setEnabled(true)
+        return
+      }
+      windowsReadyToClose.add(window)
+      window.close()
+    })
+  })
 
   if (rendererUrl)
     void window.loadURL(rendererUrl)
@@ -212,7 +229,38 @@ void app.whenReady()
     app.quit()
   })
 
-async function shutdownApplication(): Promise<void> {
+async function requestRendererSave(
+  targets = BrowserWindow.getAllWindows().map(window => window.webContents),
+  owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0],
+): Promise<boolean> {
+  while (true) {
+    const outcome = await flushRendererNotes({ ipcMain, targets })
+    if (outcome.status === 'saved')
+      return true
+    const detail = outcome.status === 'failed'
+      ? `Memorilo could not save the latest Note changes.\n\n${outcome.message}`
+      : 'Memorilo did not receive a save confirmation before the timeout.'
+    const options: MessageBoxOptions = {
+      buttons: ['Retry', 'Cancel'],
+      cancelId: 1,
+      defaultId: 0,
+      detail: `${detail}\n\nRetry saving, or cancel closing to keep your changes open.`,
+      message: 'Note Changes Are Not Saved',
+      noLink: true,
+      type: 'warning',
+    }
+    const response = owner
+      ? await dialog.showMessageBox(owner, options)
+      : await dialog.showMessageBox(options)
+    if (response.response !== 0)
+      return false
+  }
+}
+
+async function shutdownApplication(): Promise<boolean> {
+  if (!await requestRendererSave())
+    return false
+
   unsubscribeConfiguration?.()
   unsubscribeConfiguration = null
   configurationStore?.close()
@@ -229,6 +277,7 @@ async function shutdownApplication(): Promise<void> {
   const storage = editorStorage
   editorStorage = null
   await storage?.close()
+  return true
 }
 
 app.on('before-quit', (event) => {
@@ -237,11 +286,28 @@ app.on('before-quit', (event) => {
   event.preventDefault()
   if (shutdownPromise)
     return
+  const windows = BrowserWindow.getAllWindows()
+  windows.forEach(window => window.setEnabled(false))
   shutdownPromise = shutdownApplication()
-    .catch(error => console.error('Failed to shut down Memorilo cleanly', error))
-    .finally(() => {
+    .catch((error) => {
+      console.error('Failed to shut down Memorilo cleanly', error)
+      return false
+    })
+    .then((closed) => {
+      if (!closed) {
+        windows.forEach((window) => {
+          if (!window.isDestroyed())
+            window.setEnabled(true)
+        })
+        return false
+      }
       shutdownComplete = true
+      quitting = true
       app.quit()
+      return true
+    })
+    .finally(() => {
+      shutdownPromise = null
     })
 })
 

@@ -199,5 +199,6 @@ export interface DesktopApi {
     input: ShowDesktopColumnVisibilityMenuInput,
   ) => Promise<DesktopColumnVisibilityMenuSelection | null>
   subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
+  subscribeNoteSaveRequests: (listener: () => Promise<void>) => () => void
   subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void
 }
