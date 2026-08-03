@@ -146,6 +146,7 @@ export interface CheckpointNoteInput {
 }
 
 export interface NoteWriteReceipt {
+  acceptedUpdateHashes: readonly string[]
   latestSequence: number
   updatedAt: number
 }
@@ -1158,7 +1159,7 @@ class DefaultEditorStorage implements EditorStorage {
         .filter(([hash]) => !receivedHashes.has(hash))
         .map(([hash, update]) => ({ hash, update }))
       if (newUpdates.length === 0)
-        return { latestSequence: note.latest_sequence, updatedAt: note.updated_at }
+        return { acceptedUpdateHashes: [], latestSequence: note.latest_sequence, updatedAt: note.updated_at }
 
       const [existingEntries, existingTopics, existingBlocksByTopic] = await Promise.all([
         saved.entries
@@ -1350,7 +1351,7 @@ class DefaultEditorStorage implements EditorStorage {
       }
 
       await this.#database.batch(commands)
-      return { latestSequence, updatedAt: now }
+      return { acceptedUpdateHashes: newUpdates.map(update => update.hash), latestSequence, updatedAt: now }
     })
   }
 
@@ -1383,13 +1384,12 @@ class DefaultEditorStorage implements EditorStorage {
         )
       }
 
-      const now = Date.now()
       await this.#database.batch([
         {
-          parameters: [saved.snapshot, saved.throughSequence, now, note.row_id],
+          parameters: [saved.snapshot, saved.throughSequence, note.row_id],
           sql: `
             UPDATE notes
-            SET checkpoint_snapshot = ?, checkpoint_sequence = ?, updated_at = ?
+            SET checkpoint_snapshot = ?, checkpoint_sequence = ?
             WHERE row_id = ?
           `,
         },
@@ -1398,7 +1398,7 @@ class DefaultEditorStorage implements EditorStorage {
           sql: 'DELETE FROM note_updates WHERE note_row_id = ? AND sequence <= ?',
         },
       ])
-      return { latestSequence: note.latest_sequence, updatedAt: now }
+      return { acceptedUpdateHashes: [], latestSequence: note.latest_sequence, updatedAt: note.updated_at }
     })
   }
 

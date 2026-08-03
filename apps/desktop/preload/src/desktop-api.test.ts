@@ -45,7 +45,8 @@ describe('desktop preload API', () => {
       return stopNoteUpdates
     })
     const subscribeConfiguration = vi.fn(() => vi.fn())
-    const api = createDesktopApi(services, subscribeConfiguration, subscribeNoteUpdates)
+    const subscribeNoteSaveRequests = vi.fn(() => vi.fn())
+    const api = createDesktopApi(services, subscribeConfiguration, subscribeNoteSaveRequests, subscribeNoteUpdates)
 
     await expect(api.getConfiguration()).resolves.toEqual(configuration)
     await expect(api.setConfiguration(configuration)).resolves.toEqual(configuration)

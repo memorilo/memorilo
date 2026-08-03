@@ -9,6 +9,7 @@ import {
 import { createRendererConfigurationStore } from './configuration-store'
 import { resolveConfigLanguage } from './i18n'
 import { initI18n } from './i18n/init'
+import { NotePersistenceProvider } from './note-persistence-context'
 import { router } from './router'
 import './styles/renderer-global.css'
 
@@ -38,7 +39,9 @@ void createRendererConfigurationStore().then((store) => {
       <StrictMode>
         <DesktopConfigurationEnvironment store={store}>
           <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
+            <NotePersistenceProvider>
+              <RouterProvider router={router} />
+            </NotePersistenceProvider>
           </QueryClientProvider>
         </DesktopConfigurationEnvironment>
       </StrictMode>,

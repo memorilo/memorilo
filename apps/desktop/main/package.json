@@ -16,6 +16,7 @@
     "@huggingface/transformers": "3.7.5",
     "@memorilo/config": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
+    "@memorilo/desktop-preload": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",

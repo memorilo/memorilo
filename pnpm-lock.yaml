@@ -115,6 +115,9 @@ importers:
       '@memorilo/desktop-config':
         specifier: workspace:*
         version: link:../config
+      '@memorilo/desktop-preload':
+        specifier: workspace:*
+        version: link:../preload
       '@memorilo/editor':
         specifier: workspace:*
         version: link:../../../packages/editor

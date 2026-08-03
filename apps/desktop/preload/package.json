@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/contract.ts"
+    ".": "./src/contract.ts",
+    "./note-save-handshake": "./src/note-save-handshake.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

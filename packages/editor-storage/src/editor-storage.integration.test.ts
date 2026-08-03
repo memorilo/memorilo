@@ -117,6 +117,19 @@ afterEach(async () => {
 })
 
 describe('editor storage with an in-memory SQLite database', () => {
+  it('reports only newly accepted update hashes for idempotent retries', async () => {
+    const storage = await createStorage()
+    const created = await storage.createNote({ title: 'Receipts' })
+    const update = Uint8Array.from([1, 2, 3])
+
+    const first = await storage.saveNoteUpdates({ noteId: created.id, topics: [], updates: [update, update] })
+    const retry = await storage.saveNoteUpdates({ noteId: created.id, topics: [], updates: [update] })
+
+    expect(first.acceptedUpdateHashes).toHaveLength(1)
+    expect(first.latestSequence).toBe(1)
+    expect(retry).toEqual({ acceptedUpdateHashes: [], latestSequence: 1, updatedAt: first.updatedAt })
+  })
+
   it('restores a Note checkpoint, update log, and Topic Block projection', async () => {
     const storage = await createStorage()
     const opened = await storage.openMostRecentNote()
