@@ -1,7 +1,8 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  focus: 'rgba(34, 38, 45, 0.72)',
+  accent: 'rgb(0, 113, 227)',
+  focus: 'rgba(0, 96, 204, 0.72)',
   text: 'rgba(25, 28, 34, 0.9)',
   textMuted: 'rgba(49, 54, 63, 0.62)',
 } as const
@@ -17,7 +18,7 @@ export const learningRouteStyles = stylex.create({
     overflow: 'hidden',
     flexDirection: 'column',
     paddingTop: 56,
-    backgroundColor: 'rgb(248, 249, 251)',
+    backgroundColor: 'rgb(255, 255, 255)',
     color: colors.text,
   },
   tabRegion: {
@@ -48,21 +49,16 @@ export const learningRouteStyles = stylex.create({
     borderRadius: 10,
     padding: 3,
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.06)',
+      'default': 'rgba(244, 246, 249, 0.72)',
       '@media (prefers-reduced-transparency: reduce)': 'rgb(235, 239, 245)',
       '@media (prefers-contrast: more)': 'rgb(245, 247, 250)',
     },
-    backgroundImage: {
-      'default': 'radial-gradient(circle 72px at var(--learning-glass-light-x, 50%) var(--learning-glass-light-y, 0%), rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.13) 36%, transparent 69%), linear-gradient(112deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.04) 52%, rgba(255, 255, 255, 0.2))',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-      '@media (prefers-contrast: more)': 'none',
-    },
     backdropFilter: {
-      'default': 'saturate(165%) contrast(1.045) brightness(1.015)',
+      'default': 'blur(18px) saturate(165%) contrast(1.045) brightness(1.015)',
       '@media (prefers-reduced-transparency: reduce)': 'none',
     },
     boxShadow: {
-      'default': '0 3px 8px rgba(32, 42, 58, 0.08), 0 1px 2px rgba(32, 42, 58, 0.06), inset 0 1px rgba(255, 255, 255, 0.78)',
+      'default': '0 3px 8px rgba(32, 42, 58, 0.08), 0 1px 2px rgba(32, 42, 58, 0.06)',
       '@media (prefers-contrast: more)': '0 8px 20px rgba(31, 37, 47, 0.16), 0 0 0 1px rgba(39, 44, 52, 0.42), inset 0 1px rgba(255, 255, 255, 0.94)',
     },
     userSelect: 'none',
@@ -99,7 +95,7 @@ export const learningRouteStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   tabSelected: {
-    color: colors.text,
+    color: colors.accent,
   },
   selectionIndicator: {
     position: 'absolute',
@@ -107,9 +103,9 @@ export const learningRouteStyles = stylex.create({
     inset: 0,
     borderRadius: 7,
     backgroundColor: {
-      'default': 'rgba(42, 47, 55, 0.075)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgba(42, 47, 55, 0.1)',
-      '@media (prefers-contrast: more)': 'rgba(30, 34, 40, 0.16)',
+      'default': 'rgba(0, 113, 227, 0.085)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgba(0, 113, 227, 0.12)',
+      '@media (prefers-contrast: more)': 'rgba(0, 91, 190, 0.18)',
     },
     pointerEvents: 'none',
     willChange: 'transform',
