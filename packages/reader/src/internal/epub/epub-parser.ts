@@ -55,6 +55,10 @@ function childElements(parent: ParentNode, localName: string): Element[] {
   return Array.from(parent.querySelectorAll('*')).filter(element => element.localName === localName)
 }
 
+function directChildElements(parent: ParentNode, localName: string): Element[] {
+  return Array.from(parent.children).filter(element => element.localName === localName)
+}
+
 function firstElement(parent: ParentNode, localName: string): Element {
   const element = childElements(parent, localName)[0]
   if (!element)
@@ -87,6 +91,13 @@ function directoryName(path: string): string {
 
 function resolvePath(basePath: string, reference: string): string {
   return normalizePath(`${directoryName(basePath)}${reference}`)
+}
+
+function resolveNavigationHref(basePath: string, reference: string): string {
+  const { path, suffix } = splitReference(reference.trim())
+  if (!path)
+    return `${normalizePath(basePath)}${suffix}`
+  return `${resolvePath(basePath, path)}${suffix}`
 }
 
 function isRemoteReference(reference: string): boolean {
@@ -449,6 +460,99 @@ function parseLayout(tokens: Set<string>, fallback: Layout): Layout {
   return fallback
 }
 
+function normalizedLabel(element: Element): string {
+  return (element.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function directChildWithName(parent: ParentNode, localName: string): Element | undefined {
+  return directChildElements(parent, localName)[0]
+}
+
+function navigationDocumentLinks(document: XMLDocument, documentPath: string): Link[] {
+  const navigation = childElements(document, 'nav').find((element) => {
+    const type = element.getAttribute('epub:type')
+      ?? element.getAttributeNS('http://www.idpf.org/2007/ops', 'type')
+      ?? ''
+    return type.split(/\s+/).includes('toc') || element.getAttribute('role') === 'doc-toc'
+  })
+  if (!navigation)
+    return []
+
+  const list = directChildWithName(navigation, 'ol')
+  if (!list)
+    return []
+
+  const parseList = (orderedList: Element): Link[] => directChildElements(orderedList, 'li').flatMap((item) => {
+    const target = directChildWithName(item, 'a') ?? directChildWithName(item, 'span')
+    const childList = directChildWithName(item, 'ol')
+    const children = childList ? parseList(childList) : []
+    const label = target ? normalizedLabel(target) : ''
+    const href = target?.getAttribute('href')
+    if (!label)
+      return children
+    const resolvedHref = href
+      ? resolveNavigationHref(documentPath, href)
+      : children[0]?.href
+    if (!resolvedHref)
+      return []
+    return [new Link({
+      children: children.length > 0 ? new Links(children) : undefined,
+      href: resolvedHref,
+      title: label,
+      type: mediaTypeForPath(normalizePath(resolvedHref)),
+    })]
+  })
+
+  return parseList(list)
+}
+
+function ncxLinks(document: XMLDocument, documentPath: string): Link[] {
+  const navigationMap = childElements(document, 'navMap')[0]
+  if (!navigationMap)
+    return []
+
+  const parsePoints = (parent: Element): Link[] => directChildElements(parent, 'navPoint').flatMap((point) => {
+    const labelElement = directChildWithName(point, 'navLabel')
+    const textElement = labelElement ? childElements(labelElement, 'text')[0] : undefined
+    const content = directChildWithName(point, 'content')
+    const source = content?.getAttribute('src')
+    const children = parsePoints(point)
+    const label = textElement ? normalizedLabel(textElement) : ''
+    if (!label || !source)
+      return children
+    const href = resolveNavigationHref(documentPath, source)
+    return [new Link({
+      children: children.length > 0 ? new Links(children) : undefined,
+      href,
+      title: label,
+      type: mediaTypeForPath(normalizePath(href)),
+    })]
+  })
+
+  return parsePoints(navigationMap)
+}
+
+async function parseTableOfContents(
+  archive: EpubArchive,
+  manifestItems: ReadonlyMap<string, ManifestItem>,
+  spineElement: Element,
+): Promise<Link[]> {
+  const navigationItem = [...manifestItems.values()].find(item => item.properties.has('nav'))
+  if (navigationItem) {
+    const document = parseXml(await archive.readText(navigationItem.href), 'EPUB navigation document')
+    const links = navigationDocumentLinks(document, navigationItem.href)
+    if (links.length > 0)
+      return links
+  }
+
+  const ncxId = spineElement.getAttribute('toc')
+  const ncxItem = ncxId ? manifestItems.get(ncxId) : undefined
+  if (!ncxItem)
+    return []
+  const document = parseXml(await archive.readText(ncxItem.href), 'EPUB NCX document')
+  return ncxLinks(document, ncxItem.href)
+}
+
 export async function parseEpub(bytes: Uint8Array): Promise<ParsedEpub> {
   const archive = await EpubArchive.open(bytes)
   try {
@@ -527,6 +631,7 @@ export async function parseEpub(bytes: Uint8Array): Promise<ParsedEpub> {
         rels: item.properties.has('cover-image') ? new Set(['cover']) : undefined,
         type: item.mediaType,
       }))
+    const tableOfContents = await parseTableOfContents(archive, manifestItems, spineElement)
     const allLinks = [...readingOrder, ...resources]
     archive.registerLinks(allLinks)
 
@@ -545,6 +650,7 @@ export async function parseEpub(bytes: Uint8Array): Promise<ParsedEpub> {
       metadata,
       readingOrder: new Links(readingOrder),
       resources: new Links(resources),
+      toc: tableOfContents.length > 0 ? new Links(tableOfContents) : undefined,
     })
     manifest.setSelfLink(`https://memorilo-reader.invalid/${crypto.randomUUID()}/manifest.json`)
     const publication = new Publication({ fetcher: archive, manifest })

@@ -3,6 +3,9 @@ export type {
   BrowseShelfInput,
   CachedShelfAsset,
   CachedShelfPage,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
   SaveShelfSourceInput,
   ShelfAssetInput,
   ShelfAssetResult,
@@ -20,6 +23,10 @@ export type {
   ShelfPublicationLink,
   ShelfPublicationMetadata,
   ShelfPublicationSubject,
+  ShelfReadingDocument,
+  ShelfReadingFormat,
+  ShelfReadingOption,
+  ShelfReadingRetention,
   ShelfSource,
   ShelfSourceField,
   ShelfSourceFieldClocks,
@@ -30,8 +37,14 @@ export type {
   UpdateShelfSourceInput,
 } from './model'
 export {
+  shelfReadingAcquisitions,
+  shelfReadingMediaType,
+} from './reading'
+export type { ShelfReadingAcquisition } from './reading'
+export {
   fetchShelfAsset,
   fetchShelfPage,
+  fetchShelfPublication,
   ShelfAuthenticationError,
   ShelfNetworkError,
   ShelfParseError,
@@ -42,6 +55,8 @@ export type {
   FetchShelfAssetResult,
   FetchShelfPageInput,
   FetchShelfPageResult,
+  FetchShelfPublicationInput,
+  FetchShelfPublicationResult,
   ShelfRequestCredentials,
   ShelfRequestError,
 } from './request'

@@ -1,6 +1,9 @@
 import type {
   AddShelfSourceInput,
   BrowseShelfInput,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
   ShelfAssetInput,
   ShelfBrowseGroup,
   ShelfBrowseIssue,
@@ -8,24 +11,29 @@ import type {
   ShelfImageCache,
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
+  ShelfReadingDocument,
   ShelfRequestCredentials,
   ShelfSource,
   ShelfStorage,
   StoredShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
+import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import {
   fetchShelfAsset,
   fetchShelfPage,
+  fetchShelfPublication,
   ShelfAuthenticationError,
   ShelfNetworkError,
   ShelfParseError,
+  shelfReadingAcquisitions,
   ShelfResponseError,
 } from '@memorilo/shelf'
+import { createShelfReadingId } from '@memorilo/shelf/node'
 import { Effect } from 'effect'
-import { safeStorage } from 'electron'
+import { BrowserWindow, dialog, safeStorage } from 'electron'
 import { IpcMethod, IpcService } from 'electron-ipc-decorator'
 
 const maximumConcurrentShelfAssetRequests = 3
@@ -198,8 +206,26 @@ async function refreshGroup(
   }
 }
 
-export function createShelfService(storage: ShelfStorage, imageCache: ShelfImageCache) {
+export function createShelfService(
+  storage: ShelfStorage,
+  imageCache: ShelfImageCache,
+  readingFiles: ShelfReadingFileStore,
+) {
   const limitAssetRequest = createConcurrencyLimiter(maximumConcurrentShelfAssetRequests)
+  const readingLocks = new Map<string, Promise<void>>()
+
+  const withReadingLock = async (readingId: string, operation: () => Promise<void>): Promise<void> => {
+    const predecessor = readingLocks.get(readingId) ?? Promise.resolve()
+    const current = predecessor.then(operation, operation)
+    readingLocks.set(readingId, current)
+    try {
+      await current
+    }
+    finally {
+      if (readingLocks.get(readingId) === current)
+        readingLocks.delete(readingId)
+    }
+  }
 
   class ShelfService extends IpcService {
     static override readonly groupName = 'shelf'
@@ -289,10 +315,94 @@ export function createShelfService(storage: ShelfStorage, imageCache: ShelfImage
       const publication = await storage.getCachedPublication(source.id, input.publicationId)
       if (!publication)
         throw new Error('This book is no longer available in the saved Shelf catalog.')
+      const readingOptions = await Promise.all(shelfReadingAcquisitions(publication).map(async acquisition => ({
+        format: acquisition.format,
+        mediaType: acquisition.mediaType,
+        readingId: createShelfReadingId(source.id, publication.id, acquisition.format),
+        savedLocally: await readingFiles.getLocation(
+          createShelfReadingId(source.id, publication.id, acquisition.format),
+        ) === 'library',
+      })))
       return {
         publication,
+        readingOptions,
         source: publicSource(source),
       }
+    }
+
+    @IpcMethod()
+    async prepareReading(input: PrepareShelfReadingInput): Promise<PreparedShelfReading> {
+      if (input.retention !== 'cache' && input.retention !== 'library')
+        throw new TypeError(`Unsupported Shelf reading retention: ${input.retention}`)
+      const source = await storage.getSource(input.sourceId)
+      if (!source)
+        throw new Error(`Unknown Shelf source: ${input.sourceId}`)
+      const publication = await storage.getCachedPublication(source.id, input.publicationId)
+      if (!publication)
+        throw new Error('This book is no longer available in the saved Shelf catalog.')
+      const acquisition = shelfReadingAcquisitions(publication).find(candidate => candidate.format === input.format)
+      if (!acquisition)
+        throw new Error(`This book does not provide a readable ${input.format.toLocaleUpperCase()} download.`)
+      const readingId = createShelfReadingId(source.id, publication.id, acquisition.format)
+
+      await withReadingLock(readingId, async () => {
+        const location = await readingFiles.getLocation(readingId)
+        if (location === 'library' || (location === 'cache' && input.retention === 'cache'))
+          return
+        if (location === 'cache' && input.retention === 'library') {
+          const promoted = await readingFiles.promote(readingId)
+          if (!promoted)
+            throw new Error('The cached book disappeared before it could be saved locally.')
+          return
+        }
+
+        const credentials = credentialsFromSource(source)
+        const result = await Effect.runPromise(fetchShelfPublication({
+          ...(credentials ? { credentials } : {}),
+          format: acquisition.format,
+          url: acquisition.href,
+        }))
+        await readingFiles.save({
+          bytes: result.bytes,
+          format: acquisition.format,
+          name: publication.title,
+          readingId,
+          retention: input.retention,
+        })
+      })
+
+      return { readingId }
+    }
+
+    @IpcMethod()
+    async openReading(input: OpenShelfReadingInput): Promise<ShelfReadingDocument> {
+      const document = await readingFiles.open(input.readingId)
+      if (!document)
+        throw new Error('This temporary book is no longer cached. Open it again from Shelf.')
+      return document
+    }
+
+    @IpcMethod()
+    async deleteReading(readingId: string): Promise<boolean> {
+      if (await readingFiles.getLocation(readingId) !== 'library')
+        return false
+      const focusedWindow = BrowserWindow.getFocusedWindow()
+      const messageOptions = {
+        buttons: ['Cancel', 'Delete'],
+        cancelId: 0,
+        defaultId: 1,
+        detail: 'The book can be downloaded again from its source.',
+        message: 'Delete the local book file?',
+        noLink: true,
+        title: 'Delete Local File',
+        type: 'warning' as const,
+      }
+      const confirmation = focusedWindow
+        ? await dialog.showMessageBox(focusedWindow, messageOptions)
+        : await dialog.showMessageBox(messageOptions)
+      if (confirmation.response !== 1)
+        return false
+      return readingFiles.deleteLibrary(readingId)
     }
 
     @IpcMethod()

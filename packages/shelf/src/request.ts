@@ -7,6 +7,7 @@ import type {
   ShelfPublicationLink,
   ShelfPublicationMetadata,
   ShelfPublicationSubject,
+  ShelfReadingFormat,
 } from './model'
 import { Data, Effect } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
@@ -66,6 +67,10 @@ export type FetchShelfPageResult = {
 
 export interface FetchShelfAssetInput extends FetchShelfPageInput {}
 
+export interface FetchShelfPublicationInput extends FetchShelfPageInput {
+  format: ShelfReadingFormat
+}
+
 export type FetchShelfAssetResult = {
   fetchedAt: number
   status: 'not-modified'
@@ -76,6 +81,11 @@ export type FetchShelfAssetResult = {
   lastModified: string | null
   mimeType: string
   status: 'updated'
+}
+
+export interface FetchShelfPublicationResult {
+  bytes: Uint8Array
+  mimeType: string
 }
 
 type UnknownRecord = Record<string, unknown>
@@ -628,6 +638,43 @@ export function fetchShelfAsset(input: FetchShelfAssetInput): Effect.Effect<Fetc
         lastModified: response.headers.get('last-modified'),
         mimeType,
         status: 'updated',
+      }
+    },
+    catch: error => knownRequestError(error, input.url),
+  })
+}
+
+function hasPublicationSignature(bytes: Uint8Array, format: ShelfReadingFormat): boolean {
+  const signature = format === 'pdf'
+    ? [0x25, 0x50, 0x44, 0x46, 0x2D]
+    : [0x50, 0x4B]
+  return signature.every((value, index) => bytes[index] === value)
+}
+
+export function fetchShelfPublication(
+  input: FetchShelfPublicationInput,
+): Effect.Effect<FetchShelfPublicationResult, ShelfRequestError> {
+  return Effect.tryPromise({
+    try: async (signal) => {
+      const url = assertRemoteUrl(input.url)
+      const response = await fetch(url, {
+        headers: requestHeaders(input, input.format === 'epub' ? 'application/epub+zip' : 'application/pdf'),
+        redirect: 'follow',
+        signal,
+      })
+      if (!response.ok)
+        responseError(response, url)
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (bytes.byteLength === 0 || !hasPublicationSignature(bytes, input.format)) {
+        throw new ShelfResponseError({
+          message: `Downloaded ${input.format.toLocaleUpperCase()} content is not a valid publication.`,
+          status: response.status,
+          url,
+        })
+      }
+      return {
+        bytes,
+        mimeType: input.format === 'epub' ? 'application/epub+zip' : 'application/pdf',
       }
     },
     catch: error => knownRequestError(error, input.url),

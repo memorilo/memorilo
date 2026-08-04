@@ -1,4 +1,4 @@
-export { Reader } from './reader'
+export { Reader, WindowReader } from './reader'
 export type {
   ReaderAnchor,
   ReaderAnnotation,
@@ -16,6 +16,7 @@ export type {
   ReaderOcrResult,
   ReaderOcrStatus,
   ReaderOcrTextItem,
+  ReaderOutlineItem,
   ReaderPdfRegionAnchor,
   ReaderPdfTextAnchor,
   ReaderPresentationMode,

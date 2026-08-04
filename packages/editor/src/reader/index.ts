@@ -1,4 +1,4 @@
-export { Reader } from '@memorilo/reader'
+export { Reader, WindowReader } from '@memorilo/reader'
 export type {
   ReaderAnchor,
   ReaderAnnotation,

@@ -1,25 +1,35 @@
 import type { Decoration, DecorationObserver } from '@readium/navigator'
 import type { BasicTextSelection } from '@readium/navigator-html-injectables'
+import type { Link } from '@readium/shared'
 import type {
   ReaderAnnotation,
   ReaderAnnotationColor,
   ReaderEpubLocator,
+  ReaderOutlineItem,
   ReaderPresentationMode,
   ReaderTextQuote,
 } from '../../types'
-import type { ReaderAdapter, ReaderAdapterCallbacks, ReaderAdapterState } from '../reader-adapter'
+import type {
+  ReaderAdapter,
+  ReaderAdapterCallbacks,
+  ReaderAdapterKeyboardEvent,
+  ReaderAdapterState,
+  ReaderPageEdge,
+  ReaderScrollDirection,
+  ReaderScrollResult,
+} from '../reader-adapter'
 import type { EpubLayoutKind, ParsedEpub } from './epub-parser'
 import { DecorationStyleType, EpubNavigator, EpubPreferences } from '@readium/navigator'
 import { Locator } from '@readium/shared'
+import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
 import { parseEpub } from './epub-parser'
+import './epub-layer.css'
 
 interface EpubSource {
   bytes: Uint8Array
   name: string
 }
 
-const minimumScale = 0.75
-const maximumScale = 2
 const annotationGroup = 'memorilo-annotations'
 
 const annotationTints: Record<ReaderAnnotationColor, string> = {
@@ -31,7 +41,24 @@ const annotationTints: Record<ReaderAnnotationColor, string> = {
 }
 
 function clampScale(value: number) {
-  return Math.min(maximumScale, Math.max(minimumScale, Math.round(value * 10) / 10))
+  return Math.min(readerMaximumScale, Math.max(readerMinimumScale, Math.round(value * 10) / 10))
+}
+
+function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
+  if (!target || typeof (target as Element).closest !== 'function')
+    return false
+  return (target as Element).closest('button, input, select, textarea, [contenteditable="true"]') !== null
+}
+
+function readerKeyboardEvent(event: KeyboardEvent): ReaderAdapterKeyboardEvent {
+  return {
+    altKey: event.altKey,
+    ctrlKey: event.ctrlKey,
+    key: event.key,
+    metaKey: event.metaKey,
+    repeat: event.repeat,
+    shiftKey: event.shiftKey,
+  }
 }
 
 function toError(value: unknown): Error {
@@ -58,7 +85,7 @@ function preferences(mode: ReaderPresentationMode, scale: number) {
     })
   }
   return new EpubPreferences({
-    fontSize: null,
+    fontSize: scale === 1 ? null : scale,
     fontSizeNormalize: null,
     lineHeight: null,
     optimalLineLength: null,
@@ -142,12 +169,33 @@ function readiumDecoration(annotation: ReaderAnnotation): Decoration | null {
   }
 }
 
+function epubOutline(
+  links: readonly Link[],
+  linksById: Map<string, Link>,
+  parentPath = 'epub',
+): ReaderOutlineItem[] {
+  return links.map((link, index) => {
+    const id = `${parentPath}.${index}`
+    linksById.set(id, link)
+    return {
+      children: epubOutline(link.children?.items ?? [], linksById, id),
+      href: link.href,
+      id,
+      label: link.title?.trim() || link.href,
+      navigable: true,
+    }
+  })
+}
+
 class EpubAdapter implements ReaderAdapter {
   private annotations: readonly ReaderAnnotation[] = []
   private container: HTMLElement | null = null
   private currentLocator: Locator
   private destroyed = false
   private navigator: EpubNavigator | null = null
+  private readonly keyboardDocuments = new WeakSet<Document>()
+  private readonly outline: readonly ReaderOutlineItem[]
+  private readonly outlineLinks = new Map<string, Link>()
   private presentationMode: ReaderPresentationMode
   private scale = 1
 
@@ -169,6 +217,7 @@ class EpubAdapter implements ReaderAdapter {
     if (!initialLocator)
       throw new Error('EPUB does not contain a readable spine position')
     this.currentLocator = initialLocator
+    this.outline = epubOutline(parsed.publication.toc?.items ?? [], this.outlineLinks)
   }
 
   async mount(container: HTMLElement) {
@@ -179,6 +228,7 @@ class EpubAdapter implements ReaderAdapter {
     this.container = container
 
     const navigatorContainer = document.createElement('div')
+    navigatorContainer.className = 'reader-epub-surface'
     navigatorContainer.setAttribute('role', 'document')
     navigatorContainer.setAttribute('aria-label', this.parsed.title)
     Object.assign(navigatorContainer.style, {
@@ -196,11 +246,11 @@ class EpubAdapter implements ReaderAdapter {
       navigatorContainer,
       this.parsed.publication,
       {
-        click: () => false,
+        click: () => true,
         contentProtection: () => undefined,
         contextMenu: () => undefined,
         customEvent: () => undefined,
-        frameLoaded: () => undefined,
+        frameLoaded: frameWindow => this.observeFrameKeyboard(frameWindow),
         handleLocator: () => true,
         miscPointer: () => undefined,
         peripheral: () => undefined,
@@ -209,7 +259,7 @@ class EpubAdapter implements ReaderAdapter {
           this.emitState()
         },
         scroll: () => undefined,
-        tap: () => false,
+        tap: () => true,
         textSelected: (selection) => {
           try {
             this.handleTextSelection(selection)
@@ -260,7 +310,7 @@ class EpubAdapter implements ReaderAdapter {
     await this.parsed.archive.close()
   }
 
-  async goBackward() {
+  async goBackward(_entryEdge: ReaderPageEdge) {
     const navigator = this.requireNavigator()
     if (!navigator.canGoBackward)
       return
@@ -269,7 +319,7 @@ class EpubAdapter implements ReaderAdapter {
     this.emitState()
   }
 
-  async goForward() {
+  async goForward(_entryEdge: ReaderPageEdge) {
     const navigator = this.requireNavigator()
     if (!navigator.canGoForward)
       return
@@ -293,6 +343,26 @@ class EpubAdapter implements ReaderAdapter {
           reject(new Error(`Unable to navigate to EPUB annotation ${annotationId}`))
       })
     })
+  }
+
+  async goToOutlineItem(outlineItemId: string) {
+    const link = this.outlineLinks.get(outlineItemId)
+    if (!link)
+      throw new Error(`EPUB outline item ${outlineItemId} does not exist`)
+    await new Promise<void>((resolve, reject) => {
+      this.requireNavigator().goLink(link, false, (ok) => {
+        if (ok)
+          resolve()
+        else
+          reject(new Error(`Unable to navigate to EPUB outline item ${outlineItemId}`))
+      })
+    })
+    this.currentLocator = this.requireNavigator().currentLocator
+    this.emitState()
+  }
+
+  moveViewport(_direction: ReaderScrollDirection): ReaderScrollResult {
+    return 'at-boundary'
   }
 
   async recognizeCurrentPage() {
@@ -319,13 +389,13 @@ class EpubAdapter implements ReaderAdapter {
   }
 
   async setScale(scale: number) {
-    if (this.presentationMode !== 'reader' || this.parsed.layout !== 'reflowable')
+    if (this.parsed.layout !== 'reflowable')
       return
     const nextScale = clampScale(scale)
     if (nextScale === this.scale)
       return
     this.scale = nextScale
-    await this.requireNavigator().submitPreferences(preferences('reader', this.scale))
+    await this.requireNavigator().submitPreferences(preferences(this.presentationMode, this.scale))
     this.emitState()
   }
 
@@ -333,6 +403,21 @@ class EpubAdapter implements ReaderAdapter {
     if (!this.navigator || this.destroyed)
       throw new Error('EPUB reader is not available')
     return this.navigator
+  }
+
+  private observeFrameKeyboard(frameWindow: Window) {
+    const frameDocument = frameWindow.document
+    if (this.keyboardDocuments.has(frameDocument))
+      return
+    this.keyboardDocuments.add(frameDocument)
+    frameDocument.addEventListener('keydown', (event) => {
+      if (isInteractiveKeyboardTarget(event.target))
+        return
+      if (!this.callbacks.onKeyDown(readerKeyboardEvent(event)))
+        return
+      event.preventDefault()
+      event.stopPropagation()
+    }, true)
   }
 
   private applyAnnotations() {
@@ -393,7 +478,7 @@ class EpubAdapter implements ReaderAdapter {
         ocr: false,
         presentationModes: readerModeAvailable ? ['publisher', 'reader'] : ['publisher'],
         regionSelection: false,
-        scale: readerModeAvailable && this.presentationMode === 'reader',
+        scale: readerModeAvailable,
         textSelection: true,
       },
       format: 'epub',
@@ -405,6 +490,7 @@ class EpubAdapter implements ReaderAdapter {
         progression,
         total: readingOrder.length,
       },
+      outline: this.outline,
       presentationMode: this.presentationMode,
       presentationModeReason: presentationReason(this.parsed.layout),
       scale: this.scale,

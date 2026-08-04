@@ -95,11 +95,26 @@ importers:
         specifier: 0.1.9
         version: 0.1.9
 
+  apps/desktop/config:
+    dependencies:
+      '@memorilo/config':
+        specifier: workspace:*
+        version: link:../../../packages/config
+      effect:
+        specifier: 4.0.0-beta.23
+        version: 4.0.0-beta.23
+
   apps/desktop/main:
     dependencies:
       '@huggingface/transformers':
         specifier: 3.7.5
         version: 3.7.5
+      '@memorilo/config':
+        specifier: workspace:*
+        version: link:../../../packages/config
+      '@memorilo/desktop-config':
+        specifier: workspace:*
+        version: link:../config
       '@memorilo/editor':
         specifier: workspace:*
         version: link:../../../packages/editor
@@ -131,6 +146,9 @@ importers:
 
   apps/desktop/preload:
     dependencies:
+      '@memorilo/desktop-config':
+        specifier: workspace:*
+        version: link:../config
       '@memorilo/shelf':
         specifier: workspace:*
         version: link:../../../packages/shelf
@@ -144,6 +162,12 @@ importers:
 
   apps/desktop/renderer:
     dependencies:
+      '@memorilo/config':
+        specifier: workspace:*
+        version: link:../../../packages/config
+      '@memorilo/desktop-config':
+        specifier: workspace:*
+        version: link:../config
       '@memorilo/desktop-preload':
         specifier: workspace:*
         version: link:../preload
@@ -187,6 +211,31 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.17)
+
+  packages/config:
+    dependencies:
+      '@stylexjs/stylex':
+        specifier: 0.19.0
+        version: 0.19.0
+      effect:
+        specifier: 4.0.0-beta.23
+        version: 4.0.0-beta.23
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.30
+        version: 22.20.1
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.17

@@ -1,8 +1,8 @@
-import type { ShelfPublication, ShelfPublicationLink } from '@memorilo/shelf'
+import type { ShelfPublication, ShelfPublicationLink, ShelfReadingFormat } from '@memorilo/shelf'
 import * as stylex from '@stylexjs/stylex'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, getRouteApi, Link } from '@tanstack/react-router'
-import { AlertCircle, BookOpen, ChevronRight, LoaderCircle } from 'lucide-react'
+import { AlertCircle, BookOpen, ChevronDown, ChevronRight, Info, LoaderCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { usePageTitlebar } from '../components/page-titlebar'
 import { shelfBookStyles } from './-shelf-book.stylex'
@@ -27,6 +27,12 @@ interface PublicationMetadata {
 
 const shelfBookRouteApi = getRouteApi('/shelf_/book')
 const shelfBookTitlebar = {} as const
+const onlineReadingPreferenceKey = 'memorilo.shelf.online-reading.v1'
+const onlineReadingHelp = 'When enabled, this book is kept temporarily and may be removed when the cache is full. Turn it off to keep the book until you delete it.'
+
+function initialOnlineReadingPreference(): boolean {
+  return window.localStorage.getItem(onlineReadingPreferenceKey) !== 'library'
+}
 
 function requiredSearchValue(search: Record<string, unknown>, name: keyof ShelfBookSearch): string {
   const value = search[name]
@@ -252,19 +258,49 @@ function BookCover({ publication, sourceId }: { publication: ShelfPublication, s
 
 function ShelfBookRoute() {
   const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(false)
+  const [onlineReading, setOnlineReading] = useState(initialOnlineReadingPreference)
+  const [selectedFormat, setSelectedFormat] = useState<ShelfReadingFormat | null>(null)
   const search = shelfBookRouteApi.useSearch()
+  const navigate = shelfBookRouteApi.useNavigate()
+  const queryClient = useQueryClient()
+  const detailsQueryKey = shelfPublicationQueryKey(search.source, search.publication)
   const detailsQuery = useQuery(shelfEffectQuery.queryOptions({
     queryFn: () => desktopEffect(() => window.desktop.getShelfPublicationDetails({
       publicationId: search.publication,
       sourceId: search.source,
     })),
-    queryKey: shelfPublicationQueryKey(search.source, search.publication),
+    queryKey: detailsQueryKey,
     retry: false,
-    staleTime: Infinity,
+    staleTime: 0,
+  }))
+  const prepareReadingMutation = useMutation(shelfEffectQuery.mutationOptions({
+    mutationFn: (format: ShelfReadingFormat) => desktopEffect(() => window.desktop.prepareShelfReading({
+      format,
+      publicationId: search.publication,
+      retention: onlineReading ? 'cache' : 'library',
+      sourceId: search.source,
+    })),
+    mutationKey: ['shelf-prepare-reading', search.source, search.publication],
+    onSuccess: async (prepared) => {
+      if (!onlineReading)
+        await queryClient.invalidateQueries({ queryKey: detailsQueryKey })
+      await navigate({ params: { readingId: prepared.readingId }, to: '/reader/$readingId' })
+    },
+  }))
+  const deleteReadingMutation = useMutation(shelfEffectQuery.mutationOptions({
+    mutationFn: (readingId: string) => desktopEffect(() => window.desktop.deleteShelfReading(readingId)),
+    mutationKey: ['shelf-delete-reading', search.source, search.publication],
+    onSuccess: async (deleted) => {
+      if (deleted)
+        await queryClient.invalidateQueries({ queryKey: detailsQueryKey })
+    },
   }))
   usePageTitlebar(shelfBookTitlebar)
 
   const details = detailsQuery.data
+  const selectedReadingOption = details?.readingOptions.find(option => option.format === selectedFormat)
+    ?? details?.readingOptions[0]
+    ?? null
   const summary = details ? plainTextSummary(details.publication.summary) : null
   const formats = details ? formatNames(details.publication) : []
   const metadata = details
@@ -277,6 +313,19 @@ function ShelfBookRoute() {
         details.source.name,
       ])
     : []
+  const readingError = prepareReadingMutation.error ?? deleteReadingMutation.error
+
+  const updateOnlineReading = (checked: boolean) => {
+    setOnlineReading(checked)
+    window.localStorage.setItem(onlineReadingPreferenceKey, checked ? 'cache' : 'library')
+    prepareReadingMutation.reset()
+  }
+
+  const updateSelectedFormat = (format: ShelfReadingFormat) => {
+    setSelectedFormat(format)
+    prepareReadingMutation.reset()
+    deleteReadingMutation.reset()
+  }
 
   return (
     <main {...stylex.props(shelfBookStyles.page)} aria-label="Book details">
@@ -321,6 +370,88 @@ function ShelfBookRoute() {
                                 ))}
                               </p>
                             )
+                          : null}
+                        <div {...stylex.props(shelfBookStyles.readingActions)}>
+                          <div
+                            {...stylex.props(
+                              shelfBookStyles.readControl,
+                              prepareReadingMutation.isPending && shelfBookStyles.readControlDisabled,
+                            )}
+                          >
+                            <button
+                              {...stylex.props(shelfBookStyles.readButton)}
+                              aria-busy={prepareReadingMutation.isPending}
+                              disabled={selectedReadingOption === null || prepareReadingMutation.isPending}
+                              title={selectedReadingOption === null ? 'No readable EPUB or PDF download is available' : 'Read this book'}
+                              type="button"
+                              onClick={() => {
+                                if (selectedReadingOption)
+                                  prepareReadingMutation.mutate(selectedReadingOption.format)
+                              }}
+                            >
+                              {prepareReadingMutation.isPending
+                                ? <LoaderCircle {...stylex.props(shelfBookStyles.spinner)} aria-hidden="true" size={16} strokeWidth={1.9} />
+                                : <BookOpen aria-hidden="true" size={16} strokeWidth={1.9} />}
+                              <span>{prepareReadingMutation.isPending ? 'Downloading…' : 'Read'}</span>
+                            </button>
+                            {details.readingOptions.length > 1 && selectedReadingOption
+                              ? (
+                                  <label {...stylex.props(shelfBookStyles.formatPicker)}>
+                                    <select
+                                      {...stylex.props(shelfBookStyles.formatSelect)}
+                                      aria-label="Reading format"
+                                      disabled={prepareReadingMutation.isPending}
+                                      value={selectedReadingOption.format}
+                                      onChange={event => updateSelectedFormat(event.target.value as ShelfReadingFormat)}
+                                    >
+                                      {details.readingOptions.map(option => (
+                                        <option key={option.format} value={option.format}>{option.format.toLocaleUpperCase()}</option>
+                                      ))}
+                                    </select>
+                                    <span>{selectedReadingOption.format.toLocaleUpperCase()}</span>
+                                    <ChevronDown aria-hidden="true" size={12} strokeWidth={2} />
+                                  </label>
+                                )
+                              : null}
+                          </div>
+                          <label {...stylex.props(shelfBookStyles.onlineReadingOption)}>
+                            <input
+                              {...stylex.props(shelfBookStyles.onlineReadingCheckbox)}
+                              checked={onlineReading}
+                              disabled={prepareReadingMutation.isPending}
+                              type="checkbox"
+                              onChange={event => updateOnlineReading(event.target.checked)}
+                            />
+                            <span>Online reading</span>
+                          </label>
+                          <span
+                            {...stylex.props(shelfBookStyles.readingHelp)}
+                            aria-label={onlineReadingHelp}
+                            role="img"
+                            tabIndex={0}
+                            title={onlineReadingHelp}
+                          >
+                            <Info aria-hidden="true" size={14} strokeWidth={1.9} />
+                          </span>
+                          {selectedReadingOption?.savedLocally
+                            ? (
+                                <button
+                                  {...stylex.props(shelfBookStyles.deleteReadingButton)}
+                                  aria-label="Delete local book file"
+                                  disabled={deleteReadingMutation.isPending || prepareReadingMutation.isPending}
+                                  title="Delete local file"
+                                  type="button"
+                                  onClick={() => deleteReadingMutation.mutate(selectedReadingOption.readingId)}
+                                >
+                                  {deleteReadingMutation.isPending
+                                    ? <LoaderCircle {...stylex.props(shelfBookStyles.spinner)} aria-hidden="true" size={15} strokeWidth={1.8} />
+                                    : <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />}
+                                </button>
+                              )
+                            : null}
+                        </div>
+                        {readingError
+                          ? <p {...stylex.props(shelfBookStyles.readingError)} role="alert">{readingError.message}</p>
                           : null}
                       </div>
                       <section {...stylex.props(shelfBookStyles.description)} aria-labelledby="book-description-title">

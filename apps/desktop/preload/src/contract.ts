@@ -1,23 +1,34 @@
+import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 import type {
   AddShelfSourceInput,
   BrowseShelfInput,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
   ShelfAssetInput,
   ShelfAssetResult,
   ShelfBrowseResult,
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
+  ShelfReadingDocument,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
 
+export type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+
 export type {
   AddShelfSourceInput,
   BrowseShelfInput,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
   ShelfAssetInput,
   ShelfAssetResult,
   ShelfBrowseResult,
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
+  ShelfReadingDocument,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -67,16 +78,19 @@ export type DesktopTopicBlockSearchMode = 'hybrid' | 'lexical' | 'semantic'
 
 export interface DesktopApi {
   addShelfSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
+  deleteShelfReading: (readingId: string) => Promise<boolean>
   getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+  getConfiguration: () => Promise<DesktopConfiguration>
   getShelfPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
   getRuntimeInfo: () => Promise<RuntimeInfo>
   getShelfAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
+  openShelfReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
   listShelfSources: () => Promise<readonly ShelfSource[]>
   openMostRecentNote: () => Promise<DesktopNote>
   refreshShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+  prepareShelfReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
   removeShelfSource: (sourceId: string) => Promise<void>
-  updateShelfSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
   searchTopicBlocks: (input: {
     limit?: number
@@ -84,4 +98,7 @@ export interface DesktopApi {
     noteId?: string
     query: string
   }) => Promise<readonly DesktopTopicBlockSearchHit[]>
+  setConfiguration: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
+  subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
+  updateShelfSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
 }

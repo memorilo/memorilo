@@ -99,6 +99,12 @@ export const appTitlebarStyles = stylex.create({
     justifyContent: 'center',
     transform: 'translateX(-50%)',
   },
+  titleSlotWide: {
+    display: {
+      'default': 'flex',
+      '@media (max-width: 1050px)': 'none',
+    },
+  },
   staticTitle: {
     display: 'flex',
     maxWidth: '100%',
