@@ -1,4 +1,5 @@
 import type {
+  PDFDataRangeTransport,
   PDFDocumentLoadingTask,
   PDFDocumentProxy,
   PDFPageProxy,
@@ -8,7 +9,6 @@ import type {
 } from 'pdfjs-dist'
 import type {
   ReaderAnnotation,
-  ReaderAnnotationColor,
   ReaderNormalizedRect,
   ReaderOcrProvider,
   ReaderOcrResult,
@@ -18,6 +18,7 @@ import type {
   ReaderTextLayerKind,
   ReaderTextQuote,
 } from '../../types'
+import type { FixedPageRegionSelectionResult } from '../fixed-page/region-selection'
 import type {
   ReaderAdapter,
   ReaderAdapterCallbacks,
@@ -27,25 +28,23 @@ import type {
   ReaderScrollDirection,
   ReaderScrollResult,
 } from '../reader-adapter'
-import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
+import type { ResolvedReaderSource } from '../source'
+import { fixedPageAnnotationTint } from '../fixed-page/annotations'
+import { clampFixedPageScale, clampUnit, normalizedRectWithinSurface } from '../fixed-page/geometry'
+import { FixedPageRegionSelectionController } from '../fixed-page/region-selection'
+import { FixedPageViewportController } from '../fixed-page/viewport'
+import { readerZoomScaleCapability } from '../reader-adapter'
 import './pdf-layer.css'
 
-interface PdfSource {
-  bytes: Uint8Array
-  name: string
-}
+type PdfSource = ResolvedReaderSource & { format: 'pdf' }
 
 interface PdfJsModule {
   AbortException: typeof import('pdfjs-dist').AbortException
+  PDFDataRangeTransport: typeof PDFDataRangeTransport
   PDFWorker: typeof PDFWorker
   RenderingCancelledException: typeof import('pdfjs-dist').RenderingCancelledException
   TextLayer: typeof TextLayer
   getDocument: typeof import('pdfjs-dist').getDocument
-}
-
-interface Point {
-  x: number
-  y: number
 }
 
 interface PdfReference {
@@ -63,28 +62,7 @@ type PdfDestination = string | readonly unknown[]
 
 type PdfTextContent = Awaited<ReturnType<PDFPageProxy['getTextContent']>>
 
-const scrollStep = 48
-const scrollBoundaryTolerance = 1
-
-function keyboardScrollBehavior(): ScrollBehavior {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
-}
-
-const annotationTints: Record<ReaderAnnotationColor, string> = {
-  blue: 'rgba(64, 148, 255, 0.34)',
-  green: 'rgba(63, 190, 108, 0.34)',
-  pink: 'rgba(255, 83, 139, 0.32)',
-  purple: 'rgba(140, 98, 255, 0.32)',
-  yellow: 'rgba(255, 205, 31, 0.38)',
-}
-
-function clampScale(value: number) {
-  return Math.min(readerMaximumScale, Math.max(readerMinimumScale, Math.round(value * 10) / 10))
-}
-
-function clampUnit(value: number) {
-  return Math.min(1, Math.max(0, value))
-}
+const pdfRangeChunkSize = 64 * 1024
 
 function isPdfReference(value: unknown): value is PdfReference {
   if (typeof value !== 'object' || value === null)
@@ -95,6 +73,38 @@ function isPdfReference(value: unknown): value is PdfReference {
 
 function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
+}
+
+function createPdfRangeTransport(
+  RangeTransport: typeof PDFDataRangeTransport,
+  source: PdfSource,
+  initialData: Uint8Array,
+  onError: (error: Error) => void,
+): PDFDataRangeTransport {
+  return new class extends RangeTransport {
+    private aborted = false
+
+    constructor() {
+      super(source.byteLength, initialData)
+    }
+
+    override abort(): void {
+      this.aborted = true
+    }
+
+    override requestDataRange(begin: number, end: number): void {
+      void source.read(begin, end - begin).then(
+        (bytes) => {
+          if (!this.aborted)
+            this.onDataRange(begin, bytes)
+        },
+        (error) => {
+          if (!this.aborted)
+            onError(toError(error))
+        },
+      )
+    }
+  }()
 }
 
 function hasExtractedText(content: PdfTextContent): boolean {
@@ -132,21 +142,6 @@ function canvasBlob(canvas: HTMLCanvasElement, signal: AbortSignal): Promise<Blo
       resolve(blob)
     }, 'image/png')
   })
-}
-
-function normalizedRect(rect: DOMRect, surfaceRect: DOMRect): ReaderNormalizedRect | null {
-  const left = Math.max(rect.left, surfaceRect.left)
-  const top = Math.max(rect.top, surfaceRect.top)
-  const right = Math.min(rect.right, surfaceRect.right)
-  const bottom = Math.min(rect.bottom, surfaceRect.bottom)
-  if (right <= left || bottom <= top)
-    return null
-  return {
-    height: clampUnit((bottom - top) / surfaceRect.height),
-    width: clampUnit((right - left) / surfaceRect.width),
-    x: clampUnit((left - surfaceRect.left) / surfaceRect.width),
-    y: clampUnit((top - surfaceRect.top) / surfaceRect.height),
-  }
 }
 
 function boundingClientRect(rects: readonly DOMRect[]): ReaderClientRect {
@@ -194,10 +189,8 @@ class PdfAdapter implements ReaderAdapter {
   private pageSurface: HTMLDivElement | null = null
   private pdfJs: PdfJsModule | null = null
   private pdfWorker: PDFWorker | null = null
-  private regionCapture: HTMLDivElement | null = null
-  private regionDraft: HTMLDivElement | null = null
-  private regionSelectionEnabled = false
-  private regionStart: Point | null = null
+  private rangeTransport: PDFDataRangeTransport | null = null
+  private readonly regionSelection: FixedPageRegionSelectionController
   private outline: readonly ReaderOutlineItem[] = []
   private readonly outlineDestinations = new Map<string, PdfDestination>()
   private renderGeneration = 0
@@ -205,17 +198,37 @@ class PdfAdapter implements ReaderAdapter {
   private resizeObserver: ResizeObserver | null = null
   private scale = 1
   private scroller: HTMLDivElement | null = null
-  private keyboardScrollTarget: { direction: ReaderScrollDirection, value: number } | null = null
   private readonly textContentCache = new Map<number, PdfTextContent>()
   private textLayer: HTMLDivElement | null = null
   private textLayerKind: ReaderTextLayerKind = 'none'
   private textLayerTask: TextLayer | null = null
+  private viewport: FixedPageViewportController | null = null
+  readonly recognizeCurrentPage?: () => Promise<void>
 
   constructor(
     private readonly source: PdfSource,
     private readonly ocrProvider: ReaderOcrProvider | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
-  ) {}
+  ) {
+    if (ocrProvider) {
+      this.recognizeCurrentPage = async () => {
+        this.ocrCache.delete(this.pageNumber)
+        await this.renderPage(true)
+        this.emitState()
+      }
+    }
+    this.regionSelection = new FixedPageRegionSelectionController({
+      applyEnabledState: (capture, enabled) => {
+        capture.classList.toggle('reader-pdf-region-capture-active', enabled)
+      },
+      createDraft: () => {
+        const draft = document.createElement('div')
+        draft.className = 'reader-pdf-region-draft'
+        return draft
+      },
+      onSelection: selection => this.publishRegionSelection(selection),
+    })
+  }
 
   async mount(container: HTMLElement) {
     if (this.destroyed)
@@ -228,9 +241,6 @@ class PdfAdapter implements ReaderAdapter {
     scroller.className = 'reader-pdf-scroller'
     scroller.setAttribute('role', 'document')
     scroller.setAttribute('aria-label', this.source.name)
-    scroller.addEventListener('wheel', () => {
-      this.keyboardScrollTarget = null
-    }, { passive: true })
 
     const pageSurface = document.createElement('div')
     pageSurface.className = 'reader-pdf-page'
@@ -246,10 +256,6 @@ class PdfAdapter implements ReaderAdapter {
     const regionCapture = document.createElement('div')
     regionCapture.className = 'reader-pdf-region-capture'
     regionCapture.setAttribute('aria-hidden', 'true')
-    regionCapture.addEventListener('pointerdown', event => this.beginRegionSelection(event))
-    regionCapture.addEventListener('pointermove', event => this.updateRegionSelection(event))
-    regionCapture.addEventListener('pointerup', event => this.finishRegionSelection(event))
-    regionCapture.addEventListener('pointercancel', () => this.cancelRegionSelection())
 
     pageSurface.append(canvas, annotationLayer, textLayer, regionCapture)
     scroller.append(pageSurface)
@@ -259,9 +265,13 @@ class PdfAdapter implements ReaderAdapter {
     this.canvas = canvas
     this.annotationLayer = annotationLayer
     this.textLayer = textLayer
-    this.regionCapture = regionCapture
+    this.regionSelection.mount(pageSurface, regionCapture)
+    this.viewport = new FixedPageViewportController(scroller)
 
-    const pdfJs = await import('pdfjs-dist')
+    const [pdfJs, initialData] = await Promise.all([
+      import('pdfjs-dist'),
+      this.source.read(0, Math.min(this.source.byteLength, pdfRangeChunkSize)),
+    ])
     if (this.destroyed)
       return
 
@@ -275,9 +285,17 @@ class PdfAdapter implements ReaderAdapter {
       name: `memorilo-pdf-${crypto.randomUUID()}`,
       port: nativeWorker,
     })
+    const rangeTransport = createPdfRangeTransport(
+      pdfJs.PDFDataRangeTransport,
+      this.source,
+      initialData,
+      this.callbacks.onError,
+    )
+    this.rangeTransport = rangeTransport
     this.loadingTask = pdfJs.getDocument({
-      data: this.source.bytes,
       enableXfa: false,
+      range: rangeTransport,
+      rangeChunkSize: pdfRangeChunkSize,
       stopAtErrors: true,
       worker: this.pdfWorker,
     })
@@ -305,6 +323,8 @@ class PdfAdapter implements ReaderAdapter {
       return
     this.destroyed = true
     this.renderGeneration += 1
+    this.rangeTransport?.abort()
+    this.rangeTransport = null
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     this.ocrAbortController?.abort(new DOMException('PDF reader destroyed', 'AbortError'))
@@ -325,13 +345,15 @@ class PdfAdapter implements ReaderAdapter {
     this.pdfWorker = null
     this.nativeWorker?.terminate()
     this.nativeWorker = null
+    this.regionSelection.destroy()
+    this.viewport?.destroy()
+    this.viewport = null
     this.scroller?.remove()
     this.scroller = null
     this.pageSurface = null
     this.canvas = null
     this.annotationLayer = null
     this.textLayer = null
-    this.regionCapture = null
     this.container = null
   }
 
@@ -341,7 +363,7 @@ class PdfAdapter implements ReaderAdapter {
     this.pageNumber -= 1
     this.clearSelection()
     await this.renderPage(false)
-    this.positionViewport(entryEdge)
+    this.viewport?.positionAtEdge(entryEdge)
     this.emitState()
   }
 
@@ -351,7 +373,7 @@ class PdfAdapter implements ReaderAdapter {
     this.pageNumber += 1
     this.clearSelection()
     await this.renderPage(false)
-    this.positionViewport(entryEdge)
+    this.viewport?.positionAtEdge(entryEdge)
     this.emitState()
   }
 
@@ -392,53 +414,7 @@ class PdfAdapter implements ReaderAdapter {
   }
 
   moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
-    const scroller = this.scroller
-    if (!scroller)
-      return 'at-boundary'
-
-    const vertical = direction === 'down' || direction === 'up'
-    const current = vertical ? scroller.scrollTop : scroller.scrollLeft
-    const maximum = vertical
-      ? scroller.scrollHeight - scroller.clientHeight
-      : scroller.scrollWidth - scroller.clientWidth
-    const boundary = direction === 'down' || direction === 'right' ? maximum : 0
-    if (maximum <= scrollBoundaryTolerance || Math.abs(boundary - current) <= scrollBoundaryTolerance) {
-      this.keyboardScrollTarget = null
-      return 'at-boundary'
-    }
-
-    const delta = direction === 'down' || direction === 'right' ? scrollStep : -scrollStep
-    const base = this.keyboardScrollTarget?.direction === direction
-      ? this.keyboardScrollTarget.value
-      : current
-    const next = Math.min(maximum, Math.max(0, base + delta))
-    this.keyboardScrollTarget = { direction, value: next }
-
-    if (vertical)
-      scroller.scrollTo({ behavior: keyboardScrollBehavior(), top: next })
-    else
-      scroller.scrollTo({ behavior: keyboardScrollBehavior(), left: next })
-    return 'scrolled'
-  }
-
-  private positionViewport(edge: ReaderPageEdge) {
-    const scroller = this.scroller
-    if (!scroller)
-      return
-    this.keyboardScrollTarget = null
-    scroller.scrollTo({
-      behavior: 'auto',
-      left: edge === 'start' ? 0 : Math.max(0, scroller.scrollWidth - scroller.clientWidth),
-      top: edge === 'start' ? 0 : Math.max(0, scroller.scrollHeight - scroller.clientHeight),
-    })
-  }
-
-  async recognizeCurrentPage() {
-    if (!this.ocrProvider)
-      throw new Error('No OCR provider was supplied to the PDF reader')
-    this.ocrCache.delete(this.pageNumber)
-    await this.renderPage(true)
-    this.emitState()
+    return this.viewport?.move(direction) ?? 'at-boundary'
   }
 
   setAnnotations(annotations: readonly ReaderAnnotation[]) {
@@ -446,52 +422,18 @@ class PdfAdapter implements ReaderAdapter {
     this.renderAnnotations()
   }
 
-  async setPresentationMode() {
-    // PDF pages always preserve their fixed presentation.
-  }
-
   setRegionSelectionEnabled(enabled: boolean) {
-    this.regionSelectionEnabled = enabled
-    this.regionCapture?.classList.toggle('reader-pdf-region-capture-active', enabled)
-    if (!enabled)
-      this.cancelRegionSelection()
+    this.regionSelection.setEnabled(enabled)
   }
 
   async setScale(scale: number) {
-    const nextScale = clampScale(scale)
+    const nextScale = clampFixedPageScale(scale)
     if (nextScale === this.scale)
       return
     this.scale = nextScale
     this.clearSelection()
     await this.renderPage(false)
     this.emitState()
-  }
-
-  private beginRegionSelection(event: PointerEvent) {
-    if (!this.regionSelectionEnabled || event.button !== 0)
-      return
-    const surface = this.pageSurface
-    const capture = this.regionCapture
-    if (!surface || !capture)
-      throw new Error('PDF region selection layer is not mounted')
-    event.preventDefault()
-    capture.setPointerCapture(event.pointerId)
-    const rect = surface.getBoundingClientRect()
-    this.regionStart = {
-      x: Math.min(rect.width, Math.max(0, event.clientX - rect.left)),
-      y: Math.min(rect.height, Math.max(0, event.clientY - rect.top)),
-    }
-    const draft = document.createElement('div')
-    draft.className = 'reader-pdf-region-draft'
-    capture.append(draft)
-    this.regionDraft = draft
-    this.positionRegionDraft(this.regionStart)
-  }
-
-  private cancelRegionSelection() {
-    this.regionDraft?.remove()
-    this.regionDraft = null
-    this.regionStart = null
   }
 
   private captureTextSelection() {
@@ -510,10 +452,9 @@ class PdfAdapter implements ReaderAdapter {
       canGoForward: this.pageNumber < total,
       capabilities: {
         annotations: true,
-        ocr: Boolean(this.ocrProvider),
-        presentationModes: ['publisher'],
+        ...(this.ocrProvider ? { ocr: true } : {}),
         regionSelection: true,
-        scale: true,
+        scale: readerZoomScaleCapability,
         textSelection: this.textLayerKind === 'embedded' || this.textLayerKind === 'ocr',
       },
       format: 'pdf',
@@ -549,31 +490,18 @@ class PdfAdapter implements ReaderAdapter {
     this.outline = convert(nodes ?? [], 'pdf')
   }
 
-  private finishRegionSelection(event: PointerEvent) {
-    if (!this.regionStart || !this.regionDraft || !this.pageSurface)
-      return
-    this.updateRegionSelection(event)
-    const draftRect = this.regionDraft.getBoundingClientRect()
-    const surfaceRect = this.pageSurface.getBoundingClientRect()
-    const rect = normalizedRect(draftRect, surfaceRect)
-    this.cancelRegionSelection()
-    this.setRegionSelectionEnabled(false)
-    if (!rect || draftRect.width < 6 || draftRect.height < 6) {
+  private publishRegionSelection(result: FixedPageRegionSelectionResult | null) {
+    if (!result) {
       this.callbacks.onSelectionChange(null)
       return
     }
     this.callbacks.onSelectionChange({
-      clientRect: {
-        height: draftRect.height,
-        left: draftRect.left,
-        top: draftRect.top,
-        width: draftRect.width,
-      },
+      clientRect: result.clientRect,
       selection: {
         anchor: {
           format: 'pdf',
           pageNumber: this.pageNumber,
-          rect,
+          rect: result.rect,
           type: 'region',
         },
         type: 'region',
@@ -603,7 +531,7 @@ class PdfAdapter implements ReaderAdapter {
     const surfaceRect = surface.getBoundingClientRect()
     const domRects = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0)
     const rects = domRects
-      .map(rect => normalizedRect(rect, surfaceRect))
+      .map(rect => normalizedRectWithinSurface(rect, surfaceRect))
       .filter((rect): rect is ReaderNormalizedRect => rect !== null)
     if (rects.length === 0)
       throw new Error('PDF selection did not produce a visible text rectangle')
@@ -631,19 +559,6 @@ class PdfAdapter implements ReaderAdapter {
     return content
   }
 
-  private positionRegionDraft(point: Point) {
-    const draft = this.regionDraft
-    const start = this.regionStart
-    if (!draft || !start)
-      return
-    const left = Math.min(start.x, point.x)
-    const top = Math.min(start.y, point.y)
-    draft.style.left = `${left}px`
-    draft.style.top = `${top}px`
-    draft.style.width = `${Math.abs(point.x - start.x)}px`
-    draft.style.height = `${Math.abs(point.y - start.y)}px`
-  }
-
   private renderAnnotations() {
     const layer = this.annotationLayer
     if (!layer)
@@ -657,7 +572,7 @@ class PdfAdapter implements ReaderAdapter {
         const highlight = document.createElement('div')
         highlight.className = 'reader-pdf-annotation'
         highlight.dataset.kind = annotation.kind
-        highlight.style.backgroundColor = annotationTints[annotation.color]
+        highlight.style.backgroundColor = fixedPageAnnotationTint(annotation.color)
         highlight.style.left = `${rect.x * 100}%`
         highlight.style.top = `${rect.y * 100}%`
         highlight.style.width = `${rect.width * 100}%`
@@ -870,16 +785,6 @@ class PdfAdapter implements ReaderAdapter {
       return
     this.renderAnnotations()
     this.emitState()
-  }
-
-  private updateRegionSelection(event: PointerEvent) {
-    if (!this.regionStart || !this.pageSurface)
-      return
-    const rect = this.pageSurface.getBoundingClientRect()
-    this.positionRegionDraft({
-      x: Math.min(rect.width, Math.max(0, event.clientX - rect.left)),
-      y: Math.min(rect.height, Math.max(0, event.clientY - rect.top)),
-    })
   }
 }
 

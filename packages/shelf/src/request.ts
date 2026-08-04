@@ -9,6 +9,7 @@ import type {
   ShelfPublicationSubject,
   ShelfReadingFormat,
 } from './model'
+import { hasReadingFormatSignature } from '@memorilo/reading-format'
 import { Data, Effect } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
 import { shelfReadingMediaType } from './reading'
@@ -645,16 +646,6 @@ export function fetchShelfAsset(input: FetchShelfAssetInput): Effect.Effect<Fetc
   })
 }
 
-function hasPublicationSignature(bytes: Uint8Array, format: ShelfReadingFormat): boolean {
-  if (format === 'txt')
-    return bytes.byteLength > 0
-  if (format === 'pdf')
-    return [0x25, 0x50, 0x44, 0x46, 0x2D].every((value, index) => bytes[index] === value)
-  if (format === 'epub' || format === 'cbz')
-    return bytes[0] === 0x50 && bytes[1] === 0x4B
-  return [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07].every((value, index) => bytes[index] === value)
-}
-
 export function fetchShelfPublication(
   input: FetchShelfPublicationInput,
 ): Effect.Effect<FetchShelfPublicationResult, ShelfRequestError> {
@@ -669,7 +660,7 @@ export function fetchShelfPublication(
       if (!response.ok)
         responseError(response, url)
       const bytes = new Uint8Array(await response.arrayBuffer())
-      if (bytes.byteLength === 0 || !hasPublicationSignature(bytes, input.format)) {
+      if (!hasReadingFormatSignature(bytes, input.format)) {
         throw new ShelfResponseError({
           message: `Downloaded ${input.format.toLocaleUpperCase()} content is not a valid publication.`,
           status: response.status,

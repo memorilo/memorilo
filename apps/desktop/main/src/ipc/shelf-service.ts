@@ -12,6 +12,7 @@ import type {
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
   ShelfReadingDocument,
+  ShelfReadingRangeInput,
   ShelfRequestCredentials,
   ShelfSource,
   ShelfStorage,
@@ -380,6 +381,11 @@ export function createShelfService(
       if (!document)
         throw new Error('This temporary book is no longer cached. Open it again from Shelf.')
       return document
+    }
+
+    @IpcMethod()
+    async readReadingRange(input: ShelfReadingRangeInput): Promise<Uint8Array> {
+      return readingFiles.readRange(input)
     }
 
     @IpcMethod()

@@ -1,4 +1,6 @@
-export type ReaderFormat = 'cbr' | 'cbz' | 'epub' | 'pdf' | 'txt'
+import type { ReadingFormat } from '@memorilo/reading-format'
+
+export type ReaderFormat = ReadingFormat
 
 export type ReaderPresentationMode = 'publisher' | 'reader'
 
@@ -8,11 +10,24 @@ export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr' | 'recognizing'
 
 export type ReaderSourceData = ArrayBuffer | Blob | Uint8Array
 
-export interface ReaderSource {
-  data: ReaderSourceData
+interface ReaderSourceMetadata {
   format?: ReaderFormat
   name?: string
 }
+
+export interface ReaderDataSource extends ReaderSourceMetadata {
+  data: ReaderSourceData
+  byteLength?: never
+  read?: never
+}
+
+export interface ReaderRandomAccessSource extends ReaderSourceMetadata {
+  byteLength: number
+  data?: never
+  read: (offset: number, length: number) => Promise<Uint8Array>
+}
+
+export type ReaderSource = ReaderDataSource | ReaderRandomAccessSource
 
 export interface ReaderLocation {
   format: ReaderFormat
@@ -157,12 +172,20 @@ export interface ReaderOcrStatus {
   state: 'failed' | 'idle' | 'recognizing' | 'ready' | 'unavailable'
 }
 
+export type ReaderScaleKind = 'font-size' | 'zoom'
+
+export interface ReaderScaleCapability {
+  readonly kind: ReaderScaleKind
+  readonly maximum: number
+  readonly minimum: number
+  readonly step: number
+}
+
 export interface ReaderCapabilities {
   annotations?: boolean
   ocr?: boolean
-  presentationModes: readonly ReaderPresentationMode[]
   regionSelection?: boolean
-  scale: boolean
+  scale?: ReaderScaleCapability
   textSelection?: boolean
 }
 

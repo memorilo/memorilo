@@ -1,5 +1,6 @@
 import type { Fetcher, NumberRange } from '@readium/shared'
 import type { Entry, FileEntry } from '@zip.js/zip.js'
+import type { ResolvedReaderSource } from '../source'
 import {
   Layout,
   Link,
@@ -14,11 +15,8 @@ import {
   ReadingProgression,
   Resource,
 } from '@readium/shared'
-import {
-  BlobReader,
-  Uint8ArrayWriter,
-  ZipReader,
-} from '@zip.js/zip.js'
+import { Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js'
+import { ReaderSourceZipReader } from '../zip-reader'
 
 export type EpubLayoutKind = 'fixed' | 'mixed' | 'reflowable'
 
@@ -42,6 +40,10 @@ const maximumEntrySize = 128 * 1024 * 1024
 const maximumExpandedSize = 512 * 1024 * 1024
 const textDecoder = new TextDecoder()
 const textEncoder = new TextEncoder()
+
+function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+}
 
 function parseXml(value: string, label: string): XMLDocument {
   const document = new DOMParser().parseFromString(value, 'application/xml')
@@ -140,10 +142,6 @@ function mediaTypeForPath(path: string): string {
   return extension ? (mediaTypes[extension] ?? 'application/octet-stream') : 'application/octet-stream'
 }
 
-function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
-}
-
 class EpubResource extends Resource {
   constructor(
     private readonly archive: EpubArchive,
@@ -179,10 +177,10 @@ export class EpubArchive implements Fetcher {
   private readonly objectUrls = new Set<string>()
   private readonly rewrittenBytes = new Map<string, Promise<Uint8Array>>()
 
-  private constructor(private readonly zipReader: ZipReader<Blob>) {}
+  private constructor(private readonly zipReader: ZipReader<ResolvedReaderSource>) {}
 
-  static async open(bytes: Uint8Array): Promise<EpubArchive> {
-    const zipReader = new ZipReader(new BlobReader(new Blob([asArrayBuffer(bytes)], { type: 'application/epub+zip' })))
+  static async open(source: ResolvedReaderSource): Promise<EpubArchive> {
+    const zipReader = new ZipReader(new ReaderSourceZipReader(source))
     const archive = new EpubArchive(zipReader)
     await archive.indexEntries(await zipReader.getEntries())
     return archive
@@ -553,8 +551,8 @@ async function parseTableOfContents(
   return ncxLinks(document, ncxItem.href)
 }
 
-export async function parseEpub(bytes: Uint8Array): Promise<ParsedEpub> {
-  const archive = await EpubArchive.open(bytes)
+export async function parseEpub(source: ResolvedReaderSource): Promise<ParsedEpub> {
+  const archive = await EpubArchive.open(source)
   try {
     const mimetype = (await archive.readText('mimetype')).trim()
     if (mimetype !== 'application/epub+zip')

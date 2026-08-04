@@ -1,3 +1,5 @@
+import type { ReadingFormat } from '@memorilo/reading-format'
+
 export type ShelfSourceKind = 'opds'
 
 export interface ShelfSource {
@@ -108,7 +110,7 @@ export interface ShelfPublicationDetails {
   source: ShelfSource
 }
 
-export type ShelfReadingFormat = 'cbr' | 'cbz' | 'epub' | 'pdf' | 'txt'
+export type ShelfReadingFormat = ReadingFormat
 
 export type ShelfReadingRetention = 'cache' | 'library'
 
@@ -134,8 +136,14 @@ export interface OpenShelfReadingInput {
   readingId: string
 }
 
+export interface ShelfReadingRangeInput {
+  length: number
+  offset: number
+  readingId: string
+}
+
 export interface ShelfReadingDocument {
-  bytes: Uint8Array
+  byteLength: number
   format: ShelfReadingFormat
   name: string
 }

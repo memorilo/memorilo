@@ -18,17 +18,19 @@ import type {
   ReaderScrollDirection,
   ReaderScrollResult,
 } from '../reader-adapter'
+import type { ResolvedReaderSource } from '../source'
 import type { EpubLayoutKind, ParsedEpub } from './epub-parser'
 import { DecorationStyleType, EpubNavigator, EpubPreferences } from '@readium/navigator'
 import { Locator } from '@readium/shared'
-import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
+import {
+  readerFontSizeScaleCapability,
+  readerMaximumScale,
+  readerMinimumScale,
+} from '../reader-adapter'
 import { parseEpub } from './epub-parser'
 import './epub-layer.css'
 
-interface EpubSource {
-  bytes: Uint8Array
-  name: string
-}
+type EpubSource = ResolvedReaderSource & { format: 'epub' }
 
 const annotationGroup = 'memorilo-annotations'
 
@@ -198,6 +200,7 @@ class EpubAdapter implements ReaderAdapter {
   private readonly outlineLinks = new Map<string, Link>()
   private presentationMode: ReaderPresentationMode
   private scale = 1
+  readonly setScale?: (scale: number) => Promise<void>
 
   private readonly decorationObserver: DecorationObserver = {
     onDecorationActivated: ({ decoration }) => {
@@ -213,6 +216,8 @@ class EpubAdapter implements ReaderAdapter {
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
     this.presentationMode = parsed.layout === 'reflowable' ? initialPresentationMode : 'publisher'
+    if (parsed.layout === 'reflowable')
+      this.setScale = scale => this.updateScale(scale)
     const initialLocator = parsed.positions[0]
     if (!initialLocator)
       throw new Error('EPUB does not contain a readable spine position')
@@ -365,32 +370,12 @@ class EpubAdapter implements ReaderAdapter {
     return 'at-boundary'
   }
 
-  async recognizeCurrentPage() {
-    throw new Error('OCR is only available for PDF documents')
-  }
-
   setAnnotations(annotations: readonly ReaderAnnotation[]) {
     this.annotations = annotations
     this.applyAnnotations()
   }
 
-  async setPresentationMode(mode: ReaderPresentationMode) {
-    if (mode === this.presentationMode)
-      return
-    if (mode === 'reader' && this.parsed.layout !== 'reflowable')
-      throw new Error(presentationReason(this.parsed.layout))
-    this.presentationMode = mode
-    await this.requireNavigator().submitPreferences(preferences(mode, this.scale))
-    this.emitState()
-  }
-
-  setRegionSelectionEnabled() {
-    // EPUB supports stable text selections; free-form page regions are a PDF-only capability.
-  }
-
-  async setScale(scale: number) {
-    if (this.parsed.layout !== 'reflowable')
-      return
+  private async updateScale(scale: number) {
     const nextScale = clampScale(scale)
     if (nextScale === this.scale)
       return
@@ -475,10 +460,7 @@ class EpubAdapter implements ReaderAdapter {
       canGoForward: navigator?.canGoForward ?? resourceIndex < readingOrder.length - 1,
       capabilities: {
         annotations: true,
-        ocr: false,
-        presentationModes: readerModeAvailable ? ['publisher', 'reader'] : ['publisher'],
-        regionSelection: false,
-        scale: readerModeAvailable,
+        ...(readerModeAvailable ? { scale: readerFontSizeScaleCapability } : {}),
         textSelection: true,
       },
       format: 'epub',
@@ -505,6 +487,6 @@ export async function openEpubAdapter(
   initialPresentationMode: ReaderPresentationMode,
   callbacks: ReaderAdapterCallbacks,
 ): Promise<ReaderAdapter> {
-  const parsed = await parseEpub(source.bytes)
+  const parsed = await parseEpub(source)
   return new EpubAdapter(source, parsed, initialPresentationMode, callbacks)
 }

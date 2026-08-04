@@ -13,13 +13,15 @@ import type {
   ReaderScrollDirection,
   ReaderScrollResult,
 } from '../reader-adapter'
-import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
+import type { ResolvedReaderSource } from '../source'
+import {
+  readerFontSizeScaleCapability,
+  readerMaximumScale,
+  readerMinimumScale,
+} from '../reader-adapter'
+import { readSourceBytes } from '../source'
 
-interface TxtSource {
-  bytes: Uint8Array
-  format: 'txt'
-  name: string
-}
+type TxtSource = ResolvedReaderSource & { format: 'txt' }
 
 const scrollStep = 48
 const scrollBoundaryTolerance = 1
@@ -200,10 +202,6 @@ class TxtAdapter implements ReaderAdapter {
     marker.scrollIntoView({ behavior: keyboardScrollBehavior(), block: 'center' })
   }
 
-  async goToOutlineItem(): Promise<void> {
-    throw new Error('TXT documents do not provide a table of contents')
-  }
-
   moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
     const scroller = this.scroller
     if (!scroller)
@@ -226,21 +224,9 @@ class TxtAdapter implements ReaderAdapter {
     return 'scrolled'
   }
 
-  async recognizeCurrentPage(): Promise<void> {
-    throw new Error('OCR is only available for PDF documents')
-  }
-
   setAnnotations(annotations: readonly ReaderAnnotation[]): void {
     this.annotations = annotations
     this.renderText()
-  }
-
-  async setPresentationMode(): Promise<void> {
-    // Plain text is always shown in the reader's reflowable presentation.
-  }
-
-  setRegionSelectionEnabled(): void {
-    // TXT supports stable text selections, not free-form regions.
   }
 
   async setScale(scale: number): Promise<void> {
@@ -375,10 +361,7 @@ class TxtAdapter implements ReaderAdapter {
       canGoForward: maximum - scrollTop > scrollBoundaryTolerance,
       capabilities: {
         annotations: true,
-        ocr: false,
-        presentationModes: ['reader'],
-        regionSelection: false,
-        scale: true,
+        scale: readerFontSizeScaleCapability,
         textSelection: true,
       },
       format: 'txt',
@@ -398,6 +381,6 @@ class TxtAdapter implements ReaderAdapter {
   }
 }
 
-export function openTxtAdapter(source: TxtSource, callbacks: ReaderAdapterCallbacks): ReaderAdapter {
-  return new TxtAdapter(source, decodeText(source.bytes), callbacks)
+export async function openTxtAdapter(source: TxtSource, callbacks: ReaderAdapterCallbacks): Promise<ReaderAdapter> {
+  return new TxtAdapter(source, decodeText(await readSourceBytes(source)), callbacks)
 }

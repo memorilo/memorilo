@@ -11,7 +11,7 @@ export async function openReaderAdapter(
   const resolved = await resolveSource(source)
   if (resolved.format === 'pdf') {
     const { openPdfAdapter } = await import('./pdf/pdf-adapter')
-    return openPdfAdapter(resolved, ocrProvider, callbacks)
+    return openPdfAdapter({ ...resolved, format: 'pdf' }, ocrProvider, callbacks)
   }
 
   if (resolved.format === 'txt') {
@@ -25,5 +25,5 @@ export async function openReaderAdapter(
   }
 
   const { openEpubAdapter } = await import('./epub/epub-adapter')
-  return openEpubAdapter(resolved, initialPresentationMode, callbacks)
+  return openEpubAdapter({ ...resolved, format: 'epub' }, initialPresentationMode, callbacks)
 }

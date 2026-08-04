@@ -1,8 +1,11 @@
 import type { Entry, FileEntry } from '@zip.js/zip.js'
 import type { Extractor, FileHeader } from 'node-unrar-js'
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js'
+import type { ResolvedReaderSource } from '../source'
+import { BlobWriter, ZipReader } from '@zip.js/zip.js'
 import { createExtractorFromData } from 'node-unrar-js'
 import unrarWasmUrl from 'node-unrar-js/esm/js/unrar.wasm?url'
+import { readSourceBytes } from '../source'
+import { ReaderSourceZipReader } from '../zip-reader'
 
 export interface ComicPage {
   byteSize: number
@@ -72,8 +75,8 @@ function requirePage(pages: readonly ComicPage[], index: number): ComicPage {
   return page
 }
 
-async function openCbz(bytes: Uint8Array): Promise<ComicArchive> {
-  const reader = new ZipReader(new BlobReader(new Blob([arrayBuffer(bytes)], { type: 'application/vnd.comicbook+zip' })))
+async function openCbz(source: ResolvedReaderSource): Promise<ComicArchive> {
+  const reader = new ZipReader(new ReaderSourceZipReader(source))
   const entriesByName = new Map<string, FileEntry>()
   let pages: readonly ComicPage[]
   try {
@@ -135,7 +138,8 @@ function rarPage(header: FileHeader): ComicPage | null {
   return { byteSize: header.unpSize, mimeType, name: header.name }
 }
 
-async function openCbr(bytes: Uint8Array): Promise<ComicArchive> {
+async function openCbr(source: ResolvedReaderSource): Promise<ComicArchive> {
+  const bytes = await readSourceBytes(source)
   const extractor = await createExtractorFromData({
     data: arrayBuffer(bytes),
     wasmBinary: await unrarWasm(),
@@ -171,6 +175,8 @@ function extractRarPage(extractor: Extractor<Uint8Array>, page: ComicPage): Blob
   return new Blob([arrayBuffer(extracted)], { type: page.mimeType })
 }
 
-export function openComicArchive(format: 'cbr' | 'cbz', bytes: Uint8Array): Promise<ComicArchive> {
-  return format === 'cbz' ? openCbz(bytes) : openCbr(bytes)
+export function openComicArchive(
+  source: ResolvedReaderSource & { format: 'cbr' | 'cbz' },
+): Promise<ComicArchive> {
+  return source.format === 'cbz' ? openCbz(source) : openCbr(source)
 }
