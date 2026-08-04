@@ -535,7 +535,13 @@ export function NoteEditor({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<TopicValidationError | null>(null)
   const queryClient = useQueryClient()
-  const persistence = useNotePersistence(noteId)
+  const {
+    discard: discardPendingChanges,
+    enqueue: enqueueNoteChange,
+    error: persistenceError,
+    getPendingChanges,
+    subscribeReceipts,
+  } = useNotePersistence(noteId)
   const noteRef = useRef<EditorNote | null>(null)
   const storedRef = useRef<DesktopNote | null>(null)
   const restoringRef = useRef(false)
@@ -553,7 +559,7 @@ export function NoteEditor({
     },
   })
 
-  useEffect(() => persistence.subscribeReceipts((savedNoteId, receipt) => {
+  useEffect(() => subscribeReceipts((savedNoteId, receipt) => {
     const currentNote = noteRef.current
     if (currentNote?.id !== savedNoteId)
       return
@@ -564,7 +570,7 @@ export function NoteEditor({
       storedRef.current = stored
       return { ...current, entries: currentNote.getEntries(), stored }
     })
-  }), [persistence])
+  }), [subscribeReceipts])
 
   const rebuildFromLatestValidSnapshot = useCallback((validationError: TopicValidationError) => {
     const current = noteRef.current
@@ -574,7 +580,7 @@ export function NoteEditor({
       return
 
     restoringRef.current = true
-    persistence.discard()
+    discardPendingChanges()
     unsubscribeRef.current?.()
     unsubscribeRef.current = undefined
     const restored = createEditorNote({ id: current.id, snapshot })
@@ -589,7 +595,7 @@ export function NoteEditor({
     }
     noteRef.current = restored
     latestValidSnapshotRef.current = restored.exportSnapshot()
-    persistence.enqueue({ noteId: restored.id, update: restored.exportUpdates() })
+    enqueueNoteChange({ noteId: restored.id, update: restored.exportUpdates() })
     unsubscribeRef.current = restored.subscribe(change => handleNoteChangeRef.current(change))
     setOpened({
       entries: restored.getEntries(),
@@ -599,7 +605,7 @@ export function NoteEditor({
     })
     setValidationError(validationError)
     restoringRef.current = false
-  }, [persistence, t, topicId])
+  }, [discardPendingChanges, enqueueNoteChange, t, topicId])
 
   const handleNoteChange = useCallback((change: EditorNoteChange) => {
     if (restoringRef.current)
@@ -639,8 +645,8 @@ export function NoteEditor({
 
     setValidationError(null)
     latestValidSnapshotRef.current = note.exportSnapshot()
-    persistence.enqueue(change)
-  }, [persistence, rebuildFromLatestValidSnapshot, t, topicId])
+    enqueueNoteChange(change)
+  }, [enqueueNoteChange, rebuildFromLatestValidSnapshot, t, topicId])
   handleNoteChangeRef.current = handleNoteChange
 
   useEffect(() => window.desktop.subscribeNoteUpdates((external) => {
@@ -725,7 +731,7 @@ export function NoteEditor({
         snapshot: stored.snapshot,
         title: stored.title,
       })
-      persistence.getPendingChanges()
+      getPendingChanges()
         .forEach(change => note.importUpdates(change.update))
       if (!active)
         return
@@ -771,7 +777,7 @@ export function NoteEditor({
       storedRef.current = null
       latestValidSnapshotRef.current = null
     }
-  }, [handleNoteChange, noteId, persistence, queryClient, resetViewState, topicId])
+  }, [getPendingChanges, handleNoteChange, noteId, queryClient, resetViewState, topicId])
 
   if (loadError) {
     return (
@@ -799,9 +805,9 @@ export function NoteEditor({
       onToggleEntry={onToggleEntry}
       onToggleFavorite={handleToggleFavorite}
       opened={opened}
-      saveError={persistence.error instanceof Error
-        ? persistence.error.message
-        : persistence.error === null ? null : String(persistence.error)}
+      saveError={persistenceError instanceof Error
+        ? persistenceError.message
+        : persistenceError === null ? null : String(persistenceError)}
       validationError={validationError}
     />
   )
