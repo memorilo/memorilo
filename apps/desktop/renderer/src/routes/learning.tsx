@@ -1,24 +1,37 @@
-import type { KeyboardEvent, PointerEvent } from 'react'
+import type { KeyboardEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { LearningOptimizerPanel } from './-learning-optimizer'
 import { learningRouteStyles } from './-learning.stylex'
 
-const learningTitlebar = { title: 'Learning' } as const
 const tabSpring = {
   bounce: 0,
   type: 'spring',
   visualDuration: 0.24,
 } as const
 const learningTabs = [
-  { id: 'notes', label: 'Notes' },
-  { id: 'optimizer', label: 'Optimizer' },
+  { id: 'notes', labelKey: 'notesTab' },
+  { id: 'optimizer', labelKey: 'optimizerTab' },
 ] as const
 
 type LearningTabId = typeof learningTabs[number]['id']
+
+interface LearningSearch {
+  view?: LearningTabId
+}
+
+function validateLearningSearch(search: Record<string, unknown>): LearningSearch {
+  if (search.view === undefined)
+    return {}
+  if (search.view === 'notes' || search.view === 'optimizer')
+    return { view: search.view }
+  throw new TypeError('Learning view must be notes or optimizer')
+}
 
 function tabElementId(tabId: LearningTabId) {
   return `learning-${tabId}-tab`
@@ -30,19 +43,31 @@ function panelElementId(tabId: LearningTabId) {
 
 export const Route = createFileRoute('/learning')({
   component: LearningRoute,
+  validateSearch: validateLearningSearch,
 })
 
 function LearningRoute() {
-  usePageTitlebar(learningTitlebar)
-  const [activeTab, setActiveTab] = useState<LearningTabId>('notes')
+  const { t } = useTranslation('learning')
+  const titlebar = useMemo(() => ({ title: t('title') }), [t])
+  usePageTitlebar(titlebar)
+  const { view } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const activeTab = view ?? 'notes'
   const tabRefs = useRef<Partial<Record<LearningTabId, HTMLButtonElement>>>({})
   const shouldReduceMotion = useReducedMotion()
+
+  const selectTab = (tabId: LearningTabId) => {
+    void navigate({
+      replace: true,
+      search: tabId === 'notes' ? {} : { view: tabId },
+    })
+  }
 
   const focusTab = (tabId: LearningTabId) => {
     const tab = tabRefs.current[tabId]
     if (!tab)
       throw new Error(`Learning tab ${tabId} is not mounted`)
-    setActiveTab(tabId)
+    selectTab(tabId)
     tab.focus()
   }
 
@@ -76,28 +101,13 @@ function LearningRoute() {
     focusTab(nextTab.id)
   }
 
-  const updateGlassLight = (event: PointerEvent<HTMLDivElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect()
-    const x = ((event.clientX - bounds.left) / bounds.width) * 100
-    const y = ((event.clientY - bounds.top) / bounds.height) * 100
-    event.currentTarget.style.setProperty('--learning-glass-light-x', `${x}%`)
-    event.currentTarget.style.setProperty('--learning-glass-light-y', `${y}%`)
-  }
-
-  const resetGlassLight = (event: PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.style.removeProperty('--learning-glass-light-x')
-    event.currentTarget.style.removeProperty('--learning-glass-light-y')
-  }
-
   return (
-    <main {...stylex.props(learningRouteStyles.page)} aria-label="Learning">
+    <main {...stylex.props(learningRouteStyles.page)} aria-label={t('title')}>
       <div {...stylex.props(learningRouteStyles.tabRegion)}>
         <div
           {...stylex.props(learningRouteStyles.tabList)}
-          aria-label="Learning views"
+          aria-label={t('viewsLabel')}
           role="tablist"
-          onPointerLeave={resetGlassLight}
-          onPointerMove={updateGlassLight}
         >
           {learningTabs.map(tab => (
             <button
@@ -118,7 +128,7 @@ function LearningRoute() {
               role="tab"
               tabIndex={activeTab === tab.id ? 0 : -1}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               onKeyDown={event => handleTabKeyDown(event, tab.id)}
             >
               {activeTab === tab.id
@@ -132,7 +142,7 @@ function LearningRoute() {
                     />
                   )
                 : null}
-              <span {...stylex.props(learningRouteStyles.tabLabel)}>{tab.label}</span>
+              <span {...stylex.props(learningRouteStyles.tabLabel)}>{t(tab.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -147,7 +157,9 @@ function LearningRoute() {
             aria-labelledby={tabElementId(tab.id)}
             hidden={activeTab !== tab.id}
             role="tabpanel"
-          />
+          >
+            {tab.id === 'optimizer' && activeTab === 'optimizer' ? <LearningOptimizerPanel /> : null}
+          </section>
         ))}
       </div>
     </main>

@@ -9,6 +9,7 @@ export const I18N_NAMESPACES = [
   'app',
   'pages',
   'editor',
+  'learning',
   'settings',
 ] as const
 

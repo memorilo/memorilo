@@ -118,7 +118,7 @@ function SourceItem({ destination, icon, label }: SourceItemProps) {
   return (
     <Link
       {...stylex.props(workspaceSidebarStyles.sourceItem)}
-      activeOptions={{ exact: true }}
+      activeOptions={{ exact: destination.to !== '/learning' }}
       activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
       preload="intent"
       to={destination.to}
