@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { learningQueryKeys } from '../queries/learning-query-keys'
 import { router } from '../router'
 import { learningOptimizerStyles as styles } from './-learning-optimizer.stylex'
 
@@ -40,7 +41,6 @@ interface OptimizerDraft {
   name: string
 }
 
-const optimizerQueryKey = ['learning', 'optimizers'] as const
 const stepPattern = /^(?:0|[1-9]\d*)(?:\.\d+)?[mhd]$/u
 
 function errorMessage(error: unknown): string {
@@ -659,7 +659,7 @@ function CreateOptimizerDialog({
 export function LearningOptimizerPanel() {
   const { t } = useTranslation('learning')
   const queryClient = useQueryClient()
-  const query = useQuery({ queryFn: loadOptimizers, queryKey: optimizerQueryKey })
+  const query = useQuery({ queryFn: loadOptimizers, queryKey: learningQueryKeys.optimizers })
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   if (query.isPending) {
@@ -717,7 +717,7 @@ export function LearningOptimizerPanel() {
               globalOptimizer={globalRecord.optimizer}
               onClose={() => setCreateDialogOpen(false)}
               onCreated={async (optimizerId) => {
-                await queryClient.invalidateQueries({ queryKey: optimizerQueryKey })
+                await queryClient.invalidateQueries({ queryKey: learningQueryKeys.optimizers })
                 await router.navigate({
                   params: { optimizerId },
                   to: '/learning/optimizer/$optimizerId',
@@ -733,7 +733,7 @@ export function LearningOptimizerPanel() {
 export function LearningOptimizerDetail({ optimizerId }: { optimizerId: string }) {
   const { t } = useTranslation('learning')
   const queryClient = useQueryClient()
-  const query = useQuery({ queryFn: loadOptimizers, queryKey: optimizerQueryKey })
+  const query = useQuery({ queryFn: loadOptimizers, queryKey: learningQueryKeys.optimizers })
   const [drafts, setDrafts] = useState<Record<string, OptimizerDraft>>({})
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [operation, setOperation] = useState<OperationKind | null>(null)
@@ -769,7 +769,7 @@ export function LearningOptimizerDetail({ optimizerId }: { optimizerId: string }
       return next
     })
   }
-  const refresh = async () => queryClient.invalidateQueries({ queryKey: optimizerQueryKey })
+  const refresh = async () => queryClient.invalidateQueries({ queryKey: learningQueryKeys.optimizers })
   const runOperation = async (kind: OperationKind, operationLabel: string, work: () => Promise<string>) => {
     setOperation(kind)
     setFeedback(null)

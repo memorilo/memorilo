@@ -1,7 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  accent: 'rgb(0, 113, 227)',
   focus: 'rgba(0, 96, 204, 0.72)',
   text: 'rgba(25, 28, 34, 0.9)',
   textMuted: 'rgba(49, 54, 63, 0.62)',
@@ -95,18 +94,25 @@ export const learningRouteStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   tabSelected: {
-    color: colors.accent,
+    color: colors.text,
   },
   selectionIndicator: {
     position: 'absolute',
     zIndex: 0,
     inset: 0,
+    borderColor: {
+      'default': 'rgba(63, 69, 79, 0.1)',
+      '@media (prefers-contrast: more)': 'rgba(31, 35, 42, 0.58)',
+    },
+    borderStyle: 'solid',
+    borderWidth: 1,
     borderRadius: 7,
     backgroundColor: {
-      'default': 'rgba(0, 113, 227, 0.085)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgba(0, 113, 227, 0.12)',
-      '@media (prefers-contrast: more)': 'rgba(0, 91, 190, 0.18)',
+      'default': 'rgba(255, 255, 255, 0.82)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
     },
+    boxShadow: '0 1px 4px rgba(31, 37, 47, 0.11), 0 0 0 0.5px rgba(63, 69, 79, 0.06), inset 0 1px rgba(255, 255, 255, 0.98), inset 0 -1px rgba(72, 79, 90, 0.07)',
     pointerEvents: 'none',
     willChange: 'transform',
   },

@@ -11,6 +11,7 @@ export type {
   LearningCardProjection,
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
+  LearningNoteSummary,
   LearningPhase,
   LearningQueueItem,
   LearningQueuePolicy,

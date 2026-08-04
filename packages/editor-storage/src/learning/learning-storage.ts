@@ -9,6 +9,7 @@ import type {
   LearningCardProjection,
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
+  LearningNoteSummary,
   LearningQueueItem,
   LearningState,
   LearningStorage,
@@ -141,6 +142,18 @@ interface ExistingTargetRow {
   target_id: string
   target_kind: 'item' | 'whole'
   target_order: number
+}
+
+interface LearningNoteSummaryRow {
+  card_count: number
+  note_id: string
+  note_title: string
+  optimizer_id: string
+  optimizer_is_global: number
+  optimizer_name: string
+  optimizer_status: 'active' | 'archived'
+  topic_count: number
+  updated_at: number
 }
 
 function assertNonEmpty(value: string, description: string): void {
@@ -652,6 +665,60 @@ class DefaultLearningStorage implements LearningStorage {
       [noteId],
     )
     return rows.map(row => row.topic_id)
+  }
+
+  async listNotesWithCards(): Promise<readonly LearningNoteSummary[]> {
+    const rows = await this.#database.all<LearningNoteSummaryRow>(`
+      WITH card_topics AS (
+        SELECT
+          note_id,
+          topic_id,
+          COUNT(*) AS card_count
+        FROM learning_cards
+        WHERE active = 1
+        GROUP BY note_id, topic_id
+      )
+      SELECT
+        note.id AS note_id,
+        note.title AS note_title,
+        note.updated_at,
+        optimizer.optimizer_id,
+        optimizer.name AS optimizer_name,
+        optimizer.is_global AS optimizer_is_global,
+        optimizer.status AS optimizer_status,
+        SUM(card_topics.card_count) AS card_count,
+        COUNT(*) AS topic_count
+      FROM card_topics
+      INNER JOIN notes AS note ON note.id = card_topics.note_id
+      LEFT JOIN learning_note_optimizer_assignments AS assignment ON assignment.note_id = note.id
+      INNER JOIN learning_optimizers AS optimizer
+        ON optimizer.optimizer_id = COALESCE(assignment.optimizer_id, ?)
+      GROUP BY
+        note.id,
+        note.title,
+        note.updated_at,
+        optimizer.optimizer_id,
+        optimizer.name,
+        optimizer.is_global,
+        optimizer.status
+      ORDER BY note.updated_at DESC, note.id DESC
+    `, [GLOBAL_OPTIMIZER_ID])
+    return rows.map((row) => {
+      if (row.optimizer_status !== 'active')
+        throw new Error(`Note ${row.note_id} references archived FSRS Optimizer ${row.optimizer_id}`)
+      return {
+        cardCount: row.card_count,
+        noteId: row.note_id,
+        noteTitle: row.note_title,
+        optimizer: {
+          id: row.optimizer_id,
+          isGlobal: row.optimizer_is_global === 1,
+          name: row.optimizer_name,
+        },
+        topicCount: row.topic_count,
+        updatedAt: row.updated_at,
+      }
+    })
   }
 
   async getLearningState(targetIdValue: string): Promise<LearningState> {

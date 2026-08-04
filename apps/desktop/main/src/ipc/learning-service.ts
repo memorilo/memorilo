@@ -51,6 +51,11 @@ export function createLearningService(learning: LearningStorage) {
     }
 
     @IpcMethod()
+    listNotesWithCards() {
+      return learning.listNotesWithCards()
+    }
+
+    @IpcMethod()
     listQueue(input?: Parameters<LearningStorage['listQueue']>[0]) {
       return learning.listQueue(input)
     }

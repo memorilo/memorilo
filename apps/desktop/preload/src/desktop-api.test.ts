@@ -16,6 +16,7 @@ function serviceStub(): DesktopServices {
       getNoteOptimizer: vi.fn(),
       getOptimizer: vi.fn(),
       getOptimizerNoteCount: vi.fn(),
+      listNotesWithCards: vi.fn(),
       listOptimizers: vi.fn(),
       listQueue: vi.fn(),
       listTargets: vi.fn(),
