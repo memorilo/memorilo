@@ -2,6 +2,16 @@ import type { ReaderFormat, ReaderSource, ReaderSourceData } from '../types'
 
 const pdfSignature = [0x25, 0x50, 0x44, 0x46, 0x2D] as const
 const zipSignature = [0x50, 0x4B] as const
+const rar4Signature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00] as const
+const rar5Signature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00] as const
+
+const defaultNames: Readonly<Record<ReaderFormat, string>> = {
+  cbr: 'CBR comic',
+  cbz: 'CBZ comic',
+  epub: 'EPUB publication',
+  pdf: 'PDF document',
+  txt: 'Text document',
+}
 
 export async function readSourceBytes(data: ReaderSourceData): Promise<Uint8Array> {
   if (data instanceof Uint8Array)
@@ -24,19 +34,26 @@ export async function resolveSource(source: ReaderSource): Promise<{
   return {
     bytes,
     format,
-    name: source.name?.trim() || (format === 'pdf' ? 'PDF document' : 'EPUB publication'),
+    name: source.name?.trim() || defaultNames[format],
   }
 }
 
 function sniffFormat(bytes: Uint8Array, name?: string): ReaderFormat {
+  const extension = name?.split('.').pop()?.toLowerCase()
   if (pdfSignature.every((value, index) => bytes[index] === value))
     return 'pdf'
-  if (zipSignature.every((value, index) => bytes[index] === value))
+  if (rar4Signature.every((value, index) => bytes[index] === value)
+    || rar5Signature.every((value, index) => bytes[index] === value)) {
+    return 'cbr'
+  }
+  if (zipSignature.every((value, index) => bytes[index] === value)) {
+    if (extension === 'cbz')
+      return 'cbz'
     return 'epub'
+  }
 
-  const extension = name?.split('.').pop()?.toLowerCase()
-  if (extension === 'pdf' || extension === 'epub')
+  if (extension === 'pdf' || extension === 'epub' || extension === 'cbz' || extension === 'cbr' || extension === 'txt')
     return extension
 
-  throw new Error('Unsupported document. Select a PDF or EPUB file')
+  throw new Error('Unsupported document. Select a PDF, EPUB, TXT, CBZ, or CBR file')
 }

@@ -4,6 +4,7 @@ export type {
   ReaderAnnotation,
   ReaderAnnotationColor,
   ReaderCapabilities,
+  ReaderComicRegionAnchor,
   ReaderEpubLocator,
   ReaderEpubTextAnchor,
   ReaderFormat,
@@ -21,6 +22,7 @@ export type {
   ReaderPdfTextAnchor,
   ReaderPresentationMode,
   ReaderProps,
+  ReaderRegionAnchor,
   ReaderRegionSelection,
   ReaderSelection,
   ReaderSource,
@@ -29,4 +31,5 @@ export type {
   ReaderTextLayerKind,
   ReaderTextQuote,
   ReaderTextSelection,
+  ReaderTxtTextAnchor,
 } from './types'

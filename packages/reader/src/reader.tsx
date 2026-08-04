@@ -102,7 +102,18 @@ function annotationLabel(annotation: ReaderAnnotation): string {
   const anchor = annotation.anchor
   if (anchor.format === 'pdf')
     return anchor.type === 'region' ? `Area on page ${anchor.pageNumber}` : `Page ${anchor.pageNumber}`
-  return anchor.locator.title || anchor.locator.href
+  if (anchor.format === 'epub')
+    return anchor.locator.title || anchor.locator.href
+  if (anchor.format === 'txt')
+    return `Text near character ${anchor.start.toLocaleString()}`
+  return `Area on page ${anchor.pageNumber}`
+}
+
+function scaleActionLabel(format: ReaderAdapterState['format'], direction: 'in' | 'out'): string {
+  const zoom = format === 'pdf' || format === 'cbz' || format === 'cbr'
+  if (zoom)
+    return direction === 'in' ? 'Zoom in' : 'Zoom out'
+  return direction === 'in' ? 'Increase text size' : 'Decrease text size'
 }
 
 function annotationQuote(annotation: ReaderAnnotation): string | null {
@@ -796,10 +807,10 @@ function ReaderSession({
             : null}
           <button
             {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
-            aria-label={adapterState.format === 'pdf' ? 'Zoom out' : 'Decrease text size'}
+            aria-label={scaleActionLabel(adapterState.format, 'out')}
             data-window-no-drag=""
             disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale <= readerMinimumScale}
-            title={adapterState.format === 'pdf' ? 'Zoom out' : 'Decrease text size'}
+            title={scaleActionLabel(adapterState.format, 'out')}
             type="button"
             onClick={() => run(adapter => adapter.setScale(adapterState.scale - 0.1))}
           >
@@ -807,10 +818,10 @@ function ReaderSession({
           </button>
           <button
             {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
-            aria-label={adapterState.format === 'pdf' ? 'Zoom in' : 'Increase text size'}
+            aria-label={scaleActionLabel(adapterState.format, 'in')}
             data-window-no-drag=""
             disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale >= readerMaximumScale}
-            title={adapterState.format === 'pdf' ? 'Zoom in' : 'Increase text size'}
+            title={scaleActionLabel(adapterState.format, 'in')}
             type="button"
             onClick={() => run(adapter => adapter.setScale(adapterState.scale + 0.1))}
           >

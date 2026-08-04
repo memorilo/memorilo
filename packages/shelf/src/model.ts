@@ -108,7 +108,7 @@ export interface ShelfPublicationDetails {
   source: ShelfSource
 }
 
-export type ShelfReadingFormat = 'epub' | 'pdf'
+export type ShelfReadingFormat = 'cbr' | 'cbz' | 'epub' | 'pdf' | 'txt'
 
 export type ShelfReadingRetention = 'cache' | 'library'
 

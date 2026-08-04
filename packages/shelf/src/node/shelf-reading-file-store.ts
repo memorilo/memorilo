@@ -70,7 +70,7 @@ function assertReadingId(readingId: string): void {
 }
 
 function assertFormat(format: string): asserts format is ShelfReadingFormat {
-  if (format !== 'epub' && format !== 'pdf')
+  if (format !== 'epub' && format !== 'pdf' && format !== 'txt' && format !== 'cbz' && format !== 'cbr')
     throw new TypeError(`Unsupported Shelf reading format: ${format}`)
 }
 
@@ -92,7 +92,7 @@ function truncateUtf8(value: string, maximumBytes: number): string {
 }
 
 function sanitizedFileName(name: string, format: ShelfReadingFormat): string {
-  const withoutExtension = name.trim().replace(/\.(?:epub|pdf)$/iu, '')
+  const withoutExtension = name.trim().replace(/\.(?:cbr|cbz|epub|pdf|txt)$/iu, '')
   const withoutControlCharacters = [...withoutExtension]
     .map(character => character.codePointAt(0)! < 32 || character.codePointAt(0) === 127 ? ' ' : character)
     .join('')
@@ -124,7 +124,7 @@ async function storedDocument(directory: string): Promise<StoredDocument | null>
     if (!entry.isFile())
       return []
     const extension = entry.name.toLocaleLowerCase().split('.').at(-1)
-    if (extension !== 'epub' && extension !== 'pdf')
+    if (extension !== 'epub' && extension !== 'pdf' && extension !== 'txt' && extension !== 'cbz' && extension !== 'cbr')
       return []
     return [{ format: extension, name: entry.name, path: join(directory, entry.name) }]
   })
