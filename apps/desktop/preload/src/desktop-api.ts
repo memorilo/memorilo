@@ -1,4 +1,6 @@
 import type {
+  AddShelfSourceInput,
+  BrowseShelfInput,
   CreateDesktopNoteInput,
   DesktopApi,
   DesktopAssetCheckResult,
@@ -18,6 +20,9 @@ import type {
   GetDesktopNoteInput,
   ImportDesktopNetworkImageInput,
   ListDesktopNotesInput,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
   ReclaimDesktopAssetsInput,
   ReclaimDesktopAssetsResult,
   RecordDesktopNoteOpenedInput,
@@ -28,13 +33,19 @@ import type {
   SaveDesktopImageResult,
   SaveDesktopNoteUpdatesInput,
   SetDesktopNoteFavoriteInput,
+  ShelfAssetInput,
+  ShelfAssetResult,
+  ShelfBrowseResult,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
+  ShelfReadingDocument,
+  ShelfSource,
   ShowDesktopColumnVisibilityMenuInput,
+  UpdateShelfSourceInput,
 } from './contract'
 
 export interface DesktopServices {
-  app: {
-    getRuntimeInfo: () => Promise<RuntimeInfo>
-  }
+  app: { getRuntimeInfo: () => Promise<RuntimeInfo> }
   assets: {
     check: () => Promise<DesktopAssetCheckResult>
     importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
@@ -56,22 +67,25 @@ export interface DesktopServices {
     recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
     renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
     saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
-    searchNotes: (input: {
-      limit?: number
-      query: string
-    }) => Promise<readonly DesktopNoteSearchHit[]>
-    searchTopicBlocks: (input: {
-      limit?: number
-      mode?: DesktopTopicBlockSearchMode
-      noteId?: string
-      query: string
-    }) => Promise<readonly DesktopTopicBlockSearchHit[]>
+    searchNotes: (input: { limit?: number, query: string }) => Promise<readonly DesktopNoteSearchHit[]>
+    searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
     setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
   }
+  shelf: {
+    addSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
+    deleteReading: (readingId: string) => Promise<boolean>
+    getAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
+    getCachedView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+    getPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
+    listSources: () => Promise<readonly ShelfSource[]>
+    openReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
+    prepareReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
+    refreshView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+    removeSource: (sourceId: string) => Promise<void>
+    updateSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
+  }
   window: {
-    showColumnVisibilityMenu: (
-      input: ShowDesktopColumnVisibilityMenuInput,
-    ) => Promise<DesktopColumnVisibilityMenuSelection | null>
+    showColumnVisibilityMenu: (input: ShowDesktopColumnVisibilityMenuInput) => Promise<DesktopColumnVisibilityMenuSelection | null>
   }
 }
 
@@ -82,29 +96,40 @@ export function createDesktopApi(
   subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void,
 ): DesktopApi {
   return {
+    addShelfSource: input => services.shelf.addSource(input),
     checkAssets: () => services.assets.check(),
     createNote: input => services.notes.createNote(input),
+    deleteShelfReading: readingId => services.shelf.deleteReading(readingId),
+    getCachedShelfView: input => services.shelf.getCachedView(input),
     getConfiguration: () => services.configuration.get(),
     getNote: input => services.notes.getNote(input),
     getRuntimeInfo: () => services.app.getRuntimeInfo(),
+    getShelfAsset: input => services.shelf.getAsset(input),
+    getShelfPublicationDetails: input => services.shelf.getPublicationDetails(input),
     getTopicBlock: input => services.notes.getTopicBlock(input),
     importNetworkImage: input => services.assets.importNetworkImage(input),
     listFavoriteNotes: input => services.notes.listFavoriteNotes(input),
     listNotes: input => services.notes.listNotes(input),
     listRecentNotes: input => services.notes.listRecentNotes(input),
+    listShelfSources: () => services.shelf.listSources(),
     openMostRecentNote: () => services.notes.openMostRecentNote(),
+    openShelfReading: input => services.shelf.openReading(input),
+    prepareShelfReading: input => services.shelf.prepareReading(input),
     reclaimAssets: input => services.assets.reclaim(input),
     recordNoteOpened: input => services.notes.recordNoteOpened(input),
+    refreshShelfView: input => services.shelf.refreshView(input),
+    removeShelfSource: sourceId => services.shelf.removeSource(sourceId),
     renameNote: input => services.notes.renameNote(input),
     saveImage: input => services.assets.saveImage(input),
     saveNoteUpdates: input => services.notes.saveNoteUpdates(input),
     searchNotes: input => services.notes.searchNotes(input),
     searchTopicBlocks: input => services.notes.searchTopicBlocks(input),
-    setNoteFavorite: input => services.notes.setNoteFavorite(input),
     setConfiguration: configuration => services.configuration.set(configuration),
+    setNoteFavorite: input => services.notes.setNoteFavorite(input),
     showColumnVisibilityMenu: input => services.window.showColumnVisibilityMenu(input),
     subscribeConfiguration,
     subscribeNoteSaveRequests,
     subscribeNoteUpdates,
+    updateShelfSource: input => services.shelf.updateSource(input),
   }
 }

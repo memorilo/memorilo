@@ -2,9 +2,9 @@ import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from
 import type { DesktopServices } from './desktop-api'
 import type { NoteSaveRequest, NoteSaveResult } from './note-save-handshake'
 import { desktopConfigurationChangedChannel } from '@memorilo/desktop-config/contract'
-
 import { contextBridge, ipcRenderer } from 'electron'
 import { createIpcProxy } from 'electron-ipc-decorator/client'
+
 import { createDesktopApi } from './desktop-api'
 import { noteSaveRequestChannel, noteSaveResultChannel } from './note-save-handshake'
 

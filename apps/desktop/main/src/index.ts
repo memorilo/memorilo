@@ -3,6 +3,7 @@ import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
 import { randomBytes } from 'node:crypto'
+import { mkdirSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -14,7 +15,8 @@ import {
   desktopConfigurationDefinition,
   migrateDesktopConfiguration,
 } from '@memorilo/desktop-config'
-import { createEditorStorage } from '@memorilo/editor-storage'
+import { createEditorStorage, createShelfImageCache, createShelfStorage } from '@memorilo/editor-storage'
+import { createShelfReadingFileStore } from '@memorilo/shelf/node'
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
@@ -30,6 +32,7 @@ import { TransformersEmbeddingModel } from './storage/transformers-embedding-mod
 import { createSettingsWindowController } from './windows/settings-window'
 
 let editorStorage: EditorStorage | null = null
+let shelfImageCacheDatabase: BetterSqliteDatabase | null = null
 let configurationStore: ConfigurationStore<DesktopConfiguration> | null = null
 let unsubscribeConfiguration: (() => void) | null = null
 let closeMcpServer: (() => Promise<void>) | null = null
@@ -134,6 +137,46 @@ async function createDesktopConfigurationStore(userDataPath: string): Promise<Co
   }
 }
 
+function shelfImageCacheDatabasePath(): string {
+  const configured = process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH
+  if (configured !== undefined) {
+    if (configured.length === 0)
+      throw new TypeError('MEMORILO_SHELF_IMAGE_CACHE_PATH must not be empty')
+    return configured
+  }
+  const homePath = app.getPath('home')
+  const cacheDirectory = process.platform === 'darwin'
+    ? join(homePath, 'Library', 'Caches', 'Memorilo')
+    : process.platform === 'win32'
+      ? join(process.env.LOCALAPPDATA || app.getPath('sessionData'), 'Memorilo', 'Cache')
+      : join(process.env.XDG_CACHE_HOME || join(homePath, '.cache'), 'memorilo')
+  mkdirSync(cacheDirectory, { recursive: true })
+  return join(cacheDirectory, 'shelf-images.sqlite')
+}
+
+function shelfBookCacheDirectory(userDataPath: string): string {
+  const configured = process.env.MEMORILO_SHELF_BOOK_CACHE_PATH
+  if (configured !== undefined) {
+    if (configured.length === 0)
+      throw new TypeError('MEMORILO_SHELF_BOOK_CACHE_PATH must not be empty')
+    return configured
+  }
+  if (process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH === ':memory:')
+    return join(userDataPath, 'shelf-book-cache')
+  const homePath = app.getPath('home')
+  return process.platform === 'darwin'
+    ? join(homePath, 'Library', 'Caches', 'Memorilo', 'shelf-books')
+    : process.platform === 'win32'
+      ? join(process.env.LOCALAPPDATA || app.getPath('sessionData'), 'Memorilo', 'Cache', 'shelf-books')
+      : join(process.env.XDG_CACHE_HOME || join(homePath, '.cache'), 'memorilo', 'shelf-books')
+}
+
+function shelfLibraryDirectory(databaseFilePath: string, userDataPath: string): string {
+  if (databaseFilePath === ':memory:')
+    return join(userDataPath, 'shelf')
+  return join(dirname(resolve(databaseFilePath)), 'shelf')
+}
+
 function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
   if (rendererUrl)
     return new URL(target).origin === new URL(rendererUrl).origin
@@ -208,13 +251,24 @@ async function startApplication(): Promise<void> {
   const assets = assetDirectory(database)
   registerAssetProtocol(assets)
   configurationStore = await createDesktopConfigurationStore(userDataPath)
+  const mainDatabase = new BetterSqliteDatabase(database)
   editorStorage = await createEditorStorage({
-    database: new BetterSqliteDatabase(database),
+    database: mainDatabase,
     embeddingModel: new TransformersEmbeddingModel({
       allowRemoteModels: !app.isPackaged && process.env.MEMORILO_EMBEDDING_MODEL_OFFLINE !== '1',
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
   })
+  const shelfStorage = await createShelfStorage({ database: mainDatabase })
+  shelfImageCacheDatabase = new BetterSqliteDatabase(shelfImageCacheDatabasePath(), {
+    loadVectorExtension: false,
+  })
+  const shelfImageCache = await createShelfImageCache({ database: shelfImageCacheDatabase })
+  const shelfReadingFiles = await createShelfReadingFileStore({
+    cacheDirectory: shelfBookCacheDirectory(userDataPath),
+    libraryDirectory: shelfLibraryDirectory(database, userDataPath),
+  })
+
   let configuration = configurationStore.getSnapshot()
   if (configuration.mcp.accessToken.length < 32) {
     configuration = await configurationStore.set({
@@ -232,7 +286,16 @@ async function startApplication(): Promise<void> {
   closeMcpServer = mcpServer.close
   closeNoteApplication = notes.close
 
-  createDesktopServices(notes, editorStorage, configurationStore, assets, serializeAssetOperation)
+  createDesktopServices(
+    notes,
+    editorStorage,
+    shelfStorage,
+    shelfImageCache,
+    shelfReadingFiles,
+    configurationStore,
+    assets,
+    serializeAssetOperation,
+  )
   void mcpServer.update(configuration.mcp)
   unsubscribeConfiguration = configurationStore.subscribe(() => {
     const next = configurationStore?.getSnapshot()
@@ -310,6 +373,10 @@ async function shutdownApplication(): Promise<boolean> {
   const storage = editorStorage
   editorStorage = null
   await storage?.close()
+
+  const imageCacheDatabase = shelfImageCacheDatabase
+  shelfImageCacheDatabase = null
+  imageCacheDatabase?.close()
   return true
 }
 

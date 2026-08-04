@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@memorilo/shelf": "workspace:*",
     "@noble/hashes": "2.2.0",
     "uuid": "14.0.1"
   },

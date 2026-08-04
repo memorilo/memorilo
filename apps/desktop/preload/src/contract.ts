@@ -1,6 +1,36 @@
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+import type {
+  AddShelfSourceInput,
+  BrowseShelfInput,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
+  ShelfAssetInput,
+  ShelfAssetResult,
+  ShelfBrowseResult,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
+  ShelfReadingDocument,
+  ShelfSource,
+  UpdateShelfSourceInput,
+} from '@memorilo/shelf'
 
 export type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+export type {
+  AddShelfSourceInput,
+  BrowseShelfInput,
+  OpenShelfReadingInput,
+  PreparedShelfReading,
+  PrepareShelfReadingInput,
+  ShelfAssetInput,
+  ShelfAssetResult,
+  ShelfBrowseResult,
+  ShelfPublicationDetails,
+  ShelfPublicationDetailsInput,
+  ShelfReadingDocument,
+  ShelfSource,
+  UpdateShelfSourceInput,
+} from '@memorilo/shelf'
 
 export interface RuntimeInfo {
   platform: string
@@ -86,7 +116,6 @@ export interface ListDesktopNotesInput {
 }
 
 export type DesktopNoteSortDirection = 'asc' | 'desc'
-
 export type DesktopNoteSortField = 'createdAt' | 'title' | 'updatedAt'
 
 export interface RenameDesktopNoteInput {
@@ -150,10 +179,7 @@ export interface DesktopColumnVisibilityMenuItem {
 }
 
 export interface ShowDesktopColumnVisibilityMenuInput {
-  anchor: {
-    x: number
-    y: number
-  }
+  anchor: { x: number, y: number }
   columns: readonly DesktopColumnVisibilityMenuItem[]
 }
 
@@ -188,7 +214,6 @@ export interface DesktopTopicBlockSearchHit extends DesktopStoredTopicBlock {
 }
 
 export type DesktopTopicBlockSearchMode = 'hybrid' | 'lexical' | 'semantic'
-
 export type DesktopNoteSearchMatch = 'content' | 'node-start' | 'semantic' | 'title'
 
 export interface DesktopNoteTitleSearchHit {
@@ -215,38 +240,39 @@ export interface DesktopTopicSearchHit {
 export type DesktopNoteSearchHit = DesktopNoteTitleSearchHit | DesktopTopicSearchHit
 
 export interface DesktopApi {
+  addShelfSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
   checkAssets: () => Promise<DesktopAssetCheckResult>
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
+  deleteShelfReading: (readingId: string) => Promise<boolean>
+  getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
   getConfiguration: () => Promise<DesktopConfiguration>
   getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
   getRuntimeInfo: () => Promise<RuntimeInfo>
+  getShelfAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
+  getShelfPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
   importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
   listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
+  listShelfSources: () => Promise<readonly ShelfSource[]>
   openMostRecentNote: () => Promise<DesktopNote>
+  openShelfReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
+  prepareShelfReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
   reclaimAssets: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
   recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
+  refreshShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
+  removeShelfSource: (sourceId: string) => Promise<void>
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
   saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
-  searchNotes: (input: {
-    limit?: number
-    query: string
-  }) => Promise<readonly DesktopNoteSearchHit[]>
-  searchTopicBlocks: (input: {
-    limit?: number
-    mode?: DesktopTopicBlockSearchMode
-    noteId?: string
-    query: string
-  }) => Promise<readonly DesktopTopicBlockSearchHit[]>
-  setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
+  searchNotes: (input: { limit?: number, query: string }) => Promise<readonly DesktopNoteSearchHit[]>
+  searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
   setConfiguration: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
-  showColumnVisibilityMenu: (
-    input: ShowDesktopColumnVisibilityMenuInput,
-  ) => Promise<DesktopColumnVisibilityMenuSelection | null>
+  setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
+  showColumnVisibilityMenu: (input: ShowDesktopColumnVisibilityMenuInput) => Promise<DesktopColumnVisibilityMenuSelection | null>
   subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
   subscribeNoteSaveRequests: (listener: () => Promise<void>) => () => void
   subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void
+  updateShelfSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
 }

@@ -16,6 +16,7 @@ const sectionIcons = {
   editor: BookOpen,
   general: Settings2,
   images: Image,
+  reading: BookOpen,
 } as const
 
 function sectionIcon(sectionId: string) {
@@ -32,6 +33,8 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('editorSection')
     case 'images':
       return t('imagesSection')
+    case 'reading':
+      return t('readingSection')
     case 'mcp':
       return t('mcpSection')
     default:
@@ -49,6 +52,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('outdentBehavior')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehavior')
+    case 'readerArrowKeyPageTurning':
+      return t('readerArrowKeyPageTurning')
     case 'tiffConversionFormat':
       return t('tiffConversionFormat')
     case 'mcp.enabled':
@@ -68,6 +73,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('outdentBehaviorDescription')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehaviorDescription')
+    case 'readerArrowKeyPageTurning':
+      return t('readerArrowKeyPageTurningDescription')
     case 'tiffConversionFormat':
       return t('tiffConversionFormatDescription')
     case 'mcp.enabled':
@@ -143,6 +150,8 @@ function sectionDescription(sectionId: string, t: TFunction): string {
       return t('editorDescription')
     case 'images':
       return t('imagesDescription')
+    case 'reading':
+      return t('readingDescription')
     case 'mcp':
       return t('mcpDescription')
     default:

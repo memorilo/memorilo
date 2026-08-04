@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@memorilo/desktop-config": "workspace:*",
+    "@memorilo/shelf": "workspace:*",
     "electron-ipc-decorator": "1.0.1"
   },
   "devDependencies": {
