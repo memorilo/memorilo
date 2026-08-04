@@ -34,6 +34,25 @@ import { useDesktopConfiguration } from '../configuration-context'
 import { noteQueryKeys } from '../queries/note-query-keys'
 import { editorRouteStyles } from './-note.stylex'
 
+function desktopEditorAdapters(networkImagePasteBehavior: 'download' | 'url') {
+  return {
+    ...demoEditorAdapters,
+    importNetworkImage: async (source: string) => (await window.desktop.importNetworkImage({ source })).src,
+    networkImagePasteBehavior,
+    uploadImage: async ({ file, onProgress }: Parameters<typeof demoEditorAdapters.uploadImage>[0]) => {
+      const total = Math.max(file.size, 1)
+      onProgress({ loaded: 0, total })
+      const result = await window.desktop.saveImage({
+        data: new Uint8Array(await file.arrayBuffer()),
+        fileName: file.name,
+        mimeType: file.type,
+      })
+      onProgress({ loaded: total, total })
+      return result.src
+    },
+  }
+}
+
 const inspectorSpring = {
   bounce: 0,
   type: 'spring',
@@ -189,6 +208,10 @@ function OpenedTopicEditor({
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
   const [inspectorVisible, setInspectorVisible] = useAtom(noteInspectorVisibleAtom)
   const configuration = useDesktopConfiguration()
+  const editorAdapters = useMemo(
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
+    [configuration.networkImagePasteBehavior],
+  )
   const shouldReduceMotion = useReducedMotion()
   const inspectorTransition = shouldReduceMotion ? { duration: 0 } : inspectorSpring
   const entryTransition = shouldReduceMotion ? { duration: 0 } : entrySpring
@@ -335,7 +358,7 @@ function OpenedTopicEditor({
             )
           : null}
         <Editor
-          adapters={demoEditorAdapters}
+          adapters={editorAdapters}
           focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
           outline={{ outdentBehavior: configuration.outdentBehavior }}
           topic={opened.topic}

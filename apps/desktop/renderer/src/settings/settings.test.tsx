@@ -25,19 +25,39 @@ describe('settings renderer', () => {
       '简体中文',
       'Logical',
       'Traditional',
+      'Download into Assets',
+      'Keep URL',
+      'WebP',
+      'PNG',
+      'JPEG',
+      'AVIF',
     ])
+    expect(rendered.getByRole('combobox', { name: 'Pasted network images' })).toHaveValue('download')
+    expect(rendered.getByRole('combobox', { name: 'TIFF conversion format' })).toHaveValue('webp')
     const reduceMotion = rendered.getByRole('switch', { name: 'Reduce motion' })
     expect(reduceMotion).toHaveAttribute('aria-checked', 'false')
 
     fireEvent.change(language, { target: { value: 'zh-CN' } })
     await waitFor(() => {
-      expect(store.getSnapshot()).toEqual({ language: 'zh-CN', outdentBehavior: 'logical', reduceMotion: false })
+      expect(store.getSnapshot()).toEqual({
+        language: 'zh-CN',
+        networkImagePasteBehavior: 'download',
+        outdentBehavior: 'logical',
+        reduceMotion: false,
+        tiffConversionFormat: 'webp',
+      })
       expect(document.documentElement.lang).toBe('zh-CN')
     })
 
     fireEvent.click(reduceMotion)
     await waitFor(() => {
-      expect(store.getSnapshot()).toEqual({ language: 'zh-CN', outdentBehavior: 'logical', reduceMotion: true })
+      expect(store.getSnapshot()).toEqual({
+        language: 'zh-CN',
+        networkImagePasteBehavior: 'download',
+        outdentBehavior: 'logical',
+        reduceMotion: true,
+        tiffConversionFormat: 'webp',
+      })
       expect(document.documentElement).toHaveAttribute('data-reduce-motion', 'true')
     })
 

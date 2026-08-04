@@ -15,6 +15,8 @@ export interface ImageUploadInput {
 }
 
 export interface EditorAdapters {
+  importNetworkImage?: (source: string) => Promise<string>
+  networkImagePasteBehavior?: 'download' | 'url'
   tagStorage: EditorTagStorage
   uploadImage: (input: ImageUploadInput) => Promise<string>
 }

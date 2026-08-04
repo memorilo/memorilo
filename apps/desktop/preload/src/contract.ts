@@ -7,6 +7,50 @@ export interface RuntimeInfo {
   version: string
 }
 
+export interface SaveDesktopImageInput {
+  data: Uint8Array
+  fileName: string
+  mimeType: string
+}
+
+export interface SaveDesktopImageResult {
+  src: string
+}
+
+export interface ImportDesktopNetworkImageInput {
+  source: string
+}
+
+export interface DesktopAssetCandidate {
+  byteSize: number
+  fileName: string
+  originalFileName: string
+}
+
+export interface DesktopMissingAsset {
+  fileName: string
+  originalFileName: string
+  referenceCount: number
+}
+
+export interface DesktopAssetCheckResult {
+  candidates: readonly DesktopAssetCandidate[]
+  managedAssetCount: number
+  missingAssets: readonly DesktopMissingAsset[]
+  referencedAssetCount: number
+}
+
+export interface ReclaimDesktopAssetsInput {
+  fileNames: readonly string[]
+  mode: 'permanent' | 'trash'
+}
+
+export interface ReclaimDesktopAssetsResult {
+  cancelled: boolean
+  failedFileNames: readonly string[]
+  reclaimedFileNames: readonly string[]
+}
+
 export interface DesktopTopicBlock {
   attributes: Readonly<Record<string, unknown>>
   id: string
@@ -165,17 +209,21 @@ export interface DesktopTopicSearchHit {
 export type DesktopNoteSearchHit = DesktopNoteTitleSearchHit | DesktopTopicSearchHit
 
 export interface DesktopApi {
+  checkAssets: () => Promise<DesktopAssetCheckResult>
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
   getConfiguration: () => Promise<DesktopConfiguration>
   getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
   getRuntimeInfo: () => Promise<RuntimeInfo>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
+  importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
   listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
   openMostRecentNote: () => Promise<DesktopNote>
+  reclaimAssets: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
   recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
+  saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
   searchNotes: (input: {
     limit?: number

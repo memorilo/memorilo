@@ -1,7 +1,7 @@
 import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -13,10 +13,12 @@ import {
   migrateDesktopConfiguration,
 } from '@memorilo/desktop-config'
 import { createEditorStorage } from '@memorilo/editor-storage'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, protocol, shell } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
+import { assetProtocol, registerAssetProtocol } from './asset-protocol'
 import { createDesktopServices } from './ipc/services'
+import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
 import { createSettingsWindowController } from './windows/settings-window'
@@ -27,6 +29,22 @@ let unsubscribeConfiguration: (() => void) | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 app.setName('Memorilo')
+const isPrimaryInstance = acquireSingleInstance(app)
+if (isPrimaryInstance) {
+  app.on('second-instance', () => {
+    const window = BrowserWindow.getAllWindows()[0]
+    if (window)
+      showPrimaryWindow(window)
+  })
+}
+protocol.registerSchemesAsPrivileged([{
+  scheme: assetProtocol,
+  privileges: {
+    secure: true,
+    standard: true,
+    supportFetchAPI: true,
+  },
+}])
 
 function databasePath(userDataPath: string): string {
   const configured = process.env.MEMORILO_DATABASE_PATH
@@ -35,6 +53,13 @@ function databasePath(userDataPath: string): string {
   if (configured.length === 0)
     throw new TypeError('MEMORILO_DATABASE_PATH must not be empty')
   return configured
+}
+
+function assetDirectory(database: string): string | null {
+  if (database === ':memory:')
+    return null
+  const absoluteDatabase = isAbsolute(database) ? database : resolve(database)
+  return join(dirname(absoluteDatabase), 'assets')
 }
 
 function embeddingModelCacheDirectory(): string {
@@ -116,6 +141,9 @@ function createWindow() {
 
 async function startApplication(): Promise<void> {
   const userDataPath = app.getPath('userData')
+  const database = databasePath(userDataPath)
+  const assets = assetDirectory(database)
+  registerAssetProtocol(assets)
   configurationStore = await createConfigurationStore(
     desktopConfigurationDefinition,
     desktopConfigurationAdapter(userDataPath),
@@ -124,13 +152,13 @@ async function startApplication(): Promise<void> {
     },
   )
   editorStorage = await createEditorStorage({
-    database: new BetterSqliteDatabase(databasePath(userDataPath)),
+    database: new BetterSqliteDatabase(database),
     embeddingModel: new TransformersEmbeddingModel({
       allowRemoteModels: !app.isPackaged && process.env.MEMORILO_EMBEDDING_MODEL_OFFLINE !== '1',
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
   })
-  createDesktopServices(editorStorage, configurationStore)
+  createDesktopServices(editorStorage, configurationStore, assets)
   unsubscribeConfiguration = configurationStore.subscribe(() => {
     const configuration = configurationStore?.getSnapshot()
     if (!configuration)
@@ -149,7 +177,10 @@ async function startApplication(): Promise<void> {
 }
 
 void app.whenReady()
-  .then(startApplication)
+  .then(async () => {
+    if (isPrimaryInstance)
+      await startApplication()
+  })
   .catch((error) => {
     console.error('Failed to start Memorilo', error)
     app.quit()

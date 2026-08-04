@@ -2,9 +2,13 @@ export const desktopConfigurationChangedChannel = 'memorilo:configuration-change
 
 export type DesktopLanguage = 'en' | 'system' | 'zh-CN'
 export type DesktopOutdentBehavior = 'logical' | 'traditional'
+export type DesktopNetworkImagePasteBehavior = 'download' | 'url'
+export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
 
 export interface DesktopConfiguration {
   language: DesktopLanguage
+  networkImagePasteBehavior: DesktopNetworkImagePasteBehavior
   outdentBehavior: DesktopOutdentBehavior
   reduceMotion: boolean
+  tiffConversionFormat: DesktopTiffConversionFormat
 }

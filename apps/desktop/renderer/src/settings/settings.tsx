@@ -4,6 +4,7 @@ import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
 
+import { AssetSettings } from './asset-settings'
 import { settingsStyles } from './settings.stylex'
 
 export function Settings({ store }: { store: ConfigurationStore<DesktopConfiguration> }) {
@@ -21,6 +22,7 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
               </div>
             </section>
           ))}
+          <AssetSettings />
         </div>
       </div>
     </main>

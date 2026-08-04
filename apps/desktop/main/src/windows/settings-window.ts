@@ -28,10 +28,11 @@ export function createSettingsWindowController(mainDirectory: string): SettingsW
     settingsWindow = new BrowserWindow({
       backgroundColor: process.platform === 'darwin' ? '#00f4f5f7' : '#f4f5f7',
       fullscreenable: false,
-      height: 276,
+      height: 520,
       maximizable: false,
       minimizable: false,
-      resizable: false,
+      minHeight: 360,
+      resizable: true,
       show: false,
       title: 'Memorilo Settings',
       width: 540,
