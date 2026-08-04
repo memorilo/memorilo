@@ -11,6 +11,7 @@ import type {
 } from './model'
 import { Data, Effect } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
+import { shelfReadingMediaType } from './reading'
 
 // eslint-disable-next-line unicorn/throw-new-error
 export class ShelfNetworkError extends Data.TaggedError('ShelfNetworkError')<{
@@ -645,10 +646,13 @@ export function fetchShelfAsset(input: FetchShelfAssetInput): Effect.Effect<Fetc
 }
 
 function hasPublicationSignature(bytes: Uint8Array, format: ShelfReadingFormat): boolean {
-  const signature = format === 'pdf'
-    ? [0x25, 0x50, 0x44, 0x46, 0x2D]
-    : [0x50, 0x4B]
-  return signature.every((value, index) => bytes[index] === value)
+  if (format === 'txt')
+    return bytes.byteLength > 0
+  if (format === 'pdf')
+    return [0x25, 0x50, 0x44, 0x46, 0x2D].every((value, index) => bytes[index] === value)
+  if (format === 'epub' || format === 'cbz')
+    return bytes[0] === 0x50 && bytes[1] === 0x4B
+  return [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07].every((value, index) => bytes[index] === value)
 }
 
 export function fetchShelfPublication(
@@ -658,7 +662,7 @@ export function fetchShelfPublication(
     try: async (signal) => {
       const url = assertRemoteUrl(input.url)
       const response = await fetch(url, {
-        headers: requestHeaders(input, input.format === 'epub' ? 'application/epub+zip' : 'application/pdf'),
+        headers: requestHeaders(input, shelfReadingMediaType(input.format)),
         redirect: 'follow',
         signal,
       })
@@ -674,7 +678,7 @@ export function fetchShelfPublication(
       }
       return {
         bytes,
-        mimeType: input.format === 'epub' ? 'application/epub+zip' : 'application/pdf',
+        mimeType: shelfReadingMediaType(input.format),
       }
     },
     catch: error => knownRequestError(error, input.url),

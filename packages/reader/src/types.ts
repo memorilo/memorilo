@@ -1,4 +1,4 @@
-export type ReaderFormat = 'epub' | 'pdf'
+export type ReaderFormat = 'cbr' | 'cbz' | 'epub' | 'pdf' | 'txt'
 
 export type ReaderPresentationMode = 'publisher' | 'reader'
 
@@ -77,8 +77,24 @@ export interface ReaderEpubTextAnchor {
   type: 'text'
 }
 
-export type ReaderTextAnchor = ReaderEpubTextAnchor | ReaderPdfTextAnchor
-export type ReaderAnchor = ReaderPdfRegionAnchor | ReaderTextAnchor
+export interface ReaderTxtTextAnchor {
+  end: number
+  format: 'txt'
+  quote: ReaderTextQuote
+  start: number
+  type: 'text'
+}
+
+export interface ReaderComicRegionAnchor {
+  format: 'cbr' | 'cbz'
+  pageNumber: number
+  rect: ReaderNormalizedRect
+  type: 'region'
+}
+
+export type ReaderTextAnchor = ReaderEpubTextAnchor | ReaderPdfTextAnchor | ReaderTxtTextAnchor
+export type ReaderRegionAnchor = ReaderComicRegionAnchor | ReaderPdfRegionAnchor
+export type ReaderAnchor = ReaderRegionAnchor | ReaderTextAnchor
 
 export interface ReaderTextSelection {
   anchor: ReaderTextAnchor
@@ -87,7 +103,7 @@ export interface ReaderTextSelection {
 }
 
 export interface ReaderRegionSelection {
-  anchor: ReaderPdfRegionAnchor
+  anchor: ReaderRegionAnchor
   type: 'region'
 }
 

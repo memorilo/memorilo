@@ -32,8 +32,8 @@ function ReaderRoute() {
       <input
         ref={inputRef}
         {...stylex.props(readerRouteStyles.fileInput)}
-        accept=".pdf,.epub,application/pdf,application/epub+zip"
-        aria-label="Open PDF or EPUB"
+        accept=".pdf,.epub,.txt,.cbz,.cbr,application/pdf,application/epub+zip,text/plain,application/vnd.comicbook+zip,application/vnd.comicbook-rar,application/x-cbz,application/x-cbr,application/vnd.rar,application/x-rar-compressed"
+        aria-label="Open PDF or EPUB, TXT, CBZ, or CBR"
         type="file"
         onChange={selectFile}
       />
@@ -46,7 +46,7 @@ function ReaderRoute() {
               <BookOpen {...stylex.props(readerRouteStyles.emptyIcon)} aria-hidden="true" strokeWidth={1.5} />
               <h1 {...stylex.props(readerRouteStyles.emptyTitle)}>Open a document</h1>
               <p {...stylex.props(readerRouteStyles.emptyDetail)}>
-                Choose a PDF or EPUB from this Mac.
+                Choose a PDF, EPUB, TXT, CBZ, or CBR from this Mac.
               </p>
               <button
                 {...stylex.props(readerRouteStyles.openButton)}
