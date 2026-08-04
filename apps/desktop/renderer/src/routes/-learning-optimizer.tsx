@@ -192,6 +192,7 @@ function OptimizerEditor({
   onChange,
   onDelete,
   onDiscard,
+  onOptimize,
   onReset,
   onSave,
   operation,
@@ -203,6 +204,7 @@ function OptimizerEditor({
   onChange: (draft: OptimizerDraft) => void
   onDelete: () => void
   onDiscard: () => void
+  onOptimize: () => void
   onReset: () => void
   onSave: (rescheduleNow: boolean) => void
   operation: OperationKind | null
@@ -214,6 +216,7 @@ function OptimizerEditor({
   const [stepError, setStepError] = useState<string | null>(null)
   const [rescheduleNow, setRescheduleNow] = useState(false)
   const busy = operation !== null
+  const optimizing = operation === 'optimize'
   const saving = operation === 'save'
   const configurationChanged = !sameConfiguration(draft.configuration, optimizer.configuration)
   const nameChanged = draft.name.trim() !== optimizer.name
@@ -461,7 +464,23 @@ function OptimizerEditor({
 
             <FormSection description={t('advancedDescription')} title={t('advanced')}>
               <SettingRow label={t('parameterCount', { count: draft.configuration.fsrsParameters.length })}>
-                <code {...stylex.props(styles.parameters)}>{draft.configuration.fsrsParameters.map(value => Number(value.toFixed(4))).join(', ')}</code>
+                <div {...stylex.props(styles.parametersControl)}>
+                  <code {...stylex.props(styles.parameters)}>{draft.configuration.fsrsParameters.map(value => Number(value.toFixed(4))).join(', ')}</code>
+                  <div {...stylex.props(styles.parameterActions)}>
+                    <button
+                      {...stylex.props(styles.actionButton)}
+                      disabled={disabled || dirty}
+                      title={dirty ? t('unsaved') : t('optimize')}
+                      type="button"
+                      onClick={onOptimize}
+                    >
+                      {optimizing
+                        ? <LoaderCircle {...stylex.props(styles.spinner)} aria-hidden="true" size={14} />
+                        : <Sparkles aria-hidden="true" size={14} />}
+                      <span>{optimizing ? t('optimizing') : t('optimize')}</span>
+                    </button>
+                  </div>
+                </div>
               </SettingRow>
             </FormSection>
 
@@ -737,11 +756,6 @@ export function LearningOptimizerDetail({ optimizerId }: { optimizerId: string }
       name: selectedOptimizer.name,
     }
     : undefined
-  const selectedDirty = selectedOptimizer && selectedDraft
-    ? selectedDraft.name.trim() !== selectedOptimizer.name
-    || !sameConfiguration(selectedDraft.configuration, selectedOptimizer.configuration)
-    : false
-
   const closeDialog = () => {
     if (busy)
       return
@@ -832,65 +846,9 @@ export function LearningOptimizerDetail({ optimizerId }: { optimizerId: string }
       return t('saved')
     })
   }
-  const records = query.data
-
   return (
     <main {...stylex.props(styles.detailPage)} aria-label={titlebar.title}>
       <div {...stylex.props(styles.workspace)}>
-        <div {...stylex.props(styles.toolbarRegion)}>
-          <div
-            {...stylex.props(styles.toolbarCluster)}
-            aria-label={t('optimizers')}
-            role="toolbar"
-          >
-            <div {...stylex.props(styles.liquidToolbar)}>
-              <span {...stylex.props(styles.toolbarIcon)}>
-                {selectedOptimizer.isGlobal
-                  ? <Globe2 aria-hidden="true" size={14} strokeWidth={1.8} />
-                  : <SlidersHorizontal aria-hidden="true" size={14} strokeWidth={1.8} />}
-              </span>
-              <select
-                {...stylex.props(styles.optimizerSelector)}
-                aria-label={t('optimizers')}
-                disabled={busy}
-                value={selectedOptimizer.id}
-                onChange={(event) => {
-                  setFeedback(null)
-                  void router.navigate({
-                    params: { optimizerId: event.target.value },
-                    to: '/learning/optimizer/$optimizerId',
-                  })
-                }}
-              >
-                {records.map(record => (
-                  <option key={record.optimizer.id} value={record.optimizer.id}>
-                    {record.optimizer.isGlobal ? t('globalOptimizer') : record.optimizer.name}
-                  </option>
-                ))}
-              </select>
-              {selectedDirty ? <span {...stylex.props(styles.dirtyDot)} aria-label={t('unsaved')} /> : null}
-            </div>
-            <div {...stylex.props(styles.liquidToolbar)}>
-              <button
-                {...stylex.props(styles.toolbarAction)}
-                disabled={busy || selectedDirty}
-                title={selectedDirty ? t('unsaved') : t('optimize')}
-                type="button"
-                onClick={() => {
-                  setFeedback(null)
-                  setRescheduleNow(false)
-                  setDialog('optimize')
-                }}
-              >
-                {operation === 'optimize'
-                  ? <LoaderCircle {...stylex.props(styles.spinner)} aria-hidden="true" size={14} />
-                  : <Sparkles aria-hidden="true" size={14} />}
-                <span>{operation === 'optimize' ? t('optimizing') : t('optimize')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
         <OptimizerEditor
           key={`${selectedOptimizer.id}:${selectedOptimizer.revisionId}:${editorResetRevision}`}
           draft={selectedDraft}
@@ -907,6 +865,11 @@ export function LearningOptimizerDetail({ optimizerId }: { optimizerId: string }
             clearDraft(selectedOptimizer.id)
             setEditorResetRevision(revision => revision + 1)
             setFeedback(null)
+          }}
+          onOptimize={() => {
+            setFeedback(null)
+            setRescheduleNow(false)
+            setDialog('optimize')
           }}
           onReset={() => {
             setFeedback(null)
