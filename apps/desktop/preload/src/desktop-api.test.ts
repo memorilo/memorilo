@@ -37,6 +37,7 @@ function serviceStub(): DesktopServices {
       listSources: vi.fn(),
       openReading: vi.fn(),
       prepareReading: vi.fn(),
+      readReadingRange: vi.fn(),
       refreshView: vi.fn(),
       removeSource: vi.fn(),
       updateSource: vi.fn(),
@@ -54,6 +55,7 @@ describe('desktop preload API', () => {
       networkImagePasteBehavior: 'download',
       outdentBehavior: 'logical',
       readerArrowKeyPageTurning: true,
+      readerEpubPresentationMode: 'publisher',
       reduceMotion: false,
       tiffConversionFormat: 'webp',
     }

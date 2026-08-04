@@ -1,6 +1,7 @@
 import type {
   ShelfReadingDocument,
   ShelfReadingFormat,
+  ShelfReadingRangeInput,
   ShelfReadingRetention,
 } from '../model'
 import { Buffer } from 'node:buffer'
@@ -8,8 +9,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import {
   copyFile,
   mkdir,
+  open as openFile,
   readdir,
-  readFile,
   rename,
   rm,
   stat,
@@ -17,6 +18,11 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { basename, join } from 'node:path'
+import {
+  assertReadingFormat,
+  readingFormatExtension,
+  readingFormatFromFileName,
+} from '@memorilo/reading-format'
 
 const defaultMaximumBookCacheBytes = 256 * 1024 * 1024
 const readingIdPattern = /^[a-f0-9]{64}$/u
@@ -44,6 +50,7 @@ export interface ShelfReadingFileStore {
   getLocation: (readingId: string) => Promise<ShelfReadingFileLocation>
   open: (readingId: string) => Promise<ShelfReadingDocument | null>
   promote: (readingId: string) => Promise<boolean>
+  readRange: (input: ShelfReadingRangeInput) => Promise<Uint8Array>
   save: (input: SaveShelfReadingFileInput) => Promise<void>
 }
 
@@ -69,9 +76,14 @@ function assertReadingId(readingId: string): void {
     throw new TypeError('Shelf reading id must be a lowercase SHA-256 digest')
 }
 
-function assertFormat(format: string): asserts format is ShelfReadingFormat {
-  if (format !== 'epub' && format !== 'pdf' && format !== 'txt' && format !== 'cbz' && format !== 'cbr')
-    throw new TypeError(`Unsupported Shelf reading format: ${format}`)
+function assertNonNegativeSafeInteger(value: number, name: string): void {
+  if (!Number.isSafeInteger(value) || value < 0)
+    throw new RangeError(`${name} must be a non-negative safe integer`)
+}
+
+function assertFileByteLength(byteLength: number): void {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 0)
+    throw new RangeError('Shelf publication byte length exceeds the supported range')
 }
 
 function isNotFound(error: unknown): boolean {
@@ -92,7 +104,11 @@ function truncateUtf8(value: string, maximumBytes: number): string {
 }
 
 function sanitizedFileName(name: string, format: ShelfReadingFormat): string {
-  const withoutExtension = name.trim().replace(/\.(?:cbr|cbz|epub|pdf|txt)$/iu, '')
+  const trimmedName = name.trim()
+  const existingFormat = readingFormatFromFileName(trimmedName)
+  const withoutExtension = existingFormat === null
+    ? trimmedName
+    : trimmedName.slice(0, trimmedName.lastIndexOf('.'))
   const withoutControlCharacters = [...withoutExtension]
     .map(character => character.codePointAt(0)! < 32 || character.codePointAt(0) === 127 ? ' ' : character)
     .join('')
@@ -104,7 +120,7 @@ function sanitizedFileName(name: string, format: ShelfReadingFormat): string {
   let stem = normalized.length > 0 ? truncateUtf8(normalized, 160) : 'Untitled'
   if (reservedWindowsFileName.test(stem))
     stem = `_${stem}`
-  return `${stem}.${format}`
+  return `${stem}.${readingFormatExtension(format)}`
 }
 
 async function directoryEntries(path: string) {
@@ -123,10 +139,10 @@ async function storedDocument(directory: string): Promise<StoredDocument | null>
   const documents = entries.flatMap((entry): readonly StoredDocument[] => {
     if (!entry.isFile())
       return []
-    const extension = entry.name.toLocaleLowerCase().split('.').at(-1)
-    if (extension !== 'epub' && extension !== 'pdf' && extension !== 'txt' && extension !== 'cbz' && extension !== 'cbr')
+    const format = readingFormatFromFileName(entry.name)
+    if (format === null)
       return []
-    return [{ format: extension, name: entry.name, path: join(directory, entry.name) }]
+    return [{ format, name: entry.name, path: join(directory, entry.name) }]
   })
   if (documents.length > 1)
     throw new Error(`Shelf reading directory contains multiple publications: ${directory}`)
@@ -172,7 +188,7 @@ export function createShelfReadingId(
 ): string {
   assertNonEmpty(sourceId, 'Shelf source id')
   assertNonEmpty(publicationId, 'Shelf publication id')
-  assertFormat(format)
+  assertReadingFormat(format)
   return createHash('sha256')
     .update('memorilo-shelf-reading-v1\0')
     .update(sourceId)
@@ -292,11 +308,47 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
         const now = new Date()
         await utimes(document.path, now, now)
       }
-      const bytes = await readFile(document.path)
+      const byteLength = (await stat(document.path)).size
+      assertFileByteLength(byteLength)
       return {
-        bytes: new Uint8Array(bytes),
+        byteLength,
         format: document.format,
         name: document.name,
+      }
+    })
+  }
+
+  async readRange(input: ShelfReadingRangeInput): Promise<Uint8Array> {
+    assertReadingId(input.readingId)
+    assertNonNegativeSafeInteger(input.offset, 'Shelf reading range offset')
+    assertNonNegativeSafeInteger(input.length, 'Shelf reading range length')
+    return this.#serializeWrite(async () => {
+      const document = await this.#document(this.#libraryDirectory, input.readingId)
+        ?? await this.#document(this.#cacheDirectory, input.readingId)
+      if (document === null)
+        throw new Error(`Shelf reading file is missing: ${input.readingId}`)
+
+      const handle = await openFile(document.path, 'r')
+      try {
+        const byteLength = (await handle.stat()).size
+        assertFileByteLength(byteLength)
+        if (input.offset > byteLength || input.length > byteLength - input.offset) {
+          throw new RangeError(
+            `Shelf reading range ${input.offset}:${input.length} exceeds the ${byteLength}-byte publication`,
+          )
+        }
+
+        const bytes = new Uint8Array(input.length)
+        const { bytesRead } = await handle.read(bytes, 0, input.length, input.offset)
+        if (bytesRead !== input.length) {
+          throw new Error(
+            `Shelf reading range short read: expected ${input.length} bytes but received ${bytesRead}`,
+          )
+        }
+        return bytes
+      }
+      finally {
+        await handle.close()
       }
     })
   }
@@ -320,7 +372,7 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
 
   async save(input: SaveShelfReadingFileInput): Promise<void> {
     assertReadingId(input.readingId)
-    assertFormat(input.format)
+    assertReadingFormat(input.format)
     assertNonEmpty(input.name, 'Shelf publication name')
     if (input.bytes.byteLength === 0)
       throw new TypeError('Shelf publication must contain bytes')

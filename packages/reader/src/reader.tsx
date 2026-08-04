@@ -12,6 +12,7 @@ import type {
   ReaderNote,
   ReaderOutlineItem,
   ReaderProps,
+  ReaderScaleCapability,
 } from './types'
 import * as stylex from '@stylexjs/stylex'
 import {
@@ -33,8 +34,8 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { readerAnnotationLabel } from './internal/annotation-label'
 import { openReaderAdapter } from './internal/open-reader'
-import { readerMaximumScale, readerMinimumScale } from './internal/reader-adapter'
 import { readerStyles } from './reader.stylex'
 
 type ReaderStatus = 'error' | 'loading' | 'ready'
@@ -54,7 +55,7 @@ type ReaderViewAction
 const initialState: ReaderAdapterState = {
   canGoBackward: false,
   canGoForward: false,
-  capabilities: { presentationModes: [], scale: false },
+  capabilities: {},
   format: 'pdf',
   location: { format: 'pdf', label: '', progression: 0 },
   outline: [],
@@ -75,12 +76,12 @@ const sourceKeys = new WeakMap<object, number>()
 let nextSourceKey = 1
 
 function readerSourceKey(source: ReaderProps['source']): number {
-  const data = source.data
-  const existing = sourceKeys.get(data)
-  if (existing)
+  const identity = 'data' in source && source.data !== undefined ? source.data : source.read
+  const existing = sourceKeys.get(identity)
+  if (existing !== undefined)
     return existing
   const key = nextSourceKey++
-  sourceKeys.set(data, key)
+  sourceKeys.set(identity, key)
   return key
 }
 
@@ -98,20 +99,8 @@ function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
 }
 
-function annotationLabel(annotation: ReaderAnnotation): string {
-  const anchor = annotation.anchor
-  if (anchor.format === 'pdf')
-    return anchor.type === 'region' ? `Area on page ${anchor.pageNumber}` : `Page ${anchor.pageNumber}`
-  if (anchor.format === 'epub')
-    return anchor.locator.title || anchor.locator.href
-  if (anchor.format === 'txt')
-    return `Text near character ${anchor.start.toLocaleString()}`
-  return `Area on page ${anchor.pageNumber}`
-}
-
-function scaleActionLabel(format: ReaderAdapterState['format'], direction: 'in' | 'out'): string {
-  const zoom = format === 'pdf' || format === 'cbz' || format === 'cbr'
-  if (zoom)
+function scaleActionLabel(capability: ReaderScaleCapability, direction: 'in' | 'out'): string {
+  if (capability.kind === 'zoom')
     return direction === 'in' ? 'Zoom in' : 'Zoom out'
   return direction === 'in' ? 'Increase text size' : 'Decrease text size'
 }
@@ -661,17 +650,27 @@ function ReaderSession({
 
   const toggleRegionSelection = useCallback(() => {
     const next = !regionSelectionActive
-    adapterRef.current?.setRegionSelectionEnabled(next)
+    const adapter = adapterRef.current
+    if (!adapter?.setRegionSelectionEnabled) {
+      reportError(new Error('The reader declared area selection without providing its command'))
+      return
+    }
+    adapter.setRegionSelectionEnabled(next)
     setRegionSelectionActive(next)
     if (next)
       dismissSelection()
-  }, [dismissSelection, regionSelectionActive])
+  }, [dismissSelection, regionSelectionActive, reportError])
 
   const handleKeyDown = useCallback((event: globalThis.KeyboardEvent) => {
     if (event.key === 'Escape') {
       if (regionSelectionActive) {
         event.preventDefault()
-        adapterRef.current?.setRegionSelectionEnabled(false)
+        const adapter = adapterRef.current
+        if (!adapter?.setRegionSelectionEnabled) {
+          reportError(new Error('The reader declared area selection without providing its command'))
+          return
+        }
+        adapter.setRegionSelectionEnabled(false)
         setRegionSelectionActive(false)
       }
       else if (selection) {
@@ -692,7 +691,7 @@ function ReaderSession({
     })) {
       event.preventDefault()
     }
-  }, [dismissSelection, handleReaderKeyboardEvent, regionSelectionActive, selection])
+  }, [dismissSelection, handleReaderKeyboardEvent, regionSelectionActive, reportError, selection])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -705,6 +704,7 @@ function ReaderSession({
     : undefined
   const popoverBelow = popoverLayout?.placement === 'below'
   const compactRegionToolbar = selection?.selection.type === 'region' && !colorPaletteOpen
+  const scaleCapability = adapterState.capabilities.scale
 
   return (
     <div
@@ -724,7 +724,7 @@ function ReaderSession({
                 {adapterState.textLayer === 'recognizing'
                   ? <span {...stylex.props(readerStyles.statusChip)}>Recognizing…</span>
                   : null}
-                {adapterState.format === 'pdf' && adapterState.textLayer === 'none' && status === 'ready'
+                {adapterState.textLayer === 'none' && status === 'ready'
                   ? <span {...stylex.props(readerStyles.statusChip)}>Image page</span>
                   : null}
               </div>
@@ -799,34 +799,52 @@ function ReaderSession({
                   disabled={status !== 'ready' || adapterState.textLayer === 'recognizing'}
                   title="Recognize text on this page"
                   type="button"
-                  onClick={() => run(adapter => adapter.recognizeCurrentPage())}
+                  onClick={() => run((adapter) => {
+                    if (!adapter.recognizeCurrentPage)
+                      throw new Error('The reader declared OCR without providing its command')
+                    return adapter.recognizeCurrentPage()
+                  })}
                 >
                   <Sparkles aria-hidden="true" size={15} strokeWidth={1.8} />
                 </button>
               )
             : null}
-          <button
-            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
-            aria-label={scaleActionLabel(adapterState.format, 'out')}
-            data-window-no-drag=""
-            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale <= readerMinimumScale}
-            title={scaleActionLabel(adapterState.format, 'out')}
-            type="button"
-            onClick={() => run(adapter => adapter.setScale(adapterState.scale - 0.1))}
-          >
-            <Minus aria-hidden="true" size={15} strokeWidth={2} />
-          </button>
-          <button
-            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
-            aria-label={scaleActionLabel(adapterState.format, 'in')}
-            data-window-no-drag=""
-            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale >= readerMaximumScale}
-            title={scaleActionLabel(adapterState.format, 'in')}
-            type="button"
-            onClick={() => run(adapter => adapter.setScale(adapterState.scale + 0.1))}
-          >
-            <Plus aria-hidden="true" size={15} strokeWidth={2} />
-          </button>
+          {scaleCapability
+            ? (
+                <>
+                  <button
+                    {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+                    aria-label={scaleActionLabel(scaleCapability, 'out')}
+                    data-window-no-drag=""
+                    disabled={status !== 'ready' || adapterState.scale <= scaleCapability.minimum}
+                    title={scaleActionLabel(scaleCapability, 'out')}
+                    type="button"
+                    onClick={() => run((adapter) => {
+                      if (!adapter.setScale)
+                        throw new Error('The reader declared scaling without providing its command')
+                      return adapter.setScale(adapterState.scale - scaleCapability.step)
+                    })}
+                  >
+                    <Minus aria-hidden="true" size={15} strokeWidth={2} />
+                  </button>
+                  <button
+                    {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+                    aria-label={scaleActionLabel(scaleCapability, 'in')}
+                    data-window-no-drag=""
+                    disabled={status !== 'ready' || adapterState.scale >= scaleCapability.maximum}
+                    title={scaleActionLabel(scaleCapability, 'in')}
+                    type="button"
+                    onClick={() => run((adapter) => {
+                      if (!adapter.setScale)
+                        throw new Error('The reader declared scaling without providing its command')
+                      return adapter.setScale(adapterState.scale + scaleCapability.step)
+                    })}
+                  >
+                    <Plus aria-hidden="true" size={15} strokeWidth={2} />
+                  </button>
+                </>
+              )
+            : null}
           <button
             {...stylex.props(
               readerStyles.button,
@@ -911,7 +929,11 @@ function ReaderSession({
                           key={`${adapterState.title}:${adapterState.outline.length}`}
                           currentHref={adapterState.location.href}
                           items={adapterState.outline}
-                          onNavigate={itemId => run(adapter => adapter.goToOutlineItem(itemId))}
+                          onNavigate={itemId => run((adapter) => {
+                            if (!adapter.goToOutlineItem)
+                              throw new Error('The reader exposed an outline without providing its navigation command')
+                            return adapter.goToOutlineItem(itemId)
+                          })}
                         />
                       )}
                 </div>
@@ -948,7 +970,7 @@ function ReaderSession({
                               <span {...stylex.props(readerStyles.annotationMeta)}>
                                 {annotation.kind === 'annotation' ? 'Annotation' : 'Highlight'}
                                 {' · '}
-                                {annotationLabel(annotation)}
+                                {readerAnnotationLabel(annotation)}
                               </span>
                             </button>
                             {quote

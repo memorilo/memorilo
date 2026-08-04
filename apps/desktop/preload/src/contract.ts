@@ -11,6 +11,7 @@ import type {
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
   ShelfReadingDocument,
+  ShelfReadingRangeInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -28,6 +29,7 @@ export type {
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
   ShelfReadingDocument,
+  ShelfReadingRangeInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -259,6 +261,7 @@ export interface DesktopApi {
   openMostRecentNote: () => Promise<DesktopNote>
   openShelfReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
   prepareShelfReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
+  readShelfReadingRange: (input: ShelfReadingRangeInput) => Promise<Uint8Array>
   reclaimAssets: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
   recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
   refreshShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>

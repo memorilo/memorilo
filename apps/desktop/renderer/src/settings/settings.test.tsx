@@ -59,6 +59,8 @@ describe('settings renderer', () => {
         mcp: { accessToken: token, enabled: true, port: 8765 },
         networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
+        readerArrowKeyPageTurning: true,
+        readerEpubPresentationMode: 'publisher',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
       })
@@ -72,6 +74,8 @@ describe('settings renderer', () => {
         mcp: { accessToken: token, enabled: true, port: 8765 },
         networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
+        readerArrowKeyPageTurning: true,
+        readerEpubPresentationMode: 'publisher',
         reduceMotion: true,
         tiffConversionFormat: 'webp',
       })

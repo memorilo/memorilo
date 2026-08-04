@@ -7,6 +7,7 @@ export type {
   DesktopMcpConfiguration,
   DesktopNetworkImagePasteBehavior,
   DesktopOutdentBehavior,
+  DesktopReaderEpubPresentationMode,
   DesktopTiffConversionFormat,
 } from './contract'
 export { desktopConfigurationChangedChannel } from './contract'
@@ -23,6 +24,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   networkImagePasteBehavior: Schema.Literals(['download', 'url']),
   outdentBehavior: Schema.Literals(['logical', 'traditional']),
   readerArrowKeyPageTurning: Schema.Boolean,
+  readerEpubPresentationMode: Schema.Literals(['publisher', 'reader']),
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
@@ -40,6 +42,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     networkImagePasteBehavior: 'download' as const,
     outdentBehavior: defaultDesktopOutdentBehavior,
     readerArrowKeyPageTurning: true,
+    readerEpubPresentationMode: 'publisher' as const,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
   },
@@ -88,12 +91,24 @@ export const desktopConfigurationDefinition = defineConfiguration({
     id: 'editor',
     label: 'Editor',
   }, {
-    fields: [{
-      control: 'toggle',
-      description: 'Use the left and right arrow keys to turn pages while reading.',
-      label: 'Arrow keys turn pages',
-      path: 'readerArrowKeyPageTurning',
-    }],
+    fields: [
+      {
+        control: 'select',
+        description: 'Choose the default layout mode for reflowable EPUB books.',
+        label: 'EPUB layout mode',
+        options: [
+          { label: 'Publisher', value: 'publisher' },
+          { label: 'Reader', value: 'reader' },
+        ],
+        path: 'readerEpubPresentationMode',
+      },
+      {
+        control: 'toggle',
+        description: 'Use the left and right arrow keys to turn pages while reading.',
+        label: 'Arrow keys turn pages',
+        path: 'readerArrowKeyPageTurning',
+      },
+    ],
     id: 'reading',
     label: 'Reading',
   }, {
@@ -154,12 +169,16 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const readerArrowKeyPageTurning = current.readerArrowKeyPageTurning === undefined
     ? true
     : current.readerArrowKeyPageTurning
+  const readerEpubPresentationMode = current.readerEpubPresentationMode === undefined
+    ? 'publisher'
+    : current.readerEpubPresentationMode
   if (hasMcp
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
     && current.outdentBehavior !== undefined
-    && current.readerArrowKeyPageTurning !== undefined) {
+    && current.readerArrowKeyPageTurning !== undefined
+    && current.readerEpubPresentationMode !== undefined) {
     return configuration
   }
   return {
@@ -171,5 +190,6 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     },
     outdentBehavior: current.outdentBehavior ?? defaultDesktopOutdentBehavior,
     readerArrowKeyPageTurning,
+    readerEpubPresentationMode,
   }
 }

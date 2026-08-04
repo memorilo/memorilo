@@ -14,6 +14,7 @@
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/desktop-preload": "workspace:*",
     "@memorilo/editor": "workspace:*",
+    "@memorilo/reading-format": "workspace:*",
     "@memorilo/shelf": "workspace:*",
     "@stylexjs/stylex": "0.19.0",
     "@tanstack/react-query": "^5.101.4",

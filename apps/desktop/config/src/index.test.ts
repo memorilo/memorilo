@@ -15,6 +15,8 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     mcp,
     networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',
+    readerArrowKeyPageTurning: true,
+    readerEpubPresentationMode: 'publisher',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
   }
@@ -44,6 +46,8 @@ describe('desktop MCP configuration', () => {
       language: 'en',
       mcp: { accessToken: '', enabled: false, port: 8765 },
       outdentBehavior: 'logical',
+      readerArrowKeyPageTurning: true,
+      readerEpubPresentationMode: 'publisher',
       reduceMotion: true,
     })
     expect(migrateDesktopConfiguration({
@@ -55,6 +59,8 @@ describe('desktop MCP configuration', () => {
       language: 'en',
       mcp: { accessToken: token, enabled: false, port: 8765 },
       outdentBehavior: 'traditional',
+      readerArrowKeyPageTurning: true,
+      readerEpubPresentationMode: 'publisher',
       reduceMotion: true,
     })
     expect(migrateDesktopConfiguration(configuration({ accessToken: 'short', enabled: true, port: 80 }))).toEqual(

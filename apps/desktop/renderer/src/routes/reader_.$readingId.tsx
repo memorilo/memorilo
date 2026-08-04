@@ -25,11 +25,12 @@ function ShelfReaderRoute() {
   }))
   const source = useMemo<ReaderSource | null>(() => documentQuery.data
     ? {
-        data: documentQuery.data.bytes,
+        byteLength: documentQuery.data.byteLength,
         format: documentQuery.data.format,
         name: documentQuery.data.name,
+        read: (offset, length) => window.desktop.readShelfReadingRange({ length, offset, readingId }),
       }
-    : null, [documentQuery.data])
+    : null, [documentQuery.data, readingId])
   const titlebar = useMemo(() => ({ navigation: 'hidden' as const }), [])
   usePageTitlebar(titlebar)
 
@@ -55,7 +56,13 @@ function ShelfReaderRoute() {
               </section>
             )
           : source
-            ? <WindowReader arrowKeyPageTurning={configuration.readerArrowKeyPageTurning} source={source} />
+            ? (
+                <WindowReader
+                  arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
+                  initialPresentationMode={configuration.readerEpubPresentationMode}
+                  source={source}
+                />
+              )
             : null}
     </main>
   )

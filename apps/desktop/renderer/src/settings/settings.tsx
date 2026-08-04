@@ -54,6 +54,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('networkImagePasteBehavior')
     case 'readerArrowKeyPageTurning':
       return t('readerArrowKeyPageTurning')
+    case 'readerEpubPresentationMode':
+      return t('readerEpubPresentationMode')
     case 'tiffConversionFormat':
       return t('tiffConversionFormat')
     case 'mcp.enabled':
@@ -75,6 +77,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('networkImagePasteBehaviorDescription')
     case 'readerArrowKeyPageTurning':
       return t('readerArrowKeyPageTurningDescription')
+    case 'readerEpubPresentationMode':
+      return t('readerEpubPresentationModeDescription')
     case 'tiffConversionFormat':
       return t('tiffConversionFormatDescription')
     case 'mcp.enabled':
@@ -104,6 +108,10 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('networkImagePasteDownload')
     case 'url':
       return t('networkImagePasteUrl')
+    case 'publisher':
+      return t('readerEpubPresentationPublisher')
+    case 'reader':
+      return t('readerEpubPresentationReader')
     case 'webp':
       return 'WebP'
     case 'png':

@@ -39,6 +39,7 @@ import type {
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
   ShelfReadingDocument,
+  ShelfReadingRangeInput,
   ShelfSource,
   ShowDesktopColumnVisibilityMenuInput,
   UpdateShelfSourceInput,
@@ -80,6 +81,7 @@ export interface DesktopServices {
     listSources: () => Promise<readonly ShelfSource[]>
     openReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
     prepareReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
+    readReadingRange: (input: ShelfReadingRangeInput) => Promise<Uint8Array>
     refreshView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
     removeSource: (sourceId: string) => Promise<void>
     updateSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
@@ -115,6 +117,7 @@ export function createDesktopApi(
     openMostRecentNote: () => services.notes.openMostRecentNote(),
     openShelfReading: input => services.shelf.openReading(input),
     prepareShelfReading: input => services.shelf.prepareReading(input),
+    readShelfReadingRange: input => services.shelf.readReadingRange(input),
     reclaimAssets: input => services.assets.reclaim(input),
     recordNoteOpened: input => services.notes.recordNoteOpened(input),
     refreshShelfView: input => services.shelf.refreshView(input),

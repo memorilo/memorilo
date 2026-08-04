@@ -1,21 +1,15 @@
 {
-  "name": "@memorilo/shelf",
+  "name": "@memorilo/reading-format",
   "type": "module",
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
-    "./node": "./src/node.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
-  "dependencies": {
-    "@memorilo/reading-format": "workspace:*",
-    "effect": "4.0.0-beta.23",
-    "fast-xml-parser": "5.3.1"
   }
 }
