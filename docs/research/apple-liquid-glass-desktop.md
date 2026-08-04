@@ -68,10 +68,10 @@ Liquid Glass 的辅助功能退化也是材质定义的一部分，而不是可�
 
 1. 保留应用现有左侧导航；Optimizer 页面内部不再增加第二条 optimizer rail。
 2. 页面主体是一块连续、正常的 content canvas，不铺灰色 glass panel，也不把每个设置区再包装成玻璃 Card。
-3. Optimizer 选择、新建和页面级动作集中在一条紧凑的浮动功能带：选择器独立成组，相关图标 actions 共享一组，唯一的重要动作可单独强调。
+3. Optimizer 列表负责选择和新建；参数化详情路由直接确定当前 Optimizer，不在详情页重复提供选择器。
 4. 设置字段直接排在内容层，通过排版、间距和 section label 建立层级；状态文字没有 glass backing。
 5. 子按钮的 hover/selected 使用 fill、透明度和前景对比；外层已经是 glass 时，子按钮不能再次使用 glass、blur 和高光描边。
-6. 静止态不显示持续亮斑；交互只使用轻微的填充、缩放和阴影变化，不使用指针追光或固定径向渐变来模拟 illumination。
+6. Optimize 等配置动作靠近它直接影响的设置区域；静止态不显示持续亮斑，交互只使用轻微的填充、缩放和阴影变化，不使用指针追光或固定径向渐变来模拟 illumination。
 7. 默认控件保持桌面 Small/Medium 密度。只给真正需要突出且频率较低的页面级动作独立 prominent treatment。
 
 ## Apple 官方来源
