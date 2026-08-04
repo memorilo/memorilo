@@ -1,7 +1,14 @@
 import { defineConfiguration } from '@memorilo/config'
 import * as Schema from 'effect/Schema'
 
-export type { DesktopConfiguration, DesktopLanguage, DesktopMcpConfiguration, DesktopOutdentBehavior } from './contract'
+export type {
+  DesktopConfiguration,
+  DesktopLanguage,
+  DesktopMcpConfiguration,
+  DesktopNetworkImagePasteBehavior,
+  DesktopOutdentBehavior,
+  DesktopTiffConversionFormat,
+} from './contract'
 export { desktopConfigurationChangedChannel } from './contract'
 
 export const defaultDesktopOutdentBehavior = 'logical' as const
@@ -13,8 +20,10 @@ export const DesktopConfigurationSchema = Schema.Struct({
     enabled: Schema.Boolean,
     port: Schema.Int.check(Schema.isBetween({ maximum: 65535, minimum: 1024 })),
   }),
+  networkImagePasteBehavior: Schema.Literals(['download', 'url']),
   outdentBehavior: Schema.Literals(['logical', 'traditional']),
   reduceMotion: Schema.Boolean,
+  tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
   : undefined))
@@ -27,8 +36,10 @@ export const desktopConfigurationDefinition = defineConfiguration({
       enabled: false,
       port: 8765,
     },
+    networkImagePasteBehavior: 'download' as const,
     outdentBehavior: defaultDesktopOutdentBehavior,
     reduceMotion: false,
+    tiffConversionFormat: 'webp' as const,
   },
   id: 'memorilo-desktop',
   schema: DesktopConfigurationSchema,
@@ -62,9 +73,33 @@ export const desktopConfigurationDefinition = defineConfiguration({
         { label: 'Traditional', value: 'traditional' },
       ],
       path: 'outdentBehavior',
+    }, {
+      control: 'select',
+      description: 'Download remote image links into managed assets when pasting, or keep their original URLs.',
+      label: 'Pasted network images',
+      options: [
+        { label: 'Download into Assets', value: 'download' },
+        { label: 'Keep URL', value: 'url' },
+      ],
+      path: 'networkImagePasteBehavior',
     }],
     id: 'editor',
     label: 'Editor',
+  }, {
+    fields: [{
+      control: 'select',
+      description: 'TIFF images are converted to a browser-compatible format before being stored.',
+      label: 'TIFF conversion format',
+      options: [
+        { label: 'WebP', value: 'webp' },
+        { label: 'PNG', value: 'png' },
+        { label: 'JPEG', value: 'jpeg' },
+        { label: 'AVIF', value: 'avif' },
+      ],
+      path: 'tiffConversionFormat',
+    }],
+    id: 'images',
+    label: 'Images',
   }, {
     fields: [{
       control: 'toggle',

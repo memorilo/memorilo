@@ -4,7 +4,7 @@ import type { EditorAdapters } from '../adapters/editor-adapters'
 import * as stylex from '@stylexjs/stylex'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
 import { EditorTestHarness as Editor } from '../../test/browser/editor-test-harness'
 import { userEvent } from '../../test/browser/user-event'
@@ -243,6 +243,145 @@ function selectedDomBlockId(): string | null {
 }
 
 describe('document interactions', () => {
+  it('only replaces images added by the current network paste', async () => {
+    let resolveImport!: (source: string) => void
+    const importNetworkImage = vi.fn(() => new Promise<string>((resolve) => {
+      resolveImport = resolve
+    }))
+    const rendered = render(
+      <Editor
+        adapters={{ ...adapters, importNetworkImage, networkImagePasteBehavior: 'download' }}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [
+            documentBlock('existing', {
+              type: 'image',
+              attrs: { src: 'https://example.com/image.png' },
+            }),
+            documentBlock('before', paragraph('Before')),
+          ],
+        }}
+      />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(rendered.getByText('Before'))
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/html', '<img src="https://example.com/image.png">')
+    clipboardData.setData('text/plain', 'https://example.com/image.png')
+    fireEvent(editor, new ClipboardEvent('paste', { bubbles: true, clipboardData }))
+
+    await waitFor(() => {
+      expect(editor.querySelectorAll('img')).toHaveLength(2)
+      expect(importNetworkImage).toHaveBeenCalledOnce()
+    })
+    await act(async () => {
+      resolveImport('memory://downloaded-image')
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect([...editor.querySelectorAll('img')].map(image => image.getAttribute('src'))).toEqual([
+        'https://example.com/image.png',
+        'memory://downloaded-image',
+      ])
+    })
+  })
+
+  it('applies a completed network import when an undone paste is redone', async () => {
+    let resolveImport!: (source: string) => void
+    const importNetworkImage = vi.fn(() => new Promise<string>((resolve) => {
+      resolveImport = resolve
+    }))
+    const rendered = render(
+      <Editor
+        adapters={{ ...adapters, importNetworkImage, networkImagePasteBehavior: 'download' }}
+        mode={EditorMode.Document}
+        initialContent={{ type: 'doc', content: [documentBlock('before', paragraph('Before'))] }}
+      />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(rendered.getByText('Before'))
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/plain', 'https://example.com/image.png')
+    fireEvent(editor, new ClipboardEvent('paste', { bubbles: true, clipboardData }))
+    await waitFor(() => expect(editor.querySelector('img')).not.toBeNull())
+
+    await userEvent.keyboard('{Meta>}z{/Meta}')
+    await waitFor(() => expect(editor.querySelector('img')).toBeNull())
+    await act(async () => {
+      resolveImport('memory://downloaded-image')
+      await Promise.resolve()
+    })
+    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
+
+    await waitFor(() => expect(editor.querySelector('img')).toHaveAttribute('src', 'memory://downloaded-image'))
+  })
+
+  it.each([
+    { behavior: 'download', expectedSource: 'memory://downloaded-image', uploadCount: 1 },
+    { behavior: 'url', expectedSource: 'https://example.com/image.png', uploadCount: 0 },
+  ] as const)('$behavior policy handles a pasted network image URL', async ({ behavior, expectedSource, uploadCount }) => {
+    const importNetworkImage = vi.fn(async () => 'memory://downloaded-image')
+    const rendered = render(
+      <Editor
+        adapters={{ ...adapters, importNetworkImage, networkImagePasteBehavior: behavior }}
+        mode={EditorMode.Document}
+        initialContent={{ type: 'doc', content: [documentBlock('before', paragraph('Before'))] }}
+      />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(rendered.getByText('Before'))
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/html', '<img src="https://example.com/image.png">')
+    clipboardData.setData('text/plain', 'https://example.com/image.png')
+    fireEvent(editor, new ClipboardEvent('paste', { bubbles: true, clipboardData }))
+
+    await waitFor(() => expect(editor.querySelector('img')).toHaveAttribute('src', expectedSource))
+    expect(importNetworkImage).toHaveBeenCalledTimes(uploadCount)
+  })
+
+  it.each([
+    { behavior: 'download', expectedSource: 'memory://downloaded-image', importCount: 1 },
+    { behavior: 'url', expectedSource: 'https://example.com/image.png', importCount: 0 },
+  ] as const)('$behavior policy handles a pure pasted network image URL', async ({ behavior, expectedSource, importCount }) => {
+    const importNetworkImage = vi.fn(async () => 'memory://downloaded-image')
+    const rendered = render(
+      <Editor
+        adapters={{ ...adapters, importNetworkImage, networkImagePasteBehavior: behavior }}
+        mode={EditorMode.Document}
+        initialContent={{ type: 'doc', content: [documentBlock('before', paragraph('Before'))] }}
+      />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(rendered.getByText('Before'))
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/plain', 'https://example.com/image.png')
+    fireEvent(editor, new ClipboardEvent('paste', { bubbles: true, clipboardData }))
+
+    await waitFor(() => expect(editor.querySelector('img')).toHaveAttribute('src', expectedSource))
+    expect(importNetworkImage).toHaveBeenCalledTimes(importCount)
+  })
+
+  it('leaves pasted image files to the local image uploader', async () => {
+    const importNetworkImage = vi.fn(async () => 'memory://downloaded-image')
+    const rendered = render(
+      <Editor
+        adapters={{ ...adapters, importNetworkImage, networkImagePasteBehavior: 'download' }}
+        mode={EditorMode.Document}
+        initialContent={{ type: 'doc', content: [documentBlock('before', paragraph('Before'))] }}
+      />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+    await userEvent.click(rendered.getByText('Before'))
+    const clipboardData = new DataTransfer()
+    clipboardData.items.add(new File([Uint8Array.from([1, 2, 3])], 'clipboard.png', { type: 'image/png' }))
+    clipboardData.setData('text/html', '<img src="https://example.com/image.png">')
+    fireEvent(editor, new ClipboardEvent('paste', { bubbles: true, clipboardData }))
+
+    await waitFor(() => expect(editor.querySelector('img')).toHaveAttribute('src', 'memory://image'))
+    expect(importNetworkImage).not.toHaveBeenCalled()
+  })
+
   it('keeps the slash menu working after switching back to Document mode', async () => {
     const rendered = render(
       <EditorModeHarness

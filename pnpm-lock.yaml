@@ -56,6 +56,9 @@ importers:
       loro-crdt:
         specifier: 1.13.8
         version: 1.13.8
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9
@@ -136,6 +139,9 @@ importers:
       electron-ipc-decorator:
         specifier: 1.0.1
         version: 1.0.1(electron@43.2.0)
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9

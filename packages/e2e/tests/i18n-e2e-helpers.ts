@@ -26,8 +26,15 @@ const electronExecutablePath = electronModule
 function runnableConfiguration(configuration: DesktopLanguageConfiguration): Record<string, unknown> {
   return {
     language: configuration.language,
+    mcp: {
+      accessToken: '',
+      enabled: false,
+      port: 8765,
+    },
+    networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',
     reduceMotion: false,
+    tiffConversionFormat: 'webp',
   }
 }
 

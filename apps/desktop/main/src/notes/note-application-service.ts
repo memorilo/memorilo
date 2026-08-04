@@ -12,6 +12,8 @@ import { DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 
+import { projectNoteAssetReferences } from '../assets/asset-references'
+
 const checkpointInterval = 32
 const noteCacheCapacity = 32
 
@@ -176,6 +178,13 @@ export function createNoteApplicationService(
       checkpointSequence = latestSequence
       updatedAt = checkpoint.updatedAt
     }
+    const assetReferences = projectNoteAssetReferences(note)
+    await storage.reconcileNoteAssetReferences({
+      allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
+      expectedLatestSequence: latestSequence,
+      noteId: note.id,
+      references: assetReferences,
+    })
     return { checkpointSequence, createdAt: stored.createdAt, latestSequence, note, updatedAt }
   }
 
@@ -268,7 +277,10 @@ export function createNoteApplicationService(
     options: { broadcast?: boolean, entries?: boolean, title?: boolean, topicIds?: readonly string[] },
   ) => {
     const update = current.note.exportUpdates(version)
+    const assetReferences = projectNoteAssetReferences(current.note)
     const receipt = await storage.saveNoteUpdates({
+      allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
+      assetReferences,
       ...(options.entries ? { entries: toStoredEntries(current.note.getEntries()) } : {}),
       noteId: current.note.id,
       ...(options.title ? { title: current.note.getTitle() } : {}),
@@ -428,7 +440,10 @@ export function createNoteApplicationService(
         const topics = [...changed.topicIds]
           .filter(topicId => topicEntries.has(topicId))
           .map(topicId => toStoredTopic(current.note.getTopicContent(topicId)))
+        const assetReferences = projectNoteAssetReferences(current.note)
         const receipt = await storage.saveNoteUpdates({
+          allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
+          assetReferences,
           ...(entries ? { entries: toStoredEntries(entries) } : {}),
           noteId: current.note.id,
           ...(changed.metadataChanged ? { title: current.note.getTitle() } : {}),

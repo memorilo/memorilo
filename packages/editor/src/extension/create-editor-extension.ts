@@ -46,6 +46,7 @@ import { defineTagView } from '../ui/tag-view/index.ts'
 import { defineTaskListView } from '../ui/task-list-view/index.ts'
 import { defineInlineMathInputRule } from './inline-math-input-rule'
 import { defineMathKeymapExtension } from './math-keymap-extension'
+import { defineNetworkImagePaste } from './network-image-paste'
 import { defineTag } from './tag-extension'
 
 function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<string> {
@@ -131,6 +132,7 @@ export function createEditorExtension(
         store.set(uploadErrorAtom, message)
       },
     }),
+    defineNetworkImagePaste(adapters),
   )
 
   return {
