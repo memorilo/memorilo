@@ -22,6 +22,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   }),
   networkImagePasteBehavior: Schema.Literals(['download', 'url']),
   outdentBehavior: Schema.Literals(['logical', 'traditional']),
+  readerArrowKeyPageTurning: Schema.Boolean,
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
@@ -38,6 +39,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     },
     networkImagePasteBehavior: 'download' as const,
     outdentBehavior: defaultDesktopOutdentBehavior,
+    readerArrowKeyPageTurning: true,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
   },
@@ -85,6 +87,15 @@ export const desktopConfigurationDefinition = defineConfiguration({
     }],
     id: 'editor',
     label: 'Editor',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Use the left and right arrow keys to turn pages while reading.',
+      label: 'Arrow keys turn pages',
+      path: 'readerArrowKeyPageTurning',
+    }],
+    id: 'reading',
+    label: 'Reading',
   }, {
     fields: [{
       control: 'select',
@@ -140,11 +151,15 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     ? mcp.port
     : 8765
   const enabled = mcp.enabled === true && accessToken.length >= 32
+  const readerArrowKeyPageTurning = current.readerArrowKeyPageTurning === undefined
+    ? true
+    : current.readerArrowKeyPageTurning
   if (hasMcp
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
-    && current.outdentBehavior !== undefined) {
+    && current.outdentBehavior !== undefined
+    && current.readerArrowKeyPageTurning !== undefined) {
     return configuration
   }
   return {
@@ -155,5 +170,6 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
       port,
     },
     outdentBehavior: current.outdentBehavior ?? defaultDesktopOutdentBehavior,
+    readerArrowKeyPageTurning,
   }
 }

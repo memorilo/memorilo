@@ -45,3 +45,7 @@ export type {
 } from './editor-storage'
 export { createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
 export type { EmbeddingModel } from './embedding-model'
+export type { CreateShelfImageCacheOptions } from './shelf-image-cache'
+export { createShelfImageCache } from './shelf-image-cache'
+export type { CreateShelfStorageOptions } from './shelf-storage'
+export { createShelfStorage } from './shelf-storage'

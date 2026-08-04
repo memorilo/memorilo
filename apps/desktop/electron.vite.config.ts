@@ -10,7 +10,7 @@ const desktopRoot = dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = resolve(desktopRoot, '../..')
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
   cssInjectionTarget: fileName => fileName.includes('renderer-global'),
-  externalPackages: ['@memorilo/config', '@memorilo/editor'],
+  externalPackages: ['@memorilo/config', '@memorilo/editor', '@memorilo/reader'],
   unstable_moduleResolution: { type: 'commonJS' },
   useCSSLayers: true,
 }
@@ -22,7 +22,14 @@ export default defineConfig({
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/main'),
       externalizeDeps: {
-        exclude: ['@memorilo/editor-storage'],
+        exclude: [
+          '@memorilo/config',
+          '@memorilo/desktop-config',
+          '@memorilo/editor-storage',
+          '@memorilo/shelf',
+          'effect',
+          'fast-xml-parser',
+        ],
         include: ['@huggingface/transformers', 'better-sqlite3', 'loro-crdt', 'sqlite-vec'],
       },
       rollupOptions: {

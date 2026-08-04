@@ -8,6 +8,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Effect, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
 import {
+  BookOpen,
   CalendarDays,
   ChevronDown,
   Clock3,
@@ -41,7 +42,7 @@ interface SourceItemProps {
     topicId: string
   } | {
     kind: 'route'
-    to: '/journals' | '/pages'
+    to: '/journals' | '/pages' | '/shelf'
   }
   icon: LucideIcon
   label: string
@@ -57,6 +58,7 @@ function navigationItems(t: (key: string) => string): readonly SourceItemProps[]
   return [
     { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
     { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
+    { destination: { kind: 'route', to: '/shelf' }, icon: BookOpen, label: t('shelf') },
   ]
 }
 

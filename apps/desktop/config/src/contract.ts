@@ -16,6 +16,7 @@ export interface DesktopConfiguration {
   mcp: DesktopMcpConfiguration
   networkImagePasteBehavior: DesktopNetworkImagePasteBehavior
   outdentBehavior: DesktopOutdentBehavior
+  readerArrowKeyPageTurning: boolean
   reduceMotion: boolean
   tiffConversionFormat: DesktopTiffConversionFormat
 }

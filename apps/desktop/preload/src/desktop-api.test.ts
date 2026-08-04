@@ -28,6 +28,19 @@ function serviceStub(): DesktopServices {
       searchTopicBlocks: vi.fn(),
       setNoteFavorite: vi.fn(),
     },
+    shelf: {
+      addSource: vi.fn(),
+      deleteReading: vi.fn(),
+      getAsset: vi.fn(),
+      getCachedView: vi.fn(),
+      getPublicationDetails: vi.fn(),
+      listSources: vi.fn(),
+      openReading: vi.fn(),
+      prepareReading: vi.fn(),
+      refreshView: vi.fn(),
+      removeSource: vi.fn(),
+      updateSource: vi.fn(),
+    },
     window: { showColumnVisibilityMenu: vi.fn() },
   }
 }
@@ -40,6 +53,7 @@ describe('desktop preload API', () => {
       mcp: { accessToken: '0123456789abcdef0123456789abcdef', enabled: true, port: 8765 },
       networkImagePasteBehavior: 'download',
       outdentBehavior: 'logical',
+      readerArrowKeyPageTurning: true,
       reduceMotion: false,
       tiffConversionFormat: 'webp',
     }
