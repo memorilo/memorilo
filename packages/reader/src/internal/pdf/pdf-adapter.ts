@@ -13,11 +13,21 @@ import type {
   ReaderOcrProvider,
   ReaderOcrResult,
   ReaderOcrTextItem,
+  ReaderOutlineItem,
   ReaderPdfTextAnchor,
   ReaderTextLayerKind,
   ReaderTextQuote,
 } from '../../types'
-import type { ReaderAdapter, ReaderAdapterCallbacks, ReaderAdapterState, ReaderClientRect } from '../reader-adapter'
+import type {
+  ReaderAdapter,
+  ReaderAdapterCallbacks,
+  ReaderAdapterState,
+  ReaderClientRect,
+  ReaderPageEdge,
+  ReaderScrollDirection,
+  ReaderScrollResult,
+} from '../reader-adapter'
+import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
 import './pdf-layer.css'
 
 interface PdfSource {
@@ -38,10 +48,27 @@ interface Point {
   y: number
 }
 
+interface PdfReference {
+  gen: number
+  num: number
+}
+
+interface PdfOutlineNode {
+  dest: string | unknown[] | null
+  items: PdfOutlineNode[]
+  title: string
+}
+
+type PdfDestination = string | readonly unknown[]
+
 type PdfTextContent = Awaited<ReturnType<PDFPageProxy['getTextContent']>>
 
-const minimumScale = 0.75
-const maximumScale = 2
+const scrollStep = 48
+const scrollBoundaryTolerance = 1
+
+function keyboardScrollBehavior(): ScrollBehavior {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+}
 
 const annotationTints: Record<ReaderAnnotationColor, string> = {
   blue: 'rgba(64, 148, 255, 0.34)',
@@ -52,11 +79,18 @@ const annotationTints: Record<ReaderAnnotationColor, string> = {
 }
 
 function clampScale(value: number) {
-  return Math.min(maximumScale, Math.max(minimumScale, Math.round(value * 10) / 10))
+  return Math.min(readerMaximumScale, Math.max(readerMinimumScale, Math.round(value * 10) / 10))
 }
 
 function clampUnit(value: number) {
   return Math.min(1, Math.max(0, value))
+}
+
+function isPdfReference(value: unknown): value is PdfReference {
+  if (typeof value !== 'object' || value === null)
+    return false
+  const candidate = value as Partial<PdfReference>
+  return typeof candidate.num === 'number' && typeof candidate.gen === 'number'
 }
 
 function toError(value: unknown): Error {
@@ -164,11 +198,14 @@ class PdfAdapter implements ReaderAdapter {
   private regionDraft: HTMLDivElement | null = null
   private regionSelectionEnabled = false
   private regionStart: Point | null = null
+  private outline: readonly ReaderOutlineItem[] = []
+  private readonly outlineDestinations = new Map<string, PdfDestination>()
   private renderGeneration = 0
   private renderTask: RenderTask | null = null
   private resizeObserver: ResizeObserver | null = null
   private scale = 1
   private scroller: HTMLDivElement | null = null
+  private keyboardScrollTarget: { direction: ReaderScrollDirection, value: number } | null = null
   private readonly textContentCache = new Map<number, PdfTextContent>()
   private textLayer: HTMLDivElement | null = null
   private textLayerKind: ReaderTextLayerKind = 'none'
@@ -191,6 +228,9 @@ class PdfAdapter implements ReaderAdapter {
     scroller.className = 'reader-pdf-scroller'
     scroller.setAttribute('role', 'document')
     scroller.setAttribute('aria-label', this.source.name)
+    scroller.addEventListener('wheel', () => {
+      this.keyboardScrollTarget = null
+    }, { passive: true })
 
     const pageSurface = document.createElement('div')
     pageSurface.className = 'reader-pdf-page'
@@ -245,6 +285,8 @@ class PdfAdapter implements ReaderAdapter {
     if (this.destroyed)
       return
 
+    this.loadOutline(await this.document.getOutline())
+
     this.resizeObserver = new ResizeObserver(() => {
       void this.renderPage(false).catch(this.callbacks.onError)
     })
@@ -293,21 +335,23 @@ class PdfAdapter implements ReaderAdapter {
     this.container = null
   }
 
-  async goBackward() {
+  async goBackward(entryEdge: ReaderPageEdge) {
     if (!this.document || this.pageNumber <= 1)
       return
     this.pageNumber -= 1
     this.clearSelection()
     await this.renderPage(false)
+    this.positionViewport(entryEdge)
     this.emitState()
   }
 
-  async goForward() {
+  async goForward(entryEdge: ReaderPageEdge) {
     if (!this.document || this.pageNumber >= this.document.numPages)
       return
     this.pageNumber += 1
     this.clearSelection()
     await this.renderPage(false)
+    this.positionViewport(entryEdge)
     this.emitState()
   }
 
@@ -321,6 +365,72 @@ class PdfAdapter implements ReaderAdapter {
       this.emitState()
     }
     this.pageSurface?.scrollIntoView({ block: 'center', inline: 'center' })
+  }
+
+  async goToOutlineItem(outlineItemId: string) {
+    const documentProxy = this.document
+    const destinationValue = this.outlineDestinations.get(outlineItemId)
+    if (!documentProxy || !destinationValue)
+      throw new Error(`PDF outline item ${outlineItemId} does not have a document destination`)
+    const destination = typeof destinationValue === 'string'
+      ? await documentProxy.getDestination(destinationValue)
+      : destinationValue
+    const pageReference = destination?.[0]
+    if (pageReference === undefined || pageReference === null)
+      throw new Error(`PDF outline item ${outlineItemId} has an invalid destination`)
+    const pageIndex = typeof pageReference === 'number'
+      ? pageReference
+      : isPdfReference(pageReference)
+        ? await documentProxy.getPageIndex(pageReference)
+        : undefined
+    if (pageIndex === undefined || pageIndex < 0 || pageIndex >= documentProxy.numPages)
+      throw new Error(`PDF outline item ${outlineItemId} points outside the document`)
+    this.pageNumber = pageIndex + 1
+    this.clearSelection()
+    await this.renderPage(false)
+    this.emitState()
+  }
+
+  moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
+    const scroller = this.scroller
+    if (!scroller)
+      return 'at-boundary'
+
+    const vertical = direction === 'down' || direction === 'up'
+    const current = vertical ? scroller.scrollTop : scroller.scrollLeft
+    const maximum = vertical
+      ? scroller.scrollHeight - scroller.clientHeight
+      : scroller.scrollWidth - scroller.clientWidth
+    const boundary = direction === 'down' || direction === 'right' ? maximum : 0
+    if (maximum <= scrollBoundaryTolerance || Math.abs(boundary - current) <= scrollBoundaryTolerance) {
+      this.keyboardScrollTarget = null
+      return 'at-boundary'
+    }
+
+    const delta = direction === 'down' || direction === 'right' ? scrollStep : -scrollStep
+    const base = this.keyboardScrollTarget?.direction === direction
+      ? this.keyboardScrollTarget.value
+      : current
+    const next = Math.min(maximum, Math.max(0, base + delta))
+    this.keyboardScrollTarget = { direction, value: next }
+
+    if (vertical)
+      scroller.scrollTo({ behavior: keyboardScrollBehavior(), top: next })
+    else
+      scroller.scrollTo({ behavior: keyboardScrollBehavior(), left: next })
+    return 'scrolled'
+  }
+
+  private positionViewport(edge: ReaderPageEdge) {
+    const scroller = this.scroller
+    if (!scroller)
+      return
+    this.keyboardScrollTarget = null
+    scroller.scrollTo({
+      behavior: 'auto',
+      left: edge === 'start' ? 0 : Math.max(0, scroller.scrollWidth - scroller.clientWidth),
+      top: edge === 'start' ? 0 : Math.max(0, scroller.scrollHeight - scroller.clientHeight),
+    })
   }
 
   async recognizeCurrentPage() {
@@ -414,12 +524,29 @@ class PdfAdapter implements ReaderAdapter {
         progression: total <= 1 ? 1 : (this.pageNumber - 1) / (total - 1),
         total,
       },
+      outline: this.outline,
       presentationMode: 'publisher',
       scale: this.scale,
       textLayer: this.textLayerKind,
       title: this.source.name,
     }
     this.callbacks.onStateChange(state)
+  }
+
+  private loadOutline(nodes: PdfOutlineNode[] | null) {
+    this.outlineDestinations.clear()
+    const convert = (items: PdfOutlineNode[], parentPath: string): ReaderOutlineItem[] => items.map((item, index) => {
+      const id = `${parentPath}.${index}`
+      if (item.dest)
+        this.outlineDestinations.set(id, item.dest)
+      return {
+        children: convert(item.items, id),
+        id,
+        label: item.title.trim() || 'Untitled section',
+        navigable: item.dest !== null,
+      }
+    })
+    this.outline = convert(nodes ?? [], 'pdf')
   }
 
   private finishRegionSelection(event: PointerEvent) {
@@ -655,13 +782,13 @@ class PdfAdapter implements ReaderAdapter {
   }
 
   private async renderPage(forceOcr: boolean) {
-    const canvas = this.canvas
+    const visibleCanvas = this.canvas
     const documentProxy = this.document
     const scroller = this.scroller
     const pageSurface = this.pageSurface
     const textLayer = this.textLayer
     const pdfJs = this.pdfJs
-    if (this.destroyed || !canvas || !documentProxy || !scroller || !pageSurface || !textLayer || !pdfJs)
+    if (this.destroyed || !visibleCanvas || !documentProxy || !scroller || !pageSurface || !textLayer || !pdfJs)
       return
 
     const generation = ++this.renderGeneration
@@ -672,7 +799,6 @@ class PdfAdapter implements ReaderAdapter {
     this.renderTask?.cancel()
     this.renderTask = null
     this.page?.cleanup()
-    textLayer.replaceChildren()
     this.textLayerKind = 'none'
     const page = await documentProxy.getPage(this.pageNumber)
     if (this.destroyed || generation !== this.renderGeneration) {
@@ -686,20 +812,16 @@ class PdfAdapter implements ReaderAdapter {
     const fitScale = availableWidth / unscaledViewport.width
     const viewport = page.getViewport({ scale: fitScale * this.scale })
     const outputScale = Math.min(window.devicePixelRatio || 1, 2)
-    canvas.width = Math.floor(viewport.width * outputScale)
-    canvas.height = Math.floor(viewport.height * outputScale)
-    canvas.style.width = `${Math.floor(viewport.width)}px`
-    canvas.style.height = `${Math.floor(viewport.height)}px`
-    canvas.setAttribute('aria-label', `Page ${this.pageNumber} of ${documentProxy.numPages}`)
-    pageSurface.style.width = `${Math.floor(viewport.width)}px`
-    pageSurface.style.height = `${Math.floor(viewport.height)}px`
-    pageSurface.style.setProperty('--scale-factor', String(viewport.scale))
-    pageSurface.style.setProperty('--total-scale-factor', String(viewport.scale))
-    pageSurface.style.setProperty('--scale-round-x', '1px')
-    pageSurface.style.setProperty('--scale-round-y', '1px')
+    const nextCanvas = document.createElement('canvas')
+    nextCanvas.className = 'reader-pdf-canvas'
+    nextCanvas.width = Math.floor(viewport.width * outputScale)
+    nextCanvas.height = Math.floor(viewport.height * outputScale)
+    nextCanvas.style.width = `${Math.floor(viewport.width)}px`
+    nextCanvas.style.height = `${Math.floor(viewport.height)}px`
+    nextCanvas.setAttribute('aria-label', `Page ${this.pageNumber} of ${documentProxy.numPages}`)
 
     const renderTask = page.render({
-      canvas,
+      canvas: nextCanvas,
       transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
       viewport,
     })
@@ -717,6 +839,16 @@ class PdfAdapter implements ReaderAdapter {
     }
     if (this.destroyed || generation !== this.renderGeneration)
       return
+
+    pageSurface.style.width = `${Math.floor(viewport.width)}px`
+    pageSurface.style.height = `${Math.floor(viewport.height)}px`
+    pageSurface.style.setProperty('--scale-factor', String(viewport.scale))
+    pageSurface.style.setProperty('--total-scale-factor', String(viewport.scale))
+    pageSurface.style.setProperty('--scale-round-x', '1px')
+    pageSurface.style.setProperty('--scale-round-y', '1px')
+    textLayer.replaceChildren()
+    visibleCanvas.replaceWith(nextCanvas)
+    this.canvas = nextCanvas
 
     const content = await this.loadTextContent(page)
     if (this.destroyed || generation !== this.renderGeneration)

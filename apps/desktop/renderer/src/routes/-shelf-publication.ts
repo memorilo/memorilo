@@ -8,7 +8,7 @@ export function cacheShelfPublication(
   publication: ShelfPublicationDetails['publication'],
   source: ShelfPublicationDetails['source'],
 ): ShelfPublicationDetails {
-  return { publication, source }
+  return { publication, readingOptions: [], source }
 }
 
 export function shelfFormatName(type: string | null): string {

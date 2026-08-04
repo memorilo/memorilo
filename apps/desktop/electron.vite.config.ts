@@ -8,7 +8,7 @@ import wasm from 'vite-plugin-wasm'
 
 const desktopRoot = dirname(fileURLToPath(import.meta.url))
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
-  externalPackages: ['@memorilo/editor', '@memorilo/reader'],
+  externalPackages: ['@memorilo/config', '@memorilo/editor', '@memorilo/reader'],
   unstable_moduleResolution: { type: 'commonJS' },
   useCSSLayers: true,
 }
@@ -20,7 +20,7 @@ export default defineConfig({
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/main'),
       externalizeDeps: {
-        exclude: ['@memorilo/editor-storage', '@memorilo/shelf', 'effect', 'fast-xml-parser'],
+        exclude: ['@memorilo/config', '@memorilo/desktop-config', '@memorilo/editor-storage', '@memorilo/shelf', 'effect', 'fast-xml-parser'],
         include: ['@huggingface/transformers', 'better-sqlite3', 'loro-crdt', 'sqlite-vec'],
       },
       rollupOptions: {
@@ -59,7 +59,10 @@ export default defineConfig({
       emptyOutDir: true,
       outDir: resolve(desktopRoot, 'out/renderer'),
       rollupOptions: {
-        input: resolve(desktopRoot, 'renderer/index.html'),
+        input: {
+          index: resolve(desktopRoot, 'renderer/index.html'),
+          settings: resolve(desktopRoot, 'renderer/settings.html'),
+        },
       },
     },
   },

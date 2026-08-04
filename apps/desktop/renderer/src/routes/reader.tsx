@@ -1,18 +1,22 @@
 import type { ReaderSource } from '@memorilo/editor/reader'
 import type { ChangeEvent } from 'react'
-import { Reader } from '@memorilo/editor/reader'
+import { WindowReader } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
 import { BookOpen, FolderOpen } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { useDesktopConfiguration } from '../configuration-context'
 import { readerRouteStyles } from './-reader.stylex'
 
 function ReaderRoute() {
+  const configuration = useDesktopConfiguration()
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
-  const titlebar = useMemo(() => ({ title: file?.name ?? 'Reader' }), [file?.name])
+  const titlebar = useMemo(() => file
+    ? { navigation: 'hidden' as const }
+    : { navigation: 'default' as const, title: 'Reader', titleVisibility: 'always' as const }, [file])
   usePageTitlebar(titlebar)
 
   const source = useMemo<ReaderSource | null>(() => file
@@ -24,7 +28,7 @@ function ReaderRoute() {
   }, [])
 
   return (
-    <main {...stylex.props(readerRouteStyles.page)}>
+    <main {...stylex.props(readerRouteStyles.page, file && readerRouteStyles.pageOpen)}>
       <input
         ref={inputRef}
         {...stylex.props(readerRouteStyles.fileInput)}
@@ -35,18 +39,7 @@ function ReaderRoute() {
       />
       {source
         ? (
-            <>
-              <button
-                {...stylex.props(readerRouteStyles.openButton, readerRouteStyles.reopenButton)}
-                data-window-no-drag=""
-                type="button"
-                onClick={() => inputRef.current?.click()}
-              >
-                <FolderOpen aria-hidden="true" size={15} strokeWidth={1.9} />
-                Open
-              </button>
-              <Reader source={source} />
-            </>
+            <WindowReader arrowKeyPageTurning={configuration.readerArrowKeyPageTurning} source={source} />
           )
         : (
             <section {...stylex.props(readerRouteStyles.empty)}>

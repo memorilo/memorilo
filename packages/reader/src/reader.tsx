@@ -1,15 +1,23 @@
-import type { CSSProperties, KeyboardEvent } from 'react'
-import type { ReaderAdapter, ReaderAdapterSelection, ReaderAdapterState } from './internal/reader-adapter'
+import type { CSSProperties, UIEvent } from 'react'
+import type {
+  ReaderAdapter,
+  ReaderAdapterKeyboardEvent,
+  ReaderAdapterSelection,
+  ReaderAdapterState,
+  ReaderScrollDirection,
+} from './internal/reader-adapter'
 import type {
   ReaderAnnotation,
   ReaderAnnotationColor,
   ReaderNote,
-  ReaderPresentationMode,
+  ReaderOutlineItem,
   ReaderProps,
 } from './types'
 import * as stylex from '@stylexjs/stylex'
 import {
+  BookOpenText,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -24,8 +32,9 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { openReaderAdapter } from './internal/open-reader'
+import { readerMaximumScale, readerMinimumScale } from './internal/reader-adapter'
 import { readerStyles } from './reader.stylex'
 
 type ReaderStatus = 'error' | 'loading' | 'ready'
@@ -48,6 +57,7 @@ const initialState: ReaderAdapterState = {
   capabilities: { presentationModes: [], scale: false },
   format: 'pdf',
   location: { format: 'pdf', label: '', progression: 0 },
+  outline: [],
   presentationMode: 'publisher',
   scale: 1,
   title: '',
@@ -161,13 +171,208 @@ function selectionPopoverLayout(
 
 function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement
+    || target instanceof HTMLSelectElement
     || target instanceof HTMLTextAreaElement
     || (target instanceof HTMLElement && target.isContentEditable)
+}
+
+function readerScrollDirection(key: string): ReaderScrollDirection | undefined {
+  if (key === 'ArrowDown')
+    return 'down'
+  if (key === 'ArrowLeft')
+    return 'left'
+  if (key === 'ArrowRight')
+    return 'right'
+  if (key === 'ArrowUp')
+    return 'up'
+  return undefined
+}
+
+interface ReaderSessionProps extends ReaderProps {
+  chrome: 'embedded' | 'window'
+}
+
+type ReaderSidebarTab = 'annotations' | 'contents'
+
+function normalizedOutlineHref(href: string | undefined): string | undefined {
+  if (!href)
+    return undefined
+  return href.split(/[?#]/, 1)[0]
+}
+
+function activeOutlineItemId(items: readonly ReaderOutlineItem[], currentHref: string | undefined): string | undefined {
+  const normalizedCurrentHref = normalizedOutlineHref(currentHref)
+  if (!normalizedCurrentHref)
+    return undefined
+  for (const item of items) {
+    if (normalizedOutlineHref(item.href) === normalizedCurrentHref)
+      return item.id
+    const childMatch = activeOutlineItemId(item.children, currentHref)
+    if (childMatch)
+      return childMatch
+  }
+  return undefined
+}
+
+interface VisibleOutlineItem {
+  depth: number
+  item: ReaderOutlineItem
+  positionInSet: number
+  setSize: number
+}
+
+const outlineRowHeight = 29
+const outlineOverscan = 8
+const outlineTopInset = 7
+const outlineBottomInset = 10
+
+function visibleOutlineItems(
+  items: readonly ReaderOutlineItem[],
+  expanded: ReadonlySet<string>,
+  depth = 0,
+  result: VisibleOutlineItem[] = [],
+): VisibleOutlineItem[] {
+  items.forEach((item, index) => {
+    result.push({ depth, item, positionInSet: index + 1, setSize: items.length })
+    if (item.children.length > 0 && expanded.has(item.id))
+      visibleOutlineItems(item.children, expanded, depth + 1, result)
+  })
+  return result
+}
+
+function ReaderOutline({
+  currentHref,
+  items,
+  onNavigate,
+}: {
+  currentHref: string | undefined
+  items: readonly ReaderOutlineItem[]
+  onNavigate: (itemId: string) => void
+}) {
+  const outlineViewportRef = useRef<HTMLDivElement | null>(null)
+  const scrollFrameRef = useRef<number | null>(null)
+  const pendingScrollTopRef = useRef(0)
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(items.filter(item => item.children.length > 0).map(item => item.id)),
+  )
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(480)
+  const activeItemId = useMemo(() => activeOutlineItemId(items, currentHref), [currentHref, items])
+  const visibleItems = useMemo(() => visibleOutlineItems(items, expanded), [expanded, items])
+  const startIndex = Math.max(0, Math.floor((scrollTop - outlineTopInset) / outlineRowHeight) - outlineOverscan)
+  const endIndex = Math.min(
+    visibleItems.length,
+    Math.ceil((scrollTop + viewportHeight - outlineTopInset) / outlineRowHeight) + outlineOverscan,
+  )
+  const renderedItems = visibleItems.slice(startIndex, endIndex)
+  const outlineHeight = outlineTopInset + visibleItems.length * outlineRowHeight + outlineBottomInset
+
+  useEffect(() => {
+    const viewport = outlineViewportRef.current
+    if (!viewport)
+      return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry)
+        setViewportHeight(entry.contentRect.height)
+    })
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null)
+      cancelAnimationFrame(scrollFrameRef.current)
+  }, [])
+
+  const toggle = (itemId: string) => {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(itemId))
+        next.delete(itemId)
+      else
+        next.add(itemId)
+      return next
+    })
+  }
+
+  const handleScroll = (event: UIEvent<HTMLDivElement>) => {
+    pendingScrollTopRef.current = event.currentTarget.scrollTop
+    if (scrollFrameRef.current !== null)
+      return
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null
+      setScrollTop(pendingScrollTopRef.current)
+    })
+  }
+
+  return (
+    <div
+      ref={outlineViewportRef}
+      {...stylex.props(readerStyles.outlineList)}
+      role="tree"
+      onScroll={handleScroll}
+    >
+      <div {...stylex.props(readerStyles.outlineSpacer)} style={{ height: outlineHeight }}>
+        {renderedItems.map(({ depth, item, positionInSet, setSize }, relativeIndex) => {
+          const hasChildren = item.children.length > 0
+          const isExpanded = expanded.has(item.id)
+          const isActive = item.id === activeItemId
+          const itemIndex = startIndex + relativeIndex
+          return (
+            <div
+              key={item.id}
+              {...stylex.props(readerStyles.outlineVirtualRow)}
+              aria-expanded={hasChildren ? isExpanded : undefined}
+              aria-level={depth + 1}
+              aria-posinset={positionInSet}
+              aria-setsize={setSize}
+              role="treeitem"
+              style={{ top: outlineTopInset + itemIndex * outlineRowHeight }}
+            >
+              <div
+                {...stylex.props(readerStyles.outlineRow, isActive && readerStyles.outlineRowActive)}
+                style={{ paddingLeft: 8 + depth * 14 }}
+              >
+                {hasChildren
+                  ? (
+                      <button
+                        {...stylex.props(readerStyles.outlineDisclosure)}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${item.label}`}
+                        type="button"
+                        onClick={() => toggle(item.id)}
+                      >
+                        {isExpanded
+                          ? <ChevronDown aria-hidden="true" size={13} strokeWidth={1.8} />
+                          : <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />}
+                      </button>
+                    )
+                  : <span {...stylex.props(readerStyles.outlineDisclosureSpacer)} />}
+                {item.navigable
+                  ? (
+                      <button
+                        {...stylex.props(readerStyles.outlineTarget)}
+                        aria-current={isActive ? 'location' : undefined}
+                        type="button"
+                        onClick={() => onNavigate(item.id)}
+                      >
+                        {item.label}
+                      </button>
+                    )
+                  : <span {...stylex.props(readerStyles.outlineLabel)}>{item.label}</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function ReaderSession({
   annotations,
   ariaLabel = 'Document reader',
+  arrowKeyPageTurning = true,
+  chrome,
   defaultAnnotations = noAnnotations,
   initialPresentationMode = 'publisher',
   ocrProvider,
@@ -177,9 +382,11 @@ function ReaderSession({
   onOcrStatusChange,
   onSelectionChange,
   source,
-}: ReaderProps) {
+}: ReaderSessionProps) {
   const engineRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ReaderAdapter | null>(null)
+  const keyboardHandlerRef = useRef<(event: ReaderAdapterKeyboardEvent) => boolean>(() => false)
+  const directionalKeyActionRef = useRef<'none' | 'page-turned' | 'scrolled'>('none')
   const annotationsControlled = annotations !== undefined
   const [localAnnotations, setLocalAnnotations] = useState<readonly ReaderAnnotation[]>(() => defaultAnnotations)
   const visibleAnnotations = annotations ?? localAnnotations
@@ -203,6 +410,8 @@ function ReaderSession({
   const [noteComposerOpen, setNoteComposerOpen] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
   const [annotationPanelOpen, setAnnotationPanelOpen] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState<ReaderSidebarTab>('contents')
+  const [annotationRenderLimit, setAnnotationRenderLimit] = useState(40)
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null)
   const [editingDraft, setEditingDraft] = useState('')
@@ -231,9 +440,11 @@ function ReaderSession({
           if (!active)
             return
           setActiveAnnotationId(annotationId)
+          setSidebarTab('annotations')
           setAnnotationPanelOpen(true)
         },
         onError: reportError,
+        onKeyDown: event => keyboardHandlerRef.current(event),
         onOcrStatusChange: ocrStatus => onOcrStatusChangeRef.current?.(ocrStatus),
         onSelectionChange: (nextSelection) => {
           if (!active)
@@ -286,6 +497,59 @@ function ReaderSession({
       return
     void operation(adapter).catch(reportError)
   }, [reportError])
+
+  const handleReaderKeyboardEvent = useCallback((event: ReaderAdapterKeyboardEvent): boolean => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+      return false
+
+    const adapter = adapterRef.current
+    if (!adapter)
+      return false
+
+    if (event.key === 'PageUp') {
+      run(currentAdapter => currentAdapter.goBackward('end'))
+      return true
+    }
+    if (event.key === 'PageDown') {
+      run(currentAdapter => currentAdapter.goForward('start'))
+      return true
+    }
+
+    const direction = readerScrollDirection(event.key)
+    if (!direction)
+      return false
+
+    if (!event.repeat)
+      directionalKeyActionRef.current = 'none'
+    else if (directionalKeyActionRef.current === 'page-turned')
+      return true
+
+    const result = adapter.moveViewport(direction)
+    if (result === 'scrolled') {
+      directionalKeyActionRef.current = 'scrolled'
+      return true
+    }
+
+    if (!arrowKeyPageTurning)
+      return false
+    if (event.repeat && directionalKeyActionRef.current === 'scrolled')
+      return true
+
+    directionalKeyActionRef.current = 'page-turned'
+    if (direction === 'down' || direction === 'right')
+      run(currentAdapter => currentAdapter.goForward('start'))
+    else
+      run(currentAdapter => currentAdapter.goBackward('end'))
+    return true
+  }, [arrowKeyPageTurning, run])
+  keyboardHandlerRef.current = handleReaderKeyboardEvent
+
+  const loadMoreAnnotations = (event: UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget
+    if (element.scrollHeight - element.scrollTop - element.clientHeight > 240)
+      return
+    setAnnotationRenderLimit(limit => Math.min(visibleAnnotations.length, limit + 40))
+  }
 
   const commitAnnotations = useCallback((next: readonly ReaderAnnotation[]) => {
     annotationsRef.current = next
@@ -384,10 +648,6 @@ function ReaderSession({
     setEditingDraft('')
   }, [commitAnnotations, editingAnnotationId, editingDraft])
 
-  const setMode = useCallback((mode: ReaderPresentationMode) => {
-    run(adapter => adapter.setPresentationMode(mode))
-  }, [run])
-
   const toggleRegionSelection = useCallback(() => {
     const next = !regionSelectionActive
     adapterRef.current?.setRegionSelectionEnabled(next)
@@ -396,7 +656,7 @@ function ReaderSession({
       dismissSelection()
   }, [dismissSelection, regionSelectionActive])
 
-  const handleKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useCallback((event: globalThis.KeyboardEvent) => {
     if (event.key === 'Escape') {
       if (regionSelectionActive) {
         event.preventDefault()
@@ -411,17 +671,23 @@ function ReaderSession({
     }
     if (isTypingTarget(event.target) || event.target instanceof HTMLButtonElement)
       return
-    if (event.key === 'ArrowLeft') {
+    if (handleReaderKeyboardEvent({
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      key: event.key,
+      metaKey: event.metaKey,
+      repeat: event.repeat,
+      shiftKey: event.shiftKey,
+    })) {
       event.preventDefault()
-      run(adapter => adapter.goBackward())
     }
-    else if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      run(adapter => adapter.goForward())
-    }
-  }, [dismissSelection, regionSelectionActive, run, selection])
+  }, [dismissSelection, handleReaderKeyboardEvent, regionSelectionActive, selection])
 
-  const readerModeAvailable = adapterState.capabilities.presentationModes.includes('reader')
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
   const progress = Math.round(Math.min(1, Math.max(0, adapterState.location.progression)) * 100)
   const popoverLayout = selection
     ? selectionPopoverLayout(selection, noteComposerOpen, colorPaletteOpen)
@@ -431,34 +697,44 @@ function ReaderSession({
 
   return (
     <div
-      {...stylex.props(readerStyles.root)}
+      {...stylex.props(readerStyles.root, chrome === 'window' && readerStyles.rootWindow)}
       aria-label={ariaLabel}
       tabIndex={0}
-      onKeyDown={handleKeyDown}
     >
-      <header {...stylex.props(readerStyles.toolbar)}>
-        <div {...stylex.props(readerStyles.titleGroup)}>
-          <h2 {...stylex.props(readerStyles.title)}>{adapterState.title || source.name || 'Document'}</h2>
-          <span {...stylex.props(readerStyles.format)}>{adapterState.format}</span>
-          {adapterState.textLayer === 'ocr'
-            ? <span {...stylex.props(readerStyles.statusChip)}>OCR text</span>
-            : null}
-          {adapterState.textLayer === 'recognizing'
-            ? <span {...stylex.props(readerStyles.statusChip)}>Recognizing…</span>
-            : null}
-          {adapterState.format === 'pdf' && adapterState.textLayer === 'none' && status === 'ready'
-            ? <span {...stylex.props(readerStyles.statusChip)}>Image page</span>
-            : null}
-        </div>
+      <header {...stylex.props(readerStyles.toolbar, chrome === 'window' && readerStyles.toolbarWindow)}>
+        {chrome === 'embedded'
+          ? (
+              <div {...stylex.props(readerStyles.titleGroup)}>
+                <h2 {...stylex.props(readerStyles.title)}>{adapterState.title || source.name || 'Document'}</h2>
+                <span {...stylex.props(readerStyles.format)}>{adapterState.format}</span>
+                {adapterState.textLayer === 'ocr'
+                  ? <span {...stylex.props(readerStyles.statusChip)}>OCR text</span>
+                  : null}
+                {adapterState.textLayer === 'recognizing'
+                  ? <span {...stylex.props(readerStyles.statusChip)}>Recognizing…</span>
+                  : null}
+                {adapterState.format === 'pdf' && adapterState.textLayer === 'none' && status === 'ready'
+                  ? <span {...stylex.props(readerStyles.statusChip)}>Image page</span>
+                  : null}
+              </div>
+            )
+          : null}
 
-        <div {...stylex.props(readerStyles.navigation)}>
+        <div
+          {...stylex.props(
+            readerStyles.navigation,
+            chrome === 'window' && readerStyles.windowControlGroup,
+            chrome === 'window' && readerStyles.navigationWindow,
+          )}
+        >
           <button
-            {...stylex.props(readerStyles.button)}
+            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
             aria-label="Previous"
+            data-window-no-drag=""
             disabled={status !== 'ready' || !adapterState.canGoBackward}
             title="Previous"
             type="button"
-            onClick={() => run(adapter => adapter.goBackward())}
+            onClick={() => run(adapter => adapter.goBackward('end'))}
           >
             <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.9} />
           </button>
@@ -466,53 +742,33 @@ function ReaderSession({
             {adapterState.location.label || 'Opening…'}
           </span>
           <button
-            {...stylex.props(readerStyles.button)}
+            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
             aria-label="Next"
+            data-window-no-drag=""
             disabled={status !== 'ready' || !adapterState.canGoForward}
             title="Next"
             type="button"
-            onClick={() => run(adapter => adapter.goForward())}
+            onClick={() => run(adapter => adapter.goForward('start'))}
           >
             <ChevronRight aria-hidden="true" size={17} strokeWidth={1.9} />
           </button>
         </div>
 
-        <div {...stylex.props(readerStyles.actions)}>
-          {adapterState.format === 'epub'
-            ? (
-                <div {...stylex.props(readerStyles.modeGroup)} aria-label="EPUB layout" role="group">
-                  <button
-                    {...stylex.props(
-                      readerStyles.modeButton,
-                      adapterState.presentationMode === 'publisher' && readerStyles.modeButtonActive,
-                    )}
-                    aria-pressed={adapterState.presentationMode === 'publisher'}
-                    type="button"
-                    onClick={() => setMode('publisher')}
-                  >
-                    Publisher
-                  </button>
-                  <button
-                    {...stylex.props(
-                      readerStyles.modeButton,
-                      adapterState.presentationMode === 'reader' && readerStyles.modeButtonActive,
-                      !readerModeAvailable && readerStyles.modeButtonDisabled,
-                    )}
-                    aria-pressed={adapterState.presentationMode === 'reader'}
-                    disabled={!readerModeAvailable}
-                    title={adapterState.presentationModeReason}
-                    type="button"
-                    onClick={() => setMode('reader')}
-                  >
-                    Reader
-                  </button>
-                </div>
-              )
-            : null}
+        <div
+          {...stylex.props(
+            readerStyles.actions,
+            chrome === 'window' && readerStyles.windowControlGroup,
+            chrome === 'window' && readerStyles.actionsWindow,
+          )}
+        >
           {adapterState.capabilities.regionSelection
             ? (
                 <button
-                  {...stylex.props(readerStyles.button, regionSelectionActive && readerStyles.buttonActive)}
+                  {...stylex.props(
+                    readerStyles.button,
+                    chrome === 'window' && readerStyles.buttonWindow,
+                    regionSelectionActive && readerStyles.buttonActive,
+                  )}
                   aria-label="Select an area to annotate"
                   aria-pressed={regionSelectionActive}
                   disabled={status !== 'ready'}
@@ -527,7 +783,7 @@ function ReaderSession({
           {adapterState.capabilities.ocr
             ? (
                 <button
-                  {...stylex.props(readerStyles.button)}
+                  {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
                   aria-label="Recognize text on this page"
                   disabled={status !== 'ready' || adapterState.textLayer === 'recognizing'}
                   title="Recognize text on this page"
@@ -539,9 +795,10 @@ function ReaderSession({
               )
             : null}
           <button
-            {...stylex.props(readerStyles.button)}
+            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
             aria-label={adapterState.format === 'pdf' ? 'Zoom out' : 'Decrease text size'}
-            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale <= 0.75}
+            data-window-no-drag=""
+            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale <= readerMinimumScale}
             title={adapterState.format === 'pdf' ? 'Zoom out' : 'Decrease text size'}
             type="button"
             onClick={() => run(adapter => adapter.setScale(adapterState.scale - 0.1))}
@@ -549,9 +806,10 @@ function ReaderSession({
             <Minus aria-hidden="true" size={15} strokeWidth={2} />
           </button>
           <button
-            {...stylex.props(readerStyles.button)}
+            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
             aria-label={adapterState.format === 'pdf' ? 'Zoom in' : 'Increase text size'}
-            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale >= 2}
+            data-window-no-drag=""
+            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale >= readerMaximumScale}
             title={adapterState.format === 'pdf' ? 'Zoom in' : 'Increase text size'}
             type="button"
             onClick={() => run(adapter => adapter.setScale(adapterState.scale + 0.1))}
@@ -559,10 +817,15 @@ function ReaderSession({
             <Plus aria-hidden="true" size={15} strokeWidth={2} />
           </button>
           <button
-            {...stylex.props(readerStyles.button, annotationPanelOpen && readerStyles.buttonActive)}
-            aria-label="Annotations"
+            {...stylex.props(
+              readerStyles.button,
+              chrome === 'window' && readerStyles.buttonWindow,
+              annotationPanelOpen && readerStyles.buttonActive,
+            )}
+            aria-label={annotationPanelOpen ? 'Hide reader sidebar' : 'Show reader sidebar'}
             aria-pressed={annotationPanelOpen}
-            title="Annotations"
+            data-window-no-drag=""
+            title={annotationPanelOpen ? 'Hide sidebar' : 'Show sidebar'}
             type="button"
             onClick={() => setAnnotationPanelOpen(open => !open)}
           >
@@ -590,35 +853,68 @@ function ReaderSession({
             : null}
         </div>
 
-        {annotationPanelOpen
-          ? (
-              <aside {...stylex.props(readerStyles.annotationPanel)} aria-label="Annotations">
-                <div {...stylex.props(readerStyles.panelHeader)}>
-                  <div>
-                    <h3 {...stylex.props(readerStyles.panelTitle)}>Annotations</h3>
-                    <p {...stylex.props(readerStyles.panelSubtitle)}>
-                      {visibleAnnotations.length}
-                      {' '}
-                      total
-                    </p>
-                  </div>
-                  <button
-                    {...stylex.props(readerStyles.button)}
-                    aria-label="Close annotations"
-                    type="button"
-                    onClick={() => setAnnotationPanelOpen(false)}
-                  >
-                    <X aria-hidden="true" size={15} />
-                  </button>
+        <aside
+          {...stylex.props(
+            readerStyles.annotationPanel,
+            !annotationPanelOpen && readerStyles.annotationPanelClosed,
+          )}
+          aria-label="Reader sidebar"
+          aria-hidden={!annotationPanelOpen}
+          inert={!annotationPanelOpen}
+        >
+          <div {...stylex.props(readerStyles.panelHeader)} role="tablist" aria-label="Reader sidebar views">
+            <button
+              {...stylex.props(readerStyles.sidebarTab, sidebarTab === 'contents' && readerStyles.sidebarTabActive)}
+              aria-controls="reader-contents-panel"
+              aria-selected={sidebarTab === 'contents'}
+              role="tab"
+              type="button"
+              onClick={() => setSidebarTab('contents')}
+            >
+              <BookOpenText aria-hidden="true" size={14} strokeWidth={1.8} />
+              Contents
+            </button>
+            <button
+              {...stylex.props(readerStyles.sidebarTab, sidebarTab === 'annotations' && readerStyles.sidebarTabActive)}
+              aria-controls="reader-annotations-panel"
+              aria-selected={sidebarTab === 'annotations'}
+              role="tab"
+              type="button"
+              onClick={() => setSidebarTab('annotations')}
+            >
+              <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
+              Annotations
+              {visibleAnnotations.length > 0
+                ? <span {...stylex.props(readerStyles.tabCount)}>{visibleAnnotations.length}</span>
+                : null}
+            </button>
+          </div>
+
+          {sidebarTab === 'contents'
+            ? (
+                <div id="reader-contents-panel" {...stylex.props(readerStyles.panelContent)} role="tabpanel">
+                  {adapterState.outline.length === 0
+                    ? <div {...stylex.props(readerStyles.emptyAnnotations)}>No table of contents</div>
+                    : (
+                        <ReaderOutline
+                          key={`${adapterState.title}:${adapterState.outline.length}`}
+                          currentHref={adapterState.location.href}
+                          items={adapterState.outline}
+                          onNavigate={itemId => run(adapter => adapter.goToOutlineItem(itemId))}
+                        />
+                      )}
                 </div>
-                <div {...stylex.props(readerStyles.annotationList)}>
+              )
+            : (
+                <div
+                  id="reader-annotations-panel"
+                  {...stylex.props(readerStyles.annotationList)}
+                  role="tabpanel"
+                  onScroll={loadMoreAnnotations}
+                >
                   {visibleAnnotations.length === 0
-                    ? (
-                        <div {...stylex.props(readerStyles.emptyAnnotations)}>
-                          No annotations
-                        </div>
-                      )
-                    : visibleAnnotations.map((annotation) => {
+                    ? <div {...stylex.props(readerStyles.emptyAnnotations)}>No annotations</div>
+                    : visibleAnnotations.slice(0, annotationRenderLimit).map((annotation) => {
                         const quote = annotationQuote(annotation)
                         const editing = editingAnnotationId === annotation.id
                         return (
@@ -710,9 +1006,8 @@ function ReaderSession({
                         )
                       })}
                 </div>
-              </aside>
-            )
-          : null}
+              )}
+        </aside>
       </div>
 
       {selection && !noteComposerOpen
@@ -903,5 +1198,9 @@ function ReaderSession({
 }
 
 export function Reader(props: ReaderProps) {
-  return <ReaderSession key={readerSourceKey(props.source)} {...props} />
+  return <ReaderSession key={readerSourceKey(props.source)} {...props} chrome="embedded" />
+}
+
+export function WindowReader(props: ReaderProps) {
+  return <ReaderSession key={readerSourceKey(props.source)} {...props} chrome="window" />
 }

@@ -2,8 +2,10 @@ import type { Dispatch, SetStateAction } from 'react'
 import { createContext, use, useLayoutEffect } from 'react'
 
 export interface PageTitlebarOptions {
+  navigation?: 'default' | 'hidden'
   onRenameTitle?: (title: string) => void
   title?: string
+  titleVisibility?: 'always' | 'wide'
 }
 
 export const PageTitlebarContext = createContext<Dispatch<SetStateAction<PageTitlebarOptions | null>> | null>(null)

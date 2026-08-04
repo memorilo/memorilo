@@ -176,32 +176,41 @@ export function AppTitlebar({
       {...stylex.props(appTitlebarStyles.titlebar)}
       data-window-drag=""
     >
-      <motion.div
-        {...stylex.props(appTitlebarStyles.navigationGroup)}
-        animate={{ left: navigationOffset }}
-        aria-label="Page navigation"
-        initial={false}
-        role="group"
-        transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
+      {page?.navigation !== 'hidden'
+        ? (
+            <motion.div
+              {...stylex.props(appTitlebarStyles.navigationGroup)}
+              animate={{ left: navigationOffset }}
+              aria-label="Page navigation"
+              initial={false}
+              role="group"
+              transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
+            >
+              <NavigationButton
+                disabled={!canGoBack}
+                label="Back"
+                title={canGoBack ? 'Back' : 'No previous page'}
+                onClick={() => router.history.back()}
+              >
+                <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
+              </NavigationButton>
+              <NavigationButton
+                disabled={!canGoForward}
+                label="Forward"
+                title={canGoForward ? 'Forward' : 'No next page'}
+                onClick={() => router.history.forward()}
+              >
+                <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
+              </NavigationButton>
+            </motion.div>
+          )
+        : null}
+      <div
+        {...stylex.props(
+          appTitlebarStyles.titleSlot,
+          page?.titleVisibility === 'wide' && appTitlebarStyles.titleSlotWide,
+        )}
       >
-        <NavigationButton
-          disabled={!canGoBack}
-          label="Back"
-          title={canGoBack ? 'Back' : 'No previous page'}
-          onClick={() => router.history.back()}
-        >
-          <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
-        </NavigationButton>
-        <NavigationButton
-          disabled={!canGoForward}
-          label="Forward"
-          title={canGoForward ? 'Forward' : 'No next page'}
-          onClick={() => router.history.forward()}
-        >
-          <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
-        </NavigationButton>
-      </motion.div>
-      <div {...stylex.props(appTitlebarStyles.titleSlot)}>
         {page?.title
           ? page.onRenameTitle
             ? <EditableTitle key={page.title} onRename={page.onRenameTitle} title={page.title} />

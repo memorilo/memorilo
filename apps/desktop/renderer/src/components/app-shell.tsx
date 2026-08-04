@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { PageTitlebarOptions } from './page-titlebar'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useState } from 'react'
@@ -12,10 +12,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [pageTitlebar, setPageTitlebar] = useState<PageTitlebarOptions | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const toggleSidebar = useCallback(() => setSidebarVisible(visible => !visible), [])
+  const shellStyle = {
+    '--reader-leading-offset': sidebarVisible ? '270px' : '120px',
+  } as CSSProperties
 
   return (
     <PageTitlebarContext value={setPageTitlebar}>
-      <div {...stylex.props(appShellStyles.shell)}>
+      <div {...stylex.props(appShellStyles.shell)} style={shellStyle}>
         <AppTitlebar page={pageTitlebar} sidebarVisible={sidebarVisible} />
         <div {...stylex.props(appShellStyles.body)}>
           <WorkspaceSidebar

@@ -104,7 +104,40 @@ export interface ShelfPublicationDetailsInput {
 
 export interface ShelfPublicationDetails {
   publication: ShelfPublication
+  readingOptions: readonly ShelfReadingOption[]
   source: ShelfSource
+}
+
+export type ShelfReadingFormat = 'epub' | 'pdf'
+
+export type ShelfReadingRetention = 'cache' | 'library'
+
+export interface ShelfReadingOption {
+  format: ShelfReadingFormat
+  mediaType: string
+  readingId: string
+  savedLocally: boolean
+}
+
+export interface PrepareShelfReadingInput {
+  format: ShelfReadingFormat
+  publicationId: string
+  retention: ShelfReadingRetention
+  sourceId: string
+}
+
+export interface PreparedShelfReading {
+  readingId: string
+}
+
+export interface OpenShelfReadingInput {
+  readingId: string
+}
+
+export interface ShelfReadingDocument {
+  bytes: Uint8Array
+  format: ShelfReadingFormat
+  name: string
 }
 
 export interface ShelfPage {

@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@memorilo/config": "workspace:*",
+    "@memorilo/desktop-config": "workspace:*",
     "@memorilo/desktop-preload": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/shelf": "workspace:*",

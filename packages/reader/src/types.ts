@@ -23,6 +23,14 @@ export interface ReaderLocation {
   total?: number
 }
 
+export interface ReaderOutlineItem {
+  children: readonly ReaderOutlineItem[]
+  href?: string
+  id: string
+  label: string
+  navigable: boolean
+}
+
 /** A rectangle normalized to the rendered page, with every value between 0 and 1. */
 export interface ReaderNormalizedRect {
   height: number
@@ -143,6 +151,7 @@ export interface ReaderCapabilities {
 }
 
 export interface ReaderProps {
+  arrowKeyPageTurning?: boolean
   annotations?: readonly ReaderAnnotation[]
   ariaLabel?: string
   defaultAnnotations?: readonly ReaderAnnotation[]
