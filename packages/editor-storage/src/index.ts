@@ -1,5 +1,7 @@
 export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 export type {
+  AssetReferenceProjection,
+  AssetStatistics,
   CheckpointNoteInput,
   CreateEditorStorageOptions,
   CreateNoteInput,
@@ -22,11 +24,14 @@ export type {
   NoteTitleSearchHit,
   NoteWriteReceipt,
   RecentNoteItem,
+  ReconcileNoteAssetReferencesInput,
   RecordNoteOpenedInput,
+  RegisterAssetInput,
   SaveNoteUpdatesInput,
   SearchNotesInput,
   SearchTopicBlocksInput,
   SetNoteFavoriteInput,
+  StoredAsset,
   StoredNote,
   StoredNoteUpdate,
   StoredTopicBlock,

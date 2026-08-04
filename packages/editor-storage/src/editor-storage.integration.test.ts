@@ -20,6 +20,7 @@ function parameters(values: readonly DatabaseValue[] | undefined): readonly Data
 
 class InMemorySqliteDatabase implements EditorStorageDatabase {
   readonly #database: Database.Database
+  beforeGet?: (sql: string) => Promise<void>
 
   constructor() {
     this.#database = new BetterSqlite3(':memory:')
@@ -47,7 +48,9 @@ class InMemorySqliteDatabase implements EditorStorageDatabase {
   }
 
   async get<Row>(sql: string, values?: readonly DatabaseValue[]): Promise<Row | undefined> {
-    return this.#database.prepare(sql).get(...parameters(values)) as Row | undefined
+    const row = this.#database.prepare(sql).get(...parameters(values)) as Row | undefined
+    await this.beforeGet?.(sql)
+    return row
   }
 
   async run(sql: string, values?: readonly DatabaseValue[]): Promise<void> {
@@ -117,6 +120,42 @@ afterEach(async () => {
 })
 
 describe('editor storage with an in-memory SQLite database', () => {
+  it('atomically grants an asset deletion claim to only one storage instance', async () => {
+    const database = new InMemorySqliteDatabase()
+    databases.push(database)
+    const first = await createEditorStorage({ database, embeddingModel })
+    const second = await createEditorStorage({ database, embeddingModel })
+    const fileName = '0f1e2d3c-4b5a-4678-9abc-0d1e2f3a4b5c.png'
+    await first.registerAsset({
+      byteSize: 8,
+      createdAt: 1,
+      fileName,
+      mimeType: 'image/png',
+      originalFileName: 'photo.png',
+    })
+
+    let waiting = 0
+    let release!: () => void
+    const bothClaimsReadEligibility = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    database.beforeGet = async (sql) => {
+      if (!sql.includes('deletion_claimed_at IS NULL'))
+        return
+      waiting += 1
+      if (waiting === 2)
+        release()
+      await bothClaimsReadEligibility
+    }
+
+    const claims = await Promise.all([
+      first.claimUnreferencedAsset({ fileName, unreferencedBefore: 2 }),
+      second.claimUnreferencedAsset({ fileName, unreferencedBefore: 2 }),
+    ])
+
+    expect(claims.filter(claim => claim !== null)).toHaveLength(1)
+  })
+
   it('restores a Note checkpoint, update log, and Topic Block projection', async () => {
     const storage = await createStorage()
     const opened = await storage.openMostRecentNote()

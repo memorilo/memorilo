@@ -1,6 +1,7 @@
 import type {
   CreateDesktopNoteInput,
   DesktopApi,
+  DesktopAssetCheckResult,
   DesktopColumnVisibilityMenuSelection,
   DesktopConfiguration,
   DesktopFavoriteNoteItem,
@@ -14,11 +15,16 @@ import type {
   DesktopTopicBlockSearchHit,
   DesktopTopicBlockSearchMode,
   GetDesktopNoteInput,
+  ImportDesktopNetworkImageInput,
   ListDesktopNotesInput,
+  ReclaimDesktopAssetsInput,
+  ReclaimDesktopAssetsResult,
   RecordDesktopNoteOpenedInput,
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
   RuntimeInfo,
+  SaveDesktopImageInput,
+  SaveDesktopImageResult,
   SaveDesktopNoteUpdatesInput,
   SetDesktopNoteFavoriteInput,
   ShowDesktopColumnVisibilityMenuInput,
@@ -27,6 +33,12 @@ import type {
 export interface DesktopServices {
   app: {
     getRuntimeInfo: () => Promise<RuntimeInfo>
+  }
+  assets: {
+    check: () => Promise<DesktopAssetCheckResult>
+    importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
+    reclaim: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
+    saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
   }
   configuration: {
     get: () => Promise<DesktopConfiguration>
@@ -67,17 +79,21 @@ export function createDesktopApi(
   subscribeConfiguration: DesktopApi['subscribeConfiguration'],
 ): DesktopApi {
   return {
+    checkAssets: () => services.assets.check(),
     createNote: input => services.notes.createNote(input),
     getConfiguration: () => services.configuration.get(),
     getNote: input => services.notes.getNote(input),
     getRuntimeInfo: () => services.app.getRuntimeInfo(),
     getTopicBlock: input => services.notes.getTopicBlock(input),
+    importNetworkImage: input => services.assets.importNetworkImage(input),
     listFavoriteNotes: input => services.notes.listFavoriteNotes(input),
     listNotes: input => services.notes.listNotes(input),
     listRecentNotes: input => services.notes.listRecentNotes(input),
     openMostRecentNote: () => services.notes.openMostRecentNote(),
+    reclaimAssets: input => services.assets.reclaim(input),
     recordNoteOpened: input => services.notes.recordNoteOpened(input),
     renameNote: input => services.notes.renameNote(input),
+    saveImage: input => services.assets.saveImage(input),
     saveNoteUpdates: input => services.notes.saveNoteUpdates(input),
     searchNotes: input => services.notes.searchNotes(input),
     searchTopicBlocks: input => services.notes.searchTopicBlocks(input),

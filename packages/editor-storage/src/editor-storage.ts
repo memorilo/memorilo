@@ -131,7 +131,42 @@ export interface NotePage {
   totalPages: number
 }
 
+export interface AssetReferenceProjection {
+  count: number
+  fileName: string
+}
+
+export interface AssetStatistics {
+  managedAssetCount: number
+  referenceCount: number
+}
+
+export interface StoredAsset {
+  byteSize: number
+  createdAt: number
+  fileName: string
+  mimeType: string
+  originalFileName: string
+}
+
+export interface RegisterAssetInput {
+  byteSize: number
+  createdAt?: number
+  fileName: string
+  mimeType: string
+  originalFileName: string
+}
+
+export interface ReconcileNoteAssetReferencesInput {
+  allowedMissingAssetFileNames?: readonly string[]
+  expectedLatestSequence: number
+  noteId: string
+  references: readonly AssetReferenceProjection[]
+}
+
 export interface SaveNoteUpdatesInput {
+  allowedMissingAssetFileNames?: readonly string[]
+  assetReferences?: readonly AssetReferenceProjection[]
   entries?: readonly NoteEntryProjection[]
   noteId: string
   title?: string
@@ -213,17 +248,27 @@ export interface TopicBlockSearchHit extends StoredTopicBlock {
 
 export interface EditorStorage {
   checkpointNote: (input: CheckpointNoteInput) => Promise<NoteWriteReceipt>
+  claimUnreferencedAsset: (input: { fileName: string, unreferencedBefore: number }) => Promise<StoredAsset | null>
   close: () => Promise<void>
+  completeAssetDeletion: (input: { fileName: string }) => Promise<void>
   createNote: (input?: CreateNoteInput) => Promise<StoredNote>
+  getAssetStatistics: () => Promise<AssetStatistics>
   getNote: (input: GetNoteInput) => Promise<StoredNote>
   getNoteFavorite: (input: GetNoteInput) => Promise<NoteFavoriteState>
   getTopicBlock: (input: GetTopicBlockInput) => Promise<StoredTopicBlock | null>
   indexPendingEmbeddings: (input?: IndexPendingEmbeddingsInput) => Promise<number>
   listFavoriteNotes: (input?: ListNoteActivityInput) => Promise<readonly FavoriteNoteItem[]>
+  listNoteIds: () => Promise<readonly string[]>
   listNotes: (input?: ListNotesInput) => Promise<NotePage>
+  listAssets: () => Promise<readonly StoredAsset[]>
+  listClaimedAssets: () => Promise<readonly StoredAsset[]>
   listRecentNotes: (input?: ListNoteActivityInput) => Promise<readonly RecentNoteItem[]>
+  listUnreferencedAssets: (input: { unreferencedBefore: number }) => Promise<readonly StoredAsset[]>
   openMostRecentNote: () => Promise<StoredNote>
+  reconcileNoteAssetReferences: (input: ReconcileNoteAssetReferencesInput) => Promise<boolean>
   recordNoteOpened: (input: RecordNoteOpenedInput) => Promise<void>
+  registerAsset: (input: RegisterAssetInput) => Promise<StoredAsset>
+  releaseAssetClaim: (input: { fileName: string }) => Promise<void>
   saveNoteUpdates: (input: SaveNoteUpdatesInput) => Promise<NoteWriteReceipt>
   searchNotes: (input: SearchNotesInput) => Promise<readonly NoteSearchHit[]>
   searchTopicBlocks: (input: SearchTopicBlocksInput) => Promise<readonly TopicBlockSearchHit[]>
@@ -233,6 +278,14 @@ export interface EditorStorage {
 export interface CreateEditorStorageOptions {
   database: EditorStorageDatabase
   embeddingModel: EmbeddingModel
+}
+
+interface AssetRow {
+  byte_size: number
+  created_at: number
+  file_name: string
+  mime_type: string
+  original_file_name: string
 }
 
 interface NoteRow {
@@ -272,6 +325,11 @@ interface RecentNoteRow {
 
 interface FavoriteStateRow {
   favorite: number
+}
+
+interface AssetStatisticsRow {
+  managed_asset_count: number
+  reference_count: number
 }
 
 interface CountRow {
@@ -370,6 +428,60 @@ const schema = `
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS assets (
+    file_name TEXT PRIMARY KEY,
+    original_file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+    created_at INTEGER NOT NULL,
+    unreferenced_at INTEGER,
+    deletion_claimed_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS note_asset_references (
+    note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
+    asset_file_name TEXT NOT NULL REFERENCES assets(file_name) ON DELETE RESTRICT,
+    reference_count INTEGER NOT NULL CHECK (reference_count > 0),
+    PRIMARY KEY (note_row_id, asset_file_name)
+  );
+
+  CREATE INDEX IF NOT EXISTS note_asset_references_asset_idx
+    ON note_asset_references(asset_file_name);
+
+  CREATE TRIGGER IF NOT EXISTS note_asset_references_insert_mark_referenced
+  AFTER INSERT ON note_asset_references
+  BEGIN
+    UPDATE assets SET unreferenced_at = NULL WHERE file_name = new.asset_file_name;
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS note_asset_references_delete_mark_unreferenced
+  AFTER DELETE ON note_asset_references
+  WHEN NOT EXISTS (
+    SELECT 1 FROM note_asset_references WHERE asset_file_name = old.asset_file_name
+  )
+  BEGIN
+    UPDATE assets
+    SET unreferenced_at = COALESCE(
+      unreferenced_at,
+      CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
+    )
+    WHERE file_name = old.asset_file_name;
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS note_asset_references_insert_available
+  BEFORE INSERT ON note_asset_references
+  WHEN (SELECT deletion_claimed_at FROM assets WHERE file_name = new.asset_file_name) IS NOT NULL
+  BEGIN
+    SELECT RAISE(ABORT, 'Asset is being reclaimed');
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS note_asset_references_update_available
+  BEFORE UPDATE OF asset_file_name ON note_asset_references
+  WHEN (SELECT deletion_claimed_at FROM assets WHERE file_name = new.asset_file_name) IS NOT NULL
+  BEGIN
+    SELECT RAISE(ABORT, 'Asset is being reclaimed');
+  END;
 
   CREATE TABLE IF NOT EXISTS note_updates (
     note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
@@ -615,6 +727,34 @@ function contentHash(text: string): string {
 
 function updateHash(update: Uint8Array): string {
   return bytesToHex(sha256(update))
+}
+
+function validateAssetFileName(fileName: string): void {
+  assertNonEmpty(fileName, 'Asset file name')
+  if (!/^[0-9a-f-]+\.[a-z0-9]+$/.test(fileName))
+    throw new TypeError('Asset file name has an invalid format')
+}
+
+function validateAssetReferences(references: readonly AssetReferenceProjection[]): void {
+  const fileNames = new Set<string>()
+  for (const reference of references) {
+    validateAssetFileName(reference.fileName)
+    if (!Number.isInteger(reference.count) || reference.count <= 0)
+      throw new RangeError('Asset reference count must be a positive integer')
+    if (fileNames.has(reference.fileName))
+      throw new TypeError(`Duplicate asset reference: ${reference.fileName}`)
+    fileNames.add(reference.fileName)
+  }
+}
+
+function toStoredAsset(row: AssetRow): StoredAsset {
+  return {
+    byteSize: row.byte_size,
+    createdAt: row.created_at,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    originalFileName: row.original_file_name,
+  }
 }
 
 function parseAttributes(json: string): Readonly<Record<string, unknown>> {
@@ -884,15 +1024,63 @@ class DefaultEditorStorage implements EditorStorage {
     }
   }
 
+  async claimUnreferencedAsset(input: { fileName: string, unreferencedBefore: number }): Promise<StoredAsset | null> {
+    validateAssetFileName(input.fileName)
+    if (!Number.isFinite(input.unreferencedBefore))
+      throw new TypeError('Asset reference cutoff must be finite')
+    return this.#serializeWrite(async () => {
+      const row = await this.#database.get<AssetRow>(`
+        UPDATE assets
+        SET deletion_claimed_at = ?
+        WHERE file_name = ?
+          AND unreferenced_at <= ?
+          AND deletion_claimed_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM note_asset_references WHERE asset_file_name = assets.file_name
+          )
+        RETURNING file_name, original_file_name, mime_type, byte_size, created_at
+      `, [Date.now(), input.fileName, input.unreferencedBefore])
+      return row ? toStoredAsset(row) : null
+    })
+  }
+
   async close(): Promise<void> {
     await this.#writeQueue
     await this.#database.close()
+  }
+
+  async completeAssetDeletion(input: { fileName: string }): Promise<void> {
+    validateAssetFileName(input.fileName)
+    return this.#serializeWrite(async () => {
+      await this.#database.run(`
+        DELETE FROM assets
+        WHERE file_name = ?
+          AND deletion_claimed_at IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM note_asset_references WHERE asset_file_name = assets.file_name
+          )
+      `, [input.fileName])
+    })
   }
 
   async createNote(input: CreateNoteInput = {}): Promise<StoredNote> {
     const title = input.title?.trim() ?? 'Untitled'
     assertNonEmpty(title, 'Note title')
     return this.#serializeWrite(async () => this.#readStoredNote(await this.#insertNote(title)))
+  }
+
+  async getAssetStatistics(): Promise<AssetStatistics> {
+    const row = await this.#database.get<AssetStatisticsRow>(`
+      SELECT
+        (SELECT COUNT(*) FROM assets) AS managed_asset_count,
+        (SELECT COALESCE(SUM(reference_count), 0) FROM note_asset_references) AS reference_count
+    `)
+    if (!row)
+      throw new Error('Failed to read Asset statistics')
+    return {
+      managedAssetCount: row.managed_asset_count,
+      referenceCount: row.reference_count,
+    }
   }
 
   async getNote(input: GetNoteInput): Promise<StoredNote> {
@@ -973,6 +1161,13 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async listNoteIds(): Promise<readonly string[]> {
+    return this.#serializeWrite(async () => {
+      const rows = await this.#database.all<{ id: string }>('SELECT id FROM notes ORDER BY id ASC')
+      return rows.map(row => row.id)
+    })
+  }
+
   async listNotes(input: ListNotesInput = {}): Promise<NotePage> {
     const page = resolvePage(input.page)
     const pageSize = resolveLimit(input.pageSize, 50, 100)
@@ -1018,6 +1213,25 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async listAssets(): Promise<readonly StoredAsset[]> {
+    const rows = await this.#database.all<AssetRow>(`
+      SELECT file_name, original_file_name, mime_type, byte_size, created_at
+      FROM assets
+      ORDER BY created_at ASC, file_name ASC
+    `)
+    return rows.map(toStoredAsset)
+  }
+
+  async listClaimedAssets(): Promise<readonly StoredAsset[]> {
+    const rows = await this.#database.all<AssetRow>(`
+      SELECT file_name, original_file_name, mime_type, byte_size, created_at
+      FROM assets
+      WHERE deletion_claimed_at IS NOT NULL
+      ORDER BY created_at ASC, file_name ASC
+    `)
+    return rows.map(toStoredAsset)
+  }
+
   async listRecentNotes(input: ListNoteActivityInput = {}): Promise<readonly RecentNoteItem[]> {
     const limit = resolveLimit(input.limit, 6, 100)
     return this.#serializeWrite(async () => {
@@ -1045,6 +1259,22 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async listUnreferencedAssets(input: { unreferencedBefore: number }): Promise<readonly StoredAsset[]> {
+    if (!Number.isFinite(input.unreferencedBefore))
+      throw new TypeError('Asset reference cutoff must be finite')
+    const rows = await this.#database.all<AssetRow>(`
+      SELECT file_name, original_file_name, mime_type, byte_size, created_at
+      FROM assets
+      WHERE unreferenced_at <= ?
+        AND deletion_claimed_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM note_asset_references WHERE asset_file_name = assets.file_name
+        )
+      ORDER BY created_at ASC, file_name ASC
+    `, [input.unreferencedBefore])
+    return rows.map(toStoredAsset)
+  }
+
   async openMostRecentNote(): Promise<StoredNote> {
     return this.#serializeWrite(async () => {
       let note = await this.#database.get<NoteRow>(`
@@ -1064,6 +1294,57 @@ class DefaultEditorStorage implements EditorStorage {
 
       note ??= await this.#insertNote('Untitled')
       return this.#readStoredNote(note)
+    })
+  }
+
+  async reconcileNoteAssetReferences(input: ReconcileNoteAssetReferencesInput): Promise<boolean> {
+    assertNonEmpty(input.noteId, 'Note id')
+    if (!Number.isInteger(input.expectedLatestSequence) || input.expectedLatestSequence < 0)
+      throw new RangeError('Expected Note sequence must be a non-negative integer')
+    validateAssetReferences(input.references)
+    input.allowedMissingAssetFileNames?.forEach(validateAssetFileName)
+    const saved = structuredClone(input)
+    return this.#serializeWrite(async () => {
+      const note = await this.#database.get<{ latest_sequence: number, row_id: number }>(
+        'SELECT row_id, latest_sequence FROM notes WHERE id = ?',
+        [saved.noteId],
+      )
+      if (!note)
+        throw new Error(`Unknown Note: ${saved.noteId}`)
+      if (note.latest_sequence !== saved.expectedLatestSequence)
+        return false
+
+      const availableReferences: AssetReferenceProjection[] = []
+      for (const reference of saved.references) {
+        const asset = await this.#database.get<{ deletion_claimed_at: number | null }>(
+          'SELECT deletion_claimed_at FROM assets WHERE file_name = ?',
+          [reference.fileName],
+        )
+        if (!asset) {
+          if (saved.allowedMissingAssetFileNames?.includes(reference.fileName))
+            continue
+          throw new Error(`Unknown Asset: ${reference.fileName}`)
+        }
+        if (asset.deletion_claimed_at !== null)
+          throw new Error(`Asset is being reclaimed: ${reference.fileName}`)
+        availableReferences.push(reference)
+      }
+
+      const commands: DatabaseCommand[] = [{
+        parameters: [note.row_id],
+        sql: 'DELETE FROM note_asset_references WHERE note_row_id = ?',
+      }]
+      for (const reference of availableReferences) {
+        commands.push({
+          parameters: [note.row_id, reference.fileName, reference.count],
+          sql: `
+            INSERT INTO note_asset_references (note_row_id, asset_file_name, reference_count)
+            VALUES (?, ?, ?)
+          `,
+        })
+      }
+      await this.#database.batch(commands)
+      return true
     })
   }
 
@@ -1119,6 +1400,43 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async registerAsset(input: RegisterAssetInput): Promise<StoredAsset> {
+    validateAssetFileName(input.fileName)
+    assertNonEmpty(input.originalFileName, 'Original asset file name')
+    assertNonEmpty(input.mimeType, 'Asset MIME type')
+    if (!Number.isInteger(input.byteSize) || input.byteSize <= 0)
+      throw new RangeError('Asset byte size must be a positive integer')
+    if (input.createdAt !== undefined && !Number.isFinite(input.createdAt))
+      throw new TypeError('Asset creation time must be finite')
+    const saved = structuredClone(input)
+    return this.#serializeWrite(async () => {
+      const createdAt = saved.createdAt ?? Date.now()
+      await this.#database.run(`
+        INSERT INTO assets (
+          file_name, original_file_name, mime_type, byte_size, created_at, unreferenced_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(file_name) DO NOTHING
+      `, [saved.fileName, saved.originalFileName, saved.mimeType, saved.byteSize, createdAt, createdAt])
+      const row = await this.#database.get<AssetRow>(`
+        SELECT file_name, original_file_name, mime_type, byte_size, created_at
+        FROM assets WHERE file_name = ?
+      `, [saved.fileName])
+      if (!row)
+        throw new Error(`Failed to read registered Asset: ${saved.fileName}`)
+      return toStoredAsset(row)
+    })
+  }
+
+  async releaseAssetClaim(input: { fileName: string }): Promise<void> {
+    validateAssetFileName(input.fileName)
+    return this.#serializeWrite(async () => {
+      await this.#database.run(
+        'UPDATE assets SET deletion_claimed_at = NULL WHERE file_name = ?',
+        [input.fileName],
+      )
+    })
+  }
+
   async saveNoteUpdates(input: SaveNoteUpdatesInput): Promise<NoteWriteReceipt> {
     assertNonEmpty(input.noteId, 'Note id')
     if (input.title !== undefined)
@@ -1127,6 +1445,9 @@ class DefaultEditorStorage implements EditorStorage {
       throw new TypeError('Note updates must contain at least one update')
     input.updates.forEach((update, index) => validateBinary(update, `Note update ${index}`))
     validateProjectionPatch(input.entries, input.topics)
+    if (input.assetReferences !== undefined)
+      validateAssetReferences(input.assetReferences)
+    input.allowedMissingAssetFileNames?.forEach(validateAssetFileName)
     const saved = structuredClone(input)
 
     return this.#serializeWrite(async () => {
@@ -1213,6 +1534,44 @@ class DefaultEditorStorage implements EditorStorage {
 
       const now = Date.now()
       const latestSequence = note.latest_sequence + newUpdates.length
+      if (saved.assetReferences !== undefined) {
+        const allowedMissingAssetFileNames = new Set(saved.allowedMissingAssetFileNames)
+        for (const reference of saved.assetReferences) {
+          const asset = await this.#database.get<{ deletion_claimed_at: number | null }>(
+            'SELECT deletion_claimed_at FROM assets WHERE file_name = ?',
+            [reference.fileName],
+          )
+          if (!asset) {
+            if (allowedMissingAssetFileNames.has(reference.fileName))
+              continue
+            throw new Error(`Unknown Asset: ${reference.fileName}`)
+          }
+          if (asset.deletion_claimed_at !== null)
+            throw new Error(`Asset is being reclaimed: ${reference.fileName}`)
+        }
+
+        commands.push({
+          parameters: [note.row_id],
+          sql: 'DELETE FROM note_asset_references WHERE note_row_id = ?',
+        })
+        for (const reference of saved.assetReferences) {
+          if (allowedMissingAssetFileNames.has(reference.fileName)) {
+            const asset = await this.#database.get<{ file_name: string }>(
+              'SELECT file_name FROM assets WHERE file_name = ?',
+              [reference.fileName],
+            )
+            if (!asset)
+              continue
+          }
+          commands.push({
+            parameters: [note.row_id, reference.fileName, reference.count],
+            sql: `
+              INSERT INTO note_asset_references (note_row_id, asset_file_name, reference_count)
+              VALUES (?, ?, ?)
+            `,
+          })
+        }
+      }
       commands.push({
         parameters: [saved.title ?? note.title, latestSequence, now, note.row_id],
         sql: `

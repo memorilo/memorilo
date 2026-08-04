@@ -5,6 +5,8 @@ import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 import { IpcMethod, IpcService } from 'electron-ipc-decorator'
 
+import { projectNoteAssetReferences } from '../assets/asset-references'
+
 const checkpointInterval = 32
 
 interface AuthoritativeNote {
@@ -55,7 +57,10 @@ async function indexNote(storage: EditorStorage, noteId: string): Promise<void> 
   } while (indexed === 256)
 }
 
-export function createNoteService(storage: EditorStorage) {
+export function createNoteService(
+  storage: EditorStorage,
+  serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
+) {
   let authoritative: AuthoritativeNote | undefined
   let operations = Promise.resolve()
   let indexing = Promise.resolve()
@@ -106,6 +111,13 @@ export function createNoteService(storage: EditorStorage) {
       checkpointSequence = latestSequence
       updatedAt = checkpoint.updatedAt
     }
+    const assetReferences = projectNoteAssetReferences(note)
+    await storage.reconcileNoteAssetReferences({
+      allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
+      expectedLatestSequence: latestSequence,
+      noteId: note.id,
+      references: assetReferences,
+    })
     return {
       checkpointSequence,
       createdAt: stored.createdAt,
@@ -241,7 +253,7 @@ export function createNoteService(storage: EditorStorage) {
 
     @IpcMethod()
     saveNoteUpdates(input: SaveNoteUpdatesInput) {
-      return serialize(async () => {
+      return serialize(() => serializeAssetOperation(async () => {
         const current = await openNote(input.noteId)
         if (input.updates.length === 0)
           throw new TypeError('Note updates must contain at least one update')
@@ -251,6 +263,8 @@ export function createNoteService(storage: EditorStorage) {
           metadataChanged: false,
           topicIds: new Set<string>(),
         }
+        const allowedMissingAssetFileNames = projectNoteAssetReferences(current.note)
+          .map(reference => reference.fileName)
         try {
           input.updates.forEach(update => mergeMutation(changed, current.note.importUpdates(update)))
           for (const entry of current.note.getEntries()) {
@@ -265,6 +279,8 @@ export function createNoteService(storage: EditorStorage) {
             .filter(topicId => topicEntries.has(topicId))
             .map(topicId => toStoredTopic(current.note.getTopicContent(topicId)))
           const receipt = await storage.saveNoteUpdates({
+            allowedMissingAssetFileNames,
+            assetReferences: projectNoteAssetReferences(current.note),
             ...(entries ? { entries: toStoredEntries(entries) } : {}),
             noteId: current.note.id,
             ...(changed.metadataChanged ? { title: current.note.getTitle() } : {}),
@@ -282,7 +298,7 @@ export function createNoteService(storage: EditorStorage) {
           authoritative = undefined
           throw error
         }
-      })
+      }))
     }
 
     @IpcMethod()
