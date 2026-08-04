@@ -86,7 +86,10 @@ export function Editor(props: EditorProps) {
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
     topicDocument: props.topic,
-  }), [props.adapters, cardIntegration, props.topic])
+    // The underlying Note topic is stable by ID; ignore wrapper-object changes
+    // caused by persistence receipts so asynchronous uploads retain their view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [props.adapters, cardIntegration, props.topic.noteId, props.topic.topicId])
 
   useEffect(() => {
     if (!controlledFocusProvided)

@@ -6,6 +6,12 @@ import { createDesktopApi } from './desktop-api'
 function serviceStub(): DesktopServices {
   return {
     app: { getRuntimeInfo: vi.fn() },
+    assets: {
+      check: vi.fn(),
+      importNetworkImage: vi.fn(),
+      reclaim: vi.fn(),
+      saveImage: vi.fn(),
+    },
     configuration: { get: vi.fn(), set: vi.fn() },
     notes: {
       createNote: vi.fn(),
@@ -32,8 +38,10 @@ describe('desktop preload API', () => {
     const configuration: DesktopConfiguration = {
       language: 'system',
       mcp: { accessToken: '0123456789abcdef0123456789abcdef', enabled: true, port: 8765 },
+      networkImagePasteBehavior: 'download',
       outdentBehavior: 'logical',
       reduceMotion: false,
+      tiffConversionFormat: 'webp',
     }
     vi.mocked(services.configuration.get).mockResolvedValue(configuration)
     vi.mocked(services.configuration.set).mockResolvedValue(configuration)

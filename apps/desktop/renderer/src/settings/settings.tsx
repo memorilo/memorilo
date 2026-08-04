@@ -4,16 +4,18 @@ import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, Globe2, Settings2 } from 'lucide-react'
+import { BookOpen, Globe2, Image, Settings2 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AssetSettings } from './asset-settings'
 import { settingsStyles } from './settings.stylex'
 
 const sectionIcons = {
   editor: BookOpen,
   general: Settings2,
+  images: Image,
 } as const
 
 function sectionIcon(sectionId: string) {
@@ -28,6 +30,8 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('generalSection')
     case 'editor':
       return t('editorSection')
+    case 'images':
+      return t('imagesSection')
     case 'mcp':
       return t('mcpSection')
     default:
@@ -43,15 +47,38 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('reduceMotion')
     case 'outdentBehavior':
       return t('outdentBehavior')
+    case 'networkImagePasteBehavior':
+      return t('networkImagePasteBehavior')
+    case 'tiffConversionFormat':
+      return t('tiffConversionFormat')
+    case 'mcp.enabled':
+      return t('mcpEnabled')
+    case 'mcp.port':
+      return t('mcpPort')
+    case 'mcp.accessToken':
+      return t('mcpAccessToken')
     default:
       return field.label
   }
 }
 
 function translateFieldDescription(field: ConfigurationField, t: TFunction): string | undefined {
-  if (field.path !== 'outdentBehavior')
-    return field.description
-  return t('outdentBehaviorDescription')
+  switch (field.path) {
+    case 'outdentBehavior':
+      return t('outdentBehaviorDescription')
+    case 'networkImagePasteBehavior':
+      return t('networkImagePasteBehaviorDescription')
+    case 'tiffConversionFormat':
+      return t('tiffConversionFormatDescription')
+    case 'mcp.enabled':
+      return t('mcpEnabledDescription')
+    case 'mcp.port':
+      return t('mcpPortDescription')
+    case 'mcp.accessToken':
+      return t('mcpAccessTokenDescription')
+    default:
+      return field.description
+  }
 }
 
 function translateOptionLabel(value: string, t: TFunction): string {
@@ -66,6 +93,18 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('outdentLogical')
     case 'traditional':
       return t('outdentTraditional')
+    case 'download':
+      return t('networkImagePasteDownload')
+    case 'url':
+      return t('networkImagePasteUrl')
+    case 'webp':
+      return 'WebP'
+    case 'png':
+      return 'PNG'
+    case 'jpeg':
+      return 'JPEG'
+    case 'avif':
+      return 'AVIF'
     default:
       return value
   }
@@ -93,6 +132,21 @@ function localizeSection(section: ConfigurationSection, t: TFunction): Configura
         label: translateFieldLabel(field, t),
       }
     }),
+  }
+}
+
+function sectionDescription(sectionId: string, t: TFunction): string {
+  switch (sectionId) {
+    case 'general':
+      return t('generalDescription')
+    case 'editor':
+      return t('editorDescription')
+    case 'images':
+      return t('imagesDescription')
+    case 'mcp':
+      return t('mcpDescription')
+    default:
+      return ''
   }
 }
 
@@ -146,17 +200,12 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
               >
                 <header {...stylex.props(settingsStyles.contentHeader)}>
                   <h1 id="active-settings-heading" {...stylex.props(settingsStyles.pageTitle)}>{activeSection.label}</h1>
-                  <p {...stylex.props(settingsStyles.pageDescription)}>
-                    {activeSection.id === 'general'
-                      ? t('generalDescription')
-                      : activeSection.id === 'editor'
-                        ? t('editorDescription')
-                        : t('mcpDescription')}
-                  </p>
+                  <p {...stylex.props(settingsStyles.pageDescription)}>{sectionDescription(activeSection.id, t)}</p>
                 </header>
                 <div {...stylex.props(settingsStyles.settingsGroup)} data-window-no-drag="">
                   <ConfigurationFields fields={activeSection.fields} store={store} />
                 </div>
+                {activeSection.id === 'images' ? <AssetSettings /> : null}
               </motion.div>
             </AnimatePresence>
           </div>

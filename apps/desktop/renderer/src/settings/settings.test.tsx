@@ -17,6 +17,23 @@ describe('settings renderer', () => {
     )
 
     expect(rendered.getByRole('heading', { name: 'General' })).toBeInTheDocument()
+    const language = rendered.getByRole('combobox', { name: 'Language' })
+    expect(language).toHaveValue('system')
+    expect(rendered.getAllByRole('option').map(option => option.textContent)).toEqual([
+      'System Default',
+      'English',
+      '简体中文',
+    ])
+    expect(rendered.getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(rendered.getByRole('button', { name: 'Editor' }))
+    expect(await rendered.findByRole('heading', { name: 'Editor' })).toBeInTheDocument()
+    expect(rendered.getByRole('combobox', { name: 'Pasted network images' })).toHaveValue('download')
+
+    fireEvent.click(rendered.getByRole('button', { name: 'Images' }))
+    expect(await rendered.findByRole('heading', { name: 'Images' })).toBeInTheDocument()
+    expect(rendered.getByRole('combobox', { name: 'TIFF conversion format' })).toHaveValue('webp')
+
     fireEvent.click(rendered.getByRole('button', { name: 'MCP' }))
     expect(await rendered.findByRole('heading', { name: 'MCP' })).toBeInTheDocument()
     expect(rendered.getByRole('switch', { name: 'Enable MCP server' })).toHaveAttribute('aria-checked', 'false')
@@ -34,34 +51,29 @@ describe('settings renderer', () => {
 
     fireEvent.click(rendered.getByRole('button', { name: 'General' }))
     await rendered.findByRole('heading', { name: 'General' })
-    const language = rendered.getByRole('combobox', { name: 'Language' })
-    expect(language).toHaveValue('system')
-    expect(rendered.getAllByRole('option').map(option => option.textContent)).toEqual([
-      'System Default',
-      'English',
-      '简体中文',
-    ])
-    const reduceMotion = rendered.getByRole('switch', { name: 'Reduce motion' })
-    expect(reduceMotion).toHaveAttribute('aria-checked', 'false')
-
-    fireEvent.change(language, { target: { value: 'zh-CN' } })
+    const localizedLanguage = rendered.getByRole('combobox', { name: 'Language' })
+    fireEvent.change(localizedLanguage, { target: { value: 'zh-CN' } })
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         language: 'zh-CN',
         mcp: { accessToken: token, enabled: true, port: 8765 },
+        networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
         reduceMotion: false,
+        tiffConversionFormat: 'webp',
       })
       expect(document.documentElement.lang).toBe('zh-CN')
     })
 
-    fireEvent.click(reduceMotion)
+    fireEvent.click(rendered.getByRole('switch'))
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         language: 'zh-CN',
         mcp: { accessToken: token, enabled: true, port: 8765 },
+        networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
         reduceMotion: true,
+        tiffConversionFormat: 'webp',
       })
       expect(document.documentElement).toHaveAttribute('data-reduce-motion', 'true')
     })

@@ -13,8 +13,10 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
   return {
     language: 'system',
     mcp,
+    networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',
     reduceMotion: false,
+    tiffConversionFormat: 'webp',
   }
 }
 
