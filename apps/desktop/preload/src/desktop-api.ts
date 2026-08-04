@@ -75,6 +75,7 @@ function createDesktopLearningApi(service: DesktopServices['learning']): Desktop
     getNoteOptimizer: noteId => service.getNoteOptimizer(noteId),
     getOptimizer: optimizerId => service.getOptimizer(optimizerId),
     getOptimizerNoteCount: optimizerId => service.getOptimizerNoteCount(optimizerId),
+    listNotesWithCards: () => service.listNotesWithCards(),
     listOptimizers: () => service.listOptimizers(),
     listQueue: input => service.listQueue(input),
     listTargets: cardId => service.listTargets(cardId),

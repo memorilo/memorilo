@@ -6,6 +6,7 @@ import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../components/page-titlebar'
+import { LearningNotesPanel } from './-learning-notes'
 import { LearningOptimizerPanel } from './-learning-optimizer'
 import { learningRouteStyles } from './-learning.stylex'
 
@@ -158,6 +159,7 @@ function LearningRoute() {
             hidden={activeTab !== tab.id}
             role="tabpanel"
           >
+            {tab.id === 'notes' && activeTab === 'notes' ? <LearningNotesPanel /> : null}
             {tab.id === 'optimizer' && activeTab === 'optimizer' ? <LearningOptimizerPanel /> : null}
           </section>
         ))}

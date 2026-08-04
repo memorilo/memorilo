@@ -140,6 +140,19 @@ export interface LearningQueueItem {
   topicId: string
 }
 
+export interface LearningNoteSummary {
+  cardCount: number
+  noteId: string
+  noteTitle: string
+  optimizer: {
+    id: string
+    isGlobal: boolean
+    name: string
+  }
+  topicCount: number
+  updatedAt: number
+}
+
 export interface ListLearningQueueInput {
   limit?: number
   now?: number
@@ -180,6 +193,7 @@ export interface LearningStorage {
   getNoteOptimizer: (noteId: string) => Promise<FsrsOptimizer>
   getOptimizer: (optimizerId: string) => Promise<FsrsOptimizer>
   getOptimizerNoteCount: (optimizerId: string) => Promise<number>
+  listNotesWithCards: () => Promise<readonly LearningNoteSummary[]>
   listOptimizers: () => Promise<readonly FsrsOptimizer[]>
   listNoteTopicIds: (noteId: string) => Promise<readonly string[]>
   listPendingSyncChanges: (limit?: number) => Promise<readonly LearningSyncChange[]>
