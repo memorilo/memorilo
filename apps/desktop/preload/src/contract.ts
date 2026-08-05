@@ -1,5 +1,6 @@
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
-import type { LearningStorage } from '@memorilo/editor-storage'
+import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
+import type { EditorCardProjection } from '@memorilo/editor/card'
 
 export type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 
@@ -8,9 +9,26 @@ export interface RuntimeInfo {
   version: string
 }
 
-export type DesktopLearningApi = Pick<LearningStorage, | 'archiveOptimizer'
+export interface DesktopReviewTarget {
+  itemBlockId: string | null
+  targetId: string
+}
+
+export interface DesktopReviewItem {
+  card: EditorCardProjection
+  noteTitle: string
+  queue: LearningQueueItem
+  targets: readonly DesktopReviewTarget[]
+  topicTitle: string
+  updatedAt: number
+}
+
+export type GetNextDesktopReviewItemInput = Omit<ListLearningQueueInput, 'limit' | 'mode'>
+
+type DesktopLearningStorageApi = Pick<LearningStorage, | 'archiveOptimizer'
   | 'assignNoteOptimizer'
   | 'createOptimizer'
+  | 'getDailyProgress'
   | 'getLearningState'
   | 'getMaintenanceEstimate'
   | 'getNoteOptimizer'
@@ -22,12 +40,18 @@ export type DesktopLearningApi = Pick<LearningStorage, | 'archiveOptimizer'
   | 'listTargets'
   | 'maintainDatabase'
   | 'optimizeOptimizer'
+  | 'prepareReview'
   | 'rateTarget'
   | 'renameOptimizer'
   | 'resetOptimizerDefaults'
   | 'resetTarget'
   | 'undoLastReview'
   | 'updateOptimizer'>
+
+export interface DesktopLearningApi extends DesktopLearningStorageApi {
+  getNextNewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+  getNextReviewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+}
 
 export interface DesktopTopicBlock {
   attributes: Readonly<Record<string, unknown>>

@@ -1,30 +1,26 @@
-export type ReviewRating = 'again' | 'easy' | 'good' | 'hard'
-export type LearningPhase = 'learning' | 'new' | 'relearning' | 'review'
+import type {
+  FsrsOptimizerConfiguration,
+  LearningDailyGoalMode,
+  LearningPhase,
+  LearningQueueMode,
+  LearningState,
+  ReviewRating,
+} from '@memorilo/srs'
+
+export type {
+  FsrsOptimizerConfiguration,
+  LearningDailyGoalMode,
+  LearningPhase,
+  LearningPracticeConfiguration,
+  LearningQueueMode,
+  LearningQueuePolicy,
+  LearningState,
+  ReviewRating,
+} from '@memorilo/srs'
+
 export type LearningTargetKind = 'item' | 'whole'
 export type LearningCardKind = 'basic' | 'cloze' | 'list' | 'set'
 export type LearningCardDirection = 'backward' | 'forward'
-
-export interface LearningQueuePolicy {
-  buryInterdayLearningSiblings: boolean
-  buryNewSiblings: boolean
-  buryReviewSiblings: boolean
-  interdayOrder: 'after-reviews' | 'before-reviews' | 'mixed'
-  learnAheadMinutes: number
-  newGatherOrder: 'random' | 'source'
-  newReviewOrder: 'after-reviews' | 'before-reviews' | 'mixed'
-  reviewOrder: 'due-random' | 'retrievability'
-  studyDayStartsAtHour: number
-}
-
-export interface FsrsOptimizerConfiguration {
-  desiredRetention: number
-  enableFuzz: boolean
-  fsrsParameters: readonly number[]
-  learningSteps: readonly string[]
-  maximumIntervalDays: number
-  queuePolicy: LearningQueuePolicy
-  relearningSteps: readonly string[]
-}
 
 export interface FsrsOptimizer {
   configuration: FsrsOptimizerConfiguration
@@ -61,27 +57,45 @@ export interface LearningTarget {
   targetId: string
 }
 
-export interface LearningState {
-  difficulty: number
-  dueAt: number
-  lapses: number
-  lastReviewAt: number | null
-  learningSteps: number
-  optimizerRevisionId: string
-  phase: LearningPhase
-  reps: number
-  scheduledDays: number
-  stability: number
-  targetId: string
-  winningEventId: string | null
-}
-
-export interface RateLearningTargetInput {
+interface DirectLearningReview {
   eventId?: string
-  rating: ReviewRating
-  responseMilliseconds?: number
+  expectedOptimizerRevisionId?: never
+  expectedStateHash?: never
+  expectedWinningEventId?: never
   reviewedAt?: number
   targetId: string
+}
+
+export interface LearningReviewPreparationToken {
+  eventId: string
+  expectedOptimizerRevisionId: string
+  expectedStateHash: string
+  expectedWinningEventId: string | null
+  reviewedAt: number
+  targetId: string
+}
+
+interface LearningRatingSelection {
+  rating: ReviewRating
+  responseMilliseconds?: number
+}
+
+export type RateLearningTargetInput = LearningRatingSelection & (
+  DirectLearningReview | LearningReviewPreparationToken
+)
+
+export interface PrepareLearningReviewInput {
+  reviewedAt?: number
+  targetId: string
+}
+
+export interface LearningRatingOutcome {
+  intervalMilliseconds: number
+  state: LearningState
+}
+
+export interface PreparedLearningReview extends LearningReviewPreparationToken {
+  outcomes: Record<ReviewRating, LearningRatingOutcome>
 }
 
 export interface ReviewResult {
@@ -97,6 +111,7 @@ export interface ResetLearningTargetInput {
 
 export interface UndoLearningReviewInput {
   eventId?: string
+  expectedReviewEventId?: string
   targetId: string
   undoneAt?: number
 }
@@ -140,6 +155,18 @@ export interface LearningQueueItem {
   topicId: string
 }
 
+export interface LearningDailyProgress {
+  completedCards: number
+  dailyGoalCards: number
+  dailyGoalMode: LearningDailyGoalMode
+  dueReviewCards: number
+  introducedNewCards: number
+  newCardsPerDay: number
+  remainingNewCards: number
+  studyDayEndsAt: number
+  studyDayStartedAt: number
+}
+
 export interface LearningNoteSummary {
   cardCount: number
   noteId: string
@@ -155,7 +182,10 @@ export interface LearningNoteSummary {
 
 export interface ListLearningQueueInput {
   limit?: number
+  mode?: LearningQueueMode
+  noteId?: string
   now?: number
+  topicId?: string
 }
 
 export interface LearningMaintenanceEstimate {
@@ -188,6 +218,7 @@ export interface LearningStorage {
   archiveOptimizer: (optimizerId: string) => Promise<void>
   assignNoteOptimizer: (input: AssignNoteOptimizerInput) => Promise<void>
   createOptimizer: (input: CreateFsrsOptimizerInput) => Promise<FsrsOptimizer>
+  getDailyProgress: (now?: number) => Promise<LearningDailyProgress>
   getLearningState: (targetId: string) => Promise<LearningState>
   getMaintenanceEstimate: () => Promise<LearningMaintenanceEstimate>
   getNoteOptimizer: (noteId: string) => Promise<FsrsOptimizer>
@@ -201,6 +232,7 @@ export interface LearningStorage {
   listTargets: (cardId: string) => Promise<readonly LearningTarget[]>
   maintainDatabase: () => Promise<LearningMaintenanceResult>
   optimizeOptimizer: (input: OptimizeFsrsOptimizerInput) => Promise<FsrsOptimizer>
+  prepareReview: (input: PrepareLearningReviewInput) => Promise<PreparedLearningReview>
   rateTarget: (input: RateLearningTargetInput) => Promise<ReviewResult>
   reconcileTopicCards: (input: ReconcileLearningCardsInput) => Promise<void>
   renameOptimizer: (input: RenameFsrsOptimizerInput) => Promise<FsrsOptimizer>

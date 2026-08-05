@@ -226,18 +226,18 @@ describe('application service for MCP Notes', () => {
   it('evicts and checkpoints the least recently used dirty Note after access refresh', async () => {
     const fixture = await createFixture()
     const created = [fixture.created]
-    for (let index = 1; index < 33; index += 1)
+    for (let index = 1; index < 65; index += 1)
       created.push(await fixture.notes.createNote({ title: `LRU Note ${index}` }))
     const checkpoint = vi.spyOn(fixture.storage, 'checkpointNote')
 
     await fixture.notes.renameNote({ noteId: created[0]!.id, title: 'Recently used' })
     await fixture.notes.renameNote({ noteId: created[1]!.id, title: 'Least recently used and dirty' })
-    for (const note of created.slice(2, 32))
+    for (const note of created.slice(2, 64))
       await fixture.notes.getNote({ noteId: note.id })
     await fixture.notes.getNote({ noteId: created[0]!.id })
     checkpoint.mockClear()
 
-    await fixture.notes.getNote({ noteId: created[32]!.id })
+    await fixture.notes.getNote({ noteId: created[64]!.id })
 
     expect(checkpoint).toHaveBeenCalledOnce()
     expect(checkpoint).toHaveBeenCalledWith(expect.objectContaining({ noteId: created[1]!.id }))
@@ -248,7 +248,7 @@ describe('application service for MCP Notes', () => {
   it('recovers an evicted Note from the update log when its checkpoint fails', async () => {
     const fixture = await createFixture()
     await fixture.notes.renameNote({ noteId: fixture.created.id, title: 'Durable update log title' })
-    for (let index = 1; index < 32; index += 1)
+    for (let index = 1; index < 64; index += 1)
       await fixture.notes.createNote({ title: `Cache filler ${index}` })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const originalCheckpoint = fixture.storage.checkpointNote.bind(fixture.storage)

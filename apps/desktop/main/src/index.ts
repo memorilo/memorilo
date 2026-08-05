@@ -1,6 +1,6 @@
 import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
-import type { EditorStorage } from '@memorilo/editor-storage'
+import type { EditorStorage, LearningPracticeConfiguration } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
@@ -52,6 +52,28 @@ function embeddingModelCacheDirectory(): string {
   if (app.isPackaged)
     return join(process.resourcesPath, 'embedding-models')
   return resolve(mainDirectory, '../../../../.cache/embedding-models')
+}
+
+function learningPracticeConfiguration(
+  configuration: DesktopConfiguration,
+): LearningPracticeConfiguration {
+  return {
+    dailyGoal: {
+      fixedCards: configuration.goals.dailyLearningGoalCards,
+      mode: configuration.goals.dailyLearningGoalMode,
+    },
+    queuePolicy: {
+      buryInterdayLearningSiblings: configuration.flashcards.buryInterdayLearningSiblings,
+      buryNewSiblings: configuration.flashcards.buryNewSiblings,
+      buryReviewSiblings: configuration.flashcards.buryReviewSiblings,
+      interdayOrder: configuration.flashcards.interdayOrder,
+      learnAheadMinutes: configuration.flashcards.learnAheadMinutes,
+      maxNewCardsPerDay: configuration.flashcards.newCardsPerDay,
+      newGatherOrder: configuration.flashcards.newGatherOrder,
+      reviewOrder: configuration.flashcards.reviewOrder,
+      studyDayStartsAtHour: configuration.flashcards.studyDayStartsAtHour,
+    },
+  }
 }
 
 async function reportInvalidConfiguration(configurationPath: string, phase: 'reload' | 'startup'): Promise<void> {
@@ -178,17 +200,19 @@ function createWindow() {
 
 async function startApplication(): Promise<void> {
   const userDataPath = app.getPath('userData')
-  configurationStore = await createDesktopConfigurationStore(userDataPath)
+  const activeConfigurationStore = await createDesktopConfigurationStore(userDataPath)
+  configurationStore = activeConfigurationStore
   editorStorage = await createEditorStorage({
     database: new BetterSqliteDatabase(databasePath(userDataPath)),
     embeddingModel: new TransformersEmbeddingModel({
       allowRemoteModels: !app.isPackaged && process.env.MEMORILO_EMBEDDING_MODEL_OFFLINE !== '1',
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
+    learningConfiguration: () => learningPracticeConfiguration(activeConfigurationStore.getSnapshot()),
   })
-  let configuration = configurationStore.getSnapshot()
+  let configuration = activeConfigurationStore.getSnapshot()
   if (configuration.mcp.accessToken.length < 32) {
-    configuration = await configurationStore.set({
+    configuration = await activeConfigurationStore.set({
       ...configuration,
       mcp: { ...configuration.mcp, accessToken: randomBytes(32).toString('base64url') },
     })
@@ -202,12 +226,10 @@ async function startApplication(): Promise<void> {
   closeMcpServer = mcpServer.close
   closeNoteApplication = notes.close
 
-  createDesktopServices(notes, editorStorage.learning, configurationStore)
+  createDesktopServices(notes, editorStorage.learning, activeConfigurationStore)
   void mcpServer.update(configuration.mcp)
-  unsubscribeConfiguration = configurationStore.subscribe(() => {
-    const next = configurationStore?.getSnapshot()
-    if (!next)
-      throw new Error('Desktop configuration store closed before broadcasting an update')
+  unsubscribeConfiguration = activeConfigurationStore.subscribe(() => {
+    const next = activeConfigurationStore.getSnapshot()
     for (const window of BrowserWindow.getAllWindows())
       window.webContents.send(desktopConfigurationChangedChannel, next)
     void mcpServer.update(next.mcp)

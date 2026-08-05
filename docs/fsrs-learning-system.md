@@ -7,6 +7,7 @@
 - [Anki 队列排序与 sibling bury](./research/anki-queue-ordering-and-sibling-burying.md)
 - [Anki 式复习数据同步](./research/anki-sync-review-data.md)
 - [RemNote List/Set 与队列调度](./research/remnote-list-card-queue-scheduling.md)
+- [RemNote 每日新卡、复习目标与队列限制](./research/remnote-daily-review-limits.md)
 - [Anki、RemNote 与 SuperMemo](./research/spaced-repetition-anki-remnote-supermemo.md)
 
 ## 1. 核心不变量
@@ -19,15 +20,20 @@
 6. Global Optimizer 不可删除、不可改名，但可编辑参数、优化参数和恢复默认设置。
 7. Inactive Card 不进入任何普通 Learning UI，但历史在永久清理前继续参与训练。
 8. Note 内容同步与个人学习同步是两个边界；协作者不共享个人学习进度。
+9. Optimizer 只拥有 FSRS 调度参数；全局 Flashcards 设置拥有队列政策，Goals & Streaks 设置拥有每日目标。
+10. 每日目标是完成进度而不是 due review 的硬上限；新卡和到期复习使用独立入口。
 
 ## 2. 模块与所有权
 
-packages/editor 继续拥有 Card Definition、CardID、投影和只读 editor surface。packages/editor-storage 拥有学习 schema、事务、历史重放、队列查询和同步持久化。Electron main process 组合 SQLite driver、FSRS engine 和 IPC；renderer 只消费公开 learning service，不直接执行 SQL 或 FSRS。
+packages/editor 继续拥有 Card Definition、CardID、投影和只读 editor surface。packages/editor-storage 拥有学习 schema、事务、历史重放、队列查询和同步持久化。Electron main process 组合 SQLite driver、FSRS engine、当前 Desktop Configuration 和 IPC；renderer 只消费公开 learning service，不直接执行 SQL 或 FSRS。
 
-FSRS state transition 与 Queue Policy 在产品中同属 Optimizer，但实现必须拆成两个内部模块：
+学习配置按 RemNote 的产品边界分成三个模块：
 
-- Scheduler Config：FSRS weights、目标记忆率、learning/relearning steps、最大间隔和 interval fuzz。
-- Queue Policy：new/review/interday 顺序、review sort、Sibling Bury、Study Day 和 learn-ahead。
+- Optimizer / Scheduler Config：FSRS weights、目标记忆率、learning/relearning steps、最大间隔和 interval fuzz，按 Note assignment 解析。
+- Flashcards / Queue Policy：new/review/interday 顺序、review sort、Sibling Bury、Study Day、learn-ahead 和每日新卡引入上限，全局生效。
+- Goals & Streaks：Daily Goal 模式和固定目标值，全局生效，不改变 Card due 或 queue eligibility。
+
+editor-storage 接收一个只读配置 provider，每次计算进度或选择下一张 Card 时读取最新 snapshot。保存设置不创建或持久化完整队列；已经展示的当前 Card 保持稳定，下一次选择立即使用新设置。
 
 ## 3. Card 内容与只读显示
 
@@ -73,7 +79,7 @@ Partial Card 只是单一 item Target 的复习展示，不是新的 Card Defini
 
 ## 5. 逻辑数据库模型
 
-所有学习数据与现有 Note 数据存放在同一个 SQLite 数据库，由 packages/editor-storage 管理。旧数据库不迁移；实现该 schema 前由用户手动删除旧数据库。
+所有学习数据与现有 Note 数据存放在同一个 SQLite 数据库，由 packages/editor-storage 管理。当前 schema 初始化使用幂等 `CREATE TABLE IF NOT EXISTS`；新增的派生表在启动时从 Review Event 回填。项目尚未建立通用的版本化 schema migration 框架。
 
 ### 5.1 learning_optimizers
 
@@ -100,7 +106,6 @@ Global 行允许修改 current_revision_id，不允许改 name、status 或 iden
 | fsrs_parameters | 版本化 FSRS weights |
 | learning_steps / relearning_steps | 固定短时 steps |
 | maximum_interval / enable_fuzz | 长期间隔政策 |
-| queue_policy | 版本化的 Queue Policy |
 | fsrs_version | 解释参数和重放所需的算法版本 |
 | created_at / sync_sequence | 审计与同步 |
 
@@ -195,19 +200,23 @@ Undo 和 Reset 不 UPDATE/DELETE 旧 event。有效历史由事件集合推导�
 
 该表可丢弃并从 review_events 重建。Inactive 不等于无 Learning State；只有永久维护才删除。
 
-### 5.8 queue_exclusions
+### 5.8 learning_card_introductions
 
-Bury、Partial withholding 和 Study Day 临时过滤不混入 FSRS state。queue_exclusions 保存或投影：
+该派生表为每个曾被有效评分的 Card 保存最早 `introduced_at`。每日新卡额度按 Card 计数，而不是按 List/Set item Target 或 Rating 次数计数。启动回填、乱序 Rating 和 Undo 都必须把该值恢复为全部未撤销 Rating 的最早时间；没有剩余有效 Rating 时删除该行。
 
-- target/card/sibling group；
-- reason：sibling_bury、partial_parent、manual_skip；
-- until study day 或精确时间；
-- 产生该 exclusion 的 Review Event；
-- sync sequence。
+Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实。删除 Card 时通过外键级联删除对应 introduction。
 
-可从 Review Event 和 revision 重建的 exclusion 仍允许物化，以保证查询性能。Skip 若以后实现，不是第五种 Rating。
+### 5.9 learning_sibling_bury_events
 
-### 5.9 learning_sync_state 与 tombstones
+该派生表以产生 bury 原因的 Rating Event 为主键，并保存 source Card、Note、`sourceBlockId`、评分前队列类别和发生时间。它不逐个写入被 bury 的 Card，也不修改 FSRS state 或 due。
+
+查询按当前 Study Day、Undo Event 和三个实时开关决定该原因是否有效。表可从 Review Event 与 Card projection 有限回填；同步传输 source queue fact，接收端重新建立本地派生行。
+
+### 5.10 queue_exclusions
+
+该表保留给明确作用于单张 Card 且有截止时间的非 sibling 临时过滤，例如未来的 manual skip。旧 schema 仍接受 `sibling_bury` reason，但新调度器不读取或写入这类行；Sibling Bury 只以 5.9 的事件派生表为准。Partial gate 保存在 Target 的 `partial_active`，不重复投影到这里。Skip 若以后实现，不是第五种 Rating。
+
+### 5.11 learning_sync_state 与 tombstones
 
 客户端保存 device identity、last server sequence、schema generation、full-sync-required 和最近 sanity hash。永久清理不为每条历史制造海量墓碑，而是发布按 Card/Optimizer scope 的 purge tombstone 与 generation；active List/Set 中单独消失的 item 使用 Target scope tombstone。所有已知设备确认 prune watermark 后，服务器和客户端才可丢弃对应历史与 tombstone。
 
@@ -234,13 +243,14 @@ Bury、Partial withholding 和 Study Day 临时过滤不混入 FSRS state。queu
 3. 读取 Note 当前 effective Optimizer revision；
 4. 若 state 的 optimizer_revision_id 已过期，从当前 Reset epoch 的 canonical scheduling lineage 重放；否则允许增量 state transition；
 5. 更新 Learning State、Partial 状态和 queue exclusions；
-6. 提交后返回新的 due/interval 与 Undo token。
+6. 若这是该 Card 的首次有效 Rating，原子记录 new-card introduction；
+7. 提交后返回新的 due/interval 与 Undo token。
 
 这样普通 Optimizer 参数变化或 assignment 变化不会立刻改变 due；该 Target 下一次评分时，会先用新 revision 从历史重建，再加入本次 Rating。
 
 ### 6.3 Undo
 
-Undo 默认只暴露当前 Target canonical lineage 的最新 Rating。事务追加 Undo event，随后从剩余 graph 重新选择 canonical lineage，并重建 Target state、Partial gate、Sibling Bury 和 session counters。若同步后出现以被撤销 event 为 base 的后继，这些依赖分支不进入当前调度 lineage，但事件本身仍保留审计。
+Undo 默认只暴露当前 Target canonical lineage 的最新 Rating。事务追加 Undo event，随后从剩余 graph 重新选择 canonical lineage，并重建 Target state、Partial gate、Sibling Bury、每日进度和 introduction。若同步后出现以被撤销 event 为 base 的后继，这些依赖分支不进入当前调度 lineage，但事件本身仍保留审计。
 
 ### 6.4 Reset Scheduling
 
@@ -250,7 +260,7 @@ Reset 追加新的 reset epoch，保留所有旧 event；目标立即回到 new/
 
 ### 7.1 普通编辑、切换与恢复默认
 
-编辑目标记忆率、队列政策或恢复默认设置都创建新 revision。普通 Note assignment 切换只更新 assignment；现有 due 保持不变，Target 在下一次 Rating 时按新 revision 全历史重放。
+编辑目标记忆率或恢复默认设置会创建新 Optimizer revision。普通 Note assignment 切换只更新 assignment；现有 due 保持不变，Target 在下一次 Rating 时按新 revision 全历史重放。Flashcards 和 Goals 设置不创建 Optimizer revision。
 
 Global Optimizer 使用完全相同的 revision 机制，因此“默认”只表示 fixed fallback identity，不表示只读配置。
 
@@ -283,25 +293,48 @@ Global Optimizer 使用完全相同的 revision 机制，因此“默认”只�
 
 这是普通 assignment 切换“不立即改 due”的唯一业务例外。归档完成后 Optimizer 不可再分配。
 
-## 8. Queue Policy
+## 8. 全局练习政策与动态选卡
 
-首版默认值：
+### 8.1 RemNote 产品边界
 
-| Policy | Default |
-| --- | --- |
-| New gather | Source Block order |
-| New/review | Mixed |
-| Interday learning | Before review |
-| Review sort | Due date, then deterministic random |
-| Bury new siblings | On |
-| Bury review siblings | On |
-| Bury interday siblings | On |
-| Interval fuzz | On |
-| Study Day boundary | Local 04:00 |
+当前一手资料明确支持以下行为：
 
-队列收集优先级遵循 Anki：intraday learning/relearning、interday learning、review、new。随机与 fuzz 必须使用可重放的 seed（Target/Event/Study Day），避免同一历史在不同设备重建出不同 due。
+- `New Cards Per Day` 属于全局 Flashcards 设置，不属于 Scheduler；它限制每个 Study Day 引入的新 Card。
+- Daily Goal 属于 Goals & Streaks，是软完成目标。达到目标后仍可继续复习，所有 due review 仍保持 eligible。
+- 新内容和 due reviews 有独立入口；普通复习入口不能返回 `phase = new` 的 Card。
+- `Forgot` 不增加 Daily Goal 进度；同一 Card 当天后续答对才增加进度。
 
-Queue Policy 属于 Optimizer revision，多个 Note 共享 Optimizer 时共享同一政策。Bury 范围固定为 sourceBlockId，不扩大到整个 Memorilo Note。
+当前 RemNote 没有公开默认 new-card 数量、`0` 语义、List/Set 计数单位、同日调高/调低规则或保存后队列重建规则。Memorilo 为这些未知项采用以下显式合同：
+
+- 默认每日新卡为 20；`0` 表示不引入新卡，不复用为 unlimited。
+- 额度在所有 Global/Note/Topic scope 间共享，并按 Card 去重；首次实际 Rating 消耗额度。
+- 当天调低时不撤销已消耗额度，剩余额度最低为 0；调高后下一次选卡立即获得差额。
+- Undo Card 的最后一条有效 Rating 会返还 introduction；Reset 不返还。
+- List/Set 的多个 item Target 共用一份 Card introduction。
+
+这些是 Memorilo 为补全公开证据空白所做的产品决策，不声称是 RemNote 内部实现。
+
+### 8.2 Daily Goal
+
+Daily Goal 支持 `Spread over the week`、`Review all due cards each day` 和 `Set a daily limit`。进度按 Study Day 内至少出现一次非 `Again` Rating 的 distinct Card 计数；同一卡的短期 learning/relearning 重复不重复增加。目标值和剩余 due 数量每次查询动态计算，不写入 Card due，也不截断 review queue。
+
+首版只支持“所有 Note”作用域；RemNote 的 Exam / Currently Studying 范围需要未来的 Document Priority 和 Exam 领域模型，不能用 Note assignment 或 Optimizer assignment 代替。
+
+### 8.3 排序与立即生效
+
+Flashcards 设置保存后不生成持久队列 snapshot。`getNextNewItem` 与 `getNextReviewItem` 每次都从当前 Learning State、scope 和最新配置重新选择；已经返回给调用方的当前 Card 不会被替换。因此 new gather、interday order、review order、learn-ahead 和当日额度都从“下一张”开始生效。
+
+普通 spaced-repetition 入口优先返回已 due 的 learning/relearning 与 review Card；只有没有 due Card 时才使用 learn-ahead。随机顺序按 Study Day 和 CardID 生成确定性 key，FSRS fuzz 按 Target/Event seed 生成，保证相同历史可重放。
+
+### 8.4 Anki 式 Sibling Bury
+
+Sibling 的范围固定为同一 Note 内相同的 `sourceBlockId`，不扩大到整个 Memorilo Note。队列构建严格使用 Anki 的收集顺序：intraday learning、interday learning、review、new。前面收集到的 Card 只能 bury 同类或后续队列中的 sibling；intraday learning Card 自身不会被 bury，但会参与 seen-sibling 判定并可 bury 后续队列。
+
+三个开关按目标 Card 当前所属队列生效：`Bury new siblings` 控制 new，`Bury review siblings` 控制 review，`Bury interday learning siblings` 控制 interday learning。开关保存后，下一次动态选卡立即按新值重新计算。队列收集阶段只保留每组中首个未被 bury 的 Card；评分后则在当前 Study Day 内保留 source Card 的原队列类别，使后续重建队列仍能执行同一顺序规则。
+
+`learning_sibling_bury_events` 是由 Rating Event 派生的本地索引，不修改 FSRS state、due 或 Review Event 历史。评分被 Undo 后，对应派生事件因 `undoes_event_id` 自动失效；跨过 Study Day 边界后不再参与过滤。旧版当前学习日内的 Rating Event 会在打开数据库时做有限回填。
+
+RemNote 当前公开资料没有证明它会自动执行相同的 sibling bury，因此不能把该行为描述成 RemNote 兼容性要求。
 
 ## 9. Anki 式个人同步
 
@@ -350,9 +383,9 @@ Active Card 的 Review Event 不能因为其历史 Optimizer 已归档而删除�
 1. 在 packages/editor-storage 中加入 schema、repository 和 projection reconciliation。
 2. 接入经过验证的 FSRS engine，完成 Rating、Replay、Undo 和 Reset transaction。
 3. 实现 Optimizer revision、assignment、训练与可选立即重调度。
-4. 实现 Queue Policy、Partial gate 和 Sibling Bury。
+4. 实现全局练习政策、动态选卡、Daily Goal、Partial gate 和 Sibling Bury。
 5. 以 CardSurface 替换 Preview 的重复内容渲染，并加入 64-Note LRU。
 6. 实现个人学习同步和 full-sync recovery。
 7. 最后开放数据库维护入口及其严格测试。
 
-本设计不要求为旧数据库写迁移或向前兼容代码。若实现时需要改变这一点，必须先询问用户。
+本次变更只使用幂等加表和派生数据回填，不建立通用向前兼容政策。未来若出现破坏性 schema 或配置格式变更，必须先确认兼容范围。

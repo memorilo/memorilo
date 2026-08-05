@@ -1,3 +1,4 @@
+import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
@@ -47,6 +48,8 @@ describe('settings renderer', () => {
     fireEvent.change(language, { target: { value: 'zh-CN' } })
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
+        flashcards: desktopConfigurationDefinition.defaults.flashcards,
+        goals: desktopConfigurationDefinition.defaults.goals,
         language: 'zh-CN',
         mcp: { accessToken: token, enabled: true, port: 8765 },
         outdentBehavior: 'logical',
@@ -58,6 +61,8 @@ describe('settings renderer', () => {
     fireEvent.click(reduceMotion)
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
+        flashcards: desktopConfigurationDefinition.defaults.flashcards,
+        goals: desktopConfigurationDefinition.defaults.goals,
         language: 'zh-CN',
         mcp: { accessToken: token, enabled: true, port: 8765 },
         outdentBehavior: 'logical',

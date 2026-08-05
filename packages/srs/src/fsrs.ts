@@ -3,6 +3,8 @@ import type {
   FsrsOptimizerConfiguration,
   LearningPhase,
   LearningState,
+  PersistedLearningState,
+  RatingEventForReplay,
   ReviewRating,
 } from './types'
 import { sha256 } from '@noble/hashes/sha2.js'
@@ -16,28 +18,6 @@ import {
   State,
 } from 'ts-fsrs'
 
-export interface RatingEventForReplay {
-  eventId: string
-  occurredAt: number
-  rating: ReviewRating
-}
-
-export interface PersistedLearningState extends LearningState {
-  stateHash: string
-}
-
-const defaultQueuePolicy = {
-  buryInterdayLearningSiblings: true,
-  buryNewSiblings: true,
-  buryReviewSiblings: true,
-  interdayOrder: 'before-reviews',
-  learnAheadMinutes: 20,
-  newGatherOrder: 'source',
-  newReviewOrder: 'mixed',
-  reviewOrder: 'due-random',
-  studyDayStartsAtHour: 4,
-} as const
-
 export function defaultOptimizerConfiguration(): FsrsOptimizerConfiguration {
   const parameters = generatorParameters({ enable_fuzz: true })
   return {
@@ -46,7 +26,6 @@ export function defaultOptimizerConfiguration(): FsrsOptimizerConfiguration {
     fsrsParameters: [...parameters.w],
     learningSteps: [...parameters.learning_steps],
     maximumIntervalDays: parameters.maximum_interval,
-    queuePolicy: { ...defaultQueuePolicy },
     relearningSteps: [...parameters.relearning_steps],
   }
 }
@@ -82,39 +61,20 @@ export function validateOptimizerConfiguration(
 
   const learningSteps = validateSteps(configuration.learningSteps, 'Learning steps')
   const relearningSteps = validateSteps(configuration.relearningSteps, 'Relearning steps')
-  const policy = configuration.queuePolicy
-  if (!policy || typeof policy !== 'object')
-    throw new TypeError('Queue policy must be an object')
-  if (!Number.isInteger(policy.learnAheadMinutes) || policy.learnAheadMinutes < 0)
-    throw new RangeError('Learn-ahead minutes must be a non-negative integer')
-  if (!Number.isInteger(policy.studyDayStartsAtHour)
-    || policy.studyDayStartsAtHour < 0
-    || policy.studyDayStartsAtHour > 23) {
-    throw new RangeError('Study day start hour must be between 0 and 23')
-  }
-  if (policy.newGatherOrder !== 'random' && policy.newGatherOrder !== 'source')
-    throw new TypeError(`Unsupported new gather order: ${String(policy.newGatherOrder)}`)
-  if (!['after-reviews', 'before-reviews', 'mixed'].includes(policy.newReviewOrder))
-    throw new TypeError(`Unsupported new/review order: ${String(policy.newReviewOrder)}`)
-  if (!['after-reviews', 'before-reviews', 'mixed'].includes(policy.interdayOrder))
-    throw new TypeError(`Unsupported interday order: ${String(policy.interdayOrder)}`)
-  if (policy.reviewOrder !== 'due-random' && policy.reviewOrder !== 'retrievability')
-    throw new TypeError(`Unsupported review order: ${String(policy.reviewOrder)}`)
-  for (const [name, value] of Object.entries({
-    buryInterdayLearningSiblings: policy.buryInterdayLearningSiblings,
-    buryNewSiblings: policy.buryNewSiblings,
-    buryReviewSiblings: policy.buryReviewSiblings,
-  })) {
-    if (typeof value !== 'boolean')
-      throw new TypeError(`${name} must be a boolean`)
-  }
 
   schedulerParameters({
     ...configuration,
     learningSteps,
     relearningSteps,
   })
-  return structuredClone(configuration)
+  return {
+    desiredRetention: configuration.desiredRetention,
+    enableFuzz: configuration.enableFuzz,
+    fsrsParameters: [...configuration.fsrsParameters],
+    learningSteps: [...learningSteps],
+    maximumIntervalDays: configuration.maximumIntervalDays,
+    relearningSteps: [...relearningSteps],
+  }
 }
 
 function schedulerParameters(configuration: FsrsOptimizerConfiguration): FSRSParameters {

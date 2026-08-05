@@ -1,5 +1,11 @@
+import type {
+  LearningQueueCandidate,
+  LearningQueueKind,
+  PersistedLearningState,
+  RatingEventForReplay,
+  RatingHistory,
+} from '@memorilo/srs'
 import type { DatabaseCommand, EditorStorageDatabase } from '../database-driver'
-import type { PersistedLearningState, RatingEventForReplay } from './fsrs-adapter'
 import type {
   AcknowledgeLearningSyncInput,
   AssignNoteOptimizerInput,
@@ -7,16 +13,21 @@ import type {
   FsrsOptimizer,
   FsrsOptimizerConfiguration,
   LearningCardProjection,
+  LearningDailyProgress,
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
   LearningNoteSummary,
+  LearningPracticeConfiguration,
   LearningQueueItem,
+  LearningRatingOutcome,
   LearningState,
   LearningStorage,
   LearningSyncChange,
   LearningTarget,
   ListLearningQueueInput,
   OptimizeFsrsOptimizerInput,
+  PreparedLearningReview,
+  PrepareLearningReviewInput,
   RateLearningTargetInput,
   ReconcileLearningCardsInput,
   RenameFsrsOptimizerInput,
@@ -26,22 +37,22 @@ import type {
   UndoLearningReviewInput,
   UpdateFsrsOptimizerInput,
 } from './types'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import {
-  computeParameters,
-  FSRSBindingItem,
-  FSRSBindingReview,
-} from '@open-spaced-repetition/binding'
-import { forgetting_curve } from 'ts-fsrs'
-import { v5 as createUuidV5, v7 as createUuidV7 } from 'uuid'
-import {
+  addStudyDays,
+  defaultLearningPracticeConfiguration,
   defaultOptimizerConfiguration,
   emptyLearningState,
+  fingerprintRatingHistories,
   FSRSVersion,
+  optimizeFsrsParameters,
+  queueKindForState,
   replayRatings,
+  selectLearningQueue,
+  studyDayBounds,
+  validateLearningPracticeConfiguration,
   validateOptimizerConfiguration,
-} from './fsrs-adapter'
+} from '@memorilo/srs'
+import { v5 as createUuidV5, v7 as createUuidV7 } from 'uuid'
 import {
   GLOBAL_OPTIMIZER_ID,
   GLOBAL_OPTIMIZER_REVISION_ID,
@@ -49,7 +60,7 @@ import {
 } from './schema'
 
 const targetNamespace = '8a276bb8-9a21-4fe0-a7fe-52af36fd6839'
-const learningSchemaGeneration = 1
+const learningSchemaGeneration = 2
 
 interface OptimizerRow {
   configuration_json: string
@@ -154,6 +165,39 @@ interface LearningNoteSummaryRow {
   optimizer_status: 'active' | 'archived'
   topic_count: number
   updated_at: number
+}
+
+interface SiblingBuryEventRow {
+  note_id: string
+  occurred_at: number
+  source_card_id: string
+  source_block_id: string
+  source_queue: LearningQueueKind
+}
+
+interface SiblingBuryBackfillRow {
+  base_event_id: string | null
+  base_result_state_json: string | null
+  card_id: string
+  event_id: string
+  note_id: string
+  occurred_at: number
+  scheduled_days: number | null
+  source_block_id: string
+}
+
+interface FirstReviewRow {
+  card_id: string
+  first_reviewed_at: number
+}
+
+interface DailyRatingRow {
+  card_id: string
+  rating: ReviewRating
+}
+
+interface CardIdRow {
+  card_id: string
 }
 
 function assertNonEmpty(value: string, description: string): void {
@@ -296,19 +340,6 @@ function targetProjection(card: LearningCardProjection): readonly { itemBlockId:
   })
 }
 
-function reviewRatingNumber(rating: ReviewRating): number {
-  switch (rating) {
-    case 'again':
-      return 1
-    case 'hard':
-      return 2
-    case 'good':
-      return 3
-    case 'easy':
-      return 4
-  }
-}
-
 function canonicalRatings(events: readonly ReviewEventRow[]): readonly RatingEventForReplay[] {
   const undone = new Set(events
     .filter(event => event.event_kind === 'undo')
@@ -366,40 +397,74 @@ function compareEvents(left: ReviewEventRow, right: ReviewEventRow): number {
   return left.occurred_at - right.occurred_at || left.event_id.localeCompare(right.event_id)
 }
 
-function nextStudyDay(now: number, startHour: number): number {
-  const current = new Date(now)
-  const boundary = new Date(current)
-  boundary.setHours(startHour, 0, 0, 0)
-  if (current.getTime() >= boundary.getTime())
-    boundary.setDate(boundary.getDate() + 1)
-  return boundary.getTime()
+function phaseFromStateSnapshot(json: string, eventId: string): StateRow['phase'] {
+  const parsed: unknown = JSON.parse(json)
+  if (!parsed || typeof parsed !== 'object' || !('phase' in parsed))
+    throw new TypeError(`Review Event ${eventId} has an invalid base Learning State`)
+  const phase = parsed.phase
+  if (phase !== 'new' && phase !== 'learning' && phase !== 'relearning' && phase !== 'review')
+    throw new TypeError(`Review Event ${eventId} has an unsupported base Learning phase`)
+  return phase
 }
 
-function currentStudyDay(now: number, startHour: number): number {
-  const current = new Date(now)
-  const boundary = new Date(current)
-  boundary.setHours(startHour, 0, 0, 0)
-  if (current.getTime() < boundary.getTime())
-    boundary.setDate(boundary.getDate() - 1)
-  return boundary.getTime()
-}
-
-function deterministicOrderKey(studyDay: number, cardId: string): string {
-  return bytesToHex(sha256(utf8ToBytes(`${String(studyDay)}:${cardId}`)))
+async function backfillRecentSiblingBuryEvents(
+  database: EditorStorageDatabase,
+  now: number,
+): Promise<void> {
+  const rows = await database.all<SiblingBuryBackfillRow>(
+    'SELECT e.event_id, e.card_id, e.note_id, e.occurred_at, e.scheduled_days, e.base_event_id, base.result_state_json AS base_result_state_json, c.source_block_id FROM learning_review_events e JOIN learning_cards c ON c.card_id = e.card_id LEFT JOIN learning_review_events base ON base.event_id = e.base_event_id LEFT JOIN learning_sibling_bury_events bury ON bury.source_event_id = e.event_id WHERE e.event_kind = \'rating\' AND e.occurred_at >= ? AND bury.source_event_id IS NULL',
+    [Math.max(0, now - 2 * 86_400_000)],
+  )
+  const commands: DatabaseCommand[] = []
+  for (const row of rows) {
+    let sourceQueue: LearningQueueKind
+    if (row.base_event_id === null) {
+      sourceQueue = 'new'
+    }
+    else {
+      if (row.base_result_state_json === null || row.scheduled_days === null)
+        throw new Error(`Review Event ${row.event_id} cannot restore its sibling-bury queue`)
+      sourceQueue = queueKindForState({
+        phase: phaseFromStateSnapshot(row.base_result_state_json, row.event_id),
+        scheduledDays: row.scheduled_days,
+      })
+    }
+    commands.push({
+      parameters: [
+        row.event_id,
+        row.card_id,
+        row.note_id,
+        row.source_block_id,
+        sourceQueue,
+        row.occurred_at,
+      ],
+      sql: 'INSERT INTO learning_sibling_bury_events (source_event_id, source_card_id, note_id, source_block_id, source_queue, occurred_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(source_event_id) DO NOTHING',
+    })
+  }
+  if (commands.length > 0)
+    await database.batch(commands)
 }
 
 class DefaultLearningStorage implements LearningStorage {
+  readonly #configuration: () => LearningPracticeConfiguration
   readonly #database: EditorStorageDatabase
   #writeQueue: Promise<void> = Promise.resolve()
 
-  private constructor(database: EditorStorageDatabase) {
+  private constructor(
+    database: EditorStorageDatabase,
+    configuration: () => LearningPracticeConfiguration,
+  ) {
+    this.#configuration = configuration
     this.#database = database
   }
 
-  static async create(database: EditorStorageDatabase): Promise<DefaultLearningStorage> {
+  static async create(
+    database: EditorStorageDatabase,
+    configuration: () => LearningPracticeConfiguration,
+  ): Promise<DefaultLearningStorage> {
     await database.exec(learningSchema)
     const now = Date.now()
-    const configuration = defaultOptimizerConfiguration()
+    const optimizerConfiguration = defaultOptimizerConfiguration()
     await database.batch([
       {
         parameters: [GLOBAL_OPTIMIZER_ID, 'Global', now, now],
@@ -409,7 +474,7 @@ class DefaultLearningStorage implements LearningStorage {
         parameters: [
           GLOBAL_OPTIMIZER_REVISION_ID,
           GLOBAL_OPTIMIZER_ID,
-          JSON.stringify(configuration),
+          JSON.stringify(optimizerConfiguration),
           FSRSVersion,
           now,
         ],
@@ -421,10 +486,24 @@ class DefaultLearningStorage implements LearningStorage {
       },
       {
         parameters: [createUuidV7(), learningSchemaGeneration],
-        sql: 'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, ?) ON CONFLICT(singleton) DO NOTHING',
+        sql: 'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, ?) ON CONFLICT(singleton) DO UPDATE SET schema_generation = MAX(learning_sync_state.schema_generation, excluded.schema_generation)',
       },
     ])
-    return new DefaultLearningStorage(database)
+    await database.run(
+      'INSERT INTO learning_card_introductions (card_id, introduced_at) SELECT e.card_id, MIN(e.occurred_at) FROM learning_review_events e WHERE e.event_kind = \'rating\' AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id) GROUP BY e.card_id ON CONFLICT(card_id) DO UPDATE SET introduced_at = excluded.introduced_at',
+    )
+    await backfillRecentSiblingBuryEvents(database, now)
+    return new DefaultLearningStorage(database, configuration)
+  }
+
+  #practiceConfiguration(): LearningPracticeConfiguration {
+    return validateLearningPracticeConfiguration(this.#configuration())
+  }
+
+  async #firstReviewTimes(): Promise<readonly FirstReviewRow[]> {
+    return this.#database.all<FirstReviewRow>(
+      'SELECT card_id, introduced_at AS first_reviewed_at FROM learning_card_introductions',
+    )
   }
 
   async #serializeWrite<Result>(operation: () => Promise<Result>): Promise<Result> {
@@ -726,10 +805,152 @@ class DefaultLearningStorage implements LearningStorage {
     return toLearningState(await this.#stateRow(targetIdValue))
   }
 
+  async getDailyProgress(now = Date.now()): Promise<LearningDailyProgress> {
+    assertTimestamp(now, 'Daily learning progress time')
+    const configuration = this.#practiceConfiguration()
+    const { dailyGoal, queuePolicy } = configuration
+    const {
+      endsAt: studyDayEndsAt,
+      startedAt: studyDayStartedAt,
+    } = studyDayBounds(now, queuePolicy.studyDayStartsAtHour)
+    const studyWeekEndsAt = addStudyDays(studyDayStartedAt, 7)
+    const [ratings, dueTodayRows, dueWeekRows, firstReviews] = await Promise.all([
+      this.#database.all<DailyRatingRow>(
+        'SELECT e.card_id, e.rating FROM learning_review_events e WHERE e.event_kind = \'rating\' AND e.occurred_at >= ? AND e.occurred_at <= ? AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id)',
+        [studyDayStartedAt, now],
+      ),
+      this.#database.all<CardIdRow>(
+        'SELECT DISTINCT c.card_id FROM learning_cards c JOIN learning_targets t ON t.card_id = c.card_id JOIN learning_states s ON s.target_id = t.target_id WHERE c.active = 1 AND t.active = 1 AND s.phase <> \'new\' AND s.due_at < ?',
+        [studyDayEndsAt],
+      ),
+      this.#database.all<CardIdRow>(
+        'SELECT DISTINCT c.card_id FROM learning_cards c JOIN learning_targets t ON t.card_id = c.card_id JOIN learning_states s ON s.target_id = t.target_id WHERE c.active = 1 AND t.active = 1 AND s.phase <> \'new\' AND s.due_at < ?',
+        [studyWeekEndsAt],
+      ),
+      this.#firstReviewTimes(),
+    ])
+    const completedCards = new Set<string>()
+    const forgottenCards = new Set<string>()
+    for (const rating of ratings) {
+      if (rating.rating === 'again')
+        forgottenCards.add(rating.card_id)
+      else
+        completedCards.add(rating.card_id)
+    }
+    for (const cardId of completedCards)
+      forgottenCards.delete(cardId)
+
+    const remainingDueCards = new Set(dueTodayRows.map(row => row.card_id))
+    for (const cardId of forgottenCards)
+      remainingDueCards.add(cardId)
+    for (const cardId of completedCards)
+      remainingDueCards.delete(cardId)
+
+    const availableToday = completedCards.size + remainingDueCards.size
+    let dailyGoalCards: number
+    switch (dailyGoal.mode) {
+      case 'all-due':
+        dailyGoalCards = availableToday
+        break
+      case 'fixed':
+        dailyGoalCards = Math.min(dailyGoal.fixedCards, availableToday)
+        break
+      case 'spread-week': {
+        const weeklyCards = new Set(dueWeekRows.map(row => row.card_id))
+        for (const cardId of forgottenCards)
+          weeklyCards.add(cardId)
+        for (const cardId of completedCards)
+          weeklyCards.add(cardId)
+        dailyGoalCards = Math.max(completedCards.size, Math.ceil(weeklyCards.size / 7))
+        break
+      }
+    }
+
+    const introducedNewCards = firstReviews.filter(review => (
+      review.first_reviewed_at >= studyDayStartedAt && review.first_reviewed_at <= now
+    )).length
+    return {
+      completedCards: completedCards.size,
+      dailyGoalCards,
+      dailyGoalMode: dailyGoal.mode,
+      dueReviewCards: remainingDueCards.size,
+      introducedNewCards,
+      newCardsPerDay: queuePolicy.maxNewCardsPerDay,
+      remainingNewCards: Math.max(0, queuePolicy.maxNewCardsPerDay - introducedNewCards),
+      studyDayEndsAt,
+      studyDayStartedAt,
+    }
+  }
+
+  async prepareReview(input: PrepareLearningReviewInput): Promise<PreparedLearningReview> {
+    assertNonEmpty(input.targetId, 'Review Target id')
+    if (input.reviewedAt !== undefined)
+      assertTimestamp(input.reviewedAt, 'Review time')
+
+    return this.#serializeWrite(async () => {
+      const reviewedAt = input.reviewedAt ?? Date.now()
+      const eventId = createUuidV7()
+      const target = await this.#targetRow(input.targetId)
+      const optimizer = await this.#effectiveOptimizer(target.note_id)
+      const currentState = await this.#stateRow(input.targetId)
+      const events = await this.#events(input.targetId)
+      const configuration = parseConfiguration(optimizer.configuration_json)
+      const outcome = (rating: ReviewRating): LearningRatingOutcome => {
+        const previewEvent: ReviewEventRow = {
+          base_event_id: currentState.winning_event_id,
+          event_id: eventId,
+          event_kind: 'rating',
+          occurred_at: reviewedAt,
+          rating,
+          reset_epoch: null,
+          undoes_event_id: null,
+        }
+        const state = replayRatings(
+          target.target_id,
+          target.created_at,
+          optimizer.current_revision_id,
+          configuration,
+          canonicalRatings([...events, previewEvent]),
+        )
+        return {
+          intervalMilliseconds: Math.max(0, state.dueAt - reviewedAt),
+          state: toLearningStateObject(state),
+        }
+      }
+
+      return {
+        eventId,
+        expectedOptimizerRevisionId: optimizer.current_revision_id,
+        expectedStateHash: currentState.state_hash,
+        expectedWinningEventId: currentState.winning_event_id,
+        outcomes: {
+          again: outcome('again'),
+          easy: outcome('easy'),
+          good: outcome('good'),
+          hard: outcome('hard'),
+        },
+        reviewedAt,
+        targetId: target.target_id,
+      }
+    })
+  }
+
   async rateTarget(input: RateLearningTargetInput): Promise<ReviewResult> {
     assertNonEmpty(input.targetId, 'Review Target id')
     if (!['again', 'hard', 'good', 'easy'].includes(input.rating))
       throw new TypeError(`Unsupported Rating: ${String(input.rating)}`)
+    const hasExpectedWinningEvent = Object.hasOwn(input, 'expectedWinningEventId')
+    const usesPreparedReview = hasExpectedWinningEvent
+      || input.expectedOptimizerRevisionId !== undefined
+      || input.expectedStateHash !== undefined
+    if (usesPreparedReview
+      && (input.eventId === undefined
+        || input.reviewedAt === undefined
+        || input.expectedOptimizerRevisionId === undefined
+        || input.expectedStateHash === undefined
+        || !hasExpectedWinningEvent)) {
+      throw new TypeError('A prepared Review must include its complete preparation token')
+    }
     const reviewedAt = input.reviewedAt ?? Date.now()
     assertTimestamp(reviewedAt, 'Review time')
     if (input.responseMilliseconds !== undefined
@@ -764,6 +985,20 @@ class DefaultLearningStorage implements LearningStorage {
       const target = await this.#targetRow(input.targetId)
       const optimizer = await this.#effectiveOptimizer(target.note_id)
       const currentState = await this.#stateRow(input.targetId)
+      if (input.expectedStateHash !== undefined && input.expectedStateHash !== currentState.state_hash)
+        throw new Error(`Review preparation for Target ${input.targetId} uses a stale Learning State`)
+      if (hasExpectedWinningEvent
+        && input.expectedWinningEventId !== currentState.winning_event_id) {
+        throw new Error(`Review preparation for Target ${input.targetId} is stale`)
+      }
+      if (input.expectedOptimizerRevisionId !== undefined
+        && input.expectedOptimizerRevisionId !== optimizer.current_revision_id) {
+        throw new Error(`Review preparation for Target ${input.targetId} uses a stale Optimizer revision`)
+      }
+      const sourceQueue = queueKindForState({
+        phase: currentState.phase,
+        scheduledDays: currentState.scheduled_days,
+      })
       const sync = await this.#syncState()
       const event: ReviewEventRow = {
         base_event_id: currentState.winning_event_id,
@@ -779,6 +1014,10 @@ class DefaultLearningStorage implements LearningStorage {
         && (input.rating === 'again'
           || (target.partial_active === 1 && replayed.state.phase !== 'review'))
       const commands: DatabaseCommand[] = [
+        {
+          parameters: [target.card_id, reviewedAt],
+          sql: 'INSERT INTO learning_card_introductions (card_id, introduced_at) VALUES (?, ?) ON CONFLICT(card_id) DO UPDATE SET introduced_at = MIN(learning_card_introductions.introduced_at, excluded.introduced_at)',
+        },
         {
           parameters: [
             eventId,
@@ -801,6 +1040,17 @@ class DefaultLearningStorage implements LearningStorage {
           sql: 'INSERT INTO learning_review_events (event_id, target_id, card_id, note_id, event_kind, rating, occurred_at, response_milliseconds, scheduled_days, elapsed_days, base_event_id, result_state_json, device_id, device_sequence, fsrs_version) VALUES (?, ?, ?, ?, \'rating\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         },
         {
+          parameters: [
+            eventId,
+            target.card_id,
+            target.note_id,
+            target.source_block_id,
+            sourceQueue,
+            reviewedAt,
+          ],
+          sql: 'INSERT INTO learning_sibling_bury_events (source_event_id, source_card_id, note_id, source_block_id, source_queue, occurred_at) VALUES (?, ?, ?, ?, ?, ?)',
+        },
+        {
           parameters: [sync.next_device_sequence + 1],
           sql: 'UPDATE learning_sync_state SET next_device_sequence = ? WHERE singleton = 1',
         },
@@ -815,28 +1065,12 @@ class DefaultLearningStorage implements LearningStorage {
           eventId,
           kind: 'rating',
           noteId: target.note_id,
+          queueKind: sourceQueue,
           rating: input.rating,
           reviewedAt,
           targetId: target.target_id,
         }, reviewedAt),
       ]
-      const configuration = parseConfiguration(optimizer.configuration_json)
-      const shouldBury = currentState.phase === 'new'
-        ? configuration.queuePolicy.buryNewSiblings
-        : currentState.phase === 'learning' || currentState.phase === 'relearning'
-          ? configuration.queuePolicy.buryInterdayLearningSiblings
-          : configuration.queuePolicy.buryReviewSiblings
-      if (shouldBury) {
-        commands.push({
-          parameters: [
-            nextStudyDay(reviewedAt, configuration.queuePolicy.studyDayStartsAtHour),
-            eventId,
-            target.source_block_id,
-            target.card_id,
-          ],
-          sql: 'INSERT INTO learning_queue_exclusions (card_id, reason, until_at, source_event_id) SELECT card_id, \'sibling_bury\', ?, ? FROM learning_cards WHERE source_block_id = ? AND card_id <> ? AND active = 1 ON CONFLICT(card_id, reason) DO UPDATE SET until_at = excluded.until_at, source_event_id = excluded.source_event_id',
-        })
-      }
       await this.#database.batch(commands)
       return { eventId, state: toLearningStateObject(replayed.state) }
     })
@@ -906,6 +1140,8 @@ class DefaultLearningStorage implements LearningStorage {
 
   async undoLastReview(input: UndoLearningReviewInput): Promise<LearningState> {
     assertNonEmpty(input.targetId, 'Review Target id')
+    if (input.expectedReviewEventId !== undefined)
+      assertNonEmpty(input.expectedReviewEventId, 'Expected Review Event id')
     const undoneAt = input.undoneAt ?? Date.now()
     assertTimestamp(undoneAt, 'Undo time')
     const eventId = input.eventId ?? createUuidV7()
@@ -915,13 +1151,16 @@ class DefaultLearningStorage implements LearningStorage {
         event_kind: ReviewEventRow['event_kind']
         occurred_at: number
         target_id: string
+        undoes_event_id: string | null
       }>(
-        'SELECT target_id, event_kind, occurred_at FROM learning_review_events WHERE event_id = ?',
+        'SELECT target_id, event_kind, occurred_at, undoes_event_id FROM learning_review_events WHERE event_id = ?',
         [eventId],
       )
       if (existing) {
         if (existing.event_kind !== 'undo'
           || existing.target_id !== input.targetId
+          || (input.expectedReviewEventId !== undefined
+            && existing.undoes_event_id !== input.expectedReviewEventId)
           || (input.undoneAt !== undefined && existing.occurred_at !== undoneAt)) {
           throw new Error(`Undo Event ${eventId} was retried with different data`)
         }
@@ -932,6 +1171,10 @@ class DefaultLearningStorage implements LearningStorage {
       const current = await this.#stateRow(input.targetId)
       if (current.winning_event_id === null)
         throw new Error(`Review Target ${input.targetId} has no Rating to undo`)
+      if (input.expectedReviewEventId !== undefined
+        && input.expectedReviewEventId !== current.winning_event_id) {
+        throw new Error(`Review Target ${input.targetId} no longer has the expected Rating to undo`)
+      }
       const sync = await this.#syncState()
       const undoEvent: ReviewEventRow = {
         base_event_id: current.winning_event_id,
@@ -975,6 +1218,14 @@ class DefaultLearningStorage implements LearningStorage {
         {
           parameters: [current.winning_event_id],
           sql: 'DELETE FROM learning_queue_exclusions WHERE source_event_id = ?',
+        },
+        {
+          parameters: [target.card_id, target.card_id],
+          sql: 'INSERT INTO learning_card_introductions (card_id, introduced_at) SELECT ?, MIN(e.occurred_at) FROM learning_review_events e WHERE e.card_id = ? AND e.event_kind = \'rating\' AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id) HAVING COUNT(*) > 0 ON CONFLICT(card_id) DO UPDATE SET introduced_at = excluded.introduced_at',
+        },
+        {
+          parameters: [target.card_id, target.card_id],
+          sql: 'DELETE FROM learning_card_introductions WHERE card_id = ? AND NOT EXISTS (SELECT 1 FROM learning_review_events e WHERE e.card_id = ? AND e.event_kind = \'rating\' AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id))',
         },
         syncMutationCommand('review-event', eventId, 'upsert', {
           eventId,
@@ -1262,10 +1513,9 @@ class DefaultLearningStorage implements LearningStorage {
 
   async #optimizerTrainingData(optimizerId: string): Promise<{
     fingerprint: string
-    items: FSRSBindingItem[]
+    histories: readonly RatingHistory[]
   }> {
-    const items: FSRSBindingItem[] = []
-    const facts: Array<readonly [string, readonly (readonly [string, number, ReviewRating])[]]> = []
+    const histories: RatingHistory[] = []
     const targets = [...await this.#targetsForOptimizer(optimizerId)]
       .sort((left, right) => left.target_id.localeCompare(right.target_id))
     for (const target of targets) {
@@ -1287,27 +1537,18 @@ class DefaultLearningStorage implements LearningStorage {
         .sort(compareEvents)
       if (ratings.length === 0)
         continue
-      facts.push([target.target_id, ratings.map(event => [
-        event.event_id,
-        event.occurred_at,
-        event.rating,
-      ] as const)])
-      const firstRating = ratings[0]
-      if (!firstRating)
-        throw new Error('Optimizer training target unexpectedly has no first Rating')
-      let previous = firstRating.occurred_at
-      const reviews = ratings.map((event, index) => {
-        const deltaDays = index === 0
-          ? 0
-          : Math.max(0, Math.round((event.occurred_at - previous) / 86_400_000))
-        previous = event.occurred_at
-        return new FSRSBindingReview(reviewRatingNumber(event.rating), deltaDays)
+      histories.push({
+        ratings: ratings.map(event => ({
+          eventId: event.event_id,
+          occurredAt: event.occurred_at,
+          rating: event.rating,
+        })),
+        targetId: target.target_id,
       })
-      items.push(new FSRSBindingItem(reviews))
     }
     return {
-      fingerprint: bytesToHex(sha256(utf8ToBytes(JSON.stringify(facts)))),
-      items,
+      fingerprint: fingerprintRatingHistories(histories),
+      histories,
     }
   }
 
@@ -1323,17 +1564,13 @@ class DefaultLearningStorage implements LearningStorage {
         revisionId: optimizer.current_revision_id,
       }
     })
-    if (snapshot.data.items.length === 0)
+    if (snapshot.data.histories.length === 0)
       throw new Error(`FSRS Optimizer ${input.optimizerId} has no eligible Review Events`)
-    const weights = await computeParameters(snapshot.data.items, {
-      enableShortTerm: true,
-      numRelearningSteps: snapshot.configuration.relearningSteps.length,
-      timeout: input.timeoutMilliseconds ?? 60_000,
-    })
-    const optimizedConfiguration = validateOptimizerConfiguration({
-      ...snapshot.configuration,
-      fsrsParameters: weights,
-    })
+    const optimizedConfiguration = await optimizeFsrsParameters(
+      snapshot.data.histories,
+      snapshot.configuration,
+      input.timeoutMilliseconds,
+    )
     return this.#serializeWrite(async () => {
       const currentData = await this.#optimizerTrainingData(input.optimizerId)
       if (currentData.fingerprint !== snapshot.data.fingerprint) {
@@ -1355,10 +1592,37 @@ class DefaultLearningStorage implements LearningStorage {
     const limit = input.limit ?? 100
     if (!Number.isSafeInteger(limit) || limit < 1)
       throw new RangeError('Learning queue limit must be a positive safe integer')
+    const mode = input.mode ?? 'mixed'
+    if (mode !== 'mixed' && mode !== 'new' && mode !== 'review')
+      throw new TypeError(`Unsupported Learning Queue mode: ${String(mode)}`)
+    if (input.noteId !== undefined)
+      assertNonEmpty(input.noteId, 'Queue Note id')
+    if (input.topicId !== undefined) {
+      assertNonEmpty(input.topicId, 'Queue Topic id')
+      if (input.noteId === undefined)
+        throw new TypeError('A Queue Topic scope requires a Note id')
+    }
+    const noteId = input.noteId ?? null
+    const topicId = input.topicId ?? null
+    const { queuePolicy } = this.#practiceConfiguration()
+    const { startedAt: studyDay } = studyDayBounds(now, queuePolicy.studyDayStartsAtHour)
     const rows = await this.#database.all<QueueRow>(
-      'SELECT t.target_id, t.card_id, t.target_kind, t.target_order, t.item_block_id, t.active, t.partial_active, t.created_at, c.active AS card_active, c.note_id, c.topic_id, c.topic_order, c.source_block_id, c.source_order, c.kind, c.direction, s.phase, s.due_at, s.stability, s.difficulty, s.scheduled_days, s.learning_steps, s.reps, s.lapses, s.last_review_at, s.optimizer_revision_id, s.winning_event_id, s.state_hash, r.configuration_json, MAX(e.until_at) AS excluded_until FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id JOIN learning_states s ON s.target_id = t.target_id LEFT JOIN learning_note_optimizer_assignments a ON a.note_id = c.note_id JOIN learning_optimizers o ON o.optimizer_id = COALESCE(a.optimizer_id, ?) JOIN learning_optimizer_revisions r ON r.revision_id = o.current_revision_id LEFT JOIN learning_queue_exclusions e ON e.card_id = c.card_id AND e.until_at > ? WHERE t.active = 1 AND c.active = 1 GROUP BY t.target_id',
-      [GLOBAL_OPTIMIZER_ID, now],
+      'SELECT t.target_id, t.card_id, t.target_kind, t.target_order, t.item_block_id, t.active, t.partial_active, t.created_at, c.active AS card_active, c.note_id, c.topic_id, c.topic_order, c.source_block_id, c.source_order, c.kind, c.direction, s.phase, s.due_at, s.stability, s.difficulty, s.scheduled_days, s.learning_steps, s.reps, s.lapses, s.last_review_at, s.optimizer_revision_id, s.winning_event_id, s.state_hash, r.configuration_json, MAX(e.until_at) AS excluded_until FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id JOIN learning_states s ON s.target_id = t.target_id LEFT JOIN learning_note_optimizer_assignments a ON a.note_id = c.note_id JOIN learning_optimizers o ON o.optimizer_id = COALESCE(a.optimizer_id, ?) JOIN learning_optimizer_revisions r ON r.revision_id = o.current_revision_id LEFT JOIN learning_queue_exclusions e ON e.card_id = c.card_id AND e.reason <> \'sibling_bury\' AND e.until_at > ? WHERE t.active = 1 AND c.active = 1 AND (? IS NULL OR c.note_id = ?) AND (? IS NULL OR c.topic_id = ?) GROUP BY t.target_id',
+      [GLOBAL_OPTIMIZER_ID, now, noteId, noteId, topicId, topicId],
     )
+    if (rows.length === 0)
+      return []
+    const [siblingBuryEvents, firstReviews] = await Promise.all([
+      this.#database.all<SiblingBuryEventRow>(
+        'SELECT source_card_id, note_id, source_block_id, source_queue, occurred_at FROM learning_sibling_bury_events bury WHERE occurred_at >= ? AND occurred_at <= ? AND NOT EXISTS (SELECT 1 FROM learning_review_events undo WHERE undo.event_kind = \'undo\' AND undo.undoes_event_id = bury.source_event_id)',
+        [studyDay, now],
+      ),
+      this.#firstReviewTimes(),
+    ])
+    const introducedNewCards = firstReviews.filter(review => (
+      review.first_reviewed_at >= studyDay && review.first_reviewed_at <= now
+    )).length
+    const remainingNewCards = Math.max(0, queuePolicy.maxNewCardsPerDay - introducedNewCards)
     const byCard = new Map<string, QueueRow[]>()
     for (const row of rows) {
       if (row.excluded_until !== null && row.excluded_until > now)
@@ -1370,17 +1634,36 @@ class DefaultLearningStorage implements LearningStorage {
         byCard.set(row.card_id, [row])
     }
 
-    const candidates: Array<{
-      config: FsrsOptimizerConfiguration
-      item: LearningQueueItem
-      row: QueueRow
-    }> = []
-    const isDue = (row: QueueRow, configuration: FsrsOptimizerConfiguration): boolean => {
-      const learnAhead = (row.phase === 'learning' || row.phase === 'relearning')
-        && row.scheduled_days === 0
-        ? configuration.queuePolicy.learnAheadMinutes * 60_000
-        : 0
-      return row.due_at <= now + learnAhead
+    const candidates: LearningQueueCandidate<LearningQueueItem>[] = []
+    const appendCandidate = (
+      row: QueueRow,
+      optimizerConfiguration: FsrsOptimizerConfiguration,
+      presentation: LearningQueueItem['presentation'],
+      targetIds: readonly string[],
+    ): void => {
+      candidates.push({
+        cardId: row.card_id,
+        dueAt: row.due_at,
+        lastReviewAt: row.last_review_at,
+        noteId: row.note_id,
+        optimizerConfiguration,
+        phase: row.phase,
+        scheduledDays: row.scheduled_days,
+        sourceBlockId: row.source_block_id,
+        sourceOrder: row.source_order,
+        stability: row.stability,
+        topicOrder: row.topic_order,
+        value: {
+          cardId: row.card_id,
+          dueAt: row.due_at,
+          noteId: row.note_id,
+          phase: row.phase,
+          presentation,
+          sourceBlockId: row.source_block_id,
+          targetIds,
+          topicId: row.topic_id,
+        },
+      })
     }
     for (const group of byCard.values()) {
       const first = group[0]
@@ -1389,128 +1672,43 @@ class DefaultLearningStorage implements LearningStorage {
       const configuration = parseConfiguration(first.configuration_json)
       const usesItems = first.target_kind === 'item'
       if (!usesItems) {
-        if (isDue(first, configuration)) {
-          candidates.push({
-            config: configuration,
-            row: first,
-            item: {
-              cardId: first.card_id,
-              dueAt: first.due_at,
-              noteId: first.note_id,
-              phase: first.phase,
-              presentation: 'full',
-              sourceBlockId: first.source_block_id,
-              targetIds: [first.target_id],
-              topicId: first.topic_id,
-            },
-          })
-        }
+        appendCandidate(first, configuration, 'full', [first.target_id])
         continue
       }
       const partial = group.filter(row => row.partial_active === 1)
       if (partial.length > 0) {
-        for (const row of partial) {
-          if (isDue(row, configuration)) {
-            candidates.push({
-              config: configuration,
-              row,
-              item: {
-                cardId: row.card_id,
-                dueAt: row.due_at,
-                noteId: row.note_id,
-                phase: row.phase,
-                presentation: 'partial',
-                sourceBlockId: row.source_block_id,
-                targetIds: [row.target_id],
-                topicId: row.topic_id,
-              },
-            })
-          }
-        }
+        for (const row of partial)
+          appendCandidate(row, configuration, 'partial', [row.target_id])
       }
       else {
         const ordered = [...group].sort((left, right) => left.due_at - right.due_at)
         const earliest = ordered[0]
         if (!earliest)
           throw new Error(`Forward List/Set Card ${first.card_id} has no Review Targets`)
-        if (isDue(earliest, configuration)) {
-          candidates.push({
-            config: configuration,
-            row: earliest,
-            item: {
-              cardId: first.card_id,
-              dueAt: earliest.due_at,
-              noteId: first.note_id,
-              phase: earliest.phase,
-              presentation: 'full',
-              sourceBlockId: first.source_block_id,
-              targetIds: group.sort((left, right) => left.target_order - right.target_order)
-                .map(row => row.target_id),
-              topicId: first.topic_id,
-            },
-          })
-        }
+        appendCandidate(
+          earliest,
+          configuration,
+          'full',
+          group.sort((left, right) => left.target_order - right.target_order)
+            .map(row => row.target_id),
+        )
       }
     }
-    const queueRank = (candidate: typeof candidates[number]): number => {
-      if (candidate.row.phase === 'learning' && candidate.row.scheduled_days === 0)
-        return 0
-      if (candidate.row.phase === 'relearning' && candidate.row.scheduled_days === 0)
-        return 0
-      const policy = candidate.config.queuePolicy
-      if (candidate.row.phase === 'learning' || candidate.row.phase === 'relearning') {
-        return policy.interdayOrder === 'before-reviews' ? 10 : policy.interdayOrder === 'after-reviews' ? 30 : 20
-      }
-      if (candidate.row.phase === 'new')
-        return policy.newReviewOrder === 'before-reviews' ? 10 : policy.newReviewOrder === 'after-reviews' ? 30 : 20
-      return 20
-    }
-    return candidates
-      .sort((left, right) => {
-        const rankDifference = queueRank(left) - queueRank(right)
-        if (rankDifference !== 0)
-          return rankDifference
-        if (left.row.phase === 'new' && right.row.phase === 'new') {
-          if (left.config.queuePolicy.newGatherOrder === 'source') {
-            return left.row.topic_order - right.row.topic_order
-              || left.row.source_order - right.row.source_order
-              || left.item.cardId.localeCompare(right.item.cardId)
-          }
-          const leftKey = deterministicOrderKey(currentStudyDay(now, left.config.queuePolicy.studyDayStartsAtHour), left.item.cardId)
-          const rightKey = deterministicOrderKey(currentStudyDay(now, right.config.queuePolicy.studyDayStartsAtHour), right.item.cardId)
-          return leftKey.localeCompare(rightKey)
-        }
-        if (left.row.phase === 'review'
-          && right.row.phase === 'review'
-          && left.config.queuePolicy.reviewOrder === 'retrievability'
-          && right.config.queuePolicy.reviewOrder === 'retrievability') {
-          if (left.row.last_review_at === null || right.row.last_review_at === null)
-            throw new Error('Review queue item is missing its last Review time')
-          const leftElapsedDays = Math.max(0, (now - left.row.last_review_at) / 86_400_000)
-          const rightElapsedDays = Math.max(0, (now - right.row.last_review_at) / 86_400_000)
-          const retrievabilityDifference = forgetting_curve(
-            left.config.fsrsParameters,
-            leftElapsedDays,
-            left.row.stability,
-          ) - forgetting_curve(
-            right.config.fsrsParameters,
-            rightElapsedDays,
-            right.row.stability,
-          )
-          if (retrievabilityDifference !== 0)
-            return retrievabilityDifference
-        }
-        return left.item.dueAt - right.item.dueAt
-          || deterministicOrderKey(
-            currentStudyDay(now, left.config.queuePolicy.studyDayStartsAtHour),
-            left.item.cardId,
-          ).localeCompare(deterministicOrderKey(
-            currentStudyDay(now, right.config.queuePolicy.studyDayStartsAtHour),
-            right.item.cardId,
-          ))
-      })
-      .map(candidate => candidate.item)
-      .slice(0, limit)
+    return selectLearningQueue({
+      candidates,
+      introducedCardIds: new Set(firstReviews.map(review => review.card_id)),
+      limit,
+      mode,
+      now,
+      policy: queuePolicy,
+      remainingNewCards,
+      siblingBuryEvents: siblingBuryEvents.map(event => ({
+        noteId: event.note_id,
+        sourceBlockId: event.source_block_id,
+        sourceCardId: event.source_card_id,
+        sourceQueue: event.source_queue,
+      })),
+    })
   }
 
   async getMaintenanceEstimate(): Promise<LearningMaintenanceEstimate> {
@@ -1664,6 +1862,9 @@ function toLearningStateObject(state: PersistedLearningState): LearningState {
   return publicState
 }
 
-export async function createLearningStorage(database: EditorStorageDatabase): Promise<LearningStorage> {
-  return DefaultLearningStorage.create(database)
+export async function createLearningStorage(
+  database: EditorStorageDatabase,
+  configuration: () => LearningPracticeConfiguration = defaultLearningPracticeConfiguration,
+): Promise<LearningStorage> {
+  return DefaultLearningStorage.create(database, configuration)
 }

@@ -1,5 +1,6 @@
 import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from './contract'
 import type { DesktopServices } from './desktop-api'
+import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { describe, expect, it, vi } from 'vitest'
 import { createDesktopApi } from './desktop-api'
 
@@ -11,17 +12,21 @@ function serviceStub(): DesktopServices {
       archiveOptimizer: vi.fn(),
       assignNoteOptimizer: vi.fn(),
       createOptimizer: vi.fn(),
+      getDailyProgress: vi.fn(),
       getLearningState: vi.fn(),
       getMaintenanceEstimate: vi.fn(),
       getNoteOptimizer: vi.fn(),
       getOptimizer: vi.fn(),
       getOptimizerNoteCount: vi.fn(),
+      getNextNewItem: vi.fn(),
+      getNextReviewItem: vi.fn(),
       listNotesWithCards: vi.fn(),
       listOptimizers: vi.fn(),
       listQueue: vi.fn(),
       listTargets: vi.fn(),
       maintainDatabase: vi.fn(),
       optimizeOptimizer: vi.fn(),
+      prepareReview: vi.fn(),
       rateTarget: vi.fn(),
       renameOptimizer: vi.fn(),
       resetOptimizerDefaults: vi.fn(),
@@ -52,6 +57,8 @@ describe('desktop preload API', () => {
   it('exposes MCP configuration and external Note update subscriptions unchanged', async () => {
     const services = serviceStub()
     const configuration: DesktopConfiguration = {
+      flashcards: desktopConfigurationDefinition.defaults.flashcards,
+      goals: desktopConfigurationDefinition.defaults.goals,
       language: 'system',
       mcp: { accessToken: '0123456789abcdef0123456789abcdef', enabled: true, port: 8765 },
       outdentBehavior: 'logical',
