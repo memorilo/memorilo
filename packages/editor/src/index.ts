@@ -38,6 +38,12 @@ export type {
 } from './card/card-repository'
 export { createMemoryEditorCardRepository } from './card/card-repository'
 export type {
+  CardSurfaceItemSelection,
+  CardSurfaceProps,
+  CardSurfaceSide,
+} from './card/card-surface'
+export { CardSurface } from './card/card-surface'
+export type {
   EditorCardIntegration,
   EditorCardSync,
   EditorCardSyncError,

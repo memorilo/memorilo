@@ -2,8 +2,11 @@
 
 import type { Editor } from 'prosekit/core'
 import type { CSSProperties } from 'react'
+import type { EditorAdapters } from '../../adapters/editor-adapters'
 import type { CardExtension } from '../../card/card-extension'
 import type { CardDelimiterAttrs, EditorCardProjection } from '../../card/card-model'
+import type { CardSurfaceSide } from '../../card/card-surface'
+import type { EditorTopicDocument } from '../../note/editor-note'
 import * as stylex from '@stylexjs/stylex'
 import { Eye, X } from 'lucide-react'
 import { NodeSelection } from 'prosekit/pm/state'
@@ -14,7 +17,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { getSelectedCardDefinitionId, getSelectedCardDelimiterPosition, getSelectedCardDelimiterSurface, setSelectedCardDelimiterDefinitionId } from '../../card/card-extension'
 import { projectEditorCards } from '../../card/card-model'
-import { CardPreview } from '../../card/card-preview'
+import { CardSurface } from '../../card/card-surface'
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { cardMenuStyles } from './card-menu.stylex'
 
@@ -36,6 +39,13 @@ interface MenuPosition {
   left: number
   maxHeight: number
   top?: number
+}
+
+interface CardPreviewState {
+  cardId: string
+  definitionId: string
+  revealedItemBlockIds: readonly string[]
+  side: CardSurfaceSide
 }
 
 function getSelectedCard(editor: Editor<CardExtension>): SelectedCard | null {
@@ -141,13 +151,16 @@ function getCardTrigger(editor: Editor<CardExtension>, selected: SelectedCard): 
   return trigger
 }
 
-export default function CardMenu() {
+export default function CardMenu({ adapters, topic }: {
+  adapters: EditorAdapters
+  topic: EditorTopicDocument
+}) {
   const editor = useEditor<CardExtension>()
   const selected = useEditorDerivedValue(getSelectedCard)
   const popupRef = useRef<HTMLDivElement>(null)
   const { t } = useTranslation('editor')
   const [position, setPosition] = useState<MenuPosition | null>(null)
-  const [previewState, setPreviewState] = useState<{ cardId: string, definitionId: string } | null>(null)
+  const [previewState, setPreviewState] = useState<CardPreviewState | null>(null)
 
   const selectedDefinitionId = selected?.definitionId ?? null
   const previewOpen = selected?.surface === 'preview'
@@ -267,6 +280,34 @@ export default function CardMenu() {
     if (!card)
       throw new Error(`Preview CardID ${previewCardId} is missing from definition ${selected.definitionId}`)
     const directionalCards = selected.cards.filter((candidate): candidate is Exclude<EditorCardProjection, { kind: 'cloze' }> => candidate.kind !== 'cloze')
+    const activePreview = previewState?.definitionId === selected.definitionId && previewState.cardId === card.id
+      ? previewState
+      : {
+          cardId: card.id,
+          definitionId: selected.definitionId,
+          revealedItemBlockIds: [],
+          side: 'question' as const,
+        }
+    const forwardList = card.kind === 'list' && card.direction === 'forward'
+    const nextItem = forwardList && activePreview.side === 'question'
+      ? card.items.find(item => !activePreview.revealedItemBlockIds.includes(item.blockId))
+      : undefined
+    const revealLabel = nextItem
+      ? t('ui.showNextItem', {
+          total: card.kind === 'list' ? card.items.length : 0,
+          visibleCount: activePreview.revealedItemBlockIds.length + 1,
+        })
+      : activePreview.side === 'question' && !forwardList ? t('ui.showAnswer') : null
+    const reveal = () => {
+      if (nextItem) {
+        setPreviewState({
+          ...activePreview,
+          revealedItemBlockIds: [...activePreview.revealedItemBlockIds, nextItem.blockId],
+        })
+        return
+      }
+      setPreviewState({ ...activePreview, side: 'answer' })
+    }
 
     return createPortal(
       <div
@@ -300,7 +341,12 @@ export default function CardMenu() {
                     key={candidate.id}
                     label={candidate.direction === 'forward' ? t('ui.previewForwardCard') : t('ui.previewReverseCard')}
                     selected={candidate.id === card.id}
-                    onClick={() => setPreviewState({ cardId: candidate.id, definitionId: selected.definitionId })}
+                    onClick={() => setPreviewState({
+                      cardId: candidate.id,
+                      definitionId: selected.definitionId,
+                      revealedItemBlockIds: [],
+                      side: 'question',
+                    })}
                   >
                     {candidate.direction === 'forward' ? t('ui.questionToAnswer') : t('ui.answerToQuestion')}
                   </CardMenuButton>
@@ -309,7 +355,28 @@ export default function CardMenu() {
             )
           : null}
         <div {...stylex.props(cardMenuStyles.previewBody)}>
-          <CardPreview appearance="embedded" card={card} />
+          <CardSurface
+            adapters={adapters}
+            appearance="preview"
+            card={card}
+            revealedItemBlockIds={forwardList ? activePreview.revealedItemBlockIds : undefined}
+            side={activePreview.side}
+            topic={topic}
+          />
+          {revealLabel
+            ? (
+                <div {...stylex.props(cardMenuStyles.previewActions)}>
+                  <button
+                    {...stylex.props(cardMenuStyles.previewRevealButton)}
+                    type="button"
+                    onClick={reveal}
+                    onMouseDown={event => event.preventDefault()}
+                  >
+                    {revealLabel}
+                  </button>
+                </div>
+              )
+            : null}
         </div>
       </div>,
       document.body,

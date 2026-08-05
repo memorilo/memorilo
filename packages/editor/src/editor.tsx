@@ -1,5 +1,6 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
+import type { CardReviewOptions } from './card/card-review-runtime'
 import type { EditorCardIntegration } from './card/card-sync'
 import type { EditorModeValue } from './common/editor-mode'
 import type { OutlineOptions } from './common/outline-runtime'
@@ -18,6 +19,7 @@ import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
 import './common/editor-content.stylex'
 import './card/card-content.stylex'
+import './card/card-review-content.stylex'
 
 const DocumentEditor = lazy(async () => {
   const module = await import('./document/document-editor')
@@ -31,6 +33,7 @@ const OutlineEditor = lazy(async () => {
 
 interface EditorBaseProps {
   adapters: EditorAdapters
+  cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
   focus?: EditorFocusTarget
   mode?: EditorModeValue
@@ -51,6 +54,8 @@ export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
   const onCardSyncErrorRef = useRef(props.cards?.onSyncError)
+  const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
+  const controlledFocus = props.outline?.focus
   const controlledOutdentBehaviorProvided = Boolean(
     props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'outdentBehavior'),
   )
@@ -59,12 +64,13 @@ export function Editor(props: EditorProps) {
     throw new TypeError('Controlled Outline outdent behavior cannot be undefined')
   const initialOutlineOptionsRef = useRef<OutlineOptions | undefined>(props.outline
     ? {
-        defaultFocus: props.outline.defaultFocus,
+        defaultFocus: controlledFocusProvided ? controlledFocus : props.outline.defaultFocus,
         defaultOutdentBehavior: controlledOutdentBehaviorProvided
           ? controlledOutdentBehavior
           : props.outline.defaultOutdentBehavior,
       }
     : undefined)
+  const initialCardReviewRef = useRef(props.cardReview)
   onDocumentChangeRef.current = props.onDocumentChange
   onCardSyncErrorRef.current = props.cards?.onSyncError
   const cardRepository = props.cards?.repository
@@ -79,13 +85,12 @@ export function Editor(props: EditorProps) {
         repository: cardRepository,
       }
     : undefined, [cardRepository])
-  const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
-  const controlledFocus = props.outline?.focus
   const storedMode = useEditorTopicMode(props.topic)
   const mode = props.mode ?? storedMode
   const { t } = useTranslation('editor')
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
+    cardReview: initialCardReviewRef.current,
     cards: cardIntegration,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
@@ -93,12 +98,20 @@ export function Editor(props: EditorProps) {
     topicDocument: props.topic,
   }), [props.adapters, cardIntegration, props.readOnly, props.topic])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!controlledFocusProvided)
       return
     const blockId = controlledFocus ? resolveOutlineFocusTarget(session.editor.getDocJSON(), controlledFocus) : null
     session.outlineRuntime.setFocus(blockId)
   }, [controlledFocus, controlledFocusProvided, session])
+
+  useLayoutEffect(() => {
+    if (!props.cardReview)
+      return
+    if (!session.cardReviewRuntime)
+      throw new Error('Controlled Card review requires a Card review Editor session')
+    session.cardReviewRuntime.setOptions(props.cardReview)
+  }, [props.cardReview, session])
 
   useEffect(() => {
     if (!controlledOutdentBehaviorProvided)

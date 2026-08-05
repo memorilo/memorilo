@@ -1,5 +1,6 @@
 import type { DesktopReviewItem } from '@memorilo/desktop-preload'
-import { createEditorNote, demoEditorAdapters, Editor, EditorMode } from '@memorilo/editor'
+import type { CardSurfaceItemSelection, CardSurfaceSide } from '@memorilo/editor'
+import { CardSurface, createEditorNote, demoEditorAdapters } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -7,7 +8,19 @@ import { useTranslation } from 'react-i18next'
 
 import { learningReviewStyles as styles } from './-learning-review.stylex'
 
-export function LearningReviewSource({ item }: { item: DesktopReviewItem }) {
+export function LearningReviewSource({
+  item,
+  itemSelection,
+  revealedItemBlockIds,
+  showSource,
+  side,
+}: {
+  item: DesktopReviewItem
+  itemSelection?: CardSurfaceItemSelection
+  revealedItemBlockIds?: readonly string[]
+  showSource: boolean
+  side: CardSurfaceSide
+}) {
   const { t } = useTranslation('learning')
   const sourceQuery = useQuery({
     queryFn: () => window.desktop.getNote({ noteId: item.queue.noteId }),
@@ -28,10 +41,6 @@ export function LearningReviewSource({ item }: { item: DesktopReviewItem }) {
       throw new Error(`Note ${note.id} does not contain Review Topic ${item.queue.topicId}`)
     return { note, topic: note.getTopic(entry.id) }
   }, [item.queue.topicId, sourceQuery.data])
-  const outline = useMemo(() => ({
-    focus: { blockId: item.card.sourceBlockId },
-  }), [item.card.sourceBlockId])
-
   if (sourceQuery.isError) {
     return (
       <div {...stylex.props(styles.sourceStatus, styles.sourceError)} role="alert">
@@ -43,14 +52,14 @@ export function LearningReviewSource({ item }: { item: DesktopReviewItem }) {
     return <div {...stylex.props(styles.sourceStatus)} role="status">{t('loadingSource')}</div>
 
   return (
-    <div {...stylex.props(styles.sourceEditor)}>
-      <Editor
-        adapters={demoEditorAdapters}
-        mode={EditorMode.Outline}
-        outline={outline}
-        readOnly
-        topic={source.topic}
-      />
-    </div>
+    <CardSurface
+      adapters={demoEditorAdapters}
+      card={item.card}
+      itemSelection={itemSelection}
+      revealedItemBlockIds={revealedItemBlockIds}
+      showSource={showSource}
+      side={side}
+      topic={source.topic}
+    />
   )
 }

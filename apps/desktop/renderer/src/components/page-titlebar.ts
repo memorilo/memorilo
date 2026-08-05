@@ -2,6 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { createContext, use, useLayoutEffect } from 'react'
 
 export interface PageTitlebarOptions {
+  leading?: ReactNode
   onRenameTitle?: (title: string) => Promise<{ error?: string } | void>
   title?: string
   trailing?: ReactNode

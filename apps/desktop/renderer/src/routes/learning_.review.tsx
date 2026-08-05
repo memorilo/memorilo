@@ -1,9 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { usePageTitlebar } from '../components/page-titlebar'
 import { LearningReviewWorkspace } from './-learning-review'
 import { learningReviewStyles as styles } from './-learning-review.stylex'
 
@@ -73,8 +71,6 @@ function LearningReviewRoute() {
   const { t } = useTranslation('learning')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const titlebar = useMemo(() => ({ title: t('reviewTitle') }), [t])
-  usePageTitlebar(titlebar)
 
   return (
     <main {...stylex.props(styles.page)} aria-label={t('reviewTitle')}>
