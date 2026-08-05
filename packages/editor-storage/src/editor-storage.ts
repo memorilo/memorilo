@@ -1,6 +1,6 @@
 import type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 import type { EmbeddingModel } from './embedding-model'
-import type { LearningStorage } from './learning'
+import type { LearningPracticeConfiguration, LearningStorage } from './learning'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { v7 as createUuidV7 } from 'uuid'
@@ -237,6 +237,7 @@ export interface EditorStorage {
 export interface CreateEditorStorageOptions {
   database: EditorStorageDatabase
   embeddingModel: EmbeddingModel
+  learningConfiguration?: () => LearningPracticeConfiguration
 }
 
 interface NoteRow {
@@ -814,7 +815,7 @@ class DefaultEditorStorage implements EditorStorage {
       VALUES (1, ?, ?)
       ON CONFLICT(singleton) DO NOTHING
     `, [options.embeddingModel.id, options.embeddingModel.dimensions])
-    const learning = await createLearningStorage(options.database)
+    const learning = await createLearningStorage(options.database, options.learningConfiguration)
     return new DefaultEditorStorage(options, learning)
   }
 

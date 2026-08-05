@@ -231,9 +231,6 @@ function OptimizerEditor({
   const updateConfiguration = (next: Partial<OptimizerConfiguration>) => {
     onChange({ ...draft, configuration: { ...draft.configuration, ...next } })
   }
-  const updateQueuePolicy = (next: Partial<OptimizerConfiguration['queuePolicy']>) => {
-    updateConfiguration({ queuePolicy: { ...draft.configuration.queuePolicy, ...next } })
-  }
   const commitSteps = (kind: 'learningSteps' | 'relearningSteps', value: string) => {
     try {
       const steps = parseSteps(value)
@@ -368,98 +365,6 @@ function OptimizerEditor({
                 />
               </SettingRow>
               {stepError ? <p {...stylex.props(styles.inlineError)} role="alert">{stepError}</p> : null}
-            </FormSection>
-
-            <FormSection description={t('queueDescription')} title={t('queue')}>
-              <SettingRow label={t('newGatherOrder')}>
-                <select
-                  {...stylex.props(styles.input)}
-                  aria-label={t('newGatherOrder')}
-                  disabled={disabled}
-                  value={draft.configuration.queuePolicy.newGatherOrder}
-                  onChange={event => updateQueuePolicy({ newGatherOrder: event.target.value as 'random' | 'source' })}
-                >
-                  <option value="source">{t('sourceOrder')}</option>
-                  <option value="random">{t('randomOrder')}</option>
-                </select>
-              </SettingRow>
-              <SettingRow label={t('newReviewOrder')}>
-                <select
-                  {...stylex.props(styles.input)}
-                  aria-label={t('newReviewOrder')}
-                  disabled={disabled}
-                  value={draft.configuration.queuePolicy.newReviewOrder}
-                  onChange={event => updateQueuePolicy({ newReviewOrder: event.target.value as 'after-reviews' | 'before-reviews' | 'mixed' })}
-                >
-                  <option value="mixed">{t('mixed')}</option>
-                  <option value="before-reviews">{t('beforeReviews')}</option>
-                  <option value="after-reviews">{t('afterReviews')}</option>
-                </select>
-              </SettingRow>
-              <SettingRow label={t('interdayOrder')}>
-                <select
-                  {...stylex.props(styles.input)}
-                  aria-label={t('interdayOrder')}
-                  disabled={disabled}
-                  value={draft.configuration.queuePolicy.interdayOrder}
-                  onChange={event => updateQueuePolicy({ interdayOrder: event.target.value as 'after-reviews' | 'before-reviews' | 'mixed' })}
-                >
-                  <option value="before-reviews">{t('beforeReviews')}</option>
-                  <option value="after-reviews">{t('afterReviews')}</option>
-                  <option value="mixed">{t('mixed')}</option>
-                </select>
-              </SettingRow>
-              <SettingRow label={t('reviewOrder')}>
-                <select
-                  {...stylex.props(styles.input)}
-                  aria-label={t('reviewOrder')}
-                  disabled={disabled}
-                  value={draft.configuration.queuePolicy.reviewOrder}
-                  onChange={event => updateQueuePolicy({ reviewOrder: event.target.value as 'due-random' | 'retrievability' })}
-                >
-                  <option value="due-random">{t('dueRandom')}</option>
-                  <option value="retrievability">{t('retrievability')}</option>
-                </select>
-              </SettingRow>
-              <SettingRow label={t('learnAhead')}>
-                <div {...stylex.props(styles.numberControl)}>
-                  <input
-                    {...stylex.props(styles.input, styles.numberInput)}
-                    aria-label={t('learnAhead')}
-                    disabled={disabled}
-                    min={0}
-                    type="number"
-                    value={draft.configuration.queuePolicy.learnAheadMinutes}
-                    onChange={event => updateQueuePolicy({ learnAheadMinutes: Number(event.target.value) })}
-                  />
-                  <span {...stylex.props(styles.unit)}>{t('minutes')}</span>
-                </div>
-              </SettingRow>
-              <SettingRow label={t('studyDayStarts')}>
-                <select
-                  {...stylex.props(styles.input, styles.shortSelect)}
-                  aria-label={t('studyDayStarts')}
-                  disabled={disabled}
-                  value={draft.configuration.queuePolicy.studyDayStartsAtHour}
-                  onChange={event => updateQueuePolicy({ studyDayStartsAtHour: Number(event.target.value) })}
-                >
-                  {Array.from({ length: 24 }, (_, hour) => (
-                    <option key={hour} value={hour}>{t('hourValue', { hour: String(hour).padStart(2, '0') })}</option>
-                  ))}
-                </select>
-              </SettingRow>
-            </FormSection>
-
-            <FormSection description={t('siblingsDescription')} title={t('siblings')}>
-              <SettingRow label={t('buryNewSiblings')}>
-                <Switch checked={draft.configuration.queuePolicy.buryNewSiblings} disabled={disabled} label={t('buryNewSiblings')} onChange={buryNewSiblings => updateQueuePolicy({ buryNewSiblings })} />
-              </SettingRow>
-              <SettingRow label={t('buryReviewSiblings')}>
-                <Switch checked={draft.configuration.queuePolicy.buryReviewSiblings} disabled={disabled} label={t('buryReviewSiblings')} onChange={buryReviewSiblings => updateQueuePolicy({ buryReviewSiblings })} />
-              </SettingRow>
-              <SettingRow label={t('buryInterdaySiblings')}>
-                <Switch checked={draft.configuration.queuePolicy.buryInterdayLearningSiblings} disabled={disabled} label={t('buryInterdaySiblings')} onChange={buryInterdayLearningSiblings => updateQueuePolicy({ buryInterdayLearningSiblings })} />
-              </SettingRow>
             </FormSection>
 
             <FormSection description={t('advancedDescription')} title={t('advanced')}>

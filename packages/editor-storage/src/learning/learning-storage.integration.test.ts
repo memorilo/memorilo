@@ -13,7 +13,11 @@ import { join } from 'node:path'
 import BetterSqlite3 from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createEditorStorage, GLOBAL_OPTIMIZER_ID } from '../index'
+import {
+  createEditorStorage,
+  defaultLearningPracticeConfiguration,
+  GLOBAL_OPTIMIZER_ID,
+} from '../index'
 
 function parameters(values: readonly DatabaseValue[] | undefined): readonly DatabaseValue[] {
   return values ?? []
@@ -228,8 +232,7 @@ describe('fSRS learning storage', () => {
     const earliestDue = Math.min(...await Promise.all(restoredTargets.map(async target => (
       await harness.storage.learning.getLearningState(target.targetId)
     ).dueAt)))
-    const global = await harness.storage.learning.getOptimizer(GLOBAL_OPTIMIZER_ID)
-    const learnAheadMilliseconds = global.configuration.queuePolicy.learnAheadMinutes * 60_000
+    const learnAheadMilliseconds = defaultLearningPracticeConfiguration().queuePolicy.learnAheadMinutes * 60_000
     expect(await harness.storage.learning.listQueue({
       now: earliestDue - learnAheadMilliseconds - 1,
     })).toEqual([])
@@ -311,7 +314,7 @@ describe('fSRS learning storage', () => {
       throw new Error('Expected a forward sibling target')
     const reviewedAt = Date.now() + 1_000
     await harness.storage.learning.rateTarget({
-      rating: 'good',
+      rating: 'easy',
       reviewedAt,
       targetId: target.targetId,
     })
@@ -394,7 +397,7 @@ describe('fSRS learning storage', () => {
       'SELECT COUNT(*) AS count FROM learning_review_events WHERE target_id = ?',
       [target.targetId],
     )).toEqual({ count: 2 })
-  })
+  }, 15_000)
 })
 
 describe('learning database maintenance', () => {

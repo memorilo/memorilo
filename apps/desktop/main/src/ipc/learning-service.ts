@@ -1,7 +1,11 @@
 import type { LearningStorage } from '@memorilo/editor-storage'
+import type { LearningReviewApplication } from '../learning/learning-review-application'
 import { IpcMethod, IpcService } from 'electron-ipc-decorator'
 
-export function createLearningService(learning: LearningStorage) {
+export function createLearningService(
+  learning: LearningStorage,
+  reviews: LearningReviewApplication,
+) {
   class LearningService extends IpcService {
     static override readonly groupName = 'learning'
 
@@ -21,6 +25,11 @@ export function createLearningService(learning: LearningStorage) {
     }
 
     @IpcMethod()
+    getDailyProgress(now?: number) {
+      return learning.getDailyProgress(now)
+    }
+
+    @IpcMethod()
     getLearningState(targetId: string) {
       return learning.getLearningState(targetId)
     }
@@ -28,6 +37,16 @@ export function createLearningService(learning: LearningStorage) {
     @IpcMethod()
     getMaintenanceEstimate() {
       return learning.getMaintenanceEstimate()
+    }
+
+    @IpcMethod()
+    getNextNewItem(input?: Parameters<LearningReviewApplication['getNextNewItem']>[0]) {
+      return reviews.getNextNewItem(input)
+    }
+
+    @IpcMethod()
+    getNextReviewItem(input?: Parameters<LearningReviewApplication['getNextReviewItem']>[0]) {
+      return reviews.getNextReviewItem(input)
     }
 
     @IpcMethod()
@@ -73,6 +92,11 @@ export function createLearningService(learning: LearningStorage) {
     @IpcMethod()
     optimizeOptimizer(input: Parameters<LearningStorage['optimizeOptimizer']>[0]) {
       return learning.optimizeOptimizer(input)
+    }
+
+    @IpcMethod()
+    prepareReview(input: Parameters<LearningStorage['prepareReview']>[0]) {
+      return learning.prepareReview(input)
     }
 
     @IpcMethod()

@@ -63,6 +63,14 @@ export const learningSchema = `
   CREATE INDEX IF NOT EXISTS learning_cards_sibling_idx
     ON learning_cards(source_block_id, active);
 
+  CREATE TABLE IF NOT EXISTS learning_card_introductions (
+    card_id TEXT PRIMARY KEY REFERENCES learning_cards(card_id) ON DELETE CASCADE,
+    introduced_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS learning_card_introductions_time_idx
+    ON learning_card_introductions(introduced_at);
+
   CREATE TABLE IF NOT EXISTS learning_targets (
     target_id TEXT PRIMARY KEY,
     card_id TEXT NOT NULL REFERENCES learning_cards(card_id) ON DELETE CASCADE,
@@ -135,6 +143,30 @@ export const learningSchema = `
 
   CREATE INDEX IF NOT EXISTS learning_review_event_target_time_idx
     ON learning_review_events(target_id, occurred_at, event_id);
+
+  CREATE INDEX IF NOT EXISTS learning_review_event_kind_time_idx
+    ON learning_review_events(event_kind, occurred_at);
+
+  CREATE INDEX IF NOT EXISTS learning_review_event_card_time_idx
+    ON learning_review_events(card_id, occurred_at);
+
+  CREATE INDEX IF NOT EXISTS learning_review_event_undoes_idx
+    ON learning_review_events(undoes_event_id);
+
+  CREATE TABLE IF NOT EXISTS learning_sibling_bury_events (
+    source_event_id TEXT PRIMARY KEY REFERENCES learning_review_events(event_id) ON DELETE CASCADE,
+    source_card_id TEXT NOT NULL,
+    note_id TEXT NOT NULL,
+    source_block_id TEXT NOT NULL,
+    source_queue TEXT NOT NULL CHECK (source_queue IN ('intraday-learning', 'interday-learning', 'review', 'new')),
+    occurred_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS learning_sibling_bury_event_group_idx
+    ON learning_sibling_bury_events(note_id, source_block_id, occurred_at);
+
+  CREATE INDEX IF NOT EXISTS learning_sibling_bury_event_time_idx
+    ON learning_sibling_bury_events(occurred_at);
 
   CREATE TABLE IF NOT EXISTS learning_queue_exclusions (
     card_id TEXT NOT NULL REFERENCES learning_cards(card_id) ON DELETE CASCADE,

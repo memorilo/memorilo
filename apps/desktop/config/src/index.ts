@@ -1,12 +1,52 @@
 import { defineConfiguration } from '@memorilo/config'
 import * as Schema from 'effect/Schema'
 
-export type { DesktopConfiguration, DesktopLanguage, DesktopMcpConfiguration, DesktopOutdentBehavior } from './contract'
+export type {
+  DesktopConfiguration,
+  DesktopDailyGoalMode,
+  DesktopFlashcardConfiguration,
+  DesktopGoalConfiguration,
+  DesktopLanguage,
+  DesktopMcpConfiguration,
+  DesktopOutdentBehavior,
+} from './contract'
 export { desktopConfigurationChangedChannel } from './contract'
 
 export const defaultDesktopOutdentBehavior = 'logical' as const
 
+const defaultFlashcardConfiguration = {
+  buryInterdayLearningSiblings: true,
+  buryNewSiblings: true,
+  buryReviewSiblings: true,
+  interdayOrder: 'before-reviews',
+  learnAheadMinutes: 20,
+  newCardsPerDay: 20,
+  newGatherOrder: 'source',
+  reviewOrder: 'due-random',
+  studyDayStartsAtHour: 4,
+} as const
+
+const defaultGoalConfiguration = {
+  dailyLearningGoalCards: 30,
+  dailyLearningGoalMode: 'spread-week',
+} as const
+
 export const DesktopConfigurationSchema = Schema.Struct({
+  flashcards: Schema.Struct({
+    buryInterdayLearningSiblings: Schema.Boolean,
+    buryNewSiblings: Schema.Boolean,
+    buryReviewSiblings: Schema.Boolean,
+    interdayOrder: Schema.Literals(['after-reviews', 'before-reviews', 'mixed']),
+    learnAheadMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_440, minimum: 0 })),
+    newCardsPerDay: Schema.Int.check(Schema.isBetween({ maximum: 100_000, minimum: 0 })),
+    newGatherOrder: Schema.Literals(['random', 'source']),
+    reviewOrder: Schema.Literals(['due-random', 'retrievability']),
+    studyDayStartsAtHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 0 })),
+  }),
+  goals: Schema.Struct({
+    dailyLearningGoalCards: Schema.Int.check(Schema.isBetween({ maximum: 100_000, minimum: 1 })),
+    dailyLearningGoalMode: Schema.Literals(['all-due', 'fixed', 'spread-week']),
+  }),
   language: Schema.Literals(['system', 'en', 'zh-CN']),
   mcp: Schema.Struct({
     accessToken: Schema.String,
@@ -21,6 +61,8 @@ export const DesktopConfigurationSchema = Schema.Struct({
 
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
+    flashcards: defaultFlashcardConfiguration,
+    goals: defaultGoalConfiguration,
     language: 'system' as const,
     mcp: {
       accessToken: '',
@@ -52,6 +94,94 @@ export const desktopConfigurationDefinition = defineConfiguration({
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'number',
+      description: 'Limit how many never-practiced cards enter the learning flow each study day.',
+      label: 'New cards per day',
+      max: 100_000,
+      min: 0,
+      path: 'flashcards.newCardsPerDay',
+      step: 1,
+      unit: 'cards',
+    }, {
+      control: 'select',
+      label: 'New card gather order',
+      options: [
+        { label: 'Source order', value: 'source' },
+        { label: 'Random', value: 'random' },
+      ],
+      path: 'flashcards.newGatherOrder',
+    }, {
+      control: 'select',
+      label: 'Interday learning order',
+      options: [
+        { label: 'Before reviews', value: 'before-reviews' },
+        { label: 'Mixed with reviews', value: 'mixed' },
+        { label: 'After reviews', value: 'after-reviews' },
+      ],
+      path: 'flashcards.interdayOrder',
+    }, {
+      control: 'select',
+      label: 'Review order',
+      options: [
+        { label: 'Due date, then random', value: 'due-random' },
+        { label: 'Lowest retrievability first', value: 'retrievability' },
+      ],
+      path: 'flashcards.reviewOrder',
+    }, {
+      control: 'number',
+      label: 'Learn-ahead limit',
+      max: 1_440,
+      min: 0,
+      path: 'flashcards.learnAheadMinutes',
+      step: 1,
+      unit: 'minutes',
+    }, {
+      control: 'number',
+      label: 'Next day starts at',
+      max: 23,
+      min: 0,
+      path: 'flashcards.studyDayStartsAtHour',
+      step: 1,
+      unit: 'hour',
+    }, {
+      control: 'toggle',
+      label: 'Bury new siblings',
+      path: 'flashcards.buryNewSiblings',
+    }, {
+      control: 'toggle',
+      label: 'Bury review siblings',
+      path: 'flashcards.buryReviewSiblings',
+    }, {
+      control: 'toggle',
+      label: 'Bury interday learning siblings',
+      path: 'flashcards.buryInterdayLearningSiblings',
+    }],
+    id: 'flashcards',
+    label: 'Flashcards',
+  }, {
+    fields: [{
+      control: 'select',
+      label: 'Daily learning goal',
+      options: [
+        { label: 'Spread over the week', value: 'spread-week' },
+        { label: 'Review all due cards each day', value: 'all-due' },
+        { label: 'Set a daily limit', value: 'fixed' },
+      ],
+      path: 'goals.dailyLearningGoalMode',
+    }, {
+      control: 'number',
+      description: 'Used when the Daily Goal is set to a daily limit.',
+      label: 'Daily limit',
+      max: 100_000,
+      min: 1,
+      path: 'goals.dailyLearningGoalCards',
+      step: 1,
+      unit: 'cards',
+    }],
+    id: 'goals',
+    label: 'Goals & Streaks',
   }, {
     fields: [{
       control: 'select',
@@ -95,6 +225,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration))
     return configuration
   const current = configuration as Record<string, unknown>
+  const hasFlashcards = typeof current.flashcards === 'object'
+    && current.flashcards !== null
+    && !Array.isArray(current.flashcards)
+  const hasGoals = typeof current.goals === 'object'
+    && current.goals !== null
+    && !Array.isArray(current.goals)
   const hasMcp = typeof current.mcp === 'object' && current.mcp !== null && !Array.isArray(current.mcp)
   const mcp = hasMcp ? current.mcp as Record<string, unknown> : {}
   const accessToken = typeof mcp.accessToken === 'string' ? mcp.accessToken : ''
@@ -106,6 +242,8 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     : 8765
   const enabled = mcp.enabled === true && accessToken.length >= 32
   if (hasMcp
+    && hasFlashcards
+    && hasGoals
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
@@ -114,6 +252,8 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   }
   return {
     ...current,
+    flashcards: hasFlashcards ? current.flashcards : defaultFlashcardConfiguration,
+    goals: hasGoals ? current.goals : defaultGoalConfiguration,
     mcp: {
       accessToken,
       enabled,

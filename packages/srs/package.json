@@ -1,5 +1,5 @@
 {
-  "name": "@memorilo/editor-storage",
+  "name": "@memorilo/srs",
   "type": "module",
   "version": "0.0.0",
   "private": true,
@@ -9,17 +9,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@memorilo/srs": "workspace:*",
     "@noble/hashes": "2.2.0",
-    "uuid": "14.0.1"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "better-sqlite3": "13.0.1",
-    "sqlite-vec": "0.1.9"
+    "@open-spaced-repetition/binding": "0.5.0",
+    "ts-fsrs": "5.4.1"
   }
 }

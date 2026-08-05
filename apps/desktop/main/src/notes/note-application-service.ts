@@ -21,7 +21,7 @@ import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 
 const checkpointInterval = 32
-const noteCacheCapacity = 32
+const noteCacheCapacity = 64
 
 interface AuthoritativeNote {
   checkpointSequence: number
@@ -73,6 +73,19 @@ export interface NoteExternalUpdate {
   updatedAt: number
 }
 
+export interface GetNoteCardProjectionInput {
+  cardId: string
+  noteId: string
+  topicId: string
+}
+
+export interface NoteCardProjection {
+  card: EditorCardProjection
+  noteTitle: string
+  topicTitle: string
+  updatedAt: number
+}
+
 export class NoteApplicationServiceClosedError extends Error {
   override readonly name = 'NoteApplicationServiceClosedError'
 
@@ -86,6 +99,18 @@ export class NoteRevisionConflictError extends Error {
 
   constructor(readonly currentRevision: string) {
     super('The Note changed after it was read')
+  }
+}
+
+export class NoteCardProjectionNotFoundError extends Error {
+  override readonly name = 'NoteCardProjectionNotFoundError'
+
+  constructor(
+    readonly noteId: string,
+    readonly topicId: string,
+    readonly cardId: string,
+  ) {
+    super(`Note ${noteId} Topic ${topicId} does not contain Card ${cardId}`)
   }
 }
 
@@ -386,6 +411,22 @@ export function createNoteApplicationService(
         ? await storage.createNote()
         : await storage.createNote({ title: input.title })
       return toDesktopNote(await load(stored, input?.initialHeading))
+    }),
+    getCardProjection: (input: GetNoteCardProjectionInput) => serialize(async (): Promise<NoteCardProjection> => {
+      const current = await openNote(input.noteId)
+      const entry = current.note.getEntries().find(candidate => candidate.id === input.topicId)
+      if (!entry || entry.kind !== 'topic')
+        throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
+      const card = projectEditorCards(current.note.getTopicValidationInput(input.topicId).document)
+        .find(candidate => candidate.id === input.cardId)
+      if (!card)
+        throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
+      return {
+        card,
+        noteTitle: current.note.getTitle(),
+        topicTitle: entry.title,
+        updatedAt: current.updatedAt,
+      }
     }),
     getNote: (input: Parameters<EditorStorage['getNote']>[0]) => serialize(async () => toDesktopNote(await openNote(input.noteId))),
     getNoteTree: (input: { noteId: string }) => serialize(async () => {
