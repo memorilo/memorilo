@@ -80,11 +80,13 @@ function UploadStatus() {
 }
 
 export function EditorCanvas({
+  embedded,
   focusBlockId,
   mode,
   modeControls,
   session,
 }: {
+  embedded: boolean
   focusBlockId?: string
   mode: EditorModeValue
   modeControls?: ReactNode
@@ -116,12 +118,12 @@ export function EditorCanvas({
     <>
       <div data-editor-mode-controls="">{modeControls}</div>
       <ProseKit editor={editor}>
-        <div {...stylex.props(editorCanvasStyles.viewport)}>
+        <div {...stylex.props(editorCanvasStyles.viewport, embedded && editorCanvasStyles.viewportEmbedded)}>
           <UploadStatus />
-          <div {...stylex.props(editorCanvasStyles.scrolling)}>
+          <div {...stylex.props(editorCanvasStyles.scrolling, embedded && editorCanvasStyles.scrollingEmbedded)}>
             <div
               ref={editor.mount}
-              {...stylex.props(editorCanvasStyles.content)}
+              {...stylex.props(editorCanvasStyles.content, embedded && editorCanvasStyles.contentEmbedded)}
               aria-label={t('ui.editorContent')}
               aria-multiline="true"
               data-editor-content=""

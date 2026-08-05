@@ -25,6 +25,9 @@ describe('settings renderer', () => {
       '简体中文',
     ])
     expect(rendered.getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute('aria-checked', 'false')
+    expect(rendered.getByRole('radio', { name: 'Sunday' })).toBeChecked()
+    fireEvent.click(rendered.getByRole('radio', { name: 'Monday' }))
+    await waitFor(() => expect(store.getSnapshot().weekStart).toBe('monday'))
 
     fireEvent.click(rendered.getByRole('button', { name: 'Editor' }))
     expect(await rendered.findByRole('heading', { name: 'Editor' })).toBeInTheDocument()
@@ -61,6 +64,7 @@ describe('settings renderer', () => {
         outdentBehavior: 'logical',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
+        weekStart: 'monday',
       })
       expect(document.documentElement.lang).toBe('zh-CN')
     })
@@ -74,6 +78,7 @@ describe('settings renderer', () => {
         outdentBehavior: 'logical',
         reduceMotion: true,
         tiffConversionFormat: 'webp',
+        weekStart: 'monday',
       })
       expect(document.documentElement).toHaveAttribute('data-reduce-motion', 'true')
     })

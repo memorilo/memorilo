@@ -25,6 +25,14 @@ export interface SelectConfigurationField extends ConfigurationFieldBase {
   }[]
 }
 
+export interface SegmentedConfigurationField extends ConfigurationFieldBase {
+  control: 'segmented'
+  options: readonly {
+    label: string
+    value: string
+  }[]
+}
+
 export interface TextConfigurationField extends ConfigurationFieldBase {
   control: 'text'
   placeholder?: string
@@ -37,6 +45,7 @@ export interface ToggleConfigurationField extends ConfigurationFieldBase {
 
 export type ConfigurationField
   = | NumberConfigurationField
+    | SegmentedConfigurationField
     | SelectConfigurationField
     | TextConfigurationField
     | ToggleConfigurationField
@@ -78,20 +87,22 @@ function validateField(field: ConfigurationField, defaults: object): void {
         throw new RangeError(`Number field ${field.path} step must be positive`)
       break
     }
+    case 'segmented':
     case 'select': {
+      const controlName = field.control === 'segmented' ? 'Segmented' : 'Select'
       if (typeof value !== 'string')
-        throw new TypeError(`Select field ${field.path} must address a string`)
+        throw new TypeError(`${controlName} field ${field.path} must address a string`)
       if (field.options.length === 0)
-        throw new TypeError(`Select field ${field.path} requires at least one option`)
+        throw new TypeError(`${controlName} field ${field.path} requires at least one option`)
       const values = new Set<string>()
       for (const option of field.options) {
-        validateText(option.label, `Select field ${field.path} option label`)
+        validateText(option.label, `${controlName} field ${field.path} option label`)
         if (values.has(option.value))
-          throw new TypeError(`Select field ${field.path} has duplicate option ${option.value}`)
+          throw new TypeError(`${controlName} field ${field.path} has duplicate option ${option.value}`)
         values.add(option.value)
       }
       if (!values.has(value))
-        throw new TypeError(`Select field ${field.path} does not include its default value`)
+        throw new TypeError(`${controlName} field ${field.path} does not include its default value`)
       break
     }
     case 'text':

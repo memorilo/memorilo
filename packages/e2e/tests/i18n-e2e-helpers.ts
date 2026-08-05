@@ -35,6 +35,7 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
     outdentBehavior: 'logical',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
+    weekStart: 'sunday',
   }
 }
 

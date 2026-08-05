@@ -45,6 +45,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('language')
     case 'reduceMotion':
       return t('reduceMotion')
+    case 'weekStart':
+      return t('weekStart')
     case 'outdentBehavior':
       return t('outdentBehavior')
     case 'networkImagePasteBehavior':
@@ -66,6 +68,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
   switch (field.path) {
     case 'outdentBehavior':
       return t('outdentBehaviorDescription')
+    case 'weekStart':
+      return t('weekStartDescription')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehaviorDescription')
     case 'tiffConversionFormat':
@@ -93,6 +97,10 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('outdentLogical')
     case 'traditional':
       return t('outdentTraditional')
+    case 'sunday':
+      return t('sunday')
+    case 'monday':
+      return t('monday')
     case 'download':
       return t('networkImagePasteDownload')
     case 'url':
@@ -115,7 +123,7 @@ function localizeSection(section: ConfigurationSection, t: TFunction): Configura
     ...section,
     label: translateSectionLabel(section.id, t),
     fields: section.fields.map((field) => {
-      if (field.control === 'select') {
+      if (field.control === 'select' || field.control === 'segmented') {
         return {
           ...field,
           description: translateFieldDescription(field, t),

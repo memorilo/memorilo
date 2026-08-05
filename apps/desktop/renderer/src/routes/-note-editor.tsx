@@ -1,16 +1,16 @@
-import type { DesktopNote } from '@memorilo/desktop-preload'
+import type { DesktopRegularNote } from '@memorilo/desktop-preload'
 import type {
   EditorNote,
-  EditorNoteChange,
-  EditorTopicDocument,
   NoteEntrySnapshot,
 } from '@memorilo/editor'
+import type { Cause } from 'effect'
 import type { PaletteCommand } from '../components/command-palette-context'
-import { createEditorNote, demoEditorAdapters, Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
+import type { EditorNoteSessionOpened, TopicValidationError } from './-note-editor-session'
+import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Cause, Effect, Exit, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
 import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
@@ -26,35 +26,16 @@ import {
   Star,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCommandPaletteCommands } from '../components/command-palette-context'
 import { usePageTitlebar } from '../components/page-titlebar'
 import { useDesktopConfiguration } from '../configuration-context'
-import { useNotePersistence } from '../note-persistence-context'
 import { noteQueryKeys } from '../queries/note-query-keys'
-import { applyExternalNoteUpdate } from './-note-external-update'
+import { router } from '../router'
+import { desktopEditorAdapters, useEditorNoteSession } from './-note-editor-session'
 import { editorRouteStyles } from './-note.stylex'
-
-function desktopEditorAdapters(networkImagePasteBehavior: 'download' | 'url') {
-  return {
-    ...demoEditorAdapters,
-    importNetworkImage: async (source: string) => (await window.desktop.importNetworkImage({ source })).src,
-    networkImagePasteBehavior,
-    uploadImage: async ({ file, onProgress }: Parameters<typeof demoEditorAdapters.uploadImage>[0]) => {
-      const total = Math.max(file.size, 1)
-      onProgress({ loaded: 0, total })
-      const result = await window.desktop.saveImage({
-        data: new Uint8Array(await file.arrayBuffer()),
-        fileName: file.name,
-        mimeType: file.type,
-      })
-      onProgress({ loaded: total, total })
-      return result.src
-    },
-  }
-}
 
 const inspectorSpring = {
   bounce: 0,
@@ -81,9 +62,12 @@ function setNoteFavoriteMutationOptions() {
     { favorite: boolean, noteId: string },
     Cause.UnknownError,
     never,
-    { favorite: boolean, noteId: string }
+    { favorite: boolean, note: EditorNote, noteId: string }
   >({
-    mutationFn: input => Effect.tryPromise(() => window.desktop.setNoteFavorite(input)),
+    mutationFn: input => Effect.tryPromise(() => window.desktop.setNoteFavorite({
+      favorite: input.favorite,
+      noteId: input.noteId,
+    })),
   })
 }
 
@@ -150,40 +134,11 @@ function visibleNoteEntries(
   })
 }
 
-interface OpenEditorNote {
-  entries: readonly NoteEntrySnapshot[]
-  note: EditorNote
-  stored: DesktopNote
-  topic: EditorTopicDocument
-}
-
-interface TopicValidationError {
-  diagnostics: string
-  message: string
-}
-
 type CopyStatus = 'copied' | 'failed'
 
 interface CopyFeedback {
   diagnostics: string
   status: CopyStatus
-}
-
-function formatTopicValidationDiagnostics(
-  note: EditorNote,
-  topicId: string,
-  effectOutput: string,
-): string {
-  const sections = [`Topic ID: ${topicId}`]
-  try {
-    const input = note.getTopicValidationInput(topicId)
-    sections.push(`Invalid Topic JSON:\n${JSON.stringify(input, null, 2)}`)
-  }
-  catch (error) {
-    sections.push(`Invalid Topic JSON:\nUnable to project Topic: ${error instanceof Error ? error.message : String(error)}`)
-  }
-  sections.push(`Effect validation output:\n${effectOutput}`)
-  return sections.join('\n\n')
 }
 
 function OpenedTopicEditor({
@@ -203,7 +158,7 @@ function OpenedTopicEditor({
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   onToggleEntry: (entryId: string) => void
   onToggleFavorite: () => void
-  opened: OpenEditorNote
+  opened: EditorNoteSessionOpened
   saveError: string | null
   validationError: TopicValidationError | null
 }) {
@@ -554,248 +509,70 @@ export function NoteEditor({
   topicId: string
 }) {
   const { t } = useTranslation(['editor', 'pages'])
-  const [opened, setOpened] = useState<OpenEditorNote | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [validationError, setValidationError] = useState<TopicValidationError | null>(null)
   const queryClient = useQueryClient()
-  const persistence = useNotePersistence(noteId)
-  const { discard, enqueue, getPendingChanges, subscribeReceipts } = persistence
-  const noteRef = useRef<EditorNote | null>(null)
-  const storedRef = useRef<DesktopNote | null>(null)
-  const restoringRef = useRef(false)
-  const unsubscribeRef = useRef<(() => void) | undefined>(undefined)
-  const latestValidSnapshotRef = useRef<Uint8Array | null>(null)
-  const handleNoteChangeRef = useRef<(change: EditorNoteChange) => void>(() => undefined)
+  const loadNote = useCallback(async (): Promise<DesktopRegularNote> => {
+    const stored = await window.desktop.getNote({ noteId })
+    if (stored.kind === 'journal') {
+      await router.navigate({ search: { date: stored.journalDate }, to: '/journals' })
+      throw new Error(`Journal ${stored.journalDate} must open in the Journal feed`)
+    }
+    return stored
+  }, [noteId])
+  const handleOpened = useCallback(async (current: EditorNoteSessionOpened) => {
+    await window.desktop.recordNoteOpened({
+      noteId: current.note.id,
+      topicId: current.topic.topicId,
+    })
+    void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
+  }, [queryClient])
+  const handleExternalUpdate = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
+  }, [queryClient])
+  const session = useEditorNoteSession<DesktopRegularNote>({
+    loadNote,
+    noteId,
+    onExternalUpdate: handleExternalUpdate,
+    onOpened: handleOpened,
+    topicId,
+  })
+  const { loadError, opened, saveError, updateStored, validationError } = session
   const { isPending: favoritePending, mutate: mutateFavorite } = useMutation({
     ...setNoteFavoriteMutationOptions(),
-    onSuccess: (state) => {
-      setOpened(current => current && current.stored.id === state.noteId
-        ? { ...current, stored: { ...current.stored, favorite: state.favorite } }
-        : current)
+    onSuccess: (state, input) => {
+      updateStored(input.note, { favorite: state.favorite })
       void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
       void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
     },
   })
 
-  useEffect(() => subscribeReceipts((savedNoteId, receipt) => {
-    const currentNote = noteRef.current
-    if (currentNote?.id !== savedNoteId)
-      return
-    setOpened((current) => {
-      if (!current || current.note !== currentNote)
-        return current
-      const stored = { ...current.stored, updatedAt: receipt.updatedAt }
-      storedRef.current = stored
-      return { ...current, entries: currentNote.getEntries(), stored }
-    })
-  }), [subscribeReceipts])
-
-  const rebuildFromLatestValidSnapshot = useCallback((validationError: TopicValidationError) => {
-    const current = noteRef.current
-    const snapshot = latestValidSnapshotRef.current
-    const stored = storedRef.current
-    if (!current || !snapshot || !stored || restoringRef.current)
-      return
-
-    restoringRef.current = true
-    discard()
-    unsubscribeRef.current?.()
-    unsubscribeRef.current = undefined
-    const restored = createEditorNote({ id: current.id, snapshot })
-    const restoredTopic = restored.getEntries().find(entry => entry.kind === 'topic' && entry.id === topicId)
-    if (!restoredTopic) {
-      restoringRef.current = false
-      setValidationError({
-        diagnostics: validationError.diagnostics,
-        message: t('restoreFailedMessage', { topicId }),
-      })
-      return
-    }
-    noteRef.current = restored
-    latestValidSnapshotRef.current = restored.exportSnapshot()
-    enqueue({ noteId: restored.id, update: restored.exportUpdates() })
-    unsubscribeRef.current = restored.subscribe(change => handleNoteChangeRef.current(change))
-    setOpened({
-      entries: restored.getEntries(),
-      note: restored,
-      stored,
-      topic: restored.getTopic(topicId),
-    })
-    setValidationError(validationError)
-    restoringRef.current = false
-  }, [discard, enqueue, t, topicId])
-
-  const handleNoteChange = useCallback((change: EditorNoteChange) => {
-    if (restoringRef.current)
-      return
-    const note = noteRef.current
-    if (!note)
-      return
-
-    const entriesExit = Effect.runSyncExit(Effect.try({
-      try: () => note.getEntries(),
-      catch: error => error instanceof Error ? error : new Error(String(error)),
-    }))
-    if (Exit.isFailure(entriesExit)) {
-      const effectOutput = Cause.pretty(entriesExit.cause)
-      console.error('Topic entry projection failed; restoring the latest valid Note snapshot', effectOutput)
-      rebuildFromLatestValidSnapshot({
-        diagnostics: formatTopicValidationDiagnostics(note, topicId, effectOutput),
-        message: t('invalidStructureReverted', { ns: 'editor' }),
-      })
-      return
-    }
-
-    for (const entry of entriesExit.value) {
-      if (entry.kind !== 'topic')
-        continue
-      const validationExit = Effect.runSyncExit(note.validateTopic(entry.id))
-      if (Exit.isSuccess(validationExit))
-        continue
-      const effectOutput = Cause.pretty(validationExit.cause)
-      console.error('Topic validation failed; restoring the latest valid Note snapshot', effectOutput)
-      rebuildFromLatestValidSnapshot({
-        diagnostics: formatTopicValidationDiagnostics(note, entry.id, effectOutput),
-        message: t('invalidStructureReverted', { ns: 'editor' }),
-      })
-      return
-    }
-
-    setValidationError(null)
-    latestValidSnapshotRef.current = note.exportSnapshot()
-    enqueue(change)
-  }, [enqueue, rebuildFromLatestValidSnapshot, t, topicId])
-  handleNoteChangeRef.current = handleNoteChange
-
-  useEffect(() => window.desktop.subscribeNoteUpdates((external) => {
-    const note = noteRef.current
-    if (!note || note.id !== external.noteId)
-      return
-    try {
-      const applied = applyExternalNoteUpdate(note, external)
-      if (!applied)
-        return
-      latestValidSnapshotRef.current = applied.snapshot
-      setOpened((current) => {
-        if (!current || current.note !== note)
-          return current
-        const stored = { ...current.stored, updatedAt: applied.updatedAt }
-        storedRef.current = stored
-        return { ...current, entries: applied.entries, stored }
-      })
-      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
-    }
-    catch (error) {
-      console.error(`Failed to apply external update for Note ${external.noteId}`, error)
-    }
-  }), [queryClient])
-
-  const resetViewState = useCallback(() => {
-    setOpened(null)
-    setLoadError(null)
-    setValidationError(null)
-  }, [])
-
   const handleRenameNote = useCallback(async (note: EditorNote, title: string) => {
     const result = await window.desktop.renameNote({ noteId: note.id, title })
     if (result.status === 'duplicate-title')
       return { error: t('duplicateTitle', { ns: 'pages' }) }
+    if (result.status === 'journal-title-immutable')
+      throw new Error(`Regular Note ${note.id} was unexpectedly classified as Journal ${result.journalDate}`)
 
-    if (noteRef.current !== note)
+    if (!updateStored(note, {
+      title: result.note.title,
+      updatedAt: result.note.updatedAt,
+    })) {
       return
-    note.renameNote(result.note.title)
-    if (storedRef.current?.id === note.id) {
-      storedRef.current = {
-        ...storedRef.current,
-        title: result.note.title,
-        updatedAt: result.note.updatedAt,
-      }
     }
-    setOpened((current) => {
-      if (!current || current.note !== note)
-        return current
-      return {
-        ...current,
-        stored: {
-          ...current.stored,
-          title: result.note.title,
-          updatedAt: result.note.updatedAt,
-        },
-      }
-    })
+    note.renameNote(result.note.title)
     void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
     void queryClient.invalidateQueries({ queryKey: noteQueryKeys.favorites })
     void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
-  }, [queryClient, t])
+  }, [queryClient, t, updateStored])
 
   const handleToggleFavorite = useCallback(() => {
     if (!opened)
       return
-    mutateFavorite({ favorite: !opened.stored.favorite, noteId: opened.stored.id })
+    mutateFavorite({
+      favorite: !opened.stored.favorite,
+      note: opened.note,
+      noteId: opened.stored.id,
+    })
   }, [mutateFavorite, opened])
-
-  useEffect(() => {
-    let active = true
-    queueMicrotask(() => {
-      if (active)
-        resetViewState()
-    })
-
-    void window.desktop.getNote({ noteId }).then(async (stored) => {
-      if (!active)
-        return
-      const note = createEditorNote({
-        id: stored.id,
-        snapshot: stored.snapshot,
-        title: stored.title,
-      })
-      getPendingChanges()
-        .forEach(change => note.importUpdates(change.update))
-      if (!active)
-        return
-
-      for (const entry of note.getEntries()) {
-        if (entry.kind === 'topic')
-          await Effect.runPromise(note.validateTopic(entry.id))
-      }
-      if (!active)
-        return
-
-      const entries = note.getEntries()
-      const topic = entries.find(entry => entry.kind === 'topic' && entry.id === topicId)
-      if (!topic)
-        throw new Error(`Note ${note.id} does not contain Topic ${topicId}`)
-      await window.desktop.recordNoteOpened({ noteId: note.id, topicId: topic.id })
-      if (!active)
-        return
-      void queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent })
-      noteRef.current = note
-      storedRef.current = stored
-      latestValidSnapshotRef.current = note.exportSnapshot()
-      unsubscribeRef.current = note.subscribe(handleNoteChange)
-      setOpened({
-        entries,
-        note,
-        stored,
-        topic: note.getTopic(topic.id),
-      })
-    }, (error) => {
-      if (active)
-        setLoadError(error instanceof Error ? error.message : String(error))
-    }).catch((error) => {
-      if (active)
-        setLoadError(error instanceof Error ? error.message : String(error))
-    })
-
-    return () => {
-      active = false
-      unsubscribeRef.current?.()
-      unsubscribeRef.current = undefined
-      noteRef.current = null
-      storedRef.current = null
-      latestValidSnapshotRef.current = null
-    }
-  }, [getPendingChanges, handleNoteChange, noteId, queryClient, resetViewState, topicId])
 
   if (loadError) {
     return (
@@ -823,9 +600,7 @@ export function NoteEditor({
       onToggleEntry={onToggleEntry}
       onToggleFavorite={handleToggleFavorite}
       opened={opened}
-      saveError={persistence.error instanceof Error
-        ? persistence.error.message
-        : persistence.error === null ? null : String(persistence.error)}
+      saveError={saveError}
       validationError={validationError}
     />
   )

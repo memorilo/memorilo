@@ -41,8 +41,12 @@ export interface EditorFocusTarget {
 }
 
 export interface EditorProps extends EditorBaseProps {
+  /** Standalone editors own vertical scrolling; embedded editors grow inside an outer scroller. */
+  layout?: EditorLayout
   topic: EditorTopicDocument
 }
+
+export type EditorLayout = 'embedded' | 'standalone'
 
 export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -79,6 +83,10 @@ export function Editor(props: EditorProps) {
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const mode = useEditorTopicMode(props.topic)
+  const layout = props.layout ?? 'standalone'
+  if (layout !== 'standalone' && layout !== 'embedded')
+    throw new TypeError(`Unknown Editor layout: ${String(layout)}`)
+  const embedded = layout === 'embedded'
   const { t } = useTranslation('editor')
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
@@ -112,9 +120,14 @@ export function Editor(props: EditorProps) {
 
   return (
     <Provider store={session.store}>
-      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={editorModeName(mode)}>
+      <div
+        ref={rootRef}
+        {...stylex.props(editorShellStyles.root, embedded && editorShellStyles.rootEmbedded)}
+        data-editor-layout={layout}
+        data-editor-mode={editorModeName(mode)}
+      >
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingEditorMode')}</div>}>
-          <DocumentEditor focusBlockId={props.focus?.blockId} mode={mode} session={session}>
+          <DocumentEditor embedded={embedded} focusBlockId={props.focus?.blockId} mode={mode} session={session}>
             {mode === EditorMode.Outline
               ? (
                   <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingOutlineMode')}</div>}>

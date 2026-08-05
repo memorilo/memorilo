@@ -27,6 +27,7 @@
     "lucide-react": "^0.468.0",
     "motion": "^12.43.0",
     "react": "19.2.8",
+    "react-calendar": "^6.0.1",
     "react-dom": "19.2.8",
     "react-i18next": "^15.7.4",
     "react-toastify": "^11.1.0"
