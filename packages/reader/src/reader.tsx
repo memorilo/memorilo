@@ -12,6 +12,7 @@ import type {
   ReaderNote,
   ReaderOutlineItem,
   ReaderProps,
+  ReaderScaleCapability,
 } from './types'
 import * as stylex from '@stylexjs/stylex'
 import {
@@ -33,8 +34,9 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { readerAnnotationLabel } from './internal/annotation-label'
 import { openReaderAdapter } from './internal/open-reader'
-import { readerMaximumScale, readerMinimumScale } from './internal/reader-adapter'
 import { readerStyles } from './reader.stylex'
 
 type ReaderStatus = 'error' | 'loading' | 'ready'
@@ -54,10 +56,11 @@ type ReaderViewAction
 const initialState: ReaderAdapterState = {
   canGoBackward: false,
   canGoForward: false,
-  capabilities: { presentationModes: [], scale: false },
+  capabilities: {},
   format: 'pdf',
   location: { format: 'pdf', label: '', progression: 0 },
   outline: [],
+  position: { format: 'pdf', pageNumber: 1 },
   presentationMode: 'publisher',
   scale: 1,
   title: '',
@@ -75,12 +78,12 @@ const sourceKeys = new WeakMap<object, number>()
 let nextSourceKey = 1
 
 function readerSourceKey(source: ReaderProps['source']): number {
-  const data = source.data
-  const existing = sourceKeys.get(data)
-  if (existing)
+  const identity = 'data' in source && source.data !== undefined ? source.data : source.read
+  const existing = sourceKeys.get(identity)
+  if (existing !== undefined)
     return existing
   const key = nextSourceKey++
-  sourceKeys.set(data, key)
+  sourceKeys.set(identity, key)
   return key
 }
 
@@ -98,20 +101,8 @@ function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
 }
 
-function annotationLabel(annotation: ReaderAnnotation): string {
-  const anchor = annotation.anchor
-  if (anchor.format === 'pdf')
-    return anchor.type === 'region' ? `Area on page ${anchor.pageNumber}` : `Page ${anchor.pageNumber}`
-  if (anchor.format === 'epub')
-    return anchor.locator.title || anchor.locator.href
-  if (anchor.format === 'txt')
-    return `Text near character ${anchor.start.toLocaleString()}`
-  return `Area on page ${anchor.pageNumber}`
-}
-
-function scaleActionLabel(format: ReaderAdapterState['format'], direction: 'in' | 'out'): string {
-  const zoom = format === 'pdf' || format === 'cbz' || format === 'cbr'
-  if (zoom)
+function scaleActionLabel(capability: ReaderScaleCapability, direction: 'in' | 'out'): string {
+  if (capability.kind === 'zoom')
     return direction === 'in' ? 'Zoom in' : 'Zoom out'
   return direction === 'in' ? 'Increase text size' : 'Decrease text size'
 }
@@ -380,20 +371,28 @@ function ReaderOutline({
 }
 
 function ReaderSession({
+  annotationEditingEnabled = true,
   annotations,
   ariaLabel = 'Document reader',
   arrowKeyPageTurning = true,
   chrome,
   defaultAnnotations = noAnnotations,
+  initialPosition,
   initialPresentationMode = 'publisher',
   ocrProvider,
   onAnnotationsChange,
   onError,
   onLocationChange,
   onOcrStatusChange,
+  onPositionChange,
   onSelectionChange,
   source,
+  title,
+  toolbarActions,
 }: ReaderSessionProps) {
+  const { t } = useTranslation('common')
+  const translationRef = useRef(t)
+  translationRef.current = t
   const engineRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ReaderAdapter | null>(null)
   const keyboardHandlerRef = useRef<(event: ReaderAdapterKeyboardEvent) => boolean>(() => false)
@@ -411,6 +410,8 @@ function ReaderSession({
   onLocationChangeRef.current = onLocationChange
   const onOcrStatusChangeRef = useRef(onOcrStatusChange)
   onOcrStatusChangeRef.current = onOcrStatusChange
+  const onPositionChangeRef = useRef(onPositionChange)
+  onPositionChangeRef.current = onPositionChange
   const onSelectionChangeRef = useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
 
@@ -446,7 +447,7 @@ function ReaderSession({
     const startingAnnotations = annotationsRef.current
 
     void (async () => {
-      opened = await openReaderAdapter(source, initialPresentationMode, ocrProvider, {
+      opened = await openReaderAdapter(source, initialPresentationMode, initialPosition, ocrProvider, {
         onAnnotationActivate: ({ annotationId }) => {
           if (!active)
             return
@@ -457,6 +458,10 @@ function ReaderSession({
         onError: reportError,
         onKeyDown: event => keyboardHandlerRef.current(event),
         onOcrStatusChange: ocrStatus => onOcrStatusChangeRef.current?.(ocrStatus),
+        onRegionSelectionModeChange: (enabled) => {
+          if (active)
+            setRegionSelectionActive(enabled)
+        },
         onSelectionChange: (nextSelection) => {
           if (!active)
             return
@@ -464,8 +469,6 @@ function ReaderSession({
           setColorPaletteOpen(false)
           setNoteComposerOpen(false)
           setNoteDraft('')
-          if (nextSelection)
-            setRegionSelectionActive(false)
           onSelectionChangeRef.current?.(nextSelection?.selection ?? null)
         },
         onStateChange: (state) => {
@@ -473,7 +476,9 @@ function ReaderSession({
             return
           dispatch({ adapter: state, type: 'state' })
           onLocationChangeRef.current?.(state.location)
+          onPositionChangeRef.current?.(state.position)
         },
+        regionAnnotationLabel: () => translationRef.current('reader.openAreaAnnotation'),
       })
       opened.setAnnotations(startingAnnotations)
       if (!active) {
@@ -491,12 +496,14 @@ function ReaderSession({
 
     return () => {
       active = false
+      setRegionSelectionActive(false)
+      setSelection(null)
       adapterRef.current = null
       container.replaceChildren()
       if (opened)
         void opened.destroy()
     }
-  }, [annotationsControlled, initialPresentationMode, ocrProvider, reportError, source])
+  }, [annotationsControlled, initialPosition, initialPresentationMode, ocrProvider, reportError, source])
 
   useEffect(() => {
     adapterRef.current?.setAnnotations(visibleAnnotations)
@@ -583,6 +590,8 @@ function ReaderSession({
   }, [])
 
   const createHighlight = useCallback(() => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     if (!selection)
       return
     const now = Date.now()
@@ -598,7 +607,7 @@ function ReaderSession({
       },
     ])
     dismissSelection()
-  }, [commitAnnotations, dismissSelection, selectedColor, selection])
+  }, [annotationEditingEnabled, commitAnnotations, dismissSelection, selectedColor, selection])
 
   const copySelection = useCallback(() => {
     if (!selection || selection.selection.type !== 'text')
@@ -609,6 +618,8 @@ function ReaderSession({
   }, [dismissSelection, reportError, selection])
 
   const createNote = useCallback(() => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     if (!selection)
       return
     const body = noteDraft.trim()
@@ -629,15 +640,17 @@ function ReaderSession({
     ])
     setAnnotationPanelOpen(true)
     dismissSelection()
-  }, [commitAnnotations, dismissSelection, noteDraft, selectedColor, selection])
+  }, [annotationEditingEnabled, commitAnnotations, dismissSelection, noteDraft, selectedColor, selection])
 
   const removeAnnotation = useCallback((annotationId: string) => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     commitAnnotations(annotationsRef.current.filter(annotation => annotation.id !== annotationId))
     if (activeAnnotationId === annotationId)
       setActiveAnnotationId(null)
     if (editingAnnotationId === annotationId)
       setEditingAnnotationId(null)
-  }, [activeAnnotationId, commitAnnotations, editingAnnotationId])
+  }, [activeAnnotationId, annotationEditingEnabled, commitAnnotations, editingAnnotationId])
 
   const beginEditAnnotation = useCallback((annotation: ReaderNote) => {
     setEditingAnnotationId(annotation.id)
@@ -645,6 +658,8 @@ function ReaderSession({
   }, [])
 
   const saveEditedAnnotation = useCallback(() => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     const body = editingDraft.trim()
     if (!editingAnnotationId || !body)
       return
@@ -657,22 +672,32 @@ function ReaderSession({
     }))
     setEditingAnnotationId(null)
     setEditingDraft('')
-  }, [commitAnnotations, editingAnnotationId, editingDraft])
+  }, [annotationEditingEnabled, commitAnnotations, editingAnnotationId, editingDraft])
 
   const toggleRegionSelection = useCallback(() => {
+    if (!annotationEditingEnabled)
+      return
     const next = !regionSelectionActive
-    adapterRef.current?.setRegionSelectionEnabled(next)
-    setRegionSelectionActive(next)
+    const adapter = adapterRef.current
+    if (!adapter?.setRegionSelectionEnabled) {
+      reportError(new Error('The reader declared area selection without providing its command'))
+      return
+    }
     if (next)
       dismissSelection()
-  }, [dismissSelection, regionSelectionActive])
+    adapter.setRegionSelectionEnabled(next)
+  }, [annotationEditingEnabled, dismissSelection, regionSelectionActive, reportError])
 
   const handleKeyDown = useCallback((event: globalThis.KeyboardEvent) => {
     if (event.key === 'Escape') {
       if (regionSelectionActive) {
         event.preventDefault()
-        adapterRef.current?.setRegionSelectionEnabled(false)
-        setRegionSelectionActive(false)
+        const adapter = adapterRef.current
+        if (!adapter?.setRegionSelectionEnabled) {
+          reportError(new Error('The reader declared area selection without providing its command'))
+          return
+        }
+        adapter.setRegionSelectionEnabled(false)
       }
       else if (selection) {
         event.preventDefault()
@@ -692,7 +717,7 @@ function ReaderSession({
     })) {
       event.preventDefault()
     }
-  }, [dismissSelection, handleReaderKeyboardEvent, regionSelectionActive, selection])
+  }, [dismissSelection, handleReaderKeyboardEvent, regionSelectionActive, reportError, selection])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -705,6 +730,7 @@ function ReaderSession({
     : undefined
   const popoverBelow = popoverLayout?.placement === 'below'
   const compactRegionToolbar = selection?.selection.type === 'region' && !colorPaletteOpen
+  const scaleCapability = adapterState.capabilities.scale
 
   return (
     <div
@@ -716,7 +742,7 @@ function ReaderSession({
         {chrome === 'embedded'
           ? (
               <div {...stylex.props(readerStyles.titleGroup)}>
-                <h2 {...stylex.props(readerStyles.title)}>{adapterState.title || source.name || 'Document'}</h2>
+                <h2 {...stylex.props(readerStyles.title)}>{title || adapterState.title || source.name || 'Document'}</h2>
                 <span {...stylex.props(readerStyles.format)}>{adapterState.format}</span>
                 {adapterState.textLayer === 'ocr'
                   ? <span {...stylex.props(readerStyles.statusChip)}>OCR text</span>
@@ -724,12 +750,16 @@ function ReaderSession({
                 {adapterState.textLayer === 'recognizing'
                   ? <span {...stylex.props(readerStyles.statusChip)}>Recognizing…</span>
                   : null}
-                {adapterState.format === 'pdf' && adapterState.textLayer === 'none' && status === 'ready'
+                {adapterState.textLayer === 'none' && status === 'ready'
                   ? <span {...stylex.props(readerStyles.statusChip)}>Image page</span>
                   : null}
               </div>
             )
-          : null}
+          : (
+              <div {...stylex.props(readerStyles.titleGroup, readerStyles.titleGroupWindow)}>
+                <h2 {...stylex.props(readerStyles.title)}>{title || adapterState.title || source.name || 'Document'}</h2>
+              </div>
+            )}
 
         <div
           {...stylex.props(
@@ -772,7 +802,8 @@ function ReaderSession({
             chrome === 'window' && readerStyles.actionsWindow,
           )}
         >
-          {adapterState.capabilities.regionSelection
+          {toolbarActions}
+          {annotationEditingEnabled && adapterState.capabilities.regionSelection
             ? (
                 <button
                   {...stylex.props(
@@ -799,34 +830,52 @@ function ReaderSession({
                   disabled={status !== 'ready' || adapterState.textLayer === 'recognizing'}
                   title="Recognize text on this page"
                   type="button"
-                  onClick={() => run(adapter => adapter.recognizeCurrentPage())}
+                  onClick={() => run((adapter) => {
+                    if (!adapter.recognizeCurrentPage)
+                      throw new Error('The reader declared OCR without providing its command')
+                    return adapter.recognizeCurrentPage()
+                  })}
                 >
                   <Sparkles aria-hidden="true" size={15} strokeWidth={1.8} />
                 </button>
               )
             : null}
-          <button
-            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
-            aria-label={scaleActionLabel(adapterState.format, 'out')}
-            data-window-no-drag=""
-            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale <= readerMinimumScale}
-            title={scaleActionLabel(adapterState.format, 'out')}
-            type="button"
-            onClick={() => run(adapter => adapter.setScale(adapterState.scale - 0.1))}
-          >
-            <Minus aria-hidden="true" size={15} strokeWidth={2} />
-          </button>
-          <button
-            {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
-            aria-label={scaleActionLabel(adapterState.format, 'in')}
-            data-window-no-drag=""
-            disabled={status !== 'ready' || !adapterState.capabilities.scale || adapterState.scale >= readerMaximumScale}
-            title={scaleActionLabel(adapterState.format, 'in')}
-            type="button"
-            onClick={() => run(adapter => adapter.setScale(adapterState.scale + 0.1))}
-          >
-            <Plus aria-hidden="true" size={15} strokeWidth={2} />
-          </button>
+          {scaleCapability
+            ? (
+                <>
+                  <button
+                    {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+                    aria-label={scaleActionLabel(scaleCapability, 'out')}
+                    data-window-no-drag=""
+                    disabled={status !== 'ready' || adapterState.scale <= scaleCapability.minimum}
+                    title={scaleActionLabel(scaleCapability, 'out')}
+                    type="button"
+                    onClick={() => run((adapter) => {
+                      if (!adapter.setScale)
+                        throw new Error('The reader declared scaling without providing its command')
+                      return adapter.setScale(adapterState.scale - scaleCapability.step)
+                    })}
+                  >
+                    <Minus aria-hidden="true" size={15} strokeWidth={2} />
+                  </button>
+                  <button
+                    {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+                    aria-label={scaleActionLabel(scaleCapability, 'in')}
+                    data-window-no-drag=""
+                    disabled={status !== 'ready' || adapterState.scale >= scaleCapability.maximum}
+                    title={scaleActionLabel(scaleCapability, 'in')}
+                    type="button"
+                    onClick={() => run((adapter) => {
+                      if (!adapter.setScale)
+                        throw new Error('The reader declared scaling without providing its command')
+                      return adapter.setScale(adapterState.scale + scaleCapability.step)
+                    })}
+                  >
+                    <Plus aria-hidden="true" size={15} strokeWidth={2} />
+                  </button>
+                </>
+              )
+            : null}
           <button
             {...stylex.props(
               readerStyles.button,
@@ -885,20 +934,24 @@ function ReaderSession({
               <BookOpenText aria-hidden="true" size={14} strokeWidth={1.8} />
               Contents
             </button>
-            <button
-              {...stylex.props(readerStyles.sidebarTab, sidebarTab === 'annotations' && readerStyles.sidebarTabActive)}
-              aria-controls="reader-annotations-panel"
-              aria-selected={sidebarTab === 'annotations'}
-              role="tab"
-              type="button"
-              onClick={() => setSidebarTab('annotations')}
-            >
-              <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
-              Annotations
-              {visibleAnnotations.length > 0
-                ? <span {...stylex.props(readerStyles.tabCount)}>{visibleAnnotations.length}</span>
-                : null}
-            </button>
+            {annotationEditingEnabled
+              ? (
+                  <button
+                    {...stylex.props(readerStyles.sidebarTab, sidebarTab === 'annotations' && readerStyles.sidebarTabActive)}
+                    aria-controls="reader-annotations-panel"
+                    aria-selected={sidebarTab === 'annotations'}
+                    role="tab"
+                    type="button"
+                    onClick={() => setSidebarTab('annotations')}
+                  >
+                    <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
+                    Annotations
+                    {visibleAnnotations.length > 0
+                      ? <span {...stylex.props(readerStyles.tabCount)}>{visibleAnnotations.length}</span>
+                      : null}
+                  </button>
+                )
+              : null}
           </div>
 
           {sidebarTab === 'contents'
@@ -911,7 +964,11 @@ function ReaderSession({
                           key={`${adapterState.title}:${adapterState.outline.length}`}
                           currentHref={adapterState.location.href}
                           items={adapterState.outline}
-                          onNavigate={itemId => run(adapter => adapter.goToOutlineItem(itemId))}
+                          onNavigate={itemId => run((adapter) => {
+                            if (!adapter.goToOutlineItem)
+                              throw new Error('The reader exposed an outline without providing its navigation command')
+                            return adapter.goToOutlineItem(itemId)
+                          })}
                         />
                       )}
                 </div>
@@ -948,7 +1005,7 @@ function ReaderSession({
                               <span {...stylex.props(readerStyles.annotationMeta)}>
                                 {annotation.kind === 'annotation' ? 'Annotation' : 'Highlight'}
                                 {' · '}
-                                {annotationLabel(annotation)}
+                                {readerAnnotationLabel(annotation, t)}
                               </span>
                             </button>
                             {quote
@@ -1027,6 +1084,7 @@ function ReaderSession({
               {...stylex.props(
                 readerStyles.glassPopover,
                 readerStyles.selectionToolbar,
+                !annotationEditingEnabled && readerStyles.selectionToolbarCopyOnly,
                 compactRegionToolbar && readerStyles.selectionToolbarRegion,
                 popoverBelow ? readerStyles.popoverBelow : readerStyles.popoverAbove,
               )}
@@ -1034,7 +1092,7 @@ function ReaderSession({
               role="toolbar"
               style={popoverLayout?.style}
             >
-              {colorPaletteOpen
+              {annotationEditingEnabled && colorPaletteOpen
                 ? annotationColors.map(color => (
                     <button
                       key={color}
@@ -1072,50 +1130,56 @@ function ReaderSession({
                             </button>
                           )
                         : null}
-                      <button
-                        {...stylex.props(
-                          readerStyles.paletteTool,
-                          readerStyles.paletteColorTool,
-                          readerStyles.paletteColor,
-                          selection.selection.type === 'region' && readerStyles.paletteColorRegion,
-                        )}
-                        aria-label="Choose annotation color"
-                        aria-expanded={colorPaletteOpen}
-                        title="Color"
-                        type="button"
-                        onClick={() => setColorPaletteOpen(true)}
-                      >
-                        <span {...stylex.props(readerStyles.paletteCurrentColor, colorStyle(selectedColor))} />
-                      </button>
-                      <button
-                        {...stylex.props(
-                          readerStyles.paletteTool,
-                          readerStyles.paletteHighlight,
-                          selection.selection.type === 'region' && readerStyles.paletteHighlightRegion,
-                        )}
-                        aria-label={selection.selection.type === 'text' ? 'Highlight selection' : 'Highlight area'}
-                        title="Highlight"
-                        type="button"
-                        onClick={createHighlight}
-                      >
-                        <Highlighter aria-hidden="true" size={19} strokeWidth={1.85} />
-                      </button>
-                      <button
-                        {...stylex.props(
-                          readerStyles.paletteTool,
-                          readerStyles.paletteAnnotate,
-                          selection.selection.type === 'region' && readerStyles.paletteAnnotateRegion,
-                        )}
-                        aria-label={selection.selection.type === 'text' ? 'Annotate selection' : 'Annotate area'}
-                        title="Annotate"
-                        type="button"
-                        onClick={() => {
-                          setColorPaletteOpen(false)
-                          setNoteComposerOpen(true)
-                        }}
-                      >
-                        <StickyNote aria-hidden="true" size={19} strokeWidth={1.85} />
-                      </button>
+                      {annotationEditingEnabled
+                        ? (
+                            <>
+                              <button
+                                {...stylex.props(
+                                  readerStyles.paletteTool,
+                                  readerStyles.paletteColorTool,
+                                  readerStyles.paletteColor,
+                                  selection.selection.type === 'region' && readerStyles.paletteColorRegion,
+                                )}
+                                aria-label="Choose annotation color"
+                                aria-expanded={colorPaletteOpen}
+                                title="Color"
+                                type="button"
+                                onClick={() => setColorPaletteOpen(true)}
+                              >
+                                <span {...stylex.props(readerStyles.paletteCurrentColor, colorStyle(selectedColor))} />
+                              </button>
+                              <button
+                                {...stylex.props(
+                                  readerStyles.paletteTool,
+                                  readerStyles.paletteHighlight,
+                                  selection.selection.type === 'region' && readerStyles.paletteHighlightRegion,
+                                )}
+                                aria-label={selection.selection.type === 'text' ? 'Highlight selection' : 'Highlight area'}
+                                title="Highlight"
+                                type="button"
+                                onClick={createHighlight}
+                              >
+                                <Highlighter aria-hidden="true" size={19} strokeWidth={1.85} />
+                              </button>
+                              <button
+                                {...stylex.props(
+                                  readerStyles.paletteTool,
+                                  readerStyles.paletteAnnotate,
+                                  selection.selection.type === 'region' && readerStyles.paletteAnnotateRegion,
+                                )}
+                                aria-label={selection.selection.type === 'text' ? 'Annotate selection' : 'Annotate area'}
+                                title="Annotate"
+                                type="button"
+                                onClick={() => {
+                                  setColorPaletteOpen(false)
+                                  setNoteComposerOpen(true)
+                                }}
+                              >
+                                <StickyNote aria-hidden="true" size={19} strokeWidth={1.85} />
+                              </button>
+                            </>
+                          )
+                        : null}
                     </>
                   )}
               <button
@@ -1134,7 +1198,7 @@ function ReaderSession({
           )
         : null}
 
-      {selection && noteComposerOpen
+      {annotationEditingEnabled && selection && noteComposerOpen
         ? (
             <div
               {...stylex.props(

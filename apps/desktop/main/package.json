@@ -19,6 +19,7 @@
     "@memorilo/desktop-preload": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
+    "@memorilo/reading-model": "workspace:*",
     "@memorilo/shelf": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
     "better-sqlite3": "13.0.1",

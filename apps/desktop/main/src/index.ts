@@ -27,6 +27,13 @@ import { createDesktopServices } from './ipc/services'
 import { flushRendererNotes } from './lifecycle/note-save-handshake'
 import { createMcpServerController } from './mcp/mcp-server-controller'
 import { createNoteApplicationService } from './notes/note-application-service'
+import { createActiveReadingRegistry } from './reading/active-reading-registry'
+import {
+  isRendererUrl,
+  registerRendererProtocol,
+  rendererIndexUrl,
+  rendererProtocol,
+} from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
@@ -57,6 +64,14 @@ if (isPrimaryInstance) {
 protocol.registerSchemesAsPrivileged([{
   scheme: assetProtocol,
   privileges: {
+    secure: true,
+    standard: true,
+    supportFetchAPI: true,
+  },
+}, {
+  scheme: rendererProtocol,
+  privileges: {
+    corsEnabled: true,
     secure: true,
     standard: true,
     supportFetchAPI: true,
@@ -183,7 +198,7 @@ function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
   if (rendererUrl)
     return new URL(target).origin === new URL(rendererUrl).origin
 
-  return new URL(target).protocol === 'file:'
+  return isRendererUrl(target)
 }
 
 function shouldShowWindow(): boolean {
@@ -295,7 +310,7 @@ function createWindow() {
   if (rendererUrl)
     void window.loadURL(rendererUrl)
   else
-    void window.loadFile(join(mainDirectory, '../renderer/index.html'))
+    void window.loadURL(rendererIndexUrl)
 }
 
 async function startApplication(): Promise<void> {
@@ -303,6 +318,7 @@ async function startApplication(): Promise<void> {
   const database = databasePath(userDataPath)
   const assets = assetDirectory(database)
   registerAssetProtocol(assets)
+  registerRendererProtocol(join(mainDirectory, '../renderer'))
   configurationStore = await createDesktopConfigurationStore(userDataPath)
   const mainDatabase = new BetterSqliteDatabase(database)
   editorStorage = await createEditorStorage({
@@ -321,6 +337,7 @@ async function startApplication(): Promise<void> {
     cacheDirectory: shelfBookCacheDirectory(userDataPath),
     libraryDirectory: shelfLibraryDirectory(database, userDataPath),
   })
+  const activeReadings = createActiveReadingRegistry()
 
   let configuration = configurationStore.getSnapshot()
   if (configuration.mcp.accessToken.length < 32) {
@@ -334,7 +351,7 @@ async function startApplication(): Promise<void> {
   const notes = createNoteApplicationService(editorStorage, ({ noteId, update, updatedAt }) => {
     for (const window of BrowserWindow.getAllWindows())
       window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
-  })
+  }, {}, activeReadings)
   await notes.openJournal()
   stopJournalRollover = installJournalRollover(notes)
   const mcpServer = createMcpServerController(notes)
@@ -350,6 +367,7 @@ async function startApplication(): Promise<void> {
     configurationStore,
     assets,
     serializeAssetOperation,
+    activeReadings,
   )
   void mcpServer.update(configuration.mcp)
   unsubscribeConfiguration = configurationStore.subscribe(() => {

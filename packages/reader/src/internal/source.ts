@@ -1,59 +1,104 @@
 import type { ReaderFormat, ReaderSource, ReaderSourceData } from '../types'
+import {
+  assertReadingFormat,
+  detectReadingFormat,
+  readingFormatDefaultName,
+} from '@memorilo/reading-format'
 
-const pdfSignature = [0x25, 0x50, 0x44, 0x46, 0x2D] as const
-const zipSignature = [0x50, 0x4B] as const
-const rar4Signature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00] as const
-const rar5Signature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00] as const
+const formatSignatureByteLength = 8
 
-const defaultNames: Readonly<Record<ReaderFormat, string>> = {
-  cbr: 'CBR comic',
-  cbz: 'CBZ comic',
-  epub: 'EPUB publication',
-  pdf: 'PDF document',
-  txt: 'Text document',
-}
-
-export async function readSourceBytes(data: ReaderSourceData): Promise<Uint8Array> {
-  if (data instanceof Uint8Array)
-    return data.slice()
-  if (data instanceof ArrayBuffer)
-    return new Uint8Array(data.slice(0))
-  return new Uint8Array(await data.arrayBuffer())
-}
-
-export async function resolveSource(source: ReaderSource): Promise<{
-  bytes: Uint8Array
+export interface ResolvedReaderSource {
+  byteLength: number
   format: ReaderFormat
   name: string
-}> {
-  const bytes = await readSourceBytes(source.data)
-  if (bytes.byteLength === 0)
-    throw new Error('The selected document is empty')
+  read: (offset: number, length: number) => Promise<Uint8Array>
+}
 
-  const format = source.format ?? sniffFormat(bytes, source.name)
+function assertByteLength(byteLength: number): void {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 0)
+    throw new RangeError('Reader source byteLength must be a non-negative safe integer')
+}
+
+function assertRange(byteLength: number, offset: number, length: number): void {
+  if (!Number.isSafeInteger(offset) || offset < 0)
+    throw new RangeError('Reader source offset must be a non-negative safe integer')
+  if (!Number.isSafeInteger(length) || length < 0)
+    throw new RangeError('Reader source length must be a non-negative safe integer')
+  if (offset > byteLength || length > byteLength - offset)
+    throw new RangeError(`Reader source range ${offset}..${offset + length} exceeds ${byteLength} bytes`)
+}
+
+function sourceDataByteLength(data: ReaderSourceData): number {
+  return data instanceof Blob ? data.size : data.byteLength
+}
+
+function readSourceData(data: ReaderSourceData, offset: number, length: number): Promise<Uint8Array> {
+  const end = offset + length
+  if (data instanceof Blob)
+    return data.slice(offset, end).arrayBuffer().then(buffer => new Uint8Array(buffer))
+  if (data instanceof Uint8Array)
+    return Promise.resolve(data.slice(offset, end))
+  return Promise.resolve(new Uint8Array(data, offset, length).slice())
+}
+
+function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'byteLength' | 'read'> {
+  if ('data' in source && source.data !== undefined) {
+    const byteLength = sourceDataByteLength(source.data)
+    assertByteLength(byteLength)
+    return {
+      byteLength,
+      read: (offset, length) => {
+        assertRange(byteLength, offset, length)
+        return readSourceData(source.data, offset, length)
+      },
+    }
+  }
+
+  const byteLength = source.byteLength
+  assertByteLength(byteLength)
   return {
-    bytes,
-    format,
-    name: source.name?.trim() || defaultNames[format],
+    byteLength,
+    read: async (offset, length) => {
+      assertRange(byteLength, offset, length)
+      const bytes = await source.read(offset, length)
+      if (!(bytes instanceof Uint8Array))
+        throw new TypeError('Reader source read() must resolve to a Uint8Array')
+      if (bytes.byteLength !== length)
+        throw new Error(`Reader source returned ${bytes.byteLength} bytes for a ${length}-byte range`)
+      return bytes
+    },
   }
 }
 
-function sniffFormat(bytes: Uint8Array, name?: string): ReaderFormat {
-  const extension = name?.split('.').pop()?.toLowerCase()
-  if (pdfSignature.every((value, index) => bytes[index] === value))
-    return 'pdf'
-  if (rar4Signature.every((value, index) => bytes[index] === value)
-    || rar5Signature.every((value, index) => bytes[index] === value)) {
-    return 'cbr'
+export async function readSourceBytes(source: ResolvedReaderSource): Promise<Uint8Array> {
+  return source.read(0, source.byteLength)
+}
+
+export async function resolveSource(source: ReaderSource): Promise<ResolvedReaderSource> {
+  const randomAccess = randomAccessReader(source)
+  if (randomAccess.byteLength === 0)
+    throw new Error('The selected document is empty')
+
+  let format: ReaderFormat
+  if (source.format === undefined) {
+    const prefix = await randomAccess.read(
+      0,
+      Math.min(randomAccess.byteLength, formatSignatureByteLength),
+    )
+    const detected = detectReadingFormat(prefix, source.name)
+    if (detected === null)
+      throw new Error('Unsupported document. Select a PDF, EPUB, TXT, CBZ, or CBR file')
+    format = detected
   }
-  if (zipSignature.every((value, index) => bytes[index] === value)) {
-    if (extension === 'cbz')
-      return 'cbz'
-    return 'epub'
+  else {
+    assertReadingFormat(source.format)
+    format = source.format
   }
 
-  if (extension === 'pdf' || extension === 'epub' || extension === 'cbz' || extension === 'cbr' || extension === 'txt')
-    return extension
-
-  throw new Error('Unsupported document. Select a PDF, EPUB, TXT, CBZ, or CBR file')
+  const providedName = source.name === undefined ? '' : source.name.trim()
+  return {
+    ...randomAccess,
+    format,
+    name: providedName.length > 0 ? providedName : readingFormatDefaultName(format),
+  }
 }

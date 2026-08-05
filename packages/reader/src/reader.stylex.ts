@@ -110,6 +110,15 @@ export const readerStyles = stylex.create({
     alignItems: 'center',
     gap: 8,
   },
+  titleGroupWindow: {
+    position: 'absolute',
+    top: 0,
+    right: 160,
+    left: 160,
+    height: 36,
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
   title: {
     overflow: 'hidden',
     margin: 0,
@@ -744,6 +753,9 @@ export const readerStyles = stylex.create({
     overflow: 'hidden',
     borderRadius: 22,
     padding: 0,
+  },
+  selectionToolbarCopyOnly: {
+    width: 96,
   },
   selectionToolbarRegion: {
     width: 188,

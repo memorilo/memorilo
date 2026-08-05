@@ -1,7 +1,9 @@
 import type {
   ReaderAnnotation,
   ReaderAnnotationColor,
+  ReaderPosition,
   ReaderTextQuote,
+  ReaderTxtRegionAnchor,
   ReaderTxtTextAnchor,
 } from '../../types'
 import type {
@@ -13,13 +15,18 @@ import type {
   ReaderScrollDirection,
   ReaderScrollResult,
 } from '../reader-adapter'
-import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
+import type { RegionSelectionResult } from '../region-selection'
+import type { ResolvedReaderSource } from '../source'
+import {
+  readerFontSizeScaleCapability,
+  readerMaximumScale,
+  readerMinimumScale,
+} from '../reader-adapter'
+import { RegionSelectionController } from '../region-selection'
+import { regionSelectionClassNames } from '../region-selection.stylex'
+import { readSourceBytes } from '../source'
 
-interface TxtSource {
-  bytes: Uint8Array
-  format: 'txt'
-  name: string
-}
+type TxtSource = ResolvedReaderSource & { format: 'txt' }
 
 const scrollStep = 48
 const scrollBoundaryTolerance = 1
@@ -90,6 +97,65 @@ function textOffset(article: HTMLElement, container: Node, offset: number): numb
   return prefix.toString().length
 }
 
+function textOffsetAtPoint(article: HTMLElement, x: number, y: number): number | null {
+  const document = article.ownerDocument
+  const caret = document.caretPositionFromPoint(x, y)
+  if (caret && article.contains(caret.offsetNode))
+    return textOffset(article, caret.offsetNode, caret.offset)
+
+  const range = document.caretRangeFromPoint(x, y)
+  if (range && article.contains(range.startContainer))
+    return textOffset(article, range.startContainer, range.startOffset)
+  return null
+}
+
+function textOffsetsWithinRect(article: HTMLElement, rect: ReaderClientRect): { end: number, start: number } {
+  const right = rect.left + rect.width
+  const bottom = rect.top + rect.height
+  const points = [
+    [rect.left + 1, rect.top + 1],
+    [right - 1, rect.top + 1],
+    [rect.left + 1, bottom - 1],
+    [right - 1, bottom - 1],
+    [rect.left + rect.width / 2, rect.top + rect.height / 2],
+  ] as const
+  const offsets = points
+    .map(([x, y]) => textOffsetAtPoint(article, x, y))
+    .filter((offset): offset is number => offset !== null)
+  if (offsets.length === 0)
+    throw new Error('TXT area selection does not intersect document text')
+  const start = Math.min(...offsets)
+  const end = Math.max(...offsets)
+  if (start === end)
+    throw new Error('TXT area selection is too small to anchor to document text')
+  return { end, start }
+}
+
+function textPointAtOffset(article: HTMLElement, offset: number): { node: Text, offset: number } {
+  const walker = article.ownerDocument.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+  let remaining = offset
+  let lastText: Text | null = null
+  while (walker.nextNode()) {
+    const text = walker.currentNode as Text
+    lastText = text
+    if (remaining <= text.data.length)
+      return { node: text, offset: remaining }
+    remaining -= text.data.length
+  }
+  if (lastText && remaining === 0)
+    return { node: lastText, offset: lastText.data.length }
+  throw new Error(`TXT text offset ${offset} is outside the document`)
+}
+
+function textRange(article: HTMLElement, start: number, end: number): Range {
+  const startPoint = textPointAtOffset(article, start)
+  const endPoint = textPointAtOffset(article, end)
+  const range = article.ownerDocument.createRange()
+  range.setStart(startPoint.node, startPoint.offset)
+  range.setEnd(endPoint.node, endPoint.offset)
+  return range
+}
+
 function selectionQuote(text: string, start: number, end: number): ReaderTextQuote {
   return {
     after: text.slice(end, end + 64),
@@ -99,21 +165,48 @@ function selectionQuote(text: string, start: number, end: number): ReaderTextQuo
 }
 
 class TxtAdapter implements ReaderAdapter {
+  private annotationLayer: HTMLDivElement | null = null
   private annotations: readonly ReaderAnnotation[] = []
   private article: HTMLElement | null = null
+  private content: HTMLDivElement | null = null
   private container: HTMLElement | null = null
   private destroyed = false
   private keyboardScrollTarget: { direction: ReaderScrollDirection, value: number } | null = null
   private resizeObserver: ResizeObserver | null = null
+  private readonly regionSelection: RegionSelectionController
+  private readonly initialOffset: number
   private scale = 1
   private scrollFrame: number | null = null
   private scroller: HTMLDivElement | null = null
+  private surface: HTMLDivElement | null = null
 
   constructor(
     private readonly source: TxtSource,
     private readonly text: string,
+    initialPosition: ReaderPosition | null | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
-  ) {}
+  ) {
+    if (initialPosition !== null && initialPosition !== undefined) {
+      if (initialPosition.format !== 'txt')
+        throw new TypeError(`Cannot restore ${initialPosition.format} position in a TXT reader`)
+      if (!Number.isSafeInteger(initialPosition.offset) || initialPosition.offset < 0)
+        throw new RangeError('TXT reading position must contain a non-negative character offset')
+    }
+    this.initialOffset = initialPosition?.format === 'txt'
+      ? Math.min(initialPosition.offset, text.length)
+      : 0
+    this.regionSelection = new RegionSelectionController({
+      onEnabledChange: enabled => this.callbacks.onRegionSelectionModeChange(enabled),
+      onSelection: (selection) => {
+        try {
+          this.publishRegionSelection(selection)
+        }
+        catch (error) {
+          this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+        }
+      },
+    })
+  }
 
   async mount(container: HTMLElement): Promise<void> {
     if (this.destroyed)
@@ -121,6 +214,13 @@ class TxtAdapter implements ReaderAdapter {
     if (this.container)
       throw new Error('TXT reader is already mounted')
     this.container = container
+    const surface = document.createElement('div')
+    Object.assign(surface.style, {
+      height: '100%',
+      overflow: 'hidden',
+      position: 'relative',
+      width: '100%',
+    })
     const scroller = document.createElement('div')
     scroller.tabIndex = 0
     Object.assign(scroller.style, {
@@ -131,6 +231,11 @@ class TxtAdapter implements ReaderAdapter {
       padding: '48px 24px 72px',
       scrollBehavior: 'auto',
       width: '100%',
+    })
+    const content = document.createElement('div')
+    Object.assign(content.style, {
+      minHeight: '100%',
+      position: 'relative',
     })
     const article = document.createElement('article')
     article.setAttribute('aria-label', this.source.name)
@@ -150,17 +255,32 @@ class TxtAdapter implements ReaderAdapter {
     article.addEventListener('keyup', () => queueMicrotask(() => this.captureSelection()))
     article.addEventListener('click', event => this.activateAnnotation(event))
     scroller.addEventListener('scroll', () => this.scheduleState())
-    scroller.append(article)
-    container.append(scroller)
+    const annotationLayer = document.createElement('div')
+    annotationLayer.className = regionSelectionClassNames.annotations
+    const regionCapture = document.createElement('div')
+    regionCapture.setAttribute('aria-hidden', 'true')
+    content.append(article, annotationLayer)
+    scroller.append(content)
+    surface.append(scroller, regionCapture)
+    container.append(surface)
+    this.surface = surface
     this.scroller = scroller
+    this.content = content
     this.article = article
-    this.resizeObserver = new ResizeObserver(() => this.emitState())
+    this.annotationLayer = annotationLayer
+    this.regionSelection.mount(surface, regionCapture)
+    this.resizeObserver = new ResizeObserver(() => {
+      this.renderRegionAnnotations()
+      this.emitState()
+    })
     this.resizeObserver.observe(scroller)
     this.renderText()
+    this.positionAtTextOffset(this.initialOffset)
     this.emitState()
   }
 
   clearSelection(): void {
+    this.regionSelection.setEnabled(false)
     const selection = document.getSelection()
     if (selection && this.article && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
@@ -174,12 +294,16 @@ class TxtAdapter implements ReaderAdapter {
     if (this.destroyed)
       return
     this.destroyed = true
+    this.regionSelection.destroy()
     if (this.scrollFrame !== null)
       cancelAnimationFrame(this.scrollFrame)
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     this.container?.replaceChildren()
     this.container = null
+    this.surface = null
+    this.content = null
+    this.annotationLayer = null
   }
 
   async goBackward(_entryEdge: ReaderPageEdge): Promise<void> {
@@ -194,14 +318,10 @@ class TxtAdapter implements ReaderAdapter {
     const annotation = this.annotations.find(item => item.id === annotationId)
     if (!annotation || annotation.anchor.format !== 'txt')
       throw new Error(`TXT annotation ${annotationId} does not exist`)
-    const marker = this.article?.querySelector<HTMLElement>(`[data-annotation-id="${CSS.escape(annotationId)}"]`)
+    const marker = this.content?.querySelector<HTMLElement>(`[data-annotation-id="${CSS.escape(annotationId)}"]`)
     if (!marker)
       throw new Error(`TXT annotation ${annotationId} is outside the document`)
     marker.scrollIntoView({ behavior: keyboardScrollBehavior(), block: 'center' })
-  }
-
-  async goToOutlineItem(): Promise<void> {
-    throw new Error('TXT documents do not provide a table of contents')
   }
 
   moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
@@ -226,21 +346,13 @@ class TxtAdapter implements ReaderAdapter {
     return 'scrolled'
   }
 
-  async recognizeCurrentPage(): Promise<void> {
-    throw new Error('OCR is only available for PDF documents')
-  }
-
   setAnnotations(annotations: readonly ReaderAnnotation[]): void {
     this.annotations = annotations
     this.renderText()
   }
 
-  async setPresentationMode(): Promise<void> {
-    // Plain text is always shown in the reader's reflowable presentation.
-  }
-
-  setRegionSelectionEnabled(): void {
-    // TXT supports stable text selections, not free-form regions.
+  setRegionSelectionEnabled(enabled: boolean): void {
+    this.regionSelection.setEnabled(enabled)
   }
 
   async setScale(scale: number): Promise<void> {
@@ -251,6 +363,7 @@ class TxtAdapter implements ReaderAdapter {
     this.clearSelection()
     if (this.article)
       this.article.style.fontSize = `${17 * this.scale}px`
+    this.renderRegionAnnotations()
     this.emitState()
   }
 
@@ -299,6 +412,27 @@ class TxtAdapter implements ReaderAdapter {
     })
   }
 
+  private publishRegionSelection(result: RegionSelectionResult | null): void {
+    if (!result) {
+      this.callbacks.onSelectionChange(null)
+      return
+    }
+    const article = this.article
+    if (!article)
+      throw new Error('TXT region selection occurred before the reader was mounted')
+    const offsets = textOffsetsWithinRect(article, result.clientRect)
+    const anchor: ReaderTxtRegionAnchor = {
+      end: offsets.end,
+      format: 'txt',
+      start: offsets.start,
+      type: 'region',
+    }
+    this.callbacks.onSelectionChange({
+      clientRect: result.clientRect,
+      selection: { anchor, type: 'region' },
+    })
+  }
+
   private activateAnnotation(event: MouseEvent): void {
     const selection = document.getSelection()
     if (selection && !selection.isCollapsed)
@@ -318,6 +452,7 @@ class TxtAdapter implements ReaderAdapter {
     const annotations = this.annotations
       .filter((annotation): annotation is ReaderAnnotation & { anchor: ReaderTxtTextAnchor } => (
         annotation.anchor.format === 'txt'
+        && annotation.anchor.type === 'text'
         && annotation.anchor.start >= 0
         && annotation.anchor.end <= this.text.length
         && annotation.anchor.start < annotation.anchor.end
@@ -350,6 +485,42 @@ class TxtAdapter implements ReaderAdapter {
     }
     article.replaceChildren(fragment)
     scroller.scrollTop = scrollTop
+    this.renderRegionAnnotations()
+  }
+
+  private renderRegionAnnotations(): void {
+    const layer = this.annotationLayer
+    const article = this.article
+    const content = this.content
+    if (!layer || !article || !content)
+      return
+    layer.replaceChildren()
+    const contentRect = content.getBoundingClientRect()
+    for (const annotation of this.annotations) {
+      const anchor = annotation.anchor
+      if (anchor.format !== 'txt' || anchor.type !== 'region')
+        continue
+      if (anchor.start < 0 || anchor.end > this.text.length || anchor.start >= anchor.end)
+        throw new Error(`Annotation ${annotation.id} contains invalid TXT region offsets`)
+      const rects = [...textRange(article, anchor.start, anchor.end).getClientRects()]
+        .filter(rect => rect.width > 0 && rect.height > 0)
+      for (const rect of rects) {
+        const marker = document.createElement('button')
+        marker.className = regionSelectionClassNames.annotation
+        marker.dataset.annotationId = annotation.id
+        marker.setAttribute('aria-label', this.callbacks.regionAnnotationLabel())
+        marker.type = 'button'
+        marker.style.backgroundColor = annotationTints[annotation.color]
+        marker.style.height = `${rect.height}px`
+        marker.style.left = `${rect.left - contentRect.left}px`
+        marker.style.top = `${rect.top - contentRect.top}px`
+        marker.style.width = `${rect.width}px`
+        marker.addEventListener('click', () => {
+          this.callbacks.onAnnotationActivate({ annotationId: annotation.id })
+        })
+        layer.append(marker)
+      }
+    }
   }
 
   private scheduleState(): void {
@@ -359,6 +530,36 @@ class TxtAdapter implements ReaderAdapter {
       this.scrollFrame = null
       this.emitState()
     })
+  }
+
+  private currentTextOffset(): number {
+    const article = this.article
+    const scroller = this.scroller
+    if (!article || !scroller || this.text.length === 0)
+      return 0
+    const articleRect = article.getBoundingClientRect()
+    const scrollerRect = scroller.getBoundingClientRect()
+    const x = articleRect.left + Math.min(8, Math.max(1, articleRect.width / 2))
+    const y = Math.min(articleRect.bottom - 1, Math.max(articleRect.top + 1, scrollerRect.top + 8))
+    const offset = textOffsetAtPoint(article, x, y)
+    if (offset !== null)
+      return offset
+    const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+    return maximum === 0 ? 0 : Math.round((scroller.scrollTop / maximum) * this.text.length)
+  }
+
+  private positionAtTextOffset(offset: number): void {
+    const article = this.article
+    const scroller = this.scroller
+    if (!article || !scroller || this.text.length === 0 || offset === 0) {
+      if (scroller)
+        scroller.scrollTop = 0
+      return
+    }
+    const start = Math.min(offset, this.text.length - 1)
+    const rect = textRange(article, start, start + 1).getBoundingClientRect()
+    const scrollerRect = scroller.getBoundingClientRect()
+    scroller.scrollTop = Math.max(0, scroller.scrollTop + rect.top - scrollerRect.top - 8)
   }
 
   private emitState(): void {
@@ -375,10 +576,8 @@ class TxtAdapter implements ReaderAdapter {
       canGoForward: maximum - scrollTop > scrollBoundaryTolerance,
       capabilities: {
         annotations: true,
-        ocr: false,
-        presentationModes: ['reader'],
-        regionSelection: false,
-        scale: true,
+        regionSelection: true,
+        scale: readerFontSizeScaleCapability,
         textSelection: true,
       },
       format: 'txt',
@@ -390,6 +589,7 @@ class TxtAdapter implements ReaderAdapter {
         total,
       },
       outline: [],
+      position: { format: 'txt', offset: this.currentTextOffset() },
       presentationMode: 'reader',
       scale: this.scale,
       title: this.source.name,
@@ -398,6 +598,10 @@ class TxtAdapter implements ReaderAdapter {
   }
 }
 
-export function openTxtAdapter(source: TxtSource, callbacks: ReaderAdapterCallbacks): ReaderAdapter {
-  return new TxtAdapter(source, decodeText(source.bytes), callbacks)
+export async function openTxtAdapter(
+  source: TxtSource,
+  initialPosition: ReaderPosition | null | undefined,
+  callbacks: ReaderAdapterCallbacks,
+): Promise<ReaderAdapter> {
+  return new TxtAdapter(source, decodeText(await readSourceBytes(source)), initialPosition, callbacks)
 }

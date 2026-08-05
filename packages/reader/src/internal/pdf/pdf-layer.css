@@ -112,30 +112,8 @@
   outline-offset: 2px;
 }
 
-.reader-pdf-region-capture {
-  position: absolute;
-  z-index: 4;
-  inset: 0;
-  display: none;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-.reader-pdf-region-capture-active {
-  display: block;
-}
-
-.reader-pdf-region-draft {
-  position: absolute;
-  border: 1px solid rgb(0, 113, 227);
-  border-radius: 3px;
-  background: rgba(0, 113, 227, 0.16);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55) inset;
-}
-
 @media (forced-colors: active) {
-  .reader-pdf-annotation,
-  .reader-pdf-region-draft {
+  .reader-pdf-annotation {
     border: 2px solid Highlight;
     background: transparent !important;
     mix-blend-mode: normal;

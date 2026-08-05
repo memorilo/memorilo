@@ -1,6 +1,7 @@
 import type { ReaderSource } from '@memorilo/editor/reader'
 import type { ChangeEvent } from 'react'
 import { WindowReader } from '@memorilo/editor/reader'
+import { readingFileAccept } from '@memorilo/reading-format'
 import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
 import { BookOpen, FolderOpen } from 'lucide-react'
@@ -32,14 +33,18 @@ function ReaderRoute() {
       <input
         ref={inputRef}
         {...stylex.props(readerRouteStyles.fileInput)}
-        accept=".pdf,.epub,.txt,.cbz,.cbr,application/pdf,application/epub+zip,text/plain,application/vnd.comicbook+zip,application/vnd.comicbook-rar,application/x-cbz,application/x-cbr,application/vnd.rar,application/x-rar-compressed"
+        accept={readingFileAccept}
         aria-label="Open PDF or EPUB, TXT, CBZ, or CBR"
         type="file"
         onChange={selectFile}
       />
       {source
         ? (
-            <WindowReader arrowKeyPageTurning={configuration.readerArrowKeyPageTurning} source={source} />
+            <WindowReader
+              arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
+              initialPresentationMode={configuration.readerEpubPresentationMode}
+              source={source}
+            />
           )
         : (
             <section {...stylex.props(readerRouteStyles.empty)}>
