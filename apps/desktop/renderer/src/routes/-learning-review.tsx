@@ -3,10 +3,9 @@ import type {
   DesktopReviewItem,
   RestoreDesktopReviewItemInput,
 } from '@memorilo/desktop-preload'
-import type { CardPreviewItemSelection } from '@memorilo/editor'
+import type { CardSurfaceItemSelection } from '@memorilo/editor'
 import type { TFunction } from 'i18next'
 import type { LearningReviewSearch } from './learning_.review'
-import { CardPreview } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -22,15 +21,17 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { usePageTitlebar } from '../components/page-titlebar'
 import { learningQueryKeys } from '../queries/learning-query-keys'
 import { learningReviewStyles as styles } from './-learning-review.stylex'
 
-const ReviewSource = lazy(async () => {
+const ReviewMaterial = lazy(async () => {
   const module = await import('./-learning-review-source')
   return { default: module.LearningReviewSource }
 })
 
 type PreparedReview = Awaited<ReturnType<DesktopLearningApi['prepareReview']>>
+type DailyProgress = Awaited<ReturnType<DesktopLearningApi['getDailyProgress']>>
 type ReviewRating = keyof PreparedReview['outcomes']
 
 interface ActiveReview {
@@ -224,6 +225,122 @@ function revealedItemBlockIds(active: ActiveReview): readonly string[] | undefin
 function ignoresReviewShortcut(target: EventTarget | null): boolean {
   return target instanceof Element
     && target.closest('button, a, input, select, textarea, [contenteditable="true"]') !== null
+}
+
+function ReviewSessionTitlebar({
+  actionPending,
+  active,
+  dailyProgress,
+  historyLength,
+  onToggleSource,
+  onUndo,
+  scope,
+  shouldReduceMotion,
+  t,
+}: {
+  actionPending: boolean
+  active: ActiveReview | null
+  dailyProgress: DailyProgress | undefined
+  historyLength: number
+  onToggleSource: () => void
+  onUndo: () => Promise<void>
+  scope: LearningReviewSearch['scope']
+  shouldReduceMotion: boolean | null
+  t: TFunction
+}) {
+  let cardPosition: string | null = null
+  if (active) {
+    const currentTargetIndex = active.item.targets.findIndex(target => target.targetId === active.targetId)
+    if (currentTargetIndex < 0)
+      throw new Error(`Active Review Target ${active.targetId} is unavailable`)
+    cardPosition = isSequentialList(active.item)
+      ? t('cardItemProgress', { count: currentTargetIndex + 1, total: active.item.targets.length })
+      : t(`phase.${active.item.queue.phase}`)
+  }
+
+  const progressMaximum = dailyProgress === undefined
+    ? 1
+    : Math.max(dailyProgress.dailyGoalCards, dailyProgress.completedCards, 1)
+  const progressValue = dailyProgress === undefined
+    ? 0
+    : Math.min(progressMaximum, dailyProgress.completedCards)
+
+  return (
+    <div {...stylex.props(styles.sessionBar)} data-review-session-titlebar="">
+      <Link
+        {...stylex.props(styles.iconButton)}
+        aria-label={t('closeReview')}
+        search={{}}
+        title={t('closeReview')}
+        to="/learning"
+      >
+        <X aria-hidden="true" size={17} strokeWidth={1.9} />
+      </Link>
+      <div {...stylex.props(styles.identity)}>
+        <span {...stylex.props(styles.scopeLabel)}>
+          {scope === 'global' ? t('globalReview') : t('noteReview')}
+        </span>
+        {active
+          ? (
+              <span {...stylex.props(styles.location)}>
+                <span {...stylex.props(styles.locationText)}>{active.item.noteTitle}</span>
+                {active.item.topicTitle === active.item.noteTitle
+                  ? null
+                  : (
+                      <>
+                        <ChevronRight {...stylex.props(styles.locationChevron)} aria-hidden="true" size={12} strokeWidth={1.9} />
+                        <span {...stylex.props(styles.locationText)}>{active.item.topicTitle}</span>
+                      </>
+                    )}
+              </span>
+            )
+          : null}
+      </div>
+      {active
+        ? (
+            <div {...stylex.props(styles.sessionMeta)}>
+              <span {...stylex.props(styles.cardPosition)}>{cardPosition}</span>
+              <div
+                {...stylex.props(styles.progressTrack)}
+                aria-label={t('dailyProgress')}
+                aria-valuemax={progressMaximum}
+                aria-valuemin={0}
+                aria-valuenow={progressValue}
+                role="progressbar"
+              >
+                <motion.span
+                  {...stylex.props(styles.progressFill)}
+                  animate={{ scaleX: progressValue / progressMaximum }}
+                  initial={false}
+                  transition={shouldReduceMotion ? { duration: 0 } : cardSpring}
+                />
+              </div>
+              <button
+                {...stylex.props(styles.iconButton)}
+                aria-label={t('undoRating')}
+                disabled={historyLength === 0 || actionPending}
+                title={t('undoRating')}
+                type="button"
+                onClick={() => void onUndo()}
+              >
+                <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
+              </button>
+              <button
+                {...stylex.props(styles.iconButton, active.sourceVisible && styles.iconButtonActive)}
+                aria-label={active.sourceVisible ? t('showCard') : t('showSource')}
+                aria-pressed={active.sourceVisible}
+                disabled={!active.revealed}
+                title={active.sourceVisible ? t('showCard') : t('showSource')}
+                type="button"
+                onClick={onToggleSource}
+              >
+                <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
+              </button>
+            </div>
+          )
+        : null}
+    </div>
+  )
 }
 
 export function LearningReviewWorkspace({
@@ -507,6 +624,37 @@ export function LearningReviewWorkspace({
     }
   }, [actionPending, activate, history, queryClient])
 
+  const toggleSource = useCallback(() => {
+    setView(current => current.status === 'active'
+      ? { ...current, sourceVisible: !current.sourceVisible }
+      : current)
+  }, [])
+  const titlebarLeading = useMemo(() => (
+    <ReviewSessionTitlebar
+      actionPending={actionPending}
+      active={view.status === 'active' ? view : null}
+      dailyProgress={progressQuery.data}
+      historyLength={history.length}
+      scope={search.scope}
+      shouldReduceMotion={shouldReduceMotion}
+      t={t}
+      onToggleSource={toggleSource}
+      onUndo={undo}
+    />
+  ), [
+    actionPending,
+    history.length,
+    progressQuery.data,
+    search.scope,
+    shouldReduceMotion,
+    t,
+    toggleSource,
+    undo,
+    view,
+  ])
+  const titlebar = useMemo(() => ({ leading: titlebarLeading }), [titlebarLeading])
+  usePageTitlebar(titlebar)
+
   useEffect(() => {
     if (view.status !== 'active' || actionPending)
       return
@@ -595,18 +743,9 @@ export function LearningReviewWorkspace({
   }
 
   const active = view
-  const currentTargetIndex = active.item.targets.findIndex(target => target.targetId === active.targetId)
-  if (currentTargetIndex < 0)
-    throw new Error(`Active Review Target ${active.targetId} is unavailable`)
-  const cardPosition = isSequentialList(active.item)
-    ? t('cardItemProgress', { count: currentTargetIndex + 1, total: active.item.targets.length })
-    : t(`phase.${active.item.queue.phase}`)
-  const dailyProgress = progressQuery.data
-  const progressMaximum = dailyProgress ? Math.max(dailyProgress.dailyGoalCards, dailyProgress.completedCards, 1) : 1
-  const progressValue = dailyProgress ? Math.min(progressMaximum, dailyProgress.completedCards) : 0
   const activePrepared = prepared?.key === preparationKey ? prepared.byTarget : null
   const visibleItemIds = revealedItemBlockIds(active)
-  const itemSelection: CardPreviewItemSelection | undefined = isBatchSet(active.item) && active.revealed
+  const itemSelection: CardSurfaceItemSelection | undefined = isBatchSet(active.item) && active.revealed
     ? {
         label: (_itemBlockId, selected) => t(selected ? 'markItemRemembered' : 'markItemForgotten'),
         onToggle: (itemBlockId) => {
@@ -624,79 +763,10 @@ export function LearningReviewWorkspace({
         selectedItemBlockIds: [...active.forgottenItemBlockIds],
       }
     : undefined
-  const materialKey = `${active.item.queue.cardId}:${active.targetId}:${active.sourceVisible ? 'source' : active.revealed ? 'back' : 'front'}`
+  const materialKey = `${active.item.queue.cardId}:${active.targetId}`
 
   return (
     <div {...stylex.props(styles.session)}>
-      <header {...stylex.props(styles.sessionBar)}>
-        <Link
-          {...stylex.props(styles.iconButton)}
-          aria-label={t('closeReview')}
-          search={{}}
-          title={t('closeReview')}
-          to="/learning"
-        >
-          <X aria-hidden="true" size={17} strokeWidth={1.9} />
-        </Link>
-        <div {...stylex.props(styles.identity)}>
-          <span {...stylex.props(styles.scopeLabel)}>
-            {search.scope === 'global' ? t('globalReview') : t('noteReview')}
-          </span>
-          <span {...stylex.props(styles.location)}>
-            <span {...stylex.props(styles.locationText)}>{active.item.noteTitle}</span>
-            {active.item.topicTitle === active.item.noteTitle
-              ? null
-              : (
-                  <>
-                    <ChevronRight {...stylex.props(styles.locationChevron)} aria-hidden="true" size={12} strokeWidth={1.9} />
-                    <span {...stylex.props(styles.locationText)}>{active.item.topicTitle}</span>
-                  </>
-                )}
-          </span>
-        </div>
-        <div {...stylex.props(styles.sessionMeta)}>
-          <span {...stylex.props(styles.cardPosition)}>{cardPosition}</span>
-          <div
-            {...stylex.props(styles.progressTrack)}
-            aria-label={t('dailyProgress')}
-            aria-valuemax={progressMaximum}
-            aria-valuemin={0}
-            aria-valuenow={progressValue}
-            role="progressbar"
-          >
-            <motion.span
-              {...stylex.props(styles.progressFill)}
-              animate={{ scaleX: progressValue / progressMaximum }}
-              initial={false}
-              transition={shouldReduceMotion ? { duration: 0 } : cardSpring}
-            />
-          </div>
-          <button
-            {...stylex.props(styles.iconButton)}
-            aria-label={t('undoRating')}
-            disabled={history.length === 0 || actionPending}
-            title={t('undoRating')}
-            type="button"
-            onClick={() => void undo()}
-          >
-            <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
-          </button>
-          <button
-            {...stylex.props(styles.iconButton, active.sourceVisible && styles.iconButtonActive)}
-            aria-label={active.sourceVisible ? t('showCard') : t('showSource')}
-            aria-pressed={active.sourceVisible}
-            disabled={!active.revealed}
-            title={active.sourceVisible ? t('showCard') : t('showSource')}
-            type="button"
-            onClick={() => setView(current => current.status === 'active'
-              ? { ...current, sourceVisible: !current.sourceVisible }
-              : current)}
-          >
-            <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
-          </button>
-        </div>
-      </header>
-
       <div {...stylex.props(styles.materialViewport)}>
         <AnimatePresence initial={false} mode="wait">
           <motion.section
@@ -708,21 +778,15 @@ export function LearningReviewWorkspace({
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
             transition={shouldReduceMotion ? { duration: 0.08 } : cardSpring}
           >
-            {active.sourceVisible
-              ? (
-                  <Suspense fallback={<div {...stylex.props(styles.materialLoading)} role="status">{t('loadingSource')}</div>}>
-                    <ReviewSource item={active.item} />
-                  </Suspense>
-                )
-              : (
-                  <CardPreview
-                    appearance="embedded"
-                    card={active.item.card}
-                    itemSelection={itemSelection}
-                    mode={active.revealed ? 'back' : 'front'}
-                    revealedItemBlockIds={visibleItemIds}
-                  />
-                )}
+            <Suspense fallback={<div {...stylex.props(styles.materialLoading)} role="status">{t('loadingSource')}</div>}>
+              <ReviewMaterial
+                item={active.item}
+                itemSelection={itemSelection}
+                revealedItemBlockIds={visibleItemIds}
+                showSource={active.sourceVisible}
+                side={active.revealed ? 'answer' : 'question'}
+              />
+            </Suspense>
           </motion.section>
         </AnimatePresence>
       </div>
