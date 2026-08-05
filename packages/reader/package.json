@@ -13,16 +13,20 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@memorilo/reading-format": "workspace:*",
+    "@memorilo/reading-model": "workspace:*",
     "@readium/navigator": "2.8.1",
     "@readium/navigator-html-injectables": "2.6.3",
     "@readium/shared": "2.4.0",
     "@stylexjs/stylex": "0.19.0",
     "@zip.js/zip.js": "2.8.11",
+    "i18next": "^25.10.10",
     "lucide-react": "^0.468.0",
     "node-unrar-js": "2.0.2",
     "pdfjs-dist": "6.2.108",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-i18next": "^15.7.4"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

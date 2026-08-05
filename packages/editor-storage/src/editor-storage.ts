@@ -1,5 +1,8 @@
+import type { BookFileBinding, BookFileDescriptor } from '@memorilo/reading-model'
 import type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 import type { EmbeddingModel } from './embedding-model'
+import { assertReadingFormat } from '@memorilo/reading-format'
+import { assertBookFileSha256, bookFileIdentityKey } from '@memorilo/reading-model'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { v7 as createUuidV7 } from 'uuid'
@@ -14,7 +17,7 @@ export interface FolderProjection {
 
 export type TopicEditorMode = 0 | 1
 
-export interface TopicProjection {
+interface TopicProjectionBase {
   id: string
   kind: 'topic'
   mode: TopicEditorMode
@@ -22,6 +25,17 @@ export interface TopicProjection {
   parentId: string | null
   title: string
 }
+
+export interface RegularTopicProjection extends TopicProjectionBase {
+  topicType: 'regular'
+}
+
+export interface BookTopicProjection extends TopicProjectionBase {
+  book: BookFileBinding
+  topicType: 'book'
+}
+
+export type TopicProjection = BookTopicProjection | RegularTopicProjection
 
 export type NoteEntryProjection = FolderProjection | TopicProjection
 
@@ -56,8 +70,26 @@ export interface StoredNote {
   updates: readonly StoredNoteUpdate[]
 }
 
+export interface BookTopicContext {
+  book: BookFileBinding
+  noteId: string
+  noteTitle: string
+  topicId: string
+  topicTitle: string
+}
+
+export type BookFileFingerprint = Pick<BookFileDescriptor, 'format' | 'sha256'>
+
 export interface CreateNoteInput {
   title?: string
+}
+
+export interface CreateInitializedNoteInput {
+  entries: readonly NoteEntryProjection[]
+  id: string
+  snapshot: Uint8Array
+  title: string
+  topics: readonly TopicContentProjection[]
 }
 
 export type JournalDate = string
@@ -316,6 +348,7 @@ export interface EditorStorage {
   claimUnreferencedAsset: (input: { fileName: string, unreferencedBefore: number }) => Promise<StoredAsset | null>
   close: () => Promise<void>
   completeAssetDeletion: (input: { fileName: string }) => Promise<void>
+  createInitializedNote: (input: CreateInitializedNoteInput) => Promise<StoredNote>
   createNote: (input?: CreateNoteInput) => Promise<StoredNote>
   getAssetStatistics: () => Promise<AssetStatistics>
   getNote: (input: GetNoteInput) => Promise<StoredNote>
@@ -330,6 +363,8 @@ export interface EditorStorage {
   listNotes: (input?: ListNotesInput) => Promise<NotePage>
   listPastJournals: (input: ListPastJournalsInput) => Promise<StoredJournalPage>
   listAssets: () => Promise<readonly StoredAsset[]>
+  listBookTopicContextsByFile: (file: BookFileFingerprint) => Promise<readonly BookTopicContext[]>
+  listBookTopicContextsByReadingId: (readingId: string) => Promise<readonly BookTopicContext[]>
   listClaimedAssets: () => Promise<readonly StoredAsset[]>
   listRecentNotes: (input?: ListNoteActivityInput) => Promise<readonly RecentNoteItem[]>
   listUnreferencedAssets: (input: { unreferencedBefore: number }) => Promise<readonly StoredAsset[]>
@@ -464,6 +499,20 @@ interface ExistingBlockRow {
   content_hash: string
   row_id: number
   topic_id: string
+}
+
+interface BookTopicContextRow {
+  authors_json: string
+  byte_length: number
+  content_hash: string
+  format: string
+  note_id: string
+  note_title: string
+  original_name: string
+  publication_title: string
+  retrieval_hints_json: string
+  topic_id: string
+  topic_title: string
 }
 
 interface TopicBlockRow {
@@ -638,6 +687,27 @@ const schema = `
     UNIQUE (note_row_id, topic_id)
   );
 
+  CREATE TABLE IF NOT EXISTS book_topics (
+    note_row_id INTEGER NOT NULL,
+    topic_id TEXT NOT NULL,
+    format TEXT NOT NULL CHECK (format IN ('cbr', 'cbz', 'epub', 'pdf', 'txt')),
+    content_hash TEXT NOT NULL CHECK (
+      length(content_hash) = 64 AND content_hash NOT GLOB '*[^0-9a-f]*'
+    ),
+    byte_length INTEGER NOT NULL CHECK (byte_length > 0),
+    original_name TEXT NOT NULL,
+    publication_title TEXT NOT NULL,
+    authors_json TEXT NOT NULL,
+    retrieval_hints_json TEXT NOT NULL,
+    PRIMARY KEY (note_row_id, topic_id),
+    UNIQUE (note_row_id, format, content_hash),
+    FOREIGN KEY (note_row_id, topic_id)
+      REFERENCES topics(note_row_id, topic_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS book_topics_file_idx
+    ON book_topics(format, content_hash);
+
   CREATE TABLE IF NOT EXISTS note_favorites (
     note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
     favorited_at INTEGER NOT NULL
@@ -732,6 +802,41 @@ function assertNonEmpty(value: string, name: string): void {
 function assertString(value: unknown, name: string): asserts value is string {
   if (typeof value !== 'string')
     throw new TypeError(`${name} must be a string`)
+}
+
+function validateBookFileBinding(value: unknown, description: string): asserts value is BookFileBinding {
+  if (value === null || Array.isArray(value) || typeof value !== 'object')
+    throw new TypeError(`${description} must be an object`)
+  const book = value as Partial<BookFileBinding>
+  if (book.book === null || Array.isArray(book.book) || typeof book.book !== 'object')
+    throw new TypeError(`${description} publication metadata must be an object`)
+  assertNonEmpty(book.book.title, `${description} publication title`)
+  if (!Array.isArray(book.book.authors))
+    throw new TypeError(`${description} authors must be an array`)
+  book.book.authors.forEach((author, index) => assertNonEmpty(author, `${description} author ${index}`))
+
+  if (book.file === null || Array.isArray(book.file) || typeof book.file !== 'object')
+    throw new TypeError(`${description} file must be an object`)
+  assertReadingFormat(book.file.format)
+  assertBookFileSha256(book.file.sha256)
+  if (!Number.isSafeInteger(book.file.byteLength) || book.file.byteLength < 1)
+    throw new RangeError(`${description} byte length must be a positive safe integer`)
+  assertNonEmpty(book.file.originalName, `${description} original file name`)
+
+  if (!Array.isArray(book.retrievalHints))
+    throw new TypeError(`${description} retrieval hints must be an array`)
+  for (const [index, hint] of book.retrievalHints.entries()) {
+    if (hint === null || Array.isArray(hint) || typeof hint !== 'object')
+      throw new TypeError(`${description} retrieval hint ${index} must be an object`)
+    assertNonEmpty(hint.readingId, `${description} retrieval hint ${index} reading id`)
+    if (hint.kind === 'shelf') {
+      assertNonEmpty(hint.publicationId, `${description} retrieval hint ${index} publication id`)
+      assertNonEmpty(hint.sourceId, `${description} retrieval hint ${index} source id`)
+    }
+    else if (hint.kind !== 'local') {
+      throw new TypeError(`${description} retrieval hint ${index} has an unknown kind`)
+    }
+  }
 }
 
 export function assertJournalDate(value: unknown, name = 'Journal date'): asserts value is JournalDate {
@@ -860,15 +965,29 @@ function validateProjectionPatch(
 ): void {
   const entriesById = entries ? validateHierarchy(entries, 'NoteEntry') : undefined
   const topicEntries = new Map<string, TopicProjection>()
+  const bookTopicIdsByFile = new Map<string, string>()
 
   for (const entry of entries ?? []) {
     if (entry.kind === 'folder') {
       assertNonEmpty(entry.name, `Folder ${entry.id} name`)
     }
     else if (entry.kind === 'topic') {
+      const entryId = entry.id
       assertString(entry.title, `Topic ${entry.id} title`)
       if (entry.mode !== 0 && entry.mode !== 1)
         throw new TypeError(`Topic ${entry.id} Editor mode must be 0 (Document) or 1 (Outline)`)
+      if (entry.topicType === 'book') {
+        assertNonEmpty(entry.title, `BookTopic ${entry.id} title`)
+        validateBookFileBinding(entry.book, `BookTopic ${entry.id} binding`)
+        const identity = bookFileIdentityKey(entry.book.file)
+        const existingTopicId = bookTopicIdsByFile.get(identity)
+        if (existingTopicId)
+          throw new Error(`BookTopics ${existingTopicId} and ${entry.id} bind the same file ${identity}`)
+        bookTopicIdsByFile.set(identity, entry.id)
+      }
+      else if (entry.topicType !== 'regular') {
+        throw new TypeError(`Topic ${entryId} has an unknown subtype`)
+      }
       topicEntries.set(entry.id, entry)
     }
     else {
@@ -947,6 +1066,49 @@ function parseAttributes(json: string): Readonly<Record<string, unknown>> {
     throw new TypeError('Stored Topic Block attributes must be a JSON object')
   return value as Record<string, unknown>
 }
+
+function toBookTopicContext(row: BookTopicContextRow): BookTopicContext {
+  const binding: unknown = {
+    book: {
+      authors: JSON.parse(row.authors_json),
+      title: row.publication_title,
+    },
+    file: {
+      byteLength: row.byte_length,
+      format: row.format,
+      originalName: row.original_name,
+      sha256: row.content_hash,
+    },
+    retrievalHints: JSON.parse(row.retrieval_hints_json),
+  }
+  validateBookFileBinding(binding, `Stored BookTopic ${row.note_id}/${row.topic_id} binding`)
+  return {
+    book: binding,
+    noteId: row.note_id,
+    noteTitle: row.note_title,
+    topicId: row.topic_id,
+    topicTitle: row.topic_title,
+  }
+}
+
+const bookTopicContextSelect = `
+  SELECT
+    note.id AS note_id,
+    note.title AS note_title,
+    topic.topic_id,
+    topic.title AS topic_title,
+    book_topic.format,
+    book_topic.content_hash,
+    book_topic.byte_length,
+    book_topic.original_name,
+    book_topic.publication_title,
+    book_topic.authors_json,
+    book_topic.retrieval_hints_json
+  FROM book_topics AS book_topic
+  INNER JOIN notes AS note ON note.row_id = book_topic.note_row_id
+  INNER JOIN topics AS topic
+    ON topic.note_row_id = book_topic.note_row_id AND topic.topic_id = book_topic.topic_id
+`
 
 function toStoredBlock(row: TopicBlockRow): StoredTopicBlock {
   return {
@@ -1311,6 +1473,138 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async createInitializedNote(input: CreateInitializedNoteInput): Promise<StoredNote> {
+    assertNonEmpty(input.id, 'Note id')
+    assertNonEmpty(input.title, 'Note title')
+    validateBinary(input.snapshot, 'Note snapshot')
+    validateProjectionPatch(input.entries, input.topics)
+    const entryTopicIds = new Set(input.entries.flatMap(entry => entry.kind === 'topic' ? [entry.id] : []))
+    const projectedTopicIds = new Set(input.topics.map(topic => topic.topicId))
+    if (entryTopicIds.size !== projectedTopicIds.size
+      || [...entryTopicIds].some(topicId => !projectedTopicIds.has(topicId))) {
+      throw new Error('An initialized Note must project content for every Topic entry')
+    }
+    const saved = structuredClone(input)
+
+    return this.#serializeWrite(async () => {
+      await this.#assertUniqueNoteTitle(saved.title)
+      const now = Date.now()
+      const commands: DatabaseCommand[] = [{
+        parameters: [saved.id, saved.title, saved.snapshot, now, now],
+        sql: `
+          INSERT INTO notes (
+            id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, created_at, updated_at
+          ) VALUES (?, ?, ?, 0, 0, ?, ?)
+        `,
+      }]
+      for (const entry of saved.entries) {
+        commands.push({
+          parameters: [
+            saved.id,
+            entry.id,
+            entry.parentId,
+            entry.ordinal,
+            entry.kind,
+            entry.kind === 'folder' ? entry.name : entry.title,
+          ],
+          sql: `
+            INSERT INTO note_entries (
+              note_row_id, entry_id, parent_entry_id, ordinal, kind, label
+            ) VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?, ?, ?)
+          `,
+        })
+      }
+      for (const entry of saved.entries) {
+        if (entry.kind !== 'topic')
+          continue
+        commands.push({
+          parameters: [saved.id, entry.id, entry.mode, entry.title],
+          sql: `
+            INSERT INTO topics (note_row_id, topic_id, editor_mode, title)
+            VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?)
+          `,
+        })
+      }
+      for (const entry of saved.entries) {
+        if (entry.kind !== 'topic' || entry.topicType !== 'book')
+          continue
+        commands.push({
+          parameters: [
+            saved.id,
+            entry.id,
+            entry.book.file.format,
+            entry.book.file.sha256,
+            entry.book.file.byteLength,
+            entry.book.file.originalName,
+            entry.book.book.title,
+            JSON.stringify(entry.book.book.authors),
+            JSON.stringify(entry.book.retrievalHints),
+          ],
+          sql: `
+            INSERT INTO book_topics (
+              note_row_id,
+              topic_id,
+              format,
+              content_hash,
+              byte_length,
+              original_name,
+              publication_title,
+              authors_json,
+              retrieval_hints_json
+            ) VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+        })
+      }
+      for (const topic of saved.topics) {
+        for (const block of topic.blocks) {
+          commands.push({
+            parameters: [
+              saved.id,
+              topic.topicId,
+              block.id,
+              block.parentId,
+              block.ordinal,
+              block.kind,
+              block.text,
+              JSON.stringify(block.attributes),
+              contentHash(block.text),
+            ],
+            sql: `
+              INSERT INTO topic_blocks (
+                note_row_id,
+                topic_id,
+                block_id,
+                parent_block_id,
+                ordinal,
+                kind,
+                text,
+                attributes_json,
+                content_hash
+              ) VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+          })
+        }
+      }
+      await this.#database.batch(commands)
+      const note = await this.#database.get<NoteRow>(`
+        SELECT
+          row_id,
+          id,
+          title,
+          checkpoint_snapshot,
+          checkpoint_sequence,
+          latest_sequence,
+          created_at,
+          updated_at
+        FROM notes
+        WHERE id = ?
+      `, [saved.id])
+      if (!note)
+        throw new Error(`Failed to read newly initialized Note: ${saved.id}`)
+      return this.#readStoredNote(note)
+    })
+  }
+
   async createNote(input: CreateNoteInput = {}): Promise<StoredNote> {
     const title = input.title?.trim() ?? 'Untitled'
     assertNonEmpty(title, 'Note title')
@@ -1605,6 +1899,29 @@ class DefaultEditorStorage implements EditorStorage {
       ORDER BY created_at ASC, file_name ASC
     `)
     return rows.map(toStoredAsset)
+  }
+
+  async listBookTopicContextsByFile(file: BookFileFingerprint): Promise<readonly BookTopicContext[]> {
+    assertReadingFormat(file.format)
+    assertBookFileSha256(file.sha256)
+    const rows = await this.#database.all<BookTopicContextRow>(`${bookTopicContextSelect}
+      WHERE book_topic.format = ? AND book_topic.content_hash = ?
+      ORDER BY note.title COLLATE NOCASE ASC, topic.title COLLATE NOCASE ASC, note.id ASC, topic.topic_id ASC
+    `, [file.format, file.sha256])
+    return rows.map(toBookTopicContext)
+  }
+
+  async listBookTopicContextsByReadingId(readingId: string): Promise<readonly BookTopicContext[]> {
+    assertNonEmpty(readingId, 'Book retrieval reading id')
+    const rows = await this.#database.all<BookTopicContextRow>(`${bookTopicContextSelect}
+      WHERE EXISTS (
+        SELECT 1
+        FROM json_each(book_topic.retrieval_hints_json) AS hint
+        WHERE json_extract(hint.value, '$.readingId') = ?
+      )
+      ORDER BY note.title COLLATE NOCASE ASC, topic.title COLLATE NOCASE ASC, note.id ASC, topic.topic_id ASC
+    `, [readingId])
+    return rows.map(toBookTopicContext)
   }
 
   async listClaimedAssets(): Promise<readonly StoredAsset[]> {
@@ -2115,6 +2432,43 @@ class DefaultEditorStorage implements EditorStorage {
               title = excluded.title
           `,
         })
+      }
+
+      if (saved.entries !== undefined) {
+        commands.push({
+          parameters: [note.row_id],
+          sql: 'DELETE FROM book_topics WHERE note_row_id = ?',
+        })
+        for (const entry of nextTopics.values()) {
+          if (entry.topicType !== 'book')
+            continue
+          commands.push({
+            parameters: [
+              note.row_id,
+              entry.id,
+              entry.book.file.format,
+              entry.book.file.sha256,
+              entry.book.file.byteLength,
+              entry.book.file.originalName,
+              entry.book.book.title,
+              JSON.stringify(entry.book.book.authors),
+              JSON.stringify(entry.book.retrievalHints),
+            ],
+            sql: `
+              INSERT INTO book_topics (
+                note_row_id,
+                topic_id,
+                format,
+                content_hash,
+                byte_length,
+                original_name,
+                publication_title,
+                authors_json,
+                retrieval_hints_json
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+          })
+        }
       }
 
       for (const topic of saved.topics) {

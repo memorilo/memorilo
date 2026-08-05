@@ -3,6 +3,7 @@ export const desktopConfigurationChangedChannel = 'memorilo:configuration-change
 export type DesktopLanguage = 'en' | 'system' | 'zh-CN'
 export type DesktopOutdentBehavior = 'logical' | 'traditional'
 export type DesktopNetworkImagePasteBehavior = 'download' | 'url'
+export type DesktopReaderEpubPresentationMode = 'publisher' | 'reader'
 export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
 export type DesktopWeekStart = 'monday' | 'sunday'
 
@@ -18,6 +19,7 @@ export interface DesktopConfiguration {
   networkImagePasteBehavior: DesktopNetworkImagePasteBehavior
   outdentBehavior: DesktopOutdentBehavior
   readerArrowKeyPageTurning: boolean
+  readerEpubPresentationMode: DesktopReaderEpubPresentationMode
   reduceMotion: boolean
   tiffConversionFormat: DesktopTiffConversionFormat
   weekStart: DesktopWeekStart

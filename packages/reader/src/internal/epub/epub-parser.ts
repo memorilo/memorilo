@@ -1,5 +1,6 @@
 import type { Fetcher, NumberRange } from '@readium/shared'
 import type { Entry, FileEntry } from '@zip.js/zip.js'
+import type { ResolvedReaderSource } from '../source'
 import {
   Layout,
   Link,
@@ -9,16 +10,14 @@ import {
   LocatorLocations,
   Manifest,
   Metadata,
+  Profile,
   Properties,
   Publication,
   ReadingProgression,
   Resource,
 } from '@readium/shared'
-import {
-  BlobReader,
-  Uint8ArrayWriter,
-  ZipReader,
-} from '@zip.js/zip.js'
+import { Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js'
+import { ReaderSourceZipReader } from '../zip-reader'
 
 export type EpubLayoutKind = 'fixed' | 'mixed' | 'reflowable'
 
@@ -42,6 +41,23 @@ const maximumEntrySize = 128 * 1024 * 1024
 const maximumExpandedSize = 512 * 1024 * 1024
 const textDecoder = new TextDecoder()
 const textEncoder = new TextEncoder()
+const epubContentSecurityPolicy = [
+  'default-src \'none\'',
+  'script-src blob:',
+  'style-src blob: \'unsafe-inline\'',
+  'img-src blob: data:',
+  'font-src blob: data:',
+  'media-src blob: data:',
+  'connect-src \'none\'',
+  'object-src \'none\'',
+  'frame-src \'none\'',
+  'worker-src \'none\'',
+  'form-action \'none\'',
+].join('; ')
+
+function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+}
 
 function parseXml(value: string, label: string): XMLDocument {
   const document = new DOMParser().parseFromString(value, 'application/xml')
@@ -104,6 +120,21 @@ function isRemoteReference(reference: string): boolean {
   return /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(reference.trim())
 }
 
+function isActiveReference(reference: string): boolean {
+  let compact = ''
+  for (const character of reference) {
+    const code = character.charCodeAt(0)
+    if (code > 0x20 && code !== 0x7F)
+      compact += character
+  }
+  compact = compact.toLowerCase()
+  return compact.startsWith('javascript:')
+    || compact.startsWith('vbscript:')
+    || compact.startsWith('data:text/html')
+    || compact.startsWith('data:application/xhtml+xml')
+    || compact.startsWith('data:image/svg+xml')
+}
+
 function splitReference(reference: string): { path: string, suffix: string } {
   const queryIndex = reference.indexOf('?')
   const fragmentIndex = reference.indexOf('#')
@@ -138,10 +169,6 @@ function mediaTypeForPath(path: string): string {
     xml: 'application/xml',
   }
   return extension ? (mediaTypes[extension] ?? 'application/octet-stream') : 'application/octet-stream'
-}
-
-function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
 }
 
 class EpubResource extends Resource {
@@ -179,10 +206,10 @@ export class EpubArchive implements Fetcher {
   private readonly objectUrls = new Set<string>()
   private readonly rewrittenBytes = new Map<string, Promise<Uint8Array>>()
 
-  private constructor(private readonly zipReader: ZipReader<Blob>) {}
+  private constructor(private readonly zipReader: ZipReader<ResolvedReaderSource>) {}
 
-  static async open(bytes: Uint8Array): Promise<EpubArchive> {
-    const zipReader = new ZipReader(new BlobReader(new Blob([asArrayBuffer(bytes)], { type: 'application/epub+zip' })))
+  static async open(source: ResolvedReaderSource): Promise<EpubArchive> {
+    const zipReader = new ZipReader(new ReaderSourceZipReader(source))
     const archive = new EpubArchive(zipReader)
     await archive.indexEntries(await zipReader.getEntries())
     return archive
@@ -346,13 +373,41 @@ export class EpubArchive implements Fetcher {
     if (parseError)
       throw new Error(`Invalid EPUB content document ${path}`)
 
-    document.querySelectorAll('script, meta[http-equiv="refresh" i]').forEach(element => element.remove())
+    document.querySelectorAll([
+      'applet',
+      'base',
+      'embed',
+      'iframe',
+      'meta[http-equiv="refresh" i]',
+      'object',
+      'script',
+    ].join(', ')).forEach(element => element.remove())
     for (const element of Array.from(document.querySelectorAll('*'))) {
       for (const attribute of Array.from(element.attributes)) {
-        if (attribute.name.toLowerCase().startsWith('on'))
+        const attributeName = attribute.name.toLowerCase()
+        if (attributeName.startsWith('on')
+          || attributeName === 'srcdoc'
+          || ((attributeName === 'href'
+            || attributeName === 'xlink:href'
+            || attributeName === 'src'
+            || attributeName === 'action'
+            || attributeName === 'formaction')
+          && isActiveReference(attribute.value))) {
           element.removeAttribute(attribute.name)
+        }
       }
     }
+
+    let head = Array.from(document.querySelectorAll('*')).find(element => element.localName === 'head')
+    if (!head) {
+      const root = document.documentElement
+      head = document.createElementNS(root.namespaceURI, 'head')
+      root.prepend(head)
+    }
+    const csp = document.createElementNS(head.namespaceURI, 'meta')
+    csp.setAttribute('http-equiv', 'Content-Security-Policy')
+    csp.setAttribute('content', epubContentSecurityPolicy)
+    head.prepend(csp)
 
     const targets: Array<{ attribute: string, selector: string }> = [
       { attribute: 'src', selector: 'audio[src], embed[src], iframe[src], img[src], input[src], source[src], track[src], video[src]' },
@@ -366,7 +421,7 @@ export class EpubArchive implements Fetcher {
         const value = element.getAttribute(target.attribute)
         if (!value)
           continue
-        if (/^javascript:/i.test(value.trim())) {
+        if (isActiveReference(value)) {
           element.removeAttribute(target.attribute)
           continue
         }
@@ -553,8 +608,8 @@ async function parseTableOfContents(
   return ncxLinks(document, ncxItem.href)
 }
 
-export async function parseEpub(bytes: Uint8Array): Promise<ParsedEpub> {
-  const archive = await EpubArchive.open(bytes)
+export async function parseEpub(source: ResolvedReaderSource): Promise<ParsedEpub> {
+  const archive = await EpubArchive.open(source)
   try {
     const mimetype = (await archive.readText('mimetype')).trim()
     if (mimetype !== 'application/epub+zip')
@@ -639,6 +694,7 @@ export async function parseEpub(bytes: Uint8Array): Promise<ParsedEpub> {
       ? ReadingProgression.rtl
       : ReadingProgression.ltr
     const metadata = new Metadata({
+      conformsTo: [Profile.EPUB],
       identifier,
       languages: languages.length > 0 ? languages : undefined,
       layout: navigatorLayout,

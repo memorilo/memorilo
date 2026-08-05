@@ -13,5 +13,38 @@
   "noteCount_one": "{{count}} 条笔记",
   "noteCount_other": "{{count}} 条笔记",
   "ascending": "升序",
-  "descending": "降序"
+  "descending": "降序",
+  "reader": {
+    "addContext": "添加到笔记",
+    "openAreaAnnotation": "打开区域批注",
+    "opening": "正在打开图书…",
+    "couldNotOpen": "无法打开这本书",
+    "document": "文档",
+    "shelf": "书架",
+    "chooseContext": "选择阅读上下文",
+    "chooseContextDescription": "选择将 {{title}} 的进度和批注保存到哪里。",
+    "createContext": "创建 Note 和 BookTopic",
+    "createContextDescription": "这会创建一个新的 Note，并创建绑定到当前文件的 BookTopic。",
+    "creatingContext": "正在创建…",
+    "contextCreated": "BookTopic 已创建",
+    "contextRebound": "BookTopic 已重新绑定到新文件",
+    "cannotChangeFormat": "BookTopic 不能重新绑定到不同格式。",
+    "duplicateTitle": "已存在同名 Note。",
+    "edit": "编辑",
+    "noteTitle": "Note 标题",
+    "bookTopicTitle": "BookTopic 标题",
+    "titlesRequired": "两个标题都不能为空。",
+    "cancel": "取消",
+    "rebindTitle": "这个文件已经发生变化",
+    "rebindWarning": "新文件的 SHA-256 不同。现有阅读位置和批注锚点会直接应用到新文件，可能指向错误内容。",
+    "rebindAnyway": "仍然重新绑定",
+    "rebinding": "正在重新绑定…",
+    "annotation": {
+      "areaInSection": "{{section}} 中的区域",
+      "areaNearCharacter": "字符 {{position}} 附近的区域",
+      "areaOnPage": "第 {{page}} 页的区域",
+      "page": "第 {{page}} 页",
+      "textNearCharacter": "字符 {{position}} 附近的文字"
+    }
+  }
 }

@@ -5,7 +5,9 @@ import type {
   ReaderLocation,
   ReaderOcrStatus,
   ReaderOutlineItem,
+  ReaderPosition,
   ReaderPresentationMode,
+  ReaderScaleCapability,
   ReaderSelection,
   ReaderTextLayerKind,
 } from '../types'
@@ -41,6 +43,19 @@ export interface ReaderAdapterKeyboardEvent {
 
 export const readerMinimumScale = 0.4
 export const readerMaximumScale = 2
+export const readerScaleStep = 0.1
+export const readerFontSizeScaleCapability: ReaderScaleCapability = {
+  kind: 'font-size',
+  maximum: readerMaximumScale,
+  minimum: readerMinimumScale,
+  step: readerScaleStep,
+}
+export const readerZoomScaleCapability: ReaderScaleCapability = {
+  kind: 'zoom',
+  maximum: readerMaximumScale,
+  minimum: readerMinimumScale,
+  step: readerScaleStep,
+}
 
 export interface ReaderAdapterState {
   canGoBackward: boolean
@@ -49,6 +64,7 @@ export interface ReaderAdapterState {
   format: ReaderFormat
   location: ReaderLocation
   outline: readonly ReaderOutlineItem[]
+  position: ReaderPosition
   presentationMode: ReaderPresentationMode
   presentationModeReason?: string
   scale: number
@@ -61,8 +77,10 @@ export interface ReaderAdapterCallbacks {
   onError: (error: Error) => void
   onKeyDown: (event: ReaderAdapterKeyboardEvent) => boolean
   onOcrStatusChange: (status: ReaderOcrStatus) => void
+  onRegionSelectionModeChange: (enabled: boolean) => void
   onSelectionChange: (selection: ReaderAdapterSelection | null) => void
   onStateChange: (state: ReaderAdapterState) => void
+  regionAnnotationLabel: () => string
 }
 
 export interface ReaderAdapter {
@@ -71,12 +89,11 @@ export interface ReaderAdapter {
   goBackward: (entryEdge: ReaderPageEdge) => Promise<void>
   goForward: (entryEdge: ReaderPageEdge) => Promise<void>
   goToAnnotation: (annotationId: string) => Promise<void>
-  goToOutlineItem: (outlineItemId: string) => Promise<void>
+  goToOutlineItem?: (outlineItemId: string) => Promise<void>
   mount: (container: HTMLElement) => Promise<void>
   moveViewport: (direction: ReaderScrollDirection) => ReaderScrollResult
-  recognizeCurrentPage: () => Promise<void>
+  recognizeCurrentPage?: () => Promise<void>
   setAnnotations: (annotations: readonly ReaderAnnotation[]) => void
-  setPresentationMode: (mode: ReaderPresentationMode) => Promise<void>
-  setRegionSelectionEnabled: (enabled: boolean) => void
-  setScale: (scale: number) => Promise<void>
+  setRegionSelectionEnabled?: (enabled: boolean) => void
+  setScale?: (scale: number) => Promise<void>
 }

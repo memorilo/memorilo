@@ -5,10 +5,12 @@ import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
 import type { MergeIpcService } from 'electron-ipc-decorator'
 import type { NoteApplicationService } from '../notes/note-application-service'
+import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import { createServices } from 'electron-ipc-decorator'
 
 import { AppService } from './app-service'
 import { createAssetService } from './asset-service'
+import { createBookService } from './book-service'
 import { createConfigurationService } from './configuration-service'
 import { createJournalService } from './journal-service'
 import { createNoteService } from './note-service'
@@ -24,15 +26,18 @@ export function createDesktopServices(
   configuration: ConfigurationStore<DesktopConfiguration>,
   assetDirectory: string | null,
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
+  activeReadings: ActiveReadingRegistry,
 ) {
   const AssetService = createAssetService(assetDirectory, storage, configuration, serializeAssetOperation)
+  const BookService = createBookService(notes, storage, shelfReadingFiles, activeReadings)
   const ConfigurationService = createConfigurationService(configuration)
   const JournalService = createJournalService(notes)
   const NoteService = createNoteService(notes)
-  const ShelfService = createShelfService(shelfStorage, shelfImageCache, shelfReadingFiles)
+  const ShelfService = createShelfService(shelfStorage, shelfImageCache, shelfReadingFiles, activeReadings)
   return createServices([
     AppService,
     AssetService,
+    BookService,
     ConfigurationService,
     JournalService,
     NoteService,

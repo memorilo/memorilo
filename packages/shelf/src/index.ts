@@ -26,6 +26,7 @@ export type {
   ShelfReadingDocument,
   ShelfReadingFormat,
   ShelfReadingOption,
+  ShelfReadingRangeInput,
   ShelfReadingRetention,
   ShelfSource,
   ShelfSourceField,

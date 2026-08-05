@@ -1,4 +1,6 @@
 export type {
+  LoroBookTopic,
+  LoroRegularTopic,
   LoroTopic,
   LoroTopicDocument,
   LoroTopicMarkType,
@@ -8,6 +10,8 @@ export type {
 } from './topic-schema'
 export {
   isLoroTopic,
+  LoroBookTopicEntrySchema,
+  LoroRegularTopicEntrySchema,
   LoroTopicDocumentSchema,
   LoroTopicEntrySchema,
   LoroTopicNodeSchema,

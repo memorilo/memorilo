@@ -51,11 +51,15 @@ export type { EditorFocusTarget, EditorLayout, EditorProps } from './editor'
 export { JournalEditor } from './journal-editor'
 export type { JournalEditorProps } from './journal-editor'
 export type {
+  BookTopicSnapshot,
+  BookTopicValidationInput,
+  CreateBookTopicInput,
   CreateEditorNoteOptions,
   CreateFolderInput,
   CreateTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
+  EditorBookTopicDocument,
   EditorNote,
   EditorNoteChange,
   EditorNoteMutation,
@@ -65,6 +69,8 @@ export type {
   MoveNoteEntryInput,
   NoteEntryKind,
   NoteEntrySnapshot,
+  RegularTopicSnapshot,
+  RegularTopicValidationInput,
   TopicContentProjection,
   TopicSnapshot,
   TopicValidationInput,
@@ -77,6 +83,8 @@ export { projectTopicBlocks } from './note/topic-projection'
 export { hasTopicUserContent } from './note/topic-user-content'
 export { useEditorTopicMode } from './note/use-editor-topic-mode'
 export type {
+  LoroBookTopic,
+  LoroRegularTopic,
   LoroTopic,
   LoroTopicDocument,
   LoroTopicMarkType,
@@ -86,6 +94,8 @@ export type {
 } from './schema'
 export {
   isLoroTopic,
+  LoroBookTopicEntrySchema,
+  LoroRegularTopicEntrySchema,
   LoroTopicDocumentSchema,
   LoroTopicEntrySchema,
   LoroTopicNodeSchema,

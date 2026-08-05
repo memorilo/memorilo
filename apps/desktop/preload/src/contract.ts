@@ -1,4 +1,5 @@
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
 import type {
   AddShelfSourceInput,
   BrowseShelfInput,
@@ -11,6 +12,7 @@ import type {
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
   ShelfReadingDocument,
+  ShelfReadingRangeInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -28,6 +30,7 @@ export type {
   ShelfPublicationDetails,
   ShelfPublicationDetailsInput,
   ShelfReadingDocument,
+  ShelfReadingRangeInput,
   ShelfSource,
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
@@ -112,6 +115,35 @@ export interface DesktopJournalNote extends DesktopNoteBase {
 }
 
 export type DesktopNote = DesktopJournalNote | DesktopRegularNote
+
+export interface DesktopBookTopicContextSummary {
+  book: BookFileBinding
+  noteId: string
+  noteTitle: string
+  topicId: string
+  topicTitle: string
+}
+
+export interface DesktopBookTopicReadingContext {
+  book: BookFileBinding
+  note: DesktopNote
+  readingState: BookReadingState
+  topicId: string
+  topicTitle: string
+}
+
+export type CreateDesktopBookContextResult
+  = | {
+    context: DesktopBookTopicReadingContext
+    sessionId: string
+    status: 'created'
+  }
+  | { status: 'duplicate-title' }
+
+export interface OpenDesktopBookContextResult {
+  context: DesktopBookTopicReadingContext
+  sessionId: string
+}
 
 export interface CreateDesktopNoteInput {
   initialHeading?: string
@@ -319,6 +351,8 @@ export type DesktopNoteSearchHit = DesktopNoteTitleSearchHit | DesktopTopicSearc
 export interface DesktopApi {
   addShelfSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
   checkAssets: () => Promise<DesktopAssetCheckResult>
+  closeBookReadingSession: (sessionId: string) => Promise<boolean>
+  createBookContext: (input: { noteTitle: string, readingId: string, topicTitle: string }) => Promise<CreateDesktopBookContextResult>
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
   deleteShelfReading: (readingId: string) => Promise<boolean>
   getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
@@ -329,6 +363,8 @@ export interface DesktopApi {
   getShelfPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
   importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
+  isBookReadingAvailable: (readingId: string) => Promise<boolean>
+  listBookContexts: (readingId: string) => Promise<readonly DesktopBookTopicContextSummary[]>
   listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
   listJournalDates: (input: ListDesktopJournalDatesInput) => Promise<readonly JournalDate[]>
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
@@ -340,7 +376,9 @@ export interface DesktopApi {
   openShelfReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
   prepareShelfReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
   prunePastEmptyJournals: () => Promise<PruneDesktopPastEmptyJournalsResult>
+  readShelfReadingRange: (input: ShelfReadingRangeInput) => Promise<Uint8Array>
   reclaimAssets: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
+  rebindBookContext: (input: { noteId: string, readingId: string, sessionId?: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
   recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
   refreshShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
   removeShelfSource: (sourceId: string) => Promise<void>
@@ -351,6 +389,7 @@ export interface DesktopApi {
   searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
   setConfiguration: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
   setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
+  selectBookContext: (input: { noteId: string, readingId: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
   showColumnVisibilityMenu: (input: ShowDesktopColumnVisibilityMenuInput) => Promise<DesktopColumnVisibilityMenuSelection | null>
   subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
   subscribeNoteSaveRequests: (listener: () => Promise<void>) => () => void

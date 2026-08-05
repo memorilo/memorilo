@@ -16,6 +16,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',
     readerArrowKeyPageTurning: true,
+    readerEpubPresentationMode: 'publisher',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
     weekStart: 'sunday',
@@ -47,6 +48,7 @@ describe('desktop MCP configuration', () => {
       mcp: { accessToken: '', enabled: false, port: 8765 },
       outdentBehavior: 'logical',
       readerArrowKeyPageTurning: true,
+      readerEpubPresentationMode: 'publisher',
       reduceMotion: true,
       weekStart: 'sunday',
     })
@@ -62,6 +64,7 @@ describe('desktop MCP configuration', () => {
       mcp: { accessToken: token, enabled: false, port: 8765 },
       outdentBehavior: 'traditional',
       readerArrowKeyPageTurning: true,
+      readerEpubPresentationMode: 'publisher',
       reduceMotion: true,
       weekStart: 'sunday',
     })

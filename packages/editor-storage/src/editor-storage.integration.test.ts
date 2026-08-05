@@ -103,6 +103,7 @@ async function saveTopic(
       ordinal: 0,
       parentId: null,
       title: '',
+      topicType: 'regular',
     }],
     noteId: note.id,
     title,

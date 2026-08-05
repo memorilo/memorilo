@@ -20,6 +20,22 @@ _Avoid_: Empty Topic
 A NoteEntry with editable content that may also organize child entries.
 _Avoid_: Page, editor document
 
+**BookTopic**:
+A Topic bound to one concrete BookFile. It keeps normal editable Topic content while owning that file's reading position and annotations.
+_Avoid_: ReadingTopic, book registry entry
+
+**Publication**:
+Catalog metadata used to discover one or more downloadable renditions of a work. A Publication is not the identity of a BookTopic.
+_Avoid_: BookFile, BookTopic
+
+**BookFile**:
+The exact readable bytes identified by their format and content hash. Different formats or byte revisions are different BookFiles.
+_Avoid_: Publication, reading ID
+
+**ReadingContext**:
+The combination of a Note and one of its BookTopics selected when reading a BookFile.
+_Avoid_: Reader ID, reading session
+
 **Block**:
 A content node inside a Topic.
 _Avoid_: NoteEntry, Topic node
