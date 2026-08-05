@@ -1,14 +1,19 @@
 import type { DesktopNote } from '@memorilo/desktop-preload'
 import type {
+  BookTopicSnapshot,
   EditorNote,
   EditorNoteChange,
   EditorTopicDocument,
   NoteEntrySnapshot,
 } from '@memorilo/editor'
+import type { ShelfPublication, ShelfReadingFormat, ShelfSource } from '@memorilo/shelf'
+import type { FormEvent, MouseEvent as ReactMouseEvent } from 'react'
 import type { PaletteCommand } from '../components/command-palette-context'
 import { createEditorNote, demoEditorAdapters, Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
+import { readingFormatDisplayName } from '@memorilo/reading-format'
+import { shelfReadingAcquisitions } from '@memorilo/shelf'
 import * as stylex from '@stylexjs/stylex'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Cause, Effect, Exit, Layer } from 'effect'
 import { createEffectQuery } from 'effect-query'
@@ -16,18 +21,25 @@ import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import {
   AlignLeft,
+  BookOpen,
   ChevronRight,
+  CircleAlert,
   Copy,
   FileText,
   Folder,
   FolderOpen,
   ListTree,
   PanelRight,
+  Plus,
+  RefreshCw,
+  Search,
   Star,
+  X,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'react-toastify/unstyled'
 
 import { useCommandPaletteCommands } from '../components/command-palette-context'
 import { usePageTitlebar } from '../components/page-titlebar'
@@ -157,6 +169,49 @@ interface OpenEditorNote {
   topic: EditorTopicDocument
 }
 
+interface ShelfBookOption {
+  publication: ShelfPublication
+  source: ShelfSource
+}
+
+interface EntryContextMenuBase {
+  x: number
+  y: number
+}
+
+interface ContainerEntryContextMenu extends EntryContextMenuBase {
+  allowFolder: boolean
+  kind: 'container'
+  parentId: string | null
+}
+
+type BookResourceState = 'available' | 'checking' | 'error' | 'missing'
+
+interface BookEntryContextMenu extends EntryContextMenuBase {
+  kind: 'book'
+  readingId: string
+  resourceState: BookResourceState
+  topicId: string
+}
+
+type EntryContextMenu = BookEntryContextMenu | ContainerEntryContextMenu
+
+interface EntryCreationTarget {
+  kind: 'folder' | 'topic'
+  parentId: string | null
+}
+
+type BookPickerTarget
+  = | { kind: 'create', parentId: string | null }
+    | { format: ShelfReadingFormat, kind: 'rebind', topicId: string }
+
+function bookTopicReadingId(topic: BookTopicSnapshot): string {
+  const hint = topic.book.retrievalHints[0]
+  if (!hint)
+    throw new Error(`BookTopic ${topic.id} is missing its reading locator`)
+  return hint.readingId
+}
+
 interface TopicValidationError {
   diagnostics: string
   message: string
@@ -186,10 +241,339 @@ function formatTopicValidationDiagnostics(
   return sections.join('\n\n')
 }
 
+async function loadReadableShelfBooks(): Promise<readonly ShelfBookOption[]> {
+  const sources = await window.desktop.listShelfSources()
+  const books: ShelfBookOption[] = []
+  const seen = new Set<string>()
+  for (const source of sources.filter(source => source.enabled)) {
+    let pageUrl: string | undefined
+    const visitedUrls = new Set<string>()
+    while (true) {
+      const result = await window.desktop.refreshShelfView({
+        ...(pageUrl === undefined ? {} : { pageUrl }),
+        sourceId: source.id,
+      })
+      const group = result.groups.find(candidate => candidate.source.id === source.id)
+      if (!group)
+        throw new Error(`Shelf source ${source.id} was not returned`)
+      if (group.issue && !group.page)
+        throw new Error(group.issue.message)
+      if (group.page) {
+        for (const publication of group.page.publications) {
+          if (shelfReadingAcquisitions(publication).length === 0)
+            continue
+          const key = `${source.id}:${publication.id}`
+          if (seen.has(key))
+            continue
+          seen.add(key)
+          books.push({ publication, source: group.source })
+        }
+      }
+      const nextUrl = group.page?.nextUrl
+      if (nextUrl === null || nextUrl === undefined || visitedUrls.has(nextUrl))
+        break
+      visitedUrls.add(nextUrl)
+      pageUrl = nextUrl
+    }
+  }
+  return books
+}
+
+function BookTopicPickerDialog({
+  mode,
+  onClose,
+  onCreate,
+  requiredFormat,
+}: {
+  mode: 'create' | 'rebind'
+  onClose: () => void
+  onCreate: (option: ShelfBookOption, format: ShelfReadingFormat) => Promise<void>
+  requiredFormat?: ShelfReadingFormat
+}) {
+  const { t } = useTranslation('editor')
+  const [query, setQuery] = useState('')
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [selectedFormat, setSelectedFormat] = useState<ShelfReadingFormat | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const booksQuery = useQuery({
+    queryFn: loadReadableShelfBooks,
+    queryKey: ['book-topic-shelf-books'],
+    retry: false,
+    staleTime: 30_000,
+  })
+  const filteredBooks = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase()
+    return (booksQuery.data ?? []).filter(({ publication, source }) => {
+      if (requiredFormat !== undefined
+        && !shelfReadingAcquisitions(publication).some(acquisition => acquisition.format === requiredFormat)) {
+        return false
+      }
+      return normalizedQuery.length === 0
+        || `${publication.title} ${publication.authors.join(' ')} ${source.name}`.toLocaleLowerCase().includes(normalizedQuery)
+    })
+  }, [booksQuery.data, query, requiredFormat])
+  const selectedOption = useMemo(
+    () => (booksQuery.data ?? []).find(({ publication, source }) => `${source.id}:${publication.id}` === selectedKey),
+    [booksQuery.data, selectedKey],
+  )
+  const formats = selectedOption
+    ? shelfReadingAcquisitions(selectedOption.publication)
+        .filter(acquisition => requiredFormat === undefined || acquisition.format === requiredFormat)
+    : []
+  const activeFormat = formats.some(acquisition => acquisition.format === selectedFormat)
+    ? selectedFormat
+    : formats[0]?.format ?? null
+
+  const submit = async () => {
+    if (!selectedOption || activeFormat === null)
+      return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onCreate(selectedOption, activeFormat)
+    }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }
+    finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div {...stylex.props(editorRouteStyles.bookPickerOverlay)}>
+      <section
+        {...stylex.props(editorRouteStyles.bookPickerDialog)}
+        aria-describedby="book-topic-picker-description"
+        aria-labelledby="book-topic-picker-title"
+        aria-modal="true"
+        role="dialog"
+      >
+        <header {...stylex.props(editorRouteStyles.bookPickerHeader)}>
+          <div>
+            <h1 id="book-topic-picker-title" {...stylex.props(editorRouteStyles.bookPickerTitle)}>
+              {mode === 'rebind' ? t('rebindBook') : t('addBook')}
+            </h1>
+            <p id="book-topic-picker-description" {...stylex.props(editorRouteStyles.bookPickerDescription)}>
+              {mode === 'rebind' ? t('rebindBookDescription') : t('addBookDescription')}
+            </p>
+          </div>
+          <button
+            {...stylex.props(editorRouteStyles.inspectorCloseButton)}
+            aria-label={t('closeBookPicker')}
+            title={t('closeBookPicker')}
+            type="button"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" size={16} strokeWidth={1.8} />
+          </button>
+        </header>
+        <div {...stylex.props(editorRouteStyles.bookPickerBody)}>
+          {mode === 'rebind'
+            ? <p {...stylex.props(editorRouteStyles.bookPickerWarning)}>{t('rebindBookWarning')}</p>
+            : null}
+          <label {...stylex.props(editorRouteStyles.bookPickerSearch)}>
+            <Search aria-hidden="true" size={15} strokeWidth={1.8} />
+            <input
+              {...stylex.props(editorRouteStyles.bookPickerSearchInput)}
+              aria-label={t('searchBooks')}
+              placeholder={t('searchBooks')}
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+            />
+          </label>
+          {booksQuery.isPending
+            ? <p {...stylex.props(editorRouteStyles.bookPickerStatus)} role="status">{t('loadingBooks')}</p>
+            : booksQuery.error
+              ? <p {...stylex.props(editorRouteStyles.bookPickerError)} role="alert">{booksQuery.error instanceof Error ? booksQuery.error.message : String(booksQuery.error)}</p>
+              : filteredBooks.length === 0
+                ? <p {...stylex.props(editorRouteStyles.bookPickerStatus)}>{t('noReadableBooks')}</p>
+                : (
+                    <div {...stylex.props(editorRouteStyles.bookPickerList)} role="listbox" aria-label={t('searchBooks')}>
+                      {filteredBooks.map((option) => {
+                        const key = `${option.source.id}:${option.publication.id}`
+                        const formatsForOption = shelfReadingAcquisitions(option.publication)
+                        return (
+                          <button
+                            key={key}
+                            {...stylex.props(
+                              editorRouteStyles.bookPickerOption,
+                              selectedKey === key && editorRouteStyles.bookPickerOptionSelected,
+                            )}
+                            aria-selected={selectedKey === key}
+                            role="option"
+                            type="button"
+                            onClick={() => {
+                              const matchingFormat = formatsForOption.find(
+                                acquisition => requiredFormat === undefined || acquisition.format === requiredFormat,
+                              )
+                              setSelectedKey(key)
+                              setSelectedFormat(matchingFormat === undefined ? null : matchingFormat.format)
+                              setError(null)
+                            }}
+                          >
+                            <span {...stylex.props(editorRouteStyles.bookPickerOptionText)}>
+                              <strong {...stylex.props(editorRouteStyles.bookPickerOptionTitle)}>{option.publication.title}</strong>
+                              <span {...stylex.props(editorRouteStyles.bookPickerOptionDetail)}>{option.source.name}</span>
+                            </span>
+                            <span {...stylex.props(editorRouteStyles.bookPickerFormatList)}>
+                              {formatsForOption.map(acquisition => readingFormatDisplayName(acquisition.format)).join(' · ')}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+          {selectedOption && formats.length > 0
+            ? (
+                <label {...stylex.props(editorRouteStyles.bookPickerFormatField)}>
+                  <span>{t('bookFormat')}</span>
+                  <select
+                    {...stylex.props(editorRouteStyles.bookPickerFormatSelect)}
+                    value={activeFormat ?? ''}
+                    onChange={event => setSelectedFormat(event.target.value as ShelfReadingFormat)}
+                  >
+                    {formats.map(acquisition => (
+                      <option key={acquisition.format} value={acquisition.format}>
+                        {readingFormatDisplayName(acquisition.format)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )
+            : null}
+          {error
+            ? <p {...stylex.props(editorRouteStyles.bookPickerError)} role="alert">{error}</p>
+            : null}
+        </div>
+        <footer {...stylex.props(editorRouteStyles.bookPickerFooter)}>
+          <button
+            {...stylex.props(editorRouteStyles.bookPickerCancel)}
+            disabled={submitting}
+            type="button"
+            onClick={onClose}
+          >
+            {t('cancel')}
+          </button>
+          <button
+            {...stylex.props(editorRouteStyles.bookPickerCreate)}
+            disabled={submitting || selectedOption === undefined || activeFormat === null}
+            type="button"
+            onClick={() => void submit()}
+          >
+            {submitting
+              ? mode === 'rebind' ? t('rebindingBook') : t('addingBook')
+              : mode === 'rebind' ? t('rebindBook') : t('addBook')}
+          </button>
+        </footer>
+      </section>
+    </div>
+  )
+}
+
+function EntryCreationDialog({
+  kind,
+  onClose,
+  onCreate,
+}: {
+  kind: EntryCreationTarget['kind']
+  onClose: () => void
+  onCreate: (label: string) => void
+}) {
+  const { t } = useTranslation('editor')
+  const [error, setError] = useState<string | null>(null)
+  const [label, setLabel] = useState('')
+  const title = kind === 'folder' ? t('newFolder') : t('newTopic')
+  const fieldLabel = kind === 'folder' ? t('folderName') : t('topicTitle')
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const normalized = label.trim()
+    if (normalized.length === 0) {
+      setError(t('entryNameRequired'))
+      return
+    }
+    try {
+      onCreate(normalized)
+    }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
+  return (
+    <div
+      {...stylex.props(editorRouteStyles.bookPickerOverlay)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          onClose()
+        }
+      }}
+    >
+      <form
+        {...stylex.props(editorRouteStyles.entryCreationDialog)}
+        aria-labelledby="entry-creation-title"
+        aria-modal="true"
+        role="dialog"
+        onSubmit={submit}
+      >
+        <header {...stylex.props(editorRouteStyles.bookPickerHeader)}>
+          <h1 id="entry-creation-title" {...stylex.props(editorRouteStyles.bookPickerTitle)}>{title}</h1>
+          <button
+            {...stylex.props(editorRouteStyles.inspectorCloseButton)}
+            aria-label={t('closeEntryDialog')}
+            title={t('closeEntryDialog')}
+            type="button"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" size={16} strokeWidth={1.8} />
+          </button>
+        </header>
+        <div {...stylex.props(editorRouteStyles.entryCreationBody)}>
+          <label {...stylex.props(editorRouteStyles.entryCreationField)}>
+            <span>{fieldLabel}</span>
+            <input
+              {...stylex.props(editorRouteStyles.entryCreationInput)}
+              autoFocus
+              required
+              value={label}
+              onChange={(event) => {
+                setLabel(event.target.value)
+                setError(null)
+              }}
+            />
+          </label>
+          {error
+            ? <p {...stylex.props(editorRouteStyles.bookPickerError)} role="alert">{error}</p>
+            : null}
+        </div>
+        <footer {...stylex.props(editorRouteStyles.bookPickerFooter)}>
+          <button {...stylex.props(editorRouteStyles.bookPickerCancel)} type="button" onClick={onClose}>
+            {t('cancel')}
+          </button>
+          <button
+            {...stylex.props(editorRouteStyles.bookPickerCreate)}
+            disabled={label.trim().length === 0}
+            type="submit"
+          >
+            {t('create')}
+          </button>
+        </footer>
+      </form>
+    </div>
+  )
+}
+
 function OpenedTopicEditor({
   collapsedEntryIds,
   favoritePending,
   focusBlockId,
+  onAddBook,
+  onAddFolder,
+  onAddTopic,
+  onRebindBook,
   onRenameNote,
   onToggleEntry,
   onToggleFavorite,
@@ -200,6 +584,10 @@ function OpenedTopicEditor({
   collapsedEntryIds: ReadonlySet<string>
   favoritePending: boolean
   focusBlockId?: string
+  onAddBook: (parentId: string | null) => void
+  onAddFolder: (parentId: string | null) => void
+  onAddTopic: (parentId: string | null) => void
+  onRebindBook: (topicId: string) => void
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   onToggleEntry: (entryId: string) => void
   onToggleFavorite: () => void
@@ -208,9 +596,14 @@ function OpenedTopicEditor({
   validationError: TopicValidationError | null
 }) {
   const { t } = useTranslation('editor')
+  const [addSubmenuOpen, setAddSubmenuOpen] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
+  const [entryContextMenu, setEntryContextMenu] = useState<EntryContextMenu | null>(null)
   const [inspectorVisible, setInspectorVisible] = useAtom(noteInspectorVisibleAtom)
   const configuration = useDesktopConfiguration()
+  const addMenuFirstItemRef = useRef<HTMLButtonElement>(null)
+  const addMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const availabilityRequestRef = useRef(0)
   const editorAdapters = useMemo(
     () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
     [configuration.networkImagePasteBehavior],
@@ -228,6 +621,60 @@ function OpenedTopicEditor({
   )
   const mode = useEditorTopicMode(opened.topic)
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
+  const closeEntryContextMenu = useCallback(() => {
+    availabilityRequestRef.current += 1
+    setAddSubmenuOpen(false)
+    setEntryContextMenu(null)
+  }, [])
+  const openEntryContextMenu = useCallback((
+    event: ReactMouseEvent,
+    parentId: string | null,
+    allowFolder: boolean,
+  ) => {
+    event.preventDefault()
+    availabilityRequestRef.current += 1
+    setAddSubmenuOpen(false)
+    setEntryContextMenu({ allowFolder, kind: 'container', parentId, x: event.clientX, y: event.clientY })
+  }, [])
+  const openBookTopicContextMenu = useCallback((
+    event: ReactMouseEvent,
+    topicId: string,
+    readingId: string,
+  ) => {
+    event.preventDefault()
+    const requestId = availabilityRequestRef.current + 1
+    availabilityRequestRef.current = requestId
+    setAddSubmenuOpen(false)
+    setEntryContextMenu({
+      kind: 'book',
+      readingId,
+      resourceState: 'checking',
+      topicId,
+      x: event.clientX,
+      y: event.clientY,
+    })
+    void window.desktop.isBookReadingAvailable(readingId).then(
+      (available) => {
+        if (availabilityRequestRef.current !== requestId)
+          return
+        setEntryContextMenu(current => current?.kind === 'book'
+          && current.readingId === readingId
+          && current.topicId === topicId
+          ? { ...current, resourceState: available ? 'available' : 'missing' }
+          : current)
+      },
+      (cause) => {
+        console.error(`Failed to check reading file ${readingId}`, cause)
+        if (availabilityRequestRef.current !== requestId)
+          return
+        setEntryContextMenu(current => current?.kind === 'book'
+          && current.readingId === readingId
+          && current.topicId === topicId
+          ? { ...current, resourceState: 'error' }
+          : current)
+      },
+    )
+  }, [])
   const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
   const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
   const modeCommands = useMemo<readonly PaletteCommand[]>(() => mode === EditorMode.Document
@@ -254,6 +701,21 @@ function OpenedTopicEditor({
         section: t('editorSection') as PaletteCommand['section'],
       }], [mode, showDocumentMode, showOutlineMode, t])
   useCommandPaletteCommands(modeCommands)
+
+  useEffect(() => {
+    if (!entryContextMenu)
+      return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape')
+        closeEntryContextMenu()
+    }
+    window.addEventListener('pointerdown', closeEntryContextMenu)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeEntryContextMenu)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [closeEntryContextMenu, entryContextMenu])
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
   const copyValidationDiagnostics = useCallback(async () => {
     if (!validationError)
@@ -318,7 +780,34 @@ function OpenedTopicEditor({
     toggleInspector,
   ])
   usePageTitlebar(titlebar)
-
+  const entryContextMenuLayout = useMemo(() => {
+    if (!entryContextMenu)
+      return null
+    const viewportInset = 8
+    const menuWidth = 168
+    const menuGap = 4
+    const menuPadding = 8
+    const menuItemHeight = 30
+    const mainItemCount = entryContextMenu.kind === 'book' && entryContextMenu.resourceState !== 'available' ? 2 : 1
+    const submenuItemCount = entryContextMenu.kind === 'container' && entryContextMenu.allowFolder ? 3 : 2
+    const requiredHeight = Math.max(
+      menuPadding + mainItemCount * menuItemHeight,
+      menuPadding + submenuItemCount * menuItemHeight,
+    )
+    const left = Math.max(
+      viewportInset,
+      Math.min(entryContextMenu.x, Math.max(viewportInset, window.innerWidth - menuWidth - viewportInset)),
+    )
+    const top = Math.max(
+      viewportInset,
+      Math.min(entryContextMenu.y, Math.max(viewportInset, window.innerHeight - requiredHeight - viewportInset)),
+    )
+    return {
+      left,
+      submenuOpensLeft: left + menuWidth + menuGap + menuWidth > window.innerWidth - viewportInset,
+      top,
+    }
+  }, [entryContextMenu])
   return (
     <main {...stylex.props(editorRouteStyles.page)}>
       <section {...stylex.props(editorRouteStyles.workspace)} aria-label={opened.stored.title}>
@@ -385,7 +874,10 @@ function OpenedTopicEditor({
                 </header>
                 <div {...stylex.props(editorRouteStyles.inspectorContent)}>
                   <section {...stylex.props(editorRouteStyles.inspectorSection)} aria-labelledby="topic-structure-heading">
-                    <div {...stylex.props(editorRouteStyles.inspectorSectionHeading)}>
+                    <div
+                      {...stylex.props(editorRouteStyles.inspectorSectionHeading)}
+                      onContextMenu={event => openEntryContextMenu(event, null, true)}
+                    >
                       <h2 id="topic-structure-heading" {...stylex.props(editorRouteStyles.inspectorSectionTitle)}>
                         {t('structure')}
                       </h2>
@@ -397,6 +889,15 @@ function OpenedTopicEditor({
                           const collapsed = collapsedEntryIds.has(entry.id)
                           const label = entry.kind === 'folder' ? entry.name : entry.title || t('untitledTopic')
                           const current = entry.kind === 'topic' && entry.id === opened.topic.topicId
+                          const topicContextMenu = entry.kind === 'topic'
+                            ? entry.topicType === 'book'
+                              ? (event: ReactMouseEvent) => openBookTopicContextMenu(
+                                  event,
+                                  entry.id,
+                                  bookTopicReadingId(entry),
+                                )
+                              : (event: ReactMouseEvent) => openEntryContextMenu(event, entry.id, false)
+                            : undefined
 
                           return (
                             <motion.div
@@ -421,6 +922,7 @@ function OpenedTopicEditor({
                                       title={label}
                                       type="button"
                                       onClick={() => onToggleEntry(entry.id)}
+                                      onContextMenu={event => openEntryContextMenu(event, entry.id, true)}
                                     >
                                       <motion.span
                                         {...stylex.props(editorRouteStyles.entryDisclosure)}
@@ -438,7 +940,10 @@ function OpenedTopicEditor({
                                     </button>
                                   )
                                 : (
-                                    <div {...stylex.props(editorRouteStyles.topicEntry)}>
+                                    <div
+                                      {...stylex.props(editorRouteStyles.topicEntry)}
+                                      onContextMenu={topicContextMenu}
+                                    >
                                       {hasChildren
                                         ? (
                                             <button
@@ -458,29 +963,62 @@ function OpenedTopicEditor({
                                             </button>
                                           )
                                         : <span {...stylex.props(editorRouteStyles.entryDisclosurePlaceholder)} />}
-                                      <FileText
-                                        {...stylex.props(
-                                          editorRouteStyles.topicIcon,
-                                          current && editorRouteStyles.topicIconCurrent,
-                                        )}
-                                        aria-hidden="true"
-                                        size={14}
-                                        strokeWidth={1.7}
-                                      />
-                                      <Link
-                                        {...stylex.props(
-                                          editorRouteStyles.topicLink,
-                                          current && editorRouteStyles.topicLinkCurrent,
-                                        )}
-                                        aria-current={current ? 'page' : undefined}
-                                        params={{ noteId: opened.note.id, topicId: entry.id }}
-                                        preload="intent"
-                                        search={{}}
-                                        title={label}
-                                        to="/note/$noteId/$topicId"
-                                      >
-                                        <span {...stylex.props(editorRouteStyles.entryLabel)}>{label}</span>
-                                      </Link>
+                                      {entry.topicType === 'book'
+                                        ? (
+                                            <BookOpen
+                                              {...stylex.props(
+                                                editorRouteStyles.topicIcon,
+                                                current && editorRouteStyles.topicIconCurrent,
+                                              )}
+                                              aria-hidden="true"
+                                              size={14}
+                                              strokeWidth={1.7}
+                                            />
+                                          )
+                                        : (
+                                            <FileText
+                                              {...stylex.props(
+                                                editorRouteStyles.topicIcon,
+                                                current && editorRouteStyles.topicIconCurrent,
+                                              )}
+                                              aria-hidden="true"
+                                              size={14}
+                                              strokeWidth={1.7}
+                                            />
+                                          )}
+                                      {entry.topicType === 'book'
+                                        ? (
+                                            <Link
+                                              {...stylex.props(
+                                                editorRouteStyles.topicLink,
+                                                current && editorRouteStyles.topicLinkCurrent,
+                                              )}
+                                              aria-current={current ? 'page' : undefined}
+                                              params={{ readingId: bookTopicReadingId(entry) }}
+                                              preload="intent"
+                                              search={{ noteId: opened.note.id, topicId: entry.id }}
+                                              title={label}
+                                              to="/reader/$readingId"
+                                            >
+                                              <span {...stylex.props(editorRouteStyles.entryLabel)}>{label}</span>
+                                            </Link>
+                                          )
+                                        : (
+                                            <Link
+                                              {...stylex.props(
+                                                editorRouteStyles.topicLink,
+                                                current && editorRouteStyles.topicLinkCurrent,
+                                              )}
+                                              aria-current={current ? 'page' : undefined}
+                                              params={{ noteId: opened.note.id, topicId: entry.id }}
+                                              preload="intent"
+                                              search={{}}
+                                              title={label}
+                                              to="/note/$noteId/$topicId"
+                                            >
+                                              <span {...stylex.props(editorRouteStyles.entryLabel)}>{label}</span>
+                                            </Link>
+                                          )}
                                     </div>
                                   )}
                             </motion.div>
@@ -536,6 +1074,155 @@ function OpenedTopicEditor({
             )
           : null}
       </AnimatePresence>
+      {entryContextMenu && entryContextMenuLayout
+        ? (
+            <div
+              {...stylex.props(editorRouteStyles.entryContextMenu)}
+              role="menu"
+              style={{
+                left: entryContextMenuLayout.left,
+                top: entryContextMenuLayout.top,
+              }}
+              onContextMenu={event => event.preventDefault()}
+              onPointerDown={event => event.stopPropagation()}
+            >
+              <div
+                {...stylex.props(editorRouteStyles.entryContextSubmenuTrigger)}
+                onPointerEnter={() => setAddSubmenuOpen(true)}
+              >
+                <button
+                  ref={addMenuTriggerRef}
+                  {...stylex.props(editorRouteStyles.entryContextMenuItem)}
+                  aria-expanded={addSubmenuOpen}
+                  aria-haspopup="menu"
+                  role="menuitem"
+                  type="button"
+                  onClick={() => setAddSubmenuOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowRight' && event.key !== 'Enter' && event.key !== ' ')
+                      return
+                    event.preventDefault()
+                    setAddSubmenuOpen(true)
+                    queueMicrotask(() => addMenuFirstItemRef.current?.focus())
+                  }}
+                >
+                  <Plus aria-hidden="true" size={14} strokeWidth={1.8} />
+                  {t('add')}
+                  <ChevronRight
+                    {...stylex.props(editorRouteStyles.entryContextMenuItemTrailing)}
+                    aria-hidden="true"
+                    size={13}
+                    strokeWidth={1.8}
+                  />
+                </button>
+                {addSubmenuOpen
+                  ? (
+                      <div
+                        {...stylex.props(
+                          editorRouteStyles.entryContextSubmenu,
+                          entryContextMenuLayout.submenuOpensLeft && editorRouteStyles.entryContextSubmenuLeft,
+                        )}
+                        role="menu"
+                        onKeyDown={(event) => {
+                          if (event.key !== 'ArrowLeft')
+                            return
+                          event.preventDefault()
+                          setAddSubmenuOpen(false)
+                          queueMicrotask(() => addMenuTriggerRef.current?.focus())
+                        }}
+                      >
+                        <button
+                          ref={addMenuFirstItemRef}
+                          {...stylex.props(editorRouteStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddTopic(entryContextMenu.kind === 'book'
+                              ? entryContextMenu.topicId
+                              : entryContextMenu.parentId)
+                            closeEntryContextMenu()
+                          }}
+                        >
+                          <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('topic')}
+                        </button>
+                        {entryContextMenu.kind === 'container' && entryContextMenu.allowFolder
+                          ? (
+                              <button
+                                {...stylex.props(editorRouteStyles.entryContextMenuItem)}
+                                role="menuitem"
+                                type="button"
+                                onClick={() => {
+                                  onAddFolder(entryContextMenu.parentId)
+                                  closeEntryContextMenu()
+                                }}
+                              >
+                                <Folder aria-hidden="true" size={14} strokeWidth={1.8} />
+                                {t('folder')}
+                              </button>
+                            )
+                          : null}
+                        <button
+                          {...stylex.props(editorRouteStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddBook(entryContextMenu.kind === 'book'
+                              ? entryContextMenu.topicId
+                              : entryContextMenu.parentId)
+                            closeEntryContextMenu()
+                          }}
+                        >
+                          <BookOpen aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('book')}
+                        </button>
+                      </div>
+                    )
+                  : null}
+              </div>
+              {entryContextMenu.kind === 'book' && entryContextMenu.resourceState === 'missing'
+                ? (
+                    <button
+                      {...stylex.props(editorRouteStyles.entryContextMenuItem)}
+                      role="menuitem"
+                      type="button"
+                      onFocus={() => setAddSubmenuOpen(false)}
+                      onPointerEnter={() => setAddSubmenuOpen(false)}
+                      onClick={() => {
+                        onRebindBook(entryContextMenu.topicId)
+                        closeEntryContextMenu()
+                      }}
+                    >
+                      <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
+                      {t('rebindBook')}
+                    </button>
+                  )
+                : null}
+              {entryContextMenu.kind === 'book'
+                && (entryContextMenu.resourceState === 'checking' || entryContextMenu.resourceState === 'error')
+                ? (
+                    <button
+                      {...stylex.props(
+                        editorRouteStyles.entryContextMenuItem,
+                        editorRouteStyles.entryContextMenuItemDisabled,
+                      )}
+                      aria-disabled="true"
+                      disabled
+                      role="menuitem"
+                      type="button"
+                    >
+                      {entryContextMenu.resourceState === 'checking'
+                        ? <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
+                        : <CircleAlert aria-hidden="true" size={14} strokeWidth={1.8} />}
+                      {entryContextMenu.resourceState === 'checking'
+                        ? t('checkingBookAvailability')
+                        : t('bookAvailabilityCheckFailed')}
+                    </button>
+                  )
+                : null}
+            </div>
+          )
+        : null}
     </main>
   )
 }
@@ -555,6 +1242,8 @@ export function NoteEditor({
 }) {
   const { t } = useTranslation(['editor', 'pages'])
   const [opened, setOpened] = useState<OpenEditorNote | null>(null)
+  const [bookPickerTarget, setBookPickerTarget] = useState<BookPickerTarget | undefined>(undefined)
+  const [entryCreationTarget, setEntryCreationTarget] = useState<EntryCreationTarget | undefined>(undefined)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<TopicValidationError | null>(null)
   const queryClient = useQueryClient()
@@ -664,6 +1353,9 @@ export function NoteEditor({
     setValidationError(null)
     latestValidSnapshotRef.current = note.exportSnapshot()
     enqueue(change)
+    setOpened(current => current && current.note === note
+      ? { ...current, entries: note.getEntries() }
+      : current)
   }, [enqueue, rebuildFromLatestValidSnapshot, t, topicId])
   handleNoteChangeRef.current = handleNoteChange
 
@@ -733,6 +1425,66 @@ export function NoteEditor({
       return
     mutateFavorite({ favorite: !opened.stored.favorite, noteId: opened.stored.id })
   }, [mutateFavorite, opened])
+
+  const handleCreateBookTopic = useCallback(async (
+    option: ShelfBookOption,
+    format: ShelfReadingFormat,
+    parentId: string | null,
+  ) => {
+    const note = noteRef.current
+    if (!note)
+      throw new Error('The Note is no longer open')
+    const prepared = await window.desktop.prepareShelfReading({
+      format,
+      publicationId: option.publication.id,
+      retention: 'library',
+      sourceId: option.source.id,
+    })
+    note.createBookTopic({
+      book: prepared.book,
+      mode: EditorMode.Document,
+      parentId,
+      title: option.publication.title,
+    })
+    setBookPickerTarget(undefined)
+    toast.success(t('bookTopicCreated', { ns: 'editor' }))
+  }, [t])
+
+  const handleCreateEntry = useCallback((target: EntryCreationTarget, label: string) => {
+    const note = noteRef.current
+    if (!note)
+      throw new Error('The Note is no longer open')
+    if (target.kind === 'folder') {
+      note.createFolder({ name: label, parentId: target.parentId })
+    }
+    else {
+      note.createTopic({ mode: EditorMode.Document, parentId: target.parentId, title: label })
+    }
+    setEntryCreationTarget(undefined)
+  }, [])
+
+  const handleRebindBookTopic = useCallback(async (
+    option: ShelfBookOption,
+    format: ShelfReadingFormat,
+    topicId: string,
+  ) => {
+    const note = noteRef.current
+    if (!note)
+      throw new Error('The Note is no longer open')
+    const bookTopic = note.getBookTopic(topicId)
+    const currentBook = bookTopic.getBook()
+    if (format !== currentBook.file.format)
+      throw new Error(`BookTopic format must remain ${currentBook.file.format}`)
+    const prepared = await window.desktop.prepareShelfReading({
+      format,
+      publicationId: option.publication.id,
+      retention: 'library',
+      sourceId: option.source.id,
+    })
+    bookTopic.rebind(prepared.book)
+    setBookPickerTarget(undefined)
+    toast.warning(t('bookTopicRebound', { ns: 'editor' }))
+  }, [t])
 
   useEffect(() => {
     let active = true
@@ -815,18 +1567,48 @@ export function NoteEditor({
   }
 
   return (
-    <OpenedTopicEditor
-      collapsedEntryIds={collapsedEntryIds}
-      favoritePending={favoritePending}
-      focusBlockId={focusBlockId}
-      onRenameNote={handleRenameNote}
-      onToggleEntry={onToggleEntry}
-      onToggleFavorite={handleToggleFavorite}
-      opened={opened}
-      saveError={persistence.error instanceof Error
-        ? persistence.error.message
-        : persistence.error === null ? null : String(persistence.error)}
-      validationError={validationError}
-    />
+    <>
+      <OpenedTopicEditor
+        collapsedEntryIds={collapsedEntryIds}
+        favoritePending={favoritePending}
+        focusBlockId={focusBlockId}
+        onAddBook={parentId => setBookPickerTarget({ kind: 'create', parentId })}
+        onAddFolder={parentId => setEntryCreationTarget({ kind: 'folder', parentId })}
+        onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
+        onRebindBook={(topicId) => {
+          const format = opened.note.getBookTopic(topicId).getBook().file.format
+          setBookPickerTarget({ format, kind: 'rebind', topicId })
+        }}
+        onRenameNote={handleRenameNote}
+        onToggleEntry={onToggleEntry}
+        onToggleFavorite={handleToggleFavorite}
+        opened={opened}
+        saveError={persistence.error instanceof Error
+          ? persistence.error.message
+          : persistence.error === null ? null : String(persistence.error)}
+        validationError={validationError}
+      />
+      {bookPickerTarget !== undefined
+        ? (
+            <BookTopicPickerDialog
+              mode={bookPickerTarget.kind}
+              requiredFormat={bookPickerTarget.kind === 'rebind' ? bookPickerTarget.format : undefined}
+              onClose={() => setBookPickerTarget(undefined)}
+              onCreate={(option, format) => bookPickerTarget.kind === 'create'
+                ? handleCreateBookTopic(option, format, bookPickerTarget.parentId)
+                : handleRebindBookTopic(option, format, bookPickerTarget.topicId)}
+            />
+          )
+        : null}
+      {entryCreationTarget !== undefined
+        ? (
+            <EntryCreationDialog
+              kind={entryCreationTarget.kind}
+              onClose={() => setEntryCreationTarget(undefined)}
+              onCreate={label => handleCreateEntry(entryCreationTarget, label)}
+            />
+          )
+        : null}
+    </>
   )
 }

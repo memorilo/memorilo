@@ -13,5 +13,38 @@
   "noteCount_one": "{{count}} note",
   "noteCount_other": "{{count}} notes",
   "ascending": "ascending",
-  "descending": "descending"
+  "descending": "descending",
+  "reader": {
+    "addContext": "Add to Notes",
+    "openAreaAnnotation": "Open area annotation",
+    "opening": "Opening book…",
+    "couldNotOpen": "Couldn’t open this book",
+    "document": "Document",
+    "shelf": "Shelf",
+    "chooseContext": "Choose a reading context",
+    "chooseContextDescription": "Select where to keep progress and annotations for {{title}}.",
+    "createContext": "Create Note and BookTopic",
+    "createContextDescription": "This creates a new Note and a BookTopic bound to this file.",
+    "creatingContext": "Creating…",
+    "contextCreated": "BookTopic created",
+    "contextRebound": "BookTopic rebound to the new file",
+    "cannotChangeFormat": "A BookTopic cannot be rebound to a different format.",
+    "duplicateTitle": "A Note with this title already exists.",
+    "edit": "Edit",
+    "noteTitle": "Note title",
+    "bookTopicTitle": "BookTopic title",
+    "titlesRequired": "Both titles are required.",
+    "cancel": "Cancel",
+    "rebindTitle": "This file has changed",
+    "rebindWarning": "The new file has a different SHA-256. Existing positions and annotation anchors will be applied directly to it and may point to the wrong content.",
+    "rebindAnyway": "Rebind Anyway",
+    "rebinding": "Rebinding…",
+    "annotation": {
+      "areaInSection": "Area in {{section}}",
+      "areaNearCharacter": "Area near character {{position}}",
+      "areaOnPage": "Area on page {{page}}",
+      "page": "Page {{page}}",
+      "textNearCharacter": "Text near character {{position}}"
+    }
+  }
 }

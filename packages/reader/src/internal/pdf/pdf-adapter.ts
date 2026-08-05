@@ -15,10 +15,10 @@ import type {
   ReaderOcrTextItem,
   ReaderOutlineItem,
   ReaderPdfTextAnchor,
+  ReaderPosition,
   ReaderTextLayerKind,
   ReaderTextQuote,
 } from '../../types'
-import type { FixedPageRegionSelectionResult } from '../fixed-page/region-selection'
 import type {
   ReaderAdapter,
   ReaderAdapterCallbacks,
@@ -28,12 +28,13 @@ import type {
   ReaderScrollDirection,
   ReaderScrollResult,
 } from '../reader-adapter'
+import type { RegionSelectionResult } from '../region-selection'
 import type { ResolvedReaderSource } from '../source'
 import { fixedPageAnnotationTint } from '../fixed-page/annotations'
 import { clampFixedPageScale, clampUnit, normalizedRectWithinSurface } from '../fixed-page/geometry'
-import { FixedPageRegionSelectionController } from '../fixed-page/region-selection'
 import { FixedPageViewportController } from '../fixed-page/viewport'
 import { readerZoomScaleCapability } from '../reader-adapter'
+import { RegionSelectionController } from '../region-selection'
 import './pdf-layer.css'
 
 type PdfSource = ResolvedReaderSource & { format: 'pdf' }
@@ -190,7 +191,7 @@ class PdfAdapter implements ReaderAdapter {
   private pdfJs: PdfJsModule | null = null
   private pdfWorker: PDFWorker | null = null
   private rangeTransport: PDFDataRangeTransport | null = null
-  private readonly regionSelection: FixedPageRegionSelectionController
+  private readonly regionSelection: RegionSelectionController
   private outline: readonly ReaderOutlineItem[] = []
   private readonly outlineDestinations = new Map<string, PdfDestination>()
   private renderGeneration = 0
@@ -207,9 +208,17 @@ class PdfAdapter implements ReaderAdapter {
 
   constructor(
     private readonly source: PdfSource,
+    initialPosition: ReaderPosition | null | undefined,
     private readonly ocrProvider: ReaderOcrProvider | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
+    if (initialPosition !== null && initialPosition !== undefined) {
+      if (initialPosition.format !== 'pdf')
+        throw new TypeError(`Cannot restore ${initialPosition.format} position in a PDF reader`)
+      if (!Number.isSafeInteger(initialPosition.pageNumber) || initialPosition.pageNumber < 1)
+        throw new RangeError('PDF reading position must contain a positive page number')
+      this.pageNumber = initialPosition.pageNumber
+    }
     if (ocrProvider) {
       this.recognizeCurrentPage = async () => {
         this.ocrCache.delete(this.pageNumber)
@@ -217,16 +226,16 @@ class PdfAdapter implements ReaderAdapter {
         this.emitState()
       }
     }
-    this.regionSelection = new FixedPageRegionSelectionController({
-      applyEnabledState: (capture, enabled) => {
-        capture.classList.toggle('reader-pdf-region-capture-active', enabled)
+    this.regionSelection = new RegionSelectionController({
+      onEnabledChange: enabled => this.callbacks.onRegionSelectionModeChange(enabled),
+      onSelection: (selection) => {
+        try {
+          this.publishRegionSelection(selection)
+        }
+        catch (error) {
+          this.callbacks.onError(toError(error))
+        }
       },
-      createDraft: () => {
-        const draft = document.createElement('div')
-        draft.className = 'reader-pdf-region-draft'
-        return draft
-      },
-      onSelection: selection => this.publishRegionSelection(selection),
     })
   }
 
@@ -303,6 +312,7 @@ class PdfAdapter implements ReaderAdapter {
     if (this.destroyed)
       return
 
+    this.pageNumber = Math.min(this.pageNumber, this.document.numPages)
     this.loadOutline(await this.document.getOutline())
 
     this.resizeObserver = new ResizeObserver(() => {
@@ -314,6 +324,7 @@ class PdfAdapter implements ReaderAdapter {
   }
 
   clearSelection() {
+    this.regionSelection.setEnabled(false)
     document.getSelection()?.removeAllRanges()
     this.callbacks.onSelectionChange(null)
   }
@@ -466,6 +477,7 @@ class PdfAdapter implements ReaderAdapter {
         total,
       },
       outline: this.outline,
+      position: { format: 'pdf', pageNumber: this.pageNumber },
       presentationMode: 'publisher',
       scale: this.scale,
       textLayer: this.textLayerKind,
@@ -490,7 +502,7 @@ class PdfAdapter implements ReaderAdapter {
     this.outline = convert(nodes ?? [], 'pdf')
   }
 
-  private publishRegionSelection(result: FixedPageRegionSelectionResult | null) {
+  private publishRegionSelection(result: RegionSelectionResult | null) {
     if (!result) {
       this.callbacks.onSelectionChange(null)
       return
@@ -585,7 +597,7 @@ class PdfAdapter implements ReaderAdapter {
           throw new Error(`PDF annotation ${annotation.id} has no visible anchor rectangle`)
         const marker = document.createElement('button')
         marker.className = 'reader-pdf-note-marker'
-        marker.setAttribute('aria-label', 'Open annotation')
+        marker.setAttribute('aria-label', this.callbacks.regionAnnotationLabel())
         marker.style.left = `${clampUnit(firstRect.x + firstRect.width) * 100}%`
         marker.style.top = `${firstRect.y * 100}%`
         marker.type = 'button'
@@ -790,8 +802,9 @@ class PdfAdapter implements ReaderAdapter {
 
 export function openPdfAdapter(
   source: PdfSource,
+  initialPosition: ReaderPosition | null | undefined,
   ocrProvider: ReaderOcrProvider | undefined,
   callbacks: ReaderAdapterCallbacks,
 ): ReaderAdapter {
-  return new PdfAdapter(source, ocrProvider, callbacks)
+  return new PdfAdapter(source, initialPosition, ocrProvider, callbacks)
 }

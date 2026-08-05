@@ -1,4 +1,5 @@
 import type { ReadingFormat } from '@memorilo/reading-format'
+import type { BookFileBinding } from '@memorilo/reading-model'
 
 export type ShelfSourceKind = 'opds'
 
@@ -129,6 +130,7 @@ export interface PrepareShelfReadingInput {
 }
 
 export interface PreparedShelfReading {
+  book: BookFileBinding
   readingId: string
 }
 
@@ -143,6 +145,7 @@ export interface ShelfReadingRangeInput {
 }
 
 export interface ShelfReadingDocument {
+  book: BookFileBinding
   byteLength: number
   format: ShelfReadingFormat
   name: string

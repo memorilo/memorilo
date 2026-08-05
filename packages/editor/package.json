@@ -18,6 +18,8 @@
   "dependencies": {
     "@memorilo/loro-prosemirror-tree": "workspace:*",
     "@memorilo/reader": "workspace:*",
+    "@memorilo/reading-format": "workspace:*",
+    "@memorilo/reading-model": "workspace:*",
     "@stylexjs/stylex": "0.19.0",
     "beautiful-mermaid": "^1.1.3",
     "effect": "4.0.0-beta.23",

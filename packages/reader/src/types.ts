@@ -1,10 +1,32 @@
 import type { ReadingFormat } from '@memorilo/reading-format'
+import type {
+  ReadingAnchor,
+  ReadingAnnotation,
+  ReadingAnnotationColor,
+  ReadingComicRegionAnchor,
+  ReadingEpubLocator,
+  ReadingEpubRegionAnchor,
+  ReadingEpubRegionTarget,
+  ReadingEpubTextAnchor,
+  ReadingHighlight,
+  ReadingNormalizedRect,
+  ReadingNote,
+  ReadingPdfRegionAnchor,
+  ReadingPdfTextAnchor,
+  ReadingPosition,
+  ReadingRegionAnchor,
+  ReadingTextAnchor,
+  ReadingTextQuote,
+  ReadingTxtRegionAnchor,
+  ReadingTxtTextAnchor,
+} from '@memorilo/reading-model'
+import type { ReactNode } from 'react'
 
 export type ReaderFormat = ReadingFormat
 
 export type ReaderPresentationMode = 'publisher' | 'reader'
 
-export type ReaderAnnotationColor = 'blue' | 'green' | 'pink' | 'purple' | 'yellow'
+export type ReaderAnnotationColor = ReadingAnnotationColor
 
 export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr' | 'recognizing'
 
@@ -46,70 +68,21 @@ export interface ReaderOutlineItem {
   navigable: boolean
 }
 
-/** A rectangle normalized to the rendered page, with every value between 0 and 1. */
-export interface ReaderNormalizedRect {
-  height: number
-  width: number
-  x: number
-  y: number
-}
-
-export interface ReaderTextQuote {
-  after?: string
-  before?: string
-  exact: string
-}
-
-export interface ReaderPdfTextAnchor {
-  format: 'pdf'
-  pageNumber: number
-  quote: ReaderTextQuote
-  rects: readonly ReaderNormalizedRect[]
-  source: 'embedded' | 'ocr'
-  type: 'text'
-}
-
-export interface ReaderPdfRegionAnchor {
-  format: 'pdf'
-  pageNumber: number
-  rect: ReaderNormalizedRect
-  type: 'region'
-}
-
-/** A serializable Readium locator. It intentionally contains no Readium class instances. */
-export interface ReaderEpubLocator {
-  href: string
-  locations?: Record<string, unknown>
-  text?: Record<string, unknown>
-  title?: string
-  type: string
-}
-
-export interface ReaderEpubTextAnchor {
-  format: 'epub'
-  locator: ReaderEpubLocator
-  quote: ReaderTextQuote
-  type: 'text'
-}
-
-export interface ReaderTxtTextAnchor {
-  end: number
-  format: 'txt'
-  quote: ReaderTextQuote
-  start: number
-  type: 'text'
-}
-
-export interface ReaderComicRegionAnchor {
-  format: 'cbr' | 'cbz'
-  pageNumber: number
-  rect: ReaderNormalizedRect
-  type: 'region'
-}
-
-export type ReaderTextAnchor = ReaderEpubTextAnchor | ReaderPdfTextAnchor | ReaderTxtTextAnchor
-export type ReaderRegionAnchor = ReaderComicRegionAnchor | ReaderPdfRegionAnchor
-export type ReaderAnchor = ReaderRegionAnchor | ReaderTextAnchor
+export type ReaderNormalizedRect = ReadingNormalizedRect
+export type ReaderTextQuote = ReadingTextQuote
+export type ReaderPdfTextAnchor = ReadingPdfTextAnchor
+export type ReaderPdfRegionAnchor = ReadingPdfRegionAnchor
+export type ReaderEpubLocator = ReadingEpubLocator
+export type ReaderEpubTextAnchor = ReadingEpubTextAnchor
+export type ReaderEpubRegionTarget = ReadingEpubRegionTarget
+export type ReaderEpubRegionAnchor = ReadingEpubRegionAnchor
+export type ReaderTxtTextAnchor = ReadingTxtTextAnchor
+export type ReaderTxtRegionAnchor = ReadingTxtRegionAnchor
+export type ReaderComicRegionAnchor = ReadingComicRegionAnchor
+export type ReaderTextAnchor = ReadingTextAnchor
+export type ReaderRegionAnchor = ReadingRegionAnchor
+export type ReaderAnchor = ReadingAnchor
+export type ReaderPosition = ReadingPosition
 
 export interface ReaderTextSelection {
   anchor: ReaderTextAnchor
@@ -124,24 +97,9 @@ export interface ReaderRegionSelection {
 
 export type ReaderSelection = ReaderRegionSelection | ReaderTextSelection
 
-interface ReaderAnnotationBase {
-  anchor: ReaderAnchor
-  color: ReaderAnnotationColor
-  createdAt: number
-  id: string
-  updatedAt: number
-}
-
-export interface ReaderHighlight extends ReaderAnnotationBase {
-  kind: 'highlight'
-}
-
-export interface ReaderNote extends ReaderAnnotationBase {
-  body: string
-  kind: 'annotation'
-}
-
-export type ReaderAnnotation = ReaderHighlight | ReaderNote
+export type ReaderHighlight = ReadingHighlight
+export type ReaderNote = ReadingNote
+export type ReaderAnnotation = ReadingAnnotation
 
 export interface ReaderOcrTextItem {
   confidence?: number
@@ -190,16 +148,21 @@ export interface ReaderCapabilities {
 }
 
 export interface ReaderProps {
+  annotationEditingEnabled?: boolean
   arrowKeyPageTurning?: boolean
   annotations?: readonly ReaderAnnotation[]
   ariaLabel?: string
   defaultAnnotations?: readonly ReaderAnnotation[]
+  initialPosition?: ReaderPosition | null
   initialPresentationMode?: ReaderPresentationMode
   ocrProvider?: ReaderOcrProvider
   onAnnotationsChange?: (annotations: readonly ReaderAnnotation[]) => void
   onError?: (error: Error) => void
   onLocationChange?: (location: ReaderLocation) => void
   onOcrStatusChange?: (status: ReaderOcrStatus) => void
+  onPositionChange?: (position: ReaderPosition) => void
   onSelectionChange?: (selection: ReaderSelection | null) => void
+  title?: string
+  toolbarActions?: ReactNode
   source: ReaderSource
 }

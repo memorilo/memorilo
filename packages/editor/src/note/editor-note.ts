@@ -1,3 +1,9 @@
+import type {
+  BookFileBinding,
+  BookReadingState,
+  ReadingAnnotation,
+  ReadingPosition,
+} from '@memorilo/reading-model'
 import type { Effect } from 'effect'
 import type { LoroMap, UndoManager as LoroUndoManager } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
@@ -9,6 +15,12 @@ import {
   initializeLoroTreeFromJson,
   updateLoroTreeFromPmState,
 } from '@memorilo/loro-prosemirror-tree/model'
+import { assertReadingFormat } from '@memorilo/reading-format'
+import {
+  assertBookFileSha256,
+  bookFileIdentityKey,
+  sameBookFile,
+} from '@memorilo/reading-model'
 import { Effect as EffectRuntime } from 'effect'
 import {
   LoroDoc,
@@ -23,7 +35,7 @@ import { projectTopicBlocks } from './topic-projection'
 
 const NOTE_META_KEY = 'noteMeta'
 const NOTE_ENTRIES_KEY = 'entries'
-const NOTE_SCHEMA_VERSION = 3
+const NOTE_SCHEMA_VERSION = 4
 const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
 const ENTRY_ID_KEY = 'entryId'
 const ENTRY_KIND_KEY = 'kind'
@@ -31,6 +43,10 @@ const FOLDER_NAME_KEY = 'name'
 const TOPIC_TITLE_KEY = 'title'
 const TOPIC_EDITOR_MODE_KEY = 'editorMode'
 const TOPIC_BLOCK_TREE_KEY = 'blockTreeKey'
+const TOPIC_TYPE_KEY = 'topicType'
+const BOOK_BINDING_KEY = 'book'
+const BOOK_READING_STATE_KEY = 'readingStateKey'
+const BOOK_ANNOTATIONS_KEY = 'annotationsKey'
 
 export type NoteEntryKind = 'folder' | 'topic'
 
@@ -45,12 +61,23 @@ export interface FolderSnapshot extends NoteEntryBase {
   name: string
 }
 
-export interface TopicSnapshot extends NoteEntryBase {
+interface TopicSnapshotBase extends NoteEntryBase {
   kind: 'topic'
   mode: EditorModeValue
   /** The effective title: the explicit title, or the first content line when it is empty. */
   title: string
 }
+
+export interface RegularTopicSnapshot extends TopicSnapshotBase {
+  topicType: 'regular'
+}
+
+export interface BookTopicSnapshot extends TopicSnapshotBase {
+  book: BookFileBinding
+  topicType: 'book'
+}
+
+export type TopicSnapshot = BookTopicSnapshot | RegularTopicSnapshot
 
 export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
 
@@ -134,6 +161,19 @@ export interface CreateTopicInput {
   title: string
 }
 
+export interface CreateBookTopicInput {
+  book: BookFileBinding
+  /** The zero-based position among the parent's children. Appends when omitted. */
+  index?: number
+  /** Initial ProseMirror content. A canonical empty document is created when omitted. */
+  initialContent?: NodeJSON
+  mode: EditorModeValue
+  /** The containing Topic or Folder, or `null`/omitted for a root BookTopic. */
+  parentId?: string | null
+  /** An explicit, non-empty title independent from the publication title. */
+  title: string
+}
+
 export interface MoveNoteEntryInput {
   entryId: string
   index?: number
@@ -147,10 +187,17 @@ export interface DeleteNoteEntryInput {
   strategy: DeleteNoteEntryStrategy
 }
 
-export interface TopicValidationInput {
+export interface RegularTopicValidationInput {
   readonly document: NodeJSON
   readonly entry: unknown
 }
+
+export interface BookTopicValidationInput extends RegularTopicValidationInput {
+  readonly annotations: unknown
+  readonly readingState: unknown
+}
+
+export type TopicValidationInput = BookTopicValidationInput | RegularTopicValidationInput
 
 export interface EditorTopicDocument {
   /** Returns the current editor mode stored in the Topic. */
@@ -161,6 +208,19 @@ export interface EditorTopicDocument {
   /** Subscribes to changes in the owning Note's LoroDoc. */
   readonly subscribe: (listener: () => void) => () => void
   readonly topicId: string
+}
+
+export interface EditorBookTopicDocument extends EditorTopicDocument {
+  /** Returns a detached snapshot of the current concrete file binding. */
+  readonly getBook: () => BookFileBinding
+  /** Returns a detached snapshot of the current position and annotations. */
+  readonly getReadingState: () => BookReadingState
+  /** Rebinds to another concrete file of the same format without changing reading state. */
+  readonly rebind: (book: BookFileBinding) => void
+  /** Reconciles annotations by stable annotation ID. */
+  readonly setAnnotations: (annotations: readonly ReadingAnnotation[]) => void
+  /** Stores the current format-specific reading position. */
+  readonly setPosition: (position: ReadingPosition) => void
 }
 
 /**
@@ -177,6 +237,8 @@ export interface EditorNote {
   checkoutLatest: () => void
   /** Creates a Folder and returns its stable entry ID. */
   createFolder: (input: CreateFolderInput) => string
+  /** Atomically creates a BookTopic with editable content and initialized reading state. */
+  createBookTopic: (input: CreateBookTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
   /** Deletes an entry using the requested child-handling strategy. */
@@ -192,6 +254,8 @@ export interface EditorNote {
    * The handle does not copy, synchronize, or persist the Topic.
    */
   getTopic: (topicId: string) => EditorTopicDocument
+  /** Returns the reading handle for an existing BookTopic. */
+  getBookTopic: (topicId: string) => EditorBookTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
   /** Returns the exact plain JavaScript object passed to Topic validation. */
@@ -221,6 +285,8 @@ export interface CreateEditorNoteOptions {
   id: string
   /** Creates the default Topic with this text as its first H1 Block. Only valid for a new Note. */
   initialTopicHeading?: string
+  /** Creates a BookTopic as the only initial root entry. Only valid for a new Note. */
+  initialBookTopic?: Omit<CreateBookTopicInput, 'index' | 'parentId'>
   /** A previously exported Note snapshot. */
   snapshot?: Uint8Array | null
   /** The title for a new Note. Defaults to `Untitled` and is ignored when restoring. */
@@ -277,10 +343,61 @@ function readTopicTitle(map: LoroMap, description: string): string {
   return value
 }
 
+function readTopicType(map: LoroMap, description: string): 'book' | 'regular' {
+  const value = map.get(TOPIC_TYPE_KEY)
+  if (value !== 'book' && value !== 'regular')
+    throw new Error(`${description} must be "book" or "regular"`)
+  return value
+}
+
+function validateBookBindingValue(value: unknown, description: string): BookFileBinding {
+  if (value === null || Array.isArray(value) || typeof value !== 'object')
+    throw new Error(`${description} must be an object`)
+  const binding = structuredClone(value) as BookFileBinding
+  if (typeof binding.book?.title !== 'string' || binding.book.title.trim().length === 0)
+    throw new Error(`${description} publication title must be a non-empty string`)
+  if (!Array.isArray(binding.book.authors) || binding.book.authors.some(author => typeof author !== 'string' || author.trim().length === 0))
+    throw new Error(`${description} authors must contain non-empty strings`)
+  if (typeof binding.file?.format !== 'string')
+    throw new Error(`${description} format must be a string`)
+  assertReadingFormat(binding.file.format)
+  if (typeof binding.file.sha256 !== 'string')
+    throw new Error(`${description} SHA-256 must be a string`)
+  assertBookFileSha256(binding.file.sha256)
+  if (!Number.isSafeInteger(binding.file.byteLength) || binding.file.byteLength < 1)
+    throw new Error(`${description} byte length must be a positive safe integer`)
+  if (typeof binding.file.originalName !== 'string' || binding.file.originalName.trim().length === 0)
+    throw new Error(`${description} original name must be a non-empty string`)
+  if (!Array.isArray(binding.retrievalHints))
+    throw new Error(`${description} retrieval hints must be an array`)
+  for (const [index, hint] of binding.retrievalHints.entries()) {
+    if (hint === null || typeof hint !== 'object' || typeof hint.readingId !== 'string' || hint.readingId.length === 0)
+      throw new Error(`${description} retrieval hint ${index} is invalid`)
+    if (hint.kind === 'shelf') {
+      if (typeof hint.sourceId !== 'string' || hint.sourceId.length === 0
+        || typeof hint.publicationId !== 'string' || hint.publicationId.length === 0) {
+        throw new Error(`${description} Shelf retrieval hint ${index} is invalid`)
+      }
+    }
+    else if (hint.kind !== 'local') {
+      throw new Error(`${description} retrieval hint ${index} has an unknown kind`)
+    }
+  }
+  return binding
+}
+
+function readBookBinding(map: LoroMap, description: string): BookFileBinding {
+  return validateBookBindingValue(map.get(BOOK_BINDING_KEY), description)
+}
+
 function normalizeTopicTitle(value: string): string {
   if (typeof value !== 'string')
     throw new TypeError('Topic title must be a string')
   return value.trim()
+}
+
+function normalizeBookTopicTitle(value: string): string {
+  return assertNonEmpty(value, 'BookTopic title')
 }
 
 function readNoteTitle(doc: LoroDoc): string {
@@ -305,6 +422,78 @@ function topicBlockTree(runtime: EditorNoteRuntime, node: ReturnType<typeof entr
     throw new TypeError(`NoteEntry ${readString(node.data, ENTRY_ID_KEY, 'NoteEntry id')} is not a Topic`)
   const blockTreeKey = readString(node.data, TOPIC_BLOCK_TREE_KEY, 'Topic Block tree key')
   return runtime.doc.getTree(blockTreeKey)
+}
+
+function bookTopicContainers(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>) {
+  const entryId = readString(node.data, ENTRY_ID_KEY, 'BookTopic id')
+  if (readTopicType(node.data, `Topic ${entryId} type`) !== 'book')
+    throw new TypeError(`Topic ${entryId} is not a BookTopic`)
+  const readingStateKey = readString(node.data, BOOK_READING_STATE_KEY, `BookTopic ${entryId} reading state key`)
+  const annotationsKey = readString(node.data, BOOK_ANNOTATIONS_KEY, `BookTopic ${entryId} annotations key`)
+  return {
+    annotations: runtime.doc.getMap(annotationsKey),
+    readingState: runtime.doc.getMap(readingStateKey),
+  }
+}
+
+function annotationRecord(map: LoroMap): Readonly<Record<string, ReadingAnnotation>> {
+  return structuredClone(map.toJSON()) as Readonly<Record<string, ReadingAnnotation>>
+}
+
+function readBookReadingState(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>): BookReadingState {
+  const book = readBookBinding(node.data, 'BookTopic binding')
+  const containers = bookTopicContainers(runtime, node)
+  const position = containers.readingState.get('position')
+  if (position !== null && (typeof position !== 'object' || Array.isArray(position)))
+    throw new Error('BookTopic reading position must be an object or null')
+  if (position !== null && (position as ReadingPosition).format !== book.file.format)
+    throw new Error(`BookTopic reading position must use ${book.file.format} format`)
+  return {
+    annotations: Object.values(annotationRecord(containers.annotations))
+      .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id)),
+    position: position === null ? null : structuredClone(position) as ReadingPosition,
+  }
+}
+
+function getTopicValidationInput(runtime: EditorNoteRuntime, topicId: string): TopicValidationInput {
+  const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
+  const node = entryNode(runtime, normalizedTopicId)
+  const blockTree = topicBlockTree(runtime, node)
+  const document = createNodeJsonFromLoroTree(blockTree)
+  if (!document)
+    throw new Error(`Topic ${normalizedTopicId} does not contain an initialized document`)
+  const base: RegularTopicValidationInput = {
+    document,
+    entry: node.data.toJSON(),
+  }
+  if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'regular')
+    return base
+  const containers = bookTopicContainers(runtime, node)
+  return {
+    ...base,
+    annotations: containers.annotations.toJSON(),
+    readingState: containers.readingState.toJSON(),
+  }
+}
+
+function validateTopicInput(input: TopicValidationInput): LoroTopic {
+  return EffectRuntime.runSync(validateLoroTopic(input))
+}
+
+function assertBookFileAvailable(
+  runtime: EditorNoteRuntime,
+  book: BookFileBinding,
+  excludedTopicId?: string,
+): void {
+  for (const node of noteTree(runtime.doc).getNodes()) {
+    if (node.data.get(ENTRY_KIND_KEY) !== 'topic' || node.data.get(TOPIC_TYPE_KEY) !== 'book')
+      continue
+    const topicId = readString(node.data, ENTRY_ID_KEY, 'BookTopic id')
+    if (topicId === excludedTopicId)
+      continue
+    if (sameBookFile(readBookBinding(node.data, `BookTopic ${topicId} binding`).file, book.file))
+      throw new Error(`Note already contains BookTopic ${topicId} for ${book.file.format}:${book.file.sha256}`)
+  }
 }
 
 function effectiveTopicTitle(explicitTitle: string, blocks: readonly TopicBlockProjection[]): string {
@@ -437,6 +626,7 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
   const entries: NoteEntrySnapshot[] = []
   const topics: TopicContentProjection[] = []
   const seenEntryIds = new Set<string>()
+  const bookTopicIdsByFile = new Map<string, string>()
 
   const visit = (
     nodes: ReturnType<ReturnType<typeof noteTree>['toArray']>,
@@ -466,17 +656,30 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
         })
       }
       else if (kind === 'topic') {
+        const topicType = readTopicType(node.meta, `Topic ${id} type`)
         const blockTreeKey = readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)
         const blockTree = runtime.doc.getTree(blockTreeKey)
         const content = projectTopicContent(blockTree, id, readTopicTitle(node.meta, `Topic ${id} title`))
-        entries.push({
+        const base = {
           id,
           kind,
           mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
           ordinal,
           parentId,
           title: content.title,
-        })
+        } as const
+        if (topicType === 'book') {
+          const book = readBookBinding(node.meta, `BookTopic ${id} binding`)
+          const identity = bookFileIdentityKey(book.file)
+          const existingTopicId = bookTopicIdsByFile.get(identity)
+          if (existingTopicId)
+            throw new Error(`BookTopics ${existingTopicId} and ${id} bind the same file ${identity}`)
+          bookTopicIdsByFile.set(identity, id)
+          entries.push({ ...base, book, topicType })
+        }
+        else {
+          entries.push({ ...base, topicType })
+        }
 
         if (includeTopics)
           topics.push(content)
@@ -537,6 +740,16 @@ function mutationRoot(eventPath: readonly unknown[], targetPath: readonly unknow
   return typeof root === 'string' ? root : undefined
 }
 
+function topicIdFromMutationRoot(root: string): string | undefined {
+  if (!root.startsWith('topic:'))
+    return undefined
+  for (const suffix of [':annotations', ':blocks', ':reading-state']) {
+    if (root.endsWith(suffix))
+      return root.slice('topic:'.length, -suffix.length)
+  }
+  return undefined
+}
+
 function resolveIndex(index: number | undefined): number | undefined {
   if (index === undefined)
     return undefined
@@ -570,35 +783,124 @@ function createEntryId(): string {
   return crypto.randomUUID()
 }
 
+interface PreparedTopicNode {
+  annotationsKey?: string
+  blockTreeKey: string
+  book?: BookFileBinding
+  document: NodeJSON
+  entryId: string
+  mode: EditorModeValue
+  readingStateKey?: string
+  title: string
+  topicType: 'book' | 'regular'
+}
+
+function prepareTopicNode(input: CreateTopicInput, bookValue?: BookFileBinding): PreparedTopicNode {
+  const entryId = createEntryId()
+  const blockTreeKey = `topic:${entryId}:blocks`
+  const document = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
+  const mode = assertEditorMode(input.mode, 'Topic Editor mode')
+  const topicType = bookValue === undefined ? 'regular' : 'book'
+  const title = topicType === 'book'
+    ? normalizeBookTopicTitle(input.title)
+    : normalizeTopicTitle(input.title)
+
+  if (bookValue === undefined) {
+    validateTopicInput({
+      document,
+      entry: {
+        blockTreeKey,
+        editorMode: mode,
+        entryId,
+        kind: 'topic',
+        title,
+        topicType,
+      },
+    })
+    return { blockTreeKey, document, entryId, mode, title, topicType }
+  }
+
+  const book = validateBookBindingValue(bookValue, 'BookTopic binding')
+  const annotationsKey = `topic:${entryId}:annotations`
+  const readingStateKey = `topic:${entryId}:reading-state`
+  validateTopicInput({
+    annotations: {},
+    document,
+    entry: {
+      annotationsKey,
+      blockTreeKey,
+      book,
+      editorMode: mode,
+      entryId,
+      kind: 'topic',
+      readingStateKey,
+      title,
+      topicType,
+    },
+    readingState: { position: null },
+  })
+  return {
+    annotationsKey,
+    blockTreeKey,
+    book,
+    document,
+    entryId,
+    mode,
+    readingStateKey,
+    title,
+    topicType,
+  }
+}
+
 function createTopicNode(
   doc: LoroDoc,
   input: CreateTopicInput,
   parent: ReturnType<typeof entryNode> | undefined,
+  book?: BookFileBinding,
 ): string {
+  const prepared = prepareTopicNode(input, book)
   const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
-  const entryId = createEntryId()
-  node.data.set(ENTRY_ID_KEY, entryId)
+  node.data.set(ENTRY_ID_KEY, prepared.entryId)
   node.data.set(ENTRY_KIND_KEY, 'topic')
-  node.data.set(TOPIC_TITLE_KEY, normalizeTopicTitle(input.title))
-  node.data.set(TOPIC_EDITOR_MODE_KEY, assertEditorMode(input.mode, 'Topic Editor mode'))
-  const blockTreeKey = `topic:${entryId}:blocks`
-  const blockTree = doc.getTree(blockTreeKey)
-  node.data.set(TOPIC_BLOCK_TREE_KEY, blockTreeKey)
-  const initialContent = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
-  initializeLoroTreeFromJson(blockTree, initialContent)
-  return entryId
+  node.data.set(TOPIC_TYPE_KEY, prepared.topicType)
+  node.data.set(TOPIC_TITLE_KEY, prepared.title)
+  node.data.set(TOPIC_EDITOR_MODE_KEY, prepared.mode)
+  const blockTree = doc.getTree(prepared.blockTreeKey)
+  node.data.set(TOPIC_BLOCK_TREE_KEY, prepared.blockTreeKey)
+  if (prepared.book !== undefined) {
+    if (!prepared.readingStateKey || !prepared.annotationsKey)
+      throw new Error('Prepared BookTopic is missing its Loro container keys')
+    node.data.set(BOOK_BINDING_KEY, prepared.book)
+    node.data.set(BOOK_READING_STATE_KEY, prepared.readingStateKey)
+    node.data.set(BOOK_ANNOTATIONS_KEY, prepared.annotationsKey)
+    doc.getMap(prepared.readingStateKey).set('position', null)
+    doc.getMap(prepared.annotationsKey)
+  }
+  initializeLoroTreeFromJson(blockTree, prepared.document)
+  return prepared.entryId
 }
 
-function initializeNote(doc: LoroDoc, id: string, title: string, initialTopicHeading?: string): void {
+function initializeNote(
+  doc: LoroDoc,
+  id: string,
+  title: string,
+  initialTopicHeading?: string,
+  initialBookTopic?: Omit<CreateBookTopicInput, 'index' | 'parentId'>,
+): void {
   const meta = doc.getMap(NOTE_META_KEY)
   meta.set('id', id)
   meta.set('schemaVersion', NOTE_SCHEMA_VERSION)
   meta.set('title', title)
-  createTopicNode(doc, {
-    ...(initialTopicHeading === undefined ? {} : { initialContent: headingTopicDocument(initialTopicHeading) }),
-    mode: EditorMode.Document,
-    title: '',
-  }, undefined)
+  if (initialBookTopic !== undefined) {
+    createTopicNode(doc, initialBookTopic, undefined, initialBookTopic.book)
+  }
+  else {
+    createTopicNode(doc, {
+      ...(initialTopicHeading === undefined ? {} : { initialContent: headingTopicDocument(initialTopicHeading) }),
+      mode: EditorMode.Document,
+      title: '',
+    }, undefined)
+  }
   doc.commit({ origin: 'sys:init-note' })
 }
 
@@ -611,10 +913,15 @@ function validateRestoredNote(doc: LoroDoc, expectedId: string): void {
   if (schemaVersion !== NOTE_SCHEMA_VERSION)
     throw new Error(`Unsupported Note schema version: ${String(schemaVersion)}`)
   readNoteTitle(doc)
-  projectEditorNote({
+  const runtime: EditorNoteRuntime = {
     doc,
     listeners: new Set(),
     note: { id: expectedId } as EditorNote,
+  }
+  const projection = projectEditorNote(runtime)
+  projection.entries.forEach((entry) => {
+    if (entry.kind === 'topic')
+      validateTopicInput(getTopicValidationInput(runtime, entry.id))
   })
 }
 
@@ -637,6 +944,10 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     || ((options.updates?.length ?? 0) > 0)
   if (restoring && options.initialTopicHeading !== undefined)
     throw new TypeError('Initial Topic heading is only valid when creating a new Note')
+  if (restoring && options.initialBookTopic !== undefined)
+    throw new TypeError('Initial BookTopic is only valid when creating a new Note')
+  if (options.initialTopicHeading !== undefined && options.initialBookTopic !== undefined)
+    throw new TypeError('A new Note cannot initialize both a regular Topic and a BookTopic')
   if (options.snapshot !== null && options.snapshot !== undefined) {
     validateBinary(options.snapshot, 'Note snapshot')
     doc.import(options.snapshot)
@@ -647,25 +958,13 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   }
 
   let runtime: EditorNoteRuntime
-  const getTopicValidationInput = (topicId: string): TopicValidationInput => {
-    const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
-    const node = entryNode(runtime, normalizedTopicId)
-    const blockTree = topicBlockTree(runtime, node)
-    const document = createNodeJsonFromLoroTree(blockTree)
-    if (!document)
-      throw new Error(`Topic ${normalizedTopicId} does not contain an initialized document`)
-    return {
-      document,
-      entry: node.data.toJSON(),
-    }
-  }
   const note: EditorNote = {
     id,
     applyTopicBlockEdits: (input) => {
       if (input.edits.length === 0)
         throw new TypeError('Topic Block edits must contain at least one operation')
       inUndoGroup(runtime, () => {
-        const validation = getTopicValidationInput(input.topicId)
+        const validation = getTopicValidationInput(runtime, input.topicId)
         const document = applyTopicBlockEdits(validation.document, input.edits)
         const topic = EffectRuntime.runSync(validateLoroTopic({ ...validation, document }))
         const node = entryNode(runtime, input.topicId)
@@ -702,6 +1001,88 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
       return document
     },
+    getBookTopic: (topicId) => {
+      const normalizedTopicId = assertNonEmpty(topicId, 'BookTopic id')
+      const node = entryNode(runtime, normalizedTopicId)
+      bookTopicContainers(runtime, node)
+      const topic = note.getTopic(normalizedTopicId)
+      const document: EditorBookTopicDocument = {
+        ...topic,
+        getBook: () => {
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          bookTopicContainers(runtime, boundNode)
+          return readBookBinding(boundNode.data, `BookTopic ${normalizedTopicId} binding`)
+        },
+        getReadingState: () => {
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          validateTopicInput(getTopicValidationInput(runtime, normalizedTopicId))
+          return readBookReadingState(runtime, boundNode)
+        },
+        rebind: (bookValue) => {
+          const book = validateBookBindingValue(bookValue, `BookTopic ${normalizedTopicId} binding`)
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          bookTopicContainers(runtime, boundNode)
+          const current = readBookBinding(boundNode.data, `BookTopic ${normalizedTopicId} binding`)
+          if (book.file.format !== current.file.format) {
+            throw new TypeError(
+              `BookTopic ${normalizedTopicId} cannot change format from ${current.file.format} to ${book.file.format}`,
+            )
+          }
+          assertBookFileAvailable(runtime, book, normalizedTopicId)
+          validateTopicInput({
+            ...getTopicValidationInput(runtime, normalizedTopicId),
+            entry: { ...boundNode.data.toJSON(), book },
+          })
+          boundNode.data.set(BOOK_BINDING_KEY, book)
+          doc.commit({ origin: 'reader:rebind-book-topic' })
+        },
+        setAnnotations: (annotationValues) => {
+          if (!Array.isArray(annotationValues))
+            throw new TypeError('BookTopic annotations must be an array')
+          const annotations = new Map<string, ReadingAnnotation>()
+          for (const value of annotationValues) {
+            if (value === null || typeof value !== 'object')
+              throw new TypeError('BookTopic annotation must be an object')
+            const annotation = structuredClone(value) as ReadingAnnotation
+            if (typeof annotation.id !== 'string' || annotation.id.length === 0)
+              throw new TypeError('BookTopic annotation id must be a non-empty string')
+            if (annotations.has(annotation.id))
+              throw new TypeError(`Duplicate BookTopic annotation id: ${annotation.id}`)
+            annotations.set(annotation.id, annotation)
+          }
+          const record = Object.fromEntries(annotations)
+          validateTopicInput({
+            ...getTopicValidationInput(runtime, normalizedTopicId),
+            annotations: record,
+          })
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          const containers = bookTopicContainers(runtime, boundNode)
+          for (const annotationId of Object.keys(containers.annotations.toJSON())) {
+            if (!annotations.has(annotationId))
+              containers.annotations.delete(annotationId)
+          }
+          annotations.forEach((annotation, annotationId) => {
+            containers.annotations.set(annotationId, annotation)
+          })
+          doc.commit({ origin: 'reader:set-book-topic-annotations' })
+        },
+        setPosition: (positionValue) => {
+          if (positionValue === null || typeof positionValue !== 'object')
+            throw new TypeError('BookTopic reading position must be an object')
+          const position = structuredClone(positionValue)
+          validateTopicInput({
+            ...getTopicValidationInput(runtime, normalizedTopicId),
+            readingState: { position },
+          })
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          const containers = bookTopicContainers(runtime, boundNode)
+          containers.readingState.set('position', position)
+          doc.commit({ origin: 'reader:set-book-topic-position' })
+        },
+      }
+      topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
+      return document
+    },
     checkout: version => doc.checkout([...version]),
     checkoutLatest: () => doc.checkoutToLatest(),
     createFolder: (input) => {
@@ -714,6 +1095,17 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
         node.data.set(ENTRY_KIND_KEY, 'folder')
         node.data.set(FOLDER_NAME_KEY, assertNonEmpty(input.name, 'Folder name'))
         doc.commit({ origin: 'note:create-folder' })
+        return entryId
+      })
+    },
+    createBookTopic: (input) => {
+      const book = validateBookBindingValue(input.book, 'BookTopic binding')
+      assertBookFileAvailable(runtime, book)
+      return inUndoGroup(runtime, () => {
+        const parent = resolveParent(runtime, input.parentId)
+        assertBookFileAvailable(runtime, book)
+        const entryId = createTopicNode(doc, input, parent, book)
+        doc.commit({ origin: 'note:create-book-topic' })
         return entryId
       })
     },
@@ -767,11 +1159,11 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       )
     },
     getTitle: () => readNoteTitle(doc),
-    getTopicValidationInput,
+    getTopicValidationInput: topicId => getTopicValidationInput(runtime, topicId),
     validateTopic: (topicId) => {
       return EffectRuntime.flatMap(
         EffectRuntime.try({
-          try: () => getTopicValidationInput(topicId),
+          try: () => getTopicValidationInput(runtime, topicId),
           catch: error => error instanceof Error ? error : new Error(String(error)),
         }),
         validateLoroTopic,
@@ -794,9 +1186,10 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       return {
         entriesChanged: roots.has(NOTE_ENTRIES_KEY),
         metadataChanged: roots.has(NOTE_META_KEY),
-        topicIds: [...roots]
-          .filter(root => root.startsWith('topic:') && root.endsWith(':blocks'))
-          .map(root => root.slice('topic:'.length, -':blocks'.length)),
+        topicIds: [...new Set([...roots].flatMap((root) => {
+          const topicId = topicIdFromMutationRoot(root)
+          return topicId === undefined ? [] : [topicId]
+        }))],
       }
     },
     isTimeTraveling: () => doc.isDetached(),
@@ -814,12 +1207,17 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       inUndoGroup(runtime, () => {
         const node = entryNode(runtime, entryId)
         const kind = node.data.get(ENTRY_KIND_KEY)
-        if (kind === 'folder')
+        if (kind === 'folder') {
           node.data.set(FOLDER_NAME_KEY, assertNonEmpty(label, 'Folder name'))
-        else if (kind === 'topic')
-          node.data.set(TOPIC_TITLE_KEY, normalizeTopicTitle(label))
-        else
+        }
+        else if (kind === 'topic') {
+          node.data.set(TOPIC_TITLE_KEY, readTopicType(node.data, `Topic ${entryId} type`) === 'book'
+            ? normalizeBookTopicTitle(label)
+            : normalizeTopicTitle(label))
+        }
+        else {
           throw new Error(`NoteEntry ${entryId} has unknown kind: ${String(kind)}`)
+        }
         doc.commit({ origin: 'note:rename-entry' })
       })
     },
@@ -848,6 +1246,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
         id,
         assertNonEmpty(options.title ?? 'Untitled', 'Note title'),
         options.initialTopicHeading,
+        options.initialBookTopic,
       )
     }
   }
@@ -855,7 +1254,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     validateRestoredNote(doc, id)
   }
 
-  runtime.undoManager = new UndoManager(doc, { excludeOriginPrefixes: ['sys:', 'ui:'] })
+  runtime.undoManager = new UndoManager(doc, { excludeOriginPrefixes: ['reader:', 'sys:', 'ui:'] })
   doc.subscribeLocalUpdates(update => emitChange(runtime, update))
   return note
 }

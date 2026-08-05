@@ -1,9 +1,11 @@
 import type {
   AddShelfSourceInput,
   BrowseShelfInput,
+  CreateDesktopBookContextResult,
   CreateDesktopNoteInput,
   DesktopApi,
   DesktopAssetCheckResult,
+  DesktopBookTopicContextSummary,
   DesktopColumnVisibilityMenuSelection,
   DesktopConfiguration,
   DesktopFavoriteNoteItem,
@@ -20,6 +22,7 @@ import type {
   GetDesktopNoteInput,
   ImportDesktopNetworkImageInput,
   ListDesktopNotesInput,
+  OpenDesktopBookContextResult,
   OpenShelfReadingInput,
   PreparedShelfReading,
   PrepareShelfReadingInput,
@@ -52,6 +55,14 @@ export interface DesktopServices {
     importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
     reclaim: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
     saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
+  }
+  books: {
+    closeReadingSession: (sessionId: string) => Promise<boolean>
+    createContext: (input: { noteTitle: string, readingId: string, topicTitle: string }) => Promise<CreateDesktopBookContextResult>
+    isReadingAvailable: (readingId: string) => Promise<boolean>
+    listContexts: (readingId: string) => Promise<readonly DesktopBookTopicContextSummary[]>
+    rebindContext: (input: { noteId: string, readingId: string, sessionId?: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
+    selectContext: (input: { noteId: string, readingId: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
   }
   configuration: {
     get: () => Promise<DesktopConfiguration>
@@ -100,6 +111,8 @@ export function createDesktopApi(
   return {
     addShelfSource: input => services.shelf.addSource(input),
     checkAssets: () => services.assets.check(),
+    closeBookReadingSession: sessionId => services.books.closeReadingSession(sessionId),
+    createBookContext: input => services.books.createContext(input),
     createNote: input => services.notes.createNote(input),
     deleteShelfReading: readingId => services.shelf.deleteReading(readingId),
     getCachedShelfView: input => services.shelf.getCachedView(input),
@@ -110,7 +123,9 @@ export function createDesktopApi(
     getShelfPublicationDetails: input => services.shelf.getPublicationDetails(input),
     getTopicBlock: input => services.notes.getTopicBlock(input),
     importNetworkImage: input => services.assets.importNetworkImage(input),
+    isBookReadingAvailable: readingId => services.books.isReadingAvailable(readingId),
     listFavoriteNotes: input => services.notes.listFavoriteNotes(input),
+    listBookContexts: readingId => services.books.listContexts(readingId),
     listNotes: input => services.notes.listNotes(input),
     listRecentNotes: input => services.notes.listRecentNotes(input),
     listShelfSources: () => services.shelf.listSources(),
@@ -119,6 +134,7 @@ export function createDesktopApi(
     prepareShelfReading: input => services.shelf.prepareReading(input),
     readShelfReadingRange: input => services.shelf.readReadingRange(input),
     reclaimAssets: input => services.assets.reclaim(input),
+    rebindBookContext: input => services.books.rebindContext(input),
     recordNoteOpened: input => services.notes.recordNoteOpened(input),
     refreshShelfView: input => services.shelf.refreshView(input),
     removeShelfSource: sourceId => services.shelf.removeSource(sourceId),
@@ -129,6 +145,7 @@ export function createDesktopApi(
     searchTopicBlocks: input => services.notes.searchTopicBlocks(input),
     setConfiguration: configuration => services.configuration.set(configuration),
     setNoteFavorite: input => services.notes.setNoteFavorite(input),
+    selectBookContext: input => services.books.selectContext(input),
     showColumnVisibilityMenu: input => services.window.showColumnVisibilityMenu(input),
     subscribeConfiguration,
     subscribeNoteSaveRequests,

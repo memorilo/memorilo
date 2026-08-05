@@ -2,8 +2,8 @@ import type {
   ReaderAnnotation,
   ReaderComicRegionAnchor,
   ReaderOutlineItem,
+  ReaderPosition,
 } from '../../types'
-import type { FixedPageRegionSelectionResult } from '../fixed-page/region-selection'
 import type {
   ReaderAdapter,
   ReaderAdapterCallbacks,
@@ -12,13 +12,14 @@ import type {
   ReaderScrollDirection,
   ReaderScrollResult,
 } from '../reader-adapter'
+import type { RegionSelectionResult } from '../region-selection'
 import type { ResolvedReaderSource } from '../source'
 import type { ComicArchive } from './comic-archive'
 import { fixedPageAnnotationTint } from '../fixed-page/annotations'
 import { clampFixedPageScale } from '../fixed-page/geometry'
-import { FixedPageRegionSelectionController } from '../fixed-page/region-selection'
 import { FixedPageViewportController } from '../fixed-page/viewport'
 import { readerZoomScaleCapability } from '../reader-adapter'
+import { RegionSelectionController } from '../region-selection'
 import { openComicArchive } from './comic-archive'
 
 type ComicSource = ResolvedReaderSource & { format: 'cbr' | 'cbz' }
@@ -40,7 +41,7 @@ class ComicAdapter implements ReaderAdapter {
   private pageIndex = 0
   private readonly outline: readonly ReaderOutlineItem[]
   private readonly outlineIndexes = new Map<string, number>()
-  private readonly regionSelection: FixedPageRegionSelectionController
+  private readonly regionSelection: RegionSelectionController
   private renderGeneration = 0
   private resizeObserver: ResizeObserver | null = null
   private scale = 1
@@ -51,24 +52,26 @@ class ComicAdapter implements ReaderAdapter {
   constructor(
     private readonly source: ComicSource,
     private readonly archive: ComicArchive,
+    initialPosition: ReaderPosition | null | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
-    this.regionSelection = new FixedPageRegionSelectionController({
-      applyEnabledState: (capture, enabled) => {
-        capture.style.cursor = enabled ? 'crosshair' : 'auto'
-        capture.style.pointerEvents = enabled ? 'auto' : 'none'
+    if (initialPosition !== null && initialPosition !== undefined) {
+      if (initialPosition.format !== source.format)
+        throw new TypeError(`Cannot restore ${initialPosition.format} position in a ${source.format} reader`)
+      if (!Number.isSafeInteger(initialPosition.pageNumber) || initialPosition.pageNumber < 1)
+        throw new RangeError('Comic reading position must contain a positive page number')
+      this.pageIndex = Math.min(initialPosition.pageNumber, archive.pages.length) - 1
+    }
+    this.regionSelection = new RegionSelectionController({
+      onEnabledChange: enabled => this.callbacks.onRegionSelectionModeChange(enabled),
+      onSelection: (selection) => {
+        try {
+          this.publishRegionSelection(selection)
+        }
+        catch (error) {
+          this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+        }
       },
-      createDraft: () => {
-        const draft = document.createElement('div')
-        Object.assign(draft.style, {
-          background: 'rgba(0, 113, 227, 0.18)',
-          border: '1px solid rgba(0, 113, 227, 0.8)',
-          borderRadius: '3px',
-          position: 'absolute',
-        })
-        return draft
-      },
-      onSelection: selection => this.publishRegionSelection(selection),
     })
     this.outline = archive.pages.map((page, index) => {
       const id = `comic.${index}`
@@ -122,7 +125,6 @@ class ComicAdapter implements ReaderAdapter {
     Object.assign(annotationLayer.style, { inset: '0', pointerEvents: 'none', position: 'absolute' })
     const regionCapture = document.createElement('div')
     regionCapture.setAttribute('aria-hidden', 'true')
-    Object.assign(regionCapture.style, { inset: '0', pointerEvents: 'none', position: 'absolute' })
     surface.append(image, annotationLayer, regionCapture)
     scroller.append(surface)
     container.append(scroller)
@@ -219,7 +221,7 @@ class ComicAdapter implements ReaderAdapter {
     this.emitState()
   }
 
-  private publishRegionSelection(result: FixedPageRegionSelectionResult | null): void {
+  private publishRegionSelection(result: RegionSelectionResult | null): void {
     if (!result) {
       this.callbacks.onSelectionChange(null)
       return
@@ -297,7 +299,7 @@ class ComicAdapter implements ReaderAdapter {
         continue
       const marker = document.createElement('button')
       marker.dataset.annotationId = annotation.id
-      marker.setAttribute('aria-label', `Annotation on page ${anchor.pageNumber}`)
+      marker.setAttribute('aria-label', this.callbacks.regionAnnotationLabel())
       marker.type = 'button'
       const tint = fixedPageAnnotationTint(annotation.color)
       Object.assign(marker.style, {
@@ -341,6 +343,7 @@ class ComicAdapter implements ReaderAdapter {
         total: pageCount,
       },
       outline: this.outline,
+      position: { format: this.source.format, pageNumber },
       presentationMode: 'publisher',
       scale: this.scale,
       title: this.source.name,
@@ -351,8 +354,9 @@ class ComicAdapter implements ReaderAdapter {
 
 export async function openComicAdapter(
   source: ComicSource,
+  initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
 ): Promise<ReaderAdapter> {
   const archive = await openComicArchive(source)
-  return new ComicAdapter(source, archive, callbacks)
+  return new ComicAdapter(source, archive, initialPosition, callbacks)
 }

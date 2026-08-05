@@ -1,3 +1,4 @@
+import type { BookFileBinding, BookMetadataSnapshot } from '@memorilo/reading-model'
 import type {
   ShelfReadingDocument,
   ShelfReadingFormat,
@@ -11,6 +12,7 @@ import {
   mkdir,
   open as openFile,
   readdir,
+  readFile,
   rename,
   rm,
   stat,
@@ -23,9 +25,12 @@ import {
   readingFormatExtension,
   readingFormatFromFileName,
 } from '@memorilo/reading-format'
+import { assertBookFileSha256 } from '@memorilo/reading-model'
 
 const defaultMaximumBookCacheBytes = 256 * 1024 * 1024
 const readingIdPattern = /^[a-f0-9]{64}$/u
+const manifestFileName = 'manifest.json'
+const manifestSchemaVersion = 1
 const invalidFileNameCharacters = /[<>:"/\\|?*]/gu
 const reservedWindowsFileName = /^(?:aux|com[1-9]|con|lpt[1-9]|nul|prn)(?:\.|$)/iu
 
@@ -38,11 +43,14 @@ export interface CreateShelfReadingFileStoreOptions {
 }
 
 export interface SaveShelfReadingFileInput {
+  book: BookMetadataSnapshot
   bytes: Uint8Array
   format: ShelfReadingFormat
   name: string
+  publicationId: string
   readingId: string
   retention: ShelfReadingRetention
+  sourceId: string
 }
 
 export interface ShelfReadingFileStore {
@@ -55,6 +63,7 @@ export interface ShelfReadingFileStore {
 }
 
 interface StoredDocument {
+  book: BookFileBinding
   format: ShelfReadingFormat
   name: string
   path: string
@@ -64,6 +73,12 @@ interface CacheEntry extends StoredDocument {
   byteSize: number
   lastAccessedAt: number
   readingId: string
+}
+
+interface StoredReadingManifest {
+  book: BookFileBinding
+  fileName: string
+  schemaVersion: number
 }
 
 function assertNonEmpty(value: string, name: string): void {
@@ -84,6 +99,36 @@ function assertNonNegativeSafeInteger(value: number, name: string): void {
 function assertFileByteLength(byteLength: number): void {
   if (!Number.isSafeInteger(byteLength) || byteLength < 0)
     throw new RangeError('Shelf publication byte length exceeds the supported range')
+}
+
+function validateBookBinding(value: unknown, description: string): asserts value is BookFileBinding {
+  if (value === null || Array.isArray(value) || typeof value !== 'object')
+    throw new TypeError(`${description} must be an object`)
+  const binding = value as Partial<BookFileBinding>
+  if (binding.book === null || Array.isArray(binding.book) || typeof binding.book !== 'object')
+    throw new TypeError(`${description} publication metadata must be an object`)
+  assertNonEmpty(binding.book.title, `${description} publication title`)
+  if (!Array.isArray(binding.book.authors))
+    throw new TypeError(`${description} authors must be an array`)
+  binding.book.authors.forEach((author, index) => assertNonEmpty(author, `${description} author ${index}`))
+  if (binding.file === null || Array.isArray(binding.file) || typeof binding.file !== 'object')
+    throw new TypeError(`${description} file must be an object`)
+  assertReadingFormat(binding.file.format)
+  assertBookFileSha256(binding.file.sha256)
+  if (!Number.isSafeInteger(binding.file.byteLength) || binding.file.byteLength < 1)
+    throw new RangeError(`${description} byte length must be a positive safe integer`)
+  assertNonEmpty(binding.file.originalName, `${description} original name`)
+  if (!Array.isArray(binding.retrievalHints) || binding.retrievalHints.length === 0)
+    throw new TypeError(`${description} must contain a retrieval hint`)
+  for (const [index, hint] of binding.retrievalHints.entries()) {
+    if (hint === null || Array.isArray(hint) || typeof hint !== 'object')
+      throw new TypeError(`${description} retrieval hint ${index} must be an object`)
+    assertNonEmpty(hint.readingId, `${description} retrieval hint ${index} reading id`)
+    if (hint.kind !== 'shelf')
+      throw new TypeError(`${description} retrieval hint ${index} must be a Shelf locator`)
+    assertNonEmpty(hint.publicationId, `${description} retrieval hint ${index} publication id`)
+    assertNonEmpty(hint.sourceId, `${description} retrieval hint ${index} source id`)
+  }
 }
 
 function isNotFound(error: unknown): boolean {
@@ -135,18 +180,39 @@ async function directoryEntries(path: string) {
 }
 
 async function storedDocument(directory: string): Promise<StoredDocument | null> {
-  const entries = await directoryEntries(directory)
-  const documents = entries.flatMap((entry): readonly StoredDocument[] => {
-    if (!entry.isFile())
-      return []
-    const format = readingFormatFromFileName(entry.name)
-    if (format === null)
-      return []
-    return [{ format, name: entry.name, path: join(directory, entry.name) }]
-  })
-  if (documents.length > 1)
-    throw new Error(`Shelf reading directory contains multiple publications: ${directory}`)
-  return documents[0] ?? null
+  let manifestText: string
+  try {
+    manifestText = await readFile(join(directory, manifestFileName), 'utf8')
+  }
+  catch (error) {
+    if (isNotFound(error))
+      return null
+    throw error
+  }
+  const value: unknown = JSON.parse(manifestText)
+  if (value === null || Array.isArray(value) || typeof value !== 'object')
+    throw new TypeError(`Shelf reading manifest must be an object: ${directory}`)
+  const manifest = value as Partial<StoredReadingManifest>
+  if (manifest.schemaVersion !== manifestSchemaVersion)
+    throw new Error(`Unsupported Shelf reading manifest version in ${directory}`)
+  if (typeof manifest.fileName !== 'string' || basename(manifest.fileName) !== manifest.fileName)
+    throw new TypeError(`Shelf reading manifest has an invalid file name: ${directory}`)
+  validateBookBinding(manifest.book, `Shelf reading manifest ${directory}`)
+  const format = readingFormatFromFileName(manifest.fileName)
+  if (format !== manifest.book.file.format)
+    throw new Error(`Shelf reading manifest format does not match its file name: ${directory}`)
+  const path = join(directory, manifest.fileName)
+  const file = await stat(path)
+  if (!file.isFile())
+    throw new Error(`Shelf reading manifest does not reference a file: ${directory}`)
+  if (file.size !== manifest.book.file.byteLength)
+    throw new Error(`Shelf reading file length does not match its manifest: ${directory}`)
+  return {
+    book: structuredClone(manifest.book),
+    format,
+    name: manifest.fileName,
+    path,
+  }
 }
 
 async function removePartFile(path: string, originalError: unknown): Promise<never> {
@@ -179,6 +245,61 @@ async function atomicCopy(source: string, destination: string): Promise<void> {
   catch (error) {
     await removePartFile(partPath, error)
   }
+}
+
+function storedManifest(book: BookFileBinding, fileName: string): StoredReadingManifest {
+  return {
+    book: structuredClone(book),
+    fileName,
+    schemaVersion: manifestSchemaVersion,
+  }
+}
+
+async function writeManifest(directory: string, book: BookFileBinding, fileName: string): Promise<void> {
+  const bytes = Buffer.from(JSON.stringify(storedManifest(book, fileName)), 'utf8')
+  await atomicWrite(join(directory, manifestFileName), bytes)
+}
+
+async function replaceReadingDirectory(
+  destination: string,
+  write: (temporaryDirectory: string) => Promise<void>,
+): Promise<void> {
+  const temporaryDirectory = `${destination}.${randomUUID()}.part`
+  await mkdir(temporaryDirectory, { recursive: false })
+  try {
+    await write(temporaryDirectory)
+    await rm(destination, { force: true, recursive: true })
+    await rename(temporaryDirectory, destination)
+  }
+  catch (error) {
+    try {
+      await rm(temporaryDirectory, { force: true, recursive: true })
+    }
+    catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Shelf publication directory write and cleanup both failed')
+    }
+    throw error
+  }
+}
+
+function createBookBinding(input: SaveShelfReadingFileInput, fileName: string): BookFileBinding {
+  const binding: BookFileBinding = {
+    book: structuredClone(input.book),
+    file: {
+      byteLength: input.bytes.byteLength,
+      format: input.format,
+      originalName: fileName,
+      sha256: createHash('sha256').update(input.bytes).digest('hex'),
+    },
+    retrievalHints: [{
+      kind: 'shelf',
+      publicationId: input.publicationId,
+      readingId: input.readingId,
+      sourceId: input.sourceId,
+    }],
+  }
+  validateBookBinding(binding, 'Shelf reading binding')
+  return binding
 }
 
 export function createShelfReadingId(
@@ -311,6 +432,7 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
       const byteLength = (await stat(document.path)).size
       assertFileByteLength(byteLength)
       return {
+        book: structuredClone(document.book),
         byteLength,
         format: document.format,
         name: document.name,
@@ -362,9 +484,10 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
       if (cached === null)
         return false
       const libraryReadingDirectory = join(this.#libraryDirectory, readingId)
-      await rm(libraryReadingDirectory, { force: true, recursive: true })
-      await mkdir(libraryReadingDirectory, { recursive: true })
-      await atomicCopy(cached.path, join(libraryReadingDirectory, basename(cached.path)))
+      await replaceReadingDirectory(libraryReadingDirectory, async (temporaryDirectory) => {
+        await atomicCopy(cached.path, join(temporaryDirectory, cached.name))
+        await writeManifest(temporaryDirectory, cached.book, cached.name)
+      })
       await rm(join(this.#cacheDirectory, readingId), { recursive: true })
       return true
     })
@@ -374,8 +497,14 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
     assertReadingId(input.readingId)
     assertReadingFormat(input.format)
     assertNonEmpty(input.name, 'Shelf publication name')
+    assertNonEmpty(input.book.title, 'Shelf publication title')
+    input.book.authors.forEach((author, index) => assertNonEmpty(author, `Shelf publication author ${index}`))
+    assertNonEmpty(input.publicationId, 'Shelf publication id')
+    assertNonEmpty(input.sourceId, 'Shelf source id')
     if (input.bytes.byteLength === 0)
       throw new TypeError('Shelf publication must contain bytes')
+    if (input.retention !== 'cache' && input.retention !== 'library')
+      throw new TypeError(`Unsupported Shelf reading retention: ${String(input.retention)}`)
 
     await this.#serializeWrite(async () => {
       if (await this.#document(this.#libraryDirectory, input.readingId))
@@ -384,9 +513,10 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
         const cached = await this.#document(this.#cacheDirectory, input.readingId)
         if (cached) {
           const libraryReadingDirectory = join(this.#libraryDirectory, input.readingId)
-          await rm(libraryReadingDirectory, { force: true, recursive: true })
-          await mkdir(libraryReadingDirectory, { recursive: true })
-          await atomicCopy(cached.path, join(libraryReadingDirectory, basename(cached.path)))
+          await replaceReadingDirectory(libraryReadingDirectory, async (temporaryDirectory) => {
+            await atomicCopy(cached.path, join(temporaryDirectory, cached.name))
+            await writeManifest(temporaryDirectory, cached.book, cached.name)
+          })
           await rm(join(this.#cacheDirectory, input.readingId), { recursive: true })
           return
         }
@@ -404,10 +534,12 @@ class DefaultShelfReadingFileStore implements ShelfReadingFileStore {
         return
       }
 
-      await rm(readingDirectory, { force: true, recursive: true })
-      await mkdir(readingDirectory, { recursive: true })
       const name = sanitizedFileName(input.name, input.format)
-      await atomicWrite(join(readingDirectory, name), input.bytes)
+      const book = createBookBinding(input, name)
+      await replaceReadingDirectory(readingDirectory, async (temporaryDirectory) => {
+        await atomicWrite(join(temporaryDirectory, name), input.bytes)
+        await writeManifest(temporaryDirectory, book, name)
+      })
       if (input.retention === 'cache')
         await this.#pruneCache(input.readingId)
     })
