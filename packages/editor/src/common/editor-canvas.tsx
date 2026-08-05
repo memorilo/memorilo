@@ -34,7 +34,7 @@ function selectionBlockId(selection: TextSelection): string | null {
   return null
 }
 
-function focusBlock(session: EditorSession, blockId: string): void {
+function focusBlock(session: EditorSession, blockId: string, focusEditor: boolean): void {
   if (blockId.length === 0)
     throw new TypeError('Editor focus Block id must be a non-empty string')
 
@@ -57,7 +57,8 @@ function focusBlock(session: EditorSession, blockId: string): void {
 
   const view = session.editor.view
   view.dispatch(view.state.tr.setSelection(selection).scrollIntoView())
-  view.focus()
+  if (focusEditor)
+    view.focus()
 }
 
 function UploadStatus() {
@@ -83,11 +84,13 @@ export function EditorCanvas({
   focusBlockId,
   mode,
   modeControls,
+  readOnly,
   session,
 }: {
   focusBlockId?: string
   mode: EditorModeValue
   modeControls?: ReactNode
+  readOnly: boolean
   session: EditorSession
 }) {
   const { configured, editor } = session
@@ -95,8 +98,8 @@ export function EditorCanvas({
 
   useLayoutEffect(() => {
     if (focusBlockId !== undefined)
-      focusBlock(session, focusBlockId)
-  }, [focusBlockId, session])
+      focusBlock(session, focusBlockId, !readOnly)
+  }, [focusBlockId, readOnly, session])
 
   // The placeholder (and any other state-dependent plugin text) is evaluated on
   // every editor transaction, so it won't update until the user edits after a
@@ -114,7 +117,7 @@ export function EditorCanvas({
 
   return (
     <>
-      <div data-editor-mode-controls="">{modeControls}</div>
+      {readOnly ? null : <div data-editor-mode-controls="">{modeControls}</div>}
       <ProseKit editor={editor}>
         <div {...stylex.props(editorCanvasStyles.viewport)}>
           <UploadStatus />
@@ -123,19 +126,26 @@ export function EditorCanvas({
               ref={editor.mount}
               {...stylex.props(editorCanvasStyles.content)}
               aria-label={t('ui.editorContent')}
-              aria-multiline="true"
+              aria-multiline={readOnly ? undefined : 'true'}
+              aria-readonly={readOnly ? 'true' : undefined}
               data-editor-content=""
-              role="textbox"
+              role={readOnly ? 'document' : 'textbox'}
             />
-            <ContextMenu outlineRuntime={session.outlineRuntime} uploader={configured.uploader} />
-            <InlineMenu />
-            <MathClozeMenu />
-            <CardMenu />
-            <SlashMenu />
-            <TagMenu runtime={configured.tagRuntime} />
-            <BlockHandle mode={mode} session={session} />
-            <TableHandle />
-            <DropIndicator />
+            {readOnly
+              ? null
+              : (
+                  <>
+                    <ContextMenu outlineRuntime={session.outlineRuntime} uploader={configured.uploader} />
+                    <InlineMenu />
+                    <MathClozeMenu />
+                    <CardMenu />
+                    <SlashMenu />
+                    <TagMenu runtime={configured.tagRuntime} />
+                    <BlockHandle mode={mode} session={session} />
+                    <TableHandle />
+                    <DropIndicator />
+                  </>
+                )}
           </div>
         </div>
       </ProseKit>

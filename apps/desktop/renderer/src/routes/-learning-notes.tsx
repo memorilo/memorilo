@@ -2,7 +2,8 @@ import type { DesktopLearningApi } from '@memorilo/desktop-preload'
 import type { ChangeEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, FileText, LoaderCircle, SlidersHorizontal } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ChevronDown, FileText, LoaderCircle, Play, SlidersHorizontal } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -125,6 +126,15 @@ function LearningNoteRow({
             ? <span {...stylex.props(styles.assignmentError)} role="alert" title={assignmentError}>{assignmentError}</span>
             : null}
         </span>
+        <Link
+          {...stylex.props(styles.studyButton)}
+          aria-label={t('startNoteReview', { note: note.noteTitle })}
+          search={{ scope: 'note', scopeNoteId: note.noteId }}
+          title={t('startNoteReview', { note: note.noteTitle })}
+          to="/learning/review"
+        >
+          <Play aria-hidden="true" fill="currentColor" size={12} strokeWidth={1.8} />
+        </Link>
       </div>
     </motion.div>
   )

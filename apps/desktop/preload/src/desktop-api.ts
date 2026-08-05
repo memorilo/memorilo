@@ -76,6 +76,7 @@ function createDesktopLearningApi(service: DesktopServices['learning']): Desktop
     getNoteOptimizer: noteId => service.getNoteOptimizer(noteId),
     getOptimizer: optimizerId => service.getOptimizer(optimizerId),
     getOptimizerNoteCount: optimizerId => service.getOptimizerNoteCount(optimizerId),
+    getNextItem: input => service.getNextItem(input),
     getNextNewItem: input => service.getNextNewItem(input),
     getNextReviewItem: input => service.getNextReviewItem(input),
     listNotesWithCards: () => service.listNotesWithCards(),
@@ -91,6 +92,7 @@ function createDesktopLearningApi(service: DesktopServices['learning']): Desktop
       service.resetOptimizerDefaults(optimizerId, rescheduleNow)
     ),
     resetTarget: input => service.resetTarget(input),
+    restoreReviewItem: input => service.restoreReviewItem(input),
     undoLastReview: input => service.undoLastReview(input),
     updateOptimizer: input => service.updateOptimizer(input),
   }

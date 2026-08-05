@@ -25,6 +25,14 @@ export interface DesktopReviewItem {
 
 export type GetNextDesktopReviewItemInput = Omit<ListLearningQueueInput, 'limit' | 'mode'>
 
+export interface RestoreDesktopReviewItemInput {
+  cardId: string
+  noteId: string
+  presentation: LearningQueueItem['presentation']
+  targetId: string
+  topicId: string
+}
+
 type DesktopLearningStorageApi = Pick<LearningStorage, | 'archiveOptimizer'
   | 'assignNoteOptimizer'
   | 'createOptimizer'
@@ -49,8 +57,10 @@ type DesktopLearningStorageApi = Pick<LearningStorage, | 'archiveOptimizer'
   | 'updateOptimizer'>
 
 export interface DesktopLearningApi extends DesktopLearningStorageApi {
+  getNextItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
   getNextNewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
   getNextReviewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+  restoreReviewItem: (input: RestoreDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
 }
 
 export interface DesktopTopicBlock {

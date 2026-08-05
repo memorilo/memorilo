@@ -1,7 +1,11 @@
-import type { DesktopReviewItem, GetNextDesktopReviewItemInput } from '@memorilo/desktop-preload'
+import type {
+  DesktopReviewItem,
+  GetNextDesktopReviewItemInput,
+  RestoreDesktopReviewItemInput,
+} from '@memorilo/desktop-preload'
 import type { LearningQueueItem, LearningStorage, LearningTarget } from '@memorilo/editor-storage'
 import type { EditorCardProjection } from '@memorilo/editor/card'
-import type { NoteApplicationService } from '../notes/note-application-service'
+import type { NoteApplicationService, NoteCardProjection } from '../notes/note-application-service'
 import { NoteCardProjectionNotFoundError } from '../notes/note-application-service'
 
 class ReviewQueueItemUnavailableError extends Error {
@@ -95,6 +99,14 @@ async function resolveQueueItem(
   if (projection.card.sourceBlockId !== queue.sourceBlockId)
     throw unavailable(queue, 'its Source Block changed while the Queue was being resolved')
   const targets = resolveTargets(queue, projection.card, await learning.listTargets(queue.cardId))
+  return reviewItem(projection, queue, targets)
+}
+
+function reviewItem(
+  projection: NoteCardProjection,
+  queue: LearningQueueItem,
+  targets: DesktopReviewItem['targets'],
+): DesktopReviewItem {
   return {
     card: projection.card,
     noteTitle: projection.noteTitle,
@@ -111,7 +123,7 @@ export function createLearningReviewApplication(
 ) {
   const getNextItem = async (
     input: GetNextDesktopReviewItemInput,
-    mode: 'new' | 'review',
+    mode: 'mixed' | 'new' | 'review',
   ): Promise<DesktopReviewItem | null> => {
     const unavailableCandidates = new Set<string>()
     while (true) {
@@ -142,12 +154,56 @@ export function createLearningReviewApplication(
   }
 
   return {
+    getNextItem: (
+      input: GetNextDesktopReviewItemInput = {},
+    ): Promise<DesktopReviewItem | null> => getNextItem(input, 'mixed'),
     getNextNewItem: (
       input: GetNextDesktopReviewItemInput = {},
     ): Promise<DesktopReviewItem | null> => getNextItem(input, 'new'),
     getNextReviewItem: (
       input: GetNextDesktopReviewItemInput = {},
     ): Promise<DesktopReviewItem | null> => getNextItem(input, 'review'),
+    restoreReviewItem: async (
+      input: RestoreDesktopReviewItemInput,
+    ): Promise<DesktopReviewItem | null> => {
+      let projection: NoteCardProjection
+      try {
+        projection = await notes.getCardProjection(input)
+      }
+      catch (error) {
+        if (error instanceof NoteCardProjectionNotFoundError)
+          return null
+        throw error
+      }
+
+      const activeTargets = (await learning.listTargets(input.cardId)).filter(target => target.active)
+      const selectedTarget = activeTargets.find(target => target.targetId === input.targetId)
+      if (!selectedTarget)
+        return null
+      const targets = input.presentation === 'partial'
+        ? [selectedTarget]
+        : activeTargets
+      const state = await learning.getLearningState(input.targetId)
+      const queue: LearningQueueItem = {
+        cardId: input.cardId,
+        dueAt: state.dueAt,
+        noteId: input.noteId,
+        phase: state.phase,
+        presentation: input.presentation,
+        sourceBlockId: projection.card.sourceBlockId,
+        targetIds: targets.map(target => target.targetId),
+        topicId: input.topicId,
+      }
+
+      try {
+        return reviewItem(projection, queue, resolveTargets(queue, projection.card, activeTargets))
+      }
+      catch (error) {
+        if (error instanceof ReviewQueueItemUnavailableError)
+          return null
+        throw error
+      }
+    },
   }
 }
 

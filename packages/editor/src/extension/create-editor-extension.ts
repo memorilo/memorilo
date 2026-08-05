@@ -27,8 +27,8 @@ import { defineCodeBlockShiki } from 'prosekit/extensions/code-block'
 import { defineHorizontalRule } from 'prosekit/extensions/horizontal-rule'
 import { defineImageUploadHandler } from 'prosekit/extensions/image'
 import { defineMath } from 'prosekit/extensions/math'
-
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
+import { defineReadonly } from 'prosekit/extensions/readonly'
 import { defineCardExtension } from '../card/card-extension'
 import { defineBlockIdExtension } from '../common/block-id-extension'
 import { defineEditorKeymapExtension } from '../common/editor-keymap-extension'
@@ -88,6 +88,7 @@ export function createEditorExtension(
   outlineRuntime: OutlineRuntime,
   onDocumentChange?: (document: NodeJSON) => void,
   topic?: EditorTopicRuntime,
+  readOnly = false,
 ) {
   const uploader = createUploader(adapters, store)
   const tagRuntime = new TagRuntime(adapters.tagStorage)
@@ -131,6 +132,7 @@ export function createEditorExtension(
         store.set(uploadErrorAtom, message)
       },
     }),
+    ...(readOnly ? [defineReadonly()] : []),
   )
 
   return {

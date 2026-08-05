@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -49,7 +50,21 @@ export const Route = createFileRoute('/learning')({
 
 function LearningRoute() {
   const { t } = useTranslation('learning')
-  const titlebar = useMemo(() => ({ title: t('title') }), [t])
+  const titlebar = useMemo(() => ({
+    title: t('title'),
+    trailing: (
+      <Link
+        {...stylex.props(learningRouteStyles.startReviewButton)}
+        aria-label={t('startGlobalReview')}
+        search={{ scope: 'global' }}
+        title={t('startGlobalReview')}
+        to="/learning/review"
+      >
+        <Play aria-hidden="true" fill="currentColor" size={12} strokeWidth={1.8} />
+        <span>{t('startReview')}</span>
+      </Link>
+    ),
+  }), [t])
   usePageTitlebar(titlebar)
   const { view } = Route.useSearch()
   const navigate = Route.useNavigate()
