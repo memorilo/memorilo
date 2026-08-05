@@ -60,6 +60,56 @@ export interface CreateNoteInput {
   title?: string
 }
 
+export type JournalDate = string
+
+export interface GetOrCreateJournalInput {
+  journalDate: JournalDate
+}
+
+export interface StoredJournal {
+  journalDate: JournalDate
+  note: StoredNote
+}
+
+export interface JournalMetadata {
+  hasUserContent: boolean
+  journalDate: JournalDate
+  noteId: string
+}
+
+export interface ListPastJournalsInput {
+  before?: JournalDate
+  limit?: number
+  today: JournalDate
+}
+
+export interface StoredJournalSummary {
+  createdAt: number
+  journalDate: JournalDate
+  noteId: string
+  title: string
+  topicId: string
+  updatedAt: number
+}
+
+export interface StoredJournalPage {
+  items: readonly StoredJournalSummary[]
+  nextCursor: JournalDate | null
+}
+
+export interface ListJournalDatesInput {
+  from: JournalDate
+  through: JournalDate
+}
+
+export interface PrunePastEmptyJournalsInput {
+  before: JournalDate
+}
+
+export interface PrunePastEmptyJournalsResult {
+  deletedNoteIds: readonly string[]
+}
+
 export class DuplicateNoteTitleError extends Error {
   override readonly name = 'DuplicateNoteTitleError'
 
@@ -77,6 +127,7 @@ export interface ListNotesInput {
   pageSize?: number
   sortBy?: NoteSortField
   sortDirection?: NoteSortDirection
+  today?: JournalDate
 }
 
 export type NoteSortDirection = 'asc' | 'desc'
@@ -87,12 +138,14 @@ export interface NoteSummary {
   createdAt: number
   favorite: boolean
   id: string
+  journalDate?: JournalDate
   title: string
   updatedAt: number
 }
 
 export interface ListNoteActivityInput {
   limit?: number
+  today?: JournalDate
 }
 
 export interface NoteFavoriteState {
@@ -109,6 +162,7 @@ export interface RecordNoteOpenedInput {
 
 export interface FavoriteNoteItem {
   favoritedAt: number
+  journalDate?: JournalDate
   noteId: string
   noteTitle: string
   topicId: string
@@ -116,6 +170,7 @@ export interface FavoriteNoteItem {
 }
 
 export interface RecentNoteItem {
+  journalDate?: JournalDate
   noteId: string
   noteTitle: string
   openedAt: number
@@ -168,6 +223,7 @@ export interface SaveNoteUpdatesInput {
   allowedMissingAssetFileNames?: readonly string[]
   assetReferences?: readonly AssetReferenceProjection[]
   entries?: readonly NoteEntryProjection[]
+  journalHasUserContent?: boolean
   noteId: string
   title?: string
   topics: readonly TopicContentProjection[]
@@ -199,16 +255,23 @@ export interface SearchTopicBlocksInput {
   mode?: TopicBlockSearchMode
   noteId?: string
   query: string
+  today?: JournalDate
 }
 
 export interface SearchNotesInput {
   limit?: number
   query: string
+  today?: JournalDate
+}
+
+export interface OpenMostRecentNoteInput {
+  today?: JournalDate
 }
 
 export type NoteSearchMatch = 'content' | 'node-start' | 'semantic' | 'title'
 
 export interface NoteTitleSearchHit {
+  journalDate?: JournalDate
   kind: 'note'
   match: 'title'
   noteId: string
@@ -219,6 +282,7 @@ export interface NoteTitleSearchHit {
 
 export interface TopicSearchHit {
   blockId: string | null
+  journalDate?: JournalDate
   kind: 'topic'
   match: NoteSearchMatch
   noteId: string
@@ -256,16 +320,21 @@ export interface EditorStorage {
   getAssetStatistics: () => Promise<AssetStatistics>
   getNote: (input: GetNoteInput) => Promise<StoredNote>
   getNoteFavorite: (input: GetNoteInput) => Promise<NoteFavoriteState>
+  getJournalMetadata: (input: GetNoteInput) => Promise<JournalMetadata | null>
+  getOrCreateJournal: (input: GetOrCreateJournalInput) => Promise<StoredJournal>
   getTopicBlock: (input: GetTopicBlockInput) => Promise<StoredTopicBlock | null>
   indexPendingEmbeddings: (input?: IndexPendingEmbeddingsInput) => Promise<number>
   listFavoriteNotes: (input?: ListNoteActivityInput) => Promise<readonly FavoriteNoteItem[]>
+  listJournalDates: (input: ListJournalDatesInput) => Promise<readonly JournalDate[]>
   listNoteIds: () => Promise<readonly string[]>
   listNotes: (input?: ListNotesInput) => Promise<NotePage>
+  listPastJournals: (input: ListPastJournalsInput) => Promise<StoredJournalPage>
   listAssets: () => Promise<readonly StoredAsset[]>
   listClaimedAssets: () => Promise<readonly StoredAsset[]>
   listRecentNotes: (input?: ListNoteActivityInput) => Promise<readonly RecentNoteItem[]>
   listUnreferencedAssets: (input: { unreferencedBefore: number }) => Promise<readonly StoredAsset[]>
-  openMostRecentNote: () => Promise<StoredNote>
+  openMostRecentNote: (input?: OpenMostRecentNoteInput) => Promise<StoredNote>
+  prunePastEmptyJournals: (input: PrunePastEmptyJournalsInput) => Promise<PrunePastEmptyJournalsResult>
   reconcileNoteAssetReferences: (input: ReconcileNoteAssetReferencesInput) => Promise<boolean>
   recordNoteOpened: (input: RecordNoteOpenedInput) => Promise<void>
   registerAsset: (input: RegisterAssetInput) => Promise<StoredAsset>
@@ -304,12 +373,43 @@ interface NoteSummaryRow {
   created_at: number
   favorite: number
   id: string
+  journal_date: string | null
   title: string
   updated_at: number
 }
 
+interface JournalMetadataRow {
+  has_user_content: number
+  journal_date: string
+  note_id: string
+}
+
+interface JournalSummaryRow {
+  created_at: number
+  entry_count: number
+  journal_date: string
+  note_id: string
+  root_topic_id: string | null
+  title: string
+  updated_at: number
+}
+
+interface JournalDateRow {
+  journal_date: string
+}
+
+interface PrunableJournalRow {
+  note_id: string
+  note_row_id: number
+}
+
+interface BlockRowId {
+  row_id: number
+}
+
 interface FavoriteNoteRow {
   favorited_at: number
+  journal_date: string | null
   note_id: string
   note_title: string
   topic_id: string
@@ -317,6 +417,7 @@ interface FavoriteNoteRow {
 }
 
 interface RecentNoteRow {
+  journal_date: string | null
   note_id: string
   note_title: string
   opened_at: number
@@ -383,6 +484,7 @@ interface TopicBlockSearchRow extends TopicBlockRow {
 }
 
 interface NoteTitleSearchRow {
+  journal_date: string | null
   kind: 'note' | 'topic'
   match_position: number
   note_id: string
@@ -394,6 +496,7 @@ interface NoteTitleSearchRow {
 
 interface TopicSearchRow {
   block_id: string
+  journal_date: string | null
   note_id: string
   note_title: string
   preview: string
@@ -429,6 +532,16 @@ const schema = `
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS journals (
+    note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
+    journal_date TEXT NOT NULL UNIQUE
+      CHECK (journal_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    has_user_content INTEGER NOT NULL CHECK (has_user_content IN (0, 1))
+  );
+
+  CREATE INDEX IF NOT EXISTS journals_feed_idx
+    ON journals(has_user_content, journal_date DESC);
 
   CREATE TABLE IF NOT EXISTS assets (
     file_name TEXT PRIMARY KEY,
@@ -619,6 +732,76 @@ function assertNonEmpty(value: string, name: string): void {
 function assertString(value: unknown, name: string): asserts value is string {
   if (typeof value !== 'string')
     throw new TypeError(`${name} must be a string`)
+}
+
+export function assertJournalDate(value: unknown, name = 'Journal date'): asserts value is JournalDate {
+  if (typeof value !== 'string')
+    throw new TypeError(`${name} must be a string`)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value)
+  if (!match)
+    throw new TypeError(`${name} must use YYYY-MM-DD format`)
+  const yearText = match[1]
+  const monthText = match[2]
+  const dayText = match[3]
+  if (yearText === undefined || monthText === undefined || dayText === undefined)
+    throw new Error(`Failed to parse ${name}`)
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  if (year < 1)
+    throw new RangeError(`${name} year must be between 0001 and 9999`)
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  const maximumDay = daysInMonth[month - 1]
+  if (maximumDay === undefined || day < 1 || day > maximumDay)
+    throw new RangeError(`${name} must be a valid calendar date`)
+}
+
+function readJournalDate(value: unknown, name: string): JournalDate {
+  assertJournalDate(value, name)
+  return value
+}
+
+function readStoredNoteJournalDate(
+  value: string | null,
+  noteId: string,
+  noteTitle: string,
+): JournalDate | undefined {
+  if (value === null)
+    return undefined
+  const journalDate = readJournalDate(value, `Stored Journal date for Note ${noteId}`)
+  if (noteTitle !== journalDate)
+    throw new Error(`Journal ${journalDate} has a non-canonical stored Note title`)
+  return journalDate
+}
+
+function optionalJournalDate(value: JournalDate | undefined, name: string): JournalDate | null {
+  if (value === undefined)
+    return null
+  assertJournalDate(value, name)
+  return value
+}
+
+const visibleJournalPredicate = `
+  (? IS NULL
+    OR journal.note_row_id IS NULL
+    OR journal.has_user_content = 1
+    OR journal.journal_date = ?)
+`
+
+function validateJournalProjection(
+  entries: readonly NoteEntryProjection[] | undefined,
+  topics: readonly TopicContentProjection[],
+): void {
+  if (entries === undefined)
+    throw new TypeError('Journal saves must include the complete Note entry projection')
+  if (entries.length !== 1)
+    throw new TypeError('A Journal Note must contain exactly one Topic')
+  const entry = entries[0]
+  if (!entry || entry.kind !== 'topic' || entry.parentId !== null || entry.ordinal !== 0)
+    throw new TypeError('A Journal Note must contain one root Topic at ordinal zero')
+  if (topics.length !== 1 || topics[0]?.topicId !== entry.id)
+    throw new TypeError('Journal saves must include the complete root Topic projection')
 }
 
 function validateBinary(value: Uint8Array, name: string): void {
@@ -886,8 +1069,10 @@ function toTopicSearchHit(
   row: TopicSearchRow,
   match: Exclude<NoteSearchMatch, 'title'>,
 ): TopicSearchHit {
+  const journalDate = readStoredNoteJournalDate(row.journal_date, row.note_id, row.note_title)
   return {
     blockId: row.block_id,
+    ...(journalDate === undefined ? {} : { journalDate }),
     kind: 'topic',
     match,
     noteId: row.note_id,
@@ -961,10 +1146,20 @@ class DefaultEditorStorage implements EditorStorage {
   async #assertUniqueNoteTitle(title: string, excludedNoteId?: string): Promise<void> {
     const duplicate = excludedNoteId === undefined
       ? await this.#database.get<{ id: string }>(`
-          SELECT id FROM notes WHERE title = ? COLLATE NOCASE LIMIT 1
+          SELECT note.id
+          FROM notes AS note
+          LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
+          WHERE note.title = ? COLLATE NOCASE AND journal.note_row_id IS NULL
+          LIMIT 1
         `, [title])
       : await this.#database.get<{ id: string }>(`
-          SELECT id FROM notes WHERE title = ? COLLATE NOCASE AND id <> ? LIMIT 1
+          SELECT note.id
+          FROM notes AS note
+          LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
+          WHERE note.title = ? COLLATE NOCASE
+            AND note.id <> ?
+            AND journal.note_row_id IS NULL
+          LIMIT 1
         `, [title, excludedNoteId])
     if (duplicate)
       throw new DuplicateNoteTitleError(title)
@@ -995,6 +1190,58 @@ class DefaultEditorStorage implements EditorStorage {
     `, [id])
     if (!note)
       throw new Error(`Failed to read newly created Note: ${id}`)
+    return note
+  }
+
+  async #journalNoteByDate(journalDate: JournalDate): Promise<NoteRow | undefined> {
+    return this.#database.get<NoteRow>(`
+      SELECT
+        note.row_id,
+        note.id,
+        note.title,
+        note.checkpoint_snapshot,
+        note.checkpoint_sequence,
+        note.latest_sequence,
+        note.created_at,
+        note.updated_at
+      FROM journals AS journal
+      INNER JOIN notes AS note ON note.row_id = journal.note_row_id
+      WHERE journal.journal_date = ?
+    `, [journalDate])
+  }
+
+  async #insertJournal(journalDate: JournalDate): Promise<NoteRow> {
+    const now = Date.now()
+    const id = createUuidV7()
+    try {
+      await this.#database.batch([
+        {
+          parameters: [id, journalDate, now, now],
+          sql: `
+            INSERT INTO notes (
+              id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, created_at, updated_at
+            ) VALUES (?, ?, NULL, 0, 0, ?, ?)
+          `,
+        },
+        {
+          parameters: [journalDate, id],
+          sql: `
+            INSERT INTO journals (note_row_id, journal_date, has_user_content)
+            SELECT row_id, ?, 0 FROM notes WHERE id = ?
+          `,
+        },
+      ])
+    }
+    catch (error) {
+      const existing = await this.#journalNoteByDate(journalDate)
+      if (existing)
+        return existing
+      throw error
+    }
+
+    const note = await this.#journalNoteByDate(journalDate)
+    if (!note)
+      throw new Error(`Failed to read newly created Journal: ${journalDate}`)
     return note
   }
 
@@ -1070,6 +1317,19 @@ class DefaultEditorStorage implements EditorStorage {
     return this.#serializeWrite(async () => this.#readStoredNote(await this.#insertNote(title)))
   }
 
+  async getOrCreateJournal(input: GetOrCreateJournalInput): Promise<StoredJournal> {
+    assertJournalDate(input.journalDate)
+    return this.#serializeWrite(async () => {
+      const note = await this.#journalNoteByDate(input.journalDate) ?? await this.#insertJournal(input.journalDate)
+      if (note.title !== input.journalDate)
+        throw new Error(`Journal ${input.journalDate} has a non-canonical stored Note title`)
+      return {
+        journalDate: input.journalDate,
+        note: await this.#readStoredNote(note),
+      }
+    })
+  }
+
   async getAssetStatistics(): Promise<AssetStatistics> {
     const row = await this.#database.get<AssetStatisticsRow>(`
       SELECT
@@ -1106,6 +1366,31 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
+  async getJournalMetadata(input: GetNoteInput): Promise<JournalMetadata | null> {
+    assertNonEmpty(input.noteId, 'Note id')
+    return this.#serializeWrite(async () => {
+      const row = await this.#database.get<JournalMetadataRow>(`
+        SELECT
+          note.id AS note_id,
+          journal.journal_date,
+          journal.has_user_content
+        FROM notes AS note
+        INNER JOIN journals AS journal ON journal.note_row_id = note.row_id
+        WHERE note.id = ?
+      `, [input.noteId])
+      if (!row)
+        return null
+      const journalDate = readJournalDate(row.journal_date, `Stored Journal date for Note ${input.noteId}`)
+      if (row.has_user_content !== 0 && row.has_user_content !== 1)
+        throw new Error(`Stored Journal ${journalDate} has an invalid content state`)
+      return {
+        hasUserContent: row.has_user_content === 1,
+        journalDate,
+        noteId: row.note_id,
+      }
+    })
+  }
+
   async getNoteFavorite(input: GetNoteInput): Promise<NoteFavoriteState> {
     assertNonEmpty(input.noteId, 'Note id')
     return this.#serializeWrite(async () => {
@@ -1126,6 +1411,7 @@ class DefaultEditorStorage implements EditorStorage {
 
   async listFavoriteNotes(input: ListNoteActivityInput = {}): Promise<readonly FavoriteNoteItem[]> {
     const limit = resolveLimit(input.limit, 6, 100)
+    const today = optionalJournalDate(input.today, 'Current Journal date')
     return this.#serializeWrite(async () => {
       const rows = await this.#database.all<FavoriteNoteRow>(`
         WITH first_topics AS (
@@ -1139,26 +1425,51 @@ class DefaultEditorStorage implements EditorStorage {
         SELECT
           note.id AS note_id,
           note.title AS note_title,
+          journal.journal_date,
           COALESCE(history.topic_id, first_topic.topic_id) AS topic_id,
           COALESCE(history_topic.title, first_topic.title) AS topic_title,
           favorite.favorited_at
         FROM note_favorites AS favorite
         INNER JOIN notes AS note ON note.row_id = favorite.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
         INNER JOIN first_topics AS first_topic
           ON first_topic.note_row_id = note.row_id AND first_topic.position = 1
         LEFT JOIN note_open_history AS history ON history.note_row_id = note.row_id
         LEFT JOIN topics AS history_topic
           ON history_topic.note_row_id = note.row_id AND history_topic.topic_id = history.topic_id
+        WHERE ${visibleJournalPredicate}
         ORDER BY favorite.favorited_at DESC, note.id DESC
         LIMIT ?
-      `, [limit])
-      return rows.map(row => ({
-        favoritedAt: row.favorited_at,
-        noteId: row.note_id,
-        noteTitle: row.note_title,
-        topicId: row.topic_id,
-        topicTitle: row.topic_title,
-      }))
+      `, [today, today, limit])
+      return rows.map((row) => {
+        const journalDate = readStoredNoteJournalDate(row.journal_date, row.note_id, row.note_title)
+        return {
+          favoritedAt: row.favorited_at,
+          ...(journalDate === undefined ? {} : { journalDate }),
+          noteId: row.note_id,
+          noteTitle: row.note_title,
+          topicId: row.topic_id,
+          topicTitle: row.topic_title,
+        }
+      })
+    })
+  }
+
+  async listJournalDates(input: ListJournalDatesInput): Promise<readonly JournalDate[]> {
+    assertJournalDate(input.from, 'Journal date range start')
+    assertJournalDate(input.through, 'Journal date range end')
+    if (input.from > input.through)
+      throw new RangeError('Journal date range start must not follow its end')
+    return this.#serializeWrite(async () => {
+      const rows = await this.#database.all<JournalDateRow>(`
+        SELECT journal_date
+        FROM journals
+        WHERE journal_date >= ?
+          AND journal_date <= ?
+          AND has_user_content = 1
+        ORDER BY journal_date ASC
+      `, [input.from, input.through])
+      return rows.map(row => readJournalDate(row.journal_date, 'Stored Journal date'))
     })
   }
 
@@ -1173,43 +1484,116 @@ class DefaultEditorStorage implements EditorStorage {
     const page = resolvePage(input.page)
     const pageSize = resolveLimit(input.pageSize, 50, 100)
     const orderBy = resolveNoteOrderBy(input.sortBy, input.sortDirection)
+    const today = optionalJournalDate(input.today, 'Current Journal date')
     const offset = (page - 1) * pageSize
     if (!Number.isSafeInteger(offset))
       throw new RangeError('Page offset exceeds the safe integer range')
 
     return this.#serializeWrite(async () => {
       const [countRow, rows] = await Promise.all([
-        this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM notes'),
+        this.#database.get<CountRow>(`
+          SELECT COUNT(*) AS count
+          FROM notes AS note
+          LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
+          WHERE ${visibleJournalPredicate}
+        `, [today, today]),
         this.#database.all<NoteSummaryRow>(`
           SELECT
             note.id,
             note.title,
             note.created_at,
             note.updated_at,
+            journal.journal_date,
             EXISTS(
               SELECT 1
               FROM note_favorites AS favorite
               WHERE favorite.note_row_id = note.row_id
             ) AS favorite
           FROM notes AS note
+          LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
+          WHERE ${visibleJournalPredicate}
           ORDER BY ${orderBy}
           LIMIT ? OFFSET ?
-        `, [pageSize, offset]),
+        `, [today, today, pageSize, offset]),
       ])
       if (!countRow)
         throw new Error('Failed to count Notes')
       return {
-        items: rows.map(row => ({
-          createdAt: row.created_at,
-          favorite: row.favorite === 1,
-          id: row.id,
-          title: row.title,
-          updatedAt: row.updated_at,
-        })),
+        items: rows.map((row) => {
+          const journalDate = readStoredNoteJournalDate(row.journal_date, row.id, row.title)
+          return {
+            createdAt: row.created_at,
+            favorite: row.favorite === 1,
+            id: row.id,
+            ...(journalDate === undefined ? {} : { journalDate }),
+            title: row.title,
+            updatedAt: row.updated_at,
+          }
+        }),
         page,
         pageSize,
         totalItems: countRow.count,
         totalPages: Math.ceil(countRow.count / pageSize),
+      }
+    })
+  }
+
+  async listPastJournals(input: ListPastJournalsInput): Promise<StoredJournalPage> {
+    assertJournalDate(input.today, 'Today Journal date')
+    if (input.before !== undefined)
+      assertJournalDate(input.before, 'Journal page cursor')
+    const limit = resolveLimit(input.limit, 20, 100)
+    return this.#serializeWrite(async () => {
+      const rows = await this.#database.all<JournalSummaryRow>(`
+        SELECT
+          note.id AS note_id,
+          note.title,
+          note.created_at,
+          note.updated_at,
+          journal.journal_date,
+          (
+            SELECT COUNT(*)
+            FROM note_entries AS entry
+            WHERE entry.note_row_id = note.row_id
+          ) AS entry_count,
+          (
+            SELECT entry.entry_id
+            FROM note_entries AS entry
+            WHERE entry.note_row_id = note.row_id
+              AND entry.kind = 'topic'
+              AND entry.parent_entry_id IS NULL
+            ORDER BY entry.ordinal ASC, entry.row_id ASC
+            LIMIT 1
+          ) AS root_topic_id
+        FROM journals AS journal
+        INNER JOIN notes AS note ON note.row_id = journal.note_row_id
+        WHERE journal.has_user_content = 1
+          AND journal.journal_date < ?
+          AND (? IS NULL OR journal.journal_date < ?)
+        ORDER BY journal.journal_date DESC
+        LIMIT ?
+      `, [input.today, input.before ?? null, input.before ?? null, limit + 1])
+      const hasNextPage = rows.length > limit
+      const pageRows = rows.slice(0, limit)
+      const items = pageRows.map((row): StoredJournalSummary => {
+        const journalDate = readJournalDate(row.journal_date, `Stored Journal date for Note ${row.note_id}`)
+        if (row.title !== journalDate)
+          throw new Error(`Journal ${journalDate} has a non-canonical stored Note title`)
+        if (row.entry_count !== 1 || row.root_topic_id === null)
+          throw new Error(`Journal ${journalDate} does not contain exactly one root Topic`)
+        return {
+          createdAt: row.created_at,
+          journalDate,
+          noteId: row.note_id,
+          title: journalDate,
+          topicId: row.root_topic_id,
+          updatedAt: row.updated_at,
+        }
+      })
+      const lastItem = items.at(-1)
+      return {
+        items,
+        nextCursor: hasNextPage && lastItem ? lastItem.journalDate : null,
       }
     })
   }
@@ -1235,28 +1619,36 @@ class DefaultEditorStorage implements EditorStorage {
 
   async listRecentNotes(input: ListNoteActivityInput = {}): Promise<readonly RecentNoteItem[]> {
     const limit = resolveLimit(input.limit, 6, 100)
+    const today = optionalJournalDate(input.today, 'Current Journal date')
     return this.#serializeWrite(async () => {
       const rows = await this.#database.all<RecentNoteRow>(`
         SELECT
           note.id AS note_id,
           note.title AS note_title,
+          journal.journal_date,
           history.topic_id,
           topic.title AS topic_title,
           history.opened_at
         FROM note_open_history AS history
         INNER JOIN notes AS note ON note.row_id = history.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
         INNER JOIN topics AS topic
           ON topic.note_row_id = history.note_row_id AND topic.topic_id = history.topic_id
+        WHERE ${visibleJournalPredicate}
         ORDER BY history.opened_at DESC, note.id DESC
         LIMIT ?
-      `, [limit])
-      return rows.map(row => ({
-        noteId: row.note_id,
-        noteTitle: row.note_title,
-        openedAt: row.opened_at,
-        topicId: row.topic_id,
-        topicTitle: row.topic_title,
-      }))
+      `, [today, today, limit])
+      return rows.map((row) => {
+        const journalDate = readStoredNoteJournalDate(row.journal_date, row.note_id, row.note_title)
+        return {
+          ...(journalDate === undefined ? {} : { journalDate }),
+          noteId: row.note_id,
+          noteTitle: row.note_title,
+          openedAt: row.opened_at,
+          topicId: row.topic_id,
+          topicTitle: row.topic_title,
+        }
+      })
     })
   }
 
@@ -1276,7 +1668,8 @@ class DefaultEditorStorage implements EditorStorage {
     return rows.map(toStoredAsset)
   }
 
-  async openMostRecentNote(): Promise<StoredNote> {
+  async openMostRecentNote(input: OpenMostRecentNoteInput = {}): Promise<StoredNote> {
+    const today = optionalJournalDate(input.today, 'Current Journal date')
     return this.#serializeWrite(async () => {
       let note = await this.#database.get<NoteRow>(`
         SELECT
@@ -1288,13 +1681,65 @@ class DefaultEditorStorage implements EditorStorage {
           latest_sequence,
           created_at,
           updated_at
-        FROM notes
-        ORDER BY updated_at DESC, id DESC
+        FROM notes AS note
+        LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
+        WHERE ${visibleJournalPredicate}
+        ORDER BY note.updated_at DESC, note.id DESC
         LIMIT 1
-      `)
+      `, [today, today])
 
       note ??= await this.#insertNote('Untitled')
       return this.#readStoredNote(note)
+    })
+  }
+
+  async prunePastEmptyJournals(input: PrunePastEmptyJournalsInput): Promise<PrunePastEmptyJournalsResult> {
+    assertJournalDate(input.before, 'Journal pruning cutoff')
+    return this.#serializeWrite(async () => {
+      const journals = await this.#database.all<PrunableJournalRow>(`
+        SELECT note.id AS note_id, note.row_id AS note_row_id
+        FROM journals AS journal
+        INNER JOIN notes AS note ON note.row_id = journal.note_row_id
+        WHERE journal.journal_date < ? AND journal.has_user_content = 0
+        ORDER BY journal.journal_date ASC
+      `, [input.before])
+      if (journals.length === 0)
+        return { deletedNoteIds: [] }
+
+      const blocks = await this.#database.all<BlockRowId>(`
+        SELECT block.row_id
+        FROM topic_blocks AS block
+        INNER JOIN journals AS journal ON journal.note_row_id = block.note_row_id
+        WHERE journal.journal_date < ? AND journal.has_user_content = 0
+      `, [input.before])
+      const commands: DatabaseCommand[] = blocks.flatMap(block => [
+        {
+          parameters: [block.row_id],
+          sql: 'DELETE FROM topic_block_embeddings WHERE block_row_id = ?',
+        },
+        {
+          parameters: [block.row_id],
+          sql: 'DELETE FROM topic_block_embedding_state WHERE block_row_id = ?',
+        },
+      ])
+      for (const journal of journals) {
+        commands.push({
+          parameters: [journal.note_row_id, input.before],
+          sql: `
+            DELETE FROM notes
+            WHERE row_id = ?
+              AND EXISTS (
+                SELECT 1
+                FROM journals
+                WHERE note_row_id = notes.row_id
+                  AND journal_date < ?
+                  AND has_user_content = 0
+              )
+          `,
+        })
+      }
+      await this.#database.batch(commands)
+      return { deletedNoteIds: journals.map(journal => journal.note_id) }
     })
   }
 
@@ -1444,6 +1889,8 @@ class DefaultEditorStorage implements EditorStorage {
       assertNonEmpty(input.title, 'Note title')
     if (input.updates.length === 0)
       throw new TypeError('Note updates must contain at least one update')
+    if (input.journalHasUserContent !== undefined && typeof input.journalHasUserContent !== 'boolean')
+      throw new TypeError('Journal content state must be a boolean')
     input.updates.forEach((update, index) => validateBinary(update, `Note update ${index}`))
     validateProjectionPatch(input.entries, input.topics)
     if (input.assetReferences !== undefined)
@@ -1467,7 +1914,29 @@ class DefaultEditorStorage implements EditorStorage {
       `, [saved.noteId])
       if (!note)
         throw new Error(`Unknown Note: ${saved.noteId}`)
-      if (saved.title !== undefined && saved.title !== note.title)
+      const journal = await this.#database.get<JournalMetadataRow>(`
+        SELECT
+          note.id AS note_id,
+          journal.journal_date,
+          journal.has_user_content
+        FROM journals AS journal
+        INNER JOIN notes AS note ON note.row_id = journal.note_row_id
+        WHERE journal.note_row_id = ?
+      `, [note.row_id])
+      if (journal) {
+        const journalDate = readJournalDate(journal.journal_date, `Stored Journal date for Note ${saved.noteId}`)
+        if (note.title !== journalDate)
+          throw new Error(`Journal ${journalDate} has a non-canonical stored Note title`)
+        if (saved.title !== journalDate)
+          throw new TypeError(`Journal ${journalDate} title is immutable`)
+        if (saved.journalHasUserContent === undefined)
+          throw new TypeError('Journal saves must include their semantic content state')
+        validateJournalProjection(saved.entries, saved.topics)
+      }
+      else if (saved.journalHasUserContent !== undefined) {
+        throw new TypeError(`Regular Note ${saved.noteId} cannot persist Journal content state`)
+      }
+      if (!journal && saved.title !== undefined && saved.title !== note.title)
         await this.#assertUniqueNoteTitle(saved.title, note.id)
 
       const updatesByHash = new Map(saved.updates.map(update => [updateHash(update), update]))
@@ -1479,8 +1948,15 @@ class DefaultEditorStorage implements EditorStorage {
       const newUpdates = [...updatesByHash]
         .filter(([hash]) => !receivedHashes.has(hash))
         .map(([hash, update]) => ({ hash, update }))
-      if (newUpdates.length === 0)
+      if (newUpdates.length === 0) {
+        if (journal) {
+          await this.#database.run(
+            'UPDATE journals SET has_user_content = ? WHERE note_row_id = ?',
+            [saved.journalHasUserContent === true ? 1 : 0, note.row_id],
+          )
+        }
         return { acceptedUpdateHashes: [], latestSequence: note.latest_sequence, updatedAt: note.updated_at }
+      }
 
       const [existingEntries, existingTopics, existingBlocksByTopic] = await Promise.all([
         saved.entries
@@ -1581,6 +2057,12 @@ class DefaultEditorStorage implements EditorStorage {
           WHERE row_id = ?
         `,
       })
+      if (journal) {
+        commands.push({
+          parameters: [saved.journalHasUserContent === true ? 1 : 0, note.row_id],
+          sql: 'UPDATE journals SET has_user_content = ? WHERE note_row_id = ?',
+        })
+      }
       newUpdates.forEach(({ hash, update }, index) => {
         const sequence = note.latest_sequence + index + 1
         commands.push({
@@ -1863,12 +2345,13 @@ class DefaultEditorStorage implements EditorStorage {
     if (query.length === 0)
       return []
     const limit = resolveLimit(input.limit, 20, 50)
+    const today = optionalJournalDate(input.today, 'Current Journal date')
     const candidateLimit = Math.min(Math.max(limit * 4, 32), 100)
     const [titles, nodeStarts, content, semantic] = await Promise.all([
-      this.#searchNoteTitles(query, candidateLimit),
-      this.#searchTopicNodeStarts(query, candidateLimit),
-      this.#searchTopicContent(query, candidateLimit),
-      this.#searchTopicSemantically(query, candidateLimit),
+      this.#searchNoteTitles(query, candidateLimit, today),
+      this.#searchTopicNodeStarts(query, candidateLimit, today),
+      this.#searchTopicContent(query, candidateLimit, today),
+      this.#searchTopicSemantically(query, candidateLimit, today),
     ])
 
     const results: NoteSearchHit[] = []
@@ -1893,10 +2376,21 @@ class DefaultEditorStorage implements EditorStorage {
     return results.slice(0, limit)
   }
 
-  async #searchNoteTitles(query: string, limit: number): Promise<readonly NoteSearchHit[]> {
+  async #searchNoteTitles(
+    query: string,
+    limit: number,
+    today: JournalDate | null,
+  ): Promise<readonly NoteSearchHit[]> {
     const rows = await this.#database.all<NoteTitleSearchRow>(`
+      WITH visible_notes AS (
+        SELECT note.*, journal.journal_date
+        FROM notes AS note
+        LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
+        WHERE ${visibleJournalPredicate}
+      )
       SELECT
         kind,
+        journal_date,
         note_id,
         note_title,
         topic_id,
@@ -1906,18 +2400,20 @@ class DefaultEditorStorage implements EditorStorage {
       FROM (
         SELECT
           'note' AS kind,
+          n.journal_date,
           n.id AS note_id,
           n.title AS note_title,
           NULL AS topic_id,
           NULL AS topic_title,
           n.updated_at,
           instr(lower(n.title), lower(?)) AS match_position
-        FROM notes n
+        FROM visible_notes n
 
         UNION ALL
 
         SELECT
           'topic' AS kind,
+          n.journal_date,
           n.id AS note_id,
           n.title AS note_title,
           t.topic_id,
@@ -1925,7 +2421,7 @@ class DefaultEditorStorage implements EditorStorage {
           n.updated_at,
           instr(lower(t.title), lower(?)) AS match_position
         FROM topics t
-        JOIN notes n ON n.row_id = t.note_row_id
+        JOIN visible_notes n ON n.row_id = t.note_row_id
       ) title_matches
       WHERE match_position > 0
       ORDER BY
@@ -1934,11 +2430,13 @@ class DefaultEditorStorage implements EditorStorage {
         updated_at DESC,
         note_title COLLATE NOCASE ASC
       LIMIT ?
-    `, [query, query, limit])
+    `, [today, today, query, query, limit])
 
     return rows.map((row): NoteSearchHit => {
+      const journalDate = readStoredNoteJournalDate(row.journal_date, row.note_id, row.note_title)
       if (row.kind === 'note') {
         return {
+          ...(journalDate === undefined ? {} : { journalDate }),
           kind: 'note',
           match: 'title',
           noteId: row.note_id,
@@ -1951,6 +2449,7 @@ class DefaultEditorStorage implements EditorStorage {
         throw new Error(`Topic title search result for Note ${row.note_id} is missing Topic metadata`)
       return {
         blockId: null,
+        ...(journalDate === undefined ? {} : { journalDate }),
         kind: 'topic',
         match: 'title',
         noteId: row.note_id,
@@ -1963,11 +2462,16 @@ class DefaultEditorStorage implements EditorStorage {
     })
   }
 
-  async #searchTopicNodeStarts(query: string, limit: number): Promise<readonly TopicSearchHit[]> {
+  async #searchTopicNodeStarts(
+    query: string,
+    limit: number,
+    today: JournalDate | null,
+  ): Promise<readonly TopicSearchHit[]> {
     const rows = await this.#database.all<TopicSearchRow>(`
       SELECT
         n.id AS note_id,
         n.title AS note_title,
+        journal.journal_date,
         n.updated_at,
         t.topic_id,
         t.title AS topic_title,
@@ -1977,20 +2481,27 @@ class DefaultEditorStorage implements EditorStorage {
       FROM topic_blocks b
       JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
       JOIN notes n ON n.row_id = b.note_row_id
+      LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
       WHERE instr(lower(ltrim(b.text)), lower(?)) = 1
+        AND ${visibleJournalPredicate}
       ORDER BY n.updated_at DESC, t.row_id ASC, b.ordinal ASC, b.row_id ASC
       LIMIT ?
-    `, [query, limit])
+    `, [query, today, today, limit])
     return rows.map(row => toTopicSearchHit(row, 'node-start'))
   }
 
-  async #searchTopicContent(query: string, limit: number): Promise<readonly TopicSearchHit[]> {
+  async #searchTopicContent(
+    query: string,
+    limit: number,
+    today: JournalDate | null,
+  ): Promise<readonly TopicSearchHit[]> {
     let rows: readonly TopicSearchRow[]
     if ([...query].length < 3) {
       rows = await this.#database.all<TopicSearchRow>(`
         SELECT
           n.id AS note_id,
           n.title AS note_title,
+          journal.journal_date,
           n.updated_at,
           t.topic_id,
           t.title AS topic_title,
@@ -2000,16 +2511,19 @@ class DefaultEditorStorage implements EditorStorage {
         FROM topic_blocks b
         JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
         JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
         WHERE instr(lower(b.text), lower(?)) > 0
+          AND ${visibleJournalPredicate}
         ORDER BY n.updated_at DESC, t.row_id ASC, b.ordinal ASC, b.row_id ASC
         LIMIT ?
-      `, [query, limit])
+      `, [query, today, today, limit])
     }
     else {
       rows = await this.#database.all<TopicSearchRow>(`
         SELECT
           n.id AS note_id,
           n.title AS note_title,
+          journal.journal_date,
           n.updated_at,
           t.topic_id,
           t.title AS topic_title,
@@ -2020,21 +2534,28 @@ class DefaultEditorStorage implements EditorStorage {
         JOIN topic_blocks b ON b.row_id = topic_blocks_fts.rowid
         JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
         JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
         WHERE topic_blocks_fts MATCH ?
+          AND ${visibleJournalPredicate}
         ORDER BY rank ASC, n.updated_at DESC
         LIMIT ?
-      `, [quoteFtsQuery(query), limit])
+      `, [quoteFtsQuery(query), today, today, limit])
     }
     return rows.map(row => toTopicSearchHit(row, 'content'))
   }
 
-  async #searchTopicSemantically(query: string, limit: number): Promise<readonly TopicSearchHit[]> {
+  async #searchTopicSemantically(
+    query: string,
+    limit: number,
+    today: JournalDate | null,
+  ): Promise<readonly TopicSearchHit[]> {
     const vector = await this.#embeddingModel.embedQuery(query)
     validateVector(vector, this.#embeddingModel)
     const rows = await this.#database.all<TopicSearchRow>(`
       SELECT
         n.id AS note_id,
         n.title AS note_title,
+        journal.journal_date,
         n.updated_at,
         t.topic_id,
         t.title AS topic_title,
@@ -2049,8 +2570,10 @@ class DefaultEditorStorage implements EditorStorage {
       JOIN topic_blocks b ON b.row_id = nearest.block_row_id
       JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
       JOIN notes n ON n.row_id = b.note_row_id
+      LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
+      WHERE ${visibleJournalPredicate}
       ORDER BY nearest.distance ASC, n.updated_at DESC
-    `, [serializeVector(vector), limit])
+    `, [serializeVector(vector), limit, today, today])
     return rows.map(row => toTopicSearchHit(row, 'semantic'))
   }
 
@@ -2061,19 +2584,21 @@ class DefaultEditorStorage implements EditorStorage {
     if (input.noteId !== undefined)
       assertNonEmpty(input.noteId, 'Note id')
     const limit = resolveLimit(input.limit, 20, 100)
+    const today = optionalJournalDate(input.today, 'Current Journal date')
+    const discoveryToday = input.noteId === undefined ? today : null
     const mode = input.mode ?? 'hybrid'
     if (mode !== 'hybrid' && mode !== 'lexical' && mode !== 'semantic')
       throw new TypeError(`Unknown Topic Block search mode: ${mode}`)
 
     if (mode === 'lexical')
-      return this.#searchLexically(query, input.noteId, limit)
+      return this.#searchLexically(query, input.noteId, limit, discoveryToday)
     if (mode === 'semantic')
-      return this.#searchSemantically(query, input.noteId, limit)
+      return this.#searchSemantically(query, input.noteId, limit, discoveryToday)
 
     const candidateLimit = Math.min(limit * 4, 100)
     const [lexical, semantic] = await Promise.all([
-      this.#searchLexically(query, input.noteId, candidateLimit),
-      this.#searchSemantically(query, input.noteId, candidateLimit),
+      this.#searchLexically(query, input.noteId, candidateLimit, discoveryToday),
+      this.#searchSemantically(query, input.noteId, candidateLimit, discoveryToday),
     ])
     return fuseSearchResults(lexical, semantic, limit)
   }
@@ -2082,9 +2607,10 @@ class DefaultEditorStorage implements EditorStorage {
     query: string,
     noteId: string | undefined,
     limit: number,
+    today: JournalDate | null,
   ): Promise<readonly TopicBlockSearchHit[]> {
     let rows: readonly TopicBlockSearchRow[]
-    const sharedParameters: DatabaseValue[] = [noteId ?? null, noteId ?? null, limit]
+    const sharedParameters: DatabaseValue[] = [noteId ?? null, noteId ?? null, today, today, limit]
     if ([...query].length < 3) {
       rows = await this.#database.all<TopicBlockSearchRow>(`
         SELECT
@@ -2101,8 +2627,10 @@ class DefaultEditorStorage implements EditorStorage {
           0 AS rank
         FROM topic_blocks b
         JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
         WHERE instr(lower(b.text), lower(?)) > 0
           AND (? IS NULL OR n.id = ?)
+          AND ${visibleJournalPredicate}
         ORDER BY n.updated_at DESC, b.ordinal ASC
         LIMIT ?
       `, [query, ...sharedParameters])
@@ -2124,8 +2652,10 @@ class DefaultEditorStorage implements EditorStorage {
         FROM topic_blocks_fts
         JOIN topic_blocks b ON b.row_id = topic_blocks_fts.rowid
         JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
         WHERE topic_blocks_fts MATCH ?
           AND (? IS NULL OR n.id = ?)
+          AND ${visibleJournalPredicate}
         ORDER BY rank ASC
         LIMIT ?
       `, [quoteFtsQuery(query), ...sharedParameters])
@@ -2137,6 +2667,7 @@ class DefaultEditorStorage implements EditorStorage {
     query: string,
     noteId: string | undefined,
     limit: number,
+    today: JournalDate | null,
   ): Promise<readonly TopicBlockSearchHit[]> {
     const vector = await this.#embeddingModel.embedQuery(query)
     validateVector(vector, this.#embeddingModel)
@@ -2164,8 +2695,10 @@ class DefaultEditorStorage implements EditorStorage {
         ) nearest
         JOIN topic_blocks b ON b.row_id = nearest.block_row_id
         JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
+        WHERE ${visibleJournalPredicate}
         ORDER BY nearest.distance ASC
-      `, [vectorBytes, limit])
+      `, [vectorBytes, limit, today, today])
     }
     else {
       const note = await this.#database.get<{ row_id: number }>(

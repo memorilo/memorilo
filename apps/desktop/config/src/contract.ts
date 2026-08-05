@@ -4,6 +4,7 @@ export type DesktopLanguage = 'en' | 'system' | 'zh-CN'
 export type DesktopOutdentBehavior = 'logical' | 'traditional'
 export type DesktopNetworkImagePasteBehavior = 'download' | 'url'
 export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
+export type DesktopWeekStart = 'monday' | 'sunday'
 
 export interface DesktopMcpConfiguration {
   accessToken: string
@@ -19,4 +20,5 @@ export interface DesktopConfiguration {
   readerArrowKeyPageTurning: boolean
   reduceMotion: boolean
   tiffConversionFormat: DesktopTiffConversionFormat
+  weekStart: DesktopWeekStart
 }

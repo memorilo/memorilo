@@ -44,6 +44,7 @@ import { useTranslation } from 'react-i18next'
 import { usePageTitlebar } from '../components/page-titlebar'
 import { noteQueryKeys } from '../queries/note-query-keys'
 import { router } from '../router'
+import { formatJournalHeading } from './-journal-date'
 import { pagesRouteStyles } from './-pages.stylex'
 
 const pageSize = 100
@@ -177,11 +178,19 @@ function updateFavoriteNote(
 
 async function openNote(noteId: string): Promise<void> {
   const stored = await window.desktop.getNote({ noteId })
+  if (stored.kind === 'journal') {
+    await router.navigate({ search: { date: stored.journalDate }, to: '/journals' })
+    return
+  }
   const { defaultTopicId } = await import('./-note-navigation')
   await router.navigate({
     params: { noteId: stored.id, topicId: defaultTopicId(stored) },
     to: '/note/$noteId/$topicId',
   })
+}
+
+function displayedNoteTitle(note: DesktopNoteSummary): string {
+  return note.kind === 'journal' ? formatJournalHeading(note.journalDate) : note.title
 }
 
 function columnStyle(columnId: string) {
@@ -222,6 +231,7 @@ function EditableTitleCell({
   const [opening, setOpening] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const displayedTitle = displayedNoteTitle(note)
 
   useLayoutEffect(() => {
     if (!editing)
@@ -267,6 +277,8 @@ function EditableTitleCell({
         })
         return
       }
+      if (result.status === 'journal-title-immutable')
+        throw new Error(`Pages attempted to rename Journal ${result.journalDate}`)
       setDraft(result.note.title)
       setEditing(false)
     }
@@ -310,7 +322,7 @@ function EditableTitleCell({
       )}
       aria-label={t('addRemoveFavoritesFor', {
         name: note.favorite ? t('removeFrom') : t('addTo'),
-        title: note.title,
+        title: displayedTitle,
       })}
       aria-pressed={note.favorite}
       disabled={favoritePending}
@@ -332,29 +344,33 @@ function EditableTitleCell({
         {favoriteControl}
         <button
           {...stylex.props(pagesRouteStyles.titleOpenButton)}
-          aria-label={t('openNoteFor', { title: note.title })}
+          aria-label={t('openNoteFor', { title: displayedTitle })}
           aria-busy={opening}
           disabled={opening}
-          title={t('openTitle', { title: note.title })}
+          title={t('openTitle', { title: displayedTitle })}
           type="button"
           onClick={openSelectedNote}
         >
-          <span {...stylex.props(pagesRouteStyles.titleOpenLabel)}>{note.title}</span>
+          <span {...stylex.props(pagesRouteStyles.titleOpenLabel)}>{displayedTitle}</span>
         </button>
-        <button
-          {...stylex.props(pagesRouteStyles.titleIconButton)}
-          aria-label={t('renameNoteFor', { title: note.title })}
-          title={t('renameNote')}
-          type="button"
-          onClick={() => {
-            setDraft(note.title)
-            setError(null)
-            setEditing(true)
-          }}
-        >
-          <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
-          <span {...stylex.props(pagesRouteStyles.visuallyHidden)}>{note.title}</span>
-        </button>
+        {note.kind === 'regular'
+          ? (
+              <button
+                {...stylex.props(pagesRouteStyles.titleIconButton)}
+                aria-label={t('renameNoteFor', { title: displayedTitle })}
+                title={t('renameNote')}
+                type="button"
+                onClick={() => {
+                  setDraft(note.title)
+                  setError(null)
+                  setEditing(true)
+                }}
+              >
+                <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
+                <span {...stylex.props(pagesRouteStyles.visuallyHidden)}>{displayedTitle}</span>
+              </button>
+            )
+          : <span {...stylex.props(pagesRouteStyles.titleEditSpacer)} />}
         {actionStatus}
       </div>
     )
@@ -527,7 +543,7 @@ function PagesRoute() {
   const { mutateAsync: mutateRenameNote } = useMutation({
     ...renameNoteMutationOptions(),
     onSuccess: (result) => {
-      if (result.status === 'duplicate-title')
+      if (result.status !== 'renamed')
         return
       queryClient.setQueriesData<InfiniteData<DesktopNotePage>>(
         { queryKey: noteQueryKeys.lists },

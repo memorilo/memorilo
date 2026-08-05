@@ -2,6 +2,7 @@ import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
+import type { NoteApplicationService } from './notes/note-application-service'
 import { randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
@@ -17,7 +18,7 @@ import {
 } from '@memorilo/desktop-config'
 import { createEditorStorage, createShelfImageCache, createShelfStorage } from '@memorilo/editor-storage'
 import { createShelfReadingFileStore } from '@memorilo/shelf/node'
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor, protocol, shell } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
 import { assetProtocol, registerAssetProtocol } from './asset-protocol'
@@ -37,6 +38,7 @@ let configurationStore: ConfigurationStore<DesktopConfiguration> | null = null
 let unsubscribeConfiguration: (() => void) | null = null
 let closeMcpServer: (() => Promise<void>) | null = null
 let closeNoteApplication: (() => Promise<void>) | null = null
+let stopJournalRollover: (() => void) | null = null
 let shutdownPromise: Promise<boolean> | null = null
 let shutdownComplete = false
 let quitting = false
@@ -188,6 +190,57 @@ function shouldShowWindow(): boolean {
   return process.env.MEMORILO_E2E_HIDE_WINDOW !== '1'
 }
 
+function installJournalRollover(notes: Pick<NoteApplicationService, 'openJournal'>): () => void {
+  let checking: Promise<void> | null = null
+  let stopped = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const recheck = (): void => {
+    if (stopped || checking)
+      return
+    checking = notes.openJournal()
+      .then(() => undefined)
+      .catch(error => console.error('Failed to ensure today\'s Journal', error))
+      .finally(() => {
+        checking = null
+      })
+  }
+
+  const schedule = (): void => {
+    if (stopped)
+      return
+    if (timer)
+      clearTimeout(timer)
+    const now = new Date()
+    const nextMidnight = new Date(now)
+    nextMidnight.setDate(nextMidnight.getDate() + 1)
+    nextMidnight.setHours(0, 0, 0, 0)
+    timer = setTimeout(() => {
+      recheck()
+      schedule()
+    }, Math.max(nextMidnight.getTime() - now.getTime() + 250, 1_000))
+    timer.unref()
+  }
+
+  const handleTemporalChange = (): void => {
+    recheck()
+    schedule()
+  }
+
+  app.on('browser-window-focus', handleTemporalChange)
+  powerMonitor.on('resume', handleTemporalChange)
+  schedule()
+
+  return () => {
+    stopped = true
+    if (timer)
+      clearTimeout(timer)
+    timer = null
+    app.removeListener('browser-window-focus', handleTemporalChange)
+    powerMonitor.removeListener('resume', handleTemporalChange)
+  }
+}
+
 function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
@@ -282,6 +335,8 @@ async function startApplication(): Promise<void> {
     for (const window of BrowserWindow.getAllWindows())
       window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
   })
+  await notes.openJournal()
+  stopJournalRollover = installJournalRollover(notes)
   const mcpServer = createMcpServerController(notes)
   closeMcpServer = mcpServer.close
   closeNoteApplication = notes.close
@@ -356,6 +411,9 @@ async function requestRendererSave(
 async function shutdownApplication(): Promise<boolean> {
   if (!await requestRendererSave())
     return false
+
+  stopJournalRollover?.()
+  stopJournalRollover = null
 
   unsubscribeConfiguration?.()
   unsubscribeConfiguration = null
