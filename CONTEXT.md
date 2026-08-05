@@ -47,3 +47,15 @@ _Avoid_: Set Card, numbered Block
 **Highlight**:
 Memorization emphasis applied either to inline content or to an entire Block. A Highlight does not create a Card.
 _Avoid_: Highlight Card, review hint
+
+**Journal**:
+The chronological workspace that starts with today's Journal Note and continues into earlier non-empty Journal Notes.
+_Avoid_: Daily Notes, diary list
+
+**Journal Note**:
+A Note identified by exactly one Journal Date. Its displayed title is derived from that date and is not user-editable.
+_Avoid_: Journal entry, dated page
+
+**Journal Date**:
+The local calendar date that uniquely identifies a Journal Note, independent of its creation and update timestamps.
+_Avoid_: Created date, timestamp

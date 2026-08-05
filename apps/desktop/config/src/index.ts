@@ -8,6 +8,7 @@ export type {
   DesktopNetworkImagePasteBehavior,
   DesktopOutdentBehavior,
   DesktopTiffConversionFormat,
+  DesktopWeekStart,
 } from './contract'
 export { desktopConfigurationChangedChannel } from './contract'
 
@@ -24,6 +25,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   outdentBehavior: Schema.Literals(['logical', 'traditional']),
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
+  weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
   : undefined))
@@ -40,6 +42,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     outdentBehavior: defaultDesktopOutdentBehavior,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
+    weekStart: 'sunday' as const,
   },
   id: 'memorilo-desktop',
   schema: DesktopConfigurationSchema,
@@ -54,6 +57,16 @@ export const desktopConfigurationDefinition = defineConfiguration({
           { label: '简体中文', value: 'zh-CN' },
         ],
         path: 'language',
+      },
+      {
+        control: 'segmented',
+        description: 'Choose the first day shown in calendars.',
+        label: 'First day of week',
+        options: [
+          { label: 'Sunday', value: 'sunday' },
+          { label: 'Monday', value: 'monday' },
+        ],
+        path: 'weekStart',
       },
       {
         control: 'toggle',
@@ -144,7 +157,8 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
-    && current.outdentBehavior !== undefined) {
+    && current.outdentBehavior !== undefined
+    && current.weekStart !== undefined) {
     return configuration
   }
   return {
@@ -155,5 +169,6 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
       port,
     },
     outdentBehavior: current.outdentBehavior ?? defaultDesktopOutdentBehavior,
+    weekStart: current.weekStart ?? 'sunday',
   }
 }

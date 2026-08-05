@@ -14,6 +14,11 @@ export const editorShellStyles = stylex.create({
     flexDirection: 'column',
     backgroundColor: colors.canvas,
   },
+  rootEmbedded: {
+    flex: '0 0 auto',
+    minHeight: 'auto',
+    overflow: 'visible',
+  },
   loading: {
     display: 'grid',
     minHeight: 120,

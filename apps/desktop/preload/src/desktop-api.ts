@@ -5,6 +5,8 @@ import type {
   DesktopColumnVisibilityMenuSelection,
   DesktopConfiguration,
   DesktopFavoriteNoteItem,
+  DesktopJournalNote,
+  DesktopJournalPage,
   DesktopNote,
   DesktopNoteExternalUpdate,
   DesktopNoteFavoriteState,
@@ -17,7 +19,12 @@ import type {
   DesktopTopicBlockSearchMode,
   GetDesktopNoteInput,
   ImportDesktopNetworkImageInput,
+  JournalDate,
+  ListDesktopJournalDatesInput,
   ListDesktopNotesInput,
+  ListDesktopPastJournalsInput,
+  OpenDesktopJournalInput,
+  PruneDesktopPastEmptyJournalsResult,
   ReclaimDesktopAssetsInput,
   ReclaimDesktopAssetsResult,
   RecordDesktopNoteOpenedInput,
@@ -44,6 +51,12 @@ export interface DesktopServices {
   configuration: {
     get: () => Promise<DesktopConfiguration>
     set: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
+  }
+  journals: {
+    listJournalDates: (input: ListDesktopJournalDatesInput) => Promise<readonly JournalDate[]>
+    listPastJournals: (input?: ListDesktopPastJournalsInput) => Promise<DesktopJournalPage>
+    openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
+    prunePastEmptyJournals: () => Promise<PruneDesktopPastEmptyJournalsResult>
   }
   notes: {
     createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
@@ -90,9 +103,13 @@ export function createDesktopApi(
     getTopicBlock: input => services.notes.getTopicBlock(input),
     importNetworkImage: input => services.assets.importNetworkImage(input),
     listFavoriteNotes: input => services.notes.listFavoriteNotes(input),
+    listJournalDates: input => services.journals.listJournalDates(input),
     listNotes: input => services.notes.listNotes(input),
+    listPastJournals: input => services.journals.listPastJournals(input),
     listRecentNotes: input => services.notes.listRecentNotes(input),
+    openJournal: input => services.journals.openJournal(input),
     openMostRecentNote: () => services.notes.openMostRecentNote(),
+    prunePastEmptyJournals: () => services.journals.prunePastEmptyJournals(),
     reclaimAssets: input => services.assets.reclaim(input),
     recordNoteOpened: input => services.notes.recordNoteOpened(input),
     renameNote: input => services.notes.renameNote(input),

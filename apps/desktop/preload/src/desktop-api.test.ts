@@ -13,6 +13,12 @@ function serviceStub(): DesktopServices {
       saveImage: vi.fn(),
     },
     configuration: { get: vi.fn(), set: vi.fn() },
+    journals: {
+      listJournalDates: vi.fn(),
+      listPastJournals: vi.fn(),
+      openJournal: vi.fn(),
+      prunePastEmptyJournals: vi.fn(),
+    },
     notes: {
       createNote: vi.fn(),
       getNote: vi.fn(),
@@ -42,6 +48,7 @@ describe('desktop preload API', () => {
       outdentBehavior: 'logical',
       reduceMotion: false,
       tiffConversionFormat: 'webp',
+      weekStart: 'sunday',
     }
     vi.mocked(services.configuration.get).mockResolvedValue(configuration)
     vi.mocked(services.configuration.set).mockResolvedValue(configuration)

@@ -34,6 +34,7 @@ import {
 
 import { useTranslation } from 'react-i18next'
 import { router } from '../router'
+import { formatJournalHeading } from '../routes/-journal-date'
 import { commandPaletteStyles } from './command-palette.stylex'
 
 interface PaletteResult {
@@ -76,6 +77,10 @@ function historyIndex(): number {
 }
 
 async function openStoredNote(stored: DesktopNote): Promise<void> {
+  if (stored.kind === 'journal') {
+    await router.navigate({ search: { date: stored.journalDate }, to: '/journals' })
+    return
+  }
   const { defaultTopicId } = await import('../routes/-note-navigation')
   await router.navigate({
     params: { noteId: stored.id, topicId: defaultTopicId(stored) },
@@ -107,14 +112,29 @@ function searchMatchLabel(hit: DesktopNoteSearchHit, t: TFunction): string {
 
 function searchResultDescription(hit: DesktopNoteSearchHit, t: TFunction): string {
   const match = searchMatchLabel(hit, t)
+  const noteTitle = hit.noteKind === 'journal'
+    ? formatJournalHeading(hit.journalDate)
+    : hit.noteTitle
   if (hit.kind === 'note')
     return match
   if (hit.match === 'title')
-    return `${match} · ${hit.noteTitle}`
-  return `${match} · ${hit.preview} · ${hit.noteTitle}`
+    return `${match} · ${noteTitle}`
+  return `${match} · ${hit.preview} · ${noteTitle}`
 }
 
 function toPaletteSearchResult(hit: DesktopNoteSearchHit, t: TFunction): PaletteResult {
+  if (hit.noteKind === 'journal') {
+    return {
+      accent: 'blue',
+      action: t('open'),
+      description: searchResultDescription(hit, t),
+      icon: CalendarDays,
+      id: `${hit.kind}:${hit.noteId}${hit.kind === 'topic' ? `:${hit.topicId}` : ''}`,
+      label: formatJournalHeading(hit.journalDate),
+      run: () => void router.navigate({ search: { date: hit.journalDate }, to: '/journals' }),
+    }
+  }
+
   if (hit.kind === 'note') {
     return {
       accent: 'blue',

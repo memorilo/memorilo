@@ -87,6 +87,32 @@ function FieldControl<T extends object>({
         </select>
       )
       break
+    case 'segmented':
+      if (typeof value !== 'string')
+        throw new TypeError(`Segmented field ${field.path} received a non-string value`)
+      control = (
+        <div
+          {...stylex.props(configurationFieldStyles.segmentedControl)}
+          aria-label={field.label}
+          role="radiogroup"
+        >
+          {field.options.map(option => (
+            <label key={option.value} {...stylex.props(configurationFieldStyles.segmentedOption)}>
+              <input
+                {...stylex.props(configurationFieldStyles.segmentedInput)}
+                checked={value === option.value}
+                disabled={pending}
+                name={field.path}
+                type="radio"
+                value={option.value}
+                onChange={() => void update(option.value)}
+              />
+              <span {...stylex.props(configurationFieldStyles.segmentedLabel)}>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      )
+      break
     case 'text': {
       if (typeof value !== 'string')
         throw new TypeError(`Text field ${field.path} received a non-string value`)

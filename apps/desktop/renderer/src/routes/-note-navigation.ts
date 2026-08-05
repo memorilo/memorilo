@@ -2,6 +2,8 @@ import type { DesktopNote } from '@memorilo/desktop-preload'
 import { createEditorNote } from '@memorilo/editor/note'
 
 export function defaultTopicId(stored: DesktopNote): string {
+  if (stored.kind === 'journal')
+    return stored.topicId
   const note = createEditorNote({
     id: stored.id,
     snapshot: stored.snapshot,

@@ -9,10 +9,15 @@ export type {
   FavoriteNoteItem,
   FolderProjection,
   GetNoteInput,
+  GetOrCreateJournalInput,
   GetTopicBlockInput,
   IndexPendingEmbeddingsInput,
+  JournalDate,
+  JournalMetadata,
+  ListJournalDatesInput,
   ListNoteActivityInput,
   ListNotesInput,
+  ListPastJournalsInput,
   NoteEntryProjection,
   NoteFavoriteState,
   NotePage,
@@ -23,6 +28,9 @@ export type {
   NoteSummary,
   NoteTitleSearchHit,
   NoteWriteReceipt,
+  OpenMostRecentNoteInput,
+  PrunePastEmptyJournalsInput,
+  PrunePastEmptyJournalsResult,
   RecentNoteItem,
   ReconcileNoteAssetReferencesInput,
   RecordNoteOpenedInput,
@@ -32,6 +40,9 @@ export type {
   SearchTopicBlocksInput,
   SetNoteFavoriteInput,
   StoredAsset,
+  StoredJournal,
+  StoredJournalPage,
+  StoredJournalSummary,
   StoredNote,
   StoredNoteUpdate,
   StoredTopicBlock,
@@ -43,5 +54,5 @@ export type {
   TopicProjection,
   TopicSearchHit,
 } from './editor-storage'
-export { createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
+export { assertJournalDate, createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
 export type { EmbeddingModel } from './embedding-model'

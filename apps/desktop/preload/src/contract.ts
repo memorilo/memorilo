@@ -60,7 +60,9 @@ export interface DesktopTopicBlock {
   text: string
 }
 
-export interface DesktopNote {
+export type JournalDate = string
+
+export interface DesktopNoteBase {
   createdAt: number
   favorite: boolean
   id: string
@@ -68,6 +70,18 @@ export interface DesktopNote {
   title: string
   updatedAt: number
 }
+
+export interface DesktopRegularNote extends DesktopNoteBase {
+  kind: 'regular'
+}
+
+export interface DesktopJournalNote extends DesktopNoteBase {
+  journalDate: JournalDate
+  kind: 'journal'
+  topicId: string
+}
+
+export type DesktopNote = DesktopJournalNote | DesktopRegularNote
 
 export interface CreateDesktopNoteInput {
   initialHeading?: string
@@ -94,7 +108,7 @@ export interface RenameDesktopNoteInput {
   title: string
 }
 
-export interface DesktopNoteSummary {
+export interface DesktopNoteSummaryBase {
   createdAt: number
   favorite: boolean
   id: string
@@ -102,7 +116,51 @@ export interface DesktopNoteSummary {
   updatedAt: number
 }
 
-export interface DesktopFavoriteNoteItem {
+export interface DesktopRegularNoteSummary extends DesktopNoteSummaryBase {
+  kind: 'regular'
+}
+
+export interface DesktopJournalNoteSummary extends DesktopNoteSummaryBase {
+  journalDate: JournalDate
+  kind: 'journal'
+}
+
+export type DesktopNoteSummary = DesktopJournalNoteSummary | DesktopRegularNoteSummary
+
+export interface OpenDesktopJournalInput {
+  journalDate?: JournalDate
+}
+
+export interface ListDesktopPastJournalsInput {
+  before?: JournalDate
+  limit?: number
+}
+
+export interface ListDesktopJournalDatesInput {
+  from: JournalDate
+  through: JournalDate
+}
+
+export interface DesktopJournalSummary {
+  createdAt: number
+  journalDate: JournalDate
+  kind: 'journal'
+  noteId: string
+  title: string
+  topicId: string
+  updatedAt: number
+}
+
+export interface DesktopJournalPage {
+  items: readonly DesktopJournalSummary[]
+  nextCursor: JournalDate | null
+}
+
+export interface PruneDesktopPastEmptyJournalsResult {
+  deletedNoteIds: readonly string[]
+}
+
+interface DesktopFavoriteNoteItemBase {
   favoritedAt: number
   noteId: string
   noteTitle: string
@@ -110,13 +168,23 @@ export interface DesktopFavoriteNoteItem {
   topicTitle: string
 }
 
-export interface DesktopRecentNoteItem {
+export type DesktopFavoriteNoteItem = DesktopFavoriteNoteItemBase & (
+  | { kind: 'regular' }
+  | { journalDate: JournalDate, kind: 'journal' }
+)
+
+interface DesktopRecentNoteItemBase {
   noteId: string
   noteTitle: string
   openedAt: number
   topicId: string
   topicTitle: string
 }
+
+export type DesktopRecentNoteItem = DesktopRecentNoteItemBase & (
+  | { kind: 'regular' }
+  | { journalDate: JournalDate, kind: 'journal' }
+)
 
 export interface SetDesktopNoteFavoriteInput {
   favorite: boolean
@@ -133,6 +201,7 @@ export interface RecordDesktopNoteOpenedInput {
 export type RenameDesktopNoteResult
   = | { note: DesktopNoteSummary, status: 'renamed' }
     | { status: 'duplicate-title' }
+    | { journalDate: JournalDate, status: 'journal-title-immutable' }
 
 export interface DesktopNotePage {
   items: readonly DesktopNoteSummary[]
@@ -191,7 +260,11 @@ export type DesktopTopicBlockSearchMode = 'hybrid' | 'lexical' | 'semantic'
 
 export type DesktopNoteSearchMatch = 'content' | 'node-start' | 'semantic' | 'title'
 
-export interface DesktopNoteTitleSearchHit {
+type DesktopNoteSearchIdentity
+  = | { noteKind: 'regular' }
+    | { journalDate: JournalDate, noteKind: 'journal' }
+
+interface DesktopNoteTitleSearchHitBase {
   kind: 'note'
   match: 'title'
   noteId: string
@@ -200,7 +273,9 @@ export interface DesktopNoteTitleSearchHit {
   rank: number
 }
 
-export interface DesktopTopicSearchHit {
+export type DesktopNoteTitleSearchHit = DesktopNoteTitleSearchHitBase & DesktopNoteSearchIdentity
+
+interface DesktopTopicSearchHitBase {
   blockId: string | null
   kind: 'topic'
   match: DesktopNoteSearchMatch
@@ -211,6 +286,8 @@ export interface DesktopTopicSearchHit {
   topicId: string
   topicTitle: string
 }
+
+export type DesktopTopicSearchHit = DesktopTopicSearchHitBase & DesktopNoteSearchIdentity
 
 export type DesktopNoteSearchHit = DesktopNoteTitleSearchHit | DesktopTopicSearchHit
 
@@ -223,9 +300,13 @@ export interface DesktopApi {
   getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
   importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
   listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
+  listJournalDates: (input: ListDesktopJournalDatesInput) => Promise<readonly JournalDate[]>
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
+  listPastJournals: (input?: ListDesktopPastJournalsInput) => Promise<DesktopJournalPage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
+  openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
   openMostRecentNote: () => Promise<DesktopNote>
+  prunePastEmptyJournals: () => Promise<PruneDesktopPastEmptyJournalsResult>
   reclaimAssets: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
   recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>

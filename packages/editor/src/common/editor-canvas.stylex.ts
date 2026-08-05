@@ -13,6 +13,11 @@ export const editorCanvasStyles = stylex.create({
     backgroundColor: editorColors.canvas,
     color: '#000000',
   },
+  viewportEmbedded: {
+    flex: '0 0 auto',
+    minHeight: 'auto',
+    overflow: 'visible',
+  },
   scrolling: {
     position: 'relative',
     boxSizing: 'border-box',
@@ -22,6 +27,11 @@ export const editorCanvasStyles = stylex.create({
     overflowY: 'auto',
     backgroundColor: editorColors.canvas,
   },
+  scrollingEmbedded: {
+    flex: '0 0 auto',
+    minHeight: 'auto',
+    overflowY: 'visible',
+  },
   content: {
     boxSizing: 'border-box',
     width: '100%',
@@ -29,6 +39,11 @@ export const editorCanvasStyles = stylex.create({
     paddingBlock: 32,
     paddingInline: 'max(4rem, calc(50% - 20rem))',
     outline: 'none',
+  },
+  contentEmbedded: {
+    minHeight: 'auto',
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   uploadStatus: {
     display: 'flex',
