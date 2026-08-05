@@ -12,6 +12,14 @@ function serviceStub(): DesktopServices {
       reclaim: vi.fn(),
       saveImage: vi.fn(),
     },
+    books: {
+      closeReadingSession: vi.fn(),
+      createContext: vi.fn(),
+      isReadingAvailable: vi.fn(),
+      listContexts: vi.fn(),
+      rebindContext: vi.fn(),
+      selectContext: vi.fn(),
+    },
     configuration: { get: vi.fn(), set: vi.fn() },
     notes: {
       createNote: vi.fn(),

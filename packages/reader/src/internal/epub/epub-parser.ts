@@ -10,6 +10,7 @@ import {
   LocatorLocations,
   Manifest,
   Metadata,
+  Profile,
   Properties,
   Publication,
   ReadingProgression,
@@ -40,6 +41,19 @@ const maximumEntrySize = 128 * 1024 * 1024
 const maximumExpandedSize = 512 * 1024 * 1024
 const textDecoder = new TextDecoder()
 const textEncoder = new TextEncoder()
+const epubContentSecurityPolicy = [
+  'default-src \'none\'',
+  'script-src blob:',
+  'style-src blob: \'unsafe-inline\'',
+  'img-src blob: data:',
+  'font-src blob: data:',
+  'media-src blob: data:',
+  'connect-src \'none\'',
+  'object-src \'none\'',
+  'frame-src \'none\'',
+  'worker-src \'none\'',
+  'form-action \'none\'',
+].join('; ')
 
 function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
@@ -104,6 +118,21 @@ function resolveNavigationHref(basePath: string, reference: string): string {
 
 function isRemoteReference(reference: string): boolean {
   return /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(reference.trim())
+}
+
+function isActiveReference(reference: string): boolean {
+  let compact = ''
+  for (const character of reference) {
+    const code = character.charCodeAt(0)
+    if (code > 0x20 && code !== 0x7F)
+      compact += character
+  }
+  compact = compact.toLowerCase()
+  return compact.startsWith('javascript:')
+    || compact.startsWith('vbscript:')
+    || compact.startsWith('data:text/html')
+    || compact.startsWith('data:application/xhtml+xml')
+    || compact.startsWith('data:image/svg+xml')
 }
 
 function splitReference(reference: string): { path: string, suffix: string } {
@@ -344,13 +373,41 @@ export class EpubArchive implements Fetcher {
     if (parseError)
       throw new Error(`Invalid EPUB content document ${path}`)
 
-    document.querySelectorAll('script, meta[http-equiv="refresh" i]').forEach(element => element.remove())
+    document.querySelectorAll([
+      'applet',
+      'base',
+      'embed',
+      'iframe',
+      'meta[http-equiv="refresh" i]',
+      'object',
+      'script',
+    ].join(', ')).forEach(element => element.remove())
     for (const element of Array.from(document.querySelectorAll('*'))) {
       for (const attribute of Array.from(element.attributes)) {
-        if (attribute.name.toLowerCase().startsWith('on'))
+        const attributeName = attribute.name.toLowerCase()
+        if (attributeName.startsWith('on')
+          || attributeName === 'srcdoc'
+          || ((attributeName === 'href'
+            || attributeName === 'xlink:href'
+            || attributeName === 'src'
+            || attributeName === 'action'
+            || attributeName === 'formaction')
+          && isActiveReference(attribute.value))) {
           element.removeAttribute(attribute.name)
+        }
       }
     }
+
+    let head = Array.from(document.querySelectorAll('*')).find(element => element.localName === 'head')
+    if (!head) {
+      const root = document.documentElement
+      head = document.createElementNS(root.namespaceURI, 'head')
+      root.prepend(head)
+    }
+    const csp = document.createElementNS(head.namespaceURI, 'meta')
+    csp.setAttribute('http-equiv', 'Content-Security-Policy')
+    csp.setAttribute('content', epubContentSecurityPolicy)
+    head.prepend(csp)
 
     const targets: Array<{ attribute: string, selector: string }> = [
       { attribute: 'src', selector: 'audio[src], embed[src], iframe[src], img[src], input[src], source[src], track[src], video[src]' },
@@ -364,7 +421,7 @@ export class EpubArchive implements Fetcher {
         const value = element.getAttribute(target.attribute)
         if (!value)
           continue
-        if (/^javascript:/i.test(value.trim())) {
+        if (isActiveReference(value)) {
           element.removeAttribute(target.attribute)
           continue
         }
@@ -637,6 +694,7 @@ export async function parseEpub(source: ResolvedReaderSource): Promise<ParsedEpu
       ? ReadingProgression.rtl
       : ReadingProgression.ltr
     const metadata = new Metadata({
+      conformsTo: [Profile.EPUB],
       identifier,
       languages: languages.length > 0 ? languages : undefined,
       layout: navigatorLayout,

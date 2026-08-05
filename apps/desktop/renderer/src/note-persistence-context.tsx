@@ -26,12 +26,14 @@ export function useNotePersistence(noteId: string) {
   const discard = useCallback(() => manager.discard(noteId), [manager, noteId])
   const enqueue = useCallback((change: EditorNoteChange) => manager.enqueue(change), [manager])
   const getPendingChanges = useCallback(() => manager.getPendingChanges(noteId), [manager, noteId])
+  const flush = useCallback(() => manager.flush(), [manager])
   return useMemo(() => ({
     discard,
     enqueue,
     error: state.pendingNoteIds.includes(noteId) ? state.error : null,
+    flush,
     getPendingChanges,
     retry: manager.retry,
     subscribeReceipts: manager.subscribeReceipts,
-  }), [discard, enqueue, getPendingChanges, manager, noteId, state.error, state.pendingNoteIds])
+  }), [discard, enqueue, flush, getPendingChanges, manager, noteId, state.error, state.pendingNoteIds])
 }

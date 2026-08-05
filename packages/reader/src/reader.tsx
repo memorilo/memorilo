@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { readerAnnotationLabel } from './internal/annotation-label'
 import { openReaderAdapter } from './internal/open-reader'
 import { readerStyles } from './reader.stylex'
@@ -59,6 +60,7 @@ const initialState: ReaderAdapterState = {
   format: 'pdf',
   location: { format: 'pdf', label: '', progression: 0 },
   outline: [],
+  position: { format: 'pdf', pageNumber: 1 },
   presentationMode: 'publisher',
   scale: 1,
   title: '',
@@ -369,20 +371,28 @@ function ReaderOutline({
 }
 
 function ReaderSession({
+  annotationEditingEnabled = true,
   annotations,
   ariaLabel = 'Document reader',
   arrowKeyPageTurning = true,
   chrome,
   defaultAnnotations = noAnnotations,
+  initialPosition,
   initialPresentationMode = 'publisher',
   ocrProvider,
   onAnnotationsChange,
   onError,
   onLocationChange,
   onOcrStatusChange,
+  onPositionChange,
   onSelectionChange,
   source,
+  title,
+  toolbarActions,
 }: ReaderSessionProps) {
+  const { t } = useTranslation('common')
+  const translationRef = useRef(t)
+  translationRef.current = t
   const engineRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ReaderAdapter | null>(null)
   const keyboardHandlerRef = useRef<(event: ReaderAdapterKeyboardEvent) => boolean>(() => false)
@@ -400,6 +410,8 @@ function ReaderSession({
   onLocationChangeRef.current = onLocationChange
   const onOcrStatusChangeRef = useRef(onOcrStatusChange)
   onOcrStatusChangeRef.current = onOcrStatusChange
+  const onPositionChangeRef = useRef(onPositionChange)
+  onPositionChangeRef.current = onPositionChange
   const onSelectionChangeRef = useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
 
@@ -435,7 +447,7 @@ function ReaderSession({
     const startingAnnotations = annotationsRef.current
 
     void (async () => {
-      opened = await openReaderAdapter(source, initialPresentationMode, ocrProvider, {
+      opened = await openReaderAdapter(source, initialPresentationMode, initialPosition, ocrProvider, {
         onAnnotationActivate: ({ annotationId }) => {
           if (!active)
             return
@@ -446,6 +458,10 @@ function ReaderSession({
         onError: reportError,
         onKeyDown: event => keyboardHandlerRef.current(event),
         onOcrStatusChange: ocrStatus => onOcrStatusChangeRef.current?.(ocrStatus),
+        onRegionSelectionModeChange: (enabled) => {
+          if (active)
+            setRegionSelectionActive(enabled)
+        },
         onSelectionChange: (nextSelection) => {
           if (!active)
             return
@@ -453,8 +469,6 @@ function ReaderSession({
           setColorPaletteOpen(false)
           setNoteComposerOpen(false)
           setNoteDraft('')
-          if (nextSelection)
-            setRegionSelectionActive(false)
           onSelectionChangeRef.current?.(nextSelection?.selection ?? null)
         },
         onStateChange: (state) => {
@@ -462,7 +476,9 @@ function ReaderSession({
             return
           dispatch({ adapter: state, type: 'state' })
           onLocationChangeRef.current?.(state.location)
+          onPositionChangeRef.current?.(state.position)
         },
+        regionAnnotationLabel: () => translationRef.current('reader.openAreaAnnotation'),
       })
       opened.setAnnotations(startingAnnotations)
       if (!active) {
@@ -480,12 +496,14 @@ function ReaderSession({
 
     return () => {
       active = false
+      setRegionSelectionActive(false)
+      setSelection(null)
       adapterRef.current = null
       container.replaceChildren()
       if (opened)
         void opened.destroy()
     }
-  }, [annotationsControlled, initialPresentationMode, ocrProvider, reportError, source])
+  }, [annotationsControlled, initialPosition, initialPresentationMode, ocrProvider, reportError, source])
 
   useEffect(() => {
     adapterRef.current?.setAnnotations(visibleAnnotations)
@@ -572,6 +590,8 @@ function ReaderSession({
   }, [])
 
   const createHighlight = useCallback(() => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     if (!selection)
       return
     const now = Date.now()
@@ -587,7 +607,7 @@ function ReaderSession({
       },
     ])
     dismissSelection()
-  }, [commitAnnotations, dismissSelection, selectedColor, selection])
+  }, [annotationEditingEnabled, commitAnnotations, dismissSelection, selectedColor, selection])
 
   const copySelection = useCallback(() => {
     if (!selection || selection.selection.type !== 'text')
@@ -598,6 +618,8 @@ function ReaderSession({
   }, [dismissSelection, reportError, selection])
 
   const createNote = useCallback(() => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     if (!selection)
       return
     const body = noteDraft.trim()
@@ -618,15 +640,17 @@ function ReaderSession({
     ])
     setAnnotationPanelOpen(true)
     dismissSelection()
-  }, [commitAnnotations, dismissSelection, noteDraft, selectedColor, selection])
+  }, [annotationEditingEnabled, commitAnnotations, dismissSelection, noteDraft, selectedColor, selection])
 
   const removeAnnotation = useCallback((annotationId: string) => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     commitAnnotations(annotationsRef.current.filter(annotation => annotation.id !== annotationId))
     if (activeAnnotationId === annotationId)
       setActiveAnnotationId(null)
     if (editingAnnotationId === annotationId)
       setEditingAnnotationId(null)
-  }, [activeAnnotationId, commitAnnotations, editingAnnotationId])
+  }, [activeAnnotationId, annotationEditingEnabled, commitAnnotations, editingAnnotationId])
 
   const beginEditAnnotation = useCallback((annotation: ReaderNote) => {
     setEditingAnnotationId(annotation.id)
@@ -634,6 +658,8 @@ function ReaderSession({
   }, [])
 
   const saveEditedAnnotation = useCallback(() => {
+    if (!annotationEditingEnabled)
+      throw new Error('Annotation editing is disabled for this reader session')
     const body = editingDraft.trim()
     if (!editingAnnotationId || !body)
       return
@@ -646,20 +672,21 @@ function ReaderSession({
     }))
     setEditingAnnotationId(null)
     setEditingDraft('')
-  }, [commitAnnotations, editingAnnotationId, editingDraft])
+  }, [annotationEditingEnabled, commitAnnotations, editingAnnotationId, editingDraft])
 
   const toggleRegionSelection = useCallback(() => {
+    if (!annotationEditingEnabled)
+      return
     const next = !regionSelectionActive
     const adapter = adapterRef.current
     if (!adapter?.setRegionSelectionEnabled) {
       reportError(new Error('The reader declared area selection without providing its command'))
       return
     }
-    adapter.setRegionSelectionEnabled(next)
-    setRegionSelectionActive(next)
     if (next)
       dismissSelection()
-  }, [dismissSelection, regionSelectionActive, reportError])
+    adapter.setRegionSelectionEnabled(next)
+  }, [annotationEditingEnabled, dismissSelection, regionSelectionActive, reportError])
 
   const handleKeyDown = useCallback((event: globalThis.KeyboardEvent) => {
     if (event.key === 'Escape') {
@@ -671,7 +698,6 @@ function ReaderSession({
           return
         }
         adapter.setRegionSelectionEnabled(false)
-        setRegionSelectionActive(false)
       }
       else if (selection) {
         event.preventDefault()
@@ -716,7 +742,7 @@ function ReaderSession({
         {chrome === 'embedded'
           ? (
               <div {...stylex.props(readerStyles.titleGroup)}>
-                <h2 {...stylex.props(readerStyles.title)}>{adapterState.title || source.name || 'Document'}</h2>
+                <h2 {...stylex.props(readerStyles.title)}>{title || adapterState.title || source.name || 'Document'}</h2>
                 <span {...stylex.props(readerStyles.format)}>{adapterState.format}</span>
                 {adapterState.textLayer === 'ocr'
                   ? <span {...stylex.props(readerStyles.statusChip)}>OCR text</span>
@@ -729,7 +755,11 @@ function ReaderSession({
                   : null}
               </div>
             )
-          : null}
+          : (
+              <div {...stylex.props(readerStyles.titleGroup, readerStyles.titleGroupWindow)}>
+                <h2 {...stylex.props(readerStyles.title)}>{title || adapterState.title || source.name || 'Document'}</h2>
+              </div>
+            )}
 
         <div
           {...stylex.props(
@@ -772,7 +802,8 @@ function ReaderSession({
             chrome === 'window' && readerStyles.actionsWindow,
           )}
         >
-          {adapterState.capabilities.regionSelection
+          {toolbarActions}
+          {annotationEditingEnabled && adapterState.capabilities.regionSelection
             ? (
                 <button
                   {...stylex.props(
@@ -903,20 +934,24 @@ function ReaderSession({
               <BookOpenText aria-hidden="true" size={14} strokeWidth={1.8} />
               Contents
             </button>
-            <button
-              {...stylex.props(readerStyles.sidebarTab, sidebarTab === 'annotations' && readerStyles.sidebarTabActive)}
-              aria-controls="reader-annotations-panel"
-              aria-selected={sidebarTab === 'annotations'}
-              role="tab"
-              type="button"
-              onClick={() => setSidebarTab('annotations')}
-            >
-              <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
-              Annotations
-              {visibleAnnotations.length > 0
-                ? <span {...stylex.props(readerStyles.tabCount)}>{visibleAnnotations.length}</span>
-                : null}
-            </button>
+            {annotationEditingEnabled
+              ? (
+                  <button
+                    {...stylex.props(readerStyles.sidebarTab, sidebarTab === 'annotations' && readerStyles.sidebarTabActive)}
+                    aria-controls="reader-annotations-panel"
+                    aria-selected={sidebarTab === 'annotations'}
+                    role="tab"
+                    type="button"
+                    onClick={() => setSidebarTab('annotations')}
+                  >
+                    <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
+                    Annotations
+                    {visibleAnnotations.length > 0
+                      ? <span {...stylex.props(readerStyles.tabCount)}>{visibleAnnotations.length}</span>
+                      : null}
+                  </button>
+                )
+              : null}
           </div>
 
           {sidebarTab === 'contents'
@@ -970,7 +1005,7 @@ function ReaderSession({
                               <span {...stylex.props(readerStyles.annotationMeta)}>
                                 {annotation.kind === 'annotation' ? 'Annotation' : 'Highlight'}
                                 {' · '}
-                                {readerAnnotationLabel(annotation)}
+                                {readerAnnotationLabel(annotation, t)}
                               </span>
                             </button>
                             {quote
@@ -1049,6 +1084,7 @@ function ReaderSession({
               {...stylex.props(
                 readerStyles.glassPopover,
                 readerStyles.selectionToolbar,
+                !annotationEditingEnabled && readerStyles.selectionToolbarCopyOnly,
                 compactRegionToolbar && readerStyles.selectionToolbarRegion,
                 popoverBelow ? readerStyles.popoverBelow : readerStyles.popoverAbove,
               )}
@@ -1056,7 +1092,7 @@ function ReaderSession({
               role="toolbar"
               style={popoverLayout?.style}
             >
-              {colorPaletteOpen
+              {annotationEditingEnabled && colorPaletteOpen
                 ? annotationColors.map(color => (
                     <button
                       key={color}
@@ -1094,50 +1130,56 @@ function ReaderSession({
                             </button>
                           )
                         : null}
-                      <button
-                        {...stylex.props(
-                          readerStyles.paletteTool,
-                          readerStyles.paletteColorTool,
-                          readerStyles.paletteColor,
-                          selection.selection.type === 'region' && readerStyles.paletteColorRegion,
-                        )}
-                        aria-label="Choose annotation color"
-                        aria-expanded={colorPaletteOpen}
-                        title="Color"
-                        type="button"
-                        onClick={() => setColorPaletteOpen(true)}
-                      >
-                        <span {...stylex.props(readerStyles.paletteCurrentColor, colorStyle(selectedColor))} />
-                      </button>
-                      <button
-                        {...stylex.props(
-                          readerStyles.paletteTool,
-                          readerStyles.paletteHighlight,
-                          selection.selection.type === 'region' && readerStyles.paletteHighlightRegion,
-                        )}
-                        aria-label={selection.selection.type === 'text' ? 'Highlight selection' : 'Highlight area'}
-                        title="Highlight"
-                        type="button"
-                        onClick={createHighlight}
-                      >
-                        <Highlighter aria-hidden="true" size={19} strokeWidth={1.85} />
-                      </button>
-                      <button
-                        {...stylex.props(
-                          readerStyles.paletteTool,
-                          readerStyles.paletteAnnotate,
-                          selection.selection.type === 'region' && readerStyles.paletteAnnotateRegion,
-                        )}
-                        aria-label={selection.selection.type === 'text' ? 'Annotate selection' : 'Annotate area'}
-                        title="Annotate"
-                        type="button"
-                        onClick={() => {
-                          setColorPaletteOpen(false)
-                          setNoteComposerOpen(true)
-                        }}
-                      >
-                        <StickyNote aria-hidden="true" size={19} strokeWidth={1.85} />
-                      </button>
+                      {annotationEditingEnabled
+                        ? (
+                            <>
+                              <button
+                                {...stylex.props(
+                                  readerStyles.paletteTool,
+                                  readerStyles.paletteColorTool,
+                                  readerStyles.paletteColor,
+                                  selection.selection.type === 'region' && readerStyles.paletteColorRegion,
+                                )}
+                                aria-label="Choose annotation color"
+                                aria-expanded={colorPaletteOpen}
+                                title="Color"
+                                type="button"
+                                onClick={() => setColorPaletteOpen(true)}
+                              >
+                                <span {...stylex.props(readerStyles.paletteCurrentColor, colorStyle(selectedColor))} />
+                              </button>
+                              <button
+                                {...stylex.props(
+                                  readerStyles.paletteTool,
+                                  readerStyles.paletteHighlight,
+                                  selection.selection.type === 'region' && readerStyles.paletteHighlightRegion,
+                                )}
+                                aria-label={selection.selection.type === 'text' ? 'Highlight selection' : 'Highlight area'}
+                                title="Highlight"
+                                type="button"
+                                onClick={createHighlight}
+                              >
+                                <Highlighter aria-hidden="true" size={19} strokeWidth={1.85} />
+                              </button>
+                              <button
+                                {...stylex.props(
+                                  readerStyles.paletteTool,
+                                  readerStyles.paletteAnnotate,
+                                  selection.selection.type === 'region' && readerStyles.paletteAnnotateRegion,
+                                )}
+                                aria-label={selection.selection.type === 'text' ? 'Annotate selection' : 'Annotate area'}
+                                title="Annotate"
+                                type="button"
+                                onClick={() => {
+                                  setColorPaletteOpen(false)
+                                  setNoteComposerOpen(true)
+                                }}
+                              >
+                                <StickyNote aria-hidden="true" size={19} strokeWidth={1.85} />
+                              </button>
+                            </>
+                          )
+                        : null}
                     </>
                   )}
               <button
@@ -1156,7 +1198,7 @@ function ReaderSession({
           )
         : null}
 
-      {selection && noteComposerOpen
+      {annotationEditingEnabled && selection && noteComposerOpen
         ? (
             <div
               {...stylex.props(

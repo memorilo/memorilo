@@ -7,7 +7,9 @@ import type {
   TopicBlockEdit,
   TopicContentProjection,
 } from '@memorilo/editor/note'
-import { createHash } from 'node:crypto'
+import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
+import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
+import { createHash, randomUUID } from 'node:crypto'
 import { DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'
@@ -29,6 +31,33 @@ export interface CreateNoteInput {
   initialHeading?: string
   title?: string
 }
+
+export interface CreateBookNoteInput {
+  book: BookFileBinding
+  noteTitle: string
+  topicTitle: string
+}
+
+export interface ApplicationNoteDocument {
+  createdAt: number
+  favorite: boolean
+  id: string
+  snapshot: Uint8Array
+  title: string
+  updatedAt: number
+}
+
+export interface BookTopicReadingContext {
+  book: BookFileBinding
+  note: ApplicationNoteDocument
+  readingState: BookReadingState
+  topicId: string
+  topicTitle: string
+}
+
+export type CreateBookNoteResult
+  = | { context: BookTopicReadingContext, status: 'created' }
+    | { status: 'duplicate-title' }
 
 export interface RenameNoteInput {
   noteId: string
@@ -61,6 +90,12 @@ export interface SetTopicModeInput {
   topicId: string
 }
 
+export interface RebindBookTopicInput {
+  book: BookFileBinding
+  noteId: string
+  topicId: string
+}
+
 export interface NoteExternalUpdate {
   noteId: string
   update: Uint8Array
@@ -80,6 +115,14 @@ export class NoteRevisionConflictError extends Error {
 
   constructor(readonly currentRevision: string) {
     super('The Note changed after it was read')
+  }
+}
+
+export class ActiveReadingDeletionError extends Error {
+  override readonly name = 'ActiveReadingDeletionError'
+
+  constructor(readonly entryId: string) {
+    super(`Note entry ${entryId} cannot be deleted while its BookTopic is open in a reader`)
   }
 }
 
@@ -113,6 +156,44 @@ function noteRevision(version: readonly EditorNoteVersion[]): string {
   return createHash('sha256').update(normalized).digest('hex')
 }
 
+function protectedReadingEntryIds(
+  entries: readonly NoteEntrySnapshot[],
+  activeTopicIds: ReadonlySet<string>,
+): ReadonlySet<string> {
+  if (activeTopicIds.size === 0)
+    return new Set()
+  const entriesById = new Map(entries.map(entry => [entry.id, entry]))
+  const protectedIds = new Set<string>()
+  for (const topicId of activeTopicIds) {
+    let current = entriesById.get(topicId)
+    if (!current)
+      throw new Error(`Active BookTopic ${topicId} is missing from its Note`)
+    while (current) {
+      protectedIds.add(current.id)
+      if (current.parentId === null)
+        break
+      const parent = entriesById.get(current.parentId)
+      if (!parent)
+        throw new Error(`Note entry ${current.id} has unknown parent ${current.parentId}`)
+      current = parent
+    }
+  }
+  return protectedIds
+}
+
+function assertProtectedReadingEntriesRemain(
+  protectedIds: ReadonlySet<string>,
+  entries: readonly NoteEntrySnapshot[],
+): void {
+  if (protectedIds.size === 0)
+    return
+  const remainingIds = new Set(entries.map(entry => entry.id))
+  for (const entryId of protectedIds) {
+    if (!remainingIds.has(entryId))
+      throw new ActiveReadingDeletionError(entryId)
+  }
+}
+
 async function indexNote(storage: EditorStorage, noteId: string): Promise<void> {
   let indexed: number
   do {
@@ -123,6 +204,7 @@ async function indexNote(storage: EditorStorage, noteId: string): Promise<void> 
 export function createNoteApplicationService(
   storage: EditorStorage,
   onExternalUpdate?: (update: NoteExternalUpdate) => void,
+  activeReadings?: ActiveReadingRegistry,
 ) {
   const cache = new Map<string, AuthoritativeNote>()
   let operations = Promise.resolve()
@@ -255,6 +337,23 @@ export function createNoteApplicationService(
     }
   }
 
+  const toBookTopicReadingContext = async (
+    current: AuthoritativeNote,
+    topicId: string,
+  ): Promise<BookTopicReadingContext> => {
+    const entry = current.note.getEntries().find(candidate => candidate.id === topicId)
+    if (!entry || entry.kind !== 'topic' || entry.topicType !== 'book')
+      throw new Error(`Note ${current.note.id} does not contain BookTopic ${topicId}`)
+    const topic = current.note.getBookTopic(topicId)
+    return {
+      book: topic.getBook(),
+      note: await toDesktopNote(current),
+      readingState: topic.getReadingState(),
+      topicId,
+      topicTitle: entry.title,
+    }
+  }
+
   const toDesktopNoteSummary = async (current: AuthoritativeNote) => {
     const favorite = await storage.getNoteFavorite({ noteId: current.note.id })
     return {
@@ -345,6 +444,49 @@ export function createNoteApplicationService(
         : await storage.createNote({ title: input.title })
       return toDesktopNote(await load(stored, input?.initialHeading))
     }),
+    createBookNote: (input: CreateBookNoteInput) => serialize(async (): Promise<CreateBookNoteResult> => {
+      const id = randomUUID()
+      const note = createEditorNote({
+        id,
+        initialBookTopic: {
+          book: input.book,
+          mode: 0,
+          title: input.topicTitle,
+        },
+        title: input.noteTitle,
+      })
+      const entries = note.getEntries()
+      try {
+        const stored = await storage.createInitializedNote({
+          entries: toStoredEntries(entries),
+          id,
+          snapshot: note.exportSnapshot(),
+          title: note.getTitle(),
+          topics: entries
+            .filter(entry => entry.kind === 'topic')
+            .map(entry => toStoredTopic(note.getTopicContent(entry.id))),
+        })
+        const current = await cacheNote({
+          checkpointSequence: stored.checkpointSequence,
+          createdAt: stored.createdAt,
+          latestSequence: stored.latestSequence,
+          note,
+          updatedAt: stored.updatedAt,
+        })
+        const topic = entries.find(entry => entry.kind === 'topic' && entry.topicType === 'book')
+        if (!topic)
+          throw new Error(`New Book Note ${id} does not contain its BookTopic`)
+        return { context: await toBookTopicReadingContext(current, topic.id), status: 'created' }
+      }
+      catch (error) {
+        if (error instanceof DuplicateNoteTitleError)
+          return { status: 'duplicate-title' }
+        throw error
+      }
+    }),
+    getBookTopicReadingContext: (input: { noteId: string, topicId: string }) => serialize(async () => (
+      toBookTopicReadingContext(await openNote(input.noteId), input.topicId)
+    )),
     getNote: (input: Parameters<EditorStorage['getNote']>[0]) => serialize(async () => toDesktopNote(await openNote(input.noteId))),
     getNoteTree: (input: { noteId: string }) => serialize(async () => {
       const current = await openNote(input.noteId)
@@ -378,6 +520,23 @@ export function createNoteApplicationService(
     listRecentNotes: (input?: Parameters<EditorStorage['listRecentNotes']>[0]) => serialize(() => storage.listRecentNotes(input)),
     openMostRecentNote: () => serialize(async () => toDesktopNote(await load(await storage.openMostRecentNote()))),
     recordNoteOpened: (input: Parameters<EditorStorage['recordNoteOpened']>[0]) => serialize(() => storage.recordNoteOpened(input)),
+    rebindBookTopic: (input: RebindBookTopicInput) => serialize(async () => {
+      const current = await openNote(input.noteId)
+      const version = current.note.getVersion()
+      try {
+        current.note.getBookTopic(input.topicId).rebind(input.book)
+        await persistLocalMutation(current, version, {
+          broadcast: true,
+          entries: true,
+          topicIds: [input.topicId],
+        })
+        return toBookTopicReadingContext(current, input.topicId)
+      }
+      catch (error) {
+        invalidate(input.noteId)
+        throw error
+      }
+    }),
     renameNote: (input: RenameNoteInput) => serialize(async () => {
       const current = await openNote(input.noteId)
       const title = input.title.trim()
@@ -426,15 +585,21 @@ export function createNoteApplicationService(
       const current = await openNote(input.noteId)
       if (input.updates.length === 0)
         throw new TypeError('Note updates must contain at least one update')
+      const protectedEntryIds = protectedReadingEntryIds(
+        current.note.getEntries(),
+        activeReadings?.topicIdsForNote(input.noteId) ?? new Set(),
+      )
       const changed = { entriesChanged: false, metadataChanged: false, topicIds: new Set<string>() }
       try {
         input.updates.forEach(update => mergeMutation(changed, current.note.importUpdates(update)))
-        for (const entry of current.note.getEntries()) {
+        const projectedEntries = current.note.getEntries()
+        assertProtectedReadingEntriesRemain(protectedEntryIds, projectedEntries)
+        for (const entry of projectedEntries) {
           if (entry.kind === 'topic')
             await Effect.runPromise(current.note.validateTopic(entry.id))
         }
-        const entries = changed.entriesChanged ? current.note.getEntries() : undefined
-        const topicEntries = new Set((entries ?? current.note.getEntries())
+        const entries = changed.entriesChanged ? projectedEntries : undefined
+        const topicEntries = new Set(projectedEntries
           .filter(entry => entry.kind === 'topic')
           .map(entry => entry.id))
         const topics = [...changed.topicIds]

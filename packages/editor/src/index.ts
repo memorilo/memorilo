@@ -49,11 +49,15 @@ export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtim
 export { Editor } from './editor'
 export type { EditorFocusTarget, EditorProps } from './editor'
 export type {
+  BookTopicSnapshot,
+  BookTopicValidationInput,
+  CreateBookTopicInput,
   CreateEditorNoteOptions,
   CreateFolderInput,
   CreateTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
+  EditorBookTopicDocument,
   EditorNote,
   EditorNoteChange,
   EditorNoteMutation,
@@ -63,6 +67,8 @@ export type {
   MoveNoteEntryInput,
   NoteEntryKind,
   NoteEntrySnapshot,
+  RegularTopicSnapshot,
+  RegularTopicValidationInput,
   TopicContentProjection,
   TopicSnapshot,
   TopicValidationInput,
@@ -72,6 +78,8 @@ export type { TopicBlockProjection } from './note/topic-projection'
 export { projectTopicBlocks } from './note/topic-projection'
 export { useEditorTopicMode } from './note/use-editor-topic-mode'
 export type {
+  LoroBookTopic,
+  LoroRegularTopic,
   LoroTopic,
   LoroTopicDocument,
   LoroTopicMarkType,
@@ -81,6 +89,8 @@ export type {
 } from './schema'
 export {
   isLoroTopic,
+  LoroBookTopicEntrySchema,
+  LoroRegularTopicEntrySchema,
   LoroTopicDocumentSchema,
   LoroTopicEntrySchema,
   LoroTopicNodeSchema,

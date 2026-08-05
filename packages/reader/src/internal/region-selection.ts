@@ -1,26 +1,26 @@
-import type { ReaderNormalizedRect } from '../../types'
-import type { ReaderClientRect } from '../reader-adapter'
-import { normalizedRectWithinSurface } from './geometry'
+import type { ReaderNormalizedRect } from '../types'
+import type { ReaderClientRect } from './reader-adapter'
+import { normalizedRectWithinSurface } from './fixed-page/geometry'
+import { regionSelectionClassNames } from './region-selection.stylex'
 
 interface Point {
   x: number
   y: number
 }
 
-export interface FixedPageRegionSelectionResult {
+export interface RegionSelectionResult {
   clientRect: ReaderClientRect
   rect: ReaderNormalizedRect
 }
 
-interface FixedPageRegionSelectionOptions {
-  applyEnabledState: (capture: HTMLElement, enabled: boolean) => void
-  createDraft: () => HTMLElement
-  onSelection: (selection: FixedPageRegionSelectionResult | null) => void
+interface RegionSelectionOptions {
+  onEnabledChange: (enabled: boolean) => void
+  onSelection: (selection: RegionSelectionResult | null) => void
 }
 
 const minimumRegionSize = 6
 
-export class FixedPageRegionSelectionController {
+export class RegionSelectionController {
   private capture: HTMLElement | null = null
   private draft: HTMLElement | null = null
   private enabled = false
@@ -32,7 +32,7 @@ export class FixedPageRegionSelectionController {
   private readonly pointerMoveListener = (event: PointerEvent): void => this.update(event)
   private readonly pointerUpListener = (event: PointerEvent): void => this.finish(event)
 
-  constructor(private readonly options: FixedPageRegionSelectionOptions) {}
+  constructor(private readonly options: RegionSelectionOptions) {}
 
   destroy(): void {
     this.cancel()
@@ -49,22 +49,32 @@ export class FixedPageRegionSelectionController {
 
   mount(surface: HTMLElement, capture: HTMLElement): void {
     if (this.surface || this.capture)
-      throw new Error('Fixed-page region selection is already mounted')
+      throw new Error('Region selection is already mounted')
     this.surface = surface
     this.capture = capture
     capture.addEventListener('pointercancel', this.pointerCancelListener)
     capture.addEventListener('pointerdown', this.pointerDownListener)
     capture.addEventListener('pointermove', this.pointerMoveListener)
     capture.addEventListener('pointerup', this.pointerUpListener)
-    this.options.applyEnabledState(capture, this.enabled)
+    this.applyEnabledState()
   }
 
   setEnabled(enabled: boolean): void {
+    if (this.enabled === enabled)
+      return
     this.enabled = enabled
-    if (this.capture)
-      this.options.applyEnabledState(this.capture, enabled)
+    this.applyEnabledState()
     if (!enabled)
       this.cancel()
+    this.options.onEnabledChange(enabled)
+  }
+
+  private applyEnabledState(): void {
+    if (this.capture) {
+      this.capture.className = this.enabled
+        ? regionSelectionClassNames.captureActive
+        : regionSelectionClassNames.capture
+    }
   }
 
   private begin(event: PointerEvent): void {
@@ -73,13 +83,14 @@ export class FixedPageRegionSelectionController {
     const capture = this.capture
     const surface = this.surface
     if (!capture || !surface)
-      throw new Error('Fixed-page region selection is not mounted')
+      throw new Error('Region selection is not mounted')
     event.preventDefault()
     this.cancel()
     capture.setPointerCapture(event.pointerId)
     const surfaceRect = surface.getBoundingClientRect()
     this.start = this.pointWithinSurface(event, surfaceRect)
-    const draft = this.options.createDraft()
+    const draft = document.createElement('div')
+    draft.className = regionSelectionClassNames.draft
     capture.append(draft)
     this.draft = draft
     this.positionDraft(this.start)

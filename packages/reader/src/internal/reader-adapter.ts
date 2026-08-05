@@ -5,6 +5,7 @@ import type {
   ReaderLocation,
   ReaderOcrStatus,
   ReaderOutlineItem,
+  ReaderPosition,
   ReaderPresentationMode,
   ReaderScaleCapability,
   ReaderSelection,
@@ -63,6 +64,7 @@ export interface ReaderAdapterState {
   format: ReaderFormat
   location: ReaderLocation
   outline: readonly ReaderOutlineItem[]
+  position: ReaderPosition
   presentationMode: ReaderPresentationMode
   presentationModeReason?: string
   scale: number
@@ -75,8 +77,10 @@ export interface ReaderAdapterCallbacks {
   onError: (error: Error) => void
   onKeyDown: (event: ReaderAdapterKeyboardEvent) => boolean
   onOcrStatusChange: (status: ReaderOcrStatus) => void
+  onRegionSelectionModeChange: (enabled: boolean) => void
   onSelectionChange: (selection: ReaderAdapterSelection | null) => void
   onStateChange: (state: ReaderAdapterState) => void
+  regionAnnotationLabel: () => string
 }
 
 export interface ReaderAdapter {

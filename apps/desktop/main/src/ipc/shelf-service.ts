@@ -20,6 +20,7 @@ import type {
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
+import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import {
@@ -211,6 +212,7 @@ export function createShelfService(
   storage: ShelfStorage,
   imageCache: ShelfImageCache,
   readingFiles: ShelfReadingFileStore,
+  activeReadings: ActiveReadingRegistry,
 ) {
   const limitAssetRequest = createConcurrencyLimiter(maximumConcurrentShelfAssetRequests)
   const readingLocks = new Map<string, Promise<void>>()
@@ -364,15 +366,24 @@ export function createShelfService(
           url: acquisition.href,
         }))
         await readingFiles.save({
+          book: {
+            authors: publication.authors,
+            title: publication.title,
+          },
           bytes: result.bytes,
           format: acquisition.format,
           name: publication.title,
+          publicationId: publication.id,
           readingId,
           retention: input.retention,
+          sourceId: source.id,
         })
       })
 
-      return { readingId }
+      const document = await readingFiles.open(readingId)
+      if (!document)
+        throw new Error('The prepared Shelf reading file is unavailable')
+      return { book: document.book, readingId }
     }
 
     @IpcMethod()
@@ -390,6 +401,8 @@ export function createShelfService(
 
     @IpcMethod()
     async deleteReading(readingId: string): Promise<boolean> {
+      if (activeReadings.isReadingIdActive(readingId))
+        throw new Error('This book file cannot be deleted while it is open for reading.')
       if (await readingFiles.getLocation(readingId) !== 'library')
         return false
       const focusedWindow = BrowserWindow.getFocusedWindow()

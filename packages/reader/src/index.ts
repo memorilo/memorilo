@@ -7,6 +7,7 @@ export type {
   ReaderComicRegionAnchor,
   ReaderDataSource,
   ReaderEpubLocator,
+  ReaderEpubRegionAnchor,
   ReaderEpubTextAnchor,
   ReaderFormat,
   ReaderHighlight,
@@ -21,6 +22,7 @@ export type {
   ReaderOutlineItem,
   ReaderPdfRegionAnchor,
   ReaderPdfTextAnchor,
+  ReaderPosition,
   ReaderPresentationMode,
   ReaderProps,
   ReaderRandomAccessSource,
@@ -35,5 +37,6 @@ export type {
   ReaderTextLayerKind,
   ReaderTextQuote,
   ReaderTextSelection,
+  ReaderTxtRegionAnchor,
   ReaderTxtTextAnchor,
 } from './types'
