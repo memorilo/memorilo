@@ -7,6 +7,50 @@ const colors = {
 } as const
 
 export const learningRouteStyles = stylex.create({
+  startReviewButton: {
+    display: 'inline-flex',
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderColor: 'rgba(54, 61, 71, 0.13)',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingRight: 11,
+    paddingLeft: 10,
+    backgroundColor: {
+      'default': 'rgba(255, 255, 255, 0.76)',
+      ':hover': 'rgba(255, 255, 255, 0.98)',
+      ':active': 'rgba(234, 237, 241, 0.9)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+    },
+    backdropFilter: {
+      'default': 'blur(16px) saturate(150%)',
+      '@media (prefers-reduced-transparency: reduce)': 'none',
+    },
+    boxShadow: {
+      'default': '0 2px 6px rgba(31, 38, 48, 0.08), 0 0 0 0.5px rgba(55, 63, 74, 0.08), inset 0 1px rgba(255, 255, 255, 0.98), inset 0 -1px rgba(72, 79, 90, 0.07)',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+    color: 'rgb(0, 94, 196)',
+    cursor: 'default',
+    fontSize: 11,
+    fontWeight: 640,
+    letterSpacing: 0,
+    outline: 'none',
+    textDecoration: 'none',
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.96)',
+    },
+    transitionDuration: {
+      'default': '100ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'background-color, box-shadow, transform',
+    transitionTimingFunction: 'ease-out',
+  },
   page: {
     position: 'relative',
     display: 'flex',

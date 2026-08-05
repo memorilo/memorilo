@@ -5,7 +5,10 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['@stylexjs/stylex/lib/stylex-inject'],
+    include: [
+      '@memorilo/editor > prosekit/extensions/readonly',
+      '@stylexjs/stylex/lib/stylex-inject',
+    ],
   },
   plugins: [
     wasm(),

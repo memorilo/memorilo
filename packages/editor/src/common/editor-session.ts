@@ -18,6 +18,7 @@ export interface EditorSessionOptions {
   cards?: EditorCardIntegration
   onDocumentChange: (document: NodeJSON) => void
   outline?: OutlineOptions
+  readOnly: boolean
   topicDocument: EditorTopicDocument
 }
 
@@ -44,7 +45,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     outlineRuntime.reconcileDocument(document)
     options.onDocumentChange(document)
     cardSync?.schedule(document)
-  }, topic)
+  }, topic, options.readOnly)
   const editor = createEditor({ extension: configured.extension, defaultContent })
 
   outlineRuntime.reconcileDocument(editor.getDocJSON())

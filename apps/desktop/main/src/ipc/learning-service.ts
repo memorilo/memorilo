@@ -40,6 +40,11 @@ export function createLearningService(
     }
 
     @IpcMethod()
+    getNextItem(input?: Parameters<LearningReviewApplication['getNextItem']>[0]) {
+      return reviews.getNextItem(input)
+    }
+
+    @IpcMethod()
     getNextNewItem(input?: Parameters<LearningReviewApplication['getNextNewItem']>[0]) {
       return reviews.getNextNewItem(input)
     }
@@ -120,6 +125,11 @@ export function createLearningService(
     @IpcMethod()
     resetTarget(input: Parameters<LearningStorage['resetTarget']>[0]) {
       return learning.resetTarget(input)
+    }
+
+    @IpcMethod()
+    restoreReviewItem(input: Parameters<LearningReviewApplication['restoreReviewItem']>[0]) {
+      return reviews.restoreReviewItem(input)
     }
 
     @IpcMethod()

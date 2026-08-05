@@ -1,6 +1,7 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from './adapters/editor-adapters'
 import type { EditorCardIntegration } from './card/card-sync'
+import type { EditorModeValue } from './common/editor-mode'
 import type { OutlineOptions } from './common/outline-runtime'
 import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
@@ -32,8 +33,10 @@ interface EditorBaseProps {
   adapters: EditorAdapters
   cards?: EditorCardIntegration
   focus?: EditorFocusTarget
+  mode?: EditorModeValue
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
+  readOnly?: boolean
 }
 
 export interface EditorFocusTarget {
@@ -78,15 +81,17 @@ export function Editor(props: EditorProps) {
     : undefined, [cardRepository])
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
-  const mode = useEditorTopicMode(props.topic)
+  const storedMode = useEditorTopicMode(props.topic)
+  const mode = props.mode ?? storedMode
   const { t } = useTranslation('editor')
   const session = useMemo(() => createEditorSession({
     adapters: props.adapters,
     cards: cardIntegration,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
+    readOnly: props.readOnly === true,
     topicDocument: props.topic,
-  }), [props.adapters, cardIntegration, props.topic])
+  }), [props.adapters, cardIntegration, props.readOnly, props.topic])
 
   useEffect(() => {
     if (!controlledFocusProvided)
@@ -109,13 +114,18 @@ export function Editor(props: EditorProps) {
 
   return (
     <Provider store={session.store}>
-      <div ref={rootRef} {...stylex.props(editorShellStyles.root)} data-editor-mode={editorModeName(mode)}>
+      <div
+        ref={rootRef}
+        {...stylex.props(editorShellStyles.root)}
+        data-editor-mode={editorModeName(mode)}
+        data-editor-readonly={props.readOnly ? '' : undefined}
+      >
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingEditorMode')}</div>}>
-          <DocumentEditor focusBlockId={props.focus?.blockId} mode={mode} session={session}>
+          <DocumentEditor focusBlockId={props.focus?.blockId} mode={mode} readOnly={props.readOnly === true} session={session}>
             {mode === EditorMode.Outline
               ? (
                   <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingOutlineMode')}</div>}>
-                    <OutlineEditor options={props.outline} rootRef={rootRef} session={session} />
+                    <OutlineEditor options={props.outline} readOnly={props.readOnly === true} rootRef={rootRef} session={session} />
                   </Suspense>
                 )
               : null}

@@ -28,7 +28,7 @@ export type {
   MultiLineEditorCardProjection,
 } from './card/card-model'
 export { projectEditorCards } from './card/card-model'
-export type { CardPreviewMode, CardPreviewProps } from './card/card-preview'
+export type { CardPreviewItemSelection, CardPreviewMode, CardPreviewProps } from './card/card-preview'
 export { CardPreview } from './card/card-preview'
 export type {
   EditorCardRecord,

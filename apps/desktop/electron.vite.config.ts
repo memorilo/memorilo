@@ -59,6 +59,9 @@ export default defineConfig({
     define: {
       __MEMORILO_REPO_ROOT__: JSON.stringify(repositoryRoot),
     },
+    optimizeDeps: {
+      include: ['@memorilo/editor > prosekit/extensions/readonly'],
+    },
     plugins: [
       wasm(),
       TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),

@@ -8,12 +8,14 @@ export function DocumentEditor({
   children,
   focusBlockId,
   mode,
+  readOnly,
   session,
 }: {
   children?: ReactNode
   focusBlockId?: string
   mode: EditorModeValue
+  readOnly: boolean
   session: EditorSession
 }) {
-  return <EditorCanvas focusBlockId={focusBlockId} mode={mode} modeControls={children} session={session} />
+  return <EditorCanvas focusBlockId={focusBlockId} mode={mode} modeControls={children} readOnly={readOnly} session={session} />
 }
