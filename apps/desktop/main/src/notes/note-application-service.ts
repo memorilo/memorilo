@@ -1,4 +1,13 @@
-import type { EditorStorage, NoteEntryProjection, StoredNote, TopicContentProjection as StoredTopicContentProjection } from '@memorilo/editor-storage'
+import type {
+  EditorStorage,
+  FavoriteNoteItem,
+  JournalDate,
+  NoteEntryProjection,
+  NoteSearchHit,
+  RecentNoteItem,
+  StoredNote,
+  TopicContentProjection as StoredTopicContentProjection,
+} from '@memorilo/editor-storage'
 import type {
   EditorNote,
   EditorNoteMutation,
@@ -8,8 +17,8 @@ import type {
   TopicContentProjection,
 } from '@memorilo/editor/note'
 import { createHash } from 'node:crypto'
-import { DuplicateNoteTitleError } from '@memorilo/editor-storage'
-import { createEditorNote } from '@memorilo/editor/note'
+import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
+import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 
 import { projectNoteAssetReferences } from '../assets/asset-references'
@@ -20,6 +29,7 @@ const noteCacheCapacity = 32
 interface AuthoritativeNote {
   checkpointSequence: number
   createdAt: number
+  journalDate: JournalDate | null
   latestSequence: number
   note: EditorNote
   updatedAt: number
@@ -38,6 +48,24 @@ export interface RenameNoteInput {
 export interface SaveNoteUpdatesInput {
   noteId: string
   updates: readonly Uint8Array[]
+}
+
+export interface OpenJournalInput {
+  journalDate?: JournalDate
+}
+
+export interface ListPastJournalsInput {
+  before?: JournalDate
+  limit?: number
+}
+
+export interface ListJournalDatesInput {
+  from: JournalDate
+  through: JournalDate
+}
+
+export interface NoteApplicationServiceOptions {
+  now?: () => Date
 }
 
 export interface ApplyTopicEditsInput {
@@ -113,6 +141,32 @@ function noteRevision(version: readonly EditorNoteVersion[]): string {
   return createHash('sha256').update(normalized).digest('hex')
 }
 
+function localJournalDate(value: Date): JournalDate {
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime()))
+    throw new TypeError('Journal clock must return a valid Date')
+  const journalDate = [
+    String(value.getFullYear()).padStart(4, '0'),
+    String(value.getMonth() + 1).padStart(2, '0'),
+    String(value.getDate()).padStart(2, '0'),
+  ].join('-')
+  assertJournalDate(journalDate, 'Local Journal date')
+  return journalDate
+}
+
+function toDesktopNoteActivity<Item extends FavoriteNoteItem | RecentNoteItem>(item: Item) {
+  const { journalDate, ...base } = item
+  return journalDate === undefined
+    ? { ...base, kind: 'regular' as const }
+    : { ...base, journalDate, kind: 'journal' as const }
+}
+
+function toDesktopNoteSearchHit(hit: NoteSearchHit) {
+  const { journalDate, ...base } = hit
+  return journalDate === undefined
+    ? { ...base, noteKind: 'regular' as const }
+    : { ...base, journalDate, noteKind: 'journal' as const }
+}
+
 async function indexNote(storage: EditorStorage, noteId: string): Promise<void> {
   let indexed: number
   do {
@@ -123,12 +177,15 @@ async function indexNote(storage: EditorStorage, noteId: string): Promise<void> 
 export function createNoteApplicationService(
   storage: EditorStorage,
   onExternalUpdate?: (update: NoteExternalUpdate) => void,
+  options: NoteApplicationServiceOptions = {},
 ) {
   const cache = new Map<string, AuthoritativeNote>()
   let operations = Promise.resolve()
   let indexing = Promise.resolve()
   let closePromise: Promise<void> | null = null
   let closing = false
+
+  const today = (): JournalDate => localJournalDate(options.now?.() ?? new Date())
 
   const serialize = <Result>(operation: () => Promise<Result>): Promise<Result> => {
     if (closing)
@@ -144,7 +201,11 @@ export function createNoteApplicationService(
       .catch(error => console.error(`Failed to index Note ${noteId}`, error))
   }
 
-  const restore = async (stored: StoredNote, initialTopicHeading?: string): Promise<AuthoritativeNote> => {
+  const restore = async (
+    stored: StoredNote,
+    initialTopicHeading?: string,
+    journalDate: JournalDate | null = null,
+  ): Promise<AuthoritativeNote> => {
     const note = createEditorNote({
       id: stored.id,
       ...(initialTopicHeading === undefined ? {} : { initialTopicHeading }),
@@ -158,8 +219,12 @@ export function createNoteApplicationService(
     if (stored.snapshot === null) {
       if (stored.updates.length === 0) {
         const entries = note.getEntries()
+        const journalTopic = journalDate === null
+          ? null
+          : resolveJournalTopic(note, { expectedNoteTitle: journalDate })
         const initialized = await storage.saveNoteUpdates({
           entries: toStoredEntries(entries),
+          ...(journalTopic === null ? {} : { journalHasUserContent: note.hasUserContent() }),
           noteId: note.id,
           title: note.getTitle(),
           topics: entries
@@ -185,7 +250,9 @@ export function createNoteApplicationService(
       noteId: note.id,
       references: assetReferences,
     })
-    return { checkpointSequence, createdAt: stored.createdAt, latestSequence, note, updatedAt }
+    if (journalDate !== null)
+      resolveJournalTopic(note, { expectedNoteTitle: journalDate })
+    return { checkpointSequence, createdAt: stored.createdAt, journalDate, latestSequence, note, updatedAt }
   }
 
   const checkpoint = async (current: AuthoritativeNote): Promise<void> => {
@@ -221,7 +288,11 @@ export function createNoteApplicationService(
     return current
   }
 
-  const load = async (stored: StoredNote, initialTopicHeading?: string): Promise<AuthoritativeNote> => {
+  const load = async (
+    stored: StoredNote,
+    initialTopicHeading?: string,
+    journalDate: JournalDate | null = null,
+  ): Promise<AuthoritativeNote> => {
     const cached = cache.get(stored.id)
     if (cached && cached.latestSequence === stored.latestSequence)
       return cacheNote(cached)
@@ -229,14 +300,18 @@ export function createNoteApplicationService(
       cache.delete(stored.id)
       await checkpoint(cached)
     }
-    return cacheNote(await restore(stored, initialTopicHeading))
+    return cacheNote(await restore(stored, initialTopicHeading, journalDate))
   }
 
   const openNote = async (noteId: string): Promise<AuthoritativeNote> => {
     const cached = cache.get(noteId)
     if (cached)
       return cacheNote(cached)
-    return load(await storage.getNote({ noteId }))
+    const [stored, journal] = await Promise.all([
+      storage.getNote({ noteId }),
+      storage.getJournalMetadata({ noteId }),
+    ])
+    return load(stored, undefined, journal?.journalDate ?? null)
   }
 
   const invalidate = (noteId: string): void => {
@@ -245,7 +320,7 @@ export function createNoteApplicationService(
 
   const toDesktopNote = async (current: AuthoritativeNote) => {
     const favorite = await storage.getNoteFavorite({ noteId: current.note.id })
-    return {
+    const base = {
       createdAt: current.createdAt,
       favorite: favorite.favorite,
       id: current.note.id,
@@ -253,17 +328,42 @@ export function createNoteApplicationService(
       title: current.note.getTitle(),
       updatedAt: current.updatedAt,
     }
+    if (current.journalDate === null)
+      return { ...base, kind: 'regular' as const }
+    const topic = resolveJournalTopic(current.note, { expectedNoteTitle: current.journalDate })
+    return {
+      ...base,
+      journalDate: current.journalDate,
+      kind: 'journal' as const,
+      topicId: topic.topicId,
+    }
   }
 
   const toDesktopNoteSummary = async (current: AuthoritativeNote) => {
     const favorite = await storage.getNoteFavorite({ noteId: current.note.id })
-    return {
+    const base = {
       createdAt: current.createdAt,
       favorite: favorite.favorite,
       id: current.note.id,
       title: current.note.getTitle(),
       updatedAt: current.updatedAt,
     }
+    return current.journalDate === null
+      ? { ...base, kind: 'regular' as const }
+      : { ...base, journalDate: current.journalDate, kind: 'journal' as const }
+  }
+
+  const toDesktopStoredSummary = (summary: Awaited<ReturnType<EditorStorage['listNotes']>>['items'][number]) => {
+    const base = {
+      createdAt: summary.createdAt,
+      favorite: summary.favorite,
+      id: summary.id,
+      title: summary.title,
+      updatedAt: summary.updatedAt,
+    }
+    return summary.journalDate === undefined
+      ? { ...base, kind: 'regular' as const }
+      : { ...base, journalDate: summary.journalDate, kind: 'journal' as const }
   }
 
   const checkpointIfNeeded = async (current: AuthoritativeNote): Promise<void> => {
@@ -276,15 +376,20 @@ export function createNoteApplicationService(
     version: readonly EditorNoteVersion[],
     options: { broadcast?: boolean, entries?: boolean, title?: boolean, topicIds?: readonly string[] },
   ) => {
+    const journalTopic = current.journalDate === null
+      ? null
+      : resolveJournalTopic(current.note, { expectedNoteTitle: current.journalDate })
     const update = current.note.exportUpdates(version)
     const assetReferences = projectNoteAssetReferences(current.note)
     const receipt = await storage.saveNoteUpdates({
       allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
       assetReferences,
-      ...(options.entries ? { entries: toStoredEntries(current.note.getEntries()) } : {}),
+      ...(options.entries || journalTopic !== null ? { entries: toStoredEntries(current.note.getEntries()) } : {}),
+      ...(journalTopic === null ? {} : { journalHasUserContent: current.note.hasUserContent() }),
       noteId: current.note.id,
-      ...(options.title ? { title: current.note.getTitle() } : {}),
-      topics: (options.topicIds ?? []).map(topicId => toStoredTopic(current.note.getTopicContent(topicId))),
+      ...(options.title || journalTopic !== null ? { title: current.note.getTitle() } : {}),
+      topics: (journalTopic === null ? options.topicIds ?? [] : [journalTopic.topicId])
+        .map(topicId => toStoredTopic(current.note.getTopicContent(topicId))),
       updates: [update],
     })
     current.latestSequence = receipt.latestSequence
@@ -309,6 +414,12 @@ export function createNoteApplicationService(
       throw new NoteRevisionConflictError(revision)
   }
 
+  const prunePastEmptyJournals = async () => {
+    const result = await storage.prunePastEmptyJournals({ before: today() })
+    result.deletedNoteIds.forEach(noteId => cache.delete(noteId))
+    return result
+  }
+
   const close = (): Promise<void> => {
     if (closePromise)
       return closePromise
@@ -317,8 +428,9 @@ export function createNoteApplicationService(
       await operations
       for (const current of cache.values())
         await checkpoint(current)
-      cache.clear()
       await indexing
+      await prunePastEmptyJournals()
+      cache.clear()
     })()
     return closePromise
   }
@@ -348,13 +460,16 @@ export function createNoteApplicationService(
     getNote: (input: Parameters<EditorStorage['getNote']>[0]) => serialize(async () => toDesktopNote(await openNote(input.noteId))),
     getNoteTree: (input: { noteId: string }) => serialize(async () => {
       const current = await openNote(input.noteId)
-      return {
+      const base = {
         entries: current.note.getEntries(),
         noteId: current.note.id,
         revision: noteRevision(current.note.getVersion()),
         title: current.note.getTitle(),
         updatedAt: current.updatedAt,
       }
+      return current.journalDate === null
+        ? { ...base, kind: 'regular' as const }
+        : { ...base, journalDate: current.journalDate, kind: 'journal' as const }
     }),
     getTopic: (input: { noteId: string, topicId: string }) => serialize(async () => {
       const current = await openNote(input.noteId)
@@ -373,13 +488,57 @@ export function createNoteApplicationService(
       }
     }),
     getTopicBlock: (input: Parameters<EditorStorage['getTopicBlock']>[0]) => serialize(() => storage.getTopicBlock(input)),
-    listFavoriteNotes: (input?: Parameters<EditorStorage['listFavoriteNotes']>[0]) => serialize(() => storage.listFavoriteNotes(input)),
-    listNotes: (input?: Parameters<EditorStorage['listNotes']>[0]) => serialize(() => storage.listNotes(input)),
-    listRecentNotes: (input?: Parameters<EditorStorage['listRecentNotes']>[0]) => serialize(() => storage.listRecentNotes(input)),
-    openMostRecentNote: () => serialize(async () => toDesktopNote(await load(await storage.openMostRecentNote()))),
+    listFavoriteNotes: (input: Parameters<EditorStorage['listFavoriteNotes']>[0] = {}) => serialize(async () => (
+      (await storage.listFavoriteNotes({ ...input, today: today() })).map(toDesktopNoteActivity)
+    )),
+    listJournalDates: (input: ListJournalDatesInput) => serialize(() => storage.listJournalDates(input)),
+    listNotes: (input: Parameters<EditorStorage['listNotes']>[0] = {}) => serialize(async () => {
+      const page = await storage.listNotes({ ...input, today: today() })
+      return { ...page, items: page.items.map(toDesktopStoredSummary) }
+    }),
+    listPastJournals: (input: ListPastJournalsInput = {}) => serialize(async () => {
+      const page = await storage.listPastJournals({
+        ...(input.before === undefined ? {} : { before: input.before }),
+        ...(input.limit === undefined ? {} : { limit: input.limit }),
+        today: today(),
+      })
+      return {
+        items: page.items.map(item => ({ ...item, kind: 'journal' as const })),
+        nextCursor: page.nextCursor,
+      }
+    }),
+    listRecentNotes: (input: Parameters<EditorStorage['listRecentNotes']>[0] = {}) => serialize(async () => (
+      (await storage.listRecentNotes({ ...input, today: today() })).map(toDesktopNoteActivity)
+    )),
+    openJournal: (input: OpenJournalInput = {}) => serialize(async () => {
+      if (input.journalDate !== undefined)
+        assertJournalDate(input.journalDate)
+      const currentToday = today()
+      const journalDate = input.journalDate ?? currentToday
+      if (journalDate > currentToday)
+        throw new RangeError(`Future Journal date cannot be opened: ${journalDate}`)
+      const stored = await storage.getOrCreateJournal({ journalDate })
+      const current = await load(stored.note, undefined, stored.journalDate)
+      const desktop = await toDesktopNote(current)
+      if (desktop.kind !== 'journal')
+        throw new Error(`Journal ${journalDate} was restored as a regular Note`)
+      return desktop
+    }),
+    openMostRecentNote: () => serialize(async () => {
+      const stored = await storage.openMostRecentNote({ today: today() })
+      const journal = await storage.getJournalMetadata({ noteId: stored.id })
+      return toDesktopNote(await load(stored, undefined, journal?.journalDate ?? null))
+    }),
+    prunePastEmptyJournals: () => serialize(prunePastEmptyJournals),
     recordNoteOpened: (input: Parameters<EditorStorage['recordNoteOpened']>[0]) => serialize(() => storage.recordNoteOpened(input)),
     renameNote: (input: RenameNoteInput) => serialize(async () => {
       const current = await openNote(input.noteId)
+      if (current.journalDate !== null) {
+        return {
+          journalDate: current.journalDate,
+          status: 'journal-title-immutable',
+        } as const
+      }
       const title = input.title.trim()
       if (title === current.note.getTitle())
         return { note: await toDesktopNoteSummary(current), status: 'renamed' } as const
@@ -433,11 +592,14 @@ export function createNoteApplicationService(
           if (entry.kind === 'topic')
             await Effect.runPromise(current.note.validateTopic(entry.id))
         }
-        const entries = changed.entriesChanged ? current.note.getEntries() : undefined
+        const journalTopic = current.journalDate === null
+          ? null
+          : resolveJournalTopic(current.note, { expectedNoteTitle: current.journalDate })
+        const entries = changed.entriesChanged || journalTopic !== null ? current.note.getEntries() : undefined
         const topicEntries = new Set((entries ?? current.note.getEntries())
           .filter(entry => entry.kind === 'topic')
           .map(entry => entry.id))
-        const topics = [...changed.topicIds]
+        const topics = (journalTopic === null ? [...changed.topicIds] : [journalTopic.topicId])
           .filter(topicId => topicEntries.has(topicId))
           .map(topicId => toStoredTopic(current.note.getTopicContent(topicId)))
         const assetReferences = projectNoteAssetReferences(current.note)
@@ -445,8 +607,9 @@ export function createNoteApplicationService(
           allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
           assetReferences,
           ...(entries ? { entries: toStoredEntries(entries) } : {}),
+          ...(journalTopic === null ? {} : { journalHasUserContent: current.note.hasUserContent() }),
           noteId: current.note.id,
-          ...(changed.metadataChanged ? { title: current.note.getTitle() } : {}),
+          ...(changed.metadataChanged || journalTopic !== null ? { title: current.note.getTitle() } : {}),
           topics,
           updates: input.updates,
         })
@@ -476,8 +639,12 @@ export function createNoteApplicationService(
         throw error
       }
     }),
-    searchNotes: (input: Parameters<EditorStorage['searchNotes']>[0]) => serialize(() => storage.searchNotes(input)),
-    searchTopicBlocks: (input: Parameters<EditorStorage['searchTopicBlocks']>[0]) => serialize(() => storage.searchTopicBlocks(input)),
+    searchNotes: (input: Parameters<EditorStorage['searchNotes']>[0]) => serialize(async () => (
+      (await storage.searchNotes({ ...input, today: today() })).map(toDesktopNoteSearchHit)
+    )),
+    searchTopicBlocks: (input: Parameters<EditorStorage['searchTopicBlocks']>[0]) => serialize(() => (
+      storage.searchTopicBlocks({ ...input, today: today() })
+    )),
     setNoteFavorite: (input: Parameters<EditorStorage['setNoteFavorite']>[0]) => serialize(() => storage.setNoteFavorite(input)),
   }
 }

@@ -15,8 +15,10 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     mcp,
     networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',
+    readerArrowKeyPageTurning: true,
     reduceMotion: false,
     tiffConversionFormat: 'webp',
+    weekStart: 'sunday',
   }
 }
 
@@ -44,18 +46,24 @@ describe('desktop MCP configuration', () => {
       language: 'en',
       mcp: { accessToken: '', enabled: false, port: 8765 },
       outdentBehavior: 'logical',
+      readerArrowKeyPageTurning: true,
       reduceMotion: true,
+      weekStart: 'sunday',
     })
     expect(migrateDesktopConfiguration({
       language: 'en',
       mcp: { accessToken: token },
       outdentBehavior: 'traditional',
+      readerArrowKeyPageTurning: true,
       reduceMotion: true,
+      weekStart: 'sunday',
     })).toEqual({
       language: 'en',
       mcp: { accessToken: token, enabled: false, port: 8765 },
       outdentBehavior: 'traditional',
+      readerArrowKeyPageTurning: true,
       reduceMotion: true,
+      weekStart: 'sunday',
     })
     expect(migrateDesktopConfiguration(configuration({ accessToken: 'short', enabled: true, port: 80 }))).toEqual(
       configuration({ accessToken: 'short', enabled: false, port: 8765 }),

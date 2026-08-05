@@ -21,6 +21,7 @@ import { useCallback, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { noteQueryKeys } from '../queries/note-query-keys'
+import { formatJournalHeading } from '../routes/-journal-date'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
 
 const sidebarSpring = {
@@ -37,6 +38,9 @@ const disclosureSpring = {
 
 interface SourceItemProps {
   destination: {
+    journalDate: string
+    kind: 'journal'
+  } | {
     kind: 'note'
     noteId: string
     topicId: string
@@ -100,6 +104,20 @@ function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentPro
 }
 
 function SourceItem({ destination, icon, label }: SourceItemProps) {
+  if (destination.kind === 'journal') {
+    return (
+      <Link
+        {...stylex.props(workspaceSidebarStyles.sourceItem)}
+        activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
+        search={{ date: destination.journalDate }}
+        title={label}
+        to="/journals"
+      >
+        {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
+      </Link>
+    )
+  }
+
   if (destination.kind === 'note') {
     return (
       <Link
@@ -251,14 +269,18 @@ export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, 
   const favoritesQuery = useQuery(favoriteNotesQueryOptions())
   const recentQuery = useQuery(recentNotesQueryOptions())
   const favoriteItems = (favoritesQuery.data ?? []).map(item => ({
-    destination: { kind: 'note' as const, noteId: item.noteId, topicId: item.topicId },
+    destination: item.kind === 'journal'
+      ? { journalDate: item.journalDate, kind: 'journal' as const }
+      : { kind: 'note' as const, noteId: item.noteId, topicId: item.topicId },
     icon: Star,
-    label: item.noteTitle,
+    label: item.kind === 'journal' ? formatJournalHeading(item.journalDate) : item.noteTitle,
   }))
   const recentItems = (recentQuery.data ?? []).map(item => ({
-    destination: { kind: 'note' as const, noteId: item.noteId, topicId: item.topicId },
+    destination: item.kind === 'journal'
+      ? { journalDate: item.journalDate, kind: 'journal' as const }
+      : { kind: 'note' as const, noteId: item.noteId, topicId: item.topicId },
     icon: Clock3,
-    label: item.noteTitle,
+    label: item.kind === 'journal' ? formatJournalHeading(item.journalDate) : item.noteTitle,
   }))
 
   return (

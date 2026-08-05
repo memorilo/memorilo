@@ -2,6 +2,7 @@ import inject from '@stylexjs/stylex/lib/stylex-inject'
 
 const editorContentRules = [
   '[data-editor-content].ProseMirror:focus { outline: none; }',
+  '[data-editor-content].ProseMirror:not(:focus) .prosekit-placeholder::before { content: none; }',
   '[data-editor-content].ProseMirror :is(h1, h2, h3, h4, h5, h6) { letter-spacing: 0; }',
   '[data-editor-content].ProseMirror h1 { margin-top: 1em; margin-bottom: 0.4em; font-size: 30px; line-height: 1.2; }',
   '[data-editor-content].ProseMirror h2 { margin-top: 1.15em; margin-bottom: 0.35em; font-size: 23px; line-height: 1.3; }',

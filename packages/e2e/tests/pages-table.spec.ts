@@ -8,7 +8,7 @@ import {
   removePagesTestEnvironment,
 } from './pages-test-helpers'
 
-async function openPages(window: Page, expectedCount = '3 notes'): Promise<void> {
+async function openPages(window: Page, expectedCount = '4 notes'): Promise<void> {
   await window.getByRole('button', { name: 'Hide Sidebar' }).waitFor()
   await window.getByRole('link', { name: 'Pages' }).click()
   await expect(window.getByText(expectedCount, { exact: true })).toBeVisible()
@@ -108,7 +108,7 @@ test('rejects a duplicate Note title through table rename', async () => {
   try {
     application = await launchPagesTestApplication(environment)
     let window = await application.firstWindow()
-    await openPages(window, '2 notes')
+    await openPages(window, '3 notes')
     await window.getByRole('button', { name: 'Rename Note: Alpha Note' }).click()
 
     const titleInput = window.getByRole('textbox', { name: 'Title for Alpha Note' })
@@ -126,7 +126,7 @@ test('rejects a duplicate Note title through table rename', async () => {
 
     application = await launchPagesTestApplication(environment)
     window = await application.firstWindow()
-    await openPages(window, '2 notes')
+    await openPages(window, '3 notes')
     await expect(window.getByRole('button', { name: 'Rename Note: Alpha Note' })).toBeVisible()
     await expect(window.getByRole('button', { name: 'Rename Note: Beta Note' })).toHaveCount(1)
   }

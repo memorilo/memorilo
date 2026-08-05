@@ -3,6 +3,7 @@ export type {
   ConfigurationField,
   ConfigurationSection,
   NumberConfigurationField,
+  SegmentedConfigurationField,
   SelectConfigurationField,
   TextConfigurationField,
   ToggleConfigurationField,

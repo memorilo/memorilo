@@ -47,7 +47,9 @@ export { EditorMode } from './common/editor-mode'
 export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
-export type { EditorFocusTarget, EditorProps } from './editor'
+export type { EditorFocusTarget, EditorLayout, EditorProps } from './editor'
+export { JournalEditor } from './journal-editor'
+export type { JournalEditorProps } from './journal-editor'
 export type {
   CreateEditorNoteOptions,
   CreateFolderInput,
@@ -68,8 +70,11 @@ export type {
   TopicValidationInput,
 } from './note/editor-note'
 export { createEditorNote } from './note/editor-note'
+export type { ResolveJournalTopicOptions } from './note/journal-note'
+export { resolveJournalTopic } from './note/journal-note'
 export type { TopicBlockProjection } from './note/topic-projection'
 export { projectTopicBlocks } from './note/topic-projection'
+export { hasTopicUserContent } from './note/topic-user-content'
 export { useEditorTopicMode } from './note/use-editor-topic-mode'
 export type {
   LoroTopic,

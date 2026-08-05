@@ -20,6 +20,7 @@ import { normalizeOutlineDocument } from '../common/outline-document'
 import { topicProseMirrorSchema } from '../schema/topic-prosemirror-schema'
 import { validateLoroTopic } from '../schema/topic-schema'
 import { projectTopicBlocks } from './topic-projection'
+import { hasTopicUserContent } from './topic-user-content'
 
 const NOTE_META_KEY = 'noteMeta'
 const NOTE_ENTRIES_KEY = 'entries'
@@ -202,6 +203,8 @@ export interface EditorNote {
   getTitle: () => string
   /** Returns the current Loro version vector in a serializable form. */
   getVersion: () => readonly EditorNoteVersion[]
+  /** Reports whether this aggregate contains semantic content beyond its initial unnamed root Topic. */
+  hasUserContent: () => boolean
   /** Imports an idempotent Loro update and describes which projections became dirty. */
   importUpdates: (updates: Uint8Array) => EditorNoteMutation
   /** Reports whether the Note is currently checked out at a historical version. */
@@ -778,6 +781,18 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       )
     },
     getVersion: () => doc.frontiers().map(({ counter, peer }) => ({ counter, peer })),
+    hasUserContent: () => {
+      const entries = projectEditorNote(runtime, false).entries
+      if (entries.length !== 1)
+        return true
+      const [entry] = entries
+      if (!entry || entry.kind !== 'topic' || entry.parentId !== null)
+        return true
+
+      const validation = getTopicValidationInput(entry.id)
+      const topic = EffectRuntime.runSync(validateLoroTopic(validation))
+      return topic.entry.title.length > 0 || hasTopicUserContent(validation.document)
+    },
     importUpdates: (updates) => {
       validateBinary(updates, 'Note updates')
       const roots = new Set<string>()

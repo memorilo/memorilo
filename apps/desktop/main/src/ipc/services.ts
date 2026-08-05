@@ -10,6 +10,7 @@ import { createServices } from 'electron-ipc-decorator'
 import { AppService } from './app-service'
 import { createAssetService } from './asset-service'
 import { createConfigurationService } from './configuration-service'
+import { createJournalService } from './journal-service'
 import { createNoteService } from './note-service'
 import { createShelfService } from './shelf-service'
 import { WindowService } from './window-service'
@@ -26,9 +27,18 @@ export function createDesktopServices(
 ) {
   const AssetService = createAssetService(assetDirectory, storage, configuration, serializeAssetOperation)
   const ConfigurationService = createConfigurationService(configuration)
+  const JournalService = createJournalService(notes)
   const NoteService = createNoteService(notes)
   const ShelfService = createShelfService(shelfStorage, shelfImageCache, shelfReadingFiles)
-  return createServices([AppService, AssetService, ConfigurationService, NoteService, ShelfService, WindowService] as const)
+  return createServices([
+    AppService,
+    AssetService,
+    ConfigurationService,
+    JournalService,
+    NoteService,
+    ShelfService,
+    WindowService,
+  ] as const)
 }
 
 export type IpcServices = MergeIpcService<ReturnType<typeof createDesktopServices>>
