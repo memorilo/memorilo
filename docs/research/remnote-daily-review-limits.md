@@ -180,19 +180,17 @@ Document Priority 明确影响 Global Queue 的先后顺序；例如 Currently S
 
 因此，“保存设置就会生成新队列”不是可从 RemNote 一手资料确认的事实。
 
-## 8. 对 Memorilo 实现的直接建议
+## 8. Memorilo 当前实现决策
 
-以下是基于证据边界做出的 **Memorilo 产品建议**，不是 RemNote 内部实现声明：
+以下是项目在上述证据边界内采用的明确合同，不是 RemNote 内部实现声明：
 
-1. 分开建模 `daily new-card admission cap`、`daily completion goal` 与 `due review eligibility`。若目标是学习当前 RemNote，不应把 Daily Goal 实现成 due review 的硬上限。
-2. 让顺序设置影响“下一次选卡”，无需持久化一份完整队列。保存 revision 后使当前 session 的 next-card selector 失效并重新查询，即可保证新卡顺序和复习顺序对下一张立即生效；已经展示的当前卡保持稳定。
-3. 如果要实现用户原先提出的“每日复习硬上限”，必须明确标为 Memorilo 自己的产品选择，因为当前 RemNote 证据只支持 soft Daily Goal。
-4. 在实现每日上限前，应显式决定以下四个未被 RemNote 公开的契约：
-   - 额度是账户全局、每个 Optimizer、每个 Note，还是每个队列 scope；
-   - 消耗单位是 distinct Review Target、Card、source definition 还是每条成功 Rating；
-   - List/Set item、Partial、双向 Card 和 Cloze 如何计数；
-   - 当天调高/调低上限如何处理已消耗额度与已经展示的当前卡。
-5. 若采用最容易解释和跨 Global/Note/Topic 队列保持一致的规则，可以把额度记在 `profile + studyDay + targetKind` 上，所有 scope 共享已消耗额度，文档队列只是过滤候选集。这个规则与现有 Memorilo 的 Review Target 模型兼容，但它是 Memorilo 的设计，不能声称是 RemNote 已公开行为。
+1. `daily new-card admission cap`、`daily completion goal` 与 `due review eligibility` 分开建模。Daily Goal 是软目标，不截断 due review queue。
+2. `New cards per day` 在所有 Global/Note/Topic scopes 间共享，按 distinct Card 计数；List/Set 的 main 与 item Targets 共用一次 Card introduction。`0` 表示当天不引入新 Card。
+3. Card 首次实际写入 Rating 时消耗 new-card allowance。当日调低设置不撤销已经引入的 Card，调高后下一次选卡立即获得剩余额度；Undo 掉 Card 的最后一条有效 Rating 会返还 introduction，Reset 不返还。
+4. Daily Goal 按 Study Day 内 whole Target 至少出现一次非 Again Rating 的 distinct Card 计数。同一卡的短期重复和 item Ratings 不重复增加，单独完成 Partial Review 也不增加整卡进度。
+5. 队列不持久化完整 CardID snapshot。保存新卡顺序、interday 顺序或 review 顺序后，已经展示的当前 Card 保持稳定，下一次 selector 立即读取最新设置并重新查询。
+
+当前没有单独的 due-review 硬上限；“Set a daily limit”是 Daily Goal 模式，而不是达到数值后禁止继续复习。完整合同与测试边界见 [FSRS Learning System Design](../fsrs-learning-system.md)。
 
 ## 资料清单
 

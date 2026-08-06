@@ -1,6 +1,8 @@
 # Anki 复习数据同步机制调研
 
-调研日期：2026-08-01
+调研日期：2026-08-01；实现状态更新：2026-08-06
+
+Memorilo 当前已实现本地 Review Events、canonical replay、device sequence、sync outbox、server-sequence acknowledgement 和 purge tombstones，但尚未实现远端 transport、入站 merge、时钟握手、full-sync recovery 或多设备 prune watermark。本文件中的远端流程仍是已采用的协议设计，不是当前可用功能。
 
 ## 范围与来源
 
@@ -38,7 +40,7 @@ Anki 为同步对象保存 USN。客户端本地新变更记为 `-1`；服务端
 
 Anki 的 chunk 同时传输 Cards、Notes 和 revlog，默认每批最多 250 个对象。上传成功后，客户端把这些对象的 `-1` USN 改成此次服务端 USN。[`collection/chunks.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/chunks.rs#L90-L170) [`storage/sync.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/storage/sync.rs#L48-L61)
 
-### 对 Memorilo 的建议
+### Memorilo 目标协议（远端未实现）
 
 学习同步采用同类的 server cursor 模型：
 
@@ -82,34 +84,34 @@ Memorilo 已确定 Optimizer 参数变化后要从历史重新生成 Learning St
 - 两个竞争分支，其中只有较新的分支影响调度；还是
 - 两条都参与优化训练，但只有 winner 进入单 Card 的 scheduling lineage。
 
-这是 Anki 参考无法替 Memorilo 回答的领域问题。为了不隐藏冲突，Review Event 至少应保存 `eventId`、`deviceId`、`answeredAt`、`baseStateRevision` 和 `resultStateRevision`。这样同步后能识别“同一 base 的两个回答”，而不是误认为普通连续复习。
+这是 Anki 参考无法替 Memorilo 回答的领域问题。Memorilo 当前 Review Event 保存 `eventId`、`deviceId/deviceSequence`、`occurredAt`、`baseEventId` 和 `resultStateJson`，能够表达“同一 base 的两个回答”，而不是误认为普通连续复习。
 
-建议采用最接近 Anki 的规则：**两条 Event 永久保留并都可参与统计/优化；当前 Learning State 采用确定性较新的 Event 结果；Card 历史重放只沿 canonical parent lineage，竞争分支不作为下一次调度的前置复习。** 确定性比较键应为 `(answeredAt, eventId)`，不能只比较秒级时间。
+Memorilo 已采用最接近 Anki 的规则：**两条 Event 永久保留并都可参与统计/优化；当前 Learning State 采用确定性较新的 Event 结果；Card 历史重放只沿 canonical parent lineage，竞争分支不作为下一次调度的前置复习。** 确定性比较键为 `(occurredAt, eventId)`，不只比较秒级时间。
 
 ## 4. Review Event、Learning State 与幂等 ID
 
 Anki revlog 的主键通常是回答发生时的毫秒时间戳；本地插入若发生 ID 冲突，会生成一个新 ID，同步合并则只接受唯一 ID。[`scheduler/answering/revlog.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/scheduler/answering/revlog.rs#L31-L53) [`storage/revlog/mod.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/storage/revlog/mod.rs#L63-L94)
 
-Memorilo 不应把 wall-clock timestamp 同时当唯一 ID 和冲突顺序。建议：
+Memorilo 当前本地事件模型为：
 
-- `eventId`: UUIDv7/ULID 等跨设备唯一 ID，用于幂等和稳定引用；
-- `answeredAt`: 实际回答时间，用于 FSRS elapsed time；
+- `eventId`: UUIDv7，用于幂等和稳定引用；
+- `occurredAt`: 实际回答时间，用于 FSRS elapsed time；
 - `deviceId + deviceSequence`: 设备内因果顺序和诊断；
-- `serverRevision`: 服务端确认后分配，只用于增量同步水位，不改写回答时间；
-- Learning State 是可重建投影，不是唯一事实来源，但应同步其 winning revision 以快速收敛并检测重建差异。
+- `serverSequence`: 当前为预留字段；本地 acknowledgement 只推进 `learning_sync_state.last_server_sequence`，远端事件确认映射尚未实现；
+- Learning State 是以 `winningEventId` 指向 canonical lineage leaf 的可重建投影，不是唯一事实来源。
 
-服务端必须对 `eventId` 建唯一约束。重试同一 Rating 只能返回已存在结果，不能产生第二条复习记录。
+当前本地数据库已经对 `eventId` 建唯一约束，重复提交完全相同的 Rating 会返回既有结果；远端服务实现后也必须保持同一幂等合同。
 
 ## 5. Optimizer 与 assignment 冲突
 
 Anki 的 deck config 与 Memorilo 的 FSRS Optimizer 最接近：同一个配置对象可被多个 Deck 使用，作为独立同步对象传输；合并时相同 ID 比较 `mtime`，较新的整个配置对象获胜。[`collection/changes.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/changes.rs#L181-L200) [`collection/changes.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/changes.rs#L291-L305)
 
-Memorilo 可采用对象级 last-write-wins，但应让 tie-breaker 与设备时钟无关：
+Memorilo 本地已实现不可变 Optimizer revisions、Note assignment 和 outbox；远端对象级 last-write-wins 尚未实现。目标协议应让 tie-breaker 与设备时钟无关：
 
-- Optimizer 设置作为一个有 `optimizerId` 和 `revision` 的整体对象同步；参数、目标记忆率、steps 和 queue policy 一次原子提交；
+- Optimizer 设置作为一个有 `optimizerId` 和 revision 的整体对象同步；参数、目标记忆率、steps、最大间隔和 fuzz 一次原子提交。全局 Queue Policy 属于 Flashcards 配置，不进入 Optimizer revision；
 - Note assignment 作为独立的个人学习域记录同步，而不是写入共享 Note 内容；
 - 同一 Optimizer 的并发修改由较大的服务端 revision 获胜；客户端提交携带 base revision，发现并发覆盖时可提示，但同步必须确定性收敛；
-- archive 是 tombstone 状态，不是物理删除；archive 与并发 assignment 合并后，任何指向 archived Optimizer 的 assignment 都自动修复到 Global FSRS Optimizer，并按已确定规则重建调度；
+- archive 是持久状态转换，不是物理删除；物理维护时才写 purge tombstone。archive 与并发 assignment 合并后，任何指向 archived Optimizer 的 assignment 都必须修复到 Global FSRS Optimizer，并按已确定规则重建调度；
 - Global FSRS Optimizer 使用固定 ID，永远不可 archive；“恢复默认”是一次普通的可同步设置 revision，不是删除再创建。
 
 纯用本地 `updatedAt` 比较虽然更接近当前 Anki 源码，但会把时钟偏差直接变成配置丢失，因此不建议照搬。
@@ -118,12 +120,12 @@ Memorilo 可采用对象级 last-write-wins，但应让 tie-breaker 与设备时
 
 Anki 对 Card、Note 和 Deck 的删除写入 `graves`。同步先交换 graves，再删除对应本地对象并保存 grave，避免另一设备的旧对象复活。[`collection/start.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/start.rs#L18-L73) [`collection/graves.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/graves.rs#L16-L61)
 
-Memorilo 的语义不同：内容消失时 Card 先变成 Inactive Card，仍保留历史、Learning State 并参与 Optimizer 训练。因此建议分两层：
+Memorilo 的语义不同：内容消失时 Card 先变成 Inactive Card，仍保留历史、Learning State 并参与 Optimizer 训练。当前本地实现分为两层：
 
-1. `inactive` 是 Card 投影上的可同步状态，带 revision；同一 CardID 再次从内容投影出现时恢复 active，不重置进度。
-2. “维护数据库”才产生永久删除 tombstone，删除 Card、Review Target、Review Event、Learning State 和相关 projection。tombstone 必须先同步到服务端并覆盖所有旧 revision，之后才允许服务端按明确的设备保留期/全设备水位做垃圾回收。
+1. `inactive` 是 Card projection 上的持久状态，本地变更写入 sync outbox；同一 CardID 再次从内容投影出现时恢复 active，不重置进度。
+2. `maintainDatabase` 才产生 scoped purge tombstone，并删除 inactive Card/Target、关联 Review Events/Learning States 与 archived Optimizer。本地维护和 VACUUM 已实现；先同步 tombstone、等待全设备水位再做账户级垃圾回收仍是远端协议要求。
 
-仅在本机 `VACUUM` 后忘记 tombstone 会让离线旧设备重新上传已永久清理的数据。实现维护功能时，必须测试“设备 A 清理、设备 B 长期离线后重连”的场景。
+仅在本机 `VACUUM` 后忘记 tombstone 会让离线旧设备重新上传已永久清理的数据。当前 integration tests 覆盖本地 purge、rollback、outbox 与 reopen；“设备 A 清理、设备 B 长期离线后重连”必须等远端同步实现后测试。
 
 Archived FSRS Optimizer 同理：archive 先同步；维护操作物理删除时仍需保留同步 tombstone，直到服务端确认不会被旧设备复活。
 
@@ -131,13 +133,13 @@ Archived FSRS Optimizer 同理：archive 先同步；维护操作物理删除时
 
 Anki Undo 会直接删除刚添加的 revlog，并恢复之前的 Card；源码明确注释“Anki can not sync revlog deletions”。同时，常规同步开始前会丢弃 Undo 和 study queues。[`revlog/undo.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/revlog/undo.rs#L7-L42) [`storage/revlog/mod.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/storage/revlog/mod.rs#L106-L112) [`collection/normal.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/normal.rs#L82-L90)
 
-Memorilo 已要求历史可审计且撤销需要同步，所以不能照搬删除语义：
+Memorilo 已要求历史可审计且撤销需要同步，所以没有照搬删除语义：
 
-- Undo 追加一个引用 `eventId` 的 `ReviewReverted` mutation；原 Review Event 不修改、不删除；
+- Undo 追加一个通过 `undoesEventId` 引用 Rating 的 `undo` Review Event；原 Rating Event 不修改、不删除；
 - 重复 Undo、跨设备收到同一 revert 必须幂等；
 - 如果被撤销 Event 已有后续 canonical Event，需从受影响点重建 Learning State；
-- Reset Scheduling 也应是追加事件，形成新的 scheduling epoch；此前历史继续保留，但从后续 scheduling 与 optimization 样本中排除；
-- Undo Reset 可通过追加 revert 指向 Reset Event，不应删除 reset marker。
+- Reset Scheduling 也已实现为追加 Event，形成新的 scheduling epoch；此前历史继续保留，但从后续 scheduling 与 optimization 样本中排除；
+- 当前 `undoLastReview` 只撤销 canonical lineage 的最新 Rating，不支持撤销 Reset。
 
 “撤销最新评分”中的“最新”必须以当前 target 的 canonical、未撤销 Event 为准，而不是设备本地最后插入的任意行。
 
@@ -160,10 +162,10 @@ Full upload 读取并发送完整 collection SQLite 文件，服务端校验后�
 
 Anki 在 meta 握手时取客户端和服务端当前时间，偏差绝对值超过 300 秒就返回 `ClockIncorrect` 并中止同步。[`collection/status.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/status.rs#L42-L61)
 
-Memorilo 的 `answeredAt` 直接影响 FSRS elapsed time，不能完全改用 server receipt time；但配置冲突和增量水位也不应依赖 wall clock。建议：
+Memorilo 的 `occurredAt` 直接影响 FSRS elapsed time，不能完全改用 server receipt time；但配置冲突和增量水位也不应依赖 wall clock。目标协议应：
 
 - 同步时检测偏差；超过 5 分钟阻止产生依赖错误时间的合并结果并提示校准系统时间；
-- 保留客户端 `answeredAt` 和服务端 `receivedAt`，便于诊断；
+- 保留客户端 `occurredAt` 和服务端 `receivedAt`，便于诊断；
 - serverRevision 决定同步顺序，`eventId` 决定平局，wall clock 只表达实际复习时间；
 - 对明显倒退的同设备时间、未来时间和负 elapsed interval 做校验，不静默改写历史。
 
@@ -173,22 +175,20 @@ Anki 官方手册明确：collection 的单向 full sync 不影响 media，media
 
 源码中 MediaSyncer 有独立的 media database、`last_sync_usn`、pending uploads、分批下载/上传与 finalize 流程。[`media/syncer.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/media/syncer.rs#L40-L140)
 
-Memorilo Learning sync 不应传 Note 正文或媒体 blob。Review Event 只保存 `noteId/topicId/sourceBlockId/cardId/reviewTargetId` 等稳定引用；只读 Editor 展示时再由内容同步层和 Note LRU pool 解析当前内容。这样 learning full sync 不会覆盖协作内容，内容/媒体同步失败也不会破坏复习历史。
+Memorilo Learning sync 不应传 Note 正文或媒体 blob。Review Event 保存 `noteId/cardId/targetId` 等稳定引用，Topic 和 Source Block 通过 Card projection 解析；只读 Editor 展示时再由内容同步层和 Note LRU pool 加载当前内容。这样未来的 learning full sync 不会覆盖协作内容，内容/媒体同步失败也不会破坏复习历史。
 
-## 11. 推荐的同步不变量
+## 11. 当前不变量与远端待办
 
-实现前应把以下规则写成数据库约束与同步测试契约：
+当前本地实现已经保证：
 
 1. 同一 `eventId` 无论重试多少次，只存在一条 Review Event。
-2. 两个设备离线评分同一 Review Target 后，两条 Event 都保留，所有设备得到同一个 canonical winner。
-3. Undo/Reset 通过追加 mutation 收敛，不依赖删除 revlog。
-4. Inactive Card 不进队列、不渲染，但其 history 在维护前继续同步和参与 Optimizer 训练。
-5. 永久维护删除后，离线旧设备不能复活 Card、Event 或 Archived Optimizer。
-6. Optimizer 与 Note assignment 的并发修改在所有设备确定性收敛；assignment 不得指向 archived/missing Optimizer。
-7. Global FSRS Optimizer 永远存在、固定 ID、可编辑、不可 archive。
-8. sync cursor 只在完整事务成功后前移；中断和重试不能丢 Event 或重复评分。
-9. full learning sync 不覆盖协作 Note 内容；media 同步与 learning/collection 同步互不改变彼此的冲突决议。
-10. Learning State 可从 canonical、未撤销、当前 scheduling epoch 的 Review Events 重建；缓存投影与重建结果不一致时以事件重建为准并报告完整性问题。
+2. canonical replay 能保留竞争 Events，并按 `(occurredAt, eventId)` 选择确定性 lineage。
+3. Undo/Reset 通过追加 Event 收敛，不删除原 Rating。
+4. Inactive Card 不进队列、不渲染，但其 history 在维护前继续参与 Optimizer 训练。
+5. Global FSRS Optimizer 永远存在、固定 ID、可编辑、不可 archive。
+6. Learning State 可从 canonical、未撤销、当前 scheduling epoch 的 Review Events 重建。
+
+远端实现仍必须补齐并验证：多设备保留相同 Events 和 canonical winner、Optimizer/assignment 冲突收敛、离线设备不复活 purge 数据、事务成功后才推进 sync cursor，以及 full learning sync 不覆盖协作 Note 或媒体。
 
 ## 12. Memorilo 已采用的并发分支规则
 

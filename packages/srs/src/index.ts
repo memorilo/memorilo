@@ -6,6 +6,16 @@ export {
   validateOptimizerConfiguration,
 } from './fsrs'
 export {
+  aggregateMultiLineRating,
+  isStrugglingMultiLineItem,
+  selectMultiLinePresentation,
+} from './multi-line'
+export type {
+  MultiLineItemSchedule,
+  MultiLinePresentation,
+  SelectMultiLinePresentationInput,
+} from './multi-line'
+export {
   fingerprintRatingHistories,
   optimizeFsrsParameters,
 } from './optimizer'

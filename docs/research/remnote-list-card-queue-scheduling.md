@@ -1,6 +1,8 @@
 # RemNote List Card 与复习队列调度调研
 
-调研日期：2026-08-01
+调研日期：2026-08-01；实现状态更新：2026-08-06
+
+本文保留只依赖 RemNote 官方文档和公开接口时能够得到的证据边界。后续对 RemNote 1.27.19 生产 bundle 的补充分析与 Memorilo 当前 main/item 两层实现见 [RemNote List/Set 两层复习调度](./remnote-list-set-review-scheduling.md)；当前实现合同以 [FSRS Learning System Design](../fsrs-learning-system.md) 为准。
 
 ## 范围与证据等级
 
@@ -23,7 +25,7 @@
 1. RemNote 的 List Card 确实要求**每揭示一个列表项就为该项评分**；Set Card 则先标记忘记的具体项目，再为其余项目统一评分。困难项之后会成为只隐藏一个项目的 Partial List/Set Card；掌握困难项后，完整卡片才恢复出现。[Multi-Line (List & Set) Flashcards](https://help.remnote.com/en/articles/9216774-multi-line-list-set-flashcards)（访问于 2026-08-01）
 2. 公开资料能证明 RemNote 保存项目级表现并能单独调度 Partial Card，但**不能证明每个列表项从创建起就拥有独立 CardID、完整 FSRS 状态和独立 due date**。Partial Card 的生成阈值、身份派生和它与完整 List Card 的状态合并规则均未公开。
 3. RemNote 的复习队列不是简单的 `ORDER BY due`：还有文档优先级、学习/重学习步骤、队尾提前学习、stale card 限流、new-card 日上限以及显式的关联卡片聚类。公开资料没有给出这些规则最终合成一个队列时的完整比较器。[Setting Priorities and Disabling Flashcards](https://help.remnote.com/en/articles/7950982-setting-priorities-and-disabling-flashcards)；[The Anki SM-2 Spaced Repetition Algorithm](https://help.remnote.com/en/articles/6026144-the-anki-sm-2-spaced-repetition-algorithm)；[Can I pause the flashcards scheduler?](https://help.remnote.com/en/articles/7967414-can-i-pause-the-flashcards-scheduler)（均访问于 2026-08-01）
-4. 没有找到 RemNote 当前帮助中心对“撤销上一次评分”的正式说明。Plugin SDK 只明确提供“返回上一张卡”和 lookback 状态，没有定义该操作会删除、替换还是保留刚写入的复习记录。因此，Memorilo 若采用 Anki 式 Undo，应把它定义为自己的事务与历史契约，不能声称照搬了 RemNote。[QueueNamespace](https://unpkg.com/@remnote/plugin-sdk@0.0.46/dist/name_spaces/queue.d.ts)（访问于 2026-08-01）
+4. 没有找到 RemNote 当前帮助中心对“撤销上一次评分”的正式说明。Plugin SDK 只明确提供“返回上一张卡”和 lookback 状态，没有定义该操作会删除、替换还是保留刚写入的复习记录。Memorilo 后续采用了追加 Undo Event 并重放状态的自有合同，不能声称照搬了 RemNote。[QueueNamespace](https://unpkg.com/@remnote/plugin-sdk@0.0.46/dist/name_spaces/queue.d.ts)（访问于 2026-08-01）
 
 ## 1. List / Set Card 的评分与调度
 
@@ -149,7 +151,7 @@ RemNote 的 Card Cluster 是作者显式建立的关联组。当组内某张卡�
 - List 的 Partial Cards 是否被视为普通 sibling；
 - 到期时间、priority、stale、learning steps 与 clustering 的最终排序比较器。
 
-因此，Memorilo 的“同 Note 卡处理”仍需独立做产品决策。不能把 RemNote 的关联卡聚类误写成 Anki 式 sibling burying。
+因此 RemNote 资料不能替 Memorilo 决定“同 Note 卡处理”，也不能把关联卡聚类误写成 Anki 式 sibling burying。Memorilo 后续明确采用 Anki 分类的三个开关，并把同一 Note 内相同 `sourceBlockId` 定义为 sibling group；这是项目自己的队列政策。
 
 ## 3. 返回上一张卡与撤销评分
 
@@ -173,14 +175,14 @@ Reset Scheduling 的官方行为也不是删除历史：系统追加一条 `Rese
 
 这些证据支持“复习历史优先采用可审计的事件流”，但不能回答评分 Undo 应使用删除、反向事件还是修改原事件。RemNote 当前公开资料对这一点仍是未知。
 
-## 4. 对 Memorilo 可可靠借鉴的行为
+## 4. 对 Memorilo 可可靠借鉴的行为与落地状态
 
 以下行为已有足够一手证据，可以作为产品参考：
 
-1. List review session 逐项产生评分，不能把整张 ListCard 压成一个总 rating。
+1. List review session 必须保留逐项评分，不能只把整张 ListCard 压成一个总 Rating；Memorilo 同时从逐项结果聚合 main Rating，用于完整卡长期调度。
 2. 完整列表与困难单项需要两种复习形态；困难项补救完成前可暂缓完整列表。
 3. item-level rating target、嵌套正式 Card 与完整 List Card 是三个可重叠但不能合并的概念。
-4. FSRS 的长期 due 之外还需要 learning/relearning steps、Skip deferral、stale withholding、new-card introduction、priority 和 queue ordering policy。
+4. FSRS 的长期 due 之外还需要独立队列政策。Memorilo 当前已实现 learning/relearning steps、new-card introduction、顺序政策和 Sibling Bury；Skip deferral、stale withholding 与 Document Priority 尚未实现。
 5. 关联卡片的“同时提供上下文”“软聚类排序”“独立 due”可以并存，Card Cluster 不需要共享一个 scheduler state。
 6. Reset 和普通 review history 应保持可审计；当前 materialized scheduling state 不能成为唯一事实来源。
 
@@ -193,21 +195,22 @@ Reset Scheduling 的官方行为也不是删除历史：系统追加一条 `Rese
 5. 当前 RemNote FSRS 是否使用 interval fuzz，以及具体随机分布。
 6. 返回上一张卡是否会撤销或改写上一条评分。
 
-## 5. 对当前设计问题的直接含义
+## 5. Memorilo 当前实现决策
 
-若 Memorilo 要实现“ListCard 每项分别评分”，最稳妥的领域边界不是假设 RemNote 的内部表结构，而是明确自己的契约：
+Memorilo 没有假设 RemNote 的内部表结构，而是明确采用以下领域边界：
 
 ```text
-ListCard Definition
-  -> Full List Review Unit
-  -> stable ListItemID[]
-       -> item rating history
-       -> item memory state / Partial Review Unit eligibility
+List/Set Card Definition
+  -> whole main Target
+       -> main rating history / FSRS state
+  -> stable item Targets by itemBlockId
+       -> item rating history / FSRS state
+       -> derived Partial eligibility
 ```
 
-完整 List review 负责顺序、揭示进度和“何时回到完整列表”的 integration policy；每个稳定 item 负责评分历史与困难项调度。是否让每个 item 从第一次复习起就拥有完整 FSRS state，还是只在产生 Partial Card 后初始化，RemNote 公开资料无法替 Memorilo 决定。
+Forward List/Set 从首次投影起就建立一个 whole main Target 和全部稳定 item Targets。完整 List 逐项评分并聚合 main Rating；完整 Set 区分遗忘项后使用整体 Rating 更新 main；所有 item events 与 main event 在一个事务中提交。Partial Review 只更新对应 item，最近两次 canonical Ratings 中含 Again 或 Hard 的 item 保持困难状态。
 
-同样，Anki 式 Undo 应在 Memorilo 中单独定义成原子操作，例如“撤销当前 session 中最后一个已提交的 review event，并从剩余历史重算 materialized state 与队列”。这是建议的产品契约，不是本文声称的 RemNote 行为。
+Undo 已定义为追加 Undo Event，并从剩余 canonical history 重算 materialized state、Partial 缓存、Sibling Bury 与每日计数。这些都是 Memorilo 的产品合同，不是本文声称的 RemNote 行为。
 
 ## 资料清单
 

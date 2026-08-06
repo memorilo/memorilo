@@ -5,6 +5,7 @@ import { IpcMethod, IpcService } from 'electron-ipc-decorator'
 export function createLearningService(
   learning: LearningStorage,
   reviews: LearningReviewApplication,
+  now: () => number = Date.now,
 ) {
   class LearningService extends IpcService {
     static override readonly groupName = 'learning'
@@ -25,8 +26,8 @@ export function createLearningService(
     }
 
     @IpcMethod()
-    getDailyProgress(now?: number) {
-      return learning.getDailyProgress(now)
+    getDailyProgress(requestedAt?: number) {
+      return learning.getDailyProgress(requestedAt ?? now())
     }
 
     @IpcMethod()
@@ -81,7 +82,7 @@ export function createLearningService(
 
     @IpcMethod()
     listQueue(input?: Parameters<LearningStorage['listQueue']>[0]) {
-      return learning.listQueue(input)
+      return learning.listQueue({ ...input, now: input?.now ?? now() })
     }
 
     @IpcMethod()
@@ -101,7 +102,15 @@ export function createLearningService(
 
     @IpcMethod()
     prepareReview(input: Parameters<LearningStorage['prepareReview']>[0]) {
-      return learning.prepareReview(input)
+      return learning.prepareReview({
+        ...input,
+        reviewedAt: input.reviewedAt ?? now(),
+      })
+    }
+
+    @IpcMethod()
+    rateMultiLineCard(input: Parameters<LearningStorage['rateMultiLineCard']>[0]) {
+      return learning.rateMultiLineCard(input)
     }
 
     @IpcMethod()

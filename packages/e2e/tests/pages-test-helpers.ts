@@ -23,6 +23,10 @@ export interface PagesTestEnvironment {
   userDataDirectory: string
 }
 
+export interface LaunchPagesTestApplicationOptions {
+  now?: number
+}
+
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const desktopDirectory = resolve(repositoryRoot, 'apps/desktop')
 const electronModule: unknown = createRequire(import.meta.url)('electron')
@@ -78,16 +82,25 @@ export async function createPagesTestEnvironment(
 
 export async function launchPagesTestApplication(
   environment: PagesTestEnvironment,
+  options: LaunchPagesTestApplicationOptions = {},
 ): Promise<ElectronApplication> {
+  const inheritedEnvironment = Object.entries(process.env)
+    .filter((entry): entry is [string, string] => entry[1] !== undefined)
+  const environmentVariables: Record<string, string> = {
+    ...Object.fromEntries(inheritedEnvironment),
+    MEMORILO_DATABASE_PATH: environment.databasePath,
+    MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
+    MEMORILO_E2E_HIDE_WINDOW: '1',
+  }
+  if (options.now === undefined)
+    delete environmentVariables.MEMORILO_E2E_NOW_MS
+  else
+    environmentVariables.MEMORILO_E2E_NOW_MS = String(options.now)
+
   return electron.launch({
     args: [desktopDirectory, `--user-data-dir=${environment.userDataDirectory}`],
     cwd: repositoryRoot,
-    env: {
-      ...process.env,
-      MEMORILO_DATABASE_PATH: environment.databasePath,
-      MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
-      MEMORILO_E2E_HIDE_WINDOW: '1',
-    },
+    env: environmentVariables,
     executablePath: electronExecutablePath,
   })
 }

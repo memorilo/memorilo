@@ -10,6 +10,7 @@ export type LearningReviewPresentation = 'full' | 'partial'
 
 export interface LearningReviewSearch {
   cardId?: string
+  listRatings?: string
   noteId?: string
   presentation?: LearningReviewPresentation
   scope: LearningReviewScope
@@ -41,18 +42,32 @@ function validateLearningReviewSearch(search: Record<string, unknown>): Learning
   const identityProvided = identityValues.filter(value => value !== undefined).length
   if (identityProvided !== 0 && identityProvided !== identityValues.length)
     throw new TypeError('A saved Review position requires complete Card identity')
-  if (identityProvided === 0)
+  if (identityProvided === 0) {
+    if (search.listRatings !== undefined)
+      throw new TypeError('Saved List Ratings require a complete Card identity')
     return scopeNoteId === undefined ? { scope } : { scope, scopeNoteId }
+  }
 
   const presentation = search.presentation
   if (presentation !== 'full' && presentation !== 'partial')
     throw new TypeError('Review presentation must be full or partial')
+  const listRatings = search.listRatings === undefined
+    ? undefined
+    : nonEmptyString(search.listRatings, 'Saved List Ratings')
+  if (listRatings !== undefined) {
+    if (presentation !== 'full')
+      throw new TypeError('Partial Cards cannot contain saved List Ratings')
+    const values = listRatings.split(',')
+    if (values.some(value => !['again', 'hard', 'good', 'easy'].includes(value)))
+      throw new TypeError('Saved List Ratings contain an unsupported Rating')
+  }
   const noteId = nonEmptyString(search.noteId, 'Review Card Note id')
   if (scopeNoteId !== undefined && noteId !== scopeNoteId)
     throw new TypeError('The saved Review Card is outside the selected Note scope')
 
   return {
     cardId: nonEmptyString(search.cardId, 'Review Card id'),
+    ...(listRatings === undefined ? {} : { listRatings }),
     noteId,
     presentation,
     scope,
