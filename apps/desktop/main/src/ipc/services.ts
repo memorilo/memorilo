@@ -16,11 +16,13 @@ export function createDesktopServices(
   notes: NoteApplicationService,
   learning: LearningStorage,
   configuration: ConfigurationStore<DesktopConfiguration>,
+  now: () => number = Date.now,
 ) {
   const ConfigurationService = createConfigurationService(configuration)
   const LearningService = createLearningService(
     learning,
-    createLearningReviewApplication(notes, learning),
+    createLearningReviewApplication(notes, learning, now),
+    now,
   )
   const NoteService = createNoteService(notes)
   return createServices([

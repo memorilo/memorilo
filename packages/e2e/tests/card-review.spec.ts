@@ -1,3 +1,4 @@
+import type { DesktopApi } from '@memorilo/desktop-preload'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
@@ -7,19 +8,29 @@ import {
   removePagesTestEnvironment,
 } from './pages-test-helpers'
 
+type CardTestEnvironment = Awaited<ReturnType<typeof createPagesTestEnvironment>>
+
+async function withCardWindow(
+  environment: CardTestEnvironment,
+  run: (window: Page) => Promise<void>,
+  now?: number,
+): Promise<void> {
+  const application = await launchPagesTestApplication(environment, { now })
+  try {
+    await run(await application.firstWindow())
+  }
+  finally {
+    await application.close()
+  }
+}
+
 async function withCardApplication(
   prefix: string,
   run: (window: Page) => Promise<void>,
 ): Promise<void> {
   const environment = await createPagesTestEnvironment(prefix, [])
   try {
-    const application = await launchPagesTestApplication(environment)
-    try {
-      await run(await application.firstWindow())
-    }
-    finally {
-      await application.close()
-    }
+    await withCardWindow(environment, run)
   }
   finally {
     await removePagesTestEnvironment(environment)
@@ -86,6 +97,139 @@ async function openPreview(source: Locator): Promise<Locator> {
   return preview
 }
 
+async function startNoteReview(window: Page, title: string): Promise<void> {
+  await window.getByRole('link', { exact: true, name: 'Learning' }).click()
+  const study = window.getByRole('link', { name: `Study ${title}` })
+  await expect(study).toBeVisible()
+  await study.click()
+}
+
+async function rateRevealedCard(window: Page, selectedRating: 'Again' | 'Easy' | 'Good' | 'Hard'): Promise<void> {
+  const ratingGroup = window.getByRole('group', { name: 'Rate this card' })
+  await expect(ratingGroup).toBeVisible()
+
+  for (const rating of ['Again', 'Hard', 'Good', 'Easy'] as const) {
+    const button = ratingGroup.getByRole('button', { name: new RegExp(`${rating}$`) })
+    await expect(button).toBeEnabled()
+    const interval = button.locator('span').first()
+    await expect(interval).not.toHaveText('...')
+    await expect(interval).toHaveText(/\d|</)
+  }
+
+  await ratingGroup.getByRole('button', { name: new RegExp(`${selectedRating}$`) }).click()
+  await expect(ratingGroup).toBeHidden()
+}
+
+async function revealAndRate(window: Page, selectedRating: 'Again' | 'Easy' | 'Good' | 'Hard'): Promise<void> {
+  await window.getByRole('button', { name: 'Show Answer' }).click()
+  await rateRevealedCard(window, selectedRating)
+}
+
+async function startGlobalReview(window: Page): Promise<void> {
+  await window.getByRole('link', { exact: true, name: 'Learning' }).click()
+  const study = window.getByRole('link', { name: 'Study all Notes' })
+  await expect(study).toBeVisible()
+  await study.click()
+}
+
+interface ObservedLearningState {
+  cardId: string
+  itemBlockId: string | null
+  state: Awaited<ReturnType<DesktopApi['learning']['getLearningState']>>
+  targetId: string
+}
+
+async function learningStates(window: Page, cardIds: readonly string[]): Promise<readonly ObservedLearningState[]> {
+  return window.evaluate(async (requestedCardIds) => {
+    const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
+    const byCard = await Promise.all(requestedCardIds.map(async (cardId) => {
+      const targets = await desktop.learning.listTargets(cardId)
+      return Promise.all(targets.map(async target => ({
+        cardId,
+        itemBlockId: target.itemBlockId,
+        state: await desktop.learning.getLearningState(target.targetId),
+        targetId: target.targetId,
+      })))
+    }))
+    return byCard.flat()
+  }, cardIds)
+}
+
+async function waitForLearningTargets(
+  window: Page,
+  expectedCounts: Readonly<Record<string, number>>,
+): Promise<void> {
+  await expect.poll(async () => {
+    try {
+      const states = await learningStates(window, Object.keys(expectedCounts))
+      return Object.fromEntries(Object.keys(expectedCounts).map(cardId => [
+        cardId,
+        states.filter(state => state.cardId === cardId).length,
+      ]))
+    }
+    catch {
+      return {}
+    }
+  }).toEqual(expectedCounts)
+}
+
+type VisibleRating = 'Again' | 'Easy' | 'Good' | 'Hard'
+
+interface StudyOutcome {
+  cardIds: readonly string[]
+  targetIds: readonly string[]
+}
+
+async function studyAvailableCards(
+  window: Page,
+  selectRating: (targetId: string, previousRatings: number) => VisibleRating,
+): Promise<StudyOutcome> {
+  const completed = window.getByRole('heading', { name: 'You\'re caught up' })
+  const ratingsByTarget = new Map<string, number>()
+  const cardIds = new Set<string>()
+  const targetIds = new Set<string>()
+
+  for (let iteration = 0; iteration < 50; iteration += 1) {
+    if (await completed.isVisible())
+      return { cardIds: [...cardIds], targetIds: [...targetIds] }
+
+    const session = window.locator('[data-active-review-target-id]')
+    await expect(session).toBeVisible()
+    const cardId = await session.getAttribute('data-active-review-card-id')
+    const targetId = await session.getAttribute('data-active-review-target-id')
+    if (!cardId || !targetId)
+      throw new Error('The active Review session is missing its Card or Review Target identity')
+    const material = window.locator(`[data-review-target-id="${targetId}"]`)
+    const surface = material.locator('[data-card-surface="review"]')
+    await expect(surface).toHaveAttribute('data-card-id', cardId)
+    await expect(surface).toBeVisible()
+
+    cardIds.add(cardId)
+    targetIds.add(targetId)
+    const previousRatings = ratingsByTarget.get(targetId) ?? 0
+    const rating = selectRating(targetId, previousRatings)
+    ratingsByTarget.set(targetId, previousRatings + 1)
+    await revealAndRate(window, rating)
+    await expect.poll(async () => {
+      if (await completed.isVisible())
+        return 'complete'
+      if (await window.getByRole('button', { name: 'Show Answer' }).isVisible())
+        return 'active'
+      return 'transitioning'
+    }).not.toBe('transitioning')
+  }
+
+  throw new Error('Review did not complete within 50 Ratings')
+}
+
+function nextStudyDay(now: number): number {
+  const boundary = new Date(now)
+  boundary.setHours(4, 1, 0, 0)
+  if (boundary.getTime() <= now)
+    boundary.setDate(boundary.getDate() + 1)
+  return boundary.getTime()
+}
+
 async function expectDelimiter(
   surface: Locator,
   direction: 'backward' | 'both' | 'forward',
@@ -145,6 +289,38 @@ async function convertToMultiLineCard(
   await source.getByRole('button', { name: 'Card options' }).click()
   await window.getByRole('button', { name: presentation }).click()
   return source
+}
+
+async function createTwoClozeCards(window: Page, editor: Locator): Promise<readonly [string, string]> {
+  await window.keyboard.type('Alpha Beta')
+  await editor.click()
+  await window.keyboard.press('Meta+ArrowDown')
+  await window.keyboard.down('Shift')
+  for (let index = 0; index < 'Beta'.length; index += 1)
+    await window.keyboard.press('ArrowLeft')
+  await window.keyboard.up('Shift')
+  await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Cloze' }).click()
+
+  await editor.click()
+  await window.keyboard.press('Meta+ArrowDown')
+  for (let index = 0; index < ' Beta'.length; index += 1)
+    await window.keyboard.press('ArrowLeft')
+  await window.keyboard.down('Shift')
+  for (let index = 0; index < 'Alpha'.length; index += 1)
+    await window.keyboard.press('ArrowLeft')
+  await window.keyboard.up('Shift')
+  await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Cloze' }).click()
+
+  const source = sourceBlock(editor, 'Alpha')
+  const clozes = source.locator('[data-cloze-card-id]')
+  await expect(clozes).toHaveCount(2)
+  const cardIds = await clozes.evaluateAll(elements => elements.map(element => (
+    element.getAttribute('data-cloze-card-id')
+  )))
+  const [firstCardId, secondCardId] = cardIds
+  if (!firstCardId || !secondCardId || firstCardId === secondCardId)
+    throw new Error('The multi-Cloze Source Block did not create two distinct sibling Cards')
+  return [firstCardId, secondCardId]
 }
 
 test('previews multi-line Basic Cards with forward, reverse, and bidirectional Editor delimiters', async () => {
@@ -320,4 +496,351 @@ test('keeps a multi-line Basic delimiter visible while moving from editing into 
     await expectEditorMount(surface, 'learning-review')
     await expectDelimiter(surface, 'forward', '→')
   })
+})
+
+test('persists FSRS Ratings, advances the Review Queue, and remains complete after relaunch', async () => {
+  const environment = await createPagesTestEnvironment('memorilo-review-rating-chain-', [])
+  const title = 'Persistent Rating coverage'
+  try {
+    await withCardWindow(environment, async (window) => {
+      const editor = await createNoteEditor(window, title)
+      await window.keyboard.type('First persistent prompt:-> First persistent answer')
+      await window.keyboard.press('Enter')
+      await window.keyboard.type('Second persistent prompt:-> Second persistent answer')
+      await expect(editor.locator('[data-card-delimiter]')).toHaveCount(2)
+
+      await startNoteReview(window, title)
+      const surface = window.locator('[data-card-surface="review"]')
+      await expect(surface).toHaveAttribute('data-card-side', 'question')
+      expect(await visibleText(surface)).toContain('First persistent prompt')
+      expect(await visibleText(surface)).not.toContain('First persistent answer')
+
+      await revealAndRate(window, 'Easy')
+      await expect(surface).toHaveAttribute('data-card-side', 'question')
+      await expect.poll(() => visibleText(surface)).toContain('Second persistent prompt')
+      expect(await visibleText(surface)).not.toContain('First persistent prompt')
+      await expect(window.getByRole('progressbar', { name: 'Daily review progress' }))
+        .toHaveAttribute('aria-valuenow', '1')
+    })
+
+    await withCardWindow(environment, async (window) => {
+      await startNoteReview(window, title)
+      const surface = window.locator('[data-card-surface="review"]')
+      await expect(surface).toHaveAttribute('data-card-side', 'question')
+      expect(await visibleText(surface)).toContain('Second persistent prompt')
+      expect(await visibleText(surface)).not.toContain('First persistent prompt')
+      await expect(window.getByRole('progressbar', { name: 'Daily review progress' }))
+        .toHaveAttribute('aria-valuenow', '1')
+
+      await revealAndRate(window, 'Easy')
+      await expect(window.getByRole('heading', { name: 'You\'re caught up' })).toBeVisible()
+      await expect(window.getByText('There are no more cards available from this Note.')).toBeVisible()
+    })
+
+    await withCardWindow(environment, async (window) => {
+      await startNoteReview(window, title)
+      await expect(window.getByRole('heading', { name: 'You\'re caught up' })).toBeVisible()
+      await expect(window.locator('[data-card-surface="review"]')).toHaveCount(0)
+    })
+  }
+  finally {
+    await removePagesTestEnvironment(environment)
+  }
+})
+
+test('rates Reverse and both Bidirectional directions through FSRS with sibling bury and relaunch', async () => {
+  test.setTimeout(120_000)
+  const environment = await createPagesTestEnvironment('memorilo-direction-rating-chain-', [])
+  const initialReviewAt = Date.now() + 60_000
+  const title = 'Directional Rating coverage'
+  let reverseCardId = ''
+  let bidirectionalForwardCardId = ''
+  let bidirectionalBackwardCardId = ''
+
+  try {
+    await withCardWindow(environment, async (window) => {
+      const editor = await createNoteEditor(window, title)
+      await window.keyboard.type('Reverse prompt:-< Reverse answer')
+      await window.keyboard.press('Enter')
+      await window.keyboard.type('Bidirectional prompt:<> Bidirectional answer')
+      await expect(editor.locator('[data-card-delimiter]')).toHaveCount(2)
+
+      const reverseDelimiter = sourceBlock(editor, 'Reverse prompt').locator('[data-card-delimiter]')
+      reverseCardId = await reverseDelimiter.getAttribute('data-backward-card-id') ?? ''
+      const bidirectionalDelimiter = sourceBlock(editor, 'Bidirectional prompt').locator('[data-card-delimiter]')
+      bidirectionalForwardCardId = await bidirectionalDelimiter.getAttribute('data-forward-card-id') ?? ''
+      bidirectionalBackwardCardId = await bidirectionalDelimiter.getAttribute('data-backward-card-id') ?? ''
+      if (!reverseCardId || !bidirectionalForwardCardId || !bidirectionalBackwardCardId)
+        throw new Error('Directional Cards are missing stable Card IDs')
+
+      await startNoteReview(window, title)
+      const session = window.locator('[data-active-review-card-id]')
+      const surface = window.locator('[data-card-surface="review"]')
+
+      await expect(session).toHaveAttribute('data-active-review-card-id', reverseCardId)
+      await expect(surface).toHaveAttribute('data-card-side', 'question')
+      await expectDelimiter(surface, 'backward', '←')
+      await expect.poll(() => visibleText(surface)).toContain('Reverse answer')
+      expect(await visibleText(surface)).not.toContain('Reverse prompt')
+
+      await window.getByRole('button', { name: 'Show Answer' }).click()
+      await expect(surface).toHaveAttribute('data-card-side', 'answer')
+      await expect.poll(() => visibleText(surface)).toContain('Reverse prompt')
+      await expectDelimiter(surface, 'backward', '←')
+      await rateRevealedCard(window, 'Easy')
+
+      await expect(session).toHaveAttribute('data-active-review-card-id', bidirectionalForwardCardId)
+      await expect(surface).toHaveAttribute('data-card-side', 'question')
+      await expectDelimiter(surface, 'both', '↔')
+      await expect.poll(() => visibleText(surface)).toContain('Bidirectional prompt')
+      expect(await visibleText(surface)).not.toContain('Bidirectional answer')
+
+      await window.getByRole('button', { name: 'Show Answer' }).click()
+      await expect(surface).toHaveAttribute('data-card-side', 'answer')
+      await expect.poll(() => visibleText(surface)).toContain('Bidirectional answer')
+      await expectDelimiter(surface, 'both', '↔')
+      await rateRevealedCard(window, 'Easy')
+
+      await expect(window.getByRole('heading', { name: 'You\'re caught up' })).toBeVisible()
+      await expect(window.locator('[data-card-surface="review"]')).toHaveCount(0)
+    }, initialReviewAt)
+
+    await withCardWindow(environment, async (window) => {
+      await startNoteReview(window, title)
+      await expect(window.getByRole('heading', { name: 'You\'re caught up' })).toBeVisible()
+      await expect(window.locator('[data-card-surface="review"]')).toHaveCount(0)
+    }, initialReviewAt)
+
+    const siblingStudyAt = nextStudyDay(initialReviewAt)
+    await withCardWindow(environment, async (window) => {
+      await startNoteReview(window, title)
+      const session = window.locator('[data-active-review-card-id]')
+      const surface = window.locator('[data-card-surface="review"]')
+
+      await expect(session).toHaveAttribute('data-active-review-card-id', bidirectionalBackwardCardId)
+      await expect(surface).toHaveAttribute('data-card-side', 'question')
+      await expectDelimiter(surface, 'both', '↔')
+      await expect.poll(() => visibleText(surface)).toContain('Bidirectional answer')
+      expect(await visibleText(surface)).not.toContain('Bidirectional prompt')
+
+      await window.getByRole('button', { name: 'Show Answer' }).click()
+      await expect(surface).toHaveAttribute('data-card-side', 'answer')
+      await expect.poll(() => visibleText(surface)).toContain('Bidirectional prompt')
+      await expectDelimiter(surface, 'both', '↔')
+      await rateRevealedCard(window, 'Easy')
+
+      await expect(window.getByRole('heading', { name: 'You\'re caught up' })).toBeVisible()
+    }, siblingStudyAt)
+
+    await withCardWindow(environment, async (window) => {
+      await startNoteReview(window, title)
+      await expect(window.getByRole('heading', { name: 'You\'re caught up' })).toBeVisible()
+      await expect(window.locator('[data-card-surface="review"]')).toHaveCount(0)
+    }, siblingStudyAt)
+  }
+  finally {
+    await removePagesTestEnvironment(environment)
+  }
+})
+
+test('learns List, Set, and sibling Cloze Cards across Study Days, then reviews and optimizes FSRS', async () => {
+  test.setTimeout(120_000)
+  const environment = await createPagesTestEnvironment('memorilo-fsrs-sibling-chain-', [])
+  const initialReviewAt = Date.now() + 60_000
+  const listTitle = 'FSRS List chain'
+  const setTitle = 'FSRS Set chain'
+  const clozeTitle = 'FSRS Cloze siblings'
+  let listCardId = ''
+  let setCardId = ''
+  let clozeCardIds: readonly [string, string] = ['', '']
+  let firstDayStates: readonly ObservedLearningState[] = []
+  let secondDayStates: readonly ObservedLearningState[] = []
+  let buriedNewClozeCardId = ''
+  let buriedReviewClozeCardId = ''
+  let reviewDayStates: readonly ObservedLearningState[] = []
+
+  try {
+    await withCardWindow(environment, async (window) => {
+      const listEditor = await createNoteEditor(window, listTitle)
+      const listSource = await convertToMultiLineCard(
+        window,
+        listEditor,
+        'List answer',
+        'Ordered launch sequence',
+        'Ignition',
+        'Liftoff',
+      )
+      listCardId = await listSource.locator('[data-card-delimiter]').getAttribute('data-forward-card-id') ?? ''
+      if (!listCardId)
+        throw new Error('The ListCard is missing its forward CardID')
+
+      const setEditor = await createNoteEditor(window, setTitle)
+      const setSource = await convertToMultiLineCard(
+        window,
+        setEditor,
+        'Set answer',
+        'Primary pigments',
+        'Cyan',
+        'Magenta',
+      )
+      setCardId = await setSource.locator('[data-card-delimiter]').getAttribute('data-forward-card-id') ?? ''
+      if (!setCardId)
+        throw new Error('The SetCard is missing its forward CardID')
+
+      const clozeEditor = await createNoteEditor(window, clozeTitle)
+      clozeCardIds = await createTwoClozeCards(window, clozeEditor)
+      await waitForLearningTargets(window, {
+        [clozeCardIds[0]]: 1,
+        [clozeCardIds[1]]: 1,
+        [listCardId]: 3,
+        [setCardId]: 3,
+      })
+
+      const initialQueue = await window.evaluate(async (now) => {
+        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
+        return desktop.learning.listQueue({ limit: 100, now })
+      }, initialReviewAt)
+      const initiallyQueuedCards = new Set(initialQueue.map(item => item.cardId))
+      expect(initiallyQueuedCards.has(listCardId)).toBe(true)
+      expect(initiallyQueuedCards.has(setCardId)).toBe(true)
+      expect(clozeCardIds.filter(cardId => initiallyQueuedCards.has(cardId))).toHaveLength(1)
+
+      await startGlobalReview(window)
+      const outcome = await studyAvailableCards(
+        window,
+        (_targetId, previousRatings) => previousRatings < 2 ? 'Again' : 'Easy',
+      )
+      const shownCards = new Set(outcome.cardIds)
+      expect(shownCards.has(listCardId)).toBe(true)
+      expect(shownCards.has(setCardId)).toBe(true)
+      const shownClozeCards = clozeCardIds.filter(cardId => shownCards.has(cardId))
+      expect(shownClozeCards).toHaveLength(1)
+      buriedNewClozeCardId = clozeCardIds.find(cardId => !shownCards.has(cardId)) ?? ''
+      if (!buriedNewClozeCardId)
+        throw new Error('New sibling bury did not withhold exactly one Cloze Card')
+
+      firstDayStates = await learningStates(window, [listCardId, setCardId, ...clozeCardIds])
+      expect(firstDayStates).toHaveLength(8)
+      for (const observed of firstDayStates) {
+        if (observed.cardId === buriedNewClozeCardId) {
+          expect(observed.state.phase).toBe('new')
+          expect(observed.state.reps).toBe(0)
+          expect(observed.state.winningEventId).toBeNull()
+          continue
+        }
+        expect(observed.state.phase).toBe('review')
+        expect(observed.state.reps).toBeGreaterThanOrEqual(3)
+        expect(observed.state.dueAt).toBeGreaterThan(initialReviewAt)
+      }
+    }, initialReviewAt)
+
+    const firstReviewDueAt = Math.min(...firstDayStates
+      .filter(observed => observed.cardId !== buriedNewClozeCardId)
+      .map(observed => observed.state.dueAt))
+    const siblingStudyAt = nextStudyDay(initialReviewAt)
+    expect(siblingStudyAt).toBeLessThan(firstReviewDueAt)
+
+    await withCardWindow(environment, async (window) => {
+      await startGlobalReview(window)
+      const outcome = await studyAvailableCards(
+        window,
+        (_targetId, previousRatings) => previousRatings < 2 ? 'Again' : 'Easy',
+      )
+      expect(new Set(outcome.cardIds)).toEqual(new Set([buriedNewClozeCardId]))
+
+      secondDayStates = await learningStates(window, [listCardId, setCardId, ...clozeCardIds])
+      for (const observed of secondDayStates) {
+        expect(observed.state.phase).toBe('review')
+        expect(observed.state.dueAt).toBeGreaterThan(siblingStudyAt)
+      }
+    }, siblingStudyAt)
+
+    const reviewAt = Math.max(...secondDayStates.map(observed => observed.state.dueAt)) + 86_400_000
+    await withCardWindow(environment, async (window) => {
+      await startGlobalReview(window)
+      const outcome = await studyAvailableCards(window, () => 'Good')
+      const reviewedCards = new Set(outcome.cardIds)
+      expect(reviewedCards.has(listCardId)).toBe(true)
+      expect(reviewedCards.has(setCardId)).toBe(true)
+      const reviewedClozeCards = clozeCardIds.filter(cardId => reviewedCards.has(cardId))
+      expect(reviewedClozeCards).toHaveLength(1)
+      buriedReviewClozeCardId = clozeCardIds.find(cardId => !reviewedCards.has(cardId)) ?? ''
+      if (!buriedReviewClozeCardId)
+        throw new Error('Review sibling bury did not withhold exactly one due Cloze Card')
+
+      reviewDayStates = await learningStates(window, [listCardId, setCardId, ...clozeCardIds])
+      const beforeByTarget = new Map(secondDayStates.map(observed => [observed.targetId, observed]))
+      for (const observed of reviewDayStates) {
+        const before = beforeByTarget.get(observed.targetId)
+        if (!before)
+          throw new Error(`Review Target ${observed.targetId} disappeared during Review`)
+        if (observed.cardId === buriedReviewClozeCardId) {
+          expect(observed.state.winningEventId).toBe(before.state.winningEventId)
+          expect(observed.state.dueAt).toBe(before.state.dueAt)
+          expect(observed.state.dueAt).toBeLessThanOrEqual(reviewAt)
+          continue
+        }
+        expect(observed.state.winningEventId).not.toBe(before.state.winningEventId)
+        expect(observed.state.phase).toBe('review')
+        expect(observed.state.dueAt).toBeGreaterThan(reviewAt)
+      }
+    }, reviewAt)
+
+    const finalReviewAt = nextStudyDay(reviewAt)
+    const nextOtherReviewAt = Math.min(...reviewDayStates
+      .filter(observed => observed.cardId !== buriedReviewClozeCardId)
+      .map(observed => observed.state.dueAt))
+    expect(finalReviewAt).toBeLessThan(nextOtherReviewAt)
+
+    await withCardWindow(environment, async (window) => {
+      await startGlobalReview(window)
+      const outcome = await studyAvailableCards(window, () => 'Good')
+      expect(new Set(outcome.cardIds)).toEqual(new Set([buriedReviewClozeCardId]))
+
+      const allCardIds = [listCardId, setCardId, ...clozeCardIds]
+      const finalStates = await learningStates(window, allCardIds)
+      for (const observed of finalStates) {
+        expect(observed.state.phase).toBe('review')
+        expect(observed.state.dueAt).toBeGreaterThan(finalReviewAt)
+      }
+
+      const optimization = await window.evaluate(async ({ at, cardIds, noteTitle }) => {
+        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
+        const note = (await desktop.learning.listNotesWithCards())
+          .find(candidate => candidate.noteTitle === noteTitle)
+        if (!note)
+          throw new Error(`Could not find Learning Note ${noteTitle}`)
+        const before = await desktop.learning.getNoteOptimizer(note.noteId)
+        const optimized = await desktop.learning.optimizeOptimizer({
+          optimizerId: before.id,
+          rescheduleNow: true,
+          timeoutMilliseconds: 10_000,
+        })
+        const states = (await Promise.all(cardIds.map(async (cardId) => {
+          const targets = await desktop.learning.listTargets(cardId)
+          return Promise.all(targets.map(target => desktop.learning.getLearningState(target.targetId)))
+        }))).flat()
+        const queue = await desktop.learning.listQueue({ now: at })
+        return {
+          beforeRevisionId: before.revisionId,
+          optimized,
+          queue,
+          states,
+        }
+      }, { at: finalReviewAt, cardIds: allCardIds, noteTitle: listTitle })
+
+      expect(optimization.optimized.revisionId).not.toBe(optimization.beforeRevisionId)
+      expect(optimization.optimized.configuration.fsrsParameters).toHaveLength(21)
+      expect(optimization.optimized.configuration.fsrsParameters.every(Number.isFinite)).toBe(true)
+      expect(optimization.queue).toEqual([])
+      for (const state of optimization.states) {
+        expect(state.optimizerRevisionId).toBe(optimization.optimized.revisionId)
+        expect(state.phase).toBe('review')
+        expect(state.dueAt).toBeGreaterThan(finalReviewAt)
+      }
+    }, finalReviewAt)
+  }
+  finally {
+    await removePagesTestEnvironment(environment)
+  }
 })

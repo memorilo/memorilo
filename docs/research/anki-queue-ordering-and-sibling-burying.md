@@ -1,12 +1,12 @@
 # Anki 队列排序与 sibling bury 调研
 
-调研日期：2026-08-01
+调研日期：2026-08-01；实现状态更新：2026-08-06
 
-本文只记录 Anki 官方手册对队列政策的公开契约，用于设计 Memorilo 的 FSRS Optimizer 配置。资料固定在 Anki 手册提交 [`d2484ca416682d9a7c39fdca1d8fd34ab75bf22b`](https://github.com/ankitects/anki-manual/tree/d2484ca416682d9a7c39fdca1d8fd34ab75bf22b)。
+本文记录 Anki 官方手册对队列政策的公开契约，以及 Memorilo 后续采用的实现边界。资料固定在 Anki 手册提交 [`d2484ca416682d9a7c39fdca1d8fd34ab75bf22b`](https://github.com/ankitects/anki-manual/tree/d2484ca416682d9a7c39fdca1d8fd34ab75bf22b)。
 
 ## 队列政策不是 FSRS 参数
 
-Anki 将 FSRS memory parameters 与 deck preset 的 display order、learning steps、daily limits 和 burying 分开配置。Memorilo 可以把它们放进同一个可复用的 Optimizer/Profile 记录中供用户管理，但实现上仍应保持两个内部层次：FSRS 负责状态转移与长期间隔，Queue Policy 负责收集、排序、混排和暂时隐藏。
+Anki 将 FSRS memory parameters 与 deck preset 的 display order、learning steps、daily limits 和 burying 分开配置。Memorilo 当前也保持明确边界：可复用的 Optimizer 保存 FSRS weights、目标记忆率、learning/relearning steps、最大间隔和 fuzz；全局 Flashcards 设置保存收集/排序、每日新卡额度、学习日、learn-ahead 和三个 Sibling Bury 开关。保存 Queue Policy 不创建 Optimizer revision。
 
 ## 可配置的顺序
 
@@ -42,9 +42,9 @@ Anki 的 `Next day starts at` 以当前时区定义学习日边界，默认凌�
 
 来源：[Preferences - Next day starts at / Learn ahead limit](https://github.com/ankitects/anki-manual/blob/d2484ca416682d9a7c39fdca1d8fd34ab75bf22b/src/preferences.md#scheduler)（访问于 2026-08-01）。
 
-## 对 Memorilo 的直接含义
+## Memorilo 当前实现决策
 
-1. Optimizer/Profile 需要保存 Queue Policy，而不是只保存 FSRS weights。
-2. `Bury` 应是队列过滤或延迟记录，不应写成第五种 Rating，也不应重算 Learning State。
-3. Memorilo 需要定义自己的 sibling group。Anki 的 Note 不能直接对应 Memorilo 的 Note，因为 Memorilo Note 是协作聚合；双向 Card 至少应共享一个 sibling group，但同一 Source Block 中不相关的多个 Definition 是否共享，需要产品决定。
-4. FSRS 下的 review 排序应优先考虑 retrievability；若首版只支持 due 排序，应把它标记为 Queue Policy 的简化实现，而不是 FSRS 行为本身。
+1. Optimizer 与全局 Queue Policy 分开保存；前者按 Note assignment 解析，后者从下一次动态选卡起全局生效。
+2. `Bury` 是由 Rating Event 派生的当前学习日过滤，不是第五种 Rating，也不修改 due 或 Learning State。
+3. Sibling group 定义为同一 Note 内具有相同 `sourceBlockId` 的 Cards。Bidirectional、同源 Cloze 和同一 Source Block 中的其他 Definitions 因而属于同组；Memorilo Note 本身不会整体成为一个 sibling group。
+4. Review Sort Order 当前支持 `due-random` 与 FSRS retrievability；随机 key 按 Study Day 和 CardID 确定性生成。三个 Bury 分类和 Anki 的队列收集先后顺序均已实现。

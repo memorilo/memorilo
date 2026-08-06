@@ -1,16 +1,16 @@
 # RemNote Block 式制卡元素的显示与交互调研
 
-调研日期：2026-07-30；Multi-Line 补充调查：2026-07-31
+调研日期：2026-07-30；Multi-Line 补充调查：2026-07-31；实现状态更新：2026-08-06
 
 ## 范围与资料边界
 
-本文只研究用户当前希望先在 `packages/editor` 中实现的编辑器元素与卡片预览语义：Basic、Reverse、Basic and Reverse、Cloze、List Card 与 Highlight。资料只采用 RemNote 官方帮助中心、其中的官方截图/GIF，以及 RemNote 官方 Plugin SDK；不讨论调度算法、数据库、Electron main/preload/renderer 集成或 `apps/desktop`。
+本文原始调研范围是先在 `packages/editor` 中实现编辑器元素与卡片预览语义：Basic、Reverse、Basic and Reverse、Cloze、List Card 与 Highlight。资料只采用 RemNote 官方帮助中心、其中的官方截图/GIF，以及 RemNote 官方 Plugin SDK；外部产品事实部分不讨论调度算法、数据库或 Electron 集成。文末的 Memorilo 状态说明已按后续实现更新。
 
-基于本次产品确认，Memorilo 的首期范围按以下语义收敛：
+原始 Editor-only 范围按以下语义收敛；其中 Multi-Line 已在后续 Learning 实现中继续完成：
 
 - Cloze 只有两条作者路径：**Rich-content Cloze** 隐藏 Block 富内容中的选区，选区可以包含其他 inline 元素或整个公式；**Math-source Cloze** 隐藏 LaTeX source 内部的局部片段。Whole-math Cloze 属于前者，不再作为第三条路径。同一 ClozeGroup 可以同时包含两类 anchor，并在同一张 Card 中一起隐藏、一起揭示。
 - Highlight 采用类似 SuperMemo 的记忆重点标注语义，同时支持 inline Highlight 与 whole-block Highlight；两者都不是 Card 类型。
-- ListCard 首期 Preview 必须支持逐项揭示，但暂不记录逐项评分历史，也不生成 Partial List Card。最终目标是在持久化与 FSRS 接入后补齐逐项评分、历史和困难项调度。
+- ListCard 的 Editor-only 首期先完成逐项揭示 Preview；当前正式 Learning Review 已进一步接入逐项评分、main/item 历史、Partial Card 与 FSRS 调度。
 
 官方帮助中心页面会持续更新，本文记录的是 2026-07-30 初次访问与 2026-07-31 补充访问版本。文中将三类结论严格分开：
 
@@ -46,7 +46,7 @@
 1. RemNote 把卡片定义直接嵌入 Block/Bullet，而不是让用户进入单独的制卡表单。Basic 的 prompt、方向箭头与 answer 都留在同一个 Bullet 内；点击箭头即可切换类型、方向、启用状态和输入答案设置。[Creating Flashcards](https://help.remnote.com/en/articles/6025481-creating-flashcards)
 2. `Basic and Reverse` 在 RemNote 中是 **Bidirectional**：一个 Bullet 生成 Forward 与 Backward 两张卡，不是一张卡在复习时随机交换正反面。官方公开 SDK 也把卡类型区分为 `forward`、`backward` 或 `{ clozeId }`。[Creating Flashcards](https://help.remnote.com/en/articles/6025481-creating-flashcards)；[Plugin API: Card](https://plugins.remnote.com/api/classes/Card)
 3. Cloze 的产品模型只有 Rich-content 与 Math-source 两条作者路径。整个公式可以作为 Rich-content Cloze 的一个选中元素；只有公式内部局部删除才进入 Math-source 路径。官方 GIF 中，公式 source 会写成 `{{c1::...}}`，相同 Cloze ID 的片段一起隐藏。[Writing Equations with LaTeX](https://help.remnote.com/en/articles/6565191-writing-equations-with-latex)
-4. Multi-Line Card 先定义“哪些直接 child Blocks 属于卡片背面”，List/Set 再定义这些成员如何揭示：普通项目符号成员默认是一次揭示全部的 Set；编号成员是按顺序逐项揭示、逐项评分的 List。缩进建立 parent/child 层级，但 child 仍需单独标为 Multi-line Card Item，不能把“是 child”“属于卡片背面”“是 numbered List item”合并成一个状态。首期只实现逐项揭示 Preview，评分历史与 Partial Card 明确留待持久化和 FSRS 阶段。[Multi-Line (List & Set) Flashcards](https://help.remnote.com/en/articles/9216774-multi-line-list-set-flashcards)；[SDK Rem declarations](https://unpkg.com/@remnote/plugin-sdk@0.0.46/dist/name_spaces/rem.d.ts)
+4. Multi-Line Card 先定义“哪些直接 child Blocks 属于卡片背面”，List/Set 再定义这些成员如何揭示：普通项目符号成员默认是一次揭示全部的 Set；编号成员是按顺序逐项揭示、逐项评分的 List。缩进建立 parent/child 层级，但 child 仍需单独标为 Multi-line Card Item，不能把“是 child”“属于卡片背面”“是 numbered List item”合并成一个状态。Memorilo 的 Preview 与正式 Review 现在都复用只读 Editor 投影；正式 Review 已补齐逐项评分、历史和 Partial 调度。[Multi-Line (List & Set) Flashcards](https://help.remnote.com/en/articles/9216774-multi-line-list-set-flashcards)；[SDK Rem declarations](https://unpkg.com/@remnote/plugin-sdk@0.0.46/dist/name_spaces/rem.d.ts)
 5. RemNote 官方没有名为 **Highlight Card** 的卡片类型。相关的“Highlight”实际有三义：inline 文字 Highlight/Text Color、整 Bullet 背景 Highlight Powerup、Multiple Choice Review 的 AI 按钮 `Highlight key information`。Memorilo 采用前两种作为类似 SuperMemo 的记忆重点标注，同时实现 inline 与 whole-block Highlight，不进入 `CardType`。[Formatting Your Notes](https://help.remnote.com/en/articles/6030579-formatting-your-notes)；[Powerups](https://help.remnote.com/en/articles/7897630-powerups)；[Creating Flashcards](https://help.remnote.com/en/articles/6025481-creating-flashcards)
 6. 官方 SDK 0.0.46 明确把 Card `_id` 定义为 Card ID，并说明 `remId` 是来源 Rem 的内部 UUID、稳定且永不改变；这证明 RemNote 至少分离了 Card 身份与来源 Block 身份。但官方仍没有公开 CardID 的生成与重建算法，也没有保证方向切换、Cloze 重编号或 List 子项移动后 Card `_id` 如何变化。`c1` 是 Cloze 分组标识，不能当作全局稳定 CardID。[Plugin API: Card](https://plugins.remnote.com/api/classes/Card)；[SDK Card declarations](https://unpkg.com/@remnote/plugin-sdk@0.0.46/dist/name_spaces/card.d.ts)；[Writing Equations with LaTeX](https://help.remnote.com/en/articles/6565191-writing-equations-with-latex)
 
@@ -60,7 +60,7 @@
 | Rich-content Cloze | 选择 Block 富内容后点 Cloze；选区可包含文字和其他 inline 元素，整个公式也走此路径 | 被标记内容仍可读；官方截图中为浅蓝底/蓝色下划线，并带分组控件 | 当前 Cloze 替换为蓝色空缺；`Show Answer` 后揭示 | 同一 Block 的多个片段可分别成卡，也可归入同一 ClozeGroup |
 | Math-source Cloze | 在公式编辑框中选中 LaTeX 片段，点 `Create Cloze` | 源码形如 `e^{i\pi} + {{c1::1}} = 0`；渲染仍是完整 KaTeX 公式，Cloze 片段着色 | 公式其余部分继续排版，空缺显示为蓝色 `[…]` | `Alt`+点击可把多个公式片段合到同一卡；也可手工统一 `cN` |
 | Multi-Line Set | 卡片触发符后按 Enter、使用三连触发符，或把已有直接 children 标为 Multi-line Card Item | 父节点是 prompt；明确加入 Back 的 child Blocks 是 answer members；成员可以包含 Code Block 等原有 Block 元素 | 默认一次揭示所有成员 | 忘记个别项时点该项的 `X` 标红，再为其余项评分 |
-| Multi-Line List / List Card | 建立 Multi-Line 后把成员 children 改为 Numbered List，或在第一项输入 `1.` | 父节点是 prompt；同时具有 Card Item membership 与 numbered-list 表现的 children 是有序答案 | 首期按序一次揭示一项，不出现评分控件 | 最终接入逐项评分、历史、Partial Card 与 FSRS 调度 |
+| Multi-Line List / List Card | 建立 Multi-Line 后把成员 children 改为 Numbered List，或在第一项输入 `1.` | 父节点是 prompt；同时具有 Card Item membership 与 numbered-list 表现的 children 是有序答案 | Preview 按序揭示；正式 Review 每揭示一项就评分 | 完整复习原子更新 main/item 历史，困难项进入 Partial Review |
 | Highlight | 选中文字使用颜色工具；整 Bullet 用六点菜单或 `/red`、`/green` 等命令 | 同时支持 inline highlight 与整 Block 背景 Highlight | Preview 保留两种记忆重点标注 | 不生成 Card，不使用 Review hint 语义 |
 
 Basic、Reverse、Bidirectional 与 Cloze 事实来自 [Creating Flashcards](https://help.remnote.com/en/articles/6025481-creating-flashcards)；List/Set 来自 [Multi-Line (List & Set) Flashcards](https://help.remnote.com/en/articles/9216774-multi-line-list-set-flashcards)；公式 Cloze 来自 [Writing Equations with LaTeX](https://help.remnote.com/en/articles/6565191-writing-equations-with-latex)；Highlight 来自 [Formatting Your Notes](https://help.remnote.com/en/articles/6030579-formatting-your-notes) 与 [Powerups](https://help.remnote.com/en/articles/7897630-powerups)。
@@ -205,11 +205,11 @@ Multi-Line 的 child 自己也可以是 Multi-Line Card。顶层卡默认只显�
 
 官方未公开：List item 是否拥有独立稳定 CardID、Partial Card 的身份如何派生、children 重排是否保持历史、child 移动到另一个 parent 后如何迁移历史。因此 Memorilo 若要稳定身份，List item 应依赖稳定 Block ID，而不能依赖文本或数组下标。
 
-### 4.4 Memorilo 的分阶段范围
+### 4.4 Memorilo 的实现状态
 
-首期 Editor-only Preview 的完成标准是：ListCard 从 Front 开始，用户每次执行 reveal 只展示下一个有序 item，直到全部 items 展示完毕。该阶段只维护 Preview session 内的当前 reveal index，不显示评分控件，不写入复习历史，也不生成 Partial List Card。
+Editor-only Preview 里程碑已经完成：ListCard 从 Front 开始，每次 reveal 只展示下一个有序 item，直到全部 items 展示完毕；Preview 本身仍不写学习历史。
 
-> **TODO(ListCard review completion)**：接入持久化与 FSRS 后，为每个 item 增加逐项评分和复习历史，定义稳定的 item/Card 身份映射，根据困难项生成 Partial List Card，并让完整 ListCard 与 Partial Card 进入正式调度队列。这是 ListCard 的最终产品目标，不属于首期纯 Editor Preview。
+正式 Learning Review 已完成后续闭环：forward List/Set 同时投影 whole main Target 与稳定 item Targets；完整 List 逐项收集评分并在最后一个 item 后原子提交，完整 Set 区分遗忘项和其余项；困难 item 使用 Partial Review，main 与 items 都由 FSRS 调度。详细契约见 [FSRS Learning System Design](../fsrs-learning-system.md) 和 [RemNote List/Set 两层调度调研](./remnote-list-set-review-scheduling.md)。
 
 ## 5. Highlight 的三种含义
 
@@ -285,22 +285,22 @@ Card 行为直接由 `packages/editor/src/card/*.test.*` 和 Document interactio
 
 覆盖范围包括 Forward、Backward、Bidirectional、Rich-content Cloze、inline/block 公式的 Math-source Cloze、Set、List、inline/whole-block Highlight、Card repository 同步，以及 Document 模式下的 Card answer membership。这样复杂的 ProseMirror selection、KaTeX source mapping、projection 和 List reveal 行为会进入持续回归测试，而不是只存在于手动 fixture 中。
 
-## 9. 对 Memorilo Editor 首期实现的直接建议
+## 9. Memorilo Editor 的原始实现顺序
 
-仅从显示与交互看，首期可以按以下顺序建立 editor-only 环境：
+以下顺序记录 Editor-only 阶段采用的实现路径；它不再表示当前待办：
 
 1. **Card delimiter element**：同一个 Block 内保留前后富文本，支持 Forward、Backward、Bidirectional、Disabled 四种箭头状态和就地 Preview。
 2. **独立 CardID**：Bidirectional 一开始就分配两个 CardID；方向 toggle 只改变 active 状态，不用方向符号临时计算身份。
 3. **Rich-content Cloze + group**：编辑器显示原内容和分组控件，选区允许包含完整 inline 元素或整个公式，Preview 根据当前 group 做 projection。
 4. **Math-source Cloze**：在公式 source 内维护局部 anchor；它与 Rich-content Cloze 共享 Card/ClozeGroup 语义，但不共享同一种位置表示。
-5. **Multi-Line membership**：使用 direct child BlockID 维护显式 Back membership，不把普通层级 children 自动视为答案；成员继续使用原有 Block 类型。Set/List 是建立在 membership 之上的 reveal 维度，其中 numbered-list presentation 触发逐项揭示。首期完成 Set 一次揭示与 List 逐项揭示 Preview；逐项评分、历史、Partial Card 和 FSRS 调度按 TODO 后续接入。
+5. **Multi-Line membership**：使用 direct child BlockID 维护显式 Back membership，不把普通层级 children 自动视为答案；成员继续使用原有 Block 类型。Set/List 是建立在 membership 之上的 reveal 维度，其中 numbered-list presentation 触发逐项揭示。Editor Preview 与正式 Learning Review 均已接入，后者包含逐项评分、main/item 历史、Partial Card 和 FSRS 调度。
 6. **Highlight formatting**：同时实现 inline mark 与 whole-block presentation attribute，在 Editor/Preview 保留，不进入 CardKind。
 7. **Context projection**：Preview 从 ancestors 派生，不把 ancestors 复制进 Card 内容。
 
 这里最不应简化的是公式 Cloze：RemNote 的官方行为已经表明，它不是“把整个公式当不可编辑图片”，而是允许在保留 KaTeX 排版的同时，对 LaTeX source 的局部内容建立可分组的 Cloze。
 
-## 10. 需要产品确认的未决问题
+## 10. 当前决策与剩余边界
 
-1. ClozeGroup 修改时，旧 CardID 是继续使用、建立新 Card，还是要求用户确认？RemNote 没有公开规则。
-2. Bidirectional 关闭一个方向后再开启，是否必须恢复该方向原 CardID 和历史？建议是恢复，但这是 Memorilo 的产品契约，不是 RemNote 的公开规范。
-3. Preview 首期是否显示完整 ancestor context、自动防泄题和独立折叠状态？这些是 RemNote 外观相似度的重要组成部分，但可与元素编辑本身分阶段交付。
+1. Cloze authoring 为 Definition、Card 和 Group 写入独立稳定 ID，普通内容编辑不改变 CardID。当前没有把既有 anchor 重新分配到另一个 ClozeGroup 的产品操作，因此这类显式 regroup 对历史的语义仍未定义。
+2. Bidirectional 的 forward/backward CardIDs 在方向和 List/Set presentation 切换时保持不变；禁用后重新启用同一方向会恢复原 CardID 与既有学习历史。这是 Memorilo 已采用的合同，不声称来自 RemNote 公开规范。
+3. Preview 与 Review 已统一使用只读、focused CardSurface。完整 ancestor context、自动防泄题、独立折叠状态和返回 Source Block 的导航仍是后续边界。

@@ -15,7 +15,6 @@ import * as sqliteVec from 'sqlite-vec'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createEditorStorage,
-  defaultLearningPracticeConfiguration,
   GLOBAL_OPTIMIZER_ID,
 } from '../index'
 
@@ -182,7 +181,7 @@ describe('fSRS learning storage', () => {
     expect(await harness.storage.learning.listNoteTopicIds(harness.noteId)).toEqual(['moved-topic'])
   })
 
-  it('uses item targets for forward List Cards and only Again activates Partial', async () => {
+  it('schedules forward List Cards with a main Target and RemNote-style Partial items', async () => {
     const harness = await createHarness()
     await reconcile(harness, [{
       cardId: 'list-card',
@@ -192,10 +191,18 @@ describe('fSRS learning storage', () => {
       sourceBlockId: 'source',
     }])
     const targets = await harness.storage.learning.listTargets('list-card')
+    const main = targets.find(target => target.kind === 'whole')
     const first = targets.find(target => target.itemBlockId === 'item-a')
     const second = targets.find(target => target.itemBlockId === 'item-b')
-    if (!first || !second)
-      throw new Error('Expected both List Card item targets')
+    if (!main || !first || !second)
+      throw new Error('Expected the List Card main Target and both item Targets')
+    expect(targets).toHaveLength(3)
+
+    const mainReview = await harness.storage.learning.rateTarget({
+      rating: 'good',
+      reviewedAt: 1_710_000_000_000,
+      targetId: main.targetId,
+    })
 
     await harness.storage.learning.rateTarget({
       rating: 'hard',
@@ -204,7 +211,7 @@ describe('fSRS learning storage', () => {
     })
     expect((await harness.storage.learning.listTargets('list-card'))
       .find(target => target.targetId === second.targetId)
-      ?.partialActive).toBe(false)
+      ?.partialActive).toBe(true)
 
     const again = await harness.storage.learning.rateTarget({
       rating: 'again',
@@ -222,27 +229,91 @@ describe('fSRS learning storage', () => {
       }),
     ])
 
-    await harness.storage.learning.rateTarget({
+    const firstGood = await harness.storage.learning.rateTarget({
       rating: 'easy',
       reviewedAt: again.state.dueAt,
       targetId: first.targetId,
     })
-    const restoredTargets = await harness.storage.learning.listTargets('list-card')
-    expect(restoredTargets.every(target => !target.partialActive)).toBe(true)
-    const earliestDue = Math.min(...await Promise.all(restoredTargets.map(async target => (
-      await harness.storage.learning.getLearningState(target.targetId)
-    ).dueAt)))
-    const learnAheadMilliseconds = defaultLearningPracticeConfiguration().queuePolicy.learnAheadMinutes * 60_000
-    expect(await harness.storage.learning.listQueue({
-      now: earliestDue - learnAheadMilliseconds - 1,
-    })).toEqual([])
-    expect(await harness.storage.learning.listQueue({ now: earliestDue })).toEqual([
+    expect((await harness.storage.learning.listTargets('list-card'))
+      .find(target => target.targetId === first.targetId)
+      ?.partialActive).toBe(true)
+
+    await harness.storage.learning.rateTarget({
+      rating: 'easy',
+      reviewedAt: firstGood.state.dueAt,
+      targetId: first.targetId,
+    })
+    expect((await harness.storage.learning.listTargets('list-card'))
+      .find(target => target.targetId === first.targetId)
+      ?.partialActive).toBe(false)
+
+    expect(await harness.storage.learning.listQueue({ now: mainReview.state.dueAt })).toEqual([
       expect.objectContaining({
         cardId: 'list-card',
         presentation: 'full',
-        targetIds: expect.arrayContaining([first.targetId, second.targetId]),
+        targetIds: [first.targetId, second.targetId],
       }),
     ])
+  })
+
+  it('commits a complete List repetition with item Ratings and one aggregated main Rating atomically', async () => {
+    const harness = await createHarness()
+    await reconcile(harness, [{
+      cardId: 'list-card',
+      direction: 'forward',
+      itemBlockIds: ['item-a', 'item-b'],
+      kind: 'list',
+      sourceBlockId: 'source',
+    }])
+    const targets = await harness.storage.learning.listTargets('list-card')
+    const main = targets.find(target => target.kind === 'whole')
+    const items = targets.filter(target => target.kind === 'item')
+    if (!main || items.length !== 2)
+      throw new Error('Expected one main Target and two List item Targets')
+    const reviewedAt = 1_710_000_000_000
+    const preparations = await Promise.all(targets.map(target => (
+      harness.storage.learning.prepareReview({ reviewedAt, targetId: target.targetId })
+    )))
+    const preparationByTarget = new Map(preparations.map(preparation => [
+      preparation.targetId,
+      preparation,
+    ]))
+    const prepared = (targetId: string) => {
+      const preparation = preparationByTarget.get(targetId)
+      if (!preparation)
+        throw new Error(`Missing preparation for Target ${targetId}`)
+      const { outcomes: _outcomes, ...token } = preparation
+      return token
+    }
+    const input = {
+      cardId: 'list-card',
+      itemRatings: [
+        { ...prepared(items[0]!.targetId), rating: 'again' as const },
+        { ...prepared(items[1]!.targetId), rating: 'good' as const },
+      ],
+      mainPreparation: prepared(main.targetId),
+    }
+
+    harness.database.failNextBatch = true
+    await expect(harness.storage.learning.rateMultiLineCard(input)).rejects.toThrow('Injected batch failure')
+    for (const target of targets) {
+      expect(await harness.storage.learning.getLearningState(target.targetId)).toMatchObject({
+        phase: 'new',
+        reps: 0,
+        winningEventId: null,
+      })
+    }
+
+    const result = await harness.storage.learning.rateMultiLineCard(input)
+    expect(result.itemResults.map(item => item.state.targetId)).toEqual(items.map(item => item.targetId))
+    expect(result.mainResult.state.targetId).toBe(main.targetId)
+    expect(await harness.database.all<{ rating: string, target_id: string }>(
+      'SELECT target_id, rating FROM learning_review_events ORDER BY target_id',
+    )).toEqual(expect.arrayContaining([
+      { rating: 'again', target_id: items[0]!.targetId },
+      { rating: 'good', target_id: items[1]!.targetId },
+      { rating: 'again', target_id: main.targetId },
+    ]))
   })
 
   it('retains Review Events while undo and reset rebuild scheduling state', async () => {
@@ -430,7 +501,7 @@ describe('learning database maintenance', () => {
     })
     await harness.storage.learning.maintainDatabase()
     expect((await harness.storage.learning.listTargets(listCard.cardId))
-      .map(target => target.itemBlockId)).toEqual(['kept-item'])
+      .map(target => target.itemBlockId)).toEqual([null, 'kept-item'])
     expect(await harness.database.get<{ count: number }>(
       'SELECT COUNT(*) AS count FROM learning_purge_tombstones WHERE scope_kind = \'target\' AND scope_id = ?',
       [removed.targetId],

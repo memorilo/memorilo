@@ -141,6 +141,18 @@ function shouldShowWindow(): boolean {
   return process.env.MEMORILO_E2E_HIDE_WINDOW !== '1'
 }
 
+function learningNow(): () => number {
+  const configured = process.env.MEMORILO_E2E_NOW_MS
+  if (configured === undefined)
+    return Date.now
+  if (shouldShowWindow())
+    throw new Error('MEMORILO_E2E_NOW_MS is only available in hidden-window E2E runs')
+  const milliseconds = Number(configured)
+  if (!Number.isSafeInteger(milliseconds) || milliseconds < 0)
+    throw new TypeError('MEMORILO_E2E_NOW_MS must be a non-negative safe integer')
+  return () => milliseconds
+}
+
 function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
@@ -226,7 +238,7 @@ async function startApplication(): Promise<void> {
   closeMcpServer = mcpServer.close
   closeNoteApplication = notes.close
 
-  createDesktopServices(notes, editorStorage.learning, activeConfigurationStore)
+  createDesktopServices(notes, editorStorage.learning, activeConfigurationStore, learningNow())
   void mcpServer.update(configuration.mcp)
   unsubscribeConfiguration = activeConfigurationStore.subscribe(() => {
     const next = activeConfigurationStore.getSnapshot()

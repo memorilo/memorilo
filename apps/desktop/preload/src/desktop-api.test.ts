@@ -28,6 +28,7 @@ function serviceStub(): DesktopServices {
       maintainDatabase: vi.fn(),
       optimizeOptimizer: vi.fn(),
       prepareReview: vi.fn(),
+      rateMultiLineCard: vi.fn(),
       rateTarget: vi.fn(),
       renameOptimizer: vi.fn(),
       resetOptimizerDefaults: vi.fn(),

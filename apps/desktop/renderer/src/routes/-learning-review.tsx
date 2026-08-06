@@ -37,6 +37,7 @@ type ReviewRating = keyof PreparedReview['outcomes']
 interface ActiveReview {
   forgottenItemBlockIds: ReadonlySet<string>
   item: DesktopReviewItem
+  listRatings: readonly ReviewRating[]
   revealed: boolean
   shownAt: number
   sourceVisible: boolean
@@ -48,6 +49,7 @@ interface ReviewHistoryEntry {
   events: readonly { eventId: string, targetId: string }[]
   forgottenItemBlockIds: readonly string[]
   item: DesktopReviewItem
+  listRatings: readonly ReviewRating[]
   targetId: string
 }
 
@@ -92,10 +94,12 @@ function positionSearch(
   scope: LearningReviewSearch,
   item: DesktopReviewItem,
   targetId: string,
+  listRatings: readonly ReviewRating[],
 ): LearningReviewSearch {
   return {
     ...baseSearch(scope),
     cardId: item.queue.cardId,
+    ...(listRatings.length === 0 ? {} : { listRatings: listRatings.join(',') }),
     noteId: item.queue.noteId,
     presentation: item.queue.presentation,
     targetId,
@@ -110,9 +114,20 @@ function searchIdentity(search: LearningReviewSearch): string {
     search.noteId,
     search.topicId,
     search.cardId,
+    search.listRatings,
     search.presentation,
     search.targetId,
   ])
+}
+
+function savedListRatings(search: LearningReviewSearch): readonly ReviewRating[] {
+  if (search.listRatings === undefined)
+    return []
+  return search.listRatings.split(',').map((rating) => {
+    if (rating !== 'again' && rating !== 'hard' && rating !== 'good' && rating !== 'easy')
+      throw new TypeError(`Unsupported saved List Rating: ${rating}`)
+    return rating
+  })
 }
 
 function firstTargetId(item: DesktopReviewItem): string {
@@ -144,10 +159,44 @@ function isBatchSet(item: DesktopReviewItem): boolean {
     && item.queue.presentation === 'full'
 }
 
+function isLastSequentialListTarget(item: DesktopReviewItem, targetId: string): boolean {
+  return isSequentialList(item) && item.targets.at(-1)?.targetId === targetId
+}
+
 function targetIdsForRating(item: DesktopReviewItem, targetId: string): readonly string[] {
   return isBatchSet(item)
     ? item.targets.map(target => target.targetId)
     : [targetId]
+}
+
+function targetIdsForPreparation(item: DesktopReviewItem, targetId: string): readonly string[] {
+  if (isBatchSet(item) || isLastSequentialListTarget(item, targetId))
+    return [...item.targets.map(target => target.targetId), item.mainTargetId]
+  return targetIdsForRating(item, targetId)
+}
+
+function ratingForTarget(
+  active: ActiveReview,
+  target: DesktopReviewItem['targets'][number],
+  rating: ReviewRating,
+): ReviewRating {
+  return isBatchSet(active.item)
+    && rating !== 'again'
+    && target.itemBlockId !== null
+    && active.forgottenItemBlockIds.has(target.itemBlockId)
+    ? 'again'
+    : rating
+}
+
+function preparationToken(prepared: PreparedReview) {
+  return {
+    eventId: prepared.eventId,
+    expectedOptimizerRevisionId: prepared.expectedOptimizerRevisionId,
+    expectedStateHash: prepared.expectedStateHash,
+    expectedWinningEventId: prepared.expectedWinningEventId,
+    reviewedAt: prepared.reviewedAt,
+    targetId: prepared.targetId,
+  }
 }
 
 function formatInterval(milliseconds: number, t: TFunction): string {
@@ -183,12 +232,7 @@ function intervalLabel(
     const target = active.item.targets.find(candidate => candidate.targetId === targetId)
     if (!target)
       throw new Error(`Review Target ${targetId} is missing from the active Card`)
-    const selectedRating = isBatchSet(active.item)
-      && rating !== 'again'
-      && target.itemBlockId !== null
-      && active.forgottenItemBlockIds.has(target.itemBlockId)
-      ? 'again'
-      : rating
+    const selectedRating = ratingForTarget(active, target, rating)
     return prepared.outcomes[selectedRating].intervalMilliseconds
   })
   const minimum = Math.min(...intervals)
@@ -384,22 +428,36 @@ export function LearningReviewWorkspace({
   const activate = useCallback((
     item: DesktopReviewItem,
     targetId: string,
-    options: { forgottenItemBlockIds?: readonly string[], revealed?: boolean } = {},
+    options: {
+      forgottenItemBlockIds?: readonly string[]
+      listRatings?: readonly ReviewRating[]
+      revealed?: boolean
+    } = {},
   ) => {
     assertTarget(item, targetId)
+    const listRatings = options.listRatings ?? []
+    if (isSequentialList(item)) {
+      const targetIndex = item.targets.findIndex(target => target.targetId === targetId)
+      if (listRatings.length !== targetIndex)
+        throw new Error(`List Card ${item.queue.cardId} saved Ratings do not match its current item`)
+    }
+    else if (listRatings.length > 0) {
+      throw new Error(`Review Card ${item.queue.cardId} cannot restore List Ratings`)
+    }
     setPrepared(null)
     setPreparationError(null)
     setActionError(null)
     setView({
       forgottenItemBlockIds: new Set(options.forgottenItemBlockIds),
       item,
+      listRatings,
       revealed: options.revealed === true,
       shownAt: Date.now(),
       sourceVisible: false,
       status: 'active',
       targetId,
     })
-    publish(positionSearch(search, item, targetId))
+    publish(positionSearch(search, item, targetId, listRatings))
   }, [publish, search])
 
   const loadNext = useCallback(async () => {
@@ -447,7 +505,9 @@ export function LearningReviewWorkspace({
       const targetId = restored && savedPosition
         ? savedPosition.targetId
         : firstTargetId(item)
-      activate(item, targetId)
+      activate(item, targetId, {
+        listRatings: restored && savedPosition ? savedListRatings(search) : [],
+      })
     })().catch((error) => {
       if (routeRequestRef.current === request)
         setView({ message: errorMessage(error), retry: 'route', status: 'error' })
@@ -459,12 +519,13 @@ export function LearningReviewWorkspace({
   const preparationVisible = view.status === 'active' && view.revealed
   const preparationTargetIds = useMemo(() => (
     preparationItem && preparationTargetId && preparationVisible
-      ? targetIdsForRating(preparationItem, preparationTargetId)
+      ? targetIdsForPreparation(preparationItem, preparationTargetId)
       : []
   ), [preparationItem, preparationTargetId, preparationVisible])
   const preparationKey = view.status === 'active' && view.revealed
     ? JSON.stringify([
         view.item.queue.cardId,
+        view.listRatings,
         view.targetId,
         preparationTargetIds,
         preparationRevision,
@@ -502,6 +563,39 @@ export function LearningReviewWorkspace({
     const committed: Array<{ eventId: string, targetId: string }> = []
     const responseMilliseconds = Math.max(0, Date.now() - active.shownAt)
     try {
+      if (isSequentialList(active.item) || isBatchSet(active.item)) {
+        const itemRatings = isSequentialList(active.item)
+          ? [...active.listRatings, rating]
+          : active.item.targets.map(target => ratingForTarget(active, target, rating))
+        if (itemRatings.length !== active.item.targets.length)
+          throw new Error(`Multi-line Card ${active.item.queue.cardId} does not have one Rating per item`)
+        const preparedMain = byTarget.get(active.item.mainTargetId)
+        if (!preparedMain)
+          throw new Error(`Multi-line Card ${active.item.queue.cardId} is missing its main preparation`)
+        const preparedItems = active.item.targets.map((target, index) => {
+          const preparation = byTarget.get(target.targetId)
+          const itemRating = itemRatings[index]
+          if (!preparation || !itemRating)
+            throw new Error(`Multi-line item Target ${target.targetId} was not prepared`)
+          return {
+            ...preparationToken(preparation),
+            rating: itemRating,
+            responseMilliseconds,
+          }
+        })
+        const result = await window.desktop.learning.rateMultiLineCard({
+          cardId: active.item.queue.cardId,
+          itemRatings: preparedItems,
+          mainPreparation: preparationToken(preparedMain),
+          responseMilliseconds,
+          ...(isBatchSet(active.item) ? { setRating: rating } : {}),
+        })
+        return [...result.itemResults, result.mainResult].map(review => ({
+          eventId: review.eventId,
+          targetId: review.state.targetId,
+        }))
+      }
+
       for (const targetId of targetIdsForRating(active.item, active.targetId)) {
         const preparation = byTarget.get(targetId)
         if (!preparation)
@@ -509,12 +603,7 @@ export function LearningReviewWorkspace({
         const target = active.item.targets.find(candidate => candidate.targetId === targetId)
         if (!target)
           throw new Error(`Review Target ${targetId} is missing from the active Card`)
-        const selectedRating = isBatchSet(active.item)
-          && rating !== 'again'
-          && target.itemBlockId !== null
-          && active.forgottenItemBlockIds.has(target.itemBlockId)
-          ? 'again'
-          : rating
+        const selectedRating = ratingForTarget(active, target, rating)
         const result = await window.desktop.learning.rateTarget({
           eventId: preparation.eventId,
           expectedOptimizerRevisionId: preparation.expectedOptimizerRevisionId,
@@ -557,23 +646,33 @@ export function LearningReviewWorkspace({
     setActionPending(true)
     setActionError(null)
     try {
+      if (isSequentialList(view.item)) {
+        const targetIndex = view.item.targets.findIndex(target => target.targetId === view.targetId)
+        const nextTarget = view.item.targets[targetIndex + 1]
+        if (nextTarget) {
+          setHistory(current => [...current, {
+            events: [],
+            forgottenItemBlockIds: [],
+            item: view.item,
+            listRatings: view.listRatings,
+            targetId: view.targetId,
+          }])
+          activate(view.item, nextTarget.targetId, {
+            listRatings: [...view.listRatings, rating],
+          })
+          return
+        }
+      }
+
       const events = await completeRatings(view, rating, prepared.byTarget)
       setHistory(current => [...current, {
         events,
         forgottenItemBlockIds: [...view.forgottenItemBlockIds],
         item: view.item,
+        listRatings: view.listRatings,
         targetId: view.targetId,
       }])
       void queryClient.invalidateQueries({ queryKey: learningQueryKeys.dailyProgress })
-
-      if (isSequentialList(view.item)) {
-        const targetIndex = view.item.targets.findIndex(target => target.targetId === view.targetId)
-        const nextTarget = view.item.targets[targetIndex + 1]
-        if (nextTarget) {
-          activate(view.item, nextTarget.targetId)
-          return
-        }
-      }
 
       await loadNext()
     }
@@ -612,6 +711,7 @@ export function LearningReviewWorkspace({
       setHistory(current => current.slice(0, -1))
       activate(previous.item, previous.targetId, {
         forgottenItemBlockIds: previous.forgottenItemBlockIds,
+        listRatings: previous.listRatings,
         revealed: true,
       })
       void queryClient.invalidateQueries({ queryKey: learningQueryKeys.dailyProgress })
@@ -766,7 +866,11 @@ export function LearningReviewWorkspace({
   const materialKey = `${active.item.queue.cardId}:${active.targetId}`
 
   return (
-    <div {...stylex.props(styles.session)}>
+    <div
+      {...stylex.props(styles.session)}
+      data-active-review-card-id={active.item.queue.cardId}
+      data-active-review-target-id={active.targetId}
+    >
       <div {...stylex.props(styles.materialViewport)}>
         <AnimatePresence initial={false} mode="wait">
           <motion.section
@@ -774,6 +878,7 @@ export function LearningReviewWorkspace({
             {...stylex.props(styles.material)}
             animate={{ opacity: 1, y: 0 }}
             aria-label={active.sourceVisible ? t('cardSource') : t('currentCard')}
+            data-review-target-id={active.targetId}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
             transition={shouldReduceMotion ? { duration: 0.08 } : cardSpring}

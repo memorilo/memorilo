@@ -16,6 +16,7 @@ export interface DesktopReviewTarget {
 
 export interface DesktopReviewItem {
   card: EditorCardProjection
+  mainTargetId: string
   noteTitle: string
   queue: LearningQueueItem
   targets: readonly DesktopReviewTarget[]
@@ -49,6 +50,7 @@ type DesktopLearningStorageApi = Pick<LearningStorage, | 'archiveOptimizer'
   | 'maintainDatabase'
   | 'optimizeOptimizer'
   | 'prepareReview'
+  | 'rateMultiLineCard'
   | 'rateTarget'
   | 'renameOptimizer'
   | 'resetOptimizerDefaults'

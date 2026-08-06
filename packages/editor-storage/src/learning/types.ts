@@ -84,6 +84,16 @@ export type RateLearningTargetInput = LearningRatingSelection & (
   DirectLearningReview | LearningReviewPreparationToken
 )
 
+export interface PreparedLearningRating extends LearningReviewPreparationToken, LearningRatingSelection {}
+
+export interface RateMultiLineCardInput {
+  cardId: string
+  itemRatings: readonly PreparedLearningRating[]
+  mainPreparation: LearningReviewPreparationToken
+  responseMilliseconds?: number
+  setRating?: ReviewRating
+}
+
 export interface PrepareLearningReviewInput {
   reviewedAt?: number
   targetId: string
@@ -101,6 +111,11 @@ export interface PreparedLearningReview extends LearningReviewPreparationToken {
 export interface ReviewResult {
   eventId: string
   state: LearningState
+}
+
+export interface MultiLineReviewResult {
+  itemResults: readonly ReviewResult[]
+  mainResult: ReviewResult
 }
 
 export interface ResetLearningTargetInput {
@@ -233,6 +248,7 @@ export interface LearningStorage {
   maintainDatabase: () => Promise<LearningMaintenanceResult>
   optimizeOptimizer: (input: OptimizeFsrsOptimizerInput) => Promise<FsrsOptimizer>
   prepareReview: (input: PrepareLearningReviewInput) => Promise<PreparedLearningReview>
+  rateMultiLineCard: (input: RateMultiLineCardInput) => Promise<MultiLineReviewResult>
   rateTarget: (input: RateLearningTargetInput) => Promise<ReviewResult>
   reconcileTopicCards: (input: ReconcileLearningCardsInput) => Promise<void>
   renameOptimizer: (input: RenameFsrsOptimizerInput) => Promise<FsrsOptimizer>

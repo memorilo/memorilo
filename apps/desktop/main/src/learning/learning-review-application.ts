@@ -39,7 +39,12 @@ function resolveTargets(
   queue: LearningQueueItem,
   card: EditorCardProjection,
   cardTargets: readonly LearningTarget[],
-): DesktopReviewItem['targets'] {
+): Pick<DesktopReviewItem, 'mainTargetId' | 'targets'> {
+  const activeTargets = cardTargets.filter(target => target.active && target.cardId === queue.cardId)
+  const mainTargets = activeTargets.filter(target => target.kind === 'whole')
+  const mainTarget = mainTargets[0]
+  if (mainTargets.length !== 1 || !mainTarget || mainTarget.itemBlockId !== null)
+    throw unavailable(queue, 'the Card must contain exactly one active main Target')
   const targetById = new Map(cardTargets.map(target => [target.targetId, target]))
   const seen = new Set<string>()
   const targets = queue.targetIds.map((targetId) => {
@@ -47,7 +52,7 @@ function resolveTargets(
       throw unavailable(queue, `the Queue contains duplicate Target ${targetId}`)
     seen.add(targetId)
     const target = targetById.get(targetId)
-    if (!target || !target.active || target.cardId !== queue.cardId)
+    if (!target || !activeTargets.includes(target))
       throw unavailable(queue, `Target ${targetId} is no longer active`)
     return target
   })
@@ -76,14 +81,17 @@ function resolveTargets(
       throw unavailable(queue, 'item Targets do not match the current Card projection')
     }
   }
-  else if (targets.length !== 1 || targets[0]?.kind !== 'whole' || targets[0].itemBlockId !== null) {
+  else if (targets.length !== 1 || targets[0]?.targetId !== mainTarget.targetId) {
     throw unavailable(queue, 'a whole Card presentation requires exactly one whole Target')
   }
 
-  return targets.map(target => ({
-    itemBlockId: target.itemBlockId,
-    targetId: target.targetId,
-  }))
+  return {
+    mainTargetId: mainTarget.targetId,
+    targets: targets.map(target => ({
+      itemBlockId: target.itemBlockId,
+      targetId: target.targetId,
+    })),
+  }
 }
 
 async function resolveQueueItem(
@@ -98,20 +106,21 @@ async function resolveQueueItem(
   })
   if (projection.card.sourceBlockId !== queue.sourceBlockId)
     throw unavailable(queue, 'its Source Block changed while the Queue was being resolved')
-  const targets = resolveTargets(queue, projection.card, await learning.listTargets(queue.cardId))
-  return reviewItem(projection, queue, targets)
+  const resolvedTargets = resolveTargets(queue, projection.card, await learning.listTargets(queue.cardId))
+  return reviewItem(projection, queue, resolvedTargets)
 }
 
 function reviewItem(
   projection: NoteCardProjection,
   queue: LearningQueueItem,
-  targets: DesktopReviewItem['targets'],
+  resolvedTargets: Pick<DesktopReviewItem, 'mainTargetId' | 'targets'>,
 ): DesktopReviewItem {
   return {
     card: projection.card,
+    mainTargetId: resolvedTargets.mainTargetId,
     noteTitle: projection.noteTitle,
     queue,
-    targets,
+    targets: resolvedTargets.targets,
     topicTitle: projection.topicTitle,
     updatedAt: projection.updatedAt,
   }
@@ -120,20 +129,22 @@ function reviewItem(
 export function createLearningReviewApplication(
   notes: NoteApplicationService,
   learning: LearningStorage,
+  now: () => number = Date.now,
 ) {
   const getNextItem = async (
     input: GetNextDesktopReviewItemInput,
     mode: 'mixed' | 'new' | 'review',
   ): Promise<DesktopReviewItem | null> => {
+    const queueInput = { ...input, now: input.now ?? now() }
     const unavailableCandidates = new Set<string>()
     while (true) {
-      const [queue] = await learning.listQueue({ ...input, limit: 1, mode })
+      const [queue] = await learning.listQueue({ ...queueInput, limit: 1, mode })
       if (!queue)
         return null
       const candidateKey = queueItemIdentity(queue)
       try {
         const resolved = await resolveQueueItem(notes, learning, queue)
-        const [refreshed] = await learning.listQueue({ ...input, limit: 1, mode })
+        const [refreshed] = await learning.listQueue({ ...queueInput, limit: 1, mode })
         if (!refreshed || queueItemFingerprint(refreshed) !== queueItemFingerprint(queue))
           continue
         return resolved
@@ -180,9 +191,11 @@ export function createLearningReviewApplication(
       const selectedTarget = activeTargets.find(target => target.targetId === input.targetId)
       if (!selectedTarget)
         return null
+      const usesItemTargets = (projection.card.kind === 'list' || projection.card.kind === 'set')
+        && projection.card.direction === 'forward'
       const targets = input.presentation === 'partial'
         ? [selectedTarget]
-        : activeTargets
+        : usesItemTargets ? activeTargets.filter(target => target.kind === 'item') : [selectedTarget]
       const state = await learning.getLearningState(input.targetId)
       const queue: LearningQueueItem = {
         cardId: input.cardId,

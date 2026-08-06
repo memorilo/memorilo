@@ -86,6 +86,7 @@ function createDesktopLearningApi(service: DesktopServices['learning']): Desktop
     maintainDatabase: () => service.maintainDatabase(),
     optimizeOptimizer: input => service.optimizeOptimizer(input),
     prepareReview: input => service.prepareReview(input),
+    rateMultiLineCard: input => service.rateMultiLineCard(input),
     rateTarget: input => service.rateTarget(input),
     renameOptimizer: input => service.renameOptimizer(input),
     resetOptimizerDefaults: (optimizerId, rescheduleNow) => (
