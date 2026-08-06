@@ -28,7 +28,7 @@ export type {
   MultiLineEditorCardProjection,
 } from './card/card-model'
 export { projectEditorCards } from './card/card-model'
-export type { CardPreviewMode, CardPreviewProps } from './card/card-preview'
+export type { CardPreviewItemSelection, CardPreviewMode, CardPreviewProps } from './card/card-preview'
 export { CardPreview } from './card/card-preview'
 export type {
   EditorCardRecord,
@@ -37,6 +37,12 @@ export type {
   ReplaceTopicCardsInput,
 } from './card/card-repository'
 export { createMemoryEditorCardRepository } from './card/card-repository'
+export type {
+  CardSurfaceItemSelection,
+  CardSurfaceProps,
+  CardSurfaceSide,
+} from './card/card-surface'
+export { CardSurface } from './card/card-surface'
 export type {
   EditorCardIntegration,
   EditorCardSync,

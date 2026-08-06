@@ -90,6 +90,13 @@ export const appTitlebarStyles = stylex.create({
   trailingGroup: {
     right: 14,
   },
+  leadingSlot: {
+    position: 'absolute',
+    top: 10,
+    right: 14,
+    height: 36,
+    minWidth: 0,
+  },
   titleSlot: {
     position: 'absolute',
     top: 11,

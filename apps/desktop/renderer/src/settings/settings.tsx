@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, Globe2, Image, Settings2 } from 'lucide-react'
+import { BookOpen, GalleryVerticalEnd, Globe2, Image, Settings2, Target } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,9 @@ import { settingsStyles } from './settings.stylex'
 
 const sectionIcons = {
   editor: BookOpen,
+  flashcards: GalleryVerticalEnd,
   general: Settings2,
+  goals: Target,
   images: Image,
   reading: BookOpen,
 } as const
@@ -31,6 +33,10 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('generalSection')
     case 'editor':
       return t('editorSection')
+    case 'flashcards':
+      return t('flashcardsSection')
+    case 'goals':
+      return t('goalsSection')
     case 'images':
       return t('imagesSection')
     case 'reading':
@@ -66,6 +72,28 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('mcpPort')
     case 'mcp.accessToken':
       return t('mcpAccessToken')
+    case 'flashcards.newCardsPerDay':
+      return t('newCardsPerDay')
+    case 'flashcards.newGatherOrder':
+      return t('newGatherOrder')
+    case 'flashcards.interdayOrder':
+      return t('interdayOrder')
+    case 'flashcards.reviewOrder':
+      return t('reviewOrder')
+    case 'flashcards.learnAheadMinutes':
+      return t('learnAhead')
+    case 'flashcards.studyDayStartsAtHour':
+      return t('studyDayStarts')
+    case 'flashcards.buryNewSiblings':
+      return t('buryNewSiblings')
+    case 'flashcards.buryReviewSiblings':
+      return t('buryReviewSiblings')
+    case 'flashcards.buryInterdayLearningSiblings':
+      return t('buryInterdaySiblings')
+    case 'goals.dailyLearningGoalMode':
+      return t('dailyLearningGoal')
+    case 'goals.dailyLearningGoalCards':
+      return t('dailyLimit')
     default:
       return field.label
   }
@@ -91,6 +119,10 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('mcpPortDescription')
     case 'mcp.accessToken':
       return t('mcpAccessTokenDescription')
+    case 'flashcards.newCardsPerDay':
+      return t('newCardsPerDayDescription')
+    case 'goals.dailyLearningGoalCards':
+      return t('dailyLimitDescription')
     default:
       return field.description
   }
@@ -128,8 +160,62 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return 'JPEG'
     case 'avif':
       return 'AVIF'
+    case 'source':
+      return t('sourceOrder')
+    case 'random':
+      return t('randomOrder')
+    case 'before-reviews':
+      return t('beforeReviews')
+    case 'mixed':
+      return t('mixedWithReviews')
+    case 'after-reviews':
+      return t('afterReviews')
+    case 'due-random':
+      return t('dueRandom')
+    case 'retrievability':
+      return t('retrievability')
+    case 'spread-week':
+      return t('spreadWeek')
+    case 'all-due':
+      return t('allDue')
+    case 'fixed':
+      return t('fixedDailyLimit')
     default:
       return value
+  }
+}
+
+function translateUnit(unit: string | undefined, t: TFunction): string | undefined {
+  switch (unit) {
+    case 'cards':
+      return t('cards')
+    case 'minutes':
+      return t('minutes')
+    case 'hour':
+      return t('hour')
+    default:
+      return unit
+  }
+}
+
+function translateSectionDescription(sectionId: string, t: TFunction): string {
+  switch (sectionId) {
+    case 'general':
+      return t('generalDescription')
+    case 'editor':
+      return t('editorDescription')
+    case 'flashcards':
+      return t('flashcardsDescription')
+    case 'goals':
+      return t('goalsDescription')
+    case 'images':
+      return t('imagesDescription')
+    case 'reading':
+      return t('readingDescription')
+    case 'mcp':
+      return t('mcpDescription')
+    default:
+      return ''
   }
 }
 
@@ -153,25 +239,9 @@ function localizeSection(section: ConfigurationSection, t: TFunction): Configura
         ...field,
         description: translateFieldDescription(field, t),
         label: translateFieldLabel(field, t),
+        ...(field.control === 'number' ? { unit: translateUnit(field.unit, t) } : {}),
       }
     }),
-  }
-}
-
-function sectionDescription(sectionId: string, t: TFunction): string {
-  switch (sectionId) {
-    case 'general':
-      return t('generalDescription')
-    case 'editor':
-      return t('editorDescription')
-    case 'images':
-      return t('imagesDescription')
-    case 'reading':
-      return t('readingDescription')
-    case 'mcp':
-      return t('mcpDescription')
-    default:
-      return ''
   }
 }
 
@@ -225,7 +295,9 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
               >
                 <header {...stylex.props(settingsStyles.contentHeader)}>
                   <h1 id="active-settings-heading" {...stylex.props(settingsStyles.pageTitle)}>{activeSection.label}</h1>
-                  <p {...stylex.props(settingsStyles.pageDescription)}>{sectionDescription(activeSection.id, t)}</p>
+                  <p {...stylex.props(settingsStyles.pageDescription)}>
+                    {translateSectionDescription(activeSection.id, t)}
+                  </p>
                 </header>
                 <div {...stylex.props(settingsStyles.settingsGroup)} data-window-no-drag="">
                   <ConfigurationFields fields={activeSection.fields} store={store} />

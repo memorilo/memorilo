@@ -225,6 +225,7 @@ export function AppTitlebar({
   const canGoBack = historyPosition.index > 0
   const canGoForward = historyPosition.index < historyPosition.maxIndex
   const navigationOffset = sidebarVisible ? 270 : 120
+  const leadingOffset = navigationOffset + 76
 
   return (
     <header
@@ -257,6 +258,19 @@ export function AppTitlebar({
               >
                 <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
               </NavigationButton>
+            </motion.div>
+          )
+        : null}
+      {page?.leading
+        ? (
+            <motion.div
+              {...stylex.props(appTitlebarStyles.leadingSlot)}
+              animate={{ left: leadingOffset }}
+              data-window-no-drag=""
+              initial={false}
+              transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
+            >
+              {page.leading}
             </motion.div>
           )
         : null}

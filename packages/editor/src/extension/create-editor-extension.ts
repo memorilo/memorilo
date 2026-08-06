@@ -1,6 +1,7 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { Uploader } from 'prosekit/extensions/file'
 import type { EditorAdapters } from '../adapters/editor-adapters'
+import type { CardReviewRuntime } from '../card/card-review-runtime'
 import type { OutlineRuntime } from '../common/outline-runtime'
 import type { EditorTopicRuntime } from '../note/editor-topic-runtime'
 import type { EditorStore } from '../state/editor-store'
@@ -27,9 +28,10 @@ import { defineCodeBlockShiki } from 'prosekit/extensions/code-block'
 import { defineHorizontalRule } from 'prosekit/extensions/horizontal-rule'
 import { defineImageUploadHandler } from 'prosekit/extensions/image'
 import { defineMath } from 'prosekit/extensions/math'
-
 import { definePlaceholder } from 'prosekit/extensions/placeholder'
+import { defineReadonly } from 'prosekit/extensions/readonly'
 import { defineCardExtension } from '../card/card-extension'
+import { defineCardReviewExtension } from '../card/card-review-extension'
 import { defineBlockIdExtension } from '../common/block-id-extension'
 import { defineEditorKeymapExtension } from '../common/editor-keymap-extension'
 import { defineOutlineKeymapExtension } from '../common/outline-keymap-extension'
@@ -89,6 +91,8 @@ export function createEditorExtension(
   outlineRuntime: OutlineRuntime,
   onDocumentChange?: (document: NodeJSON) => void,
   topic?: EditorTopicRuntime,
+  readOnly = false,
+  cardReviewRuntime?: CardReviewRuntime,
 ) {
   const uploader = createUploader(adapters, store)
   const tagRuntime = new TagRuntime(adapters.tagStorage)
@@ -96,6 +100,7 @@ export function createEditorExtension(
   const editorExtension = union(
     defineBasicExtension(),
     defineCardExtension(),
+    ...(cardReviewRuntime ? [defineCardReviewExtension(cardReviewRuntime)] : []),
     withPriority(defineBlockIdExtension(), Priority.highest),
     defineTableKeymapExtension(),
     defineEditorKeymapExtension(),
@@ -133,6 +138,7 @@ export function createEditorExtension(
       },
     }),
     defineNetworkImagePaste(adapters),
+    ...(readOnly ? [defineReadonly()] : []),
   )
 
   return {

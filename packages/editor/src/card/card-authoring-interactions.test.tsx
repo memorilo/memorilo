@@ -398,10 +398,12 @@ describe('card authoring interactions', () => {
     })
 
     await userEvent.click(preview)
-    expect(await rendered.findByRole('dialog', { name: 'Card preview' })).toBeVisible()
-    expect(rendered.queryByLabelText('Hidden cloze')).toBeNull()
-    expect(rendered.getByLabelText('Formula: e^{[…]} + 1 = 0')).toHaveAttribute(
-      'data-math-source',
+    const dialog = await rendered.findByRole('dialog', { name: 'Card preview' })
+    expect(dialog).toBeVisible()
+    const surface = within(dialog).getByTestId('card-preview-surface')
+    expect(within(surface).queryByLabelText('Hidden cloze')).toBeNull()
+    expect(surface.querySelector('.prosemirror-math-display')).toHaveAttribute(
+      'data-card-review-math-source',
       'e^{\\text{\\ldots}} + 1 = 0',
     )
   })
@@ -479,8 +481,9 @@ describe('card authoring interactions', () => {
     await userEvent.click(alphaPreview)
     const alphaDialog = await rendered.findByRole('dialog', { name: 'Card preview' })
     expect(within(alphaDialog).getByLabelText('Hidden cloze')).toBeVisible()
-    expect(within(alphaDialog).getByTestId('card-preview-surface')).toHaveTextContent('Beta')
-    expect(within(alphaDialog).getByTestId('card-preview-surface')).not.toHaveTextContent('Alpha')
+    const alphaSurface = within(alphaDialog).getByTestId('card-preview-surface')
+    expect(within(alphaSurface).getByText('Beta')).toBeVisible()
+    expect(within(alphaSurface).getByText('Alpha')).not.toBeVisible()
 
     await userEvent.click(within(alphaDialog).getByRole('button', { name: 'Close preview' }))
     await waitFor(() => expect(rendered.queryByRole('dialog', { name: 'Card preview' })).toBeNull())
@@ -490,8 +493,9 @@ describe('card authoring interactions', () => {
     await userEvent.click(within(currentBetaControls).getByRole('button', { name: 'Preview card' }))
     const betaDialog = await rendered.findByRole('dialog', { name: 'Card preview' })
     expect(within(betaDialog).getByLabelText('Hidden cloze')).toBeVisible()
-    expect(within(betaDialog).getByTestId('card-preview-surface')).toHaveTextContent('Alpha')
-    expect(within(betaDialog).getByTestId('card-preview-surface')).not.toHaveTextContent('Beta')
+    const betaSurface = within(betaDialog).getByTestId('card-preview-surface')
+    expect(within(betaSurface).getByText('Alpha')).toBeVisible()
+    expect(within(betaSurface).getByText('Beta')).not.toBeVisible()
   })
 
   it('keeps Basic controls usable when a Cloze shares the Source Block', async () => {
@@ -1169,12 +1173,19 @@ describe('card authoring interactions', () => {
     expect(rendered.container.querySelector('[data-block-id="capital"]')).toHaveAttribute('data-card-scope-active')
     expect(rendered.container.querySelectorAll('[data-card-scope-active]')).toHaveLength(1)
     expect(within(preview).getByText('Capital of France')).toBeInTheDocument()
-    expect(within(preview).queryByText('Paris')).toBeNull()
+    expect(within(preview).getByText('Paris')).not.toBeVisible()
+    const previewEditor = within(preview).getByTestId('card-preview-surface').querySelector('.ProseMirror')
+    if (!previewEditor)
+      throw new Error('Card Preview did not mount a ProseMirror Editor')
 
     await act(async () => {
       await userEvent.click(within(preview).getByRole('button', { name: 'Show answer' }))
     })
-    expect(await within(preview).findByText('Paris')).toBeInTheDocument()
+    await waitFor(() => expect(
+      within(preview).getByTestId('card-preview-surface').querySelector('[data-card-review-hidden]'),
+    ).toBeNull())
+    expect(within(preview).getByTestId('card-preview-surface')).toHaveTextContent('Paris')
+    expect(within(preview).getByTestId('card-preview-surface').querySelector('.ProseMirror')).toBe(previewEditor)
 
     await act(async () => {
       await userEvent.keyboard('{Escape}')

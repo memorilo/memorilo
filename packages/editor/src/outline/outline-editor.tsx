@@ -45,10 +45,12 @@ function animateFocusChange(root: HTMLElement): Animation {
 
 export function OutlineEditor({
   options,
+  readOnly,
   rootRef,
   session,
 }: {
   options?: OutlineOptions
+  readOnly: boolean
   rootRef: RefObject<HTMLDivElement | null>
   session: EditorSession
 }) {
@@ -77,12 +79,14 @@ export function OutlineEditor({
   }
 
   useEffect(() => {
+    if (readOnly)
+      return
     const root = rootRef.current
     const markerStyles = markerStylesRef.current
     if (!root || !markerStyles)
       throw new Error('Outline marker alignment requires a mounted editor root')
     return observeOutlineMarkerAlignment(root, markerStyles)
-  }, [rootRef])
+  }, [readOnly, rootRef])
 
   useLayoutEffect(() => {
     const previousFocusBlockId = previousFocusBlockIdRef.current
@@ -151,12 +155,12 @@ export function OutlineEditor({
 
     root.addEventListener('click', handleMarkerClick, true)
     return () => root.removeEventListener('click', handleMarkerClick, true)
-  }, [requestFocus, rootRef, runtime])
+  }, [readOnly, requestFocus, rootRef, runtime])
 
   return (
     <>
       <style ref={markerStylesRef} data-outline-marker-alignment="" />
-      {snapshot.focusBlockId
+      {snapshot.focusBlockId && !readOnly
         ? (
             <div {...stylex.props(outlineEditorStyles.focusNavigation)}>
               <button

@@ -11,6 +11,7 @@ import type {
   DesktopFavoriteNoteItem,
   DesktopJournalNote,
   DesktopJournalPage,
+  DesktopLearningApi,
   DesktopNote,
   DesktopNoteExternalUpdate,
   DesktopNoteFavoriteState,
@@ -81,6 +82,7 @@ export interface DesktopServices {
     openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
     prunePastEmptyJournals: () => Promise<PruneDesktopPastEmptyJournalsResult>
   }
+  learning: DesktopLearningApi
   notes: {
     createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
     getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
@@ -115,6 +117,40 @@ export interface DesktopServices {
   }
 }
 
+function createDesktopLearningApi(service: DesktopServices['learning']): DesktopLearningApi {
+  return {
+    archiveOptimizer: optimizerId => service.archiveOptimizer(optimizerId),
+    assignNoteOptimizer: input => service.assignNoteOptimizer(input),
+    createOptimizer: input => service.createOptimizer(input),
+    getDailyProgress: now => service.getDailyProgress(now),
+    getLearningState: targetId => service.getLearningState(targetId),
+    getMaintenanceEstimate: () => service.getMaintenanceEstimate(),
+    getNoteOptimizer: noteId => service.getNoteOptimizer(noteId),
+    getOptimizer: optimizerId => service.getOptimizer(optimizerId),
+    getOptimizerNoteCount: optimizerId => service.getOptimizerNoteCount(optimizerId),
+    getNextItem: input => service.getNextItem(input),
+    getNextNewItem: input => service.getNextNewItem(input),
+    getNextReviewItem: input => service.getNextReviewItem(input),
+    listNotesWithCards: () => service.listNotesWithCards(),
+    listOptimizers: () => service.listOptimizers(),
+    listQueue: input => service.listQueue(input),
+    listTargets: cardId => service.listTargets(cardId),
+    maintainDatabase: () => service.maintainDatabase(),
+    optimizeOptimizer: input => service.optimizeOptimizer(input),
+    prepareReview: input => service.prepareReview(input),
+    rateMultiLineCard: input => service.rateMultiLineCard(input),
+    rateTarget: input => service.rateTarget(input),
+    renameOptimizer: input => service.renameOptimizer(input),
+    resetOptimizerDefaults: (optimizerId, rescheduleNow) => (
+      service.resetOptimizerDefaults(optimizerId, rescheduleNow)
+    ),
+    resetTarget: input => service.resetTarget(input),
+    restoreReviewItem: input => service.restoreReviewItem(input),
+    undoLastReview: input => service.undoLastReview(input),
+    updateOptimizer: input => service.updateOptimizer(input),
+  }
+}
+
 export function createDesktopApi(
   services: DesktopServices,
   subscribeConfiguration: DesktopApi['subscribeConfiguration'],
@@ -143,6 +179,7 @@ export function createDesktopApi(
     listNotes: input => services.notes.listNotes(input),
     listPastJournals: input => services.journals.listPastJournals(input),
     listRecentNotes: input => services.notes.listRecentNotes(input),
+    learning: createDesktopLearningApi(services.learning),
     listShelfSources: () => services.shelf.listSources(),
     openJournal: input => services.journals.openJournal(input),
     openMostRecentNote: () => services.notes.openMostRecentNote(),

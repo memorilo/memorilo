@@ -45,20 +45,45 @@
   "windowSection": "窗口",
   "openJournals": "打开日志",
   "openJournalsDescription": "打开编辑器",
-  "openJournalsKeywords": ["日志", "编辑器", "写作", "笔记"],
+  "openJournalsKeywords": [
+    "日志",
+    "编辑器",
+    "写作",
+    "笔记"
+  ],
   "openPages": "打开页面",
   "openPagesDescription": "浏览所有笔记",
-  "openPagesKeywords": ["页面", "库", "表格", "笔记"],
+  "openPagesKeywords": [
+    "页面",
+    "库",
+    "表格",
+    "笔记"
+  ],
   "goBack": "后退",
   "goBackDescription": "返回上一页",
-  "goBackKeywords": ["后退", "上一个", "历史"],
+  "goBackKeywords": [
+    "后退",
+    "上一个",
+    "历史"
+  ],
   "goForward": "前进",
   "goForwardDescription": "移动到下一页",
-  "goForwardKeywords": ["前进", "下一个", "历史"],
+  "goForwardKeywords": [
+    "前进",
+    "下一个",
+    "历史"
+  ],
   "toggleSidebar": "切换侧边栏",
   "toggleSidebarDescription": "隐藏工作区导航",
   "toggleSidebarDescriptionShow": "显示工作区导航",
-  "toggleSidebarKeywords": ["侧边栏", "导航", "面板", "切换", "隐藏", "显示"],
+  "toggleSidebarKeywords": [
+    "侧边栏",
+    "导航",
+    "面板",
+    "切换",
+    "隐藏",
+    "显示"
+  ],
   "createNoteLabel": "创建笔记“{{query}}”",
   "createNoteDescription": "将此文本用作笔记标题和第一个 H1 标题",
   "creatingNote": "正在创建笔记",
@@ -70,5 +95,6 @@
   "topicTitleMatch": "主题标题",
   "nodeStartsWith": "节点以查询开头",
   "contentMatch": "内容匹配",
-  "relatedMeaning": "相关内容"
+  "relatedMeaning": "相关内容",
+  "learning": "学习"
 }

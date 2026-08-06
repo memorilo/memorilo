@@ -1,6 +1,6 @@
 import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
-import type { EditorStorage } from '@memorilo/editor-storage'
+import type { EditorStorage, LearningPracticeConfiguration } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
 import type { NoteApplicationService } from './notes/note-application-service'
 import { randomBytes } from 'node:crypto'
@@ -98,6 +98,28 @@ function embeddingModelCacheDirectory(): string {
   if (app.isPackaged)
     return join(process.resourcesPath, 'embedding-models')
   return resolve(mainDirectory, '../../../../.cache/embedding-models')
+}
+
+function learningPracticeConfiguration(
+  configuration: DesktopConfiguration,
+): LearningPracticeConfiguration {
+  return {
+    dailyGoal: {
+      fixedCards: configuration.goals.dailyLearningGoalCards,
+      mode: configuration.goals.dailyLearningGoalMode,
+    },
+    queuePolicy: {
+      buryInterdayLearningSiblings: configuration.flashcards.buryInterdayLearningSiblings,
+      buryNewSiblings: configuration.flashcards.buryNewSiblings,
+      buryReviewSiblings: configuration.flashcards.buryReviewSiblings,
+      interdayOrder: configuration.flashcards.interdayOrder,
+      learnAheadMinutes: configuration.flashcards.learnAheadMinutes,
+      maxNewCardsPerDay: configuration.flashcards.newCardsPerDay,
+      newGatherOrder: configuration.flashcards.newGatherOrder,
+      reviewOrder: configuration.flashcards.reviewOrder,
+      studyDayStartsAtHour: configuration.flashcards.studyDayStartsAtHour,
+    },
+  }
 }
 
 async function reportInvalidConfiguration(configurationPath: string, phase: 'reload' | 'startup'): Promise<void> {
@@ -256,6 +278,18 @@ function installJournalRollover(notes: Pick<NoteApplicationService, 'openJournal
   }
 }
 
+function learningNow(): () => number {
+  const configured = process.env.MEMORILO_E2E_NOW_MS
+  if (configured === undefined)
+    return Date.now
+  if (shouldShowWindow())
+    throw new Error('MEMORILO_E2E_NOW_MS is only available in hidden-window E2E runs')
+  const milliseconds = Number(configured)
+  if (!Number.isSafeInteger(milliseconds) || milliseconds < 0)
+    throw new TypeError('MEMORILO_E2E_NOW_MS must be a non-negative safe integer')
+  return () => milliseconds
+}
+
 function createWindow() {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
@@ -319,7 +353,8 @@ async function startApplication(): Promise<void> {
   const assets = assetDirectory(database)
   registerAssetProtocol(assets)
   registerRendererProtocol(join(mainDirectory, '../renderer'))
-  configurationStore = await createDesktopConfigurationStore(userDataPath)
+  const activeConfigurationStore = await createDesktopConfigurationStore(userDataPath)
+  configurationStore = activeConfigurationStore
   const mainDatabase = new BetterSqliteDatabase(database)
   editorStorage = await createEditorStorage({
     database: mainDatabase,
@@ -327,6 +362,7 @@ async function startApplication(): Promise<void> {
       allowRemoteModels: !app.isPackaged && process.env.MEMORILO_EMBEDDING_MODEL_OFFLINE !== '1',
       cacheDirectory: embeddingModelCacheDirectory(),
     }),
+    learningConfiguration: () => learningPracticeConfiguration(activeConfigurationStore.getSnapshot()),
   })
   const shelfStorage = await createShelfStorage({ database: mainDatabase })
   shelfImageCacheDatabase = new BetterSqliteDatabase(shelfImageCacheDatabasePath(), {
@@ -339,9 +375,9 @@ async function startApplication(): Promise<void> {
   })
   const activeReadings = createActiveReadingRegistry()
 
-  let configuration = configurationStore.getSnapshot()
+  let configuration = activeConfigurationStore.getSnapshot()
   if (configuration.mcp.accessToken.length < 32) {
-    configuration = await configurationStore.set({
+    configuration = await activeConfigurationStore.set({
       ...configuration,
       mcp: { ...configuration.mcp, accessToken: randomBytes(32).toString('base64url') },
     })
@@ -364,16 +400,16 @@ async function startApplication(): Promise<void> {
     shelfStorage,
     shelfImageCache,
     shelfReadingFiles,
-    configurationStore,
+    activeConfigurationStore,
     assets,
     serializeAssetOperation,
     activeReadings,
+    editorStorage.learning,
+    learningNow(),
   )
   void mcpServer.update(configuration.mcp)
-  unsubscribeConfiguration = configurationStore.subscribe(() => {
-    const next = configurationStore?.getSnapshot()
-    if (!next)
-      throw new Error('Desktop configuration store closed before broadcasting an update')
+  unsubscribeConfiguration = activeConfigurationStore.subscribe(() => {
+    const next = activeConfigurationStore.getSnapshot()
     for (const window of BrowserWindow.getAllWindows())
       window.webContents.send(desktopConfigurationChangedChannel, next)
     void mcpServer.update(next.mcp)

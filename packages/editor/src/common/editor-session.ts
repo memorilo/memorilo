@@ -1,11 +1,13 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
+import type { CardReviewOptions } from '../card/card-review-runtime'
 import type { EditorCardIntegration } from '../card/card-sync'
 import type { EditorTopicDocument } from '../note/editor-note'
 import type { OutlineOptions } from './outline-runtime'
 
 import { createNodeJsonFromLoroTree } from '@memorilo/loro-prosemirror-tree'
 import { createEditor } from 'prosekit/core'
+import { CardReviewRuntime } from '../card/card-review-runtime'
 import { createEditorCardSync } from '../card/card-sync'
 import { createEditorExtension } from '../extension/create-editor-extension'
 import { resolveEditorTopicDocument } from '../note/editor-topic-runtime'
@@ -15,9 +17,11 @@ import { OutlineRuntime, resolveOutlineFocusTarget } from './outline-runtime'
 
 export interface EditorSessionOptions {
   adapters: EditorAdapters
+  cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
   onDocumentChange: (document: NodeJSON) => void
   outline?: OutlineOptions
+  readOnly: boolean
   topicDocument: EditorTopicDocument
 }
 
@@ -33,6 +37,9 @@ export function createEditorSession(options: EditorSessionOptions) {
     focusBlockId: defaultFocus ? resolveOutlineFocusTarget(defaultContent, defaultFocus) : null,
     outdentBehavior: options.outline?.defaultOutdentBehavior,
   })
+  const cardReviewRuntime = options.cardReview
+    ? new CardReviewRuntime(options.cardReview)
+    : undefined
   const cardSync = options.cards
     ? createEditorCardSync({
         ...options.cards,
@@ -44,13 +51,23 @@ export function createEditorSession(options: EditorSessionOptions) {
     outlineRuntime.reconcileDocument(document)
     options.onDocumentChange(document)
     cardSync?.schedule(document)
-  }, topic)
+  }, topic, options.readOnly, cardReviewRuntime)
   const editor = createEditor({ extension: configured.extension, defaultContent })
 
   outlineRuntime.reconcileDocument(editor.getDocJSON())
   cardSync?.schedule(editor.getDocJSON())
 
-  return { cardSync, configured, editor, outlineRuntime, store, topic }
+  return {
+    adapters: options.adapters,
+    cardReviewRuntime,
+    cardSync,
+    configured,
+    editor,
+    outlineRuntime,
+    store,
+    topic,
+    topicDocument: options.topicDocument,
+  }
 }
 
 export type EditorSession = ReturnType<typeof createEditorSession>

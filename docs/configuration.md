@@ -3,7 +3,7 @@
 配置模块由两层组成：
 
 - `@memorilo/config`：通用配置定义、Effect Schema 校验、存储、订阅、热更新和 React 配置控件。
-- `@memorilo/desktop-config`：Memorilo 桌面应用的配置原型，目前包含 Language、Reduce motion 和 Outline Outdent behavior。
+- `@memorilo/desktop-config`：Memorilo 桌面应用的配置原型，目前包含 General、Flashcards、Goals & Streaks、Editor 和 MCP 设置。
 
 ## 定义配置
 
@@ -51,7 +51,7 @@ export const appConfigurationDefinition = defineConfiguration({
 })
 ```
 
-支持的控件是 `text`、`number`、`select` 和 `toggle`。`number` 可以额外指定 `min`、`max`、`step` 和 `unit`；`text` 可以指定 `placeholder`。`select` 的选项值必须唯一，并且必须包含默认值。
+支持的控件是 `text`、`number`、`select` 和 `toggle`。`number` 可以额外指定 `min`、`max`、`step` 和 `unit`；`text` 可以指定 `placeholder`，敏感字段可设置 `sensitive`。`select` 的选项值必须唯一，并且必须包含默认值。
 
 ## 创建存储
 
@@ -168,6 +168,16 @@ stylex(stylexOptions)
 
 设置窗口是独立的、非模态、单实例 `BrowserWindow`，由 App 菜单的 `Settings…` 和 `CmdOrCtrl+,` 打开。设置页面入口是 `apps/desktop/renderer/settings.html`，没有 Electron 时会使用内存适配器，因此可以在浏览器中进行视觉调试和交互测试。
 
+当前桌面设置分组包括：
+
+- General：语言和减少动态效果。
+- Flashcards：每日新卡数、新卡收集顺序、跨日学习顺序、复习顺序、learn-ahead、学习日边界，以及 Anki 分类的三个 Sibling Bury 开关。
+- Goals & Streaks：Spread over the week、Review all due cards each day、Set a daily limit 三种 Daily Goal 模式及固定目标值。
+- Editor：Outline 的 Outdent behavior。
+- MCP：本地服务开关、端口和敏感 access token。
+
+Flashcards 与 Goals 设置不会生成持久化队列 snapshot。当前已展示的复习 Card 保持稳定，下一次选卡和下一次进度查询读取最新配置；MCP 与 Outline 设置则通过配置订阅更新对应运行时。
+
 新增桌面设置时，需要同步修改：
 
 1. `apps/desktop/config/src/index.ts` 中的 Effect Schema、默认值和字段原型。
@@ -175,7 +185,7 @@ stylex(stylexOptions)
 3. 如设置影响全局行为，在 `DesktopConfigurationEnvironment` 中消费配置并处理系统辅助功能偏好。
 4. 浏览器设置测试 `apps/desktop/renderer/src/settings/settings.test.tsx`。
 
-`Outdent behavior` 位于设置窗口的 Editor 分组，默认值为 `logical`。旧版 `configuration.json` 缺少该字段时，主进程会补齐默认值并原子写回；字段存在但值非法时仍会拒绝配置。设置变更通过配置订阅实时应用到已打开的 Outline 编辑器。
+`migrateDesktopConfiguration` 为缺少 Flashcards、Goals、MCP 或 `outdentBehavior` 的开发期旧配置补齐整组默认值，并规范 MCP 的端口、token 与 enabled 状态；迁移后的完整结果仍必须通过 Effect Schema，非法的现有字段不会静默回退。配置文件随后由 JSON adapter 原子写回。
 
 ## 测试命令
 

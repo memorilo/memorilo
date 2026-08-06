@@ -5,6 +5,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./card": "./src/card/index.ts",
     "./note": "./src/note/index.ts",
     "./reader": "./src/reader/index.ts",
     "./schema": "./src/schema/index.ts"

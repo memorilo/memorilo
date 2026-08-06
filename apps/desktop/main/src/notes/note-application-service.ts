@@ -2,12 +2,14 @@ import type {
   EditorStorage,
   FavoriteNoteItem,
   JournalDate,
+  LearningCardProjection,
   NoteEntryProjection,
   NoteSearchHit,
   RecentNoteItem,
   StoredNote,
   TopicContentProjection as StoredTopicContentProjection,
 } from '@memorilo/editor-storage'
+import type { EditorCardProjection } from '@memorilo/editor/card'
 import type {
   EditorNote,
   EditorNoteMutation,
@@ -20,13 +22,14 @@ import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import { createHash, randomUUID } from 'node:crypto'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
+import { projectEditorCards } from '@memorilo/editor/card'
 import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { Effect } from 'effect'
 
 import { projectNoteAssetReferences } from '../assets/asset-references'
 
 const checkpointInterval = 32
-const noteCacheCapacity = 32
+const noteCacheCapacity = 64
 
 interface AuthoritativeNote {
   checkpointSequence: number
@@ -130,6 +133,19 @@ export interface NoteExternalUpdate {
   updatedAt: number
 }
 
+export interface GetNoteCardProjectionInput {
+  cardId: string
+  noteId: string
+  topicId: string
+}
+
+export interface NoteCardProjection {
+  card: EditorCardProjection
+  noteTitle: string
+  topicTitle: string
+  updatedAt: number
+}
+
 export class NoteApplicationServiceClosedError extends Error {
   override readonly name = 'NoteApplicationServiceClosedError'
 
@@ -154,6 +170,18 @@ export class ActiveReadingDeletionError extends Error {
   }
 }
 
+export class NoteCardProjectionNotFoundError extends Error {
+  override readonly name = 'NoteCardProjectionNotFoundError'
+
+  constructor(
+    readonly noteId: string,
+    readonly topicId: string,
+    readonly cardId: string,
+  ) {
+    super(`Note ${noteId} Topic ${topicId} does not contain Card ${cardId}`)
+  }
+}
+
 function mergeMutation(target: {
   entriesChanged: boolean
   metadataChanged: boolean
@@ -170,6 +198,49 @@ function toStoredEntries(entries: readonly NoteEntrySnapshot[]): readonly NoteEn
 
 function toStoredTopic(topic: TopicContentProjection): StoredTopicContentProjection {
   return structuredClone(topic)
+}
+
+function toLearningCard(card: EditorCardProjection): LearningCardProjection {
+  return {
+    cardId: card.id,
+    direction: card.kind === 'cloze' ? 'forward' : card.direction,
+    itemBlockIds: (card.kind === 'list' || card.kind === 'set') && card.direction === 'forward'
+      ? card.items.map(item => item.blockId)
+      : [],
+    kind: card.kind,
+    sourceBlockId: card.sourceBlockId,
+  }
+}
+
+async function reconcileTopicCards(
+  storage: EditorStorage,
+  note: EditorNote,
+  topicId: string,
+): Promise<void> {
+  const entries = note.getEntries()
+  const topicOrder = entries.findIndex(candidate => candidate.id === topicId)
+  const entry = topicOrder === -1 ? undefined : entries[topicOrder]
+  const cards = entry?.kind === 'topic'
+    ? projectEditorCards(note.getTopicValidationInput(topicId).document).map(toLearningCard)
+    : []
+  await storage.learning.reconcileTopicCards({
+    cards,
+    noteId: note.id,
+    topicId,
+    topicOrder: topicOrder === -1 ? 0 : topicOrder,
+  })
+}
+
+async function reconcileNoteCards(storage: EditorStorage, note: EditorNote): Promise<void> {
+  const currentTopicIds = note.getEntries()
+    .filter(entry => entry.kind === 'topic')
+    .map(entry => entry.id)
+  const topicIds = new Set([
+    ...currentTopicIds,
+    ...await storage.learning.listNoteTopicIds(note.id),
+  ])
+  for (const topicId of topicIds)
+    await reconcileTopicCards(storage, note, topicId)
 }
 
 function updateHash(update: Uint8Array): string {
@@ -332,6 +403,7 @@ export function createNoteApplicationService(
       noteId: note.id,
       references: assetReferences,
     })
+    await reconcileNoteCards(storage, note)
     if (journalDate !== null)
       resolveJournalTopic(note, { expectedNoteTitle: journalDate })
     return { checkpointSequence, createdAt: stored.createdAt, journalDate, latestSequence, note, updatedAt }
@@ -493,6 +565,8 @@ export function createNoteApplicationService(
     })
     current.latestSequence = receipt.latestSequence
     current.updatedAt = receipt.updatedAt
+    for (const topicId of options.topicIds ?? [])
+      await reconcileTopicCards(storage, current.note, topicId)
     await checkpointIfNeeded(current)
     if (receipt.acceptedUpdateHashes.length > 0)
       scheduleIndex(current.note.id)
@@ -600,6 +674,22 @@ export function createNoteApplicationService(
     getBookTopicReadingContext: (input: { noteId: string, topicId: string }) => serialize(async () => (
       toBookTopicReadingContext(await openNote(input.noteId), input.topicId)
     )),
+    getCardProjection: (input: GetNoteCardProjectionInput) => serialize(async (): Promise<NoteCardProjection> => {
+      const current = await openNote(input.noteId)
+      const entry = current.note.getEntries().find(candidate => candidate.id === input.topicId)
+      if (!entry || entry.kind !== 'topic')
+        throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
+      const card = projectEditorCards(current.note.getTopicValidationInput(input.topicId).document)
+        .find(candidate => candidate.id === input.cardId)
+      if (!card)
+        throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
+      return {
+        card,
+        noteTitle: current.note.getTitle(),
+        topicTitle: entry.title,
+        updatedAt: current.updatedAt,
+      }
+    }),
     getNote: (input: Parameters<EditorStorage['getNote']>[0]) => serialize(async () => toDesktopNote(await openNote(input.noteId))),
     getNoteTree: (input: { noteId: string }) => serialize(async () => {
       const current = await openNote(input.noteId)
@@ -781,6 +871,8 @@ export function createNoteApplicationService(
         })
         current.latestSequence = receipt.latestSequence
         current.updatedAt = receipt.updatedAt
+        for (const topicId of changed.topicIds)
+          await reconcileTopicCards(storage, current.note, topicId)
         await checkpointIfNeeded(current)
         const acceptedHashes = new Set(receipt.acceptedUpdateHashes)
         if (acceptedHashes.size > 0)

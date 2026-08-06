@@ -1,4 +1,6 @@
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
+import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
+import type { EditorCardProjection } from '@memorilo/editor/card'
 import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
 import type {
   AddShelfSourceInput,
@@ -82,6 +84,62 @@ export interface ReclaimDesktopAssetsResult {
   cancelled: boolean
   failedFileNames: readonly string[]
   reclaimedFileNames: readonly string[]
+}
+
+export interface DesktopReviewTarget {
+  itemBlockId: string | null
+  targetId: string
+}
+
+export interface DesktopReviewItem {
+  card: EditorCardProjection
+  mainTargetId: string
+  noteTitle: string
+  queue: LearningQueueItem
+  targets: readonly DesktopReviewTarget[]
+  topicTitle: string
+  updatedAt: number
+}
+
+export type GetNextDesktopReviewItemInput = Omit<ListLearningQueueInput, 'limit' | 'mode'>
+
+export interface RestoreDesktopReviewItemInput {
+  cardId: string
+  noteId: string
+  presentation: LearningQueueItem['presentation']
+  targetId: string
+  topicId: string
+}
+
+type DesktopLearningStorageApi = Pick<LearningStorage, | 'archiveOptimizer'
+  | 'assignNoteOptimizer'
+  | 'createOptimizer'
+  | 'getDailyProgress'
+  | 'getLearningState'
+  | 'getMaintenanceEstimate'
+  | 'getNoteOptimizer'
+  | 'getOptimizer'
+  | 'getOptimizerNoteCount'
+  | 'listNotesWithCards'
+  | 'listOptimizers'
+  | 'listQueue'
+  | 'listTargets'
+  | 'maintainDatabase'
+  | 'optimizeOptimizer'
+  | 'prepareReview'
+  | 'rateMultiLineCard'
+  | 'rateTarget'
+  | 'renameOptimizer'
+  | 'resetOptimizerDefaults'
+  | 'resetTarget'
+  | 'undoLastReview'
+  | 'updateOptimizer'>
+
+export interface DesktopLearningApi extends DesktopLearningStorageApi {
+  getNextItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+  getNextNewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+  getNextReviewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+  restoreReviewItem: (input: RestoreDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
 }
 
 export interface DesktopTopicBlock {
@@ -370,6 +428,7 @@ export interface DesktopApi {
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
   listPastJournals: (input?: ListDesktopPastJournalsInput) => Promise<DesktopJournalPage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
+  learning: DesktopLearningApi
   listShelfSources: () => Promise<readonly ShelfSource[]>
   openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
   openMostRecentNote: () => Promise<DesktopNote>
