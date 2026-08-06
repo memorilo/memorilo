@@ -30,7 +30,13 @@ export default defineConfig({
           'effect',
           'fast-xml-parser',
         ],
-        include: ['@huggingface/transformers', 'better-sqlite3', 'loro-crdt', 'sqlite-vec'],
+        include: [
+          '@huggingface/transformers',
+          '@open-spaced-repetition/binding',
+          'better-sqlite3',
+          'loro-crdt',
+          'sqlite-vec',
+        ],
       },
       rollupOptions: {
         input: resolve(desktopRoot, 'main/src/index.ts'),
@@ -59,6 +65,9 @@ export default defineConfig({
     root: resolve(desktopRoot, 'renderer'),
     define: {
       __MEMORILO_REPO_ROOT__: JSON.stringify(repositoryRoot),
+    },
+    optimizeDeps: {
+      include: ['@memorilo/editor > prosekit/extensions/readonly'],
     },
     plugins: [
       wasm(),

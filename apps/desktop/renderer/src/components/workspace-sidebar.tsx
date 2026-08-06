@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Clock3,
   Files,
+  GraduationCap,
   PanelLeft,
   Star,
 } from 'lucide-react'
@@ -46,7 +47,7 @@ interface SourceItemProps {
     topicId: string
   } | {
     kind: 'route'
-    to: '/journals' | '/pages' | '/shelf'
+    to: '/journals' | '/learning' | '/pages' | '/shelf'
   }
   icon: LucideIcon
   label: string
@@ -63,6 +64,7 @@ function navigationItems(t: (key: string) => string): readonly SourceItemProps[]
     { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
     { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
     { destination: { kind: 'route', to: '/shelf' }, icon: BookOpen, label: t('shelf') },
+    { destination: { kind: 'route', to: '/learning' }, icon: GraduationCap, label: t('learning') },
   ]
 }
 
@@ -136,7 +138,7 @@ function SourceItem({ destination, icon, label }: SourceItemProps) {
   return (
     <Link
       {...stylex.props(workspaceSidebarStyles.sourceItem)}
-      activeOptions={{ exact: true }}
+      activeOptions={{ exact: destination.to !== '/learning' }}
       activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
       preload="intent"
       to={destination.to}

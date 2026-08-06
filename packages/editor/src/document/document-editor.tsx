@@ -9,13 +9,24 @@ export function DocumentEditor({
   embedded,
   focusBlockId,
   mode,
+  readOnly,
   session,
 }: {
   children?: ReactNode
   embedded: boolean
   focusBlockId?: string
   mode: EditorModeValue
+  readOnly: boolean
   session: EditorSession
 }) {
-  return <EditorCanvas embedded={embedded} focusBlockId={focusBlockId} mode={mode} modeControls={children} session={session} />
+  return (
+    <EditorCanvas
+      embedded={embedded}
+      focusBlockId={focusBlockId}
+      mode={mode}
+      modeControls={children}
+      readOnly={readOnly}
+      session={session}
+    />
+  )
 }

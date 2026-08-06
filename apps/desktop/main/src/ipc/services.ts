@@ -1,18 +1,20 @@
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
-import type { EditorStorage } from '@memorilo/editor-storage'
+import type { EditorStorage, LearningStorage } from '@memorilo/editor-storage'
 import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
 import type { MergeIpcService } from 'electron-ipc-decorator'
 import type { NoteApplicationService } from '../notes/note-application-service'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import { createServices } from 'electron-ipc-decorator'
+import { createLearningReviewApplication } from '../learning/learning-review-application'
 
 import { AppService } from './app-service'
 import { createAssetService } from './asset-service'
 import { createBookService } from './book-service'
 import { createConfigurationService } from './configuration-service'
 import { createJournalService } from './journal-service'
+import { createLearningService } from './learning-service'
 import { createNoteService } from './note-service'
 import { createShelfService } from './shelf-service'
 import { WindowService } from './window-service'
@@ -27,11 +29,18 @@ export function createDesktopServices(
   assetDirectory: string | null,
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
   activeReadings: ActiveReadingRegistry,
+  learning: LearningStorage,
+  now: () => number = Date.now,
 ) {
   const AssetService = createAssetService(assetDirectory, storage, configuration, serializeAssetOperation)
   const BookService = createBookService(notes, storage, shelfReadingFiles, activeReadings)
   const ConfigurationService = createConfigurationService(configuration)
   const JournalService = createJournalService(notes)
+  const LearningService = createLearningService(
+    learning,
+    createLearningReviewApplication(notes, learning, now),
+    now,
+  )
   const NoteService = createNoteService(notes)
   const ShelfService = createShelfService(shelfStorage, shelfImageCache, shelfReadingFiles, activeReadings)
   return createServices([
@@ -40,6 +49,7 @@ export function createDesktopServices(
     BookService,
     ConfigurationService,
     JournalService,
+    LearningService,
     NoteService,
     ShelfService,
     WindowService,

@@ -1,11 +1,13 @@
 import type { BookFileBinding, BookFileDescriptor } from '@memorilo/reading-model'
 import type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 import type { EmbeddingModel } from './embedding-model'
+import type { LearningPracticeConfiguration, LearningStorage } from './learning'
 import { assertReadingFormat } from '@memorilo/reading-format'
 import { assertBookFileSha256, bookFileIdentityKey } from '@memorilo/reading-model'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { v7 as createUuidV7 } from 'uuid'
+import { createLearningStorage } from './learning'
 
 export interface FolderProjection {
   id: string
@@ -368,6 +370,7 @@ export interface EditorStorage {
   listClaimedAssets: () => Promise<readonly StoredAsset[]>
   listRecentNotes: (input?: ListNoteActivityInput) => Promise<readonly RecentNoteItem[]>
   listUnreferencedAssets: (input: { unreferencedBefore: number }) => Promise<readonly StoredAsset[]>
+  readonly learning: LearningStorage
   openMostRecentNote: (input?: OpenMostRecentNoteInput) => Promise<StoredNote>
   prunePastEmptyJournals: (input: PrunePastEmptyJournalsInput) => Promise<PrunePastEmptyJournalsResult>
   reconcileNoteAssetReferences: (input: ReconcileNoteAssetReferencesInput) => Promise<boolean>
@@ -383,6 +386,7 @@ export interface EditorStorage {
 export interface CreateEditorStorageOptions {
   database: EditorStorageDatabase
   embeddingModel: EmbeddingModel
+  learningConfiguration?: () => LearningPracticeConfiguration
 }
 
 interface AssetRow {
@@ -1249,11 +1253,13 @@ function toTopicSearchHit(
 class DefaultEditorStorage implements EditorStorage {
   readonly #database: EditorStorageDatabase
   readonly #embeddingModel: EmbeddingModel
+  readonly learning: LearningStorage
   #writeQueue: Promise<void> = Promise.resolve()
 
-  private constructor(options: CreateEditorStorageOptions) {
+  private constructor(options: CreateEditorStorageOptions, learning: LearningStorage) {
     this.#database = options.database
     this.#embeddingModel = options.embeddingModel
+    this.learning = learning
   }
 
   static async create(options: CreateEditorStorageOptions): Promise<DefaultEditorStorage> {
@@ -1296,7 +1302,8 @@ class DefaultEditorStorage implements EditorStorage {
       VALUES (1, ?, ?)
       ON CONFLICT(singleton) DO NOTHING
     `, [options.embeddingModel.id, options.embeddingModel.dimensions])
-    return new DefaultEditorStorage(options)
+    const learning = await createLearningStorage(options.database, options.learningConfiguration)
+    return new DefaultEditorStorage(options, learning)
   }
 
   async #serializeWrite<Result>(operation: () => Promise<Result>): Promise<Result> {

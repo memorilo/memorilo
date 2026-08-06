@@ -45,20 +45,45 @@
   "windowSection": "Window",
   "openJournals": "Open Journals",
   "openJournalsDescription": "Open the editor",
-  "openJournalsKeywords": ["journal", "editor", "write", "note"],
+  "openJournalsKeywords": [
+    "journal",
+    "editor",
+    "write",
+    "note"
+  ],
   "openPages": "Open Pages",
   "openPagesDescription": "Browse every Note",
-  "openPagesKeywords": ["pages", "library", "table", "notes"],
+  "openPagesKeywords": [
+    "pages",
+    "library",
+    "table",
+    "notes"
+  ],
   "goBack": "Go Back",
   "goBackDescription": "Return to the previous page",
-  "goBackKeywords": ["back", "previous", "history"],
+  "goBackKeywords": [
+    "back",
+    "previous",
+    "history"
+  ],
   "goForward": "Go Forward",
   "goForwardDescription": "Move to the next page",
-  "goForwardKeywords": ["forward", "next", "history"],
+  "goForwardKeywords": [
+    "forward",
+    "next",
+    "history"
+  ],
   "toggleSidebar": "Toggle Sidebar",
   "toggleSidebarDescription": "Hide workspace navigation",
   "toggleSidebarDescriptionShow": "Show workspace navigation",
-  "toggleSidebarKeywords": ["sidebar", "navigation", "panel", "toggle", "hide", "show"],
+  "toggleSidebarKeywords": [
+    "sidebar",
+    "navigation",
+    "panel",
+    "toggle",
+    "hide",
+    "show"
+  ],
   "createNoteLabel": "Create Note “{{query}}”",
   "createNoteDescription": "Use this text as the Note title and first H1 heading",
   "creatingNote": "Creating Note",
@@ -70,5 +95,6 @@
   "topicTitleMatch": "Topic title",
   "nodeStartsWith": "Node starts with query",
   "contentMatch": "Content match",
-  "relatedMeaning": "Related meaning"
+  "relatedMeaning": "Related meaning",
+  "learning": "Learning"
 }

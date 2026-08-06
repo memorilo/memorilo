@@ -61,6 +61,48 @@ export type {
 } from './editor-storage'
 export { assertJournalDate, createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
 export type { EmbeddingModel } from './embedding-model'
+export { defaultLearningPracticeConfiguration, GLOBAL_OPTIMIZER_ID } from './learning'
+export type {
+  AcknowledgeLearningSyncInput,
+  AssignNoteOptimizerInput,
+  CreateFsrsOptimizerInput,
+  FsrsOptimizer,
+  FsrsOptimizerConfiguration,
+  LearningCardDirection,
+  LearningCardKind,
+  LearningCardProjection,
+  LearningDailyGoalMode,
+  LearningDailyProgress,
+  LearningMaintenanceEstimate,
+  LearningMaintenanceResult,
+  LearningPhase,
+  LearningPracticeConfiguration,
+  LearningQueueItem,
+  LearningQueueMode,
+  LearningQueuePolicy,
+  LearningRatingOutcome,
+  LearningReviewPreparationToken,
+  LearningState,
+  LearningStorage,
+  LearningSyncChange,
+  LearningTarget,
+  LearningTargetKind,
+  ListLearningQueueInput,
+  MultiLineReviewResult,
+  OptimizeFsrsOptimizerInput,
+  PreparedLearningRating,
+  PreparedLearningReview,
+  PrepareLearningReviewInput,
+  RateLearningTargetInput,
+  RateMultiLineCardInput,
+  ReconcileLearningCardsInput,
+  RenameFsrsOptimizerInput,
+  ResetLearningTargetInput,
+  ReviewRating,
+  ReviewResult,
+  UndoLearningReviewInput,
+  UpdateFsrsOptimizerInput,
+} from './learning'
 export type { CreateShelfImageCacheOptions } from './shelf-image-cache'
 export { createShelfImageCache } from './shelf-image-cache'
 export type { CreateShelfStorageOptions } from './shelf-storage'

@@ -1,6 +1,8 @@
 # Anki、RemNote 与 SuperMemo 学习系统调研
 
-调研日期：2026-07-30
+调研日期：2026-07-30；实现状态更新：2026-08-06
+
+本文保留当时用于选择产品路线的外部调研与阶段计划。Memorilo 后续已经选择原生 FSRS，并完成 Card 投影、学习存储、队列、Optimizer 和正式 Review UI；当前实现合同以 [FSRS Learning System Design](../fsrs-learning-system.md) 为准。
 
 ## 范围与资料边界
 
@@ -32,7 +34,7 @@ SuperMemo 需要特别限定范围：本文研究的是仍可公开访问的经�
 
 最值得 Memorilo 保留的共同边界是：**知识内容与复习状态不能是同一个对象，但必须有稳定关联**。Anki 将 Note 与 Card 明确分开；RemNote 从 bullet 生成 card；SuperMemo 将可继续加工的 Topic 与用于主动回忆的 Item 区分开。
 
-对近期范围而言，AnkiConnect 可以把 Anki 当作外部 card store 和 scheduler，快速验证 cloze、image occlusion 和 review UI；它不是一种后台同步协议。若采用这一方向，Anki 必须运行，card identity、复习历史、due state 和下一间隔均由 Anki 集合及其 scheduler 掌握。原生调度则能形成离线、统一的 Memorilo 工作流，但需要自行承担数据模型、迁移、调度正确性、历史保留与跨设备合并。
+调研阶段曾把 AnkiConnect 作为快速验证路线；它只能把 Anki 当作外部 card store 和 scheduler，不是后台同步协议。Memorilo 当前已经选择并实现原生 FSRS，Card identity、Review Event history、Learning State、due 与下一间隔均由 Memorilo 管理。远端个人学习同步仍是后续边界。
 
 ## 1. Anki
 
@@ -266,7 +268,7 @@ API request 由 `action`、`version`、`params` 和可选 `key` 构成，respons
 | Portability | 可利用 `.apkg/.colpkg` 和 Anki 生态 | 必须自行定义完整、版本化、含媒体和 history 的出口 |
 | 近期成本 | 低，可快速验证 Card UX 和内容生成 | 高，算法只是其中一部分，状态机、迁移、统计和合并同样必要 |
 
-### 4.3 需要在计划阶段先决定的问题
+### 4.3 AnkiConnect 历史路线需要先决定的问题
 
 1. **谁是 Card presentation 的真源？** 若 Anki template 生成最终 front/back，Memorilo editor 预览必须容忍差异；若 Memorilo 生成最终 HTML，则要定义哪些 Anki edits 会被覆盖。
 2. **编辑同步方向是什么？** “Memorilo -> Anki 发布”比双向同步简单得多；双向会遇到 Note schema、template、media、删除和冲突合并。
@@ -275,7 +277,7 @@ API request 由 `action`、`version`、`params` 和可选 `key` 构成，respons
 5. **如何发现外部变更？** AnkiConnect 提供查询 API，但不是 change feed；需要设计显式刷新、版本/修改时间比较和删除检测。
 6. **如何退出集成？** 即使第一版不做原生 scheduler，也应让 Memorilo 的 card definition 与 Anki ids 分离，保留将来迁移 content 和 history 的边界。
 
-基于现有资料的产品判断：issue #29 的 AnkiConnect 方向适合作为**有明确依赖的第一阶段 integration**，但不宜称作“Anki 双向同步”，除非范围包含冲突、删除、模板和媒体的完整语义。最小可靠范围更接近“Memorilo 发布/更新 Notes 到 Anki，读取 Card 状态，并把 review rating 提交给 Anki scheduler”。
+调研当时的产品判断是：issue #29 的 AnkiConnect 方向适合作为**有明确依赖的第一阶段 integration**，但不宜称作“Anki 双向同步”，除非范围包含冲突、删除、模板和媒体的完整语义。最小可靠范围更接近“Memorilo 发布/更新 Notes 到 Anki，读取 Card 状态，并把 review rating 提交给 Anki scheduler”。项目后续没有采用这条路线，当前 scheduling owner 是 Memorilo 原生 FSRS。
 
 ## 5. Memorilo 当前基础与约束
 
@@ -287,7 +289,7 @@ API request 由 `action`、`version`、`params` 和可选 `key` 构成，respons
 - 每个 Topic 的内容是具有稳定 Block identity 的 LoroTree；ProseMirror 是它的可编辑 projection。[ADR 0002](../adr/0002-topic-blocks-as-loro-tree.md)
 - `packages/editor` 已能把 Topic 投影为带稳定 `blockId`、parent、ordinal、kind、text 和 attributes 的 Block 列表。
 - `packages/editor-storage` 已把 Block projection 写入 SQLite，并提供 lexical、semantic 和 hybrid search；这使未来从 Card 返回来源 Block、查找相关上下文和构建学习 scope 都有现成落点。
-- 当前桌面 inspector 已有 `due / learned / new`、`Next review`、`Stability` 和 `Priority` 的视觉原型，但数据仍是硬编码，IPC 与存储还没有学习领域契约。
+- 桌面端已经具有 Learning Notes、Optimizer 设置和独立 Review 路由；Electron IPC/preload 公开学习契约，`packages/editor-storage` 保存 Review Events 与 Learning States，`packages/srs` 负责 FSRS、队列政策和 List/Set 两层调度。
 
 ### 5.2 必须保持的边界
 
@@ -297,7 +299,7 @@ API request 由 `action`、`version`、`params` 和可选 `key` 构成，respons
 4. 当前 Block `contentHash` 只覆盖纯文本。Cloze anchor、方向、答案边界、ListCard membership 与 Highlight 等语义变化需要独立的内容语义 projection/hash，不能依赖现有搜索索引判断 Card 是否变化。
 5. Card identity 不能由当前 ordinal 或 cloze 的临时位置推导。移动 Block、改写文字或在前面插入另一个 cloze 时，已有 review history 必须仍关联到原 Card。
 
-## 6. 建议的领域模型
+## 6. Memorilo 当前领域模型
 
 ```text
 Note / Topic / Source Block（Loro，协作内容真源）
@@ -308,7 +310,7 @@ Note / Topic / Source Block（Loro，协作内容真源）
               -> Review Queue（按当前 scope 动态查询）
 ```
 
-建议采用以下术语：
+当前实现采用以下术语；Reading Item 仍是未来边界：
 
 | 术语 | 含义 | 真源位置 |
 | --- | --- | --- |
@@ -316,8 +318,8 @@ Note / Topic / Source Block（Loro，协作内容真源）
 | Card Definition | Basic、Reverse、Bidirectional、RichContentCloze、MathSourceCloze、ListCard 等出题规则 | Note LoroDoc 的语义节点、属性或 mark |
 | Card | 一个方向、一个 cloze group 或一个遮挡区产生的独立复习单位 | 从 Card Definition 投影；具有显式稳定 ID |
 | Sibling Group | 来自同一 Definition、可能互相泄露答案的一组 Cards | Card projection |
-| Review Event | 某 profile 在某时刻以某 rating 回答 Card 的事实 | 原生路线为 SQLite/未来独立同步日志；外部路线由 Anki collection 持有 |
-| Memory State | New/Learning/Review/Relearning、stability、difficulty、due 等 | 原生路线为 Review Events 的物化结果；外部路线从 Anki 读取 |
+| Review Event | 某 profile 在某时刻以某 rating 回答 Card 的事实 | SQLite 中的追加式历史与本地 sync outbox；远端同步尚未实现 |
+| Memory State | New/Learning/Review/Relearning、stability、difficulty、due 等 | Review Events 的可重建 SQLite 物化结果 |
 | Review Queue | due/new/relearning Cards 在某一 scope 下的排序结果 | 动态计算，不作为内容实体持久化 |
 | Reading Item | 未来渐进阅读中的来源、read point、priority 与 next process time | 独立于 Card 的后续领域对象 |
 
@@ -329,24 +331,24 @@ Note / Topic / Source Block（Loro，协作内容真源）
 - 同一 Card 在任一时刻只有一个 scheduling owner：Anki 或 Memorilo，不能双方分别计算 due date。
 - Rating 的语义属于 scheduler 契约。UI 文案、键盘快捷键和导入映射必须固定且可解释。
 
-## 7. 建议的模块边界
+## 7. 当前模块边界
 
 | 模块 | 职责 |
 | --- | --- |
 | `packages/editor` | Card Definition 的编辑语义、稳定 ID、两类 Cloze anchor、ListCard reveal projection、inline/whole-block Highlight，以及从 Topic 文档投影 Cards |
-| 新的纯领域模块，例如 `packages/learning` | Card、rating、scheduler adapter、queue policy、sibling policy；不依赖 Electron 或 SQLite |
-| `packages/editor-storage` | Card projections、external bindings、review events、materialized memory state、查询与事务 |
-| `apps/desktop/main` | 组合 learning domain 与 SQLite/AnkiConnect adapter，暴露 IPC service |
-| `apps/desktop/preload` | context-isolated review、queue、rating 和 source-navigation contracts |
-| `apps/desktop/renderer` | Learn route、review session、Topic/Note 聚合状态和 source editing entry |
+| `packages/srs` | Rating、FSRS state transition、Optimizer、queue policy、sibling policy 与 multi-line 调度；不依赖 Electron 或 SQLite |
+| `packages/editor-storage` | Card projections、review events、materialized memory state、动态队列查询、Optimizer、事务、本地 sync outbox 与数据库维护 |
+| `apps/desktop/main` | 组合 Note 内容加载、editor-storage、当前配置 provider 与 learning application，暴露 IPC service |
+| `apps/desktop/preload` | context-isolated queue、review preparation/rating、Undo/Reset、Optimizer 与维护 contracts |
+| `apps/desktop/renderer` | Learning Notes、Optimizer 和 Review routes，CardSurface 展示、session 状态与路由恢复 |
 
-这条边界把“如何出题”“如何安排下一次复习”“数据存在哪里”“界面如何呈现”分开，避免以后从 AnkiConnect 切到原生 FSRS 时重写 editor 文档模型。
+这条边界把“如何出题”“如何安排下一次复习”“数据存在哪里”“界面如何呈现”分开，使 editor 文档模型不依赖具体 scheduler 或未来互操作适配器。
 
-原生路线的 Review history 宜采用不可变事件加物化状态，而不是只存一行当前 due date；撤销通过补偿或 superseding event 表达。这样可保留解释、重新计算和未来参数升级的可能，也更贴合 issue [#32](https://github.com/memorilo/memorilo/issues/32) 中非 CRDT 数据仍需单独设计同步的现状。多设备并发 review 的合并政策仍需在真正实现 P2P 前另行决定。
+当前 Review history 已采用不可变事件加物化状态，而不是只存一行 due date；撤销通过追加 Undo Event 表达。这样保留了解释、重新计算和参数升级能力，也更贴合 issue [#32](https://github.com/memorilo/memorilo/issues/32) 中非 CRDT 数据需要独立同步的边界。本地 outbox 与 server-sequence acknowledgement 已实现；远端传输、入站合并和多设备并发 review 协调仍需在真正实现 P2P 前完成。
 
-## 8. 调度所有权决策
+## 8. 调度所有权决策（已解决）
 
-Issue [#29](https://github.com/memorilo/memorilo/issues/29) 提议先通过 AnkiConnect 获得调度能力。当前更合适的做法是先共享同一套 Card Definition 和 Review Adapter 边界，再在实现复习闭环前明确选择一条 owner 路线，而不是同时实现两套状态。
+Issue [#29](https://github.com/memorilo/memorilo/issues/29) 曾提议先通过 AnkiConnect 获得调度能力。项目最终选择原生 FSRS 作为唯一 scheduling owner；下表保留调研时比较过的路线，而不是当前仍待选择的方案。
 
 | 路线 | 适用目标 | 优点 | 主要代价 |
 | --- | --- | --- | --- |
@@ -354,15 +356,17 @@ Issue [#29](https://github.com/memorilo/memorilo/issues/29) 提议先通过 Anki
 | AnkiConnect | 先验证制卡和复习交互，接受 Anki 作为运行时依赖 | 较快获得成熟 scheduler、AnkiWeb 与生态能力 | Anki 必须运行；需维护 external IDs；无 change feed；退出和双向编辑复杂 |
 | 只做 Editor Card 层 | 先验证全部首期元素与 Preview projection | 不触碰 Desktop、存储或 scheduler；通过自动化测试收敛复杂交互 | 暂时没有正式复习队列与跨会话学习状态 |
 
-产品建议：如果学习是 Memorilo 的核心能力，默认选择**原生 FSRS**；当前 TypeScript 运行时已有成熟的开放实现（例如 [`ts-fsrs`](https://github.com/open-spaced-repetition/ts-fsrs)）可供评估，算法公式本身不是主要风险，真正工作量在数据和队列语义。如果目标只是尽快验证制卡体验，可选择**单向发布到 Anki + Anki 拥有调度**，但应明确称为 integration，而不是双向同步。
+当前决策是**原生 FSRS**。实现使用独立 `packages/srs` 深模块承载可测试的调度规则，并由 `packages/editor-storage` 保存追加式 Review Events、物化状态和 Optimizer revisions。AnkiConnect 若未来加入，只能作为明确的互操作功能，不能同时推进同一 Card 的本地调度状态。
 
 无论选择哪条路线，都不应让 Anki 和 Memorilo 同时接受同一 Card 的 rating，也不应以“先缓存 due date”代替明确的 scheduling ownership。
 
-## 9. 分阶段实施计划
+## 9. 分阶段实施记录
+
+截至 2026-08-06，阶段 0、1A、1B 与原生复习闭环的核心部分已经完成；阶段 3 的独立 Learning/Review UI、只读 Editor CardSurface、四级评分、interval preview 和 Undo 已完成。AnkiConnect 路线未采用，远端个人学习同步、完整 source navigation/suspend 操作和渐进阅读仍属于后续工作。以下条目保留原始实施拆分，并在已过时处标注当前结果。
 
 ### 阶段 0：冻结领域决策
 
-- 当前阶段只修改 `packages/editor`，不触碰 Desktop、SQLite、IPC 或正式 scheduler；scheduling owner 与数据库向前兼容策略推迟到存储阶段再确认。
+- 该历史阶段只修改 `packages/editor`，不触碰 Desktop、SQLite、IPC 或正式 scheduler；后续已经选择原生 FSRS，并进入持久化与桌面集成。
 - 首期 Card authoring 包含 Basic、Reverse、Bidirectional、RichContentCloze、MathSourceCloze 与 ListCard；Highlight 同时支持 inline 与 whole-block，但不是 Card 类型。
 - 确定普通内容编辑、实质性改写、删除、Undo 和“重置学习”对 Card identity/history 的语义。
 - 记录 ADR：协作 Card Definition 与个人 Review State 分离。
@@ -380,28 +384,26 @@ Issue [#29](https://github.com/memorilo/memorilo/issues/29) 提议先通过 Anki
 
 阶段完成标志：六类 Card authoring/Preview 与两类 Highlight 都能在 editor-only 环境交互验证；移动或编辑 Source Block 不会意外生成新 Card；Desktop、SQLite 和正式 scheduler 未被修改。
 
-> **TODO(ListCard review completion)**：进入持久化与 FSRS 阶段后，为 ListCard items 增加逐项评分、复习历史和稳定身份映射，生成 Partial List Cards，并把完整/Partial Cards 纳入正式调度。首期 Editor Card 层不实现这些状态。
+> **已完成（2026-08-06）**：List/Set 已具有稳定 main/item Targets、逐项评分历史、Partial Review 和正式 FSRS 调度；完整 multi-line 评分以原子事务提交。
 
 ### 阶段 1B：持久化投影
 
 - 从 Topic 文档投影 Card front/back、source Block、context、类型和 active state。
 - 在 SQLite 保存可重建的 Card projection，并能从 Card 返回 Note/Topic/Block 来源。
-- 在修改 schema 前确认现有数据库是否需要无损向前兼容。
+- 开发阶段旧数据库已明确删除；当前 List/Set 两层 Target 模型直接作为新数据库基线，不增加旧调度状态迁移。
 
-### 阶段 2A：原生复习闭环
+### 阶段 2A：原生复习闭环（已采用）
 
-若选择原生 FSRS：
+- 已实现 Optimizer configuration/revision、Review Event 和 materialized Learning State schema。
+- 已接入 FSRS，并把 new/learning/relearning/review state machine、learning steps、queue ordering、daily new-card limit、fuzz 和 Sibling Bury 作为独立领域政策。
+- 已提供 interval preview、submit rating、Undo 和 Reset storage contract；自动 Sibling Bury 已进入队列，手动 bury/suspend 与 Reset 的 Review UI 尚未实现。
+- 已保存 FSRS/parameter version，为重放和参数升级提供依据。
 
-- 定义 review profile、scheduler configuration、review event 和 materialized memory state schema。
-- 接入 FSRS，但将 new/learning/relearning/review state machine、learning steps、queue ordering、daily limits、fuzz、bury/suspend 和 sibling suppression 视为独立领域政策。
-- 提供 preview intervals、submit rating、undo last review、reset、bury 和 suspend。
-- 保存 scheduler/parameter version，使未来重新计算和迁移有依据。
+应用重启后的 due queue、history 和下一间隔保持一致，Sibling Bury 也已进入 E2E 闭环。
 
-阶段完成标志：应用重启后 due queue、history 和下一间隔保持一致；同一 sibling group 不会在同一 session 泄露答案。
+### 阶段 2B：AnkiConnect 验证闭环（未采用）
 
-### 阶段 2B：AnkiConnect 验证闭环
-
-若选择 AnkiConnect：
+以下是调研阶段保留的备选路线，没有进入当前实现：
 
 - 只做 Memorilo -> Anki 的发布/更新，并持久化 external note/card IDs 与 last-synced definition hash。
 - Review UI 的 queue、front/back、interval preview 和 rating 都读取或提交给 Anki；Anki 不可用时明确禁用 review，而不是本地推进状态后延迟合并。
@@ -410,20 +412,19 @@ Issue [#29](https://github.com/memorilo/memorilo/issues/29) 提议先通过 Anki
 
 阶段完成标志：重复发布幂等；Anki 中模板变化、Card 删除和服务不可用都有可解释结果；Memorilo 不保存第二套 scheduler state。
 
-### 阶段 3：Learn UI 与聚合状态
+### 阶段 3：Learn UI 与聚合状态（部分完成）
 
-- 增加独立 Learn 入口和 review session，而不是把完整复习流程塞进 Note inspector。
-- 默认支持 reveal answer、四级 rating、interval preview、edit source、bury/suspend/reset 和键盘操作。
-- Review 卡片显示必要 context，并可跳回稳定 Source Block；context 规则应显式，避免 reparent 后问题含义悄然变化。
-- Inspector 中的 due count、next review、stability 和 progress 全部由 Card/Memory State 聚合，不再保存 `TopicStatus`。
-- Queue scope 首先支持全部、当前 Note、当前 Topic 和标签过滤；避免首期引入 Anki 式 Deck/Note Type/Preset 配置矩阵。
+- 已实现独立 Learning/Review route 和 session，而不是把完整复习流程塞进 Note inspector。
+- 已实现只读 CardSurface、answer reveal、四级 Rating、interval preview、Undo、键盘评分、route restoration，以及 List/Set/Cloze 的正式 Review 交互。
+- 当前 queue scope 支持全局和当前 Note；当前 CardID 进入 route search 以恢复进度。Topic/tag scope 尚未开放。
+- 稳定 Source Block 跳转、edit source、手动 bury/suspend/reset 控件，以及完整 inspector 聚合状态仍未实现。
 
-### 阶段 4：互操作、备份与同步准备
+### 阶段 4：互操作、备份与同步准备（部分完成）
 
-- 提供包含 Note content、assets、Card Definitions、bindings、review events 和 scheduler configuration 的版本化出口。
-- 原生调度路线可后续增加 Anki import/export；AnkiConnect 路线可评估迁移 history 到原生 scheduler。
-- 为 P2P 明确 profile identity、event ordering、重复 rating 和并发 review conflict policy；Memory State 作为可重建缓存而非唯一事实。
-- 在有足够 history 后再提供 parameter optimization、retention 调整和高级统计，不把它们作为 MVP 前置条件。
+- Optimizer parameter optimization、retention/configuration 调整与可选立即重调度已经实现。
+- Review Events、device sequence、本地 sync outbox、server-sequence acknowledgement 和 purge tombstone 已形成同步基础，但没有远端 transport、入站 merge 或 full-sync recovery。
+- 包含 Note content、assets、Card Definitions、Review Events 和 scheduler configuration 的版本化出口，以及 Anki import/export，仍未实现。
+- P2P 的 profile identity、event ordering、重复 Rating 和并发 review conflict policy 仍需要与实际远端协议一起落地；Memory State 已按可重建缓存实现。
 
 ### 阶段 5：渐进阅读
 
@@ -439,18 +440,15 @@ Review Card
 
 - Reader/PDF/Web source 先生成可定位 excerpt，再由用户逐步改写为 Source Block 和 Card Definition。
 - Reading queue 与 Card due queue 可在一个 Learn session 交错呈现，但 action、完成条件和调度政策分离。
-- Priority 用于处理输入过载，不应覆盖 FSRS due date；当前 inspector 原型中的 `Priority` 在实现前需要明确它属于 Reading Item、Card introduction，还是 Topic 聚合。
+- Priority 用于处理输入过载，不应覆盖 FSRS due date；原始 inspector 原型中的 `Priority` 在实现前需要明确它属于 Reading Item、Card introduction，还是 Topic 聚合。
 
-## 10. 当前建议与待确认项
+## 10. 当前状态与后续边界
 
-当前确认的最小产品切片是：**`packages/editor` 内的 Card authoring 与自动化测试 + Basic/Reverse/Bidirectional + 两路径 Cloze + ListCard 逐项揭示 Preview + inline/whole-block Highlight + 稳定 Card identity**。它先验证 RemNote 式 Block authoring 与 SuperMemo 式重点标注，不触碰 Desktop、存储和 FSRS。
+当前已经形成“制卡 -> 动态队列 -> 正式复习 -> FSRS 状态持久化”的闭环：Editor 支持 Basic/Reverse/Bidirectional、两条 Cloze 路径、List/Set 与稳定 Card identity；Desktop 支持全局/Note Review、四级评分、main/item 两层调度、Sibling Bury、每日新卡额度、Daily Goal、Optimizer assignment/optimization 和跨重启恢复。
 
-下一阶段才接入 Card projection、持久化和原生 FSRS review queue。ListCard 到那时补齐逐项评分历史、Partial Card 和调度，最终形成“制卡 → 复习 → 回到来源编辑”的闭环。
+已确认的数据库策略是开发阶段删除旧数据库，以当前 learning schema 和 List/Set 两层 Target 模型作为基线，不编写旧调度数据兼容迁移。未来若出现上线后的破坏性 schema 或同步协议变化，需要重新明确兼容范围，不能沿用这次开发期决定。
 
-在进入实现前仍需用户确认：
-
-1. Bidirectional 关闭一个方向后再开启时，是否必须恢复原 CardID？
-2. 进入持久化阶段时，现有本地数据库是否必须无损向前兼容，还是开发阶段允许重置？
+仍未完成的主要边界是远端个人学习同步、完整的 source navigation 与 suspend 等 Review 操作、版本化导入导出，以及 SuperMemo 式渐进阅读；这些不影响当前原生 FSRS 闭环。
 
 ## 官方资料
 

@@ -16,6 +16,7 @@
     "@memorilo/reading-format": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
     "@memorilo/shelf": "workspace:*",
+    "@memorilo/srs": "workspace:*",
     "@noble/hashes": "2.2.0",
     "uuid": "14.0.1"
   },

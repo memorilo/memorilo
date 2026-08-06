@@ -11,6 +11,8 @@ const token = '0123456789abcdef0123456789abcdef'
 
 function configuration(mcp: { accessToken: string, enabled: boolean, port: number }) {
   return {
+    flashcards: desktopConfigurationDefinition.defaults.flashcards,
+    goals: desktopConfigurationDefinition.defaults.goals,
     language: 'system',
     mcp,
     networkImagePasteBehavior: 'download',
@@ -44,6 +46,8 @@ describe('desktop MCP configuration', () => {
 
   it('migrates legacy, partial, and unsafe configurations without enabling MCP', () => {
     expect(migrateDesktopConfiguration({ language: 'en', reduceMotion: true })).toEqual({
+      flashcards: desktopConfigurationDefinition.defaults.flashcards,
+      goals: desktopConfigurationDefinition.defaults.goals,
       language: 'en',
       mcp: { accessToken: '', enabled: false, port: 8765 },
       outdentBehavior: 'logical',
@@ -60,6 +64,8 @@ describe('desktop MCP configuration', () => {
       reduceMotion: true,
       weekStart: 'sunday',
     })).toEqual({
+      flashcards: desktopConfigurationDefinition.defaults.flashcards,
+      goals: desktopConfigurationDefinition.defaults.goals,
       language: 'en',
       mcp: { accessToken: token, enabled: false, port: 8765 },
       outdentBehavior: 'traditional',
