@@ -1,0 +1,118 @@
+@import "../css/variables.module.scss";
+
+.zoom-actions,
+.undo-redo-buttons {
+  @include liquidGlassLensing(var(--glass-compact-highlight));
+  background-color: var(--glass-compact-bg);
+  -webkit-backdrop-filter: var(--glass-filter-compact);
+  backdrop-filter: var(--glass-filter-compact);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius-compact);
+  box-shadow: var(--glass-inner-highlight), var(--glass-shadow-compact);
+  overflow: hidden;
+}
+
+.zoom-button,
+.undo-redo-buttons button {
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  font-size: 0.875rem !important;
+  width: var(--lg-button-size);
+  height: var(--lg-button-size);
+  transition:
+    background-color var(--glass-transition-duration)
+      var(--glass-transition-timing),
+    box-shadow var(--glass-transition-duration) var(--glass-transition-timing),
+    filter 100ms ease-out,
+    transform 100ms ease-out;
+
+  &:hover {
+    background-color: var(--glass-control-hover-bg) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  }
+
+  &:active {
+    background-color: var(--glass-control-pressed-bg) !important;
+    box-shadow: inset 0 1px 2px rgba(55, 62, 82, 0.14);
+    filter: brightness(1.035) saturate(1.08);
+    transform: translateY(1px) scale(0.95);
+  }
+
+  svg {
+    width: var(--lg-icon-size) !important;
+    height: var(--lg-icon-size) !important;
+  }
+
+  .ToolIcon__icon {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.reset-zoom-button {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  padding: 0 0.625rem !important;
+  width: 3.75rem !important;
+  justify-content: center;
+  color: var(--text-primary-color);
+}
+
+.zoom-out-button {
+  border-top-left-radius: var(--border-radius-lg) !important;
+  border-bottom-left-radius: var(--border-radius-lg) !important;
+
+  :root[dir="rtl"] & {
+    transform: scaleX(-1);
+  }
+
+  .ToolIcon__icon {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+}
+
+.zoom-in-button {
+  border-top-right-radius: var(--border-radius-lg) !important;
+  border-bottom-right-radius: var(--border-radius-lg) !important;
+
+  :root[dir="rtl"] & {
+    transform: scaleX(-1);
+  }
+
+  .ToolIcon__icon {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+  }
+}
+
+.undo-redo-buttons {
+  .undo-button-container button {
+    border-top-left-radius: var(--border-radius-lg) !important;
+    border-bottom-left-radius: var(--border-radius-lg) !important;
+    border-right: 0 !important;
+
+    :root[dir="rtl"] & {
+      transform: scaleX(-1);
+    }
+
+    .ToolIcon__icon {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+  }
+
+  .redo-button-container button {
+    border-top-right-radius: var(--border-radius-lg) !important;
+    border-bottom-right-radius: var(--border-radius-lg) !important;
+
+    :root[dir="rtl"] & {
+      transform: scaleX(-1);
+    }
+
+    .ToolIcon__icon {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+  }
+}

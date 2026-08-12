@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["**/*.test.*", "dist"]
+}
