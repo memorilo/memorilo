@@ -1,0 +1,263 @@
+@import "open-color/open-color.scss";
+
+@mixin liquidGlassLensing($highlight) {
+  position: relative;
+  isolation: isolate;
+  background-image: $highlight;
+  background-repeat: no-repeat;
+  background-blend-mode: screen;
+
+  &::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    background: var(--glass-edge-gradient);
+    -webkit-backdrop-filter: var(--glass-edge-filter, none);
+    backdrop-filter: var(--glass-edge-filter, none);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: var(--glass-lens-opacity);
+    pointer-events: none;
+    transition:
+      opacity 120ms ease-out,
+      filter 120ms ease-out;
+  }
+
+  &:hover::before {
+    filter: brightness(1.08) saturate(1.08);
+  }
+
+  &:active::before,
+  &:has(:active)::before {
+    opacity: 1;
+    filter: brightness(1.18) saturate(1.14);
+  }
+}
+
+@mixin isMobile() {
+  @at-root .excalidraw--mobile#{&} {
+    @content;
+  }
+}
+
+@mixin toolbarButtonColorStates {
+  &.fillable {
+    .ToolIcon_type_radio,
+    .ToolIcon_type_checkbox {
+      &:checked + .ToolIcon__icon {
+        --icon-fill-color: var(--color-on-primary-container);
+
+        svg {
+          fill: var(--icon-fill-color);
+        }
+      }
+    }
+  }
+
+  .ToolIcon_type_radio,
+  .ToolIcon_type_checkbox {
+    &:checked + .ToolIcon__icon {
+      background: var(--glass-control-selected-bg);
+      box-shadow: inset 0 0 0 1px var(--glass-control-selected-border);
+      --keybinding-color: var(--color-on-primary-container);
+
+      svg {
+        color: var(--color-on-primary-container);
+      }
+    }
+  }
+
+  .ToolIcon__keybinding {
+    bottom: 4px;
+    right: 4px;
+  }
+
+  .ToolIcon__icon {
+    transition:
+      background-color var(--glass-transition-duration)
+        var(--glass-transition-timing),
+      box-shadow var(--glass-transition-duration) var(--glass-transition-timing),
+      filter 100ms ease-out,
+      transform 100ms ease-out;
+
+    &:hover {
+      background: var(--button-hover-bg);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+    }
+
+    &:active {
+      background: var(--button-active-bg);
+      box-shadow:
+        inset 0 1px 2px rgba(55, 62, 82, 0.14),
+        inset 0 0 0 1px var(--button-active-border);
+      filter: brightness(1.035) saturate(1.08);
+      transform: translateY(1px) scale(0.95);
+
+      svg {
+        color: var(--color-on-primary-container);
+      }
+    }
+
+    &[aria-disabled="true"] {
+      background: initial;
+      border: none;
+
+      svg {
+        color: var(--color-disabled);
+      }
+    }
+  }
+}
+
+@mixin outlineButtonStyles {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.625rem;
+  width: var(--button-width, var(--default-button-size));
+  height: var(--button-height, var(--default-button-size));
+  box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--button-border, var(--default-border-color));
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
+  background-color: var(--button-bg, var(--glass-control-bg));
+  color: var(--button-color, var(--color-on-surface));
+  font-family: var(--ui-font);
+  transition:
+    background-color var(--glass-transition-duration)
+      var(--glass-transition-timing),
+    border-color var(--glass-transition-duration)
+      var(--glass-transition-timing),
+    box-shadow var(--glass-transition-duration) var(--glass-transition-timing),
+    filter 100ms ease-out,
+    scale 100ms ease-out;
+
+  svg {
+    width: var(--button-width, var(--lg-icon-size));
+    height: var(--button-height, var(--lg-icon-size));
+  }
+
+  &:hover {
+    background-color: var(--button-hover-bg, var(--island-bg-color));
+    border-color: var(
+      --button-hover-border,
+      var(--button-border, var(--default-border-color))
+    );
+    color: var(
+      --button-hover-color,
+      var(--button-color, var(--text-primary-color, inherit))
+    );
+  }
+
+  &:active {
+    background-color: var(--button-active-bg, var(--island-bg-color));
+    border-color: var(--button-active-border, var(--color-primary-darkest));
+    filter: brightness(1.035) saturate(1.08);
+    scale: 0.97;
+  }
+
+  &.active {
+    background-color: var(
+      --button-selected-bg,
+      var(--glass-control-selected-bg)
+    );
+    border-color: var(
+      --button-selected-border,
+      var(--glass-control-selected-border)
+    );
+    box-shadow: inset 0 0 0 1px var(--glass-control-selected-border);
+
+    &:hover {
+      background-color: var(
+        --button-selected-hover-bg,
+        var(--glass-control-selected-bg)
+      );
+    }
+
+    svg {
+      color: var(--button-color, var(--color-on-primary-container));
+    }
+  }
+}
+
+@mixin outlineButtonIconStyles {
+  @include outlineButtonStyles;
+  padding: 0;
+
+  svg {
+    width: var(--default-icon-size);
+    height: var(--default-icon-size);
+  }
+}
+
+@mixin avatarStyles {
+  width: var(--avatar-size, 1.5rem);
+  height: var(--avatar-size, 1.5rem);
+  position: relative;
+  border-radius: 100%;
+  outline-offset: 2px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-gray-90);
+  flex: 0 0 auto;
+
+  &:active {
+    transform: scale(0.94);
+  }
+
+  &-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 100%;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    bottom: -3px;
+    left: -3px;
+    border-radius: 100%;
+  }
+
+  &.is-followed::before {
+    border-color: var(--color-primary-hover);
+    box-shadow: 0 0 0 1px var(--color-primary-hover);
+  }
+  &.is-current-user {
+    cursor: auto;
+  }
+}
+
+@mixin filledButtonOnCanvas {
+  @include liquidGlassLensing(var(--glass-compact-highlight));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-inner-highlight), var(--glass-shadow-compact);
+  background-color: var(--glass-compact-bg);
+  -webkit-backdrop-filter: var(--glass-filter-compact);
+  backdrop-filter: var(--glass-filter-compact);
+
+  &:active {
+    box-shadow:
+      var(--glass-inner-highlight),
+      inset 0 0 0 1px var(--glass-control-selected-border),
+      var(--glass-shadow-compact);
+  }
+}
