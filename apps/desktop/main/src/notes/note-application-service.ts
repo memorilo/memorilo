@@ -196,6 +196,15 @@ function toStoredEntries(entries: readonly NoteEntrySnapshot[]): readonly NoteEn
   return entries.map(entry => structuredClone(entry))
 }
 
+type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
+
+function topicDocuments(note: EditorNote, topicId: string): readonly TopicDocument[] {
+  const validation = note.getTopicValidationInput(topicId)
+  if ('document' in validation)
+    return [validation.document]
+  return Object.values(validation.embeddedEditors).map(editor => editor.document)
+}
+
 function toStoredTopic(topic: TopicContentProjection): StoredTopicContentProjection {
   return structuredClone(topic)
 }
@@ -221,7 +230,7 @@ async function reconcileTopicCards(
   const topicOrder = entries.findIndex(candidate => candidate.id === topicId)
   const entry = topicOrder === -1 ? undefined : entries[topicOrder]
   const cards = entry?.kind === 'topic'
-    ? projectEditorCards(note.getTopicValidationInput(topicId).document).map(toLearningCard)
+    ? topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
     : []
   await storage.learning.reconcileTopicCards({
     cards,
@@ -679,7 +688,8 @@ export function createNoteApplicationService(
       const entry = current.note.getEntries().find(candidate => candidate.id === input.topicId)
       if (!entry || entry.kind !== 'topic')
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
-      const card = projectEditorCards(current.note.getTopicValidationInput(input.topicId).document)
+      const card = topicDocuments(current.note, input.topicId)
+        .flatMap(document => projectEditorCards(document))
         .find(candidate => candidate.id === input.cardId)
       if (!card)
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
@@ -710,6 +720,10 @@ export function createNoteApplicationService(
       if (!entry || entry.kind !== 'topic')
         throw new Error(`Note ${input.noteId} does not contain Topic ${input.topicId}`)
       const validation = current.note.getTopicValidationInput(input.topicId)
+      if (!('document' in validation))
+        throw new Error(`WhiteboardTopic ${input.topicId} does not have a single Topic document`)
+      if (!('mode' in entry))
+        throw new Error(`WhiteboardTopic ${input.topicId} does not have a single editor mode`)
       return {
         document: validation.document,
         mode: entry.mode,

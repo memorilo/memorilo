@@ -3,6 +3,7 @@ import type {
   EditorNote,
   EditorNoteChange,
   EditorTopicDocument,
+  EditorWhiteboardTopicDocument,
   NoteEntrySnapshot,
 } from '@memorilo/editor'
 import type { EditorNoteSessionCache } from '../editor-note-session-cache'
@@ -18,7 +19,7 @@ export interface EditorNoteSessionOpened<TStored extends DesktopNote = DesktopNo
   entries: readonly NoteEntrySnapshot[]
   note: EditorNote
   stored: TStored
-  topic: EditorTopicDocument
+  topic: EditorTopicDocument | EditorWhiteboardTopicDocument
 }
 
 export interface TopicValidationError {
@@ -44,7 +45,7 @@ export interface EditorNoteSession<TStored extends DesktopNote = DesktopNote> {
 type EditorTopicResolver<TStored extends DesktopNote> = (
   note: EditorNote,
   stored: TStored,
-) => EditorTopicDocument
+) => EditorTopicDocument | EditorWhiteboardTopicDocument
 
 interface EditorNoteSessionBaseOptions<TStored extends DesktopNote> {
   cache?: EditorNoteSessionCache
@@ -72,7 +73,7 @@ export type UseEditorNoteSessionOptions<TStored extends DesktopNote>
 
 interface ValidatedEditorNote {
   entries: readonly NoteEntrySnapshot[]
-  topic: EditorTopicDocument
+  topic: EditorTopicDocument | EditorWhiteboardTopicDocument
 }
 
 function toError(error: unknown): Error {
@@ -197,10 +198,14 @@ export function useEditorNoteSession<TStored extends DesktopNote>({
 
   const resolveTopicDocument = useCallback<EditorTopicResolver<TStored>>((note, stored) => {
     if (topicId !== undefined) {
-      const topic = note.getEntries().find(entry => entry.kind === 'topic' && entry.id === topicId)
+      const topic = note.getEntries().find(
+        (entry): entry is NoteEntrySnapshot & { kind: 'topic' } => entry.kind === 'topic' && entry.id === topicId,
+      )
       if (!topic)
         throw new Error(`Note ${note.id} does not contain Topic ${topicId}`)
-      return note.getTopic(topic.id)
+      return topic.topicType === 'whiteboard'
+        ? note.getWhiteboardTopic(topic.id)
+        : note.getTopic(topic.id)
     }
     const currentResolver = resolveTopicRef.current
     if (!currentResolver)

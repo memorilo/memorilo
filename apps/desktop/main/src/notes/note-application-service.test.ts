@@ -64,7 +64,10 @@ describe('application service for MCP Notes', () => {
       throw new Error('MCP edit did not emit an external update')
     const rendererNote = createEditorNote({ id: fixture.created.id, snapshot: fixture.created.snapshot })
     rendererNote.importUpdates(emitted.update)
-    expect(rendererNote.getTopicValidationInput(fixture.topic.id).document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Edited through MCP')
+    const validation = rendererNote.getTopicValidationInput(fixture.topic.id)
+    if (!('document' in validation))
+      throw new Error('Fixture Topic must have a document')
+    expect(validation.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Edited through MCP')
 
     const projected = await fixture.storage.getTopicBlock({ blockId, noteId: fixture.created.id, topicId: fixture.topic.id })
     expect(projected?.text).toBe('Edited through MCP')

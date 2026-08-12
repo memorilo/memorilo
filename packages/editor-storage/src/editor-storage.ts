@@ -22,18 +22,19 @@ export type TopicEditorMode = 0 | 1
 interface TopicProjectionBase {
   id: string
   kind: 'topic'
-  mode: TopicEditorMode
   ordinal: number
   parentId: string | null
   title: string
 }
 
 export interface RegularTopicProjection extends TopicProjectionBase {
+  mode: TopicEditorMode
   topicType: 'regular'
 }
 
 export interface BookTopicProjection extends TopicProjectionBase {
   book: BookFileBinding
+  mode: TopicEditorMode
   topicType: 'book'
 }
 
@@ -483,6 +484,7 @@ interface CountRow {
 
 interface TableColumnRow {
   name: string
+  notnull: number
 }
 
 interface NoteUpdateRow {
@@ -691,7 +693,7 @@ const schema = `
     note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
     topic_id TEXT NOT NULL,
     topic_type TEXT NOT NULL CHECK (topic_type IN ('regular', 'book', 'whiteboard')),
-    editor_mode INTEGER NOT NULL CHECK (editor_mode IN (0, 1)),
+    editor_mode INTEGER CHECK (editor_mode IN (0, 1)),
     title TEXT NOT NULL,
     UNIQUE (note_row_id, topic_id)
   );
@@ -983,7 +985,7 @@ function validateProjectionPatch(
     else if (entry.kind === 'topic') {
       const entryId = entry.id
       assertString(entry.title, `Topic ${entry.id} title`)
-      if (entry.mode !== 0 && entry.mode !== 1)
+      if (entry.topicType !== 'whiteboard' && entry.mode !== 0 && entry.mode !== 1)
         throw new TypeError(`Topic ${entry.id} Editor mode must be 0 (Document) or 1 (Outline)`)
       if (entry.topicType === 'book') {
         assertNonEmpty(entry.title, `BookTopic ${entry.id} title`)
@@ -1283,6 +1285,12 @@ class DefaultEditorStorage implements EditorStorage {
         'Unsupported topics schema: topic_type is required; delete the existing database before starting Memorilo',
       )
     }
+    const editorModeColumn = topicColumns.find(column => column.name === 'editor_mode')
+    if (!editorModeColumn || editorModeColumn.notnull !== 0) {
+      throw new Error(
+        'Unsupported topics schema: editor_mode must be nullable; delete the existing database before starting Memorilo',
+      )
+    }
 
     const configuration = await options.database.get<EmbeddingConfigurationRow>(`
       SELECT model_id, dimensions
@@ -1536,7 +1544,13 @@ class DefaultEditorStorage implements EditorStorage {
         if (entry.kind !== 'topic')
           continue
         commands.push({
-          parameters: [saved.id, entry.id, entry.topicType, entry.mode, entry.title],
+          parameters: [
+            saved.id,
+            entry.id,
+            entry.topicType,
+            entry.topicType === 'whiteboard' ? null : entry.mode,
+            entry.title,
+          ],
           sql: `
             INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, title)
             VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?, ?)
@@ -2441,7 +2455,13 @@ class DefaultEditorStorage implements EditorStorage {
 
       for (const entry of nextTopics.values()) {
         commands.push({
-          parameters: [note.row_id, entry.id, entry.topicType, entry.mode, entry.title],
+          parameters: [
+            note.row_id,
+            entry.id,
+            entry.topicType,
+            entry.topicType === 'whiteboard' ? null : entry.mode,
+            entry.title,
+          ],
           sql: `
             INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, title)
             VALUES (?, ?, ?, ?, ?)

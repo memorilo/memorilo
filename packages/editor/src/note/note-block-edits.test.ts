@@ -36,7 +36,10 @@ function createFixture() {
 }
 
 function documentOf(fixture: ReturnType<typeof createFixture>): NodeJSON {
-  return fixture.note.getTopicValidationInput(fixture.topicId).document
+  const validation = fixture.note.getTopicValidationInput(fixture.topicId)
+  if (!('document' in validation))
+    throw new Error('Fixture Topic must have a document')
+  return validation.document
 }
 
 function findBlock(document: NodeJSON, blockId: string): NodeJSON {
