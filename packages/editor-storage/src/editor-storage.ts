@@ -37,7 +37,11 @@ export interface BookTopicProjection extends TopicProjectionBase {
   topicType: 'book'
 }
 
-export type TopicProjection = BookTopicProjection | RegularTopicProjection
+export interface WhiteboardTopicProjection extends TopicProjectionBase {
+  topicType: 'whiteboard'
+}
+
+export type TopicProjection = BookTopicProjection | RegularTopicProjection | WhiteboardTopicProjection
 
 export type NoteEntryProjection = FolderProjection | TopicProjection
 
@@ -686,6 +690,7 @@ const schema = `
     row_id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
     topic_id TEXT NOT NULL,
+    topic_type TEXT NOT NULL CHECK (topic_type IN ('regular', 'book', 'whiteboard')),
     editor_mode INTEGER NOT NULL CHECK (editor_mode IN (0, 1)),
     title TEXT NOT NULL,
     UNIQUE (note_row_id, topic_id)
@@ -989,7 +994,7 @@ function validateProjectionPatch(
           throw new Error(`BookTopics ${existingTopicId} and ${entry.id} bind the same file ${identity}`)
         bookTopicIdsByFile.set(identity, entry.id)
       }
-      else if (entry.topicType !== 'regular') {
+      else if (entry.topicType !== 'regular' && entry.topicType !== 'whiteboard') {
         throw new TypeError(`Topic ${entryId} has an unknown subtype`)
       }
       topicEntries.set(entry.id, entry)
@@ -1272,6 +1277,12 @@ class DefaultEditorStorage implements EditorStorage {
         'Unsupported notes schema: created_at is required; delete the existing database before starting Memorilo',
       )
     }
+    const topicColumns = await options.database.all<TableColumnRow>('PRAGMA table_info(topics)')
+    if (!topicColumns.some(column => column.name === 'topic_type')) {
+      throw new Error(
+        'Unsupported topics schema: topic_type is required; delete the existing database before starting Memorilo',
+      )
+    }
 
     const configuration = await options.database.get<EmbeddingConfigurationRow>(`
       SELECT model_id, dimensions
@@ -1525,10 +1536,10 @@ class DefaultEditorStorage implements EditorStorage {
         if (entry.kind !== 'topic')
           continue
         commands.push({
-          parameters: [saved.id, entry.id, entry.mode, entry.title],
+          parameters: [saved.id, entry.id, entry.topicType, entry.mode, entry.title],
           sql: `
-            INSERT INTO topics (note_row_id, topic_id, editor_mode, title)
-            VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?)
+            INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, title)
+            VALUES ((SELECT row_id FROM notes WHERE id = ?), ?, ?, ?, ?)
           `,
         })
       }
@@ -2430,11 +2441,12 @@ class DefaultEditorStorage implements EditorStorage {
 
       for (const entry of nextTopics.values()) {
         commands.push({
-          parameters: [note.row_id, entry.id, entry.mode, entry.title],
+          parameters: [note.row_id, entry.id, entry.topicType, entry.mode, entry.title],
           sql: `
-            INSERT INTO topics (note_row_id, topic_id, editor_mode, title)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, title)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(note_row_id, topic_id) DO UPDATE SET
+              topic_type = excluded.topic_type,
               editor_mode = excluded.editor_mode,
               title = excluded.title
           `,

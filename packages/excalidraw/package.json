@@ -3,7 +3,7 @@
   "version": "0.18.0-memorilo.0",
   "private": true,
   "type": "module",
-  "types": "./index.tsx",
+  "types": "./index.d.ts",
   "main": "./index.tsx",
   "module": "./index.tsx",
   "exports": {
@@ -11,7 +11,11 @@
     "./index.css": {
       "default": "./css/styles.scss"
     },
-    ".": "./index.tsx"
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.tsx",
+      "default": "./index.tsx"
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -79,7 +83,7 @@
     "points-on-curve": "1.0.1",
     "pwacompat": "2.0.17",
     "roughjs": "4.6.4",
-    "sass": "1.51.0",
+    "sass": "1.77.6",
     "tunnel-rat": "0.1.2"
   },
   "devDependencies": {

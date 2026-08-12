@@ -7,6 +7,7 @@ export type {
   LoroTopicNode,
   LoroTopicNodeType,
   LoroTopicValidation,
+  LoroWhiteboardTopic,
 } from './topic-schema'
 export {
   isLoroTopic,
@@ -16,5 +17,6 @@ export {
   LoroTopicEntrySchema,
   LoroTopicNodeSchema,
   LoroTopicSchema,
+  LoroWhiteboardTopicEntrySchema,
   validateLoroTopic,
 } from './topic-schema'

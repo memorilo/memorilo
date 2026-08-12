@@ -15,6 +15,68 @@ const colors = {
 } as const
 
 export const editorRouteStyles = stylex.create({
+  whiteboard: {
+    position: 'relative',
+    width: '100%',
+    minHeight: 0,
+    flex: 1,
+    overflow: 'hidden',
+    backgroundColor: '#f7f8fa',
+  },
+  whiteboardTopRightControls: {
+    display: 'flex',
+    padding: 4,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 12,
+    borderStyle: 'solid',
+    borderWidth: 1,
+    backgroundColor: 'rgba(246, 248, 252, 0.68)',
+    backdropFilter: 'blur(18px) saturate(160%)',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 6px 18px rgba(39, 45, 58, 0.12)',
+  },
+  whiteboardInsertEditorButton: {
+    display: 'grid',
+    width: 36,
+    height: 36,
+    boxSizing: 'border-box',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderWidth: 0,
+    borderRadius: 8,
+    padding: 0,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(255, 255, 255, 0.62)',
+      ':active': 'rgba(73, 82, 98, 0.16)',
+    },
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+    color: colors.chromeText,
+    cursor: 'default',
+    outline: 'none',
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.95)',
+    },
+    transitionDuration: {
+      'default': '100ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'background-color, box-shadow, transform',
+    transitionTimingFunction: 'ease-out',
+  },
+  whiteboardEditorEmbed: {
+    width: '100%',
+    height: '100%',
+    boxSizing: 'border-box',
+    overflow: 'auto',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    color: '#111318',
+    overscrollBehavior: 'contain',
+  },
   titlebarActionButton: {
     display: 'grid',
     width: 32,

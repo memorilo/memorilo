@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/desktop-preload": "workspace:*",

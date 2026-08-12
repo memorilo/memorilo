@@ -415,9 +415,17 @@ export const LoroBookTopicEntrySchema = Schema.Struct({
   topicType: Schema.Literal('book'),
 })
 
+export const LoroWhiteboardTopicEntrySchema = Schema.Struct({
+  ...LoroTopicEntryBaseFields,
+  title: Schema.String,
+  topicType: Schema.Literal('whiteboard'),
+  whiteboardSceneKey: Schema.NonEmptyString,
+})
+
 export const LoroTopicEntrySchema = Schema.Union([
   LoroBookTopicEntrySchema,
   LoroRegularTopicEntrySchema,
+  LoroWhiteboardTopicEntrySchema,
 ])
 
 const LoroRegularTopicSchema = Schema.Struct({
@@ -434,10 +442,17 @@ const LoroBookTopicSchema = Schema.Struct({
   }),
 })
 
+const LoroWhiteboardTopicSchema = Schema.Struct({
+  document: LoroTopicDocumentSchema,
+  entry: LoroWhiteboardTopicEntrySchema,
+  scene: Schema.Record(Schema.String, Schema.Unknown),
+})
+
 /** A complete Topic projected from its Loro entry map and referenced block tree. */
 export const LoroTopicSchema = Schema.Union([
   LoroBookTopicSchema,
   LoroRegularTopicSchema,
+  LoroWhiteboardTopicSchema,
 ]).check(Schema.makeFilter((topic) => {
   const id = topic.entry.entryId
   const expectedBlockTreeKey = `topic:${id}:blocks`
@@ -449,6 +464,16 @@ export const LoroTopicSchema = Schema.Union([
   }
   if (topic.entry.topicType === 'regular')
     return undefined
+  if (topic.entry.topicType === 'whiteboard') {
+    const expectedSceneKey = `topic:${id}:whiteboard-scene`
+    if (topic.entry.whiteboardSceneKey !== expectedSceneKey) {
+      return {
+        message: `expected the WhiteboardTopic scene key ${JSON.stringify(expectedSceneKey)}`,
+        path: ['entry', 'whiteboardSceneKey'],
+      }
+    }
+    return undefined
+  }
   if (!('annotations' in topic) || !('readingState' in topic)) {
     return {
       message: 'expected BookTopic annotations and reading state',
@@ -498,6 +523,7 @@ export const LoroTopicSchema = Schema.Union([
 export type LoroTopic = typeof LoroTopicSchema.Type
 export type LoroBookTopic = typeof LoroBookTopicSchema.Type
 export type LoroRegularTopic = typeof LoroRegularTopicSchema.Type
+export type LoroWhiteboardTopic = typeof LoroWhiteboardTopicSchema.Type
 export type LoroTopicValidation = Effect.Effect<LoroTopic, Schema.SchemaError>
 
 /** Validates unknown Topic JSON and retains all schema issues in Effect's error channel. */
