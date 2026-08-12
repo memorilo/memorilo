@@ -13,9 +13,14 @@ export interface EditorTestHarnessProps extends Omit<EditorProps, 'topic'> {
 
 export function EditorTestHarness({ initialContent, mode = EditorMode.Document, ...editorProps }: EditorTestHarnessProps) {
   const [topic] = useState(() => {
-    const note = createEditorNote({ id: crypto.randomUUID() })
-    const topicId = note.createTopic({ initialContent, mode, title: 'Test Topic' })
-    return note.getTopic(topicId)
+    const note = createEditorNote({
+      id: crypto.randomUUID(),
+      initialTopic: { initialContent, mode, title: 'Test Topic' },
+    })
+    const [topicEntry] = note.getEntries()
+    if (!topicEntry || topicEntry.kind !== 'topic')
+      throw new Error('Editor test Note is missing its initial Topic')
+    return note.getTopic(topicEntry.id)
   })
 
   useEffect(() => topic.setMode(mode), [mode, topic])

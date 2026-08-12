@@ -12,6 +12,7 @@ export { defineConfiguration } from './configuration-definition'
 export { getConfigurationValue } from './configuration-path'
 export type {
   ConfigurationAdapter,
+  ConfigurationAdapterEvent,
   ConfigurationStore,
   CreateConfigurationStoreOptions,
 } from './configuration-store'

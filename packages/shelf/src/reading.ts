@@ -4,7 +4,7 @@ import {
   readingFormatFromMediaType,
   readingFormatMediaType,
   readingFormats,
-} from '@memorilo/reading-format'
+} from '@memorilo/reading-model'
 
 export interface ShelfReadingAcquisition {
   format: ShelfReadingFormat

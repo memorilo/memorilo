@@ -1,6 +1,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
+import type { DesktopIpcHandlers } from './ipc-handler-registry'
 import { BrowserWindow, Menu } from 'electron'
-import { getIpcContext, IpcMethod, IpcService } from 'electron-ipc-decorator'
+import { withIpcContext } from './ipc-handler-registry'
 
 export interface ColumnVisibilityMenuItem {
   canToggle: boolean
@@ -42,40 +43,37 @@ function validateAnchor(anchor: ShowColumnVisibilityMenuInput['anchor']): void {
     throw new TypeError('Column visibility menu anchor coordinates must be integers')
 }
 
-export class WindowService extends IpcService {
-  static override readonly groupName = 'window'
+export function createWindowHandlers(): DesktopIpcHandlers['window'] {
+  return {
+    showColumnVisibilityMenu: withIpcContext((context, input: ShowColumnVisibilityMenuInput) => {
+      validateAnchor(input.anchor)
+      validateColumns(input.columns)
+      const browserWindow = BrowserWindow.fromWebContents(context.sender)
+      if (!browserWindow)
+        throw new Error('Cannot show a native menu without an owning BrowserWindow')
 
-  @IpcMethod()
-  showColumnVisibilityMenu(
-    input: ShowColumnVisibilityMenuInput,
-  ): Promise<ColumnVisibilityMenuSelection | null> {
-    validateAnchor(input.anchor)
-    validateColumns(input.columns)
-    const browserWindow = BrowserWindow.fromWebContents(getIpcContext().sender)
-    if (!browserWindow)
-      throw new Error('Cannot show a native menu without an owning BrowserWindow')
-
-    return new Promise((resolve) => {
-      let selectedColumnId: string | null = null
-      const columnItems: MenuItemConstructorOptions[] = input.columns.map(column => ({
-        checked: column.visible,
-        click: () => {
-          selectedColumnId = column.id
-        },
-        enabled: column.canToggle,
-        label: column.label,
-        type: 'checkbox',
-      }))
-      const menu = Menu.buildFromTemplate([{
-        label: 'Columns visibility',
-        submenu: columnItems,
-      }])
-      menu.popup({
-        callback: () => resolve(selectedColumnId === null ? null : { columnId: selectedColumnId }),
-        window: browserWindow,
-        x: input.anchor.x,
-        y: input.anchor.y,
+      return new Promise((resolve) => {
+        let selectedColumnId: string | null = null
+        const columnItems: MenuItemConstructorOptions[] = input.columns.map(column => ({
+          checked: column.visible,
+          click: () => {
+            selectedColumnId = column.id
+          },
+          enabled: column.canToggle,
+          label: column.label,
+          type: 'checkbox',
+        }))
+        const menu = Menu.buildFromTemplate([{
+          label: 'Columns visibility',
+          submenu: columnItems,
+        }])
+        menu.popup({
+          callback: () => resolve(selectedColumnId === null ? null : { columnId: selectedColumnId }),
+          window: browserWindow,
+          x: input.anchor.x,
+          y: input.anchor.y,
+        })
       })
-    })
+    }),
   }
 }

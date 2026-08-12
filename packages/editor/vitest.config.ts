@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import wasm from 'vite-plugin-wasm'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   optimizeDeps: {
@@ -30,12 +30,13 @@ export default defineConfig({
     browser: {
       enabled: true,
       headless: true,
-      instances: [{ browser: 'chromium', launch: { channel: 'chrome' } }],
+      instances: [{ browser: 'chromium' }],
       provider: 'playwright',
       testerHtmlPath: './test/browser/index.html',
       viewport: { width: 1280, height: 900 },
     },
     fileParallelism: false,
-    setupFiles: ['./src/test/setup.ts'],
+    exclude: [...configDefaults.exclude, 'src/**/*.node.test.ts'],
+    setupFiles: ['../../scripts/vitest-browser-setup.ts', './src/test/setup.ts'],
   },
 })

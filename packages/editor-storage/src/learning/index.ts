@@ -1,4 +1,4 @@
-export { createLearningStorage } from './learning-storage'
+export { createLearningStorage, SqliteLearningStorage } from './learning-storage'
 export { GLOBAL_OPTIMIZER_ID } from './schema'
 export type {
   AcknowledgeLearningSyncInput,
@@ -9,23 +9,30 @@ export type {
   LearningCardDirection,
   LearningCardKind,
   LearningCardProjection,
+  LearningCardStorage,
   LearningDailyGoalMode,
   LearningDailyProgress,
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
+  LearningMaintenanceStorage,
   LearningNoteSummary,
+  LearningOptimizerStorage,
   LearningPhase,
   LearningPracticeConfiguration,
   LearningQueueItem,
   LearningQueueMode,
   LearningQueuePolicy,
+  LearningQueueStorage,
   LearningRatingOutcome,
   LearningReviewPreparationToken,
+  LearningReviewStorage,
   LearningState,
   LearningStorage,
   LearningSyncChange,
+  LearningSyncStorage,
   LearningTarget,
   LearningTargetKind,
+  LearningTopicCardProjection,
   ListLearningQueueInput,
   MultiLineReviewResult,
   OptimizeFsrsOptimizerInput,
@@ -39,7 +46,10 @@ export type {
   ResetLearningTargetInput,
   ReviewRating,
   ReviewResult,
+  SaveFsrsOptimizerInput,
+  UndoLearningReviewCommand,
   UndoLearningReviewInput,
+  UndoLearningReviewsInput,
   UpdateFsrsOptimizerInput,
 } from './types'
 export {

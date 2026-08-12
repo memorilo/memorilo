@@ -34,7 +34,7 @@ packages/editor 继续拥有 Card Definition、CardID、投影和只读 editor s
 - Flashcards / Queue Policy：new/review/interday 顺序、review sort、Sibling Bury、Study Day、learn-ahead 和每日新卡引入上限，全局生效。
 - Goals & Streaks：Daily Goal 模式和固定目标值，全局生效，不改变 Card due 或 queue eligibility。
 
-editor-storage 接收一个只读配置 provider，每次计算进度或选择下一张 Card 时读取最新 snapshot。保存设置不创建或持久化完整队列；已经展示的当前 Card 保持稳定，下一次选择立即使用新设置。
+editor-storage 接收一个只读配置 provider，每次计算进度或选择下一张 Card 时读取最新 snapshot。Editor 与 Learning facets 共享同一个 operation admission 和数据库生命周期；关闭 EditorStorage 会先拒绝新操作并排空两侧已接受的工作，再关闭数据库。保存设置不创建或持久化完整队列；已经展示的当前 Card 保持稳定，下一次选择立即使用新设置。
 
 ## 3. Card 内容与只读显示
 
@@ -224,7 +224,7 @@ Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实
 
 ### 6.1 Card reconciliation
 
-保存/索引 Note 后，从当前 Topic 投影 Card identities：
+Note 创建或更新时，main process 在提交前从当前 Topic 投影 Card identities。editor-storage 在同一个 operation admission 中规划 Note projection 与 Card reconciliation 命令，并把它们交给同一个原子 SQLite batch：
 
 1. upsert 当前 Card 和 Target identity；
 2. 将相同 CardID/Target 重新设为 active；
@@ -232,7 +232,7 @@ Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实
 4. 不删除 Review Event 或 Learning State；
 5. 不加载其他 Note。
 
-内容编辑、移动和改写不重置进度。只有稳定 identity 真正变化时才形成新的学习对象。
+因此 Card 规划、ownership 校验或 batch 中任一命令失败时，Note update、title、topic/block projection、asset references 与 Learning Card 都不会部分提交。Card 跨 Topic 移动按完整投影处理，旧 Topic 的清理不会在同一批次中把已移动 Card 再次停用。内容编辑、移动和改写不重置进度。只有稳定 identity 真正变化时才形成新的学习对象。
 
 ### 6.2 Rating
 
@@ -256,6 +256,8 @@ Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实
 ### 6.3 Undo
 
 Undo 默认只暴露当前 Target canonical lineage 的最新 Rating。事务追加 Undo event，随后从剩余 graph 重新选择 canonical lineage，并重建 Target state、派生的 Partial 状态缓存、Sibling Bury、每日进度和 introduction。若同步后出现以被撤销 event 为 base 的后继，这些依赖分支不进入当前调度 lineage，但事件本身仍保留审计。
+
+完整 List/Set 的一次评分由多个 item Event 和一个 main Event 组成，Undo 使用调用方预先生成并保留的 Undo Event IDs，在单个 SQLite batch 中同时校验并撤销全部 Event。失败不发布部分 Undo；IPC 响应丢失后以同一组 IDs 重试会返回已提交结果。
 
 ### 6.4 Reset Scheduling
 
@@ -371,6 +373,8 @@ Anki 本地删除 revlog 的 Undo 无法同步；Memorilo 使用 append-only Und
 4. 写入 purge tombstone/generation，为未来同步防止旧设备复活数据；
 5. 检查外键和 sanity counts；
 6. 执行 VACUUM。
+
+Purge 事务会同时持久化 `vacuum-pending` maintenance marker 和本次删除计数。若外键检查、VACUUM 或 marker cleanup 失败，后续调用会跳过已经提交的 purge，只重试收尾并返回原始计数；该状态跨进程重启保留。
 
 Active Card 的 Review Event 不能因为其历史 Optimizer 已归档而删除；Review Event 不外键绑定 Optimizer revision，因此清理 Optimizer 不破坏活动历史。
 

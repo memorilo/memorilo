@@ -1,8 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { protocol } from 'electron'
-
 import { assetProtocol, parseAssetFileName } from './assets/asset-uri'
+import { registerProtocol } from './protocol-registration'
 
 export { assetProtocol } from './assets/asset-uri'
 
@@ -17,8 +16,8 @@ const contentTypes: Readonly<Record<string, string>> = {
   '.webp': 'image/webp',
 }
 
-export function registerAssetProtocol(assetDirectory: string | null): void {
-  protocol.handle(assetProtocol, async (request) => {
+export function registerAssetProtocol(assetDirectory: string | null) {
+  return registerProtocol(assetProtocol, async (request) => {
     if (request.method !== 'GET')
       return new Response(null, { status: 405 })
     if (assetDirectory === null)

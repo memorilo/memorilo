@@ -207,4 +207,14 @@ export const learningSchema = `
     created_at INTEGER NOT NULL,
     server_sequence INTEGER NOT NULL DEFAULT -1
   );
+
+  CREATE TABLE IF NOT EXISTS learning_maintenance_state (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    phase TEXT NOT NULL CHECK (phase = 'vacuum-pending'),
+    archived_optimizers INTEGER NOT NULL CHECK (archived_optimizers >= 0),
+    inactive_cards INTEGER NOT NULL CHECK (inactive_cards >= 0),
+    review_events INTEGER NOT NULL CHECK (review_events >= 0),
+    targets INTEGER NOT NULL CHECK (targets >= 0),
+    created_at INTEGER NOT NULL
+  );
 `

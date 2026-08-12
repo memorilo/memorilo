@@ -1,5 +1,9 @@
 import type { EditorTag, EditorTagStorage } from '../adapters/editor-adapters'
 import type { TagLabelError } from './tag-label'
+import {
+  createLatestOperationSupervisor,
+  createResourceScope,
+} from '@memorilo/effect-lifecycle'
 import { getTagLabelError, normalizeTagLabel } from './tag-label'
 
 type TagOperationAction = 'create' | 'update'
@@ -27,6 +31,13 @@ export class InvalidStoredTagError extends Error {
   }
 }
 
+export class TagRuntimeClosedError extends Error {
+  constructor() {
+    super('Tag runtime is closed')
+    this.name = 'TagRuntimeClosedError'
+  }
+}
+
 function requireValidTag(tag: EditorTag) {
   const error = getTagLabelError(tag.label)
   if (error)
@@ -48,12 +59,28 @@ export class TagRuntime {
   readonly #editSubscriptions = new Set<TagEditSubscription>()
   readonly #operations = new Map<string, TagOperationSnapshot>()
   readonly #tagsByLabel = new Map<string, EditorTag>()
+  readonly #searches = createLatestOperationSupervisor<'search'>('Tag search', {
+    closedError: () => new TagRuntimeClosedError(),
+    concurrency: 'parallel',
+  })
+
+  readonly #writes = createLatestOperationSupervisor<string>('Tag write', {
+    closedError: () => new TagRuntimeClosedError(),
+  })
+
+  readonly #resources: ReturnType<typeof createResourceScope>
 
   constructor(storage: EditorTagStorage) {
     this.#storage = storage
+    this.#resources = createResourceScope('Tag runtime')
+    this.#resources.own({ close: () => this.#searches.close(), name: 'Tag searches' })
+    this.#resources.own({ close: () => this.#writes.close(), name: 'Tag writes' })
+    this.#resources.commit()
   }
 
   subscribe = (listener: VoidFunction) => {
+    if (this.#resources.isClosed())
+      return () => {}
     this.#listeners.add(listener)
     return () => this.#listeners.delete(listener)
   }
@@ -61,6 +88,8 @@ export class TagRuntime {
   getSnapshot = (id: string) => this.#operations.get(id) ?? idleSnapshot
 
   subscribeEditing(getPosition: () => number | undefined, listener: (entry: TagEditEntry) => void) {
+    if (this.#resources.isClosed())
+      return () => {}
     const subscription = { getPosition, listener }
     this.#editSubscriptions.add(subscription)
     return () => {
@@ -69,26 +98,34 @@ export class TagRuntime {
   }
 
   requestEditing(position: number, entry: TagEditEntry) {
+    if (this.#resources.isClosed())
+      return false
     let handled = false
     for (const subscription of this.#editSubscriptions) {
       if (subscription.getPosition() !== position)
         continue
-      subscription.listener(entry)
+      this.#notify(() => subscription.listener(entry))
       handled = true
     }
     return handled
   }
 
   async search(query: string) {
-    const tags = await this.#storage.search({ query })
-    return tags.map((tag) => {
-      const validTag = requireValidTag(tag)
-      this.#cache(validTag)
-      return validTag
+    if (this.#resources.isClosed())
+      throw new TagRuntimeClosedError()
+    const result = await this.#searches.run('search', async ({ isCurrent }) => {
+      const tags = (await this.#storage.search({ query })).map(requireValidTag)
+      if (!this.#resources.isClosed() && isCurrent()) {
+        for (const tag of tags)
+          this.#cache(tag)
+      }
+      return tags
     })
+    return result.status === 'current' ? result.value : []
   }
 
   resolveOrCreate(labelInput: string) {
+    this.#assertOpen()
     const label = normalizeTagLabel(labelInput)
     const error = getTagLabelError(label)
     if (error)
@@ -105,6 +142,7 @@ export class TagRuntime {
   }
 
   save(tagInput: EditorTag) {
+    this.#assertOpen()
     const tag = requireValidTag(tagInput)
     const previous = this.#operations.get(tag.id)
     const action = previous?.status === 'error' && previous.action === 'create' ? 'create' : 'update'
@@ -115,25 +153,32 @@ export class TagRuntime {
     this.#operations.set(tag.id, { status: 'saving', action })
     this.#emit()
 
-    const operation = action === 'create' ? this.#storage.create(tag) : this.#storage.update(tag)
+    const operation = this.#writes.run(tag.id, async () => {
+      const storedTag = await (action === 'create' ? this.#storage.create(tag) : this.#storage.update(tag))
+      return requireValidTag(storedTag)
+    })
     void operation.then(
-      (storedTag) => {
-        try {
-          const canonicalTag = requireValidTag(storedTag)
-          this.#removeCachedTag(tag.id)
-          this.#cache(canonicalTag)
-          this.#operations.set(tag.id, { status: 'saved', action, canonicalTag })
-        }
-        catch (error) {
-          this.#operations.set(tag.id, { status: 'error', action, error: operationError(error) })
-        }
+      (result) => {
+        if (result.status !== 'current' || this.#resources.isClosed())
+          return
+        this.#removeCachedTag(tag.id)
+        this.#cache(result.value)
+        this.#operations.set(tag.id, { status: 'saved', action, canonicalTag: result.value })
         this.#emit()
       },
       (error) => {
+        if (this.#resources.isClosed())
+          return
         this.#operations.set(tag.id, { status: 'error', action, error: operationError(error) })
         this.#emit()
       },
     )
+  }
+
+  close() {
+    this.#listeners.clear()
+    this.#editSubscriptions.clear()
+    return this.#resources.close()
   }
 
   #cache(tag: EditorTag) {
@@ -152,8 +197,22 @@ export class TagRuntime {
     return label.toLocaleLowerCase()
   }
 
+  #assertOpen() {
+    if (this.#resources.isClosed())
+      throw new TagRuntimeClosedError()
+  }
+
+  #notify(listener: VoidFunction) {
+    try {
+      listener()
+    }
+    catch (error) {
+      console.error('Tag runtime listener failed', error)
+    }
+  }
+
   #emit() {
     for (const listener of this.#listeners)
-      listener()
+      this.#notify(listener)
   }
 }

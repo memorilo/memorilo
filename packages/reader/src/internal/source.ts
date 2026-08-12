@@ -3,7 +3,7 @@ import {
   assertReadingFormat,
   detectReadingFormat,
   readingFormatDefaultName,
-} from '@memorilo/reading-format'
+} from '@memorilo/reading-model'
 
 const formatSignatureByteLength = 8
 
@@ -11,7 +11,7 @@ export interface ResolvedReaderSource {
   byteLength: number
   format: ReaderFormat
   name: string
-  read: (offset: number, length: number) => Promise<Uint8Array>
+  read: (offset: number, length: number, signal?: AbortSignal) => Promise<Uint8Array>
 }
 
 function assertByteLength(byteLength: number): void {
@@ -32,13 +32,24 @@ function sourceDataByteLength(data: ReaderSourceData): number {
   return data instanceof Blob ? data.size : data.byteLength
 }
 
-function readSourceData(data: ReaderSourceData, offset: number, length: number): Promise<Uint8Array> {
+async function readSourceData(
+  data: ReaderSourceData,
+  offset: number,
+  length: number,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  signal?.throwIfAborted()
   const end = offset + length
-  if (data instanceof Blob)
-    return data.slice(offset, end).arrayBuffer().then(buffer => new Uint8Array(buffer))
-  if (data instanceof Uint8Array)
-    return Promise.resolve(data.slice(offset, end))
-  return Promise.resolve(new Uint8Array(data, offset, length).slice())
+  if (data instanceof Blob) {
+    const buffer = await data.slice(offset, end).arrayBuffer()
+    signal?.throwIfAborted()
+    return new Uint8Array(buffer)
+  }
+  const bytes = data instanceof Uint8Array
+    ? data.slice(offset, end)
+    : new Uint8Array(data, offset, length).slice()
+  signal?.throwIfAborted()
+  return bytes
 }
 
 function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'byteLength' | 'read'> {
@@ -47,9 +58,9 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
     assertByteLength(byteLength)
     return {
       byteLength,
-      read: (offset, length) => {
+      read: (offset, length, signal) => {
         assertRange(byteLength, offset, length)
-        return readSourceData(source.data, offset, length)
+        return readSourceData(source.data, offset, length, signal)
       },
     }
   }
@@ -58,9 +69,11 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
   assertByteLength(byteLength)
   return {
     byteLength,
-    read: async (offset, length) => {
+    read: async (offset, length, signal) => {
       assertRange(byteLength, offset, length)
-      const bytes = await source.read(offset, length)
+      signal?.throwIfAborted()
+      const bytes = await source.read(offset, length, signal)
+      signal?.throwIfAborted()
       if (!(bytes instanceof Uint8Array))
         throw new TypeError('Reader source read() must resolve to a Uint8Array')
       if (bytes.byteLength !== length)
@@ -70,11 +83,18 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
   }
 }
 
-export async function readSourceBytes(source: ResolvedReaderSource): Promise<Uint8Array> {
-  return source.read(0, source.byteLength)
+export async function readSourceBytes(
+  source: ResolvedReaderSource,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  return source.read(0, source.byteLength, signal)
 }
 
-export async function resolveSource(source: ReaderSource): Promise<ResolvedReaderSource> {
+export async function resolveSource(
+  source: ReaderSource,
+  signal?: AbortSignal,
+): Promise<ResolvedReaderSource> {
+  signal?.throwIfAborted()
   const randomAccess = randomAccessReader(source)
   if (randomAccess.byteLength === 0)
     throw new Error('The selected document is empty')
@@ -84,13 +104,16 @@ export async function resolveSource(source: ReaderSource): Promise<ResolvedReade
     const prefix = await randomAccess.read(
       0,
       Math.min(randomAccess.byteLength, formatSignatureByteLength),
+      signal,
     )
+    signal?.throwIfAborted()
     const detected = detectReadingFormat(prefix, source.name)
     if (detected === null)
       throw new Error('Unsupported document. Select a PDF, EPUB, TXT, CBZ, or CBR file')
     format = detected
   }
   else {
+    signal?.throwIfAborted()
     assertReadingFormat(source.format)
     format = source.format
   }

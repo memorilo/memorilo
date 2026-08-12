@@ -25,4 +25,16 @@ describe('better-sqlite editor storage database', () => {
 
     expect(await database.all('SELECT id, value FROM records')).toEqual([])
   })
+
+  it('makes close idempotent and rejects operations after closing', async () => {
+    const database = createDatabase()
+
+    await database.close()
+    await expect(database.close()).resolves.toBeUndefined()
+    await expect(database.exec('SELECT 1')).rejects.toThrow('The SQLite database is closed')
+    await expect(database.all('SELECT 1')).rejects.toThrow('The SQLite database is closed')
+    await expect(database.batch([])).rejects.toThrow('The SQLite database is closed')
+    await expect(database.get('SELECT 1')).rejects.toThrow('The SQLite database is closed')
+    await expect(database.run('SELECT 1')).rejects.toThrow('The SQLite database is closed')
+  })
 })

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { extname, isAbsolute, relative, resolve, sep } from 'node:path'
-import { protocol } from 'electron'
+import { registerProtocol } from './protocol-registration'
 
 export const rendererProtocol = 'memorilo-app'
 const rendererHost = 'renderer'
@@ -30,9 +30,9 @@ export function isRendererUrl(source: string): boolean {
   }
 }
 
-export function registerRendererProtocol(rendererDirectory: string): void {
+export function registerRendererProtocol(rendererDirectory: string) {
   const root = resolve(rendererDirectory)
-  protocol.handle(rendererProtocol, async (request) => {
+  return registerProtocol(rendererProtocol, async (request) => {
     if (request.method !== 'GET')
       return new Response(null, { status: 405 })
 

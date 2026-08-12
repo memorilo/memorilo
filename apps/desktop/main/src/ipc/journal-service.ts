@@ -1,30 +1,21 @@
 import type { NoteApplicationService } from '../notes/note-application-service'
-import { IpcMethod, IpcService } from 'electron-ipc-decorator'
+import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
-export function createJournalService(application: NoteApplicationService) {
-  class JournalService extends IpcService {
-    static override readonly groupName = 'journals'
-
-    @IpcMethod()
+export function createJournalHandlers(
+  application: NoteApplicationService,
+): DesktopIpcHandlers['journals'] {
+  return {
     listJournalDates(input: Parameters<NoteApplicationService['listJournalDates']>[0]) {
       return application.listJournalDates(input)
-    }
-
-    @IpcMethod()
+    },
     listPastJournals(input?: Parameters<NoteApplicationService['listPastJournals']>[0]) {
       return application.listPastJournals(input)
-    }
-
-    @IpcMethod()
+    },
     openJournal(input?: Parameters<NoteApplicationService['openJournal']>[0]) {
       return application.openJournal(input)
-    }
-
-    @IpcMethod()
+    },
     prunePastEmptyJournals() {
       return application.prunePastEmptyJournals()
-    }
+    },
   }
-
-  return JournalService
 }

@@ -15,14 +15,12 @@ vi.mock('electron', () => ({
   shell: { trashItem: vi.fn() },
 }))
 
-vi.mock('electron-ipc-decorator', () => ({
-  getIpcContext: vi.fn(),
-  IpcMethod: () => (_target: object, _propertyKey: string, descriptor: PropertyDescriptor) => descriptor,
-  IpcService: class {},
-}))
-
-const { createAssetService } = await import('./asset-service')
+const { createAssetHandlers } = await import('./asset-service')
 const temporaryDirectories: string[] = []
+
+function storageWithRegister(register: EditorStorage['assets']['register']): EditorStorage {
+  return { assets: { register } } as unknown as EditorStorage
+}
 const tiffImage = Buffer.from(
   'SUkqAIAAAAD/2P/AABEIAAEAAgMBIgACEQEDEQH/xABMAAEBAAAAAAAAAAAAAAAAAAAABxABAAAAAAAAAAAAAAAAAAAAAAEBAQAAAAAAAAAAAAAAAAAABggRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJ0ADKpf/9kRAAABAwABAAAAAgAAAAEBAwABAAAAAQAAAAIBAwADAAAAYgEAAAMBAwABAAAABwAAAAYBAwABAAAABgAAABEBBAABAAAACAAAABIBAwABAAAAAQAAABUBAwABAAAAAwAAABYBAwABAAAAAAEAABcBBAABAAAAeAAAABoBBQABAAAAUgEAABsBBQABAAAAWgEAABwBAwABAAAAAQAAACgBAwABAAAAAgAAAFMBAwADAAAAaAEAAFsBBwCOAAAAngEAABQCBQAGAAAAbgEAAAAAAAAzM8sAAAAIADMzywAAAAgACAAIAAgAAQABAAEAAAAAAAEAAAD/AAAAAQAAAIAAAAABAAAA/wAAAAEAAACAAAAAAQAAAP8AAAABAAAA/9j/2wBDAAYGBgYHBgcICAcKCwoLCg8ODAwODxYQERAREBYiFRkVFRkVIh4kHhweJB42KiYmKjY+NDI0PkxERExfWl98fKf/2wBDAQYGBgYHBgcICAcKCwoLCg8ODAwODxYQERAREBYiFRkVFRkVIh4kHhweJB42KiYmKjY+NDI0PkxERExfWl98fKf/2Q==',
   'base64',
@@ -51,14 +49,14 @@ describe('asset service', () => {
         status: 200,
       },
     ))
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       directory,
-      { registerAsset } as unknown as EditorStorage,
+      storageWithRegister(registerAsset),
       configuration() as never,
       operation => operation(),
     )
 
-    const saved = await new AssetService().importNetworkImage({ source: 'https://example.com/photo.png' })
+    const saved = await handlers.importNetworkImage({ source: 'https://example.com/photo.png' })
     const fileName = new URL(saved.src).pathname.slice(1)
 
     expect(netFetch).toHaveBeenCalledWith('https://example.com/photo.png')
@@ -77,14 +75,14 @@ describe('asset service', () => {
     ['file:///tmp/image.png', 'Network images must use HTTP or HTTPS'],
     ['not a URL', 'Invalid URL'],
   ])('rejects unsupported network image source %s', async (source, message) => {
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       null,
       {} as EditorStorage,
       configuration() as never,
       operation => operation(),
     )
 
-    await expect(new AssetService().importNetworkImage({ source })).rejects.toThrow(message)
+    await expect(handlers.importNetworkImage({ source })).rejects.toThrow(message)
     expect(netFetch).not.toHaveBeenCalled()
   })
 
@@ -95,7 +93,7 @@ describe('asset service', () => {
       headers: { 'Content-Type': 'text/plain' },
       status: 200,
     }))
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       directory,
       {} as EditorStorage,
       configuration() as never,
@@ -103,7 +101,7 @@ describe('asset service', () => {
     )
 
     await expect(
-      new AssetService().importNetworkImage({ source: 'https://example.com/file' }),
+      handlers.importNetworkImage({ source: 'https://example.com/file' }),
     ).rejects.toThrow('Remote URL did not return an image: text/plain')
   })
 
@@ -120,7 +118,7 @@ describe('asset service', () => {
       headers: { 'Content-Type': 'image/png' },
       status: 200,
     }))
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       directory,
       {} as EditorStorage,
       configuration() as never,
@@ -128,7 +126,7 @@ describe('asset service', () => {
     )
 
     await expect(
-      new AssetService().importNetworkImage({ source: 'https://example.com/large.png' }),
+      handlers.importNetworkImage({ source: 'https://example.com/large.png' }),
     ).rejects.toThrow('Image must not exceed 50 MiB')
   })
 
@@ -151,15 +149,13 @@ describe('asset service', () => {
       mimeType: 'image/png',
       originalFileName: 'photo.png',
     }))
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       directory,
-      { registerAsset } as unknown as EditorStorage,
+      storageWithRegister(registerAsset),
       configuration() as never,
       serialize,
     )
-    const service = new AssetService()
-
-    const saved = service.saveImage({
+    const saved = handlers.saveImage({
       data: Uint8Array.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
       fileName: 'photo.png',
       mimeType: 'image/png',
@@ -180,14 +176,14 @@ describe('asset service', () => {
     const orientedTiff = await sharp({
       create: { background: 'red', channels: 3, height: 1, width: 2 },
     }).tiff().withMetadata({ orientation: 6 }).toBuffer()
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       directory,
-      { registerAsset: vi.fn(async input => input) } as unknown as EditorStorage,
+      storageWithRegister(vi.fn(async input => input)),
       configuration() as never,
       operation => operation(),
     )
 
-    const saved = await new AssetService().saveImage({
+    const saved = await handlers.saveImage({
       data: orientedTiff,
       fileName: 'oriented.tiff',
       mimeType: 'image/tiff',
@@ -206,14 +202,14 @@ describe('asset service', () => {
     const directory = await mkdtemp(join(tmpdir(), 'memorilo-convert-tiff-'))
     temporaryDirectories.push(directory)
     const registerAsset = vi.fn(async input => input)
-    const AssetService = createAssetService(
+    const handlers = createAssetHandlers(
       directory,
-      { registerAsset } as unknown as EditorStorage,
+      storageWithRegister(registerAsset),
       configuration(format) as never,
       operation => operation(),
     )
 
-    const saved = await new AssetService().saveImage({
+    const saved = await handlers.saveImage({
       data: tiffImage,
       fileName: 'scan.tiff',
       mimeType: 'image/tiff',

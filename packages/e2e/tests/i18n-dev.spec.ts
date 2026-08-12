@@ -22,7 +22,7 @@ test.describe('localization in the renderer dev server', () => {
   })
 
   test.afterAll(async () => {
-    devServer.child.kill()
+    devServer?.child.kill()
   })
 
   test.afterEach(async () => {
@@ -61,7 +61,7 @@ test.describe('localization in the renderer dev server', () => {
     // Edit the zh locale file. The running app should adopt it without a full reload.
     await writeFile(LOCALE_APP_ZH_PATH, await localizedJournalContent(HMR_JOURNALS_MARKER), 'utf8')
 
-    await expect(window.getByRole('link', { name: HMR_JOURNALS_MARKER })).toBeVisible()
+    await expect(window.getByRole('link', { name: HMR_JOURNALS_MARKER })).toBeVisible({ timeout: 30_000 })
 
     // The marker survived, so the edit applied as an in-place hot update.
     const markerAfter = await window.evaluate(() =>

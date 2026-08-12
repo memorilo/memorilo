@@ -6,6 +6,7 @@ export type {
   OpenShelfReadingInput,
   PreparedShelfReading,
   PrepareShelfReadingInput,
+  SaveShelfSourceAndPageInput,
   SaveShelfSourceInput,
   ShelfAssetInput,
   ShelfAssetResult,
@@ -15,6 +16,7 @@ export type {
   ShelfImageCache,
   ShelfNavigationItem,
   ShelfPage,
+  ShelfPageStorage,
   ShelfPublication,
   ShelfPublicationCollection,
   ShelfPublicationContributor,
@@ -33,10 +35,12 @@ export type {
   ShelfSourceFieldClocks,
   ShelfSourceKind,
   ShelfSourceOperation,
+  ShelfSourceStorage,
   ShelfStorage,
   StoredShelfSource,
   UpdateShelfSourceInput,
 } from './model'
+export { matchesShelfPublication } from './model'
 export {
   shelfReadingAcquisitions,
   shelfReadingMediaType,

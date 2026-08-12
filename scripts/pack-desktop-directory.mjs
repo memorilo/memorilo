@@ -9,6 +9,7 @@ const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const child = spawn(pnpm, ['exec', 'electron-builder', '--dir'], {
   cwd: desktopDirectory,
   env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' },
+  shell: process.platform === 'win32',
   stdio: 'inherit',
 })
 
