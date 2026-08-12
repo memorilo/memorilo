@@ -18,6 +18,8 @@ export const I18N_DEV_RENDERER_URL = 'http://127.0.0.1:5199'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const desktopDirectory = resolve(repositoryRoot, 'apps/desktop')
+const desktopRequire = createRequire(resolve(desktopDirectory, 'package.json'))
+const viteExecutablePath = resolve(dirname(desktopRequire.resolve('vite')), '../../bin/vite.js')
 const electronModule: unknown = createRequire(import.meta.url)('electron')
 if (typeof electronModule !== 'string')
   throw new TypeError('Electron package did not resolve to an executable path')
@@ -94,14 +96,19 @@ export interface DevServerProcess {
 }
 
 export async function startRendererDevServer(): Promise<DevServerProcess> {
-  const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-  const child = spawn(pnpm, ['exec', 'vite', '--config', 'renderer-vite.config.ts'], {
+  const child = spawn(process.execPath, [viteExecutablePath, '--config', 'renderer-vite.config.ts'], {
     cwd: desktopDirectory,
     env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
-  await waitForDevServer(child, I18N_DEV_RENDERER_URL)
+  try {
+    await waitForDevServer(child, I18N_DEV_RENDERER_URL)
+  }
+  catch (error) {
+    child.kill()
+    throw error
+  }
 
   return { child, url: I18N_DEV_RENDERER_URL }
 }

@@ -1,5 +1,5 @@
 import type { MarkSpec, NodeSpec } from 'prosemirror-model'
-import type { NodeJSON } from './model'
+import type { NodeJSON } from './index'
 import { LoroDoc, LoroText } from 'loro-crdt'
 import { Schema } from 'prosemirror-model'
 import { EditorState } from 'prosemirror-state'
@@ -9,13 +9,14 @@ import {
   clearTreeMapping,
   createNodeFromLoroTree,
   createNodeJsonFromLoroTree,
+  initializeLoroTreeFromJson,
   NODE_KIND,
   NODE_KIND_KEY,
   NODE_NAME_KEY,
   TEXT_KEY,
   TEXT_KIND,
   updateLoroTreeFromPmState,
-} from './model'
+} from './index'
 
 const nodes: Record<string, NodeSpec> = {
   doc: { content: 'block*' },
@@ -147,6 +148,45 @@ describe('updateDoc', () => {
     updateLoroTreeFromPmState(doc, tree, mapping, createEditorState(content))
 
     expect(createNodeJsonFromLoroTree(tree)).toEqual(content)
+  })
+
+  it('removes marks that no longer exist in the ProseMirror state', () => {
+    const doc = new LoroDoc()
+    const mapping = new Map()
+    const { tree } = sync(doc, {
+      content: [{
+        content: [{ marks: [{ type: 'bold' }], text: 'plain later', type: 'text' }],
+        type: 'paragraph',
+      }],
+      type: 'doc',
+    }, mapping)
+
+    updateLoroTreeFromPmState(doc, tree, mapping, createEditorState({
+      content: [{ content: [{ text: 'plain later', type: 'text' }], type: 'paragraph' }],
+      type: 'doc',
+    }))
+
+    expect(createNodeJsonFromLoroTree(tree)).toEqual({
+      content: [{ content: [{ text: 'plain later', type: 'text' }], type: 'paragraph' }],
+      type: 'doc',
+    })
+  })
+})
+
+describe('tree initialization', () => {
+  it('initializes JSON once and rejects invalid or repeated roots', () => {
+    const doc = new LoroDoc()
+    const tree = doc.getTree('blocks')
+    initializeLoroTreeFromJson(tree, exampleDocument)
+    expect(createNodeJsonFromLoroTree(tree)).toEqual(exampleDocument)
+    expect(() => initializeLoroTreeFromJson(tree, exampleDocument)).toThrow(
+      'Cannot initialize a non-empty Topic tree',
+    )
+
+    const invalid = new LoroDoc().getTree('blocks')
+    expect(() => initializeLoroTreeFromJson(invalid, { type: 'paragraph' })).toThrow(
+      'Expected a doc node, received paragraph',
+    )
   })
 })
 
@@ -296,5 +336,42 @@ describe('native LoroTree moves', () => {
     peer.import(snapshot)
     peer.import(source.export({ mode: 'update' }))
     expect(createNodeJsonFromLoroTree(peer.getTree('blocks'))).toEqual(moved.toJSON())
+  })
+
+  it('preserves tree identity by block id when fresh ProseMirror nodes reorder', () => {
+    const blockSchema = new Schema({
+      marks,
+      nodes: {
+        ...nodes,
+        paragraph: {
+          attrs: { blockId: { default: null } },
+          content: 'inline*',
+          group: 'block',
+        },
+      },
+    })
+    const state = (labels: readonly string[]) => EditorState.create({
+      doc: blockSchema.nodeFromJSON({
+        content: labels.map(label => ({
+          attrs: { blockId: label.toLowerCase() },
+          content: [{ text: label, type: 'text' }],
+          type: 'paragraph',
+        })),
+        type: 'doc',
+      }),
+      schema: blockSchema,
+    })
+    const doc = new LoroDoc()
+    const tree = doc.getTree('blocks')
+    const mapping = new Map()
+    updateLoroTreeFromPmState(doc, tree, mapping, state(['A', 'B']))
+    const root = tree.getNodes().find(node => node.parent() === undefined)!
+    const [first, second] = root.children()!
+
+    clearTreeMapping(mapping)
+    updateLoroTreeFromPmState(doc, tree, mapping, state(['B', 'A']))
+
+    expect(root.children()![0]!.id).toBe(second!.id)
+    expect(root.children()![1]!.id).toBe(first!.id)
   })
 })

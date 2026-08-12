@@ -14,6 +14,7 @@ import { createEditorSession } from './common/editor-session'
 import { editorShellStyles } from './common/editor-shell.stylex'
 import { resolveOutlineFocusTarget } from './common/outline-runtime'
 import { useEditorTopicMode } from './note/use-editor-topic-mode'
+import { OutlineEditor } from './outline/outline-editor'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
@@ -24,11 +25,6 @@ import './card/card-review-content.stylex'
 const DocumentEditor = lazy(async () => {
   const module = await import('./document/document-editor')
   return { default: module.DocumentEditor }
-})
-
-const OutlineEditor = lazy(async () => {
-  const module = await import('./outline/outline-editor')
-  return { default: module.OutlineEditor }
 })
 
 interface EditorBaseProps {
@@ -108,6 +104,15 @@ export function Editor(props: EditorProps) {
     // caused by persistence receipts so asynchronous uploads retain their view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [props.adapters, cardIntegration, props.readOnly, props.topic.noteId, props.topic.topicId])
+
+  useEffect(() => {
+    return () => {
+      void session.close().then(
+        () => undefined,
+        error => console.error('Failed to close Editor session', error),
+      )
+    }
+  }, [session])
 
   useLayoutEffect(() => {
     if (!controlledFocusProvided)

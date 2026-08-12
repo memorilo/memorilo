@@ -30,7 +30,14 @@ export class CardReviewRuntime {
     if (options === this.snapshot)
       return
     this.snapshot = options
-    this.listeners.forEach(listener => listener())
+    for (const listener of [...this.listeners]) {
+      try {
+        listener()
+      }
+      catch (error) {
+        console.error('Card review runtime listener failed', error)
+      }
+    }
   }
 
   subscribe = (listener: () => void): (() => void) => {

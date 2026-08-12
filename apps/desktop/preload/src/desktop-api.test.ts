@@ -1,10 +1,10 @@
 import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from './contract'
-import type { DesktopServices } from './desktop-api'
+import type { DesktopIpcClient } from './ipc-contract'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { describe, expect, it, vi } from 'vitest'
 import { createDesktopApi } from './desktop-api'
 
-function serviceStub(): DesktopServices {
+function serviceStub(): DesktopIpcClient {
   return {
     app: { getRuntimeInfo: vi.fn() },
     assets: {
@@ -21,7 +21,7 @@ function serviceStub(): DesktopServices {
       rebindContext: vi.fn(),
       selectContext: vi.fn(),
     },
-    configuration: { get: vi.fn(), set: vi.fn() },
+    configuration: { get: vi.fn(), set: vi.fn(), setValue: vi.fn() },
     journals: {
       listJournalDates: vi.fn(),
       listPastJournals: vi.fn(),
@@ -50,12 +50,12 @@ function serviceStub(): DesktopServices {
       prepareReview: vi.fn(),
       rateMultiLineCard: vi.fn(),
       rateTarget: vi.fn(),
-      renameOptimizer: vi.fn(),
       resetOptimizerDefaults: vi.fn(),
       resetTarget: vi.fn(),
       restoreReviewItem: vi.fn(),
       undoLastReview: vi.fn(),
-      updateOptimizer: vi.fn(),
+      undoReviews: vi.fn(),
+      saveOptimizer: vi.fn(),
     },
     notes: {
       createNote: vi.fn(),
@@ -108,6 +108,7 @@ describe('desktop preload API', () => {
     }
     vi.mocked(services.configuration.get).mockResolvedValue(configuration)
     vi.mocked(services.configuration.set).mockResolvedValue(configuration)
+    vi.mocked(services.configuration.setValue).mockResolvedValue(configuration)
 
     let noteListener: ((update: DesktopNoteExternalUpdate) => void) | undefined
     const stopNoteUpdates = vi.fn()
@@ -122,6 +123,8 @@ describe('desktop preload API', () => {
     await expect(api.getConfiguration()).resolves.toEqual(configuration)
     await expect(api.setConfiguration(configuration)).resolves.toEqual(configuration)
     expect(services.configuration.set).toHaveBeenCalledWith(configuration)
+    await expect(api.setConfigurationValue('reduceMotion', true)).resolves.toEqual(configuration)
+    expect(services.configuration.setValue).toHaveBeenCalledWith('reduceMotion', true)
 
     const listener = vi.fn()
     const unsubscribe = api.subscribeNoteUpdates(listener)

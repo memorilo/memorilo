@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AssetSettings } from './asset-settings'
-import { settingsStyles } from './settings.stylex'
+import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
 const sectionIcons = {
   editor: BookOpen,

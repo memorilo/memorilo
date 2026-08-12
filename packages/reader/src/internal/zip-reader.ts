@@ -12,6 +12,8 @@ export class ReaderSourceZipReader extends Reader<ResolvedReaderSource> {
       throw new RangeError(`ZIP read offset ${index} is outside the source`)
     if (!Number.isSafeInteger(length) || length < 0)
       throw new RangeError('ZIP read length must be a non-negative safe integer')
-    return this.source.read(index, Math.min(length, this.size - index))
+    if (length > this.size - index)
+      throw new RangeError(`ZIP read range ${index}-${index + length} exceeds the source size ${this.size}`)
+    return this.source.read(index, length)
   }
 }

@@ -310,21 +310,29 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     ? mcp.port
     : 8765
   const enabled = mcp.enabled === true && accessToken.length >= 32
+  const networkImagePasteBehavior = current.networkImagePasteBehavior === undefined
+    ? 'download'
+    : current.networkImagePasteBehavior
   const readerArrowKeyPageTurning = current.readerArrowKeyPageTurning === undefined
     ? true
     : current.readerArrowKeyPageTurning
   const readerEpubPresentationMode = current.readerEpubPresentationMode === undefined
     ? 'publisher'
     : current.readerEpubPresentationMode
+  const tiffConversionFormat = current.tiffConversionFormat === undefined
+    ? 'webp'
+    : current.tiffConversionFormat
   if (hasMcp
     && hasFlashcards
     && hasGoals
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
+    && current.networkImagePasteBehavior !== undefined
     && current.outdentBehavior !== undefined
     && current.readerArrowKeyPageTurning !== undefined
     && current.readerEpubPresentationMode !== undefined
+    && current.tiffConversionFormat !== undefined
     && current.weekStart !== undefined) {
     return configuration
   }
@@ -337,9 +345,11 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
       enabled,
       port,
     },
+    networkImagePasteBehavior,
     outdentBehavior: current.outdentBehavior ?? defaultDesktopOutdentBehavior,
     readerArrowKeyPageTurning,
     readerEpubPresentationMode,
+    tiffConversionFormat,
     weekStart: current.weekStart ?? 'sunday',
   }
 }

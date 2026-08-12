@@ -1,5 +1,4 @@
-import type { ReadingFormat } from '@memorilo/reading-format'
-import type { BookFileBinding } from '@memorilo/reading-model'
+import type { BookFileBinding, ReadingFormat } from '@memorilo/reading-model'
 
 export type ShelfSourceKind = 'opds'
 
@@ -98,6 +97,14 @@ export interface ShelfPublication {
   subtitle: string | null
   summary: string | null
   title: string
+}
+
+export function matchesShelfPublication(publication: ShelfPublication, query: string): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  if (normalizedQuery.length === 0)
+    return true
+  return publication.title.toLocaleLowerCase().includes(normalizedQuery)
+    || publication.authors.some(author => author.toLocaleLowerCase().includes(normalizedQuery))
 }
 
 export interface ShelfPublicationDetailsInput {
@@ -209,28 +216,45 @@ export interface SaveShelfSourceInput {
   source: ShelfSource
 }
 
-export interface ShelfStorage {
+export interface SaveShelfSourceAndPageInput extends SaveShelfSourceInput {
+  page: CachedShelfPage
+}
+
+export interface ShelfPageStorage {
+  get: (sourceId: string, url: string) => Promise<CachedShelfPage | null>
+  getPublication: (sourceId: string, publicationId: string) => Promise<ShelfPublication | null>
+  save: (page: CachedShelfPage) => Promise<void>
+}
+
+export interface ShelfSourceStorage {
   acknowledgeOperations: (operationIds: readonly string[]) => Promise<void>
-  deleteSource: (sourceId: string) => Promise<void>
-  getCachedPage: (sourceId: string, url: string) => Promise<CachedShelfPage | null>
-  getCachedPublication: (sourceId: string, publicationId: string) => Promise<ShelfPublication | null>
-  getSource: (sourceId: string) => Promise<StoredShelfSource | null>
+  delete: (sourceId: string) => Promise<void>
+  get: (sourceId: string) => Promise<StoredShelfSource | null>
+  list: () => Promise<readonly StoredShelfSource[]>
   listPendingOperations: (limit?: number) => Promise<readonly ShelfSourceOperation[]>
-  listSources: () => Promise<readonly StoredShelfSource[]>
   mergeOperations: (operations: readonly ShelfSourceOperation[]) => Promise<void>
-  savePage: (page: CachedShelfPage) => Promise<void>
-  saveSource: (input: SaveShelfSourceInput) => Promise<void>
+  save: (input: SaveShelfSourceInput) => Promise<void>
+  saveWithPage: (input: SaveShelfSourceAndPageInput) => Promise<void>
+}
+
+export interface ShelfStorage {
+  close: () => Promise<void>
+  readonly pages: ShelfPageStorage
+  readonly sources: ShelfSourceStorage
 }
 
 export interface ShelfImageCache {
+  close: () => Promise<void>
   deleteSource: (sourceId: string) => Promise<void>
   get: (sourceId: string, url: string) => Promise<CachedShelfAsset | null>
   save: (asset: CachedShelfAsset) => Promise<void>
 }
 
-export interface ShelfBrowseIssue {
-  kind: 'authentication' | 'network' | 'parse' | 'response'
-  message: string
+export type ShelfBrowseIssue = {
+  kind: 'authentication' | 'network' | 'parse'
+} | {
+  kind: 'response'
+  status: number
 }
 
 export interface ShelfBrowseGroup {

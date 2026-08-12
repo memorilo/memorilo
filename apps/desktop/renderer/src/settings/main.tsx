@@ -3,13 +3,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import {
+  bootstrapRenderer,
+} from '../app/bootstrap-renderer'
+import {
   DesktopConfigurationEnvironment,
-} from '../configuration'
-import { createRendererConfigurationStore } from '../configuration-store'
-import { resolveConfigLanguage } from '../i18n'
-import { initI18n } from '../i18n/init'
+} from '../app/configuration/configuration-environment'
 import { Settings } from './settings'
-import { settingsStyles } from './settings.stylex'
+import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 import '../styles/renderer-global.css'
 
 const rootElement = document.querySelector('#root')
@@ -19,11 +19,8 @@ if (!rootElement)
 
 const root = createRoot(rootElement)
 
-void createRendererConfigurationStore().then((store) => {
-  const configuration = store.getSnapshot()
-  const language = resolveConfigLanguage(configuration.language)
-  return initI18n(language).then(() => {
-    window.addEventListener('beforeunload', () => store.close(), { once: true })
+void bootstrapRenderer(
+  (store) => {
     root.render(
       <StrictMode>
         <DesktopConfigurationEnvironment store={store}>
@@ -31,11 +28,11 @@ void createRendererConfigurationStore().then((store) => {
         </DesktopConfigurationEnvironment>
       </StrictMode>,
     )
-  })
-}, (error) => {
-  root.render(
+    return () => root.unmount()
+  },
+  error => root.render(
     <main {...stylex.props(settingsStyles.status)} role="alert">
       {error instanceof Error ? error.message : String(error)}
     </main>,
-  )
-})
+  ),
+)

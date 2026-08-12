@@ -2,8 +2,8 @@ import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { DesktopConfigurationEnvironment } from '../configuration'
-import { createRendererConfigurationStore } from '../configuration-store'
+import { DesktopConfigurationEnvironment } from '../app/configuration/configuration-environment'
+import { createRendererConfigurationStore } from '../app/configuration/configuration-store'
 import { Settings } from './settings'
 
 describe('settings renderer', () => {

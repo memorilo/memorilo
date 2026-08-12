@@ -16,6 +16,7 @@
   "cardItemProgress": "第 {{count}} / {{total}} 项",
   "dailyProgress": "每日复习进度",
   "undoRating": "撤销上次评分",
+  "undoReviewFailed": "无法撤销评分：{{message}}",
   "showCard": "显示卡片",
   "showSource": "显示来源上下文",
   "cardSource": "卡片来源",

@@ -71,7 +71,10 @@ export default defineConfig({
     },
     plugins: [
       wasm(),
-      TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
+      TanStackRouterVite({
+        target: 'react',
+        autoCodeSplitting: true,
+      }),
       stylex(stylexOptions),
       react(),
     ],

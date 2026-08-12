@@ -10,11 +10,11 @@ import {
 } from 'loro-crdt'
 import { Plugin, PluginKey } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
+import { loroTreeSyncPluginKey } from './sync-plugin'
 import {
   getTreeNodeIdForProseMirrorNode,
-  TEXT_KEY,
-} from './model'
-import { loroTreeSyncPluginKey } from './sync-plugin'
+} from './tree-reconciliation'
+import { TEXT_KEY } from './tree-schema'
 
 export interface CursorUser {
   [key: string]: string

@@ -1,5 +1,6 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorCardRepository } from './card-repository'
+import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
 import { projectEditorCards } from './card-model'
 
 export interface EditorCardSyncError {
@@ -20,22 +21,41 @@ interface EditorCardSyncOptions extends EditorCardIntegration {
 }
 
 export interface EditorCardSync {
+  close: () => Promise<void>
   flush: () => Promise<void>
-  schedule: (document: NodeJSON) => void
+  schedule: (document: NodeJSON) => Promise<void>
+}
+
+export class EditorCardSyncClosedError extends Error {
+  constructor() {
+    super('Editor Card sync is closed')
+    this.name = 'EditorCardSyncClosedError'
+  }
 }
 
 export function createEditorCardSync(options: EditorCardSyncOptions): EditorCardSync {
-  let queue = Promise.resolve()
+  const operations = createOperationSupervisor('Editor Card sync', {
+    closedError: () => new EditorCardSyncClosedError(),
+  })
+  let closing = false
 
-  return {
-    flush: () => queue,
-    schedule: (document) => {
+  const report = (input: EditorCardSyncError) => {
+    try {
+      options.onSyncError(input)
+    }
+    catch (error) {
+      console.error('Editor Card sync error listener failed', error)
+    }
+  }
+
+  const schedule = (document: NodeJSON) => {
+    return operations.run(async () => {
       let cards
       try {
         cards = projectEditorCards(document)
       }
       catch (error) {
-        options.onSyncError({
+        report({
           error,
           noteId: options.noteId,
           phase: 'projection',
@@ -44,20 +64,32 @@ export function createEditorCardSync(options: EditorCardSyncOptions): EditorCard
         return
       }
 
-      queue = queue
-        .then(() => options.repository.replaceTopicCards({
+      try {
+        await options.repository.replaceTopicCards({
           cards,
           noteId: options.noteId,
           topicId: options.topicId,
-        }))
-        .catch((error: unknown) => {
-          options.onSyncError({
-            error,
-            noteId: options.noteId,
-            phase: 'repository',
-            topicId: options.topicId,
-          })
         })
-    },
+      }
+      catch (error) {
+        report({
+          error,
+          noteId: options.noteId,
+          phase: 'repository',
+          topicId: options.topicId,
+        })
+      }
+    })
+  }
+
+  const close = () => {
+    closing = true
+    return operations.close()
+  }
+
+  return {
+    close,
+    flush: () => closing ? operations.close() : operations.run(async () => {}),
+    schedule,
   }
 }
