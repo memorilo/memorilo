@@ -6,6 +6,7 @@ export type {
   CreateEditorNoteOptions,
   CreateFolderInput,
   CreateTopicInput,
+  CreateWhiteboardTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
   EditorBookTopicDocument,
@@ -14,6 +15,7 @@ export type {
   EditorNoteMutation,
   EditorNoteVersion,
   EditorTopicDocument,
+  EditorWhiteboardTopicDocument,
   FolderSnapshot,
   MoveNoteEntryInput,
   NoteEntryKind,
@@ -24,6 +26,9 @@ export type {
   TopicContentProjection,
   TopicSnapshot,
   TopicValidationInput,
+  WhiteboardScene,
+  WhiteboardTopicSnapshot,
+  WhiteboardTopicValidationInput,
 } from './editor-note'
 export { createEditorNote } from './editor-note'
 export type { ResolveJournalTopicOptions } from './journal-note'

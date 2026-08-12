@@ -1,7 +1,17 @@
+import type {
+  AppState,
+  BinaryFiles,
+  ExcalidrawElement,
+  ExcalidrawEmbeddableElement,
+  ExcalidrawImperativeAPI,
+  ExcalidrawInitialDataState,
+} from '@excalidraw/excalidraw'
 import type { DesktopRegularNote } from '@memorilo/desktop-preload'
 import type {
   BookTopicSnapshot,
+  EditorAdapters,
   EditorNote,
+  EditorWhiteboardTopicDocument,
   NoteEntrySnapshot,
 } from '@memorilo/editor'
 import type { ShelfPublication, ShelfReadingFormat, ShelfSource } from '@memorilo/shelf'
@@ -9,6 +19,7 @@ import type { Cause } from 'effect'
 import type { FormEvent, MouseEvent as ReactMouseEvent } from 'react'
 import type { PaletteCommand } from '../components/command-palette-context'
 import type { EditorNoteSessionOpened, TopicValidationError } from './-note-editor-session'
+import { CaptureUpdateAction, Excalidraw, newEmbeddableElement, ROUNDNESS } from '@excalidraw/excalidraw'
 import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import { readingFormatDisplayName } from '@memorilo/reading-format'
 import { shelfReadingAcquisitions } from '@memorilo/shelf'
@@ -29,7 +40,9 @@ import {
   Folder,
   FolderOpen,
   ListTree,
+  NotebookPen,
   PanelRight,
+  PenLine,
   Plus,
   RefreshCw,
   Search,
@@ -40,14 +53,15 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
-
 import { useCommandPaletteCommands } from '../components/command-palette-context'
+
 import { usePageTitlebar } from '../components/page-titlebar'
 import { useDesktopConfiguration } from '../configuration-context'
 import { noteQueryKeys } from '../queries/note-query-keys'
 import { router } from '../router'
 import { desktopEditorAdapters, useEditorNoteSession } from './-note-editor-session'
 import { editorRouteStyles } from './-note.stylex'
+import '@excalidraw/excalidraw/index.css'
 
 const inspectorSpring = {
   bounce: 0,
@@ -174,7 +188,7 @@ interface BookEntryContextMenu extends EntryContextMenuBase {
 type EntryContextMenu = BookEntryContextMenu | ContainerEntryContextMenu
 
 interface EntryCreationTarget {
-  kind: 'folder' | 'topic'
+  kind: 'folder' | 'topic' | 'whiteboard'
   parentId: string | null
 }
 
@@ -189,9 +203,218 @@ function bookTopicReadingId(topic: BookTopicSnapshot): string {
   return hint.readingId
 }
 
-interface CopyFeedback {
-  diagnostics: string
-  status: CopyStatus
+const whiteboardEditorEmbedKind = 'topic-editor'
+const whiteboardEditorEmbedLinkPrefix = 'https://memorilo.local/whiteboard-editor/'
+const whiteboardEditorEmbedWidth = 560
+const whiteboardEditorEmbedHeight = 400
+
+interface WhiteboardEditorEmbedData {
+  kind: typeof whiteboardEditorEmbedKind
+  topicId: string
+}
+
+function whiteboardEditorEmbedData(element: ExcalidrawElement): WhiteboardEditorEmbedData | null {
+  const memoriloEmbed = element.customData?.memoriloEmbed
+  if (memoriloEmbed === null || typeof memoriloEmbed !== 'object' || Array.isArray(memoriloEmbed))
+    return null
+  const { kind, topicId } = memoriloEmbed as Record<string, unknown>
+  if (kind !== whiteboardEditorEmbedKind || typeof topicId !== 'string')
+    return null
+  return { kind, topicId }
+}
+
+function isWhiteboardEditorEmbed(element: ExcalidrawElement, topicId: string): element is ExcalidrawEmbeddableElement {
+  const embed = whiteboardEditorEmbedData(element)
+  return element.type === 'embeddable' && embed?.topicId === topicId
+}
+
+function withoutDuplicateWhiteboardEditorEmbeds(
+  nextElements: readonly ExcalidrawElement[],
+  prevElements: readonly ExcalidrawElement[],
+  topicId: string,
+): ExcalidrawElement[] {
+  const existing = prevElements.find(element => isWhiteboardEditorEmbed(element, topicId) && !element.isDeleted)
+  let retainedId = existing?.id
+  return nextElements.filter((element) => {
+    if (!isWhiteboardEditorEmbed(element, topicId) || element.isDeleted)
+      return true
+    if (retainedId === undefined) {
+      retainedId = element.id
+      return true
+    }
+    return element.id === retainedId
+  })
+}
+
+function EmbeddedWhiteboardEditor({ adapters, topic }: {
+  adapters: EditorAdapters
+  topic: EditorWhiteboardTopicDocument
+}) {
+  return (
+    <article {...stylex.props(editorRouteStyles.whiteboardEditorEmbed)} data-memorilo-whiteboard-editor="">
+      <Editor adapters={adapters} layout="embedded" mode={EditorMode.Document} topic={topic} />
+    </article>
+  )
+}
+
+function WhiteboardEditor({ adapters, topic }: {
+  adapters: EditorAdapters
+  topic: EditorWhiteboardTopicDocument
+}) {
+  const { t } = useTranslation('editor')
+  const sceneRef = useRef(topic.getScene())
+  const [, forceRender] = useState(0)
+  useEffect(() => topic.subscribe(() => {
+    const next = topic.getScene()
+    if (JSON.stringify(next) === JSON.stringify(sceneRef.current))
+      return
+    sceneRef.current = next
+    forceRender(value => value + 1)
+  }), [topic])
+  const scene = sceneRef.current
+  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
+  const lastSceneRef = useRef(JSON.stringify(scene))
+  const initialData = useMemo<ExcalidrawInitialDataState>(() => {
+    const elements = scene.elements
+    const appState = scene.appState
+    const files = scene.files
+    if (!Array.isArray(elements))
+      throw new Error(`WhiteboardTopic ${topic.topicId} scene elements must be an array`)
+    if (appState !== undefined && (appState === null || typeof appState !== 'object' || Array.isArray(appState)))
+      throw new Error(`WhiteboardTopic ${topic.topicId} scene appState must be an object`)
+    if (files !== undefined && (files === null || typeof files !== 'object' || Array.isArray(files)))
+      throw new Error(`WhiteboardTopic ${topic.topicId} scene files must be an object`)
+    return {
+      elements: elements as ExcalidrawElement[],
+      ...(appState === undefined ? {} : { appState: appState as AppState }),
+      ...(files === undefined ? {} : { files: files as BinaryFiles }),
+    }
+  }, [scene, topic.topicId])
+
+  const handleChange = useCallback((elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
+    const nextScene = {
+      appState: structuredClone({
+        gridSize: appState.gridSize,
+        gridStep: appState.gridStep,
+        scrollX: appState.scrollX,
+        scrollY: appState.scrollY,
+        viewBackgroundColor: appState.viewBackgroundColor,
+        zoom: appState.zoom,
+      }),
+      elements: structuredClone(elements),
+      files: structuredClone(files),
+    }
+    const serialized = JSON.stringify(nextScene)
+    if (serialized === lastSceneRef.current)
+      return
+    lastSceneRef.current = serialized
+    topic.setScene(nextScene)
+  }, [topic])
+
+  const insertOrRevealEditor = useCallback(() => {
+    const api = apiRef.current
+    if (!api)
+      throw new Error(`WhiteboardTopic ${topic.topicId} Excalidraw API is not ready`)
+    const currentElements = api.getSceneElements()
+    const existing = currentElements.find(element => isWhiteboardEditorEmbed(element, topic.topicId) && !element.isDeleted)
+    if (existing) {
+      api.updateScene({ appState: { selectedElementIds: { [existing.id]: true } } })
+      api.scrollToContent(existing, { animate: true, fitToContent: true, maxZoom: 1, viewportZoomFactor: 0.8 })
+      return
+    }
+
+    const appState = api.getAppState()
+    const zoom = appState.zoom.value
+    if (zoom <= 0)
+      throw new Error(`WhiteboardTopic ${topic.topicId} has an invalid canvas zoom`)
+    const x = -appState.scrollX + (appState.width / zoom - whiteboardEditorEmbedWidth) / 2
+    const y = -appState.scrollY + (appState.height / zoom - whiteboardEditorEmbedHeight) / 2
+    const element = newEmbeddableElement({
+      backgroundColor: '#ffffff',
+      customData: {
+        memoriloEmbed: {
+          kind: whiteboardEditorEmbedKind,
+          topicId: topic.topicId,
+        },
+      },
+      fillStyle: 'solid',
+      height: whiteboardEditorEmbedHeight,
+      link: `${whiteboardEditorEmbedLinkPrefix}${encodeURIComponent(topic.topicId)}`,
+      roughness: 0,
+      roundness: { type: ROUNDNESS.ADAPTIVE_RADIUS, value: 8 },
+      strokeColor: '#c9ced6',
+      strokeStyle: 'solid',
+      strokeWidth: 1,
+      type: 'embeddable',
+      width: whiteboardEditorEmbedWidth,
+      x,
+      y,
+    })
+    api.updateScene({
+      appState: { selectedElementIds: { [element.id]: true } },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      elements: [...api.getSceneElementsIncludingDeleted(), element],
+    })
+    api.scrollToContent(element, { animate: true, fitToContent: true, maxZoom: 1, viewportZoomFactor: 0.8 })
+  }, [topic.topicId])
+
+  const renderEmbeddable = useCallback((element: ExcalidrawEmbeddableElement) => {
+    if (!isWhiteboardEditorEmbed(element, topic.topicId))
+      return null
+    return <EmbeddedWhiteboardEditor adapters={adapters} topic={topic} />
+  }, [adapters, topic])
+
+  const renderTopRightUI = useCallback(() => (
+    <div {...stylex.props(editorRouteStyles.whiteboardTopRightControls)}>
+      <button
+        {...stylex.props(editorRouteStyles.whiteboardInsertEditorButton)}
+        aria-label={t('insertWhiteboardEditor')}
+        title={t('insertWhiteboardEditor')}
+        type="button"
+        onClick={insertOrRevealEditor}
+      >
+        <NotebookPen aria-hidden="true" size={17} strokeWidth={1.8} />
+      </button>
+    </div>
+  ), [insertOrRevealEditor, t])
+
+  const handleDuplicate = useCallback((
+    nextElements: readonly ExcalidrawElement[],
+    prevElements: readonly ExcalidrawElement[],
+  ) => withoutDuplicateWhiteboardEditorEmbeds(nextElements, prevElements, topic.topicId), [topic.topicId])
+
+  const validateEmbeddable = useCallback((link: string) => link.startsWith(whiteboardEditorEmbedLinkPrefix) || undefined, [])
+
+  useEffect(() => {
+    const serialized = JSON.stringify(scene)
+    if (serialized === lastSceneRef.current)
+      return
+    lastSceneRef.current = serialized
+    const elements = scene.elements
+    if (!Array.isArray(elements))
+      throw new Error(`WhiteboardTopic ${topic.topicId} scene elements must be an array`)
+    const appState = scene.appState
+    if (appState !== undefined && (appState === null || typeof appState !== 'object' || Array.isArray(appState)))
+      throw new Error(`WhiteboardTopic ${topic.topicId} scene appState must be an object`)
+    apiRef.current?.updateScene({
+      elements: elements as ExcalidrawElement[],
+      ...(appState === undefined ? {} : { appState: appState as AppState }),
+    })
+  }, [scene, topic.topicId])
+
+  return (
+    <div {...stylex.props(editorRouteStyles.whiteboard)} data-topic-type="whiteboard">
+      <Excalidraw
+        excalidrawAPI={(api) => { apiRef.current = api }}
+        initialData={initialData}
+        onChange={handleChange}
+        onDuplicate={handleDuplicate}
+        renderEmbeddable={renderEmbeddable}
+        renderTopRightUI={renderTopRightUI}
+        validateEmbeddable={validateEmbeddable}
+      />
+    </div>
+  )
 }
 
 async function loadReadableShelfBooks(): Promise<readonly ShelfBookOption[]> {
@@ -437,7 +660,7 @@ function EntryCreationDialog({
   const { t } = useTranslation('editor')
   const [error, setError] = useState<string | null>(null)
   const [label, setLabel] = useState('')
-  const title = kind === 'folder' ? t('newFolder') : t('newTopic')
+  const title = kind === 'folder' ? t('newFolder') : kind === 'whiteboard' ? t('newWhiteboard') : t('newTopic')
   const fieldLabel = kind === 'folder' ? t('folderName') : t('topicTitle')
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -533,6 +756,7 @@ function OpenedTopicEditor({
   onAddBook,
   onAddFolder,
   onAddTopic,
+  onAddWhiteboard,
   onRebindBook,
   onRenameNote,
   onToggleEntry,
@@ -547,6 +771,7 @@ function OpenedTopicEditor({
   onAddBook: (parentId: string | null) => void
   onAddFolder: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
+  onAddWhiteboard: (parentId: string | null) => void
   onRebindBook: (topicId: string) => void
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   onToggleEntry: (entryId: string) => void
@@ -580,6 +805,12 @@ function OpenedTopicEditor({
     [opened.entries],
   )
   const mode = useEditorTopicMode(opened.topic)
+  const openedTopicEntry = opened.entries.find((entry): entry is NoteEntrySnapshot & { kind: 'topic' } => entry.kind === 'topic' && entry.id === opened.topic.topicId)
+  const isWhiteboard = openedTopicEntry?.topicType === 'whiteboard'
+  const whiteboardTopic = useMemo(
+    () => isWhiteboard ? opened.note.getWhiteboardTopic(opened.topic.topicId) : undefined,
+    [isWhiteboard, opened.note, opened.topic.topicId],
+  )
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
   const closeEntryContextMenu = useCallback(() => {
     availabilityRequestRef.current += 1
@@ -637,29 +868,31 @@ function OpenedTopicEditor({
   }, [])
   const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
   const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
-  const modeCommands = useMemo<readonly PaletteCommand[]>(() => mode === EditorMode.Document
-    ? [{
-        accent: 'violet',
-        action: t('switchMode'),
-        description: t('switchToOutlineDescription'),
-        icon: ListTree,
-        id: 'editor-mode-outline',
-        keywords: t('switchToOutlineKeywords') as unknown as readonly string[],
-        label: t('switchToOutlineMode'),
-        run: showOutlineMode,
-        section: t('editorSection') as PaletteCommand['section'],
-      }]
-    : [{
-        accent: 'blue',
-        action: t('switchMode'),
-        description: t('switchToDocumentDescription'),
-        icon: AlignLeft,
-        id: 'editor-mode-document',
-        keywords: t('switchToDocumentKeywords') as unknown as readonly string[],
-        label: t('switchToDocumentMode'),
-        run: showDocumentMode,
-        section: t('editorSection') as PaletteCommand['section'],
-      }], [mode, showDocumentMode, showOutlineMode, t])
+  const modeCommands = useMemo<readonly PaletteCommand[]>(() => isWhiteboard
+    ? []
+    : mode === EditorMode.Document
+      ? [{
+          accent: 'violet',
+          action: t('switchMode'),
+          description: t('switchToOutlineDescription'),
+          icon: ListTree,
+          id: 'editor-mode-outline',
+          keywords: t('switchToOutlineKeywords') as unknown as readonly string[],
+          label: t('switchToOutlineMode'),
+          run: showOutlineMode,
+          section: t('editorSection') as PaletteCommand['section'],
+        }]
+      : [{
+          accent: 'blue',
+          action: t('switchMode'),
+          description: t('switchToDocumentDescription'),
+          icon: AlignLeft,
+          id: 'editor-mode-document',
+          keywords: t('switchToDocumentKeywords') as unknown as readonly string[],
+          label: t('switchToDocumentMode'),
+          run: showDocumentMode,
+          section: t('editorSection') as PaletteCommand['section'],
+        }], [isWhiteboard, mode, showDocumentMode, showOutlineMode, t])
   useCommandPaletteCommands(modeCommands)
 
   useEffect(() => {
@@ -749,7 +982,7 @@ function OpenedTopicEditor({
     const menuPadding = 8
     const menuItemHeight = 30
     const mainItemCount = entryContextMenu.kind === 'book' && entryContextMenu.resourceState !== 'available' ? 2 : 1
-    const submenuItemCount = entryContextMenu.kind === 'container' && entryContextMenu.allowFolder ? 3 : 2
+    const submenuItemCount = entryContextMenu.kind === 'container' && entryContextMenu.allowFolder ? 4 : 3
     const requiredHeight = Math.max(
       menuPadding + mainItemCount * menuItemHeight,
       menuPadding + submenuItemCount * menuItemHeight,
@@ -808,12 +1041,18 @@ function OpenedTopicEditor({
               </div>
             )
           : null}
-        <Editor
-          adapters={editorAdapters}
-          focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
-          outline={{ outdentBehavior: configuration.outdentBehavior }}
-          topic={opened.topic}
-        />
+        {isWhiteboard
+          ? whiteboardTopic === undefined
+            ? null
+            : <WhiteboardEditor adapters={editorAdapters} topic={whiteboardTopic} />
+          : (
+              <Editor
+                adapters={editorAdapters}
+                focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
+                outline={{ outdentBehavior: configuration.outdentBehavior }}
+                topic={opened.topic}
+              />
+            )}
       </section>
       <AnimatePresence initial={false}>
         {inspectorVisible
@@ -935,17 +1174,29 @@ function OpenedTopicEditor({
                                               strokeWidth={1.7}
                                             />
                                           )
-                                        : (
-                                            <FileText
-                                              {...stylex.props(
-                                                editorRouteStyles.topicIcon,
-                                                current && editorRouteStyles.topicIconCurrent,
-                                              )}
-                                              aria-hidden="true"
-                                              size={14}
-                                              strokeWidth={1.7}
-                                            />
-                                          )}
+                                        : entry.topicType === 'whiteboard'
+                                          ? (
+                                              <PenLine
+                                                {...stylex.props(
+                                                  editorRouteStyles.topicIcon,
+                                                  current && editorRouteStyles.topicIconCurrent,
+                                                )}
+                                                aria-hidden="true"
+                                                size={14}
+                                                strokeWidth={1.7}
+                                              />
+                                            )
+                                          : (
+                                              <FileText
+                                                {...stylex.props(
+                                                  editorRouteStyles.topicIcon,
+                                                  current && editorRouteStyles.topicIconCurrent,
+                                                )}
+                                                aria-hidden="true"
+                                                size={14}
+                                                strokeWidth={1.7}
+                                              />
+                                            )}
                                       {entry.topicType === 'book'
                                         ? (
                                             <Link
@@ -1105,6 +1356,20 @@ function OpenedTopicEditor({
                         >
                           <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
                           {t('topic')}
+                        </button>
+                        <button
+                          {...stylex.props(editorRouteStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddWhiteboard(entryContextMenu.kind === 'book'
+                              ? entryContextMenu.topicId
+                              : entryContextMenu.parentId)
+                            closeEntryContextMenu()
+                          }}
+                        >
+                          <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('whiteboard')}
                         </button>
                         {entryContextMenu.kind === 'container' && entryContextMenu.allowFolder
                           ? (
@@ -1296,6 +1561,8 @@ export function NoteEditor({
       throw new Error('The Note is no longer open')
     if (target.kind === 'folder')
       opened.note.createFolder({ name: label, parentId: target.parentId })
+    else if (target.kind === 'whiteboard')
+      opened.note.createWhiteboardTopic({ parentId: target.parentId, title: label })
     else
       opened.note.createTopic({ mode: EditorMode.Document, parentId: target.parentId, title: label })
     setEntryCreationTarget(undefined)
@@ -1349,6 +1616,7 @@ export function NoteEditor({
         onAddBook={parentId => setBookPickerTarget({ kind: 'create', parentId })}
         onAddFolder={parentId => setEntryCreationTarget({ kind: 'folder', parentId })}
         onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
+        onAddWhiteboard={parentId => setEntryCreationTarget({ kind: 'whiteboard', parentId })}
         onRebindBook={(topicId) => {
           const format = opened.note.getBookTopic(topicId).getBook().file.format
           setBookPickerTarget({ format, kind: 'rebind', topicId })

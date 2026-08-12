@@ -63,6 +63,7 @@ export type {
   CreateEditorNoteOptions,
   CreateFolderInput,
   CreateTopicInput,
+  CreateWhiteboardTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
   EditorBookTopicDocument,
@@ -71,6 +72,7 @@ export type {
   EditorNoteMutation,
   EditorNoteVersion,
   EditorTopicDocument,
+  EditorWhiteboardTopicDocument,
   FolderSnapshot,
   MoveNoteEntryInput,
   NoteEntryKind,
@@ -80,6 +82,9 @@ export type {
   TopicContentProjection,
   TopicSnapshot,
   TopicValidationInput,
+  WhiteboardScene,
+  WhiteboardTopicSnapshot,
+  WhiteboardTopicValidationInput,
 } from './note/editor-note'
 export { createEditorNote } from './note/editor-note'
 export type { ResolveJournalTopicOptions } from './note/journal-note'
@@ -97,6 +102,7 @@ export type {
   LoroTopicNode,
   LoroTopicNodeType,
   LoroTopicValidation,
+  LoroWhiteboardTopic,
 } from './schema'
 export {
   isLoroTopic,
@@ -106,5 +112,6 @@ export {
   LoroTopicEntrySchema,
   LoroTopicNodeSchema,
   LoroTopicSchema,
+  LoroWhiteboardTopicEntrySchema,
   validateLoroTopic,
 } from './schema'

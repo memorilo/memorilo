@@ -18,6 +18,15 @@ import WelcomeScreen from "./components/welcome-screen/WelcomeScreen";
 import LiveCollaborationTrigger from "./components/live-collaboration/LiveCollaborationTrigger";
 import { installLiquidGlass } from "./components/liquidGlass";
 
+export type {
+  AppState,
+  BinaryFiles,
+  ExcalidrawInitialDataState,
+} from "./types";
+export type {
+  ExcalidrawElement,
+} from "./element/types";
+
 polyfill();
 
 const ExcalidrawBase = (props: ExcalidrawProps) => {
@@ -287,6 +296,7 @@ export {
   newElementWith,
   bumpVersion,
 } from "./element/mutateElement";
+export { newEmbeddableElement } from "./element/newElement";
 
 export { CaptureUpdateAction } from "./store";
 

@@ -36,7 +36,7 @@ import { hasTopicUserContent } from './topic-user-content'
 
 const NOTE_META_KEY = 'noteMeta'
 const NOTE_ENTRIES_KEY = 'entries'
-const NOTE_SCHEMA_VERSION = 4
+const NOTE_SCHEMA_VERSION = 5
 const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
 const ENTRY_ID_KEY = 'entryId'
 const ENTRY_KIND_KEY = 'kind'
@@ -48,6 +48,7 @@ const TOPIC_TYPE_KEY = 'topicType'
 const BOOK_BINDING_KEY = 'book'
 const BOOK_READING_STATE_KEY = 'readingStateKey'
 const BOOK_ANNOTATIONS_KEY = 'annotationsKey'
+const WHITEBOARD_SCENE_KEY = 'whiteboardSceneKey'
 
 export type NoteEntryKind = 'folder' | 'topic'
 
@@ -78,7 +79,11 @@ export interface BookTopicSnapshot extends TopicSnapshotBase {
   topicType: 'book'
 }
 
-export type TopicSnapshot = BookTopicSnapshot | RegularTopicSnapshot
+export interface WhiteboardTopicSnapshot extends TopicSnapshotBase {
+  topicType: 'whiteboard'
+}
+
+export type TopicSnapshot = BookTopicSnapshot | RegularTopicSnapshot | WhiteboardTopicSnapshot
 
 export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
 
@@ -175,6 +180,12 @@ export interface CreateBookTopicInput {
   title: string
 }
 
+export interface CreateWhiteboardTopicInput {
+  index?: number
+  parentId?: string | null
+  title: string
+}
+
 export interface MoveNoteEntryInput {
   entryId: string
   index?: number
@@ -198,7 +209,11 @@ export interface BookTopicValidationInput extends RegularTopicValidationInput {
   readonly readingState: unknown
 }
 
-export type TopicValidationInput = BookTopicValidationInput | RegularTopicValidationInput
+export interface WhiteboardTopicValidationInput extends RegularTopicValidationInput {
+  readonly scene: unknown
+}
+
+export type TopicValidationInput = BookTopicValidationInput | WhiteboardTopicValidationInput | RegularTopicValidationInput
 
 export interface EditorTopicDocument {
   /** Returns the current editor mode stored in the Topic. */
@@ -224,6 +239,13 @@ export interface EditorBookTopicDocument extends EditorTopicDocument {
   readonly setPosition: (position: ReadingPosition) => void
 }
 
+export type WhiteboardScene = Readonly<Record<string, unknown>>
+
+export interface EditorWhiteboardTopicDocument extends EditorTopicDocument {
+  readonly getScene: () => WhiteboardScene
+  readonly setScene: (scene: WhiteboardScene) => void
+}
+
 /**
  * Owns a Note's authoritative in-memory LoroDoc and exposes Note-level editing operations.
  * Topic documents returned by `getTopic` are lightweight handles over this same LoroDoc.
@@ -240,6 +262,8 @@ export interface EditorNote {
   createFolder: (input: CreateFolderInput) => string
   /** Atomically creates a BookTopic with editable content and initialized reading state. */
   createBookTopic: (input: CreateBookTopicInput) => string
+  /** Atomically creates a whiteboard Topic with an empty scene. */
+  createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
   /** Deletes an entry using the requested child-handling strategy. */
@@ -257,6 +281,8 @@ export interface EditorNote {
   getTopic: (topicId: string) => EditorTopicDocument
   /** Returns the reading handle for an existing BookTopic. */
   getBookTopic: (topicId: string) => EditorBookTopicDocument
+  /** Returns the scene handle for an existing WhiteboardTopic. */
+  getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
   /** Returns the exact plain JavaScript object passed to Topic validation. */
@@ -346,10 +372,10 @@ function readTopicTitle(map: LoroMap, description: string): string {
   return value
 }
 
-function readTopicType(map: LoroMap, description: string): 'book' | 'regular' {
+function readTopicType(map: LoroMap, description: string): 'book' | 'regular' | 'whiteboard' {
   const value = map.get(TOPIC_TYPE_KEY)
-  if (value !== 'book' && value !== 'regular')
-    throw new Error(`${description} must be "book" or "regular"`)
+  if (value !== 'book' && value !== 'regular' && value !== 'whiteboard')
+    throw new Error(`${description} must be "book", "regular", or "whiteboard"`)
   return value
 }
 
@@ -427,6 +453,14 @@ function topicBlockTree(runtime: EditorNoteRuntime, node: ReturnType<typeof entr
   return runtime.doc.getTree(blockTreeKey)
 }
 
+function whiteboardSceneMap(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>) {
+  const entryId = readString(node.data, ENTRY_ID_KEY, 'WhiteboardTopic id')
+  if (readTopicType(node.data, `Topic ${entryId} type`) !== 'whiteboard')
+    throw new TypeError(`Topic ${entryId} is not a WhiteboardTopic`)
+  const sceneKey = readString(node.data, WHITEBOARD_SCENE_KEY, `WhiteboardTopic ${entryId} scene key`)
+  return runtime.doc.getMap(sceneKey)
+}
+
 function bookTopicContainers(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>) {
   const entryId = readString(node.data, ENTRY_ID_KEY, 'BookTopic id')
   if (readTopicType(node.data, `Topic ${entryId} type`) !== 'book')
@@ -471,6 +505,10 @@ function getTopicValidationInput(runtime: EditorNoteRuntime, topicId: string): T
   }
   if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'regular')
     return base
+  if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'whiteboard') {
+    const scene = whiteboardSceneMap(runtime, node)
+    return { ...base, scene: scene.toJSON() }
+  }
   const containers = bookTopicContainers(runtime, node)
   return {
     ...base,
@@ -746,7 +784,7 @@ function mutationRoot(eventPath: readonly unknown[], targetPath: readonly unknow
 function topicIdFromMutationRoot(root: string): string | undefined {
   if (!root.startsWith('topic:'))
     return undefined
-  for (const suffix of [':annotations', ':blocks', ':reading-state']) {
+  for (const suffix of [':annotations', ':blocks', ':reading-state', ':whiteboard-scene']) {
     if (root.endsWith(suffix))
       return root.slice('topic:'.length, -suffix.length)
   }
@@ -795,7 +833,7 @@ interface PreparedTopicNode {
   mode: EditorModeValue
   readingStateKey?: string
   title: string
-  topicType: 'book' | 'regular'
+  topicType: 'book' | 'regular' | 'whiteboard'
 }
 
 function prepareTopicNode(input: CreateTopicInput, bookValue?: BookFileBinding): PreparedTopicNode {
@@ -881,6 +919,38 @@ function createTopicNode(
   }
   initializeLoroTreeFromJson(blockTree, prepared.document)
   return prepared.entryId
+}
+
+function createWhiteboardNode(
+  doc: LoroDoc,
+  input: CreateWhiteboardTopicInput,
+  parent: ReturnType<typeof entryNode> | undefined,
+): string {
+  const entryId = createTopicNode(doc, {
+    index: input.index,
+    mode: EditorMode.Document,
+    parentId: input.parentId,
+    title: input.title,
+  }, parent)
+  const node = noteTree(doc).getNodes().find(candidate => candidate.data.get(ENTRY_ID_KEY) === entryId)
+  if (!node)
+    throw new Error(`WhiteboardTopic ${entryId} was not created`)
+  const sceneKey = `topic:${entryId}:whiteboard-scene`
+  node.data.set(TOPIC_TYPE_KEY, 'whiteboard')
+  node.data.set(WHITEBOARD_SCENE_KEY, sceneKey)
+  doc.getMap(sceneKey).set('elements', [])
+  doc.getMap(sceneKey).set('appState', {})
+  doc.getMap(sceneKey).set('files', {})
+  const blockTreeKey = readString(node.data, TOPIC_BLOCK_TREE_KEY, `WhiteboardTopic ${entryId} block tree key`)
+  const document = createNodeJsonFromLoroTree(doc.getTree(blockTreeKey))
+  if (!document)
+    throw new Error(`WhiteboardTopic ${entryId} does not contain an initialized document`)
+  validateTopicInput({
+    document,
+    entry: node.data.toJSON(),
+    scene: doc.getMap(sceneKey).toJSON(),
+  })
+  return entryId
 }
 
 function initializeNote(
@@ -1086,6 +1156,35 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
       return document
     },
+    getWhiteboardTopic: (topicId) => {
+      const normalizedTopicId = assertNonEmpty(topicId, 'WhiteboardTopic id')
+      const node = entryNode(runtime, normalizedTopicId)
+      whiteboardSceneMap(runtime, node)
+      const topic = note.getTopic(normalizedTopicId)
+      const document: EditorWhiteboardTopicDocument = {
+        ...topic,
+        getScene: () => {
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          return structuredClone(whiteboardSceneMap(runtime, boundNode).toJSON()) as WhiteboardScene
+        },
+        setScene: (scene) => {
+          if (scene === null || typeof scene !== 'object' || Array.isArray(scene))
+            throw new TypeError('WhiteboardTopic scene must be an object')
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          const map = whiteboardSceneMap(runtime, boundNode)
+          const cloned = structuredClone(scene) as Record<string, unknown>
+          if (JSON.stringify(map.toJSON()) === JSON.stringify(cloned))
+            return
+          for (const key of Object.keys(map.toJSON()))
+            map.delete(key)
+          for (const [key, value] of Object.entries(cloned))
+            map.set(key, value)
+          doc.commit({ origin: 'whiteboard:set-scene' })
+        },
+      }
+      topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
+      return document
+    },
     checkout: version => doc.checkout([...version]),
     checkoutLatest: () => doc.checkoutToLatest(),
     createFolder: (input) => {
@@ -1109,6 +1208,14 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
         assertBookFileAvailable(runtime, book)
         const entryId = createTopicNode(doc, input, parent, book)
         doc.commit({ origin: 'note:create-book-topic' })
+        return entryId
+      })
+    },
+    createWhiteboardTopic: (input) => {
+      return inUndoGroup(runtime, () => {
+        const parent = resolveParent(runtime, input.parentId)
+        const entryId = createWhiteboardNode(doc, input, parent)
+        doc.commit({ origin: 'note:create-whiteboard-topic' })
         return entryId
       })
     },
@@ -1183,6 +1290,15 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
 
       const validation = getTopicValidationInput(runtime, entry.id)
       const topic = EffectRuntime.runSync(validateLoroTopic(validation))
+      if (entry.topicType === 'whiteboard') {
+        if (!('scene' in validation))
+          throw new Error(`WhiteboardTopic ${entry.id} is missing its scene`)
+        const scene = validation.scene
+        if (scene === null || typeof scene !== 'object' || Array.isArray(scene))
+          throw new Error(`WhiteboardTopic ${entry.id} scene must be an object`)
+        const elements = (scene as { elements?: unknown }).elements
+        return topic.entry.title.length > 0 || (Array.isArray(elements) && elements.length > 0)
+      }
       return topic.entry.title.length > 0 || hasTopicUserContent(validation.document)
     },
     importUpdates: (updates) => {

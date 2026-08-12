@@ -24,6 +24,10 @@ _Avoid_: Page, editor document
 A Topic bound to one concrete BookFile. It keeps normal editable Topic content while owning that file's reading position and annotations.
 _Avoid_: ReadingTopic, book registry entry
 
+**WhiteboardTopic**:
+A Topic whose primary editable content is a spatial whiteboard scene. It is stored and synchronized as part of its owning Note, rather than as a rich-text Block.
+_Avoid_: Canvas attachment, drawing block
+
 **Publication**:
 Catalog metadata used to discover one or more downloadable renditions of a work. A Publication is not the identity of a BookTopic.
 _Avoid_: BookFile, BookTopic

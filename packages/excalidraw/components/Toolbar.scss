@@ -18,6 +18,11 @@
       z-index: 1;
     }
 
+    // The hint is anchored below the toolbar and must not create a second row.
+    & > .HintViewer {
+      position: absolute;
+    }
+
     &.zen-mode {
       .ToolIcon__keybinding,
       .HintViewer {
