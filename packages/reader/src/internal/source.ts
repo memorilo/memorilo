@@ -4,7 +4,6 @@ import {
   detectReadingFormat,
   readingFormatDefaultName,
 } from '@memorilo/reading-model'
-import { interruptPromise } from './interrupt-promise'
 
 const formatSignatureByteLength = 8
 
@@ -33,22 +32,24 @@ function sourceDataByteLength(data: ReaderSourceData): number {
   return data instanceof Blob ? data.size : data.byteLength
 }
 
-function readSourceData(
+async function readSourceData(
   data: ReaderSourceData,
   offset: number,
   length: number,
   signal?: AbortSignal,
 ): Promise<Uint8Array> {
+  signal?.throwIfAborted()
   const end = offset + length
   if (data instanceof Blob) {
-    return interruptPromise(
-      data.slice(offset, end).arrayBuffer().then(buffer => new Uint8Array(buffer)),
-      signal,
-    )
+    const buffer = await data.slice(offset, end).arrayBuffer()
+    signal?.throwIfAborted()
+    return new Uint8Array(buffer)
   }
-  if (data instanceof Uint8Array)
-    return interruptPromise(Promise.resolve(data.slice(offset, end)), signal)
-  return interruptPromise(Promise.resolve(new Uint8Array(data, offset, length).slice()), signal)
+  const bytes = data instanceof Uint8Array
+    ? data.slice(offset, end)
+    : new Uint8Array(data, offset, length).slice()
+  signal?.throwIfAborted()
+  return bytes
 }
 
 function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'byteLength' | 'read'> {
@@ -70,7 +71,9 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
     byteLength,
     read: async (offset, length, signal) => {
       assertRange(byteLength, offset, length)
-      const bytes = await interruptPromise(source.read(offset, length, signal), signal)
+      signal?.throwIfAborted()
+      const bytes = await source.read(offset, length, signal)
+      signal?.throwIfAborted()
       if (!(bytes instanceof Uint8Array))
         throw new TypeError('Reader source read() must resolve to a Uint8Array')
       if (bytes.byteLength !== length)
@@ -80,11 +83,18 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
   }
 }
 
-export async function readSourceBytes(source: ResolvedReaderSource): Promise<Uint8Array> {
-  return source.read(0, source.byteLength)
+export async function readSourceBytes(
+  source: ResolvedReaderSource,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  return source.read(0, source.byteLength, signal)
 }
 
-export async function resolveSource(source: ReaderSource): Promise<ResolvedReaderSource> {
+export async function resolveSource(
+  source: ReaderSource,
+  signal?: AbortSignal,
+): Promise<ResolvedReaderSource> {
+  signal?.throwIfAborted()
   const randomAccess = randomAccessReader(source)
   if (randomAccess.byteLength === 0)
     throw new Error('The selected document is empty')
@@ -94,13 +104,16 @@ export async function resolveSource(source: ReaderSource): Promise<ResolvedReade
     const prefix = await randomAccess.read(
       0,
       Math.min(randomAccess.byteLength, formatSignatureByteLength),
+      signal,
     )
+    signal?.throwIfAborted()
     const detected = detectReadingFormat(prefix, source.name)
     if (detected === null)
       throw new Error('Unsupported document. Select a PDF, EPUB, TXT, CBZ, or CBR file')
     format = detected
   }
   else {
+    signal?.throwIfAborted()
     assertReadingFormat(source.format)
     format = source.format
   }

@@ -63,14 +63,17 @@ class PdfAdapter implements ReaderAdapter {
     this.finalizer.commit()
   }
 
-  mount(container: HTMLElement): Promise<void> {
+  mount(container: HTMLElement, externalSignal?: AbortSignal): Promise<void> {
     if (this.destroyed)
       return Promise.reject(new Error('Cannot mount a destroyed PDF reader'))
     if (this.mounted)
       return Promise.reject(new Error('PDF reader is already mounted'))
     return runSingleMount(
       this.mountOperations,
-      signal => this.mountReader(container, signal),
+      signal => this.mountReader(
+        container,
+        externalSignal ? AbortSignal.any([signal, externalSignal]) : signal,
+      ),
       () => new Error('PDF reader is already mounted'),
     )
   }

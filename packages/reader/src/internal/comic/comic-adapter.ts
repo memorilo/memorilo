@@ -69,14 +69,17 @@ class ComicAdapter implements ReaderAdapter {
     this.finalizer.commit()
   }
 
-  mount(container: HTMLElement): Promise<void> {
+  mount(container: HTMLElement, externalSignal?: AbortSignal): Promise<void> {
     if (this.destroyed)
       return Promise.reject(new Error('Cannot mount a destroyed comic reader'))
     if (this.pageView)
       return Promise.reject(new Error('Comic reader is already mounted'))
     return runSingleMount(
       this.operations,
-      signal => this.mountReader(container, signal),
+      signal => this.mountReader(
+        container,
+        externalSignal ? AbortSignal.any([signal, externalSignal]) : signal,
+      ),
       () => new Error('Comic reader is already mounted'),
     )
   }
@@ -300,9 +303,11 @@ export async function openComicAdapter(
   source: ComicSource,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
+  signal?: AbortSignal,
 ): Promise<ReaderAdapter> {
-  const archive = await openComicArchive(source)
+  const archive = await openComicArchive(source, signal)
   try {
+    signal?.throwIfAborted()
     return new ComicAdapter(source, archive, initialPosition, callbacks)
   }
   catch (error) {

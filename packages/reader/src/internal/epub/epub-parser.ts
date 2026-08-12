@@ -162,10 +162,12 @@ async function parseTableOfContents(
   archive: EpubArchive,
   manifestItems: ReadonlyMap<string, ManifestItem>,
   spineElement: Element,
+  signal?: AbortSignal,
 ): Promise<Link[]> {
   const navigationItem = [...manifestItems.values()].find(item => item.properties.has('nav'))
   if (navigationItem) {
     const document = parseXml(await archive.readText(navigationItem.href), 'EPUB navigation document')
+    signal?.throwIfAborted()
     const links = navigationDocumentLinks(document, navigationItem.href)
     if (links.length > 0)
       return links
@@ -176,23 +178,31 @@ async function parseTableOfContents(
   if (!ncxItem)
     return []
   const document = parseXml(await archive.readText(ncxItem.href), 'EPUB NCX document')
+  signal?.throwIfAborted()
   return ncxLinks(document, ncxItem.href)
 }
 
-export async function parseEpub(source: ResolvedReaderSource): Promise<ParsedEpub> {
-  const archive = await EpubArchive.open(source)
+export async function parseEpub(
+  source: ResolvedReaderSource,
+  signal?: AbortSignal,
+): Promise<ParsedEpub> {
+  const archive = await EpubArchive.open(source, signal)
   try {
+    signal?.throwIfAborted()
     const mimetype = (await archive.readText('mimetype')).trim()
+    signal?.throwIfAborted()
     if (mimetype !== 'application/epub+zip')
       throw new Error('File is not a valid EPUB container')
 
     const containerDocument = parseXml(await archive.readText('META-INF/container.xml'), 'EPUB container')
+    signal?.throwIfAborted()
     const rootfile = firstElement(containerDocument, 'rootfile')
     const packagePath = normalizeEpubPath(rootfile.getAttribute('full-path') ?? '')
     if (!packagePath)
       throw new Error('EPUB container does not identify a package document')
 
     const packageDocument = parseXml(await archive.readText(packagePath), 'EPUB package document')
+    signal?.throwIfAborted()
     const metadataElement = firstElement(packageDocument, 'metadata')
     const manifestElement = firstElement(packageDocument, 'manifest')
     const spineElement = firstElement(packageDocument, 'spine')
@@ -257,7 +267,8 @@ export async function parseEpub(source: ResolvedReaderSource): Promise<ParsedEpu
         rels: item.properties.has('cover-image') ? new Set(['cover']) : undefined,
         type: item.mediaType,
       }))
-    const tableOfContents = await parseTableOfContents(archive, manifestItems, spineElement)
+    const tableOfContents = await parseTableOfContents(archive, manifestItems, spineElement, signal)
+    signal?.throwIfAborted()
     const allLinks = [...readingOrder, ...resources]
     archive.registerLinks(allLinks)
 

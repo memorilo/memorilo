@@ -276,7 +276,7 @@ describe('pdf adapter layout ownership', () => {
     expect(retrySession.close).toHaveBeenCalledOnce()
   })
 
-  it('interrupts an unresponsive render during destroy and ignores its late result', async () => {
+  it('waits for an unresponsive render during destroy and ignores its stale result', async () => {
     const pendingRender = deferred<boolean>()
     const render = vi.fn()
       .mockResolvedValueOnce(true)
@@ -288,14 +288,13 @@ describe('pdf adapter layout ownership', () => {
 
     const scaling = adapter.setScale!(1.2)
     await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(2))
-    const scalingFailure = expect(scaling).rejects.toThrow('PDF reader interrupted')
     const closing = adapter.destroy()
 
+    pendingRender.resolve(true)
     await expect(closing).resolves.toBeUndefined()
-    await scalingFailure
+    await expect(scaling).resolves.toBeUndefined()
     expect(readerCallbacks.onStateChange).toHaveBeenCalledOnce()
 
-    pendingRender.resolve(true)
     await Promise.resolve()
     expect(readerCallbacks.onStateChange).toHaveBeenCalledOnce()
   })

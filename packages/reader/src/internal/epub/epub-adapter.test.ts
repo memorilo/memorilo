@@ -243,11 +243,13 @@ describe('epub adapter lifecycle', () => {
 
     await expect(adapter.mount(fakeElement())).rejects.toThrow('EPUB reader is already mounted')
 
-    await adapter.destroy()
+    const closing = adapter.destroy()
+    harness.load.resolve()
+    await closing
     await Promise.allSettled([mounting])
   })
 
-  it('destroys the navigator without waiting for an unresponsive mount', async () => {
+  it('waits for an unresponsive mount before destroying the navigator', async () => {
     const adapter = await openAdapter()
     const mounting = adapter.mount(fakeElement())
     await vi.waitFor(() => expect(harness.instances).toHaveLength(1))
@@ -258,11 +260,11 @@ describe('epub adapter lifecycle', () => {
     const closedBeforeLoad = await closesBeforeRelease(closing, harness.load.resolve)
     await Promise.allSettled([mounting])
 
-    expect(closedBeforeLoad).toBe(true)
+    expect(closedBeforeLoad).toBe(false)
     expect(navigator.destroy).toHaveBeenCalledOnce()
   })
 
-  it('destroys the navigator without waiting for a missing navigation callback', async () => {
+  it('waits for a missing navigation callback before destroying the navigator', async () => {
     const { adapter, navigator } = await openMountedAdapter()
     const navigating = adapter.goForward('start')
     await vi.waitFor(() => expect(navigator.goForward).toHaveBeenCalledOnce())
@@ -273,11 +275,11 @@ describe('epub adapter lifecycle', () => {
     )
     await Promise.allSettled([navigating])
 
-    expect(closedBeforeCallback).toBe(true)
+    expect(closedBeforeCallback).toBe(false)
     expect(navigator.destroy).toHaveBeenCalledOnce()
   })
 
-  it('destroys the navigator without waiting for preferences to settle', async () => {
+  it('waits for preferences to settle before destroying the navigator', async () => {
     const { adapter, navigator } = await openMountedAdapter()
     const scaling = adapter.setScale!(1.2)
     await vi.waitFor(() => expect(navigator.submitPreferences).toHaveBeenCalledOnce())
@@ -288,7 +290,7 @@ describe('epub adapter lifecycle', () => {
     )
     await Promise.allSettled([scaling])
 
-    expect(closedBeforePreferences).toBe(true)
+    expect(closedBeforePreferences).toBe(false)
     expect(navigator.destroy).toHaveBeenCalledOnce()
   })
 

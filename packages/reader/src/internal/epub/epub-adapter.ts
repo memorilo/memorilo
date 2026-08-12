@@ -94,14 +94,17 @@ class EpubAdapter implements ReaderAdapter {
     )
   }
 
-  mount(container: HTMLElement): Promise<void> {
+  mount(container: HTMLElement, externalSignal?: AbortSignal): Promise<void> {
     if (this.destroyed)
       return Promise.reject(new Error('Cannot mount a destroyed EPUB reader'))
     if (this.mounted)
       return Promise.reject(new Error('EPUB reader is already mounted'))
     return runSingleMount(
       this.operations,
-      signal => this.mountReader(container, signal),
+      signal => this.mountReader(
+        container,
+        externalSignal ? AbortSignal.any([signal, externalSignal]) : signal,
+      ),
       () => new Error('EPUB reader is already mounted'),
     )
   }
@@ -188,9 +191,11 @@ export async function openEpubAdapter(
   initialPresentationMode: ReaderPresentationMode,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
+  signal?: AbortSignal,
 ): Promise<ReaderAdapter> {
-  const parsed = await parseEpub(source)
+  const parsed = await parseEpub(source, signal)
   try {
+    signal?.throwIfAborted()
     return new EpubAdapter(source, parsed, initialPresentationMode, initialPosition, callbacks)
   }
   catch (error) {

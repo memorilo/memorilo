@@ -63,14 +63,17 @@ class TxtAdapter implements ReaderAdapter {
     this.finalizer.commit()
   }
 
-  mount(container: HTMLElement): Promise<void> {
+  mount(container: HTMLElement, externalSignal?: AbortSignal): Promise<void> {
     if (this.destroyed)
       return Promise.reject(new Error('Cannot mount a destroyed TXT reader'))
     if (this.mounted)
       return Promise.reject(new Error('TXT reader is already mounted'))
     return runSingleMount(
       this.operations,
-      () => this.mountReader(container),
+      signal => this.mountReader(
+        container,
+        externalSignal ? AbortSignal.any([signal, externalSignal]) : signal,
+      ),
       () => new Error('TXT reader is already mounted'),
     )
   }
@@ -161,7 +164,8 @@ class TxtAdapter implements ReaderAdapter {
     )
   }
 
-  private async mountReader(container: HTMLElement): Promise<void> {
+  private async mountReader(container: HTMLElement, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted()
     const mount = await TxtReaderMount.open(container, {
       annotations: this.annotations,
       callbacks: this.callbacks,
@@ -172,6 +176,7 @@ class TxtAdapter implements ReaderAdapter {
       onStateRequest: () => this.emitState(),
     })
     try {
+      signal.throwIfAborted()
       this.mounted = mount
       this.emitState()
     }
@@ -196,6 +201,9 @@ export async function openTxtAdapter(
   source: TxtSource,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
+  signal?: AbortSignal,
 ): Promise<ReaderAdapter> {
-  return new TxtAdapter(source, decodeTxtDocument(await readSourceBytes(source)), initialPosition, callbacks)
+  const bytes = await readSourceBytes(source, signal)
+  signal?.throwIfAborted()
+  return new TxtAdapter(source, decodeTxtDocument(bytes), initialPosition, callbacks)
 }

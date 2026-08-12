@@ -19,7 +19,6 @@ import {
   createOperationSupervisor,
   createResourceScope,
 } from '@memorilo/effect-lifecycle'
-import { interruptPromise } from './interrupt-promise'
 import { openReaderAdapter as openDefaultReaderAdapter } from './open-reader'
 import { toReaderError } from './reader-adapter'
 
@@ -129,11 +128,10 @@ export function createReaderSessionRuntime(
       return false
 
     const result = commands.run((signal) => {
-      const pending = Promise.resolve().then(() => {
+      return Promise.resolve().then(() => {
         signal.throwIfAborted()
         return operation(current, signal)
       })
-      return interruptPromise(pending, signal)
     })
     void result.then(
       () => undefined,
@@ -201,7 +199,7 @@ export function createReaderSessionRuntime(
       adapter = null
   }
 
-  const openOwned = async (): Promise<void> => {
+  const openOwned = async (signal: AbortSignal): Promise<void> => {
     emit({ type: 'begin' })
     try {
       const owned = (await adapterResources.acquire({
@@ -221,6 +219,7 @@ export function createReaderSessionRuntime(
               onStateChange: state => emit({ state, type: 'state' }),
               regionAnnotationLabel: options.regionAnnotationLabel,
             },
+            signal,
           ),
           released: false,
         }),
@@ -233,7 +232,7 @@ export function createReaderSessionRuntime(
 
       try {
         owned.adapter.setAnnotations(annotations)
-        await owned.adapter.mount(options.container)
+        await owned.adapter.mount(options.container, signal)
       }
       catch (mountError) {
         if (!active)
@@ -266,7 +265,7 @@ export function createReaderSessionRuntime(
       // command lifetime as user operations. Otherwise resource close could
       // destroy the adapter while mount continuation is still running and
       // resolve before that continuation has drained.
-      startPromise = commands.run(() => openOwned())
+      startPromise = commands.run(signal => openOwned(signal))
     }
     return startPromise
   }

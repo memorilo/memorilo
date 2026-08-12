@@ -292,8 +292,10 @@ describe('reader session runtime', () => {
   it('waits for an admitted mount continuation before close resolves', async () => {
     const mountStarted = deferred<void>()
     const releaseMount = deferred<void>()
+    let mountSignal!: AbortSignal
     const adapter = fakeAdapter({
-      mount: vi.fn(async () => {
+      mount: vi.fn(async (_container, signal) => {
+        mountSignal = signal!
         mountStarted.resolve()
         await releaseMount.promise
       }),
@@ -318,6 +320,8 @@ describe('reader session runtime', () => {
 
     await Promise.resolve()
     expect(closed).toBe(false)
+    expect(mountSignal.aborted).toBe(true)
+    expect(adapter.destroy).not.toHaveBeenCalled()
     releaseMount.resolve()
     await opening
     await closing

@@ -163,7 +163,7 @@ describe('comic adapter lifecycle', () => {
     expect(ownedArchive.close).toHaveBeenCalledOnce()
   })
 
-  it('does not wait for image decoding during destroy', async () => {
+  it('waits for image decoding before releasing archive ownership', async () => {
     const { container } = installComicDom()
     const decoding = deferred<void>()
     const decode = vi.fn(() => decoding.promise)
@@ -181,7 +181,7 @@ describe('comic adapter lifecycle', () => {
     const closedBeforeDecode = await closesBeforeRelease(adapter.destroy(), () => decoding.resolve())
     await Promise.allSettled([mounting])
 
-    expect(closedBeforeDecode).toBe(true)
+    expect(closedBeforeDecode).toBe(false)
     expect(ownedArchive.close).toHaveBeenCalledOnce()
   })
 
