@@ -3,7 +3,8 @@ import {
   assertReadingFormat,
   detectReadingFormat,
   readingFormatDefaultName,
-} from '@memorilo/reading-format'
+} from '@memorilo/reading-model'
+import { interruptPromise } from './interrupt-promise'
 
 const formatSignatureByteLength = 8
 
@@ -11,7 +12,7 @@ export interface ResolvedReaderSource {
   byteLength: number
   format: ReaderFormat
   name: string
-  read: (offset: number, length: number) => Promise<Uint8Array>
+  read: (offset: number, length: number, signal?: AbortSignal) => Promise<Uint8Array>
 }
 
 function assertByteLength(byteLength: number): void {
@@ -32,13 +33,22 @@ function sourceDataByteLength(data: ReaderSourceData): number {
   return data instanceof Blob ? data.size : data.byteLength
 }
 
-function readSourceData(data: ReaderSourceData, offset: number, length: number): Promise<Uint8Array> {
+function readSourceData(
+  data: ReaderSourceData,
+  offset: number,
+  length: number,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
   const end = offset + length
-  if (data instanceof Blob)
-    return data.slice(offset, end).arrayBuffer().then(buffer => new Uint8Array(buffer))
+  if (data instanceof Blob) {
+    return interruptPromise(
+      data.slice(offset, end).arrayBuffer().then(buffer => new Uint8Array(buffer)),
+      signal,
+    )
+  }
   if (data instanceof Uint8Array)
-    return Promise.resolve(data.slice(offset, end))
-  return Promise.resolve(new Uint8Array(data, offset, length).slice())
+    return interruptPromise(Promise.resolve(data.slice(offset, end)), signal)
+  return interruptPromise(Promise.resolve(new Uint8Array(data, offset, length).slice()), signal)
 }
 
 function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'byteLength' | 'read'> {
@@ -47,9 +57,9 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
     assertByteLength(byteLength)
     return {
       byteLength,
-      read: (offset, length) => {
+      read: (offset, length, signal) => {
         assertRange(byteLength, offset, length)
-        return readSourceData(source.data, offset, length)
+        return readSourceData(source.data, offset, length, signal)
       },
     }
   }
@@ -58,9 +68,9 @@ function randomAccessReader(source: ReaderSource): Pick<ResolvedReaderSource, 'b
   assertByteLength(byteLength)
   return {
     byteLength,
-    read: async (offset, length) => {
+    read: async (offset, length, signal) => {
       assertRange(byteLength, offset, length)
-      const bytes = await source.read(offset, length)
+      const bytes = await interruptPromise(source.read(offset, length, signal), signal)
       if (!(bytes instanceof Uint8Array))
         throw new TypeError('Reader source read() must resolve to a Uint8Array')
       if (bytes.byteLength !== length)

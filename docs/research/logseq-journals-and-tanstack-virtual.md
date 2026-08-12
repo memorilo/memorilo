@@ -248,7 +248,7 @@ Memorilo 的要求恰好相反：今天在数组索引 `0`，越旧 index 越大
 来源：
 
 - [TanStack 官方 infinite-scroll 示例](https://github.com/TanStack/virtual/blob/d2cf98beea1696c7187c06b57c9e724d1957963c/examples/react/infinite-scroll/src/main.tsx#L35-L77)
-- [Memorilo 当前 Pages route 的末尾 loader 模式](../../apps/desktop/renderer/src/routes/pages.tsx)
+- [Memorilo 当前 Note Library 页面的末尾 loader 模式](../../apps/desktop/renderer/src/features/notes/library/note-library-page.tsx)
 
 ### 5.5 测量变化与滚动位置修正
 

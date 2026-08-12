@@ -72,7 +72,9 @@ async function expectPdfToRemainVisible(zoomControl: 'Zoom in' | 'Zoom out') {
       return context.getImageData(Math.floor(current.width / 2), Math.floor(current.height / 2), 1, 1).data[3]
     })).toBe(255)
 
-    const zoomContinuity = window.evaluate(() => {
+    const zoomButton = window.getByLabel(zoomControl)
+    await expect(zoomButton).toBeEnabled()
+    await window.evaluate((controlLabel) => {
       const surfaceElement = document.querySelector<HTMLElement>('.reader-pdf-page')
       if (!surfaceElement)
         throw new Error('PDF page surface is not available')
@@ -80,21 +82,27 @@ async function expectPdfToRemainVisible(zoomControl: 'Zoom in' | 'Zoom out') {
       const initialCanvas = pageSurface.querySelector<HTMLCanvasElement>('.reader-pdf-canvas')
       if (!initialCanvas)
         throw new Error('PDF page surface is not available')
-      const initialWidth = initialCanvas.width
+      const control = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
+        .find(button => button.getAttribute('aria-label') === controlLabel)
+      if (!control || control.disabled)
+        throw new Error(`PDF ${controlLabel} control is not available`)
 
-      return new Promise<{ blankSamples: number, sawResize: boolean, samples: number }>((resolvePromise, reject) => {
+      const continuity = new Promise<{ blankSamples: number, sawResize: boolean, samples: number }>((resolvePromise, reject) => {
         let animationFrame = 0
         let blankSamples = 0
+        let clicked = false
         let framesAfterResize = 0
+        let initialWidth = 0
         let samples = 0
         let sawResize = false
         let observer: MutationObserver
-        let timeout: ReturnType<typeof globalThis.setTimeout>
+        let timeout: ReturnType<typeof globalThis.setTimeout> | undefined
 
         function finish(error?: Error) {
           observer.disconnect()
           globalThis.cancelAnimationFrame(animationFrame)
-          globalThis.clearTimeout(timeout)
+          if (timeout !== undefined)
+            globalThis.clearTimeout(timeout)
           if (error)
             reject(error)
           else
@@ -102,6 +110,8 @@ async function expectPdfToRemainVisible(zoomControl: 'Zoom in' | 'Zoom out') {
         }
 
         function sample() {
+          if (!clicked)
+            return
           const currentCanvas = pageSurface.querySelector<HTMLCanvasElement>('.reader-pdf-canvas')
           if (!currentCanvas) {
             blankSamples += 1
@@ -127,7 +137,16 @@ async function expectPdfToRemainVisible(zoomControl: 'Zoom in' | 'Zoom out') {
         }
 
         observer = new MutationObserver(() => sample())
-        timeout = globalThis.setTimeout(() => finish(new Error('PDF canvas did not finish zooming')), 3_000)
+        control.addEventListener('click', () => {
+          const currentCanvas = pageSurface.querySelector<HTMLCanvasElement>('.reader-pdf-canvas')
+          if (!currentCanvas) {
+            finish(new Error('PDF canvas was not available when zooming began'))
+            return
+          }
+          initialWidth = currentCanvas.width
+          clicked = true
+          timeout = globalThis.setTimeout(() => finish(new Error('PDF canvas did not finish zooming')), 3_000)
+        }, { once: true })
 
         const sampleFrame = () => {
           sample()
@@ -148,10 +167,30 @@ async function expectPdfToRemainVisible(zoomControl: 'Zoom in' | 'Zoom out') {
         })
         animationFrame = globalThis.requestAnimationFrame(sampleFrame)
       })
+      const testWindow = globalThis as typeof globalThis & {
+        __memoriloReaderZoomContinuity?: typeof continuity
+      }
+      testWindow.__memoriloReaderZoomContinuity = continuity
+    }, zoomControl)
+    await zoomButton.click()
+    const result = await window.evaluate(async () => {
+      const testWindow = globalThis as typeof globalThis & {
+        __memoriloReaderZoomContinuity?: Promise<{
+          blankSamples: number
+          samples: number
+          sawResize: boolean
+        }>
+      }
+      const continuity = testWindow.__memoriloReaderZoomContinuity
+      if (!continuity)
+        throw new Error('PDF zoom observer is not available')
+      try {
+        return await continuity
+      }
+      finally {
+        delete testWindow.__memoriloReaderZoomContinuity
+      }
     })
-
-    await window.getByLabel(zoomControl).click()
-    const result = await zoomContinuity
     expect(result.sawResize).toBe(true)
     expect(result.samples).toBeGreaterThan(0)
     expect(result.blankSamples).toBe(0)

@@ -56,9 +56,6 @@ importers:
       better-sqlite3:
         specifier: 13.0.1
         version: 13.0.1
-      electron-ipc-decorator:
-        specifier: 1.0.1
-        version: 1.0.1(electron@43.2.0)
       loro-crdt:
         specifier: 1.13.8
         version: 1.13.8
@@ -133,6 +130,9 @@ importers:
       '@memorilo/editor-storage':
         specifier: workspace:*
         version: link:../../../packages/editor-storage
+      '@memorilo/effect-lifecycle':
+        specifier: workspace:*
+        version: link:../../../packages/effect-lifecycle
       '@memorilo/reading-model':
         specifier: workspace:*
         version: link:../../../packages/reading-model
@@ -148,9 +148,6 @@ importers:
       effect:
         specifier: 4.0.0-beta.23
         version: 4.0.0-beta.23
-      electron-ipc-decorator:
-        specifier: 1.0.1
-        version: 1.0.1(electron@43.2.0)
       sharp:
         specifier: 0.34.5
         version: 0.34.5
@@ -179,15 +176,15 @@ importers:
       '@memorilo/editor-storage':
         specifier: workspace:*
         version: link:../../../packages/editor-storage
+      '@memorilo/effect-lifecycle':
+        specifier: workspace:*
+        version: link:../../../packages/effect-lifecycle
       '@memorilo/reading-model':
         specifier: workspace:*
         version: link:../../../packages/reading-model
       '@memorilo/shelf':
         specifier: workspace:*
         version: link:../../../packages/shelf
-      electron-ipc-decorator:
-        specifier: 1.0.1
-        version: 1.0.1(electron@43.2.0)
     devDependencies:
       electron:
         specifier: 43.2.0
@@ -207,9 +204,12 @@ importers:
       '@memorilo/editor':
         specifier: workspace:*
         version: link:../../../packages/editor
-      '@memorilo/reading-format':
+      '@memorilo/effect-lifecycle':
         specifier: workspace:*
-        version: link:../../../packages/reading-format
+        version: link:../../../packages/effect-lifecycle
+      '@memorilo/reading-model':
+        specifier: workspace:*
+        version: link:../../../packages/reading-model
       '@memorilo/shelf':
         specifier: workspace:*
         version: link:../../../packages/shelf
@@ -298,6 +298,9 @@ importers:
 
   packages/config:
     dependencies:
+      '@memorilo/effect-lifecycle':
+        specifier: workspace:*
+        version: link:../effect-lifecycle
       '@stylexjs/stylex':
         specifier: 0.19.0
         version: 0.19.0
@@ -341,15 +344,15 @@ importers:
 
   packages/editor:
     dependencies:
+      '@memorilo/effect-lifecycle':
+        specifier: workspace:*
+        version: link:../effect-lifecycle
       '@memorilo/loro-prosemirror-tree':
         specifier: workspace:*
         version: link:../loro-prosemirror-tree
       '@memorilo/reader':
         specifier: workspace:*
         version: link:../reader
-      '@memorilo/reading-format':
-        specifier: workspace:*
-        version: link:../reading-format
       '@memorilo/reading-model':
         specifier: workspace:*
         version: link:../reading-model
@@ -441,9 +444,9 @@ importers:
 
   packages/editor-storage:
     dependencies:
-      '@memorilo/reading-format':
+      '@memorilo/effect-lifecycle':
         specifier: workspace:*
-        version: link:../reading-format
+        version: link:../effect-lifecycle
       '@memorilo/reading-model':
         specifier: workspace:*
         version: link:../reading-model
@@ -456,6 +459,9 @@ importers:
       '@noble/hashes':
         specifier: 2.2.0
         version: 2.2.0
+      effect:
+        specifier: 4.0.0-beta.23
+        version: 4.0.0-beta.23
       uuid:
         specifier: 14.0.1
         version: 14.0.1
@@ -469,6 +475,12 @@ importers:
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9
+
+  packages/effect-lifecycle:
+    dependencies:
+      effect:
+        specifier: 4.0.0-beta.23
+        version: 4.0.0-beta.23
 
   packages/loro-prosemirror-tree:
     dependencies:
@@ -487,9 +499,9 @@ importers:
 
   packages/reader:
     dependencies:
-      '@memorilo/reading-format':
+      '@memorilo/effect-lifecycle':
         specifier: workspace:*
-        version: link:../reading-format
+        version: link:../effect-lifecycle
       '@memorilo/reading-model':
         specifier: workspace:*
         version: link:../reading-model
@@ -537,19 +549,13 @@ importers:
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.17)
 
-  packages/reading-format: {}
-
-  packages/reading-model:
-    dependencies:
-      '@memorilo/reading-format':
-        specifier: workspace:*
-        version: link:../reading-format
+  packages/reading-model: {}
 
   packages/shelf:
     dependencies:
-      '@memorilo/reading-format':
+      '@memorilo/effect-lifecycle':
         specifier: workspace:*
-        version: link:../reading-format
+        version: link:../effect-lifecycle
       '@memorilo/reading-model':
         specifier: workspace:*
         version: link:../reading-model
@@ -3011,12 +3017,6 @@ packages:
     resolution: {integrity: sha512-a1KM5heqS3gQCZzizXEI8RjJy3QVogULPdeSknt76uLDpBIW/HDGsMg/XgP0riP6PI9COsRvFITKKGDqA8fJxA==}
     engines: {node: '>=14.0.0'}
     hasBin: true
-
-  electron-ipc-decorator@1.0.1:
-    resolution: {integrity: sha512-U8UM3BfiZEEs67NZHDxXM8vIxbM22sYJKtJLmar6zQPsIas++DQM1IjSV8X3MPFViBtotjCbqFoyTf8PTXO2UA==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      electron: '>=32.0.0'
 
   electron-publish@26.15.3:
     resolution: {integrity: sha512-g/2bn8YTavY4cuS5F+jOS7zmZbXXBV8KZ8yHKfJjFPoKtzBqrpCdNPxBd3tqdBwP7BVd0lGzf7Bk2s0KesWZ4Q==}
@@ -8451,10 +8451,6 @@ snapshots:
     transitivePeerDependencies:
       - electron-builder-squirrel-windows
       - supports-color
-
-  electron-ipc-decorator@1.0.1(electron@43.2.0):
-    dependencies:
-      electron: 43.2.0
 
   electron-publish@26.15.3:
     dependencies:

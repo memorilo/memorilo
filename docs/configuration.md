@@ -95,10 +95,12 @@ await store.set({ language: 'en', reduceMotion: true })
 await store.refresh()
 
 unsubscribe()
-store.close()
+await store.close()
 ```
 
 `refresh()` 会从适配器重新读取并校验配置。适配器的 `subscribe` 通常用于文件监听、跨进程事件或其他外部存储通知；通知本身不携带配置值，存储模块会负责重新读取。
+
+配置读取、写入和 watcher 刷新共享同一个 Effect operation supervisor，因此文件系统对本地写入产生的 echo 会排在对应写入之后，不会并行发布旧快照。operation lane 与 watcher 由同一个 Effect resource scope 在启动阶段依次获取；watcher acquisition 或建立后的追读失败时，scope 会逆序释放已经获取的资源，并在释放也失败时聚合启动与清理错误。追读覆盖首次读取与订阅建立之间的竞态窗口。`close()` 会先停止 watcher admission 和订阅，再等待所有已接收操作完成；已经被事件循环捕获但在关闭后才到达的 watcher 通知会被忽略。关闭失败只重试尚未释放的资源，并发关闭调用共享同一次 drain。
 
 ## JSON 文件适配器
 
@@ -116,7 +118,7 @@ const store = await createConfigurationStore(
 )
 ```
 
-适配器会创建父目录，以临时文件加 `rename` 的方式原子写入，并监听配置文件所在目录的替换事件。`debounceMs` 可以调整外部文件变更的合并窗口，默认为 30ms。
+适配器会创建父目录，以临时文件加 `rename` 的方式原子写入，并监听配置文件所在目录的替换事件。`debounceMs` 可以调整外部文件变更的合并窗口，默认为 30ms。同一进程内指向同一规范化路径的适配器共享 Effect 文件事务 lane；字段更新的读取、修改和原子替换会整体串行，失败操作也会释放 lane，因此独立 store 不会因竞争 `rename` 而失败或互相覆盖不同字段。
 
 ## 生成 React 配置页面
 
@@ -178,6 +180,10 @@ stylex(stylexOptions)
 
 Flashcards 与 Goals 设置不会生成持久化队列 snapshot。当前已展示的复习 Card 保持稳定，下一次选卡和下一次进度查询读取最新配置；MCP 与 Outline 设置则通过配置订阅更新对应运行时。
 
+MCP HTTP 运行时仅监听 loopback 地址。启用 MCP 的初始配置属于桌面启动 acquisition：监听端口绑定或 protocol 启动失败会中止启动，并由启动 scope 逆序回滚已经获得的资源。配置热更新只在当前目标成功启动后才视为应用完成；当前目标失败会报告并拒绝该次更新，已被更新配置取代的 stale 启动失败则不会覆盖最新状态。
+
+关闭服务或切换端口时会立即停止网络 admission 并释放监听端口，已接受 request 先获得有界的 graceful drain 时间；只有 request 未在期限内完成时才 interrupt active transport，随后继续等待 request 退出并关闭 protocol server。这样正常工具调用不会被过早取消，卡住的 transport 也不会与 shutdown 形成循环等待。并发关闭共享同一次 shutdown，单个清理失败不会跳过其余已拥有资源；监听启动失败也会回滚 request supervisor。
+
 新增桌面设置时，需要同步修改：
 
 1. `apps/desktop/config/src/index.ts` 中的 Effect Schema、默认值和字段原型。
@@ -198,4 +204,4 @@ pnpm test
 pnpm test:e2e
 ```
 
-配置页面测试使用 Vitest Browser + Playwright，不依赖 Electron；Electron e2e 只用于验证主进程启动、IPC、打包和最终用户工作流。
+配置页面测试使用 Vitest Browser + Playwright 驱动 Playwright 自带的 Chromium，不依赖 Electron，也不要求系统安装 Google Chrome；Electron e2e 只用于验证主进程启动、IPC、打包和最终用户工作流。运行浏览器测试前请用 `pnpm exec playwright install chromium` 安装 Playwright 的 Chromium。

@@ -1,0 +1,68 @@
+import * as stylex from '@stylexjs/stylex'
+
+export const shelfBookCoverStyles = stylex.create({
+  coverFrame: {
+    position: 'relative',
+    width: '100%',
+    overflow: 'hidden',
+    aspectRatio: '0.69',
+    borderColor: 'rgba(54, 58, 65, 0.1)',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 6,
+    backgroundColor: 'rgb(231, 229, 223)',
+    boxShadow: '0 12px 27px rgba(31, 34, 39, 0.16), 0 2px 5px rgba(31, 34, 39, 0.09)',
+  },
+  coverImage: {
+    display: 'block',
+    width: '100%',
+    height: '100%',
+    animationDuration: {
+      'default': '180ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationName: stylex.keyframes({
+      from: { opacity: 0 },
+      to: { opacity: 1 },
+    }),
+    animationTimingFunction: 'ease-out',
+    objectFit: 'cover',
+  },
+  coverPlaceholder: {
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    gap: 14,
+    paddingTop: 24,
+    paddingRight: 20,
+    paddingBottom: 24,
+    paddingLeft: 20,
+    backgroundColor: 'rgb(229, 226, 217)',
+    color: 'rgba(74, 67, 57, 0.54)',
+    textAlign: 'center',
+  },
+  coverPlaceholderLoading: {
+    backgroundColor: 'rgb(232, 231, 226)',
+    color: 'rgba(62, 67, 76, 0.48)',
+  },
+  coverPlaceholderError: {
+    backgroundColor: 'rgb(235, 226, 220)',
+    color: 'rgba(132, 68, 49, 0.68)',
+  },
+  placeholderTitle: {
+    display: '-webkit-box',
+    overflow: 'hidden',
+    maxWidth: '100%',
+    fontFamily: 'ui-serif, "New York", Georgia, serif',
+    fontSize: 17,
+    fontWeight: 600,
+    letterSpacing: 0,
+    lineHeight: 1.3,
+    overflowWrap: 'anywhere',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 7,
+  },
+})

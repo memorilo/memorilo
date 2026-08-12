@@ -1,3 +1,4 @@
+import type { OperationSupervisor } from '@memorilo/effect-lifecycle'
 import type {
   ReaderAnnotation,
   ReaderCapabilities,
@@ -10,6 +11,7 @@ import type {
   ReaderScaleCapability,
   ReaderSelection,
   ReaderTextLayerKind,
+  ReaderTextQuote,
 } from '../types'
 
 export interface ReaderClientRect {
@@ -44,6 +46,59 @@ export interface ReaderAdapterKeyboardEvent {
 export const readerMinimumScale = 0.4
 export const readerMaximumScale = 2
 export const readerScaleStep = 0.1
+
+export function assertReaderPositionFormat<Format extends ReaderPosition['format']>(
+  position: ReaderPosition,
+  format: Format,
+  readerLabel: string,
+): asserts position is Extract<ReaderPosition, { format: Format }> {
+  if (position.format !== format)
+    throw new TypeError(`Cannot restore ${position.format} position in ${readerLabel}`)
+}
+
+export function boundingReaderClientRect(rects: readonly DOMRectReadOnly[]): ReaderClientRect {
+  const left = Math.min(...rects.map(rect => rect.left))
+  const top = Math.min(...rects.map(rect => rect.top))
+  const right = Math.max(...rects.map(rect => rect.right))
+  const bottom = Math.max(...rects.map(rect => rect.bottom))
+  return { height: bottom - top, left, top, width: right - left }
+}
+
+export function clampReaderScale(value: number): number {
+  return Math.min(readerMaximumScale, Math.max(readerMinimumScale, Math.round(value * 10) / 10))
+}
+
+export function readerTextQuote(range: Range, root: Node, exact: string): ReaderTextQuote {
+  const document = root.ownerDocument
+  if (!document)
+    return { exact }
+  const beforeRange = document.createRange()
+  beforeRange.selectNodeContents(root)
+  beforeRange.setEnd(range.startContainer, range.startOffset)
+  const afterRange = document.createRange()
+  afterRange.selectNodeContents(root)
+  afterRange.setStart(range.endContainer, range.endOffset)
+  return {
+    after: afterRange.toString().slice(0, 64),
+    before: beforeRange.toString().slice(-64),
+    exact,
+  }
+}
+
+export function toReaderError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value))
+}
+
+export async function runSingleMount(
+  operations: Pick<OperationSupervisor, 'runSingleFlight'>,
+  operation: (signal: AbortSignal) => Promise<void>,
+  alreadyMounted: () => Error,
+): Promise<void> {
+  const result = await operations.runSingleFlight(operation)
+  if (result.status === 'busy')
+    throw alreadyMounted()
+}
+
 export const readerFontSizeScaleCapability: ReaderScaleCapability = {
   kind: 'font-size',
   maximum: readerMaximumScale,

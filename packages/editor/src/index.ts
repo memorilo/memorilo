@@ -48,7 +48,7 @@ export type {
   EditorCardSync,
   EditorCardSyncError,
 } from './card/card-sync'
-export { createEditorCardSync } from './card/card-sync'
+export { createEditorCardSync, EditorCardSyncClosedError } from './card/card-sync'
 export { EditorMode } from './common/editor-mode'
 export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'

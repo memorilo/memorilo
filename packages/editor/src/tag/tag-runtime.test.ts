@@ -1,17 +1,8 @@
 import type { EditorTag, EditorTagStorage } from '../adapters/editor-adapters'
+import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TagRuntime } from './tag-runtime'
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise
-    reject = rejectPromise
-  })
-  return { promise, reject, resolve }
-}
 
 function createStorage(overrides: Partial<EditorTagStorage> = {}): EditorTagStorage {
   return {
@@ -20,10 +11,6 @@ function createStorage(overrides: Partial<EditorTagStorage> = {}): EditorTagStor
     update: async tag => tag,
     ...overrides,
   }
-}
-
-function settleOperation() {
-  return new Promise<void>(resolve => queueMicrotask(resolve))
 }
 
 describe('tag runtime', () => {
@@ -40,7 +27,12 @@ describe('tag runtime', () => {
     expect(create).toHaveBeenCalledWith(first)
 
     pendingCreate.resolve(first)
-    await pendingCreate.promise
+    await vi.waitFor(() => expect(runtime.getSnapshot(first.id)).toEqual({
+      status: 'saved',
+      action: 'create',
+      canonicalTag: first,
+    }))
+    await runtime.close()
   })
 
   it('retries a failed create and exposes the canonical stored tag', async () => {
@@ -51,23 +43,21 @@ describe('tag runtime', () => {
     const runtime = new TagRuntime(createStorage({ create }))
 
     const optimisticTag = runtime.resolveOrCreate('Project')
-    await settleOperation()
-    expect(runtime.getSnapshot(optimisticTag.id)).toEqual({
+    await vi.waitFor(() => expect(runtime.getSnapshot(optimisticTag.id)).toEqual({
       status: 'error',
       action: 'create',
       error: 'Create failed',
-    })
+    }))
 
     runtime.save(optimisticTag)
-    await settleOperation()
-
-    expect(create).toHaveBeenCalledTimes(2)
-    expect(runtime.getSnapshot(optimisticTag.id)).toEqual({
+    await vi.waitFor(() => expect(runtime.getSnapshot(optimisticTag.id)).toEqual({
       status: 'saved',
       action: 'create',
       canonicalTag,
-    })
+    }))
+    expect(create).toHaveBeenCalledTimes(2)
     expect(runtime.resolveOrCreate('project')).toEqual(canonicalTag)
+    await runtime.close()
   })
 
   it('removes an obsolete optimistic label when storage returns a different canonical label', async () => {
@@ -78,7 +68,11 @@ describe('tag runtime', () => {
     const runtime = new TagRuntime(createStorage({ create }))
 
     const optimisticTag = runtime.resolveOrCreate('project')
-    await settleOperation()
+    await vi.waitFor(() => expect(runtime.getSnapshot(optimisticTag.id)).toEqual({
+      status: 'saved',
+      action: 'create',
+      canonicalTag,
+    }))
     expect(runtime.resolveOrCreate('project-canonical')).toEqual(canonicalTag)
 
     const recreatedTag = runtime.resolveOrCreate('project')
@@ -86,6 +80,7 @@ describe('tag runtime', () => {
     expect(recreatedTag.id).not.toBe(optimisticTag.id)
     expect(recreatedTag.label).toBe('project')
     expect(create).toHaveBeenCalledTimes(2)
+    await runtime.close()
   })
 
   it('retries a failed update as an update', async () => {
@@ -96,21 +91,19 @@ describe('tag runtime', () => {
     const runtime = new TagRuntime(createStorage({ update }))
 
     runtime.save(existingTag)
-    await settleOperation()
-    expect(runtime.getSnapshot(existingTag.id)).toEqual({
+    await vi.waitFor(() => expect(runtime.getSnapshot(existingTag.id)).toEqual({
       status: 'error',
       action: 'update',
       error: 'Update failed',
-    })
+    }))
 
     runtime.save(existingTag)
-    await settleOperation()
-
-    expect(update).toHaveBeenCalledTimes(2)
-    expect(runtime.getSnapshot(existingTag.id)).toEqual({
+    await vi.waitFor(() => expect(runtime.getSnapshot(existingTag.id)).toEqual({
       status: 'saved',
       action: 'update',
       canonicalTag: existingTag,
-    })
+    }))
+    expect(update).toHaveBeenCalledTimes(2)
+    await runtime.close()
   })
 })

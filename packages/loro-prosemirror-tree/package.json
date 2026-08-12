@@ -5,7 +5,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./model": "./src/model.ts"
+    "./document": "./src/document.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

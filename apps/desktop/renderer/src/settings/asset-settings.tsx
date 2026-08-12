@@ -4,7 +4,8 @@ import { Check, LoaderCircle, RefreshCw, Trash2, TriangleAlert } from 'lucide-re
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { settingsStyles } from './settings.stylex'
+import { assetSettingsStyles as settingsStyles } from './asset-settings.stylex'
+import { settingsShellStyles } from './settings-shell.stylex'
 
 function formatByteSize(bytes: number): string {
   if (bytes < 1024)
@@ -102,7 +103,7 @@ export function AssetSettings() {
   return (
     <section aria-labelledby="assets-settings-heading">
       <h2 id="assets-settings-heading" {...stylex.props(settingsStyles.sectionTitle)}>{t('storage')}</h2>
-      <div {...stylex.props(settingsStyles.settingsGroup)} data-window-no-drag="">
+      <div {...stylex.props(settingsShellStyles.settingsGroup)} data-window-no-drag="">
         <div {...stylex.props(settingsStyles.assetActionRow, settingsStyles.compactAssetActionRow)}>
           <div {...stylex.props(settingsStyles.assetCopy)}>
             <span {...stylex.props(settingsStyles.assetLabel)}>{t('assets')}</span>

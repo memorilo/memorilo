@@ -1,156 +1,99 @@
 import type { LearningStorage } from '@memorilo/editor-storage'
 import type { LearningReviewApplication } from '../learning/learning-review-application'
-import { IpcMethod, IpcService } from 'electron-ipc-decorator'
+import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
-export function createLearningService(
+export function createLearningHandlers(
   learning: LearningStorage,
   reviews: LearningReviewApplication,
   now: () => number = Date.now,
-) {
-  class LearningService extends IpcService {
-    static override readonly groupName = 'learning'
-
-    @IpcMethod()
+): DesktopIpcHandlers['learning'] {
+  return {
     archiveOptimizer(optimizerId: string) {
-      return learning.archiveOptimizer(optimizerId)
-    }
-
-    @IpcMethod()
-    assignNoteOptimizer(input: Parameters<LearningStorage['assignNoteOptimizer']>[0]) {
-      return learning.assignNoteOptimizer(input)
-    }
-
-    @IpcMethod()
-    createOptimizer(input: Parameters<LearningStorage['createOptimizer']>[0]) {
-      return learning.createOptimizer(input)
-    }
-
-    @IpcMethod()
+      return learning.optimizers.archive(optimizerId)
+    },
+    assignNoteOptimizer(input: Parameters<LearningStorage['optimizers']['assignToNote']>[0]) {
+      return learning.optimizers.assignToNote(input)
+    },
+    createOptimizer(input: Parameters<LearningStorage['optimizers']['create']>[0]) {
+      return learning.optimizers.create(input)
+    },
     getDailyProgress(requestedAt?: number) {
-      return learning.getDailyProgress(requestedAt ?? now())
-    }
-
-    @IpcMethod()
+      return learning.queue.getDailyProgress(requestedAt ?? now())
+    },
     getLearningState(targetId: string) {
-      return learning.getLearningState(targetId)
-    }
-
-    @IpcMethod()
+      return learning.reviews.getState(targetId)
+    },
     getMaintenanceEstimate() {
-      return learning.getMaintenanceEstimate()
-    }
-
-    @IpcMethod()
+      return learning.maintenance.getEstimate()
+    },
     getNextItem(input?: Parameters<LearningReviewApplication['getNextItem']>[0]) {
       return reviews.getNextItem(input)
-    }
-
-    @IpcMethod()
+    },
     getNextNewItem(input?: Parameters<LearningReviewApplication['getNextNewItem']>[0]) {
       return reviews.getNextNewItem(input)
-    }
-
-    @IpcMethod()
+    },
     getNextReviewItem(input?: Parameters<LearningReviewApplication['getNextReviewItem']>[0]) {
       return reviews.getNextReviewItem(input)
-    }
-
-    @IpcMethod()
+    },
     getNoteOptimizer(noteId: string) {
-      return learning.getNoteOptimizer(noteId)
-    }
-
-    @IpcMethod()
+      return learning.optimizers.getForNote(noteId)
+    },
     getOptimizer(optimizerId: string) {
-      return learning.getOptimizer(optimizerId)
-    }
-
-    @IpcMethod()
+      return learning.optimizers.get(optimizerId)
+    },
     getOptimizerNoteCount(optimizerId: string) {
-      return learning.getOptimizerNoteCount(optimizerId)
-    }
-
-    @IpcMethod()
+      return learning.optimizers.getNoteCount(optimizerId)
+    },
     listOptimizers() {
-      return learning.listOptimizers()
-    }
-
-    @IpcMethod()
+      return learning.optimizers.list()
+    },
     listNotesWithCards() {
-      return learning.listNotesWithCards()
-    }
-
-    @IpcMethod()
-    listQueue(input?: Parameters<LearningStorage['listQueue']>[0]) {
-      return learning.listQueue({ ...input, now: input?.now ?? now() })
-    }
-
-    @IpcMethod()
+      return learning.cards.listNotesWithCards()
+    },
+    listQueue(input?: Parameters<LearningStorage['queue']['list']>[0]) {
+      return learning.queue.list({ ...input, now: input?.now ?? now() })
+    },
     listTargets(cardId: string) {
-      return learning.listTargets(cardId)
-    }
-
-    @IpcMethod()
+      return learning.cards.listTargets(cardId)
+    },
     maintainDatabase() {
-      return learning.maintainDatabase()
-    }
-
-    @IpcMethod()
-    optimizeOptimizer(input: Parameters<LearningStorage['optimizeOptimizer']>[0]) {
-      return learning.optimizeOptimizer(input)
-    }
-
-    @IpcMethod()
-    prepareReview(input: Parameters<LearningStorage['prepareReview']>[0]) {
-      return learning.prepareReview({
+      return learning.maintenance.maintain()
+    },
+    optimizeOptimizer(input: Parameters<LearningStorage['optimizers']['optimize']>[0]) {
+      return learning.optimizers.optimize(input)
+    },
+    prepareReview(input: Parameters<LearningStorage['reviews']['prepare']>[0]) {
+      return learning.reviews.prepare({
         ...input,
         reviewedAt: input.reviewedAt ?? now(),
       })
-    }
-
-    @IpcMethod()
-    rateMultiLineCard(input: Parameters<LearningStorage['rateMultiLineCard']>[0]) {
-      return learning.rateMultiLineCard(input)
-    }
-
-    @IpcMethod()
-    rateTarget(input: Parameters<LearningStorage['rateTarget']>[0]) {
-      return learning.rateTarget(input)
-    }
-
-    @IpcMethod()
-    renameOptimizer(input: Parameters<LearningStorage['renameOptimizer']>[0]) {
-      return learning.renameOptimizer(input)
-    }
-
-    @IpcMethod()
+    },
+    rateMultiLineCard(input: Parameters<LearningStorage['reviews']['rateMultiLineCard']>[0]) {
+      return learning.reviews.rateMultiLineCard(input)
+    },
+    rateTarget(input: Parameters<LearningStorage['reviews']['rateTarget']>[0]) {
+      return learning.reviews.rateTarget(input)
+    },
     resetOptimizerDefaults(
       optimizerId: string,
       rescheduleNow?: boolean,
     ) {
-      return learning.resetOptimizerDefaults(optimizerId, rescheduleNow)
-    }
-
-    @IpcMethod()
-    resetTarget(input: Parameters<LearningStorage['resetTarget']>[0]) {
-      return learning.resetTarget(input)
-    }
-
-    @IpcMethod()
+      return learning.optimizers.resetDefaults(optimizerId, rescheduleNow)
+    },
+    resetTarget(input: Parameters<LearningStorage['reviews']['resetTarget']>[0]) {
+      return learning.reviews.resetTarget(input)
+    },
     restoreReviewItem(input: Parameters<LearningReviewApplication['restoreReviewItem']>[0]) {
       return reviews.restoreReviewItem(input)
-    }
-
-    @IpcMethod()
-    undoLastReview(input: Parameters<LearningStorage['undoLastReview']>[0]) {
-      return learning.undoLastReview(input)
-    }
-
-    @IpcMethod()
-    updateOptimizer(input: Parameters<LearningStorage['updateOptimizer']>[0]) {
-      return learning.updateOptimizer(input)
-    }
+    },
+    undoLastReview(input: Parameters<LearningStorage['reviews']['undoLast']>[0]) {
+      return learning.reviews.undoLast(input)
+    },
+    undoReviews(input: Parameters<LearningStorage['reviews']['undoMany']>[0]) {
+      return learning.reviews.undoMany(input)
+    },
+    saveOptimizer(input: Parameters<LearningStorage['optimizers']['save']>[0]) {
+      return learning.optimizers.save(input)
+    },
   }
-
-  return LearningService
 }

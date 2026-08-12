@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { LearningOptimizerDetail } from './-learning-optimizer'
+import { LearningOptimizerDetail } from '../features/learning/optimizer/learning-optimizer-detail'
 
 export const Route = createFileRoute('/learning_/optimizer/$optimizerId')({
   component: LearningOptimizerRoute,
@@ -8,5 +8,11 @@ export const Route = createFileRoute('/learning_/optimizer/$optimizerId')({
 
 function LearningOptimizerRoute() {
   const { optimizerId } = Route.useParams()
-  return <LearningOptimizerDetail optimizerId={optimizerId} />
+  const navigate = Route.useNavigate()
+  return (
+    <LearningOptimizerDetail
+      optimizerId={optimizerId}
+      onDeleted={() => navigate({ search: { view: 'optimizer' }, to: '/learning' })}
+    />
+  )
 }

@@ -114,12 +114,11 @@ export function OutlineEditor({
     }
   }, [rootRef, snapshot.focusBlockId])
 
-  useEffect(() => {
-    const root = rootRef.current
-    if (!root)
-      throw new Error('Outline interactions require a mounted editor root')
-
+  useLayoutEffect(() => {
     const handleMarkerClick = (event: MouseEvent) => {
+      const root = rootRef.current
+      if (!root)
+        return
       const target = event.target
       if (!(target instanceof Element))
         return
@@ -153,8 +152,8 @@ export function OutlineEditor({
       requestFocus(blockId)
     }
 
-    root.addEventListener('click', handleMarkerClick, true)
-    return () => root.removeEventListener('click', handleMarkerClick, true)
+    document.addEventListener('click', handleMarkerClick, true)
+    return () => document.removeEventListener('click', handleMarkerClick, true)
   }, [readOnly, requestFocus, rootRef, runtime])
 
   return (

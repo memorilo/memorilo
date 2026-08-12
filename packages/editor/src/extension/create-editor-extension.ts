@@ -1,5 +1,4 @@
 import type { NodeJSON } from 'prosekit/core'
-import type { Uploader } from 'prosekit/extensions/file'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { CardReviewRuntime } from '../card/card-review-runtime'
 import type { OutlineRuntime } from '../common/outline-runtime'
@@ -40,35 +39,17 @@ import { defineTableKeymapExtension } from '../common/table-keymap-extension'
 import { defineDocumentDropExtension } from '../document/document-drop-extension'
 import { defineDocumentKeymapExtension } from '../document/document-keymap-extension'
 import { renderKaTeXMathBlock, renderKaTeXMathInline } from '../sample/katex.ts'
-import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
+import { uploadErrorAtom } from '../state/editor-atoms'
 import { TagRuntime } from '../tag/tag-runtime'
 import { defineCodeBlockView } from '../ui/code-block-view/index.ts'
 import { defineImageView } from '../ui/image-view/index.ts'
 import { defineTagView } from '../ui/tag-view/index.ts'
 import { defineTaskListView } from '../ui/task-list-view/index.ts'
+import { EditorUploadRuntime } from './editor-upload-runtime'
 import { defineInlineMathInputRule } from './inline-math-input-rule'
 import { defineMathKeymapExtension } from './math-keymap-extension'
-import { defineNetworkImagePaste } from './network-image-paste'
+import { createNetworkImagePaste } from './network-image-paste'
 import { defineTag } from './tag-extension'
-
-function createUploader(adapters: EditorAdapters, store: EditorStore): Uploader<string> {
-  return async ({ file, onProgress }) => {
-    store.set(uploadErrorAtom, null)
-    store.set(uploadStatusAtom, 'uploading')
-
-    try {
-      return await adapters.uploadImage({ file, onProgress })
-    }
-    catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      store.set(uploadErrorAtom, message)
-      throw error
-    }
-    finally {
-      store.set(uploadStatusAtom, 'idle')
-    }
-  }
-}
 
 function defineLoroTree(topic: EditorTopicRuntime) {
   const keymap = {
@@ -94,8 +75,10 @@ export function createEditorExtension(
   readOnly = false,
   cardReviewRuntime?: CardReviewRuntime,
 ) {
-  const uploader = createUploader(adapters, store)
+  const uploadRuntime = new EditorUploadRuntime(adapters.uploadImage, store)
+  const uploader = uploadRuntime.uploader
   const tagRuntime = new TagRuntime(adapters.tagStorage)
+  const networkImagePaste = createNetworkImagePaste(adapters)
 
   const editorExtension = union(
     defineBasicExtension(),
@@ -133,11 +116,13 @@ export function createEditorExtension(
     defineImageUploadHandler({
       uploader,
       onError: ({ error }) => {
+        if (uploadRuntime.closed)
+          return
         const message = error instanceof Error ? error.message : String(error)
         store.set(uploadErrorAtom, message)
       },
     }),
-    defineNetworkImagePaste(adapters),
+    networkImagePaste.extension,
     ...(readOnly ? [defineReadonly()] : []),
   )
 
@@ -145,7 +130,9 @@ export function createEditorExtension(
     extension: topic
       ? union(editorExtension, defineLoroTree(topic))
       : editorExtension,
+    networkImagePasteRuntime: networkImagePaste.runtime,
     tagRuntime,
+    uploadRuntime,
     uploader,
   }
 }

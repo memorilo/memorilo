@@ -1,7 +1,7 @@
 import type { NodeJSON } from 'prosekit/core'
 import { describe, expect, it } from 'vitest'
 import { EditorMode } from '../common/editor-mode'
-import { createEditorNote } from './editor-note'
+import { createEditorNote, resolveEditorTopicBinding } from './editor-note'
 
 function paragraph(text: string): NodeJSON {
   return { type: 'paragraph', content: [{ type: 'text', text }] }
@@ -143,6 +143,9 @@ describe('structured Topic Block edits in EditorNote', () => {
   it('rejects an empty batch and a schema-invalid final document atomically', () => {
     const fixture = createFixture()
     const before = structuredClone(documentOf(fixture))
+    const beforeVersion = fixture.note.getVersion()
+    const undoManager = resolveEditorTopicBinding(fixture.note.getTopic(fixture.topicId)).undoManager
+    undoManager.clear()
 
     expect(() => fixture.note.applyTopicBlockEdits({ edits: [], topicId: fixture.topicId })).toThrow('at least one operation')
     expect(() => fixture.note.applyTopicBlockEdits({
@@ -150,5 +153,27 @@ describe('structured Topic Block edits in EditorNote', () => {
       edits: [{ blockId: 'bad-kind', content: [paragraph('Bad')], kind: '', operation: 'insert-block' }],
     })).toThrow()
     expect(documentOf(fixture)).toEqual(before)
+    expect(fixture.note.getVersion()).toEqual(beforeVersion)
+    expect(undoManager.canUndo()).toBe(false)
+  })
+
+  it('records a successful Block batch as one undo step', () => {
+    const fixture = createFixture()
+    const before = structuredClone(documentOf(fixture))
+    const undoManager = resolveEditorTopicBinding(fixture.note.getTopic(fixture.topicId)).undoManager
+    undoManager.clear()
+
+    fixture.note.applyTopicBlockEdits({
+      topicId: fixture.topicId,
+      edits: [
+        { blockId: 'first', content: [paragraph('First')], kind: 'outline', operation: 'insert-block' },
+        { blockId: 'second', content: [paragraph('Second')], kind: 'outline', operation: 'insert-block' },
+      ],
+    })
+
+    expect(undoManager.canUndo()).toBe(true)
+    expect(undoManager.undo()).toBe(true)
+    expect(documentOf(fixture)).toEqual(before)
+    expect(undoManager.canUndo()).toBe(false)
   })
 })

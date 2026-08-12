@@ -41,11 +41,14 @@ export interface LearningCardProjection {
   sourceBlockId: string
 }
 
-export interface ReconcileLearningCardsInput {
+export interface LearningTopicCardProjection {
   cards: readonly LearningCardProjection[]
-  noteId: string
   topicOrder: number
   topicId: string
+}
+
+export interface ReconcileLearningCardsInput extends LearningTopicCardProjection {
+  noteId: string
 }
 
 export interface LearningTarget {
@@ -131,14 +134,26 @@ export interface UndoLearningReviewInput {
   undoneAt?: number
 }
 
+export interface UndoLearningReviewCommand {
+  eventId: string
+  expectedReviewEventId: string
+  targetId: string
+}
+
+export interface UndoLearningReviewsInput {
+  reviews: readonly UndoLearningReviewCommand[]
+  undoneAt?: number
+}
+
 export interface CreateFsrsOptimizerInput {
   configuration?: FsrsOptimizerConfiguration
   id?: string
   name: string
 }
 
-export interface UpdateFsrsOptimizerInput {
+export interface SaveFsrsOptimizerInput {
   configuration: FsrsOptimizerConfiguration
+  name: string
   optimizerId: string
   rescheduleNow?: boolean
 }
@@ -151,11 +166,6 @@ export interface OptimizeFsrsOptimizerInput {
 
 export interface AssignNoteOptimizerInput {
   noteId: string
-  optimizerId: string
-}
-
-export interface RenameFsrsOptimizerInput {
-  name: string
   optimizerId: string
 }
 
@@ -228,32 +238,56 @@ export interface AcknowledgeLearningSyncInput {
   serverSequence: number
 }
 
-export interface LearningStorage {
-  acknowledgeSyncChanges: (input: AcknowledgeLearningSyncInput) => Promise<void>
-  archiveOptimizer: (optimizerId: string) => Promise<void>
-  assignNoteOptimizer: (input: AssignNoteOptimizerInput) => Promise<void>
-  createOptimizer: (input: CreateFsrsOptimizerInput) => Promise<FsrsOptimizer>
-  getDailyProgress: (now?: number) => Promise<LearningDailyProgress>
-  getLearningState: (targetId: string) => Promise<LearningState>
-  getMaintenanceEstimate: () => Promise<LearningMaintenanceEstimate>
-  getNoteOptimizer: (noteId: string) => Promise<FsrsOptimizer>
-  getOptimizer: (optimizerId: string) => Promise<FsrsOptimizer>
-  getOptimizerNoteCount: (optimizerId: string) => Promise<number>
+export interface LearningCardStorage {
   listNotesWithCards: () => Promise<readonly LearningNoteSummary[]>
-  listOptimizers: () => Promise<readonly FsrsOptimizer[]>
   listNoteTopicIds: (noteId: string) => Promise<readonly string[]>
-  listPendingSyncChanges: (limit?: number) => Promise<readonly LearningSyncChange[]>
-  listQueue: (input?: ListLearningQueueInput) => Promise<readonly LearningQueueItem[]>
   listTargets: (cardId: string) => Promise<readonly LearningTarget[]>
-  maintainDatabase: () => Promise<LearningMaintenanceResult>
-  optimizeOptimizer: (input: OptimizeFsrsOptimizerInput) => Promise<FsrsOptimizer>
-  prepareReview: (input: PrepareLearningReviewInput) => Promise<PreparedLearningReview>
+  reconcileTopicCards: (input: ReconcileLearningCardsInput) => Promise<void>
+}
+
+export interface LearningMaintenanceStorage {
+  getEstimate: () => Promise<LearningMaintenanceEstimate>
+  maintain: () => Promise<LearningMaintenanceResult>
+}
+
+export interface LearningOptimizerStorage {
+  archive: (optimizerId: string) => Promise<void>
+  assignToNote: (input: AssignNoteOptimizerInput) => Promise<void>
+  create: (input: CreateFsrsOptimizerInput) => Promise<FsrsOptimizer>
+  get: (optimizerId: string) => Promise<FsrsOptimizer>
+  getForNote: (noteId: string) => Promise<FsrsOptimizer>
+  getNoteCount: (optimizerId: string) => Promise<number>
+  list: () => Promise<readonly FsrsOptimizer[]>
+  optimize: (input: OptimizeFsrsOptimizerInput) => Promise<FsrsOptimizer>
+  resetDefaults: (optimizerId: string, rescheduleNow?: boolean) => Promise<FsrsOptimizer>
+  save: (input: SaveFsrsOptimizerInput) => Promise<FsrsOptimizer>
+}
+
+export interface LearningQueueStorage {
+  getDailyProgress: (now?: number) => Promise<LearningDailyProgress>
+  list: (input?: ListLearningQueueInput) => Promise<readonly LearningQueueItem[]>
+}
+
+export interface LearningReviewStorage {
+  getState: (targetId: string) => Promise<LearningState>
+  prepare: (input: PrepareLearningReviewInput) => Promise<PreparedLearningReview>
   rateMultiLineCard: (input: RateMultiLineCardInput) => Promise<MultiLineReviewResult>
   rateTarget: (input: RateLearningTargetInput) => Promise<ReviewResult>
-  reconcileTopicCards: (input: ReconcileLearningCardsInput) => Promise<void>
-  renameOptimizer: (input: RenameFsrsOptimizerInput) => Promise<FsrsOptimizer>
-  resetOptimizerDefaults: (optimizerId: string, rescheduleNow?: boolean) => Promise<FsrsOptimizer>
   resetTarget: (input: ResetLearningTargetInput) => Promise<LearningState>
-  undoLastReview: (input: UndoLearningReviewInput) => Promise<LearningState>
-  updateOptimizer: (input: UpdateFsrsOptimizerInput) => Promise<FsrsOptimizer>
+  undoLast: (input: UndoLearningReviewInput) => Promise<LearningState>
+  undoMany: (input: UndoLearningReviewsInput) => Promise<readonly LearningState[]>
+}
+
+export interface LearningSyncStorage {
+  acknowledge: (input: AcknowledgeLearningSyncInput) => Promise<void>
+  listPending: (limit?: number) => Promise<readonly LearningSyncChange[]>
+}
+
+export interface LearningStorage {
+  readonly cards: LearningCardStorage
+  readonly maintenance: LearningMaintenanceStorage
+  readonly optimizers: LearningOptimizerStorage
+  readonly queue: LearningQueueStorage
+  readonly reviews: LearningReviewStorage
+  readonly sync: LearningSyncStorage
 }

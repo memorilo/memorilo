@@ -14,7 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@memorilo/reading-format": "workspace:*",
+    "@memorilo/effect-lifecycle": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
     "effect": "4.0.0-beta.23",
     "fast-xml-parser": "5.3.1"

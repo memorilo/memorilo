@@ -51,34 +51,38 @@ describe('asset maintenance', () => {
     const reconciled = new Set<string>()
     let listCalls = 0
     const storage = {
-      getNote: async ({ noteId }: { noteId: string }) => storedNote(noteId),
-      listAssets: async () => [],
-      listClaimedAssets: async () => [],
-      listNoteIds: async () => initial.map(item => item.id),
-      listNotes: async ({ page, pageSize }: { page: number, pageSize: number }) => {
-        listCalls += 1
-        const offset = (page - 1) * pageSize
-        const items = ordered.slice(offset, offset + pageSize)
-        if (listCalls === 1) {
-          const changed = [...ordered]
-          const moved = changed.splice(100, 1)[0]
-          if (!moved)
-            throw new Error('Expected a note at the page boundary')
-          changed.unshift(moved)
-          ordered = changed
-        }
-        return {
-          items,
-          page,
-          pageSize,
-          totalItems: ordered.length,
-          totalPages: Math.ceil(ordered.length / pageSize),
-        }
+      assets: {
+        list: async () => [],
+        listClaimed: async () => [],
+        listUnreferenced: async () => [],
       },
-      listUnreferencedAssets: async () => [],
-      reconcileNoteAssetReferences: async ({ noteId }: { noteId: string }) => {
-        reconciled.add(noteId)
-        return true
+      notes: {
+        getNote: async ({ noteId }: { noteId: string }) => storedNote(noteId),
+        listNoteIds: async () => initial.map(item => item.id),
+        listNotes: async ({ page, pageSize }: { page: number, pageSize: number }) => {
+          listCalls += 1
+          const offset = (page - 1) * pageSize
+          const items = ordered.slice(offset, offset + pageSize)
+          if (listCalls === 1) {
+            const changed = [...ordered]
+            const moved = changed.splice(100, 1)[0]
+            if (!moved)
+              throw new Error('Expected a note at the page boundary')
+            changed.unshift(moved)
+            ordered = changed
+          }
+          return {
+            items,
+            page,
+            pageSize,
+            totalItems: ordered.length,
+            totalPages: Math.ceil(ordered.length / pageSize),
+          }
+        },
+        reconcileNoteAssetReferences: async ({ noteId }: { noteId: string }) => {
+          reconciled.add(noteId)
+          return true
+        },
       },
     } as unknown as EditorStorage
 

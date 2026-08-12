@@ -1,7 +1,8 @@
-import type { NoteSaveResult } from '@memorilo/desktop-preload/note-save-handshake'
-import type { WebContents } from 'electron'
+import type { NoteSaveRequest, NoteSaveResult } from '@memorilo/desktop-preload/note-save-handshake'
 import { randomUUID } from 'node:crypto'
 import { noteSaveRequestChannel, noteSaveResultChannel } from '@memorilo/desktop-preload/note-save-handshake'
+import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
+import { Deferred, Effect } from 'effect'
 
 export type RendererNoteSaveOutcome = {
   status: 'saved'
@@ -18,10 +19,41 @@ export interface NoteSaveIpcMain {
   on: (channel: string, listener: (event: Electron.IpcMainEvent, result: NoteSaveResult) => void) => unknown
 }
 
+export interface RendererNoteSaveTarget {
+  id: number
+  isDestroyed: () => boolean
+  once: (event: 'destroyed', listener: () => void) => unknown
+  removeListener: (event: 'destroyed', listener: () => void) => unknown
+  send: (channel: string, message: NoteSaveRequest) => unknown
+}
+
 export interface FlushRendererNotesOptions {
   ipcMain: NoteSaveIpcMain
-  targets: readonly Pick<WebContents, 'id' | 'isDestroyed' | 'send'>[]
+  targets: readonly RendererNoteSaveTarget[]
   timeoutMs?: number
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function withCleanupFailures(
+  outcome: RendererNoteSaveOutcome,
+  cleanupFailures: readonly unknown[],
+): RendererNoteSaveOutcome {
+  if (cleanupFailures.length === 0)
+    return outcome
+
+  const failures = outcome.status === 'saved'
+    ? cleanupFailures
+    : [
+        new Error(outcome.status === 'failed' ? outcome.message : 'Renderer Note save timed out'),
+        ...cleanupFailures,
+      ]
+  return {
+    message: errorMessage(combineLifecycleFailures(failures, 'Renderer Note save handshake cleanup failed')),
+    status: 'failed',
+  }
 }
 
 export async function flushRendererNotes({
@@ -35,35 +67,86 @@ export async function flushRendererNotes({
 
   const requestId = randomUUID()
   const pending = new Set(liveTargets.map(target => target.id))
-  return new Promise<RendererNoteSaveOutcome>((resolve) => {
-    let settled = false
-    let timeout: ReturnType<typeof setTimeout>
+  const cleanupFailures: unknown[] = []
+
+  const handshake = Effect.scoped(Effect.gen(function* () {
+    const completion = yield* Deferred.make<RendererNoteSaveOutcome>()
+    const complete = (outcome: RendererNoteSaveOutcome): void => {
+      Deferred.doneUnsafe(completion, Effect.succeed(outcome))
+    }
     const handleResult = (event: Electron.IpcMainEvent, result: NoteSaveResult): void => {
       if (result.requestId !== requestId || !pending.has(event.sender.id))
         return
       if (result.status === 'failed') {
-        settled = true
-        clearTimeout(timeout)
-        ipcMain.off(noteSaveResultChannel, handleResult)
-        resolve({ message: result.message, status: 'failed' })
+        complete({ message: result.message, status: 'failed' })
         return
       }
       pending.delete(event.sender.id)
-      if (pending.size === 0) {
-        settled = true
-        clearTimeout(timeout)
-        ipcMain.off(noteSaveResultChannel, handleResult)
-        resolve({ status: 'saved' })
-      }
+      if (pending.size === 0)
+        complete({ status: 'saved' })
     }
-    timeout = setTimeout(() => {
-      if (settled)
-        return
-      settled = true
-      ipcMain.off(noteSaveResultChannel, handleResult)
-      resolve({ pendingRendererIds: [...pending], status: 'timed-out' })
-    }, timeoutMs)
-    ipcMain.on(noteSaveResultChannel, handleResult)
-    liveTargets.forEach(target => target.send(noteSaveRequestChannel, { requestId }))
-  })
+
+    yield* Effect.acquireRelease(
+      Effect.try({
+        catch: error => error,
+        try: () => ipcMain.on(noteSaveResultChannel, handleResult),
+      }),
+      () => Effect.sync(() => {
+        try {
+          ipcMain.off(noteSaveResultChannel, handleResult)
+        }
+        catch (error) {
+          cleanupFailures.push(error)
+        }
+      }),
+    )
+
+    for (const target of liveTargets) {
+      const destroyed = () => complete({
+        message: `Renderer ${target.id} closed before confirming its Note save`,
+        status: 'failed',
+      })
+      yield* Effect.acquireRelease(
+        Effect.try({
+          catch: error => error,
+          try: () => target.once('destroyed', destroyed),
+        }),
+        () => Effect.sync(() => {
+          try {
+            target.removeListener('destroyed', destroyed)
+          }
+          catch (error) {
+            cleanupFailures.push(error)
+          }
+        }),
+      )
+      if (target.isDestroyed())
+        destroyed()
+    }
+
+    for (const target of liveTargets) {
+      if (Deferred.isDoneUnsafe(completion))
+        break
+      yield* Effect.try({
+        catch: error => error,
+        try: () => target.send(noteSaveRequestChannel, { requestId }),
+      })
+    }
+
+    return yield* Deferred.await(completion).pipe(Effect.timeoutOrElse({
+      duration: timeoutMs,
+      onTimeout: () => Effect.succeed({
+        pendingRendererIds: [...pending],
+        status: 'timed-out',
+      } as const),
+    }))
+  })).pipe(
+    Effect.catchEager(error => Effect.succeed({
+      message: errorMessage(error),
+      status: 'failed',
+    } as const)),
+  )
+
+  const outcome = await Effect.runPromise(handshake)
+  return withCleanupFailures(outcome, cleanupFailures)
 }

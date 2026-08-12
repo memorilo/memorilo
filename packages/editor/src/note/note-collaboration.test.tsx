@@ -2,7 +2,7 @@ import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import { act, render, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { userEvent } from '../../test/browser/user-event'
+import { modShortcut, redoShortcut, userEvent } from '../../test/browser/user-event'
 import { createEditorNote, Editor, EditorMode } from '../index'
 import { resolveEditorTopicDocument } from './editor-topic-runtime'
 
@@ -154,8 +154,14 @@ function parentBlockId(container: HTMLElement, blockId: string): string | null {
 
 describe('collaborative Notes', () => {
   it('undoes and redoes Topic edits through the Loro tree history', async () => {
-    const note = createEditorNote({ id: 'note-undo' })
-    const topicId = note.createTopic({ initialContent: documentWithText('undo-node', 'Before'), mode: EditorMode.Document, title: '' })
+    const note = createEditorNote({
+      id: 'note-undo',
+      initialTopic: { initialContent: documentWithText('undo-node', 'Before'), mode: EditorMode.Document, title: '' },
+    })
+    const [topicEntry] = note.getEntries()
+    if (!topicEntry || topicEntry.kind !== 'topic')
+      throw new Error('Expected the initial Topic')
+    const topicId = topicEntry.id
     const rendered = render(
       <Editor
         adapters={adapters}
@@ -172,12 +178,12 @@ describe('collaborative Notes', () => {
       expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before after' })
     })
 
-    await userEvent.keyboard('{Meta>}z{/Meta}')
+    await userEvent.keyboard(modShortcut('z'))
     await waitFor(() => {
       expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before')
       expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before' })
     })
-    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
+    await userEvent.keyboard(redoShortcut())
     await waitFor(() => {
       expect(rendered.container.querySelector('[data-block-id="undo-node"]')).toHaveTextContent('Before after')
       expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({ title: 'Before after' })

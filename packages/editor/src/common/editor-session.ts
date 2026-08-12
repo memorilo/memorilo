@@ -5,6 +5,7 @@ import type { EditorCardIntegration } from '../card/card-sync'
 import type { EditorTopicDocument } from '../note/editor-note'
 import type { OutlineOptions } from './outline-runtime'
 
+import { createResourceScope } from '@memorilo/effect-lifecycle'
 import { createNodeJsonFromLoroTree } from '@memorilo/loro-prosemirror-tree'
 import { createEditor } from 'prosekit/core'
 import { CardReviewRuntime } from '../card/card-review-runtime'
@@ -47,20 +48,50 @@ export function createEditorSession(options: EditorSessionOptions) {
         topicId: options.topicDocument.topicId,
       })
     : undefined
+  const scheduleCardSync = (document: NodeJSON) => {
+    const operation = cardSync?.schedule(document)
+    if (operation) {
+      void operation.then(
+        () => undefined,
+        () => undefined,
+      )
+    }
+  }
   const configured = createEditorExtension(options.adapters, store, outlineRuntime, (document) => {
     outlineRuntime.reconcileDocument(document)
     options.onDocumentChange(document)
-    cardSync?.schedule(document)
+    scheduleCardSync(document)
   }, topic, options.readOnly, cardReviewRuntime)
-  const editor = createEditor({ extension: configured.extension, defaultContent })
+  const resources = createResourceScope('Editor session')
+  resources.own({
+    close: () => configured.networkImagePasteRuntime.close(),
+    name: 'Network image paste runtime',
+  })
+  resources.own({ close: () => configured.tagRuntime.close(), name: 'Tag runtime' })
+  resources.own({ close: () => configured.uploadRuntime.close(), name: 'Upload runtime' })
+  if (cardSync)
+    resources.own({ close: () => cardSync.close(), name: 'Card sync' })
 
-  outlineRuntime.reconcileDocument(editor.getDocJSON())
-  cardSync?.schedule(editor.getDocJSON())
+  let editor: ReturnType<typeof createEditor>
+  try {
+    editor = createEditor({ extension: configured.extension, defaultContent })
+    outlineRuntime.reconcileDocument(editor.getDocJSON())
+    scheduleCardSync(editor.getDocJSON())
+    resources.commit()
+  }
+  catch (error) {
+    void resources.close().then(
+      () => undefined,
+      cleanupError => console.error('Failed to close a partially constructed Editor session', cleanupError),
+    )
+    throw error
+  }
 
   return {
     adapters: options.adapters,
     cardReviewRuntime,
     cardSync,
+    close: resources.close,
     configured,
     editor,
     outlineRuntime,

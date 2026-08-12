@@ -80,6 +80,7 @@ function alignmentRules(root: HTMLElement): string {
 
 export function observeOutlineMarkerAlignment(root: HTMLElement, styleElement: HTMLStyleElement): () => void {
   let animationFrame: number | null = null
+  let disposed = false
   const observedBlocks = new Set<HTMLElement>()
 
   const resizeObserver = new ResizeObserver(() => scheduleAlignment())
@@ -101,7 +102,7 @@ export function observeOutlineMarkerAlignment(root: HTMLElement, styleElement: H
   }
 
   function scheduleAlignment(): void {
-    if (animationFrame !== null)
+    if (disposed || animationFrame !== null)
       return
     animationFrame = requestAnimationFrame(() => {
       animationFrame = null
@@ -115,10 +116,11 @@ export function observeOutlineMarkerAlignment(root: HTMLElement, styleElement: H
   const mutationObserver = new MutationObserver(scheduleAlignment)
   mutationObserver.observe(root, { childList: true, characterData: true, subtree: true })
   window.addEventListener('resize', scheduleAlignment)
-  void document.fonts?.ready.then(scheduleAlignment)
+  void document.fonts?.ready.then(scheduleAlignment, () => undefined)
   scheduleAlignment()
 
   return () => {
+    disposed = true
     if (animationFrame !== null)
       cancelAnimationFrame(animationFrame)
     mutationObserver.disconnect()

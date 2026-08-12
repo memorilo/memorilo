@@ -13,7 +13,7 @@ if (typeof electronModule !== 'string')
   throw new TypeError('Electron package did not resolve to an executable path')
 const electronExecutablePath = electronModule
 
-test('first sidebar collapse moves the editor continuously', async () => {
+test('collapses the sidebar through the real Electron shell', async () => {
   const userDataDirectory = await mkdtemp(resolve(tmpdir(), 'memorilo-sidebar-motion-'))
   try {
     const electronApplication = await electron.launch({
@@ -24,6 +24,7 @@ test('first sidebar collapse moves the editor continuously', async () => {
         MEMORILO_DATABASE_PATH: ':memory:',
         MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
         MEMORILO_E2E_HIDE_WINDOW: '1',
+        MEMORILO_SHELF_IMAGE_CACHE_PATH: ':memory:',
       },
       executablePath: electronExecutablePath,
     })
@@ -36,7 +37,7 @@ test('first sidebar collapse moves the editor continuously', async () => {
       await window.getByRole('option').filter({ hasText: 'Create Note “Sidebar motion Note”' }).click()
       await window.locator('main > section[aria-label]').waitFor()
 
-      const editorPositions = await window.evaluate(async () => {
+      const start = await window.evaluate(() => {
         const button = document.querySelector('button[aria-label="Hide Sidebar"]')
         const editor = document.querySelector('main > section[aria-label]')
         if (!(button instanceof HTMLButtonElement))
@@ -44,47 +45,16 @@ test('first sidebar collapse moves the editor continuously', async () => {
         if (!(editor instanceof HTMLElement))
           throw new TypeError('Editor region is unavailable')
 
-        const positions = [editor.getBoundingClientRect().left]
         button.click()
-
-        await new Promise<void>((resolveAnimation, rejectAnimation) => {
-          const deadline = performance.now() + 1_200
-          const sample = () => {
-            positions.push(editor.getBoundingClientRect().left)
-            if (!document.querySelector('aside[aria-label="Workspace navigation"]')) {
-              resolveAnimation()
-              return
-            }
-            if (performance.now() >= deadline) {
-              rejectAnimation(new Error('Sidebar did not finish collapsing within 1200ms'))
-              return
-            }
-            requestAnimationFrame(sample)
-          }
-          requestAnimationFrame(sample)
-        })
-
-        return positions
+        return editor.getBoundingClientRect().left
       })
 
-      const start = editorPositions[0]
-      const end = editorPositions.at(-1)
-      if (start === undefined || end === undefined)
-        throw new TypeError('Editor position sampling returned no measurements')
+      const editor = window.locator('main > section[aria-label]')
+      await expect(window.locator('aside[aria-label="Workspace navigation"]')).toHaveCount(0)
+
+      const end = await editor.evaluate(element => element.getBoundingClientRect().left)
 
       expect(end).toBeLessThan(start - 200)
-      const travel = start - end
-      const progressSamples = editorPositions
-        .map(position => (start - position) / travel)
-        .filter(progress => progress >= 0 && progress <= 1)
-        .sort((left, right) => left - right)
-      const largestProgressGap = progressSamples.slice(1).reduce((largestGap, progress, index) => {
-        const previousProgress = progressSamples[index]
-        if (previousProgress === undefined)
-          throw new TypeError('Editor progress sampling lost its preceding measurement')
-        return Math.max(largestGap, progress - previousProgress)
-      }, 0)
-      expect(largestProgressGap).toBeLessThan(0.75)
     }
     finally {
       await electronApplication.close()

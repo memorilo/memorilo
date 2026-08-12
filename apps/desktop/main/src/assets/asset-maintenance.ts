@@ -38,7 +38,7 @@ async function registerExistingAssets(storage: EditorStorage, assetDirectory: st
     const metadata = await stat(join(assetDirectory, entry.name))
     if (metadata.size === 0)
       continue
-    await storage.registerAsset({
+    await storage.assets.register({
       byteSize: metadata.size,
       createdAt: metadata.birthtimeMs || metadata.mtimeMs,
       fileName: entry.name,
@@ -53,7 +53,7 @@ async function reconcileStoredNote(
   noteId: string,
 ): Promise<readonly AssetReferenceProjection[]> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const stored = await storage.getNote({ noteId })
+    const stored = await storage.notes.getNote({ noteId })
     const note = createEditorNote({
       id: stored.id,
       snapshot: stored.snapshot,
@@ -61,7 +61,7 @@ async function reconcileStoredNote(
       updates: stored.updates.map(update => update.update),
     })
     const references = projectNoteAssetReferences(note)
-    if (await storage.reconcileNoteAssetReferences({
+    if (await storage.notes.reconcileNoteAssetReferences({
       allowedMissingAssetFileNames: references.map(reference => reference.fileName),
       expectedLatestSequence: stored.latestSequence,
       noteId,
@@ -75,7 +75,7 @@ async function reconcileStoredNote(
 
 async function reconcileAllNotes(storage: EditorStorage): Promise<ReadonlyMap<string, number>> {
   const references = new Map<string, number>()
-  const noteIds = await storage.listNoteIds()
+  const noteIds = await storage.notes.listNoteIds()
   for (const noteId of noteIds) {
     for (const reference of await reconcileStoredNote(storage, noteId))
       references.set(reference.fileName, (references.get(reference.fileName) ?? 0) + reference.count)
@@ -84,15 +84,15 @@ async function reconcileAllNotes(storage: EditorStorage): Promise<ReadonlyMap<st
 }
 
 async function recoverInterruptedReclaims(storage: EditorStorage, assetDirectory: string): Promise<void> {
-  for (const asset of await storage.listClaimedAssets()) {
+  for (const asset of await storage.assets.listClaimed()) {
     try {
       await stat(join(assetDirectory, asset.fileName))
-      await storage.releaseAssetClaim({ fileName: asset.fileName })
+      await storage.assets.releaseClaim({ fileName: asset.fileName })
     }
     catch (error) {
       const code = error instanceof Error && 'code' in error ? error.code : undefined
       if (code === 'ENOENT')
-        await storage.completeAssetDeletion({ fileName: asset.fileName })
+        await storage.assets.completeDeletion({ fileName: asset.fileName })
       else
         throw error
     }
@@ -104,7 +104,7 @@ async function findMissingAssets(
   assetDirectory: string,
   references: ReadonlyMap<string, number>,
 ): Promise<readonly MissingAsset[]> {
-  const assets = new Map((await storage.listAssets()).map(asset => [asset.fileName, asset]))
+  const assets = new Map((await storage.assets.list()).map(asset => [asset.fileName, asset]))
   const missing: MissingAsset[] = []
   for (const [fileName, referenceCount] of references) {
     let exists = false
@@ -136,7 +136,7 @@ export async function checkManagedAssets(
   await registerExistingAssets(storage, assetDirectory)
   const references = await reconcileAllNotes(storage)
   const [candidates, missingAssets] = await Promise.all([
-    storage.listUnreferencedAssets({ unreferencedBefore }),
+    storage.assets.listUnreferenced({ unreferencedBefore }),
     findMissingAssets(storage, assetDirectory, references),
   ])
   return { candidates, missingAssets }

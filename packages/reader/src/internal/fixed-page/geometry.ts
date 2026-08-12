@@ -1,9 +1,4 @@
 import type { ReaderNormalizedRect } from '../../types'
-import { readerMaximumScale, readerMinimumScale } from '../reader-adapter'
-
-export function clampFixedPageScale(value: number): number {
-  return Math.min(readerMaximumScale, Math.max(readerMinimumScale, Math.round(value * 10) / 10))
-}
 
 export function clampUnit(value: number): number {
   return Math.min(1, Math.max(0, value))

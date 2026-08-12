@@ -1,62 +1,10 @@
-import type Database from 'better-sqlite3'
-import type {
-  DatabaseCommand,
-  DatabaseValue,
-  EditorStorage,
-  EditorStorageDatabase,
-  EmbeddingModel,
-  StoredNote,
-  TopicBlockProjection,
-} from './index'
-import BetterSqlite3 from 'better-sqlite3'
-import * as sqliteVec from 'sqlite-vec'
+import type { EmbeddingModel } from './index'
+import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { createEditorStorage } from './index'
-
-function parameters(values: readonly DatabaseValue[] | undefined): readonly DatabaseValue[] {
-  return values ?? []
-}
-
-class InMemorySqliteDatabase implements EditorStorageDatabase {
-  readonly #database: Database.Database
-  beforeGet?: (sql: string) => Promise<void>
-
-  constructor() {
-    this.#database = new BetterSqlite3(':memory:')
-    sqliteVec.load(this.#database)
-  }
-
-  async all<Row>(sql: string, values?: readonly DatabaseValue[]): Promise<readonly Row[]> {
-    return this.#database.prepare(sql).all(...parameters(values)) as Row[]
-  }
-
-  async batch(commands: readonly DatabaseCommand[]): Promise<void> {
-    const execute = this.#database.transaction(() => {
-      for (const command of commands)
-        this.#database.prepare(command.sql).run(...parameters(command.parameters))
-    })
-    execute()
-  }
-
-  async close(): Promise<void> {
-    this.#database.close()
-  }
-
-  async exec(sql: string): Promise<void> {
-    this.#database.exec(sql)
-  }
-
-  async get<Row>(sql: string, values?: readonly DatabaseValue[]): Promise<Row | undefined> {
-    const row = this.#database.prepare(sql).get(...parameters(values)) as Row | undefined
-    await this.beforeGet?.(sql)
-    return row
-  }
-
-  async run(sql: string, values?: readonly DatabaseValue[]): Promise<void> {
-    this.#database.prepare(sql).run(...parameters(values))
-  }
-}
+import { DuplicateNoteTitleError, SqliteEditorStorage, SqliteShelfStorage } from './index'
+import { SqliteTestDatabase } from './sqlite-test-database'
 
 const embeddingModel: EmbeddingModel = {
   dimensions: 3,
@@ -65,55 +13,23 @@ const embeddingModel: EmbeddingModel = {
   embedQuery: async () => Float32Array.from([1, 0, 0]),
 }
 
-function semanticVector(text: string): Float32Array {
-  const normalized = text.toLowerCase()
-  return Float32Array.from([
-    normalized.includes('animal') || normalized.includes('panda') ? 1 : 0,
-    normalized.includes('database') || normalized.includes('sqlite') ? 1 : 0,
-    normalized.includes('editor') || normalized.includes('document') ? 1 : 0,
-  ])
-}
+const databases: SqliteTestDatabase[] = []
 
-const semanticEmbeddingModel: EmbeddingModel = {
-  dimensions: 3,
-  id: 'test/semantic-keywords',
-  embedDocuments: async texts => texts.map(semanticVector),
-  embedQuery: async text => semanticVector(text),
-}
+class FlakyCloseDatabase extends SqliteTestDatabase {
+  closeAttempts = 0
 
-const databases: InMemorySqliteDatabase[] = []
+  override async close(): Promise<void> {
+    this.closeAttempts += 1
+    if (this.closeAttempts === 1)
+      throw new Error('Injected database close failure')
+    await super.close()
+  }
+}
 
 async function createStorage(model: EmbeddingModel = embeddingModel) {
-  const database = new InMemorySqliteDatabase()
+  const database = new SqliteTestDatabase()
   databases.push(database)
-  return createEditorStorage({ database, embeddingModel: model })
-}
-
-async function saveTopic(
-  storage: EditorStorage,
-  note: StoredNote,
-  blocks: readonly TopicBlockProjection[],
-  title = 'Stored Note',
-): Promise<void> {
-  await storage.saveNoteUpdates({
-    entries: [{
-      id: 'topic',
-      kind: 'topic',
-      mode: 0,
-      ordinal: 0,
-      parentId: null,
-      title: '',
-      topicType: 'regular',
-    }],
-    noteId: note.id,
-    title,
-    topics: [{
-      blocks,
-      title: '',
-      topicId: 'topic',
-    }],
-    updates: [Uint8Array.from([note.latestSequence + 1])],
-  })
+  return SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel: model })
 }
 
 afterEach(async () => {
@@ -121,26 +37,689 @@ afterEach(async () => {
 })
 
 describe('editor storage with an in-memory SQLite database', () => {
+  it('closes its owned database when startup validation fails', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+
+    await expect(SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'owned',
+      embeddingModel: { ...embeddingModel, dimensions: 0 },
+    })).rejects.toThrow('Embedding model dimensions must be a positive integer')
+
+    await expect(database.exec('SELECT 1')).rejects.toThrow('database connection is not open')
+  })
+
+  it('does not close a borrowed database when EditorStorage closes', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel,
+    })
+
+    await storage.close()
+
+    await expect(database.exec('SELECT 1')).resolves.toBeUndefined()
+  })
+
+  it('serializes borrowed Editor and Shelf owners through one shared database supervisor', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const operations = createOperationSupervisor('shared database test')
+    const blockerStarted = deferred<void>()
+    const releaseBlocker = deferred<void>()
+    let blocker: Promise<void> | undefined
+    let editor: SqliteEditorStorage | undefined
+    let shelf: SqliteShelfStorage | undefined
+    try {
+      const currentEditor = await SqliteEditorStorage.open({
+        database,
+        databaseOwnership: 'borrowed',
+        embeddingModel,
+        operationSupervisor: operations,
+      })
+      editor = currentEditor
+      const currentShelf = await SqliteShelfStorage.open({
+        database,
+        databaseOwnership: 'borrowed',
+        operationSupervisor: operations,
+      })
+      shelf = currentShelf
+      blocker = operations.run(async () => {
+        blockerStarted.resolve()
+        await releaseBlocker.promise
+      })
+      await blockerStarted.promise
+
+      let editorFinished = false
+      let shelfFinished = false
+      const editorRead = currentEditor.notes.listNoteIds().then(() => {
+        editorFinished = true
+      })
+      const shelfRead = currentShelf.sources.list().then(() => {
+        shelfFinished = true
+      })
+      await Promise.resolve()
+      expect(editorFinished).toBe(false)
+      expect(shelfFinished).toBe(false)
+
+      releaseBlocker.resolve()
+      await blocker
+      await Promise.all([editorRead, shelfRead])
+    }
+    finally {
+      releaseBlocker.resolve()
+      if (blocker)
+        await blocker.catch(() => undefined)
+      await shelf?.close()
+      await editor?.close()
+      await operations.close()
+    }
+  })
+
+  it('keeps Shelf usable when its borrowed Editor owner closes', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const operations = createOperationSupervisor('shared database test')
+    const editor = await SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel,
+      operationSupervisor: operations,
+    })
+    const shelf = await SqliteShelfStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      operationSupervisor: operations,
+    })
+
+    await editor.close()
+    await expect(shelf.sources.list()).resolves.toEqual([])
+
+    await shelf.close()
+    await operations.close()
+    await expect(database.exec('SELECT 1')).resolves.toBeUndefined()
+  })
+
+  it('rejects both borrowed storage owners after the shared supervisor closes', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const operations = createOperationSupervisor('shared database test')
+    const editor = await SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel,
+      operationSupervisor: operations,
+    })
+    const shelf = await SqliteShelfStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      operationSupervisor: operations,
+    })
+
+    await operations.close()
+    await expect(editor.notes.listNoteIds()).rejects.toThrow('shared database test is closed')
+    await expect(shelf.sources.list()).rejects.toThrow('shared database test is closed')
+    await expect(editor.close()).resolves.toBeUndefined()
+    await expect(shelf.close()).resolves.toBeUndefined()
+  })
+
+  it('does not close a borrowed supervisor when Editor startup fails', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const operations = createOperationSupervisor('shared database test')
+
+    await expect(SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel: { ...embeddingModel, dimensions: 0 },
+      operationSupervisor: operations,
+    })).rejects.toThrow('Embedding model dimensions must be a positive integer')
+
+    await expect(operations.run(async () => 'still open')).resolves.toBe('still open')
+    await operations.close()
+  })
+
+  it('closes an owned database after its learning and editor operations drain', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+
+    await storage.close()
+
+    await expect(database.exec('SELECT 1')).rejects.toThrow('database connection is not open')
+  })
+
+  it('returns an initialized Note receipt without a fallible read after the commit', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    database.beforeGet = async (sql) => {
+      if (sql.includes('checkpoint_snapshot'))
+        throw new Error('post-commit read failed')
+    }
+
+    const created = await storage.notes.createInitializedNote({
+      entries: [],
+      id: 'initialized-without-read',
+      snapshot: Uint8Array.from([1, 2, 3]),
+      title: 'Initialized Note',
+      topics: [],
+    })
+
+    expect(created).toEqual({
+      checkpointSequence: 0,
+      createdAt: expect.any(Number),
+      id: 'initialized-without-read',
+      latestSequence: 0,
+      snapshot: Uint8Array.from([1, 2, 3]),
+      title: 'Initialized Note',
+      updatedAt: created.createdAt,
+      updates: [],
+    })
+  })
+
+  it('creates a Journal atomically and returns the existing winner on retries', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    let journalLookupCount = 0
+    database.beforeGet = async (sql) => {
+      if (sql.includes('FROM journals AS journal')) {
+        journalLookupCount += 1
+        if (journalLookupCount > 1)
+          throw new Error('Journal lookup after commit must not occur')
+      }
+    }
+    const first = await storage.journals.getOrCreate({
+      entries: [{
+        id: 'journal-topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: '',
+        topicType: 'regular',
+      }],
+      id: 'journal-note-1',
+      journalDate: '2026-08-07',
+      snapshot: Uint8Array.from([1, 2, 3]),
+      topics: [{ blocks: [], title: '', topicId: 'journal-topic' }],
+    })
+
+    expect(first.status).toBe('created')
+    expect(first.note.id).toBe('journal-note-1')
+    expect(journalLookupCount).toBe(1)
+
+    database.beforeGet = undefined
+    await storage.notes.saveNoteUpdates({
+      entries: [{
+        id: 'journal-topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: '',
+        topicType: 'regular',
+      }],
+      journalHasUserContent: true,
+      noteId: first.note.id,
+      title: '2026-08-07',
+      topics: [{ blocks: [], title: '', topicId: 'journal-topic' }],
+      updates: [Uint8Array.from([4])],
+    })
+    const second = await storage.journals.getOrCreate({
+      entries: [{
+        id: 'different-topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: '',
+        topicType: 'regular',
+      }],
+      id: 'journal-note-2',
+      journalDate: '2026-08-07',
+      snapshot: Uint8Array.from([9, 9, 9]),
+      topics: [{ blocks: [], title: '', topicId: 'different-topic' }],
+    })
+
+    expect(second.status).toBe('existing')
+    expect(second.note.id).toBe(first.note.id)
+    expect(second.note.snapshot).toEqual(first.note.snapshot)
+    expect(second.note).toMatchObject({
+      latestSequence: 1,
+      updates: [{ sequence: 1, update: Uint8Array.from([4]) }],
+    })
+  })
+
+  it('migrates legacy Journal identity while preserving a regular Note with the same title', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    await database.exec(`
+      CREATE TABLE notes (
+        row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        checkpoint_snapshot BLOB,
+        checkpoint_sequence INTEGER NOT NULL DEFAULT 0 CHECK (checkpoint_sequence >= 0),
+        latest_sequence INTEGER NOT NULL DEFAULT 0 CHECK (latest_sequence >= checkpoint_sequence),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE journals (
+        note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
+        journal_date TEXT NOT NULL UNIQUE,
+        has_user_content INTEGER NOT NULL CHECK (has_user_content IN (0, 1))
+      );
+      INSERT INTO notes (
+        id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, created_at, updated_at
+      ) VALUES
+        ('legacy-regular', '2026-08-05', NULL, 0, 0, 1, 1),
+        ('legacy-journal', '2026-08-05', NULL, 0, 0, 2, 2);
+      INSERT INTO journals (note_row_id, journal_date, has_user_content)
+      SELECT row_id, '2026-08-05', 0 FROM notes WHERE id = 'legacy-journal';
+    `)
+
+    const storage = await SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel,
+    })
+    const journal = await storage.journals.getOrCreate({
+      entries: [],
+      id: 'unused-journal-id',
+      journalDate: '2026-08-05',
+      snapshot: Uint8Array.from([1]),
+      topics: [],
+    })
+
+    expect(journal).toMatchObject({ note: { id: 'legacy-journal' }, status: 'existing' })
+    await expect(storage.notes.listNotes({ today: '2026-08-05' })).resolves.toMatchObject({ totalItems: 2 })
+    await expect(
+      storage.notes.createNote({ title: '2026-08-05' }),
+    ).rejects.toBeInstanceOf(DuplicateNoteTitleError)
+    await storage.close()
+  })
+
+  it('resolves concurrent Journal creation to one durable winner', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const firstStorage = await SqliteEditorStorage.open({ database, databaseOwnership: 'borrowed', embeddingModel })
+    const secondStorage = await SqliteEditorStorage.open({ database, databaseOwnership: 'borrowed', embeddingModel })
+    const input = (id: string, topicId: string) => ({
+      entries: [{
+        id: topicId,
+        kind: 'topic' as const,
+        mode: 0 as const,
+        ordinal: 0,
+        parentId: null,
+        title: '',
+        topicType: 'regular' as const,
+      }],
+      id,
+      journalDate: '2026-08-06' as const,
+      snapshot: Uint8Array.from([1, 2, 3]),
+      topics: [{ blocks: [], title: '', topicId }],
+    })
+
+    const results = await Promise.all([
+      firstStorage.journals.getOrCreate(input('concurrent-journal-1', 'concurrent-topic-1')),
+      secondStorage.journals.getOrCreate(input('concurrent-journal-2', 'concurrent-topic-2')),
+    ])
+
+    expect(results.map(result => result.status).sort()).toEqual(['created', 'existing'])
+    expect(results[0]?.note.id).toBe(results[1]?.note.id)
+  })
+
+  it('enforces regular Note title uniqueness across independent storage owners', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    const firstStorage = await SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel,
+    })
+    const secondStorage = await SqliteEditorStorage.open({
+      database,
+      databaseOwnership: 'borrowed',
+      embeddingModel,
+    })
+    const bothChecksStarted = deferred<void>()
+    let titleCheckCount = 0
+    database.beforeGet = async (sql) => {
+      if (!sql.includes('WHERE kind = \'regular\' AND title'))
+        return
+      titleCheckCount += 1
+      if (titleCheckCount === 2)
+        bothChecksStarted.resolve()
+      await bothChecksStarted.promise
+    }
+
+    const outcomes = await Promise.allSettled([
+      firstStorage.notes.createNote({ title: 'Concurrent Title' }),
+      secondStorage.notes.createNote({ title: 'concurrent title' }),
+    ])
+    database.beforeGet = undefined
+
+    expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1)
+    const failure = outcomes.find(outcome => outcome.status === 'rejected')
+    expect(failure?.status === 'rejected' ? failure.reason : null).toBeInstanceOf(DuplicateNoteTitleError)
+    await expect(firstStorage.notes.listNotes()).resolves.toMatchObject({ totalItems: 1 })
+
+    await Promise.all([firstStorage.close(), secondStorage.close()])
+  })
+
+  it('shares concurrent close calls and drains all owned layers', async () => {
+    const storage = await createStorage()
+    const first = storage.close()
+    expect(storage.close()).toBe(first)
+    await first
+  })
+
+  it('keeps successful shutdown steps closed while retrying a failed database close', async () => {
+    const database = new FlakyCloseDatabase()
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+
+    const first = storage.close()
+    expect(storage.close()).toBe(first)
+    await expect(first).rejects.toMatchObject({
+      cause: expect.objectContaining({ message: 'Injected database close failure' }),
+      message: 'Failed to close Editor database',
+    })
+    expect(database.closeAttempts).toBe(1)
+    await expect(storage.notes.listNoteIds()).rejects.toThrow('Editor storage is closed')
+
+    await expect(storage.close()).resolves.toBeUndefined()
+    expect(database.closeAttempts).toBe(2)
+  })
+
+  it('rejects book context reads after the storage lifecycle closes', async () => {
+    const storage = await createStorage()
+    await storage.close()
+
+    await expect(storage.bookTopics.listByFile({
+      format: 'epub',
+      sha256: '0'.repeat(64),
+    })).rejects.toThrow('Editor storage is closed')
+    await expect(
+      storage.bookTopics.listByReadingId('reading-id'),
+    ).rejects.toThrow('Editor storage is closed')
+    await expect(storage.search.getTopicBlock({
+      blockId: 'block-id',
+      noteId: 'note-id',
+      topicId: 'topic-id',
+    })).rejects.toThrow('Editor storage is closed')
+    await expect(
+      storage.search.searchNotes({ query: 'query' }),
+    ).rejects.toThrow('Editor storage is closed')
+    await expect(
+      storage.search.searchTopicBlocks({ query: 'query' }),
+    ).rejects.toThrow('Editor storage is closed')
+  })
+
+  it('lists BookTopic contexts by file fingerprint and retrieval hint', async () => {
+    const storage = await createStorage()
+    const sha256 = 'a'.repeat(64)
+    await storage.notes.createInitializedNote({
+      entries: [{
+        book: {
+          book: { authors: ['Author'], title: 'Publication' },
+          file: {
+            byteLength: 42,
+            format: 'epub',
+            originalName: 'publication.epub',
+            sha256,
+          },
+          retrievalHints: [{ kind: 'local', readingId: 'reading-1' }],
+        },
+        id: 'book-topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: 'Book topic',
+        topicType: 'book',
+      }],
+      id: 'book-note',
+      snapshot: Uint8Array.from([1]),
+      title: 'Book note',
+      topics: [{ blocks: [], title: 'Book topic', topicId: 'book-topic' }],
+    })
+
+    const byFile = await storage.bookTopics.listByFile({ format: 'epub', sha256 })
+    expect(byFile).toHaveLength(1)
+    expect(byFile[0]?.noteId).toBe('book-note')
+    expect(byFile[0]?.book.file.originalName).toBe('publication.epub')
+
+    const byReadingId = await storage.bookTopics.listByReadingId('reading-1')
+    expect(byReadingId).toEqual(byFile)
+    await expect(storage.bookTopics.listByFile({ format: 'pdf', sha256 })).resolves.toEqual([])
+    await expect(storage.bookTopics.listByReadingId('missing-reading')).resolves.toEqual([])
+  })
+
+  it('reconciles BookTopic metadata and blocks when a Topic changes subtype', async () => {
+    const storage = await createStorage()
+    const sha256 = 'b'.repeat(64)
+    await storage.notes.createInitializedNote({
+      entries: [{
+        id: 'topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: 'Reading notes',
+        topicType: 'regular',
+      }],
+      id: 'changing-topic-note',
+      snapshot: Uint8Array.from([1]),
+      title: 'Changing topic',
+      topics: [{ blocks: [], title: 'Reading notes', topicId: 'topic' }],
+    })
+
+    await storage.notes.saveNoteUpdates({
+      entries: [{
+        book: {
+          book: { authors: ['Author'], title: 'Publication' },
+          file: {
+            byteLength: 42,
+            format: 'epub',
+            originalName: 'publication.epub',
+            sha256,
+          },
+          retrievalHints: [{ kind: 'local', readingId: 'reading-1' }],
+        },
+        id: 'topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: 'Reading notes',
+        topicType: 'book',
+      }],
+      noteId: 'changing-topic-note',
+      topics: [{
+        blocks: [{
+          attributes: { page: 3 },
+          id: 'highlight',
+          kind: 'paragraph',
+          ordinal: 0,
+          parentId: null,
+          text: 'Projected book highlight',
+        }],
+        title: 'Reading notes',
+        topicId: 'topic',
+      }],
+      updates: [Uint8Array.from([2])],
+    })
+
+    await expect(storage.bookTopics.listByFile({ format: 'epub', sha256 })).resolves.toMatchObject([
+      { noteId: 'changing-topic-note', topicId: 'topic' },
+    ])
+    await expect(storage.search.getTopicBlock({
+      blockId: 'highlight',
+      noteId: 'changing-topic-note',
+      topicId: 'topic',
+    })).resolves.toMatchObject({
+      attributes: { page: 3 },
+      text: 'Projected book highlight',
+    })
+
+    await storage.notes.saveNoteUpdates({
+      entries: [{
+        id: 'topic',
+        kind: 'topic',
+        mode: 0,
+        ordinal: 0,
+        parentId: null,
+        title: 'Reading notes',
+        topicType: 'regular',
+      }],
+      noteId: 'changing-topic-note',
+      topics: [{ blocks: [], title: 'Reading notes', topicId: 'topic' }],
+      updates: [Uint8Array.from([3])],
+    })
+
+    await expect(storage.bookTopics.listByFile({ format: 'epub', sha256 })).resolves.toEqual([])
+    await expect(storage.bookTopics.listByReadingId('reading-1')).resolves.toEqual([])
+    await expect(storage.search.getTopicBlock({
+      blockId: 'highlight',
+      noteId: 'changing-topic-note',
+      topicId: 'topic',
+    })).resolves.toBeNull()
+  })
+
   it('reports only newly accepted update hashes for idempotent retries', async () => {
     const storage = await createStorage()
-    const created = await storage.createNote({ title: 'Receipts' })
+    const created = await storage.notes.createNote({ title: 'Receipts' })
     const update = Uint8Array.from([1, 2, 3])
 
-    const first = await storage.saveNoteUpdates({ noteId: created.id, topics: [], updates: [update, update] })
-    const retry = await storage.saveNoteUpdates({ noteId: created.id, topics: [], updates: [update] })
+    const first = await storage.notes.saveNoteUpdates({ noteId: created.id, topics: [], updates: [update, update] })
+    const retry = await storage.notes.saveNoteUpdates({ noteId: created.id, topics: [], updates: [update] })
 
     expect(first.acceptedUpdateHashes).toHaveLength(1)
     expect(first.latestSequence).toBe(1)
     expect(retry).toEqual({ acceptedUpdateHashes: [], latestSequence: 1, updatedAt: first.updatedAt })
   })
 
+  it('commits Note updates and learning Cards in one database batch', async () => {
+    const storage = await createStorage()
+    const created = await storage.notes.createNote({ title: 'Atomic learning projection' })
+
+    const receipt = await storage.notes.saveNoteUpdates({
+      learningCards: [{
+        cards: [{
+          cardId: 'atomic-card',
+          direction: 'forward',
+          itemBlockIds: [],
+          kind: 'basic',
+          sourceBlockId: 'source-block',
+        }],
+        topicId: 'topic',
+        topicOrder: 0,
+      }],
+      noteId: created.id,
+      title: 'Committed with Card',
+      topics: [],
+      updates: [Uint8Array.from([4, 5, 6])],
+    })
+
+    expect(receipt.latestSequence).toBe(1)
+    await expect(storage.notes.getNote({ noteId: created.id })).resolves.toMatchObject({
+      latestSequence: 1,
+      title: 'Committed with Card',
+    })
+    await expect(storage.learning.cards.listTargets('atomic-card')).resolves.toEqual([
+      expect.objectContaining({ active: true, cardId: 'atomic-card' }),
+    ])
+  })
+
+  it('does not partially commit a Note when learning Card planning fails', async () => {
+    const storage = await createStorage()
+    const owner = await storage.notes.createNote({ title: 'Card owner' })
+    await storage.learning.cards.reconcileTopicCards({
+      cards: [{
+        cardId: 'owned-card',
+        direction: 'forward',
+        itemBlockIds: [],
+        kind: 'basic',
+        sourceBlockId: 'owner-source',
+      }],
+      noteId: owner.id,
+      topicId: 'owner-topic',
+      topicOrder: 0,
+    })
+    const target = await storage.notes.createNote({ title: 'Unchanged Note' })
+
+    await expect(storage.notes.saveNoteUpdates({
+      learningCards: [{
+        cards: [{
+          cardId: 'owned-card',
+          direction: 'forward',
+          itemBlockIds: [],
+          kind: 'basic',
+          sourceBlockId: 'conflicting-source',
+        }],
+        topicId: 'target-topic',
+        topicOrder: 0,
+      }],
+      noteId: target.id,
+      title: 'Must not commit',
+      topics: [],
+      updates: [Uint8Array.from([7, 8, 9])],
+    })).rejects.toThrow(`CardID owned-card already belongs to Note ${owner.id}`)
+
+    await expect(storage.notes.getNote({ noteId: target.id })).resolves.toMatchObject({
+      latestSequence: 0,
+      title: 'Unchanged Note',
+      updates: [],
+    })
+    await expect(storage.notes.listNoteIds()).resolves.toContain(target.id)
+  })
+
+  it('moves a Card across projected Topics without deactivating it later in the batch', async () => {
+    const storage = await createStorage()
+    const note = await storage.notes.createNote({ title: 'Moved Card' })
+    const card = {
+      cardId: 'moved-card',
+      direction: 'forward' as const,
+      itemBlockIds: [],
+      kind: 'basic' as const,
+      sourceBlockId: 'source',
+    }
+    await storage.learning.cards.reconcileTopicCards({
+      cards: [card],
+      noteId: note.id,
+      topicId: 'old-topic',
+      topicOrder: 0,
+    })
+
+    await storage.notes.saveNoteUpdates({
+      learningCards: [
+        { cards: [card], topicId: 'new-topic', topicOrder: 0 },
+        { cards: [], topicId: 'old-topic', topicOrder: 1 },
+      ],
+      noteId: note.id,
+      topics: [],
+      updates: [Uint8Array.from([10])],
+    })
+
+    await expect(storage.learning.cards.listTargets(card.cardId)).resolves.toEqual([
+      expect.objectContaining({ active: true, cardId: card.cardId }),
+    ])
+    await expect(storage.learning.cards.listNoteTopicIds(note.id)).resolves.toEqual(['new-topic'])
+  })
+
   it('atomically grants an asset deletion claim to only one storage instance', async () => {
-    const database = new InMemorySqliteDatabase()
+    const database = new SqliteTestDatabase()
     databases.push(database)
-    const first = await createEditorStorage({ database, embeddingModel })
-    const second = await createEditorStorage({ database, embeddingModel })
+    const first = await SqliteEditorStorage.open({ database, databaseOwnership: 'borrowed', embeddingModel })
+    const second = await SqliteEditorStorage.open({ database, databaseOwnership: 'borrowed', embeddingModel })
     const fileName = '0f1e2d3c-4b5a-4678-9abc-0d1e2f3a4b5c.png'
-    await first.registerAsset({
+    await first.assets.register({
       byteSize: 8,
       createdAt: 1,
       fileName,
@@ -163,223 +742,10 @@ describe('editor storage with an in-memory SQLite database', () => {
     }
 
     const claims = await Promise.all([
-      first.claimUnreferencedAsset({ fileName, unreferencedBefore: 2 }),
-      second.claimUnreferencedAsset({ fileName, unreferencedBefore: 2 }),
+      first.assets.claimUnreferenced({ fileName, unreferencedBefore: 2 }),
+      second.assets.claimUnreferenced({ fileName, unreferencedBefore: 2 }),
     ])
 
     expect(claims.filter(claim => claim !== null)).toHaveLength(1)
-  })
-
-  it('restores a Note checkpoint, update log, and Topic Block projection', async () => {
-    const storage = await createStorage()
-    const opened = await storage.openMostRecentNote()
-    const snapshot = Uint8Array.from([12, 34, 56, 78])
-    await storage.checkpointNote({ noteId: opened.id, snapshot, throughSequence: 0 })
-
-    await saveTopic(storage, opened, [
-      {
-        attributes: { collapsed: false },
-        id: 'parent',
-        kind: 'outline',
-        ordinal: 0,
-        parentId: null,
-        text: 'Parent block',
-      },
-      {
-        attributes: { checked: true, priority: 2 },
-        id: 'child',
-        kind: 'task',
-        ordinal: 0,
-        parentId: 'parent',
-        text: 'Nested searchable text',
-      },
-    ])
-
-    const restored = await storage.openMostRecentNote()
-    expect(restored).toMatchObject({
-      checkpointSequence: 0,
-      id: opened.id,
-      latestSequence: 1,
-      snapshot,
-      title: 'Stored Note',
-      updates: [{ sequence: 1, update: Uint8Array.from([1]) }],
-    })
-    expect(await storage.getTopicBlock({
-      blockId: 'child',
-      noteId: opened.id,
-      topicId: 'topic',
-    })).toEqual({
-      attributes: { checked: true, priority: 2 },
-      contentHash: '54c92e410c74bcdf209bbab0e56e2da22e6c23b3df58d1890415775ee6443ac8',
-      id: 'child',
-      kind: 'task',
-      noteId: opened.id,
-      ordinal: 0,
-      parentId: 'parent',
-      text: 'Nested searchable text',
-      topicId: 'topic',
-    })
-
-    await storage.checkpointNote({
-      noteId: opened.id,
-      snapshot: Uint8Array.from([99]),
-      throughSequence: 1,
-    })
-    expect(await storage.openMostRecentNote()).toMatchObject({
-      checkpointSequence: 1,
-      latestSequence: 1,
-      snapshot: Uint8Array.from([99]),
-      updates: [],
-    })
-  })
-
-  it('removes deleted Topic Blocks and refreshes lexical search after saving again', async () => {
-    const storage = await createStorage()
-    const note = await storage.openMostRecentNote()
-    const initialBlocks = [
-      {
-        attributes: {},
-        id: 'removed',
-        kind: 'outline',
-        ordinal: 0,
-        parentId: null,
-        text: 'Obsolete pineapple note',
-      },
-      {
-        attributes: {},
-        id: 'changed',
-        kind: 'outline',
-        ordinal: 1,
-        parentId: null,
-        text: 'Old database wording',
-      },
-    ] as const
-    await saveTopic(storage, note, initialBlocks, 'Before update')
-    expect(await storage.searchTopicBlocks({ mode: 'lexical', query: 'pineapple' })).toMatchObject([
-      { id: 'removed', noteId: note.id, text: 'Obsolete pineapple note', topicId: 'topic' },
-    ])
-
-    await saveTopic(
-      storage,
-      { ...note, latestSequence: 1 },
-      [{ ...initialBlocks[1], ordinal: 0, text: 'Current searchable database wording' }],
-      'After update',
-    )
-
-    expect(await storage.getTopicBlock({
-      blockId: 'removed',
-      noteId: note.id,
-      topicId: 'topic',
-    })).toBeNull()
-    expect(await storage.searchTopicBlocks({ mode: 'lexical', query: 'pineapple' })).toEqual([])
-    expect(await storage.searchTopicBlocks({ mode: 'lexical', query: 'searchable database' })).toMatchObject([
-      { id: 'changed', noteId: note.id, text: 'Current searchable database wording', topicId: 'topic' },
-    ])
-  })
-
-  it('indexes pending Topic Blocks and ranks semantic search using sqlite-vec', async () => {
-    const storage = await createStorage(semanticEmbeddingModel)
-    const note = await storage.openMostRecentNote()
-    const blocks = [
-      {
-        attributes: {},
-        id: 'animal',
-        kind: 'outline',
-        ordinal: 0,
-        parentId: null,
-        text: 'A red panda is a rare animal',
-      },
-      {
-        attributes: {},
-        id: 'database',
-        kind: 'outline',
-        ordinal: 1,
-        parentId: null,
-        text: 'SQLite database indexing architecture',
-      },
-    ] as const
-    await saveTopic(storage, note, blocks, 'Semantic Note')
-
-    expect(await storage.indexPendingEmbeddings()).toBe(2)
-    expect(await storage.indexPendingEmbeddings()).toBe(0)
-    const hits = await storage.searchTopicBlocks({ limit: 2, mode: 'semantic', query: 'database design' })
-    expect(hits.map(hit => hit.id)).toEqual(['database', 'animal'])
-    const databaseHit = hits[0]
-    const animalHit = hits[1]
-    if (!databaseHit || !animalHit)
-      throw new Error('Semantic search did not return both indexed Topic Blocks')
-    expect(databaseHit.rank).toBe(0)
-    expect(animalHit.rank).toBeGreaterThan(databaseHit.rank)
-
-    await saveTopic(
-      storage,
-      { ...note, latestSequence: 1 },
-      [{ ...blocks[0], text: 'An editor document about a rare animal' }, blocks[1]],
-      'Changed Semantic Note',
-    )
-    expect(await storage.indexPendingEmbeddings()).toBe(1)
-    expect(await storage.indexPendingEmbeddings()).toBe(0)
-  })
-
-  it('fuses lexical and semantic matches without duplicating Topic Blocks', async () => {
-    const storage = await createStorage(semanticEmbeddingModel)
-    const note = await storage.openMostRecentNote()
-    await saveTopic(storage, note, [
-      {
-        attributes: {},
-        id: 'both',
-        kind: 'outline',
-        ordinal: 0,
-        parentId: null,
-        text: 'Database query performance',
-      },
-      {
-        attributes: {},
-        id: 'semantic-only',
-        kind: 'outline',
-        ordinal: 1,
-        parentId: null,
-        text: 'SQLite storage engine',
-      },
-      {
-        attributes: {},
-        id: 'unrelated',
-        kind: 'outline',
-        ordinal: 2,
-        parentId: null,
-        text: 'A red panda is an animal',
-      },
-    ], 'Hybrid Search Note')
-    expect(await storage.indexPendingEmbeddings()).toBe(3)
-
-    const hits = await storage.searchTopicBlocks({ limit: 2, mode: 'hybrid', query: 'database' })
-    expect(hits.map(hit => hit.id)).toEqual(['both', 'semantic-only'])
-    expect(new Set(hits.map(hit => hit.id)).size).toBe(2)
-  })
-
-  it('finds one and two character lexical queries in Topic Blocks', async () => {
-    const storage = await createStorage()
-    const note = await storage.openMostRecentNote()
-    await saveTopic(storage, note, [
-      {
-        attributes: {},
-        id: 'matching',
-        kind: 'outline',
-        ordinal: 0,
-        parentId: null,
-        text: '数据库设计',
-      },
-      {
-        attributes: {},
-        id: 'other',
-        kind: 'outline',
-        ordinal: 1,
-        parentId: null,
-        text: '编辑器交互',
-      },
-    ], 'Short Query Note')
-
-    expect((await storage.searchTopicBlocks({ mode: 'lexical', query: '数' })).map(hit => hit.id)).toEqual(['matching'])
-    expect((await storage.searchTopicBlocks({ mode: 'lexical', query: '数据' })).map(hit => hit.id)).toEqual(['matching'])
   })
 })

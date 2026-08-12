@@ -1,6 +1,11 @@
 import type { Entry, FileEntry } from '@zip.js/zip.js'
 import type { Extractor, FileHeader } from 'node-unrar-js'
 import type { ResolvedReaderSource } from '../source'
+import {
+  combineLifecycleFailures,
+  createOperationSupervisor,
+  createResourceScope,
+} from '@memorilo/effect-lifecycle'
 import { BlobWriter, ZipReader } from '@zip.js/zip.js'
 import { createExtractorFromData } from 'node-unrar-js'
 import unrarWasmUrl from 'node-unrar-js/esm/js/unrar.wasm?url'
@@ -16,7 +21,7 @@ export interface ComicPage {
 export interface ComicArchive {
   close: () => Promise<void>
   pages: readonly ComicPage[]
-  readPage: (index: number) => Promise<Blob>
+  readPage: (index: number, signal?: AbortSignal) => Promise<Blob>
 }
 
 const maximumArchiveEntries = 10_000
@@ -31,7 +36,7 @@ const imageMediaTypes: Readonly<Record<string, string>> = {
   png: 'image/png',
   webp: 'image/webp',
 }
-const pageNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+const pageNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 let unrarWasmPromise: Promise<ArrayBuffer> | null = null
 
 function arrayBuffer(bytes: Uint8Array): ArrayBuffer {
@@ -39,7 +44,7 @@ function arrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 function mediaTypeForPath(path: string): string | null {
-  const extension = path.split('.').at(-1)?.toLocaleLowerCase()
+  const extension = path.split('.').at(-1)?.toLowerCase()
   return extension ? imageMediaTypes[extension] ?? null : null
 }
 
@@ -65,7 +70,12 @@ function validatePages(pages: readonly ComicPage[]): void {
 }
 
 function sortedPages(pages: readonly ComicPage[]): ComicPage[] {
-  return [...pages].sort((left, right) => pageNameCollator.compare(left.name, right.name))
+  return [...pages].sort((left, right) => {
+    const naturalOrder = pageNameCollator.compare(left.name, right.name)
+    if (naturalOrder !== 0)
+      return naturalOrder
+    return left.name < right.name ? -1 : left.name > right.name ? 1 : 0
+  })
 }
 
 function requirePage(pages: readonly ComicPage[], index: number): ComicPage {
@@ -78,13 +88,19 @@ function requirePage(pages: readonly ComicPage[], index: number): ComicPage {
 async function openCbz(source: ResolvedReaderSource): Promise<ComicArchive> {
   const reader = new ZipReader(new ReaderSourceZipReader(source))
   const entriesByName = new Map<string, FileEntry>()
+  const entryNames = new Set<string>()
   let pages: readonly ComicPage[]
   try {
     const entries = await reader.getEntries()
     if (entries.length > maximumArchiveEntries)
       throw new Error(`The comic archive contains more than ${maximumArchiveEntries.toLocaleString()} entries`)
     pages = sortedPages(entries.flatMap((entry: Entry): readonly ComicPage[] => {
-      if (entry.directory || !pagePath(entry.filename))
+      if (entry.directory)
+        return []
+      if (entryNames.has(entry.filename))
+        throw new Error(`The comic archive contains a duplicate entry: ${entry.filename}`)
+      entryNames.add(entry.filename)
+      if (!pagePath(entry.filename))
         return []
       const mediaType = mediaTypeForPath(entry.filename)
       if (mediaType === null)
@@ -97,32 +113,47 @@ async function openCbz(source: ResolvedReaderSource): Promise<ComicArchive> {
     validatePages(pages)
   }
   catch (error) {
-    await reader.close()
+    try {
+      await reader.close()
+    }
+    catch (cleanupError) {
+      throw combineLifecycleFailures(
+        [error, cleanupError],
+        'Failed to open and close comic archive',
+      )
+    }
     throw error
   }
-  return {
+  return createComicArchive({
     close: () => reader.close(),
     pages,
-    readPage: async (index) => {
-      const page = requirePage(pages, index)
+    readPage: async (page, signal) => {
       const entry = entriesByName.get(page.name)
       if (!entry)
         throw new Error(`Comic page ${page.name} disappeared from the archive`)
-      const blob = await entry.getData(new BlobWriter(page.mimeType))
+      const blob = await entry.getData(new BlobWriter(page.mimeType), { signal })
       if (blob.size !== page.byteSize || blob.size > maximumPageBytes)
         throw new Error(`Comic page ${page.name} was extracted with an unexpected size`)
       return blob
     },
-  }
+  })
 }
 
 function unrarWasm(): Promise<ArrayBuffer> {
   if (!unrarWasmPromise) {
-    unrarWasmPromise = fetch(unrarWasmUrl).then((response) => {
+    const pending = fetch(unrarWasmUrl).then((response) => {
       if (!response.ok)
         throw new Error(`Unable to load the CBR decoder (${response.status})`)
       return response.arrayBuffer()
     })
+    unrarWasmPromise = pending
+    void pending.then(
+      () => undefined,
+      () => {
+        if (unrarWasmPromise === pending)
+          unrarWasmPromise = null
+      },
+    )
   }
   return unrarWasmPromise
 }
@@ -157,10 +188,40 @@ async function openCbr(source: ResolvedReaderSource): Promise<ComicArchive> {
     return page ? [page] : []
   }))
   validatePages(pages)
-  return {
+  return createComicArchive({
     close: async () => undefined,
     pages,
-    readPage: async index => extractRarPage(extractor, requirePage(pages, index)),
+    readPage: (page, signal) => {
+      signal?.throwIfAborted()
+      return Promise.resolve(extractRarPage(extractor, page))
+    },
+  })
+}
+
+interface ComicArchiveBackend {
+  close: () => Promise<void>
+  pages: readonly ComicPage[]
+  readPage: (page: ComicPage, signal?: AbortSignal) => Promise<Blob>
+}
+
+/** Owns extraction admission and drains accepted reads before releasing the backend. */
+export function createComicArchive(backend: ComicArchiveBackend): ComicArchive {
+  const operations = createOperationSupervisor('Comic archive', {
+    concurrency: 'unbounded',
+  })
+  const resources = createResourceScope('Comic archive')
+  resources.own({ close: () => operations.close(), name: 'extraction operations' })
+  resources.own({ close: () => backend.close(), name: 'archive backend' })
+  resources.commit()
+
+  return {
+    close: () => resources.close(),
+    pages: backend.pages,
+    readPage: (index, signal) => operations.run(async () => {
+      const page = requirePage(backend.pages, index)
+      signal?.throwIfAborted()
+      return backend.readPage(page, signal)
+    }),
   }
 }
 
