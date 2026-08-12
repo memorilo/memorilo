@@ -10,6 +10,7 @@ import type { DesktopRegularNote } from '@memorilo/desktop-preload'
 import type {
   BookTopicSnapshot,
   EditorAdapters,
+  EditorEmbeddedDocument,
   EditorNote,
   EditorWhiteboardTopicDocument,
   NoteEntrySnapshot,
@@ -209,46 +210,27 @@ const whiteboardEditorEmbedWidth = 560
 const whiteboardEditorEmbedHeight = 400
 
 interface WhiteboardEditorEmbedData {
+  editorId: string
   kind: typeof whiteboardEditorEmbedKind
-  topicId: string
 }
 
 function whiteboardEditorEmbedData(element: ExcalidrawElement): WhiteboardEditorEmbedData | null {
   const memoriloEmbed = element.customData?.memoriloEmbed
   if (memoriloEmbed === null || typeof memoriloEmbed !== 'object' || Array.isArray(memoriloEmbed))
     return null
-  const { kind, topicId } = memoriloEmbed as Record<string, unknown>
-  if (kind !== whiteboardEditorEmbedKind || typeof topicId !== 'string')
+  const { editorId, kind } = memoriloEmbed as Record<string, unknown>
+  if (kind !== whiteboardEditorEmbedKind || typeof editorId !== 'string' || editorId.length === 0)
     return null
-  return { kind, topicId }
+  return { editorId, kind }
 }
 
-function isWhiteboardEditorEmbed(element: ExcalidrawElement, topicId: string): element is ExcalidrawEmbeddableElement {
-  const embed = whiteboardEditorEmbedData(element)
-  return element.type === 'embeddable' && embed?.topicId === topicId
-}
-
-function withoutDuplicateWhiteboardEditorEmbeds(
-  nextElements: readonly ExcalidrawElement[],
-  prevElements: readonly ExcalidrawElement[],
-  topicId: string,
-): ExcalidrawElement[] {
-  const existing = prevElements.find(element => isWhiteboardEditorEmbed(element, topicId) && !element.isDeleted)
-  let retainedId = existing?.id
-  return nextElements.filter((element) => {
-    if (!isWhiteboardEditorEmbed(element, topicId) || element.isDeleted)
-      return true
-    if (retainedId === undefined) {
-      retainedId = element.id
-      return true
-    }
-    return element.id === retainedId
-  })
+function isWhiteboardEditorEmbed(element: ExcalidrawElement): element is ExcalidrawEmbeddableElement {
+  return element.type === 'embeddable' && whiteboardEditorEmbedData(element) !== null
 }
 
 function EmbeddedWhiteboardEditor({ adapters, topic }: {
   adapters: EditorAdapters
-  topic: EditorWhiteboardTopicDocument
+  topic: EditorEmbeddedDocument
 }) {
   return (
     <article {...stylex.props(editorRouteStyles.whiteboardEditorEmbed)} data-memorilo-whiteboard-editor="">
@@ -315,31 +297,24 @@ function WhiteboardEditor({ adapters, topic }: {
     const api = apiRef.current
     if (!api)
       throw new Error(`WhiteboardTopic ${topic.topicId} Excalidraw API is not ready`)
-    const currentElements = api.getSceneElements()
-    const existing = currentElements.find(element => isWhiteboardEditorEmbed(element, topic.topicId) && !element.isDeleted)
-    if (existing) {
-      api.updateScene({ appState: { selectedElementIds: { [existing.id]: true } } })
-      api.scrollToContent(existing, { animate: true, fitToContent: true, maxZoom: 1, viewportZoomFactor: 0.8 })
-      return
-    }
-
     const appState = api.getAppState()
     const zoom = appState.zoom.value
     if (zoom <= 0)
       throw new Error(`WhiteboardTopic ${topic.topicId} has an invalid canvas zoom`)
     const x = -appState.scrollX + (appState.width / zoom - whiteboardEditorEmbedWidth) / 2
     const y = -appState.scrollY + (appState.height / zoom - whiteboardEditorEmbedHeight) / 2
+    const editorId = topic.createEmbeddedEditor({ mode: EditorMode.Document })
     const element = newEmbeddableElement({
       backgroundColor: '#ffffff',
       customData: {
         memoriloEmbed: {
+          editorId,
           kind: whiteboardEditorEmbedKind,
-          topicId: topic.topicId,
         },
       },
       fillStyle: 'solid',
       height: whiteboardEditorEmbedHeight,
-      link: `${whiteboardEditorEmbedLinkPrefix}${encodeURIComponent(topic.topicId)}`,
+      link: `${whiteboardEditorEmbedLinkPrefix}${encodeURIComponent(editorId)}`,
       roughness: 0,
       roundness: { type: ROUNDNESS.ADAPTIVE_RADIUS, value: 8 },
       strokeColor: '#c9ced6',
@@ -356,12 +331,13 @@ function WhiteboardEditor({ adapters, topic }: {
       elements: [...api.getSceneElementsIncludingDeleted(), element],
     })
     api.scrollToContent(element, { animate: true, fitToContent: true, maxZoom: 1, viewportZoomFactor: 0.8 })
-  }, [topic.topicId])
+  }, [topic])
 
   const renderEmbeddable = useCallback((element: ExcalidrawEmbeddableElement) => {
-    if (!isWhiteboardEditorEmbed(element, topic.topicId))
+    const embed = whiteboardEditorEmbedData(element)
+    if (!embed)
       return null
-    return <EmbeddedWhiteboardEditor adapters={adapters} topic={topic} />
+    return <EmbeddedWhiteboardEditor adapters={adapters} topic={topic.getEmbeddedEditor(embed.editorId)} />
   }, [adapters, topic])
 
   const renderTopRightUI = useCallback(() => (
@@ -381,7 +357,25 @@ function WhiteboardEditor({ adapters, topic }: {
   const handleDuplicate = useCallback((
     nextElements: readonly ExcalidrawElement[],
     prevElements: readonly ExcalidrawElement[],
-  ) => withoutDuplicateWhiteboardEditorEmbeds(nextElements, prevElements, topic.topicId), [topic.topicId])
+  ) => {
+    const previousIds = new Set(prevElements.map(element => element.id))
+    return nextElements.map((element) => {
+      if (previousIds.has(element.id) || !isWhiteboardEditorEmbed(element))
+        return element
+      const embed = whiteboardEditorEmbedData(element)
+      if (!embed)
+        throw new Error(`Whiteboard embed ${element.id} is missing its Embedded Editor identity`)
+      const editorId = topic.duplicateEmbeddedEditor(embed.editorId)
+      return {
+        ...element,
+        customData: {
+          ...element.customData,
+          memoriloEmbed: { editorId, kind: whiteboardEditorEmbedKind },
+        },
+        link: `${whiteboardEditorEmbedLinkPrefix}${encodeURIComponent(editorId)}`,
+      }
+    })
+  }, [topic])
 
   const validateEmbeddable = useCallback((link: string) => link.startsWith(whiteboardEditorEmbedLinkPrefix) || undefined, [])
 
@@ -804,7 +798,7 @@ function OpenedTopicEditor({
     () => opened.entries.reduce((count, entry) => count + (entry.kind === 'topic' ? 1 : 0), 0),
     [opened.entries],
   )
-  const mode = useEditorTopicMode(opened.topic)
+  const mode = useEditorTopicMode('documentId' in opened.topic ? opened.topic : null)
   const openedTopicEntry = opened.entries.find((entry): entry is NoteEntrySnapshot & { kind: 'topic' } => entry.kind === 'topic' && entry.id === opened.topic.topicId)
   const isWhiteboard = openedTopicEntry?.topicType === 'whiteboard'
   const whiteboardTopic = useMemo(
@@ -866,8 +860,14 @@ function OpenedTopicEditor({
       },
     )
   }, [])
-  const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
-  const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
+  const showDocumentMode = useCallback(() => {
+    if ('documentId' in opened.topic)
+      opened.topic.setMode(EditorMode.Document)
+  }, [opened.topic])
+  const showOutlineMode = useCallback(() => {
+    if ('documentId' in opened.topic)
+      opened.topic.setMode(EditorMode.Outline)
+  }, [opened.topic])
   const modeCommands = useMemo<readonly PaletteCommand[]>(() => isWhiteboard
     ? []
     : mode === EditorMode.Document
@@ -1050,7 +1050,11 @@ function OpenedTopicEditor({
                 adapters={editorAdapters}
                 focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
                 outline={{ outdentBehavior: configuration.outdentBehavior }}
-                topic={opened.topic}
+                topic={(() => {
+                  if (!('documentId' in opened.topic))
+                    throw new Error(`WhiteboardTopic ${opened.topic.topicId} cannot render as a single Editor`)
+                  return opened.topic
+                })()}
               />
             )}
       </section>

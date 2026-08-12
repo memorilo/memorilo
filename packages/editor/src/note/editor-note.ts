@@ -5,7 +5,7 @@ import type {
   ReadingPosition,
 } from '@memorilo/reading-model'
 import type { Effect } from 'effect'
-import type { LoroMap, UndoManager as LoroUndoManager } from 'loro-crdt'
+import type { UndoManager as LoroUndoManager } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorModeValue } from '../common/editor-mode'
 import type { LoroTopic } from '../schema/topic-schema'
@@ -24,6 +24,8 @@ import {
 import { Effect as EffectRuntime } from 'effect'
 import {
   LoroDoc,
+  LoroMap,
+  LoroTree,
   UndoManager,
 } from 'loro-crdt'
 import { EditorState } from 'prosekit/pm/state'
@@ -36,7 +38,7 @@ import { hasTopicUserContent } from './topic-user-content'
 
 const NOTE_META_KEY = 'noteMeta'
 const NOTE_ENTRIES_KEY = 'entries'
-const NOTE_SCHEMA_VERSION = 5
+const NOTE_SCHEMA_VERSION = 1
 const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
 const ENTRY_ID_KEY = 'entryId'
 const ENTRY_KIND_KEY = 'kind'
@@ -48,7 +50,11 @@ const TOPIC_TYPE_KEY = 'topicType'
 const BOOK_BINDING_KEY = 'book'
 const BOOK_READING_STATE_KEY = 'readingStateKey'
 const BOOK_ANNOTATIONS_KEY = 'annotationsKey'
-const WHITEBOARD_SCENE_KEY = 'whiteboardSceneKey'
+const WHITEBOARD_SCENE_KEY = 'scene'
+const WHITEBOARD_EMBEDDED_EDITORS_KEY = 'embeddedEditors'
+const EMBEDDED_EDITOR_ID_KEY = 'editorId'
+const EMBEDDED_EDITOR_MODE_KEY = 'editorMode'
+const EMBEDDED_EDITOR_DOCUMENT_KEY = 'document'
 
 export type NoteEntryKind = 'folder' | 'topic'
 
@@ -65,17 +71,18 @@ export interface FolderSnapshot extends NoteEntryBase {
 
 interface TopicSnapshotBase extends NoteEntryBase {
   kind: 'topic'
-  mode: EditorModeValue
   /** The effective title: the explicit title, or the first content line when it is empty. */
   title: string
 }
 
 export interface RegularTopicSnapshot extends TopicSnapshotBase {
+  mode: EditorModeValue
   topicType: 'regular'
 }
 
 export interface BookTopicSnapshot extends TopicSnapshotBase {
   book: BookFileBinding
+  mode: EditorModeValue
   topicType: 'book'
 }
 
@@ -186,6 +193,12 @@ export interface CreateWhiteboardTopicInput {
   title: string
 }
 
+export interface CreateEmbeddedEditorInput {
+  /** Initial ProseMirror content. A canonical empty document is created when omitted. */
+  initialContent?: NodeJSON
+  mode: EditorModeValue
+}
+
 export interface MoveNoteEntryInput {
   entryId: string
   index?: number
@@ -209,13 +222,23 @@ export interface BookTopicValidationInput extends RegularTopicValidationInput {
   readonly readingState: unknown
 }
 
-export interface WhiteboardTopicValidationInput extends RegularTopicValidationInput {
+export interface EmbeddedEditorValidationInput {
+  readonly document: NodeJSON
+  readonly editorId: string
+  readonly editorMode: EditorModeValue
+}
+
+export interface WhiteboardTopicValidationInput {
+  readonly embeddedEditors: Readonly<Record<string, EmbeddedEditorValidationInput>>
+  readonly entry: unknown
   readonly scene: unknown
 }
 
 export type TopicValidationInput = BookTopicValidationInput | WhiteboardTopicValidationInput | RegularTopicValidationInput
 
 export interface EditorTopicDocument {
+  /** Stable identity of this editor document. */
+  readonly documentId: string
   /** Returns the current editor mode stored in the Topic. */
   readonly getMode: () => EditorModeValue
   readonly noteId: string
@@ -224,6 +247,10 @@ export interface EditorTopicDocument {
   /** Subscribes to changes in the owning Note's LoroDoc. */
   readonly subscribe: (listener: () => void) => () => void
   readonly topicId: string
+}
+
+export interface EditorEmbeddedDocument extends EditorTopicDocument {
+  readonly editorId: string
 }
 
 export interface EditorBookTopicDocument extends EditorTopicDocument {
@@ -241,9 +268,22 @@ export interface EditorBookTopicDocument extends EditorTopicDocument {
 
 export type WhiteboardScene = Readonly<Record<string, unknown>>
 
-export interface EditorWhiteboardTopicDocument extends EditorTopicDocument {
+export interface EmbeddedEditorSnapshot {
+  readonly editorId: string
+  readonly mode: EditorModeValue
+}
+
+export interface EditorWhiteboardTopicDocument {
+  readonly createEmbeddedEditor: (input: CreateEmbeddedEditorInput) => string
+  readonly deleteEmbeddedEditor: (editorId: string) => void
+  readonly duplicateEmbeddedEditor: (editorId: string) => string
+  readonly getEmbeddedEditor: (editorId: string) => EditorEmbeddedDocument
+  readonly getEmbeddedEditors: () => readonly EmbeddedEditorSnapshot[]
   readonly getScene: () => WhiteboardScene
+  readonly noteId: string
   readonly setScene: (scene: WhiteboardScene) => void
+  readonly subscribe: (listener: () => void) => () => void
+  readonly topicId: string
 }
 
 /**
@@ -281,7 +321,7 @@ export interface EditorNote {
   getTopic: (topicId: string) => EditorTopicDocument
   /** Returns the reading handle for an existing BookTopic. */
   getBookTopic: (topicId: string) => EditorBookTopicDocument
-  /** Returns the scene handle for an existing WhiteboardTopic. */
+  /** Returns the scene and Embedded Editor handle for an existing WhiteboardTopic. */
   getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
@@ -325,6 +365,7 @@ export interface CreateEditorNoteOptions {
 }
 
 export interface EditorTopicBinding {
+  documentId: string
   doc: LoroDoc
   tree: ReturnType<LoroDoc['getTree']>
   topicId: string
@@ -339,6 +380,8 @@ interface EditorNoteRuntime {
 }
 
 interface EditorTopicDocumentRuntime {
+  documentId: string
+  editorId?: string
   note: EditorNoteRuntime
   topicId: string
 }
@@ -453,12 +496,99 @@ function topicBlockTree(runtime: EditorNoteRuntime, node: ReturnType<typeof entr
   return runtime.doc.getTree(blockTreeKey)
 }
 
-function whiteboardSceneMap(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>) {
+function whiteboardData(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>): LoroMap {
   const entryId = readString(node.data, ENTRY_ID_KEY, 'WhiteboardTopic id')
   if (readTopicType(node.data, `Topic ${entryId} type`) !== 'whiteboard')
     throw new TypeError(`Topic ${entryId} is not a WhiteboardTopic`)
-  const sceneKey = readString(node.data, WHITEBOARD_SCENE_KEY, `WhiteboardTopic ${entryId} scene key`)
-  return runtime.doc.getMap(sceneKey)
+  return node.data
+}
+
+function whiteboardEntryValue(node: ReturnType<typeof entryNode>): Record<string, unknown> {
+  return {
+    entryId: readString(node.data, ENTRY_ID_KEY, 'WhiteboardTopic id'),
+    kind: node.data.get(ENTRY_KIND_KEY),
+    title: readTopicTitle(node.data, 'WhiteboardTopic title'),
+    topicType: node.data.get(TOPIC_TYPE_KEY),
+  }
+}
+
+function whiteboardSceneMap(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>): LoroMap {
+  const data = whiteboardData(runtime, node)
+  const value = data.get(WHITEBOARD_SCENE_KEY)
+  if (!(value instanceof LoroMap))
+    throw new Error(`WhiteboardTopic ${readString(data, ENTRY_ID_KEY, 'WhiteboardTopic id')} scene must be a LoroMap`)
+  return value
+}
+
+function embeddedEditorsMap(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>): LoroMap {
+  const data = whiteboardData(runtime, node)
+  const value = data.get(WHITEBOARD_EMBEDDED_EDITORS_KEY)
+  if (!(value instanceof LoroMap))
+    throw new Error(`WhiteboardTopic ${readString(data, ENTRY_ID_KEY, 'WhiteboardTopic id')} embeddedEditors must be a LoroMap`)
+  return value
+}
+
+function embeddedEditorState(
+  runtime: EditorNoteRuntime,
+  node: ReturnType<typeof entryNode>,
+  editorId: string,
+): LoroMap {
+  const normalizedEditorId = assertNonEmpty(editorId, 'Embedded Editor id')
+  const editors = embeddedEditorsMap(runtime, node)
+  const value = editors.get(normalizedEditorId)
+  if (!(value instanceof LoroMap))
+    throw new Error(`Unknown Embedded Editor: ${normalizedEditorId}`)
+  const storedId = readString(value, EMBEDDED_EDITOR_ID_KEY, `Embedded Editor ${normalizedEditorId} id`)
+  if (storedId !== normalizedEditorId)
+    throw new Error(`Embedded Editor map key ${normalizedEditorId} does not match stored id ${storedId}`)
+  assertEditorMode(value.get(EMBEDDED_EDITOR_MODE_KEY), `Embedded Editor ${normalizedEditorId} mode`)
+  return value
+}
+
+function embeddedEditorTree(
+  runtime: EditorNoteRuntime,
+  node: ReturnType<typeof entryNode>,
+  editorId: string,
+): LoroTree {
+  const state = embeddedEditorState(runtime, node, editorId)
+  const value = state.get(EMBEDDED_EDITOR_DOCUMENT_KEY)
+  if (!(value instanceof LoroTree))
+    throw new Error(`Embedded Editor ${editorId} document must be a LoroTree`)
+  return value
+}
+
+function embeddedEditorValidation(
+  runtime: EditorNoteRuntime,
+  node: ReturnType<typeof entryNode>,
+): Record<string, EmbeddedEditorValidationInput> {
+  const editors = embeddedEditorsMap(runtime, node)
+  const result: Record<string, EmbeddedEditorValidationInput> = {}
+  for (const editorId of Object.keys(editors.toJSON())) {
+    const state = embeddedEditorState(runtime, node, editorId)
+    const document = createNodeJsonFromLoroTree(embeddedEditorTree(runtime, node, editorId))
+    if (!document)
+      throw new Error(`Embedded Editor ${editorId} does not contain an initialized document`)
+    result[editorId] = {
+      document,
+      editorId: readString(state, EMBEDDED_EDITOR_ID_KEY, `Embedded Editor ${editorId} id`),
+      editorMode: assertEditorMode(state.get(EMBEDDED_EDITOR_MODE_KEY), `Embedded Editor ${editorId} mode`),
+    }
+  }
+  return result
+}
+
+function getEmbeddedEditorSnapshots(
+  runtime: EditorNoteRuntime,
+  node: ReturnType<typeof entryNode>,
+): EmbeddedEditorSnapshot[] {
+  const editors = embeddedEditorsMap(runtime, node)
+  return Object.keys(editors.toJSON()).sort().map((editorId) => {
+    const state = embeddedEditorState(runtime, node, editorId)
+    return {
+      editorId,
+      mode: assertEditorMode(state.get(EMBEDDED_EDITOR_MODE_KEY), `Embedded Editor ${editorId} mode`),
+    }
+  })
 }
 
 function bookTopicContainers(runtime: EditorNoteRuntime, node: ReturnType<typeof entryNode>) {
@@ -495,6 +625,14 @@ function readBookReadingState(runtime: EditorNoteRuntime, node: ReturnType<typeo
 function getTopicValidationInput(runtime: EditorNoteRuntime, topicId: string): TopicValidationInput {
   const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
   const node = entryNode(runtime, normalizedTopicId)
+  const topicType = readTopicType(node.data, `Topic ${normalizedTopicId} type`)
+  if (topicType === 'whiteboard') {
+    return {
+      embeddedEditors: embeddedEditorValidation(runtime, node),
+      entry: whiteboardEntryValue(node),
+      scene: whiteboardSceneMap(runtime, node).toJSON(),
+    }
+  }
   const blockTree = topicBlockTree(runtime, node)
   const document = createNodeJsonFromLoroTree(blockTree)
   if (!document)
@@ -503,12 +641,8 @@ function getTopicValidationInput(runtime: EditorNoteRuntime, topicId: string): T
     document,
     entry: node.data.toJSON(),
   }
-  if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'regular')
+  if (topicType === 'regular')
     return base
-  if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'whiteboard') {
-    const scene = whiteboardSceneMap(runtime, node)
-    return { ...base, scene: scene.toJSON() }
-  }
   const containers = bookTopicContainers(runtime, node)
   return {
     ...base,
@@ -558,6 +692,26 @@ function projectTopicContent(
   return {
     blocks,
     title: effectiveTopicTitle(explicitTitle, blocks),
+    topicId,
+  }
+}
+
+function projectWhiteboardContent(
+  runtime: EditorNoteRuntime,
+  node: ReturnType<typeof entryNode>,
+): TopicContentProjection {
+  const topicId = readString(node.data, ENTRY_ID_KEY, 'WhiteboardTopic id')
+  const title = readTopicTitle(node.data, `WhiteboardTopic ${topicId} title`)
+  const blocks: TopicBlockProjection[] = []
+  for (const editor of getEmbeddedEditorSnapshots(runtime, node)) {
+    const document = createNodeJsonFromLoroTree(embeddedEditorTree(runtime, node, editor.editorId))
+    if (!document)
+      throw new Error(`Embedded Editor ${editor.editorId} does not contain an initialized document`)
+    blocks.push(...projectTopicBlocks(document))
+  }
+  return {
+    blocks,
+    title: effectiveTopicTitle(title, blocks),
     topicId,
   }
 }
@@ -698,18 +852,22 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
       }
       else if (kind === 'topic') {
         const topicType = readTopicType(node.meta, `Topic ${id} type`)
-        const blockTreeKey = readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)
-        const blockTree = runtime.doc.getTree(blockTreeKey)
-        const content = projectTopicContent(blockTree, id, readTopicTitle(node.meta, `Topic ${id} title`))
-        const base = {
-          id,
-          kind,
-          mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
-          ordinal,
-          parentId,
-          title: content.title,
-        } as const
+        const content = topicType === 'whiteboard'
+          ? projectWhiteboardContent(runtime, entryNode(runtime, id))
+          : projectTopicContent(
+              topicBlockTree(runtime, entryNode(runtime, id)),
+              id,
+              readTopicTitle(node.meta, `Topic ${id} title`),
+            )
         if (topicType === 'book') {
+          const base = {
+            id,
+            kind,
+            mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+            ordinal,
+            parentId,
+            title: content.title,
+          } as const
           const book = readBookBinding(node.meta, `BookTopic ${id} binding`)
           const identity = bookFileIdentityKey(book.file)
           const existingTopicId = bookTopicIdsByFile.get(identity)
@@ -718,8 +876,26 @@ function projectEditorNote(runtime: EditorNoteRuntime, includeTopics = true): {
           bookTopicIdsByFile.set(identity, id)
           entries.push({ ...base, book, topicType })
         }
+        else if (topicType === 'regular') {
+          entries.push({
+            id,
+            kind,
+            mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+            ordinal,
+            parentId,
+            title: content.title,
+            topicType,
+          })
+        }
         else {
-          entries.push({ ...base, topicType })
+          entries.push({
+            id,
+            kind,
+            ordinal,
+            parentId,
+            title: content.title,
+            topicType,
+          })
         }
 
         if (includeTopics)
@@ -784,7 +960,7 @@ function mutationRoot(eventPath: readonly unknown[], targetPath: readonly unknow
 function topicIdFromMutationRoot(root: string): string | undefined {
   if (!root.startsWith('topic:'))
     return undefined
-  for (const suffix of [':annotations', ':blocks', ':reading-state', ':whiteboard-scene']) {
+  for (const suffix of [':annotations', ':blocks', ':reading-state']) {
     if (root.endsWith(suffix))
       return root.slice('topic:'.length, -suffix.length)
   }
@@ -824,6 +1000,80 @@ function createEntryId(): string {
   return crypto.randomUUID()
 }
 
+function cloneEmbeddedEditorDocument(document: NodeJSON): NodeJSON {
+  const ids = new Map<string, string>()
+  const idAttributeNames = new Set([
+    'backwardCardId',
+    'blockId',
+    'cardId',
+    'cardItemDefinitionId',
+    'definitionId',
+    'forwardCardId',
+    'groupId',
+  ])
+  const remap = (value: unknown, key?: string): unknown => {
+    if (typeof value === 'string' && key !== undefined && idAttributeNames.has(key)) {
+      let mapped = ids.get(value)
+      if (!mapped) {
+        mapped = createEntryId()
+        ids.set(value, mapped)
+      }
+      return mapped
+    }
+    if (Array.isArray(value))
+      return value.map(item => remap(item))
+    if (value !== null && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([name, child]) => [name, remap(child, name)]))
+    }
+    return value
+  }
+  return remap(document) as NodeJSON
+}
+
+function createTopicDocumentHandle(
+  runtime: EditorNoteRuntime,
+  noteId: string,
+  topicId: string,
+  editorId?: string,
+): EditorTopicDocument {
+  const node = entryNode(runtime, topicId)
+  if (editorId === undefined) {
+    if (readTopicType(node.data, `Topic ${topicId} type`) === 'whiteboard')
+      throw new TypeError(`WhiteboardTopic ${topicId} does not have a single Topic document`)
+    topicBlockTree(runtime, node)
+    assertEditorMode(node.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${topicId} Editor mode`)
+  }
+  else {
+    embeddedEditorTree(runtime, node, editorId)
+  }
+  const documentId = editorId ?? topicId
+  const document: EditorTopicDocument = {
+    documentId,
+    getMode: () => {
+      const boundNode = entryNode(runtime, topicId)
+      if (editorId === undefined)
+        return assertEditorMode(boundNode.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${topicId} Editor mode`)
+      const state = embeddedEditorState(runtime, boundNode, editorId)
+      return assertEditorMode(state.get(EMBEDDED_EDITOR_MODE_KEY), `Embedded Editor ${editorId} mode`)
+    },
+    noteId,
+    setMode: (mode) => {
+      const normalizedMode = assertEditorMode(mode, `Editor document ${documentId} mode`)
+      const boundNode = entryNode(runtime, topicId)
+      const state = editorId === undefined ? boundNode.data : embeddedEditorState(runtime, boundNode, editorId)
+      const modeKey = editorId === undefined ? TOPIC_EDITOR_MODE_KEY : EMBEDDED_EDITOR_MODE_KEY
+      if (state.get(modeKey) === normalizedMode)
+        return
+      state.set(modeKey, normalizedMode)
+      runtime.doc.commit({ origin: 'ui:set-topic-editor-mode' })
+    },
+    subscribe: listener => runtime.doc.subscribe(() => listener()),
+    topicId,
+  }
+  topicRuntimes.set(document, { documentId, editorId, note: runtime, topicId })
+  return document
+}
+
 interface PreparedTopicNode {
   annotationsKey?: string
   blockTreeKey: string
@@ -833,7 +1083,7 @@ interface PreparedTopicNode {
   mode: EditorModeValue
   readingStateKey?: string
   title: string
-  topicType: 'book' | 'regular' | 'whiteboard'
+  topicType: 'book' | 'regular'
 }
 
 function prepareTopicNode(input: CreateTopicInput, bookValue?: BookFileBinding): PreparedTopicNode {
@@ -926,29 +1176,22 @@ function createWhiteboardNode(
   input: CreateWhiteboardTopicInput,
   parent: ReturnType<typeof entryNode> | undefined,
 ): string {
-  const entryId = createTopicNode(doc, {
-    index: input.index,
-    mode: EditorMode.Document,
-    parentId: input.parentId,
-    title: input.title,
-  }, parent)
-  const node = noteTree(doc).getNodes().find(candidate => candidate.data.get(ENTRY_ID_KEY) === entryId)
-  if (!node)
-    throw new Error(`WhiteboardTopic ${entryId} was not created`)
-  const sceneKey = `topic:${entryId}:whiteboard-scene`
+  const entryId = createEntryId()
+  const title = normalizeTopicTitle(input.title)
+  const node = noteTree(doc).createNode(parent?.id, resolveIndex(input.index))
+  node.data.set(ENTRY_ID_KEY, entryId)
+  node.data.set(ENTRY_KIND_KEY, 'topic')
   node.data.set(TOPIC_TYPE_KEY, 'whiteboard')
-  node.data.set(WHITEBOARD_SCENE_KEY, sceneKey)
-  doc.getMap(sceneKey).set('elements', [])
-  doc.getMap(sceneKey).set('appState', {})
-  doc.getMap(sceneKey).set('files', {})
-  const blockTreeKey = readString(node.data, TOPIC_BLOCK_TREE_KEY, `WhiteboardTopic ${entryId} block tree key`)
-  const document = createNodeJsonFromLoroTree(doc.getTree(blockTreeKey))
-  if (!document)
-    throw new Error(`WhiteboardTopic ${entryId} does not contain an initialized document`)
+  node.data.set(TOPIC_TITLE_KEY, title)
+  const scene = node.data.ensureMergeableMap(WHITEBOARD_SCENE_KEY)
+  scene.set('elements', [])
+  scene.set('appState', {})
+  scene.set('files', {})
+  node.data.ensureMergeableMap(WHITEBOARD_EMBEDDED_EDITORS_KEY)
   validateTopicInput({
-    document,
-    entry: node.data.toJSON(),
-    scene: doc.getMap(sceneKey).toJSON(),
+    embeddedEditors: {},
+    entry: whiteboardEntryValue(node),
+    scene: scene.toJSON(),
   })
   return entryId
 }
@@ -1038,12 +1281,14 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
         throw new TypeError('Topic Block edits must contain at least one operation')
       inUndoGroup(runtime, () => {
         const validation = getTopicValidationInput(runtime, input.topicId)
+        if (!('document' in validation))
+          throw new TypeError(`WhiteboardTopic ${input.topicId} does not have a single editable document`)
         const document = applyTopicBlockEdits(validation.document, input.edits)
-        const topic = EffectRuntime.runSync(validateLoroTopic({ ...validation, document }))
+        EffectRuntime.runSync(validateLoroTopic({ ...validation, document }))
         const node = entryNode(runtime, input.topicId)
         const blockTree = topicBlockTree(runtime, node)
         const state = EditorState.create({
-          doc: topicProseMirrorSchema.nodeFromJSON(topic.document),
+          doc: topicProseMirrorSchema.nodeFromJSON(document),
           schema: topicProseMirrorSchema,
         })
         updateLoroTreeFromPmState(doc, blockTree, new Map(), state)
@@ -1051,28 +1296,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     },
     getTopic: (topicId) => {
       const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
-      const node = entryNode(runtime, normalizedTopicId)
-      topicBlockTree(runtime, node)
-      assertEditorMode(node.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${normalizedTopicId} Editor mode`)
-      const document: EditorTopicDocument = {
-        getMode: () => {
-          const boundNode = entryNode(runtime, normalizedTopicId)
-          return assertEditorMode(boundNode.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${normalizedTopicId} Editor mode`)
-        },
-        noteId: id,
-        setMode: (mode) => {
-          const normalizedMode = assertEditorMode(mode, `Topic ${normalizedTopicId} Editor mode`)
-          const boundNode = entryNode(runtime, normalizedTopicId)
-          if (boundNode.data.get(TOPIC_EDITOR_MODE_KEY) === normalizedMode)
-            return
-          boundNode.data.set(TOPIC_EDITOR_MODE_KEY, normalizedMode)
-          doc.commit({ origin: 'ui:set-topic-editor-mode' })
-        },
-        subscribe: listener => doc.subscribe(() => listener()),
-        topicId: normalizedTopicId,
-      }
-      topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
-      return document
+      return createTopicDocumentHandle(runtime, id, normalizedTopicId)
     },
     getBookTopic: (topicId) => {
       const normalizedTopicId = assertNonEmpty(topicId, 'BookTopic id')
@@ -1153,20 +1377,67 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
           doc.commit({ origin: 'reader:set-book-topic-position' })
         },
       }
-      topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
+      topicRuntimes.set(document, {
+        documentId: topic.documentId,
+        note: runtime,
+        topicId: normalizedTopicId,
+      })
       return document
     },
     getWhiteboardTopic: (topicId) => {
       const normalizedTopicId = assertNonEmpty(topicId, 'WhiteboardTopic id')
       const node = entryNode(runtime, normalizedTopicId)
       whiteboardSceneMap(runtime, node)
-      const topic = note.getTopic(normalizedTopicId)
       const document: EditorWhiteboardTopicDocument = {
-        ...topic,
+        createEmbeddedEditor: (input) => {
+          const mode = assertEditorMode(input.mode, 'Embedded Editor mode')
+          const initialDocument = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
+          const editorId = createEntryId()
+          validateTopicInput({
+            embeddedEditors: {
+              [editorId]: { document: initialDocument, editorId, editorMode: mode },
+            },
+            entry: whiteboardEntryValue(node),
+            scene: whiteboardSceneMap(runtime, node).toJSON(),
+          })
+          const editors = embeddedEditorsMap(runtime, entryNode(runtime, normalizedTopicId))
+          const state = editors.ensureMergeableMap(editorId)
+          state.set(EMBEDDED_EDITOR_ID_KEY, editorId)
+          state.set(EMBEDDED_EDITOR_MODE_KEY, mode)
+          initializeLoroTreeFromJson(state.ensureMergeableTree(EMBEDDED_EDITOR_DOCUMENT_KEY), initialDocument)
+          doc.commit({ origin: 'whiteboard:create-embedded-editor' })
+          return editorId
+        },
+        deleteEmbeddedEditor: (editorId) => {
+          const normalizedEditorId = assertNonEmpty(editorId, 'Embedded Editor id')
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          embeddedEditorState(runtime, boundNode, normalizedEditorId)
+          embeddedEditorsMap(runtime, boundNode).delete(normalizedEditorId)
+          doc.commit({ origin: 'whiteboard:delete-embedded-editor' })
+        },
+        duplicateEmbeddedEditor: (editorId) => {
+          const normalizedEditorId = assertNonEmpty(editorId, 'Embedded Editor id')
+          const boundNode = entryNode(runtime, normalizedTopicId)
+          const state = embeddedEditorState(runtime, boundNode, normalizedEditorId)
+          const sourceDocument = createNodeJsonFromLoroTree(embeddedEditorTree(runtime, boundNode, normalizedEditorId))
+          if (!sourceDocument)
+            throw new Error(`Embedded Editor ${normalizedEditorId} does not contain an initialized document`)
+          return document.createEmbeddedEditor({
+            initialContent: cloneEmbeddedEditorDocument(sourceDocument),
+            mode: assertEditorMode(state.get(EMBEDDED_EDITOR_MODE_KEY), `Embedded Editor ${normalizedEditorId} mode`),
+          })
+        },
+        getEmbeddedEditor: (editorId) => {
+          const normalizedEditorId = assertNonEmpty(editorId, 'Embedded Editor id')
+          const topicDocument = createTopicDocumentHandle(runtime, id, normalizedTopicId, normalizedEditorId)
+          return Object.assign(topicDocument, { editorId: normalizedEditorId }) as EditorEmbeddedDocument
+        },
+        getEmbeddedEditors: () => getEmbeddedEditorSnapshots(runtime, entryNode(runtime, normalizedTopicId)),
         getScene: () => {
           const boundNode = entryNode(runtime, normalizedTopicId)
           return structuredClone(whiteboardSceneMap(runtime, boundNode).toJSON()) as WhiteboardScene
         },
+        noteId: id,
         setScene: (scene) => {
           if (scene === null || typeof scene !== 'object' || Array.isArray(scene))
             throw new TypeError('WhiteboardTopic scene must be an object')
@@ -1181,8 +1452,9 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
             map.set(key, value)
           doc.commit({ origin: 'whiteboard:set-scene' })
         },
+        subscribe: listener => doc.subscribe(() => listener()),
+        topicId: normalizedTopicId,
       }
-      topicRuntimes.set(document, { note: runtime, topicId: normalizedTopicId })
       return document
     },
     checkout: version => doc.checkout([...version]),
@@ -1261,6 +1533,8 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     getTopicContent: (topicId) => {
       const normalizedTopicId = assertNonEmpty(topicId, 'Topic id')
       const node = entryNode(runtime, normalizedTopicId)
+      if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'whiteboard')
+        return projectWhiteboardContent(runtime, node)
       const blockTree = topicBlockTree(runtime, node)
       return projectTopicContent(
         blockTree,
@@ -1297,14 +1571,22 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
         if (scene === null || typeof scene !== 'object' || Array.isArray(scene))
           throw new Error(`WhiteboardTopic ${entry.id} scene must be an object`)
         const elements = (scene as { elements?: unknown }).elements
-        return topic.entry.title.length > 0 || (Array.isArray(elements) && elements.length > 0)
+        const embeddedEditorsHaveContent = Object.values(validation.embeddedEditors)
+          .some(editor => hasTopicUserContent(editor.document))
+        return topic.entry.title.length > 0
+          || (Array.isArray(elements) && elements.length > 0)
+          || embeddedEditorsHaveContent
       }
+      if (!('document' in validation))
+        throw new Error(`Topic ${entry.id} is missing its document`)
       return topic.entry.title.length > 0 || hasTopicUserContent(validation.document)
     },
     importUpdates: (updates) => {
       validateBinary(updates, 'Note updates')
       const roots = new Set<string>()
+      let importedEvents = false
       const unsubscribe = doc.subscribe((batch) => {
+        importedEvents = importedEvents || batch.events.length > 0
         for (const event of batch.events) {
           const path = doc.getPathToContainer(event.target) ?? []
           const root = mutationRoot(event.path, path)
@@ -1314,13 +1596,23 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
       })
       doc.import(updates)
       unsubscribe()
+      const nestedWhiteboardTopicIds = importedEvents
+        ? noteTree(doc).getNodes().flatMap((node) => {
+            if (node.data.get(ENTRY_KIND_KEY) !== 'topic' || node.data.get(TOPIC_TYPE_KEY) !== 'whiteboard')
+              return []
+            return [readString(node.data, ENTRY_ID_KEY, 'WhiteboardTopic id')]
+          })
+        : []
       return {
         entriesChanged: roots.has(NOTE_ENTRIES_KEY),
         metadataChanged: roots.has(NOTE_META_KEY),
-        topicIds: [...new Set([...roots].flatMap((root) => {
-          const topicId = topicIdFromMutationRoot(root)
-          return topicId === undefined ? [] : [topicId]
-        }))],
+        topicIds: [...new Set([
+          ...nestedWhiteboardTopicIds,
+          ...[...roots].flatMap((root) => {
+            const topicId = topicIdFromMutationRoot(root)
+            return topicId === undefined ? [] : [topicId]
+          }),
+        ])],
       }
     },
     isTimeTraveling: () => doc.isDetached(),
@@ -1395,11 +1687,14 @@ export function resolveEditorTopicBinding(document: EditorTopicDocument): Editor
   if (!binding)
     throw new TypeError('Expected a Topic document created by EditorNote.getTopic')
   const node = entryNode(binding.note, binding.topicId)
-  const blockTree = topicBlockTree(binding.note, node)
+  const blockTree = binding.editorId === undefined
+    ? topicBlockTree(binding.note, node)
+    : embeddedEditorTree(binding.note, node, binding.editorId)
   const undoManager = binding.note.undoManager
   if (!undoManager)
     throw new Error('EditorNote UndoManager is not initialized')
   return {
+    documentId: binding.documentId,
     doc: binding.note.doc,
     tree: blockTree,
     topicId: binding.topicId,

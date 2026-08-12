@@ -401,6 +401,13 @@ const LoroTopicEntryBaseFields = {
   title: Schema.String,
 } as const
 
+const LoroWhiteboardTopicEntryBaseFields = {
+  entryId: Schema.NonEmptyString,
+  kind: Schema.Literal('topic'),
+  title: Schema.String,
+  topicType: Schema.Literal('whiteboard'),
+} as const
+
 export const LoroRegularTopicEntrySchema = Schema.Struct({
   ...LoroTopicEntryBaseFields,
   topicType: Schema.Literal('regular'),
@@ -416,10 +423,7 @@ export const LoroBookTopicEntrySchema = Schema.Struct({
 })
 
 export const LoroWhiteboardTopicEntrySchema = Schema.Struct({
-  ...LoroTopicEntryBaseFields,
-  title: Schema.String,
-  topicType: Schema.Literal('whiteboard'),
-  whiteboardSceneKey: Schema.NonEmptyString,
+  ...LoroWhiteboardTopicEntryBaseFields,
 })
 
 export const LoroTopicEntrySchema = Schema.Union([
@@ -443,10 +447,26 @@ const LoroBookTopicSchema = Schema.Struct({
 })
 
 const LoroWhiteboardTopicSchema = Schema.Struct({
-  document: LoroTopicDocumentSchema,
+  embeddedEditors: Schema.Record(Schema.String, Schema.Struct({
+    document: LoroTopicDocumentSchema,
+    editorId: Schema.NonEmptyString,
+    editorMode: Schema.Literals([0, 1]),
+  })),
   entry: LoroWhiteboardTopicEntrySchema,
   scene: Schema.Record(Schema.String, Schema.Unknown),
-})
+}).check(Schema.makeFilter((topic) => {
+  for (const [editorId, editor] of Object.entries(topic.embeddedEditors)) {
+    if (editor.editorId !== editorId) {
+      return {
+        message: `expected Embedded Editor id ${JSON.stringify(editorId)}`,
+        path: ['embeddedEditors', editorId, 'editorId'],
+      }
+    }
+  }
+  return undefined
+}, {
+  expected: 'a WhiteboardTopic with Embedded Editors keyed by their editor IDs',
+}))
 
 /** A complete Topic projected from its Loro entry map and referenced block tree. */
 export const LoroTopicSchema = Schema.Union([
@@ -455,24 +475,23 @@ export const LoroTopicSchema = Schema.Union([
   LoroWhiteboardTopicSchema,
 ]).check(Schema.makeFilter((topic) => {
   const id = topic.entry.entryId
+  if (topic.entry.topicType === 'regular') {
+    return topic.entry.blockTreeKey === `topic:${id}:blocks`
+      ? undefined
+      : {
+          message: `expected the Topic block tree key ${JSON.stringify(`topic:${id}:blocks`)}`,
+          path: ['entry', 'blockTreeKey'],
+        }
+  }
+  if (topic.entry.topicType === 'whiteboard') {
+    return undefined
+  }
   const expectedBlockTreeKey = `topic:${id}:blocks`
   if (topic.entry.blockTreeKey !== expectedBlockTreeKey) {
     return {
       message: `expected the Topic block tree key ${JSON.stringify(expectedBlockTreeKey)}`,
       path: ['entry', 'blockTreeKey'],
     }
-  }
-  if (topic.entry.topicType === 'regular')
-    return undefined
-  if (topic.entry.topicType === 'whiteboard') {
-    const expectedSceneKey = `topic:${id}:whiteboard-scene`
-    if (topic.entry.whiteboardSceneKey !== expectedSceneKey) {
-      return {
-        message: `expected the WhiteboardTopic scene key ${JSON.stringify(expectedSceneKey)}`,
-        path: ['entry', 'whiteboardSceneKey'],
-      }
-    }
-    return undefined
   }
   if (!('annotations' in topic) || !('readingState' in topic)) {
     return {
