@@ -96,6 +96,7 @@ describe('pdf document session', () => {
     await vi.waitFor(() => expect(harness.getDocument).toHaveBeenCalledOnce())
 
     controller.abort(abortReason)
+    document.reject(new Error('late PDF.js loading rejection'))
 
     await expect(opening).rejects.toBe(abortReason)
     expect(harness.closeOrder).toEqual([
@@ -105,7 +106,6 @@ describe('pdf document session', () => {
       'native worker',
     ])
     expect(harness.destroyLoadingTask).toHaveBeenCalledOnce()
-    document.reject(new Error('late PDF.js loading rejection'))
     await new Promise<void>(resolve => queueMicrotask(() => resolve()))
   })
 

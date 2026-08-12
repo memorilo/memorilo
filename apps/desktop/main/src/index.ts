@@ -54,7 +54,6 @@ const shutdown = createShutdownStateMachine({
   getWindows: () => BrowserWindow.getAllWindows(),
   onError: (message, error) => console.error(message, error),
   quit: () => app.quit(),
-  saveAllWindows: () => requestRendererSave(),
   saveWindow: window => requestRendererSave([window.webContents], window),
 })
 

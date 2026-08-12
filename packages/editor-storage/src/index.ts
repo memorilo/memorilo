@@ -1,5 +1,5 @@
 export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
-export { assertJournalDate, SqliteEditorStorage } from './editor-storage'
+export { assertJournalDate, createEditorStorage, SqliteEditorStorage } from './editor-storage'
 export type {
   AssetReferenceProjection,
   AssetStatistics,
@@ -7,6 +7,7 @@ export type {
   BookTopicContext,
   BookTopicProjection,
   CheckpointNoteInput,
+  CreateEditorStorageOptions,
   CreateInitializedNoteInput,
   CreateNoteInput,
   EditorAssetStorage,
@@ -68,7 +69,7 @@ export type {
 } from './editor-storage-contracts'
 export { DuplicateNoteTitleError } from './editor-storage-contracts'
 export type { EmbeddingModel } from './embedding-model'
-export { defaultLearningPracticeConfiguration, GLOBAL_OPTIMIZER_ID } from './learning'
+export { createLearningStorage, defaultLearningPracticeConfiguration, GLOBAL_OPTIMIZER_ID, SqliteLearningStorage } from './learning'
 export type {
   AcknowledgeLearningSyncInput,
   AssignNoteOptimizerInput,
@@ -110,6 +111,7 @@ export type {
   RateLearningTargetInput,
   RateMultiLineCardInput,
   ReconcileLearningCardsInput,
+  RenameFsrsOptimizerInput,
   ResetLearningTargetInput,
   ReviewRating,
   ReviewResult,
@@ -117,8 +119,13 @@ export type {
   UndoLearningReviewCommand,
   UndoLearningReviewInput,
   UndoLearningReviewsInput,
+  UpdateFsrsOptimizerInput,
 } from './learning'
+export type { CreateShelfImageCacheOptions } from './shelf-image-cache'
+export { createShelfImageCache } from './shelf-image-cache'
 export type { SqliteShelfImageCacheOptions } from './shelf-image-cache'
 export { SqliteShelfImageCache } from './shelf-image-cache'
+export type { CreateShelfStorageOptions } from './shelf-storage'
+export { createShelfStorage } from './shelf-storage'
 export type { SqliteShelfStorageOptions } from './shelf-storage'
 export { SqliteShelfStorage } from './shelf-storage'

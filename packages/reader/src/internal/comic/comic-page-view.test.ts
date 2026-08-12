@@ -132,12 +132,11 @@ describe('comic page view lifecycle', () => {
     await vi.waitFor(() => expect(container.children).toHaveLength(1))
     const closing = view.close()
 
+    decoding.resolve()
     await expect(rendering).resolves.toBe(false)
     await expect(closing).resolves.toBeUndefined()
     expect(revoke).toHaveBeenCalledWith('blob:comic-1')
     expect(container.children).toHaveLength(0)
-
-    decoding.resolve()
   })
 
   it('supersedes an older render and releases its staged URL before committing the latest page', async () => {
@@ -161,12 +160,12 @@ describe('comic page view lifecycle', () => {
     const second = view.render(renderInput(new AbortController().signal, { pageNumber: 2 }))
 
     await expect(second).resolves.toBe(true)
+    firstDecode.resolve()
     await expect(first).resolves.toBe(false)
     expect(revoke).toHaveBeenCalledWith('blob:comic-1')
     expect(revoke).not.toHaveBeenCalledWith('blob:comic-2')
     await view.close()
     expect(revoke).toHaveBeenCalledWith('blob:comic-2')
-    firstDecode.resolve()
   })
 
   it('releases the previous URL only after a replacement commits', async () => {

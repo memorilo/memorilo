@@ -85,13 +85,18 @@ function requirePage(pages: readonly ComicPage[], index: number): ComicPage {
   return page
 }
 
-async function openCbz(source: ResolvedReaderSource): Promise<ComicArchive> {
-  const reader = new ZipReader(new ReaderSourceZipReader(source))
+async function openCbz(
+  source: ResolvedReaderSource,
+  signal?: AbortSignal,
+): Promise<ComicArchive> {
+  signal?.throwIfAborted()
+  const reader = new ZipReader(new ReaderSourceZipReader(source, signal))
   const entriesByName = new Map<string, FileEntry>()
   const entryNames = new Set<string>()
   let pages: readonly ComicPage[]
   try {
     const entries = await reader.getEntries()
+    signal?.throwIfAborted()
     if (entries.length > maximumArchiveEntries)
       throw new Error(`The comic archive contains more than ${maximumArchiveEntries.toLocaleString()} entries`)
     pages = sortedPages(entries.flatMap((entry: Entry): readonly ComicPage[] => {
@@ -169,12 +174,19 @@ function rarPage(header: FileHeader): ComicPage | null {
   return { byteSize: header.unpSize, mimeType, name: header.name }
 }
 
-async function openCbr(source: ResolvedReaderSource): Promise<ComicArchive> {
-  const bytes = await readSourceBytes(source)
+async function openCbr(
+  source: ResolvedReaderSource,
+  signal?: AbortSignal,
+): Promise<ComicArchive> {
+  const bytes = await readSourceBytes(source, signal)
+  signal?.throwIfAborted()
+  const wasmBinary = await unrarWasm()
+  signal?.throwIfAborted()
   const extractor = await createExtractorFromData({
     data: arrayBuffer(bytes),
-    wasmBinary: await unrarWasm(),
+    wasmBinary,
   })
+  signal?.throwIfAborted()
   const fileList = extractor.getFileList()
   if (fileList.arcHeader.flags.volume)
     throw new Error('Multi-volume CBR archives are not supported')
@@ -238,6 +250,7 @@ function extractRarPage(extractor: Extractor<Uint8Array>, page: ComicPage): Blob
 
 export function openComicArchive(
   source: ResolvedReaderSource & { format: 'cbr' | 'cbz' },
+  signal?: AbortSignal,
 ): Promise<ComicArchive> {
-  return source.format === 'cbz' ? openCbz(source) : openCbr(source)
+  return source.format === 'cbz' ? openCbz(source, signal) : openCbr(source, signal)
 }

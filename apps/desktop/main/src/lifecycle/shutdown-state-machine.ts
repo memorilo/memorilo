@@ -16,7 +16,6 @@ export interface ShutdownStateMachineOptions<Window extends ShutdownWindow> {
   getWindows: () => readonly Window[]
   onError: (message: string, error: unknown) => void
   quit: () => void
-  saveAllWindows: () => Promise<boolean>
   saveWindow: (window: Window) => Promise<boolean>
 }
 
@@ -26,11 +25,11 @@ export function createShutdownStateMachine<Window extends ShutdownWindow>({
   getWindows,
   onError,
   quit,
-  saveAllWindows,
   saveWindow,
 }: ShutdownStateMachineOptions<Window>) {
   const readyWindows = new WeakSet<Window>()
-  const windowAttempts = new WeakMap<Window, Promise<void>>()
+  const savedWindows = new WeakSet<Window>()
+  const windowAttempts = new WeakMap<Window, Promise<boolean>>()
   let applicationAttempt: Promise<boolean> | undefined
   let applicationComplete = false
   let runtimeClosed = false
@@ -52,8 +51,10 @@ export function createShutdownStateMachine<Window extends ShutdownWindow>({
   }
 
   const restoreWindows = (windows: readonly Window[]): void => {
-    for (const window of windows)
+    for (const window of windows) {
+      savedWindows.delete(window)
       setWindowEnabled(window, true, 'Failed to restore a window after shutdown was cancelled')
+    }
   }
 
   const disableWindows = (windows: readonly Window[]): void => {
@@ -61,29 +62,49 @@ export function createShutdownStateMachine<Window extends ShutdownWindow>({
       setWindowEnabled(window, false, 'Failed to disable a window during shutdown')
   }
 
+  const saveWindowOnce = (window: Window): Promise<boolean> => {
+    if (savedWindows.has(window))
+      return Promise.resolve(true)
+    const existing = windowAttempts.get(window)
+    if (existing)
+      return existing
+    const attempt = Promise.resolve().then(() => saveWindow(window))
+    windowAttempts.set(window, attempt)
+    void attempt.then(
+      (saved) => {
+        if (saved)
+          savedWindows.add(window)
+        else
+          savedWindows.delete(window)
+        if (windowAttempts.get(window) === attempt)
+          windowAttempts.delete(window)
+      },
+      () => {
+        savedWindows.delete(window)
+        if (windowAttempts.get(window) === attempt)
+          windowAttempts.delete(window)
+      },
+    )
+    return attempt
+  }
+
   const startWindowClose = (window: Window): void => {
-    const attempt = saveWindow(window).then((saved) => {
-      if (!saved || quitting) {
+    void saveWindowOnce(window).then((saved) => {
+      if (!saved) {
         setWindowEnabled(window, true, 'Failed to restore a window after shutdown was cancelled')
         return
       }
+      // Application shutdown owns renderer lifetime once it has joined this
+      // save. Keep the disabled renderer alive until runtime cleanup and quit
+      // finish; a failed application attempt restores it below.
+      if (applicationAttempt !== undefined || quitting)
+        return
       readyWindows.add(window)
       window.close()
     }, (error) => {
       onError('Failed to coordinate renderer save before closing the window', error)
       setWindowEnabled(window, true, 'Failed to restore a window after shutdown failed')
     })
-    windowAttempts.set(window, attempt)
-    void attempt.then(
-      () => {
-        if (windowAttempts.get(window) === attempt)
-          windowAttempts.delete(window)
-      },
-      () => {
-        if (windowAttempts.get(window) === attempt)
-          windowAttempts.delete(window)
-      },
-    )
   }
 
   const handleWindowClose = (window: Window, event: ShutdownEvent): void => {
@@ -110,7 +131,8 @@ export function createShutdownStateMachine<Window extends ShutdownWindow>({
     const windows = getWindows()
     disableWindows(windows)
     const attempt = (async () => {
-      if (!await saveAllWindows()) {
+      const saved = await Promise.all(windows.map(window => saveWindowOnce(window)))
+      if (saved.some(result => !result)) {
         restoreWindows(windows)
         return false
       }

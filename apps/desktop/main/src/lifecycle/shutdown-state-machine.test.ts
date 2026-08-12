@@ -37,7 +37,6 @@ describe('shutdown state machine', () => {
       getWindows: () => [window.window],
       onError: vi.fn(),
       quit: vi.fn(),
-      saveAllWindows: vi.fn(async () => true),
       saveWindow,
     })
     const first = eventFixture()
@@ -48,7 +47,7 @@ describe('shutdown state machine', () => {
 
     expect(first.preventDefault).toHaveBeenCalledOnce()
     expect(second.preventDefault).toHaveBeenCalledOnce()
-    expect(saveWindow).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(saveWindow).toHaveBeenCalledOnce())
     expect(window.setEnabled).toHaveBeenCalledWith(false)
 
     save.resolve(true)
@@ -66,7 +65,6 @@ describe('shutdown state machine', () => {
       getWindows: () => [window.window],
       onError: vi.fn(),
       quit: vi.fn(),
-      saveAllWindows: vi.fn(async () => true),
       saveWindow,
     })
 
@@ -93,7 +91,6 @@ describe('shutdown state machine', () => {
       getWindows: () => [window.window],
       onError,
       quit: vi.fn(),
-      saveAllWindows: vi.fn(async () => true),
       saveWindow,
     })
 
@@ -121,8 +118,7 @@ describe('shutdown state machine', () => {
       getWindows: () => [window.window],
       onError,
       quit,
-      saveAllWindows: vi.fn(() => save.promise),
-      saveWindow: vi.fn(async () => true),
+      saveWindow: vi.fn(() => save.promise),
     })
 
     const first = machine.requestApplicationQuit()
@@ -156,7 +152,6 @@ describe('shutdown state machine', () => {
       getWindows: () => [window.window],
       onError,
       quit,
-      saveAllWindows: vi.fn(async () => true),
       saveWindow: vi.fn(async () => true),
     })
 
@@ -170,27 +165,31 @@ describe('shutdown state machine', () => {
     expect(machine.isQuitting()).toBe(true)
   })
 
-  it('does not start a window save while application shutdown is in flight', async () => {
+  it('shares application and window save admission while shutdown is in flight', async () => {
     const window = windowFixture()
-    const saveAll = deferred<boolean>()
-    const saveWindow = vi.fn(async () => true)
+    const save = deferred<boolean>()
+    const runtimeClose = deferred<void>()
+    const saveWindow = vi.fn(() => save.promise)
     const machine = createShutdownStateMachine({
-      closeRuntime: vi.fn(async () => undefined),
+      closeRuntime: vi.fn(() => runtimeClose.promise),
       getWindows: () => [window.window],
       onError: vi.fn(),
       quit: vi.fn(),
-      saveAllWindows: () => saveAll.promise,
       saveWindow,
     })
-    const beforeQuit = eventFixture()
-    machine.handleBeforeQuit(beforeQuit)
     const close = eventFixture()
     machine.handleWindowClose(window.window, close)
+    const beforeQuit = eventFixture()
+    machine.handleBeforeQuit(beforeQuit)
 
     expect(beforeQuit.preventDefault).toHaveBeenCalledOnce()
     expect(close.preventDefault).toHaveBeenCalledOnce()
-    expect(saveWindow).not.toHaveBeenCalled()
-    saveAll.resolve(true)
+    await vi.waitFor(() => expect(saveWindow).toHaveBeenCalledOnce())
+    save.resolve(true)
+    expect(window.close).not.toHaveBeenCalled()
+    runtimeClose.resolve()
     await machine.requestApplicationQuit()
+    expect(saveWindow).toHaveBeenCalledOnce()
+    expect(window.close).not.toHaveBeenCalled()
   })
 })

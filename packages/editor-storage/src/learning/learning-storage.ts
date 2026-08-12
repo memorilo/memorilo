@@ -11,6 +11,8 @@ import type {
   LearningReviewStorage,
   LearningStorage,
   LearningSyncStorage,
+  RenameFsrsOptimizerInput,
+  UpdateFsrsOptimizerInput,
 } from './types'
 import {
   defaultLearningPracticeConfiguration,
@@ -95,6 +97,33 @@ async function backfillRecentSiblingBuryEvents(
 }
 
 export class SqliteLearningStorage implements LearningStorage {
+  readonly acknowledgeSyncChanges: LearningStorage['acknowledgeSyncChanges']
+  readonly archiveOptimizer: LearningStorage['archiveOptimizer']
+  readonly assignNoteOptimizer: LearningStorage['assignNoteOptimizer']
+  readonly createOptimizer: LearningStorage['createOptimizer']
+  readonly getDailyProgress: LearningStorage['getDailyProgress']
+  readonly getLearningState: LearningStorage['getLearningState']
+  readonly getMaintenanceEstimate: LearningStorage['getMaintenanceEstimate']
+  readonly getNoteOptimizer: LearningStorage['getNoteOptimizer']
+  readonly getOptimizer: LearningStorage['getOptimizer']
+  readonly getOptimizerNoteCount: LearningStorage['getOptimizerNoteCount']
+  readonly listNotesWithCards: LearningStorage['listNotesWithCards']
+  readonly listOptimizers: LearningStorage['listOptimizers']
+  readonly listNoteTopicIds: LearningStorage['listNoteTopicIds']
+  readonly listPendingSyncChanges: LearningStorage['listPendingSyncChanges']
+  readonly listQueue: LearningStorage['listQueue']
+  readonly listTargets: LearningStorage['listTargets']
+  readonly maintainDatabase: LearningStorage['maintainDatabase']
+  readonly optimizeOptimizer: LearningStorage['optimizeOptimizer']
+  readonly prepareReview: LearningStorage['prepareReview']
+  readonly rateMultiLineCard: LearningStorage['rateMultiLineCard']
+  readonly rateTarget: LearningStorage['rateTarget']
+  readonly reconcileTopicCards: LearningStorage['reconcileTopicCards']
+  readonly renameOptimizer: LearningStorage['renameOptimizer']
+  readonly resetOptimizerDefaults: LearningStorage['resetOptimizerDefaults']
+  readonly resetTarget: LearningStorage['resetTarget']
+  readonly undoLastReview: LearningStorage['undoLastReview']
+  readonly updateOptimizer: LearningStorage['updateOptimizer']
   readonly cards: LearningCardStorage
   readonly #cardRepository: LearningCardRepository
   readonly maintenance: LearningMaintenanceStorage
@@ -142,6 +171,48 @@ export class SqliteLearningStorage implements LearningStorage {
       runOperation,
     })
     this.cards = this.#cardRepository
+    this.acknowledgeSyncChanges = input => this.sync.acknowledge(input)
+    this.archiveOptimizer = optimizerId => this.optimizers.archive(optimizerId)
+    this.assignNoteOptimizer = input => this.optimizers.assignToNote(input)
+    this.createOptimizer = input => this.optimizers.create(input)
+    this.getDailyProgress = now => this.queue.getDailyProgress(now)
+    this.getLearningState = targetId => this.reviews.getState(targetId)
+    this.getMaintenanceEstimate = () => this.maintenance.getEstimate()
+    this.getNoteOptimizer = noteId => this.optimizers.getForNote(noteId)
+    this.getOptimizer = optimizerId => this.optimizers.get(optimizerId)
+    this.getOptimizerNoteCount = optimizerId => this.optimizers.getNoteCount(optimizerId)
+    this.listNotesWithCards = () => this.cards.listNotesWithCards()
+    this.listOptimizers = () => this.optimizers.list()
+    this.listNoteTopicIds = noteId => this.cards.listNoteTopicIds(noteId)
+    this.listPendingSyncChanges = limit => this.sync.listPending(limit)
+    this.listQueue = input => this.queue.list(input)
+    this.listTargets = cardId => this.cards.listTargets(cardId)
+    this.maintainDatabase = () => this.maintenance.maintain()
+    this.optimizeOptimizer = input => this.optimizers.optimize(input)
+    this.prepareReview = input => this.reviews.prepare(input)
+    this.rateMultiLineCard = input => this.reviews.rateMultiLineCard(input)
+    this.rateTarget = input => this.reviews.rateTarget(input)
+    this.reconcileTopicCards = input => this.cards.reconcileTopicCards(input)
+    this.renameOptimizer = async (input: RenameFsrsOptimizerInput) => {
+      const current = await this.optimizers.get(input.optimizerId)
+      return this.optimizers.save({
+        configuration: current.configuration,
+        name: input.name,
+        optimizerId: input.optimizerId,
+      })
+    }
+    this.resetOptimizerDefaults = (optimizerId, rescheduleNow) => this.optimizers.resetDefaults(optimizerId, rescheduleNow)
+    this.resetTarget = input => this.reviews.resetTarget(input)
+    this.undoLastReview = input => this.reviews.undoLast(input)
+    this.updateOptimizer = async (input: UpdateFsrsOptimizerInput) => {
+      const current = await this.optimizers.get(input.optimizerId)
+      return this.optimizers.save({
+        configuration: input.configuration,
+        name: current.name,
+        optimizerId: input.optimizerId,
+        rescheduleNow: input.rescheduleNow,
+      })
+    }
   }
 
   static async open(
@@ -186,4 +257,12 @@ export class SqliteLearningStorage implements LearningStorage {
   planCardReconciliation(input: LearningCardReconciliationInput): Promise<readonly DatabaseCommand[]> {
     return this.#cardRepository.planReconciliation(input)
   }
+}
+
+/** @deprecated Prefer `SqliteLearningStorage.open` with an explicit operation runner. */
+export async function createLearningStorage(
+  database: EditorStorageDatabase,
+  configuration: () => LearningPracticeConfiguration = defaultLearningPracticeConfiguration,
+): Promise<SqliteLearningStorage> {
+  return SqliteLearningStorage.open(database, operation => operation(), configuration)
 }

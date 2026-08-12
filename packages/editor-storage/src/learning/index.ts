@@ -1,3 +1,4 @@
+export { createLearningStorage, SqliteLearningStorage } from './learning-storage'
 export { GLOBAL_OPTIMIZER_ID } from './schema'
 export type {
   AcknowledgeLearningSyncInput,
@@ -41,6 +42,7 @@ export type {
   RateLearningTargetInput,
   RateMultiLineCardInput,
   ReconcileLearningCardsInput,
+  RenameFsrsOptimizerInput,
   ResetLearningTargetInput,
   ReviewRating,
   ReviewResult,
@@ -48,6 +50,7 @@ export type {
   UndoLearningReviewCommand,
   UndoLearningReviewInput,
   UndoLearningReviewsInput,
+  UpdateFsrsOptimizerInput,
 } from './types'
 export {
   defaultLearningPracticeConfiguration,

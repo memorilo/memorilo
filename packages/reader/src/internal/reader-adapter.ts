@@ -145,7 +145,7 @@ export interface ReaderAdapter {
   goForward: (entryEdge: ReaderPageEdge) => Promise<void>
   goToAnnotation: (annotationId: string) => Promise<void>
   goToOutlineItem?: (outlineItemId: string) => Promise<void>
-  mount: (container: HTMLElement) => Promise<void>
+  mount: (container: HTMLElement, signal?: AbortSignal) => Promise<void>
   moveViewport: (direction: ReaderScrollDirection) => ReaderScrollResult
   recognizeCurrentPage?: () => Promise<void>
   setAnnotations: (annotations: readonly ReaderAnnotation[]) => void

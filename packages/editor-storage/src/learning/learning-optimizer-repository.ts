@@ -14,11 +14,12 @@ import { LearningOptimizerMutations } from './learning-optimizer-mutations'
 import { LearningOptimizerRescheduler } from './learning-optimizer-rescheduler'
 import { assertNonEmpty } from './learning-storage-shared'
 
-interface LearningOptimizerRepositoryDependencies {
+export interface LearningOptimizerRepositoryDependencies {
   catalog: LearningOptimizerCatalog
   database: EditorStorageDatabase
   history: Pick<LearningReviewHistory, 'buildRescheduleCommands' | 'getRatingHistory'>
   runOperation: StorageOperationRunner
+  optimizeFsrsParameters?: typeof optimizeFsrsParameters
 }
 
 export class LearningOptimizerRepository {
@@ -27,9 +28,11 @@ export class LearningOptimizerRepository {
   readonly #mutations: LearningOptimizerMutations
   readonly #rescheduler: LearningOptimizerRescheduler
   readonly #runOperation: LearningOptimizerRepositoryDependencies['runOperation']
+  readonly #optimizeFsrsParameters: NonNullable<LearningOptimizerRepositoryDependencies['optimizeFsrsParameters']>
 
   constructor(dependencies: LearningOptimizerRepositoryDependencies) {
     this.#runOperation = dependencies.runOperation
+    this.#optimizeFsrsParameters = dependencies.optimizeFsrsParameters ?? optimizeFsrsParameters
     this.#catalog = dependencies.catalog
     this.#history = dependencies.history
     this.#rescheduler = new LearningOptimizerRescheduler({
@@ -92,32 +95,40 @@ export class LearningOptimizerRepository {
 
   optimize(input: OptimizeFsrsOptimizerInput): Promise<FsrsOptimizer> {
     assertNonEmpty(input.optimizerId, 'FSRS Optimizer id')
-    return this.#runOperation(async () => {
+    const loadSnapshot = this.#runOperation(async () => {
       const optimizer = await this.#catalog.get(input.optimizerId)
       if (optimizer.status !== 'active')
         throw new Error(`Cannot optimize archived FSRS Optimizer ${input.optimizerId}`)
-      const snapshot = {
+      const data = await this.#loadTrainingData(input.optimizerId)
+      if (data.histories.length === 0)
+        throw new Error(`FSRS Optimizer ${input.optimizerId} has no eligible Review Events`)
+      return {
         configuration: optimizer.configuration,
-        data: await this.#loadTrainingData(input.optimizerId),
+        data,
         name: optimizer.name,
         revisionId: optimizer.revisionId,
       }
-      if (snapshot.data.histories.length === 0)
-        throw new Error(`FSRS Optimizer ${input.optimizerId} has no eligible Review Events`)
-      const optimizedConfiguration = await optimizeFsrsParameters(
+    })
+    return loadSnapshot.then(async (snapshot) => {
+      const optimizedConfiguration = await this.#optimizeFsrsParameters(
         snapshot.data.histories,
         snapshot.configuration,
         input.timeoutMilliseconds,
       )
-      const currentData = await this.#loadTrainingData(input.optimizerId)
-      if (currentData.fingerprint !== snapshot.data.fingerprint)
-        throw new Error(`FSRS Optimizer ${input.optimizerId} training data changed while optimization was running`)
-      return this.#mutations.save({
-        configuration: optimizedConfiguration,
-        name: snapshot.name,
-        optimizerId: input.optimizerId,
-        rescheduleNow: input.rescheduleNow,
-      }, snapshot.revisionId)
+      return this.#runOperation(async () => {
+        const current = await this.#catalog.get(input.optimizerId)
+        if (current.status !== 'active')
+          throw new Error(`Cannot optimize archived FSRS Optimizer ${input.optimizerId}`)
+        const currentData = await this.#loadTrainingData(input.optimizerId)
+        if (current.revisionId !== snapshot.revisionId || currentData.fingerprint !== snapshot.data.fingerprint)
+          throw new Error(`FSRS Optimizer ${input.optimizerId} training data changed while optimization was running`)
+        return this.#mutations.save({
+          configuration: optimizedConfiguration,
+          name: snapshot.name,
+          optimizerId: input.optimizerId,
+          rescheduleNow: input.rescheduleNow,
+        }, snapshot.revisionId)
+      })
     })
   }
 

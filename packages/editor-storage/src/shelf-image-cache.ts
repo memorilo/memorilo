@@ -12,6 +12,8 @@ export interface SqliteShelfImageCacheOptions {
   maximumBytes?: number
 }
 
+export interface CreateShelfImageCacheOptions extends SqliteShelfImageCacheOptions {}
+
 interface ShelfImageRow {
   bytes: Uint8Array
   etag: string | null
@@ -235,4 +237,9 @@ export class SqliteShelfImageCache implements ShelfImageCache {
       ...pruningCommands(this.#maximumBytes),
     ]))
   }
+}
+
+/** @deprecated Prefer `SqliteShelfImageCache.open`. */
+export function createShelfImageCache(options: CreateShelfImageCacheOptions): Promise<SqliteShelfImageCache> {
+  return SqliteShelfImageCache.open(options)
 }

@@ -55,10 +55,13 @@ export class EpubArchive implements Fetcher {
     this.resources.commit()
   }
 
-  static async open(source: ResolvedReaderSource): Promise<EpubArchive> {
-    const zipReader = new ZipReader(new ReaderSourceZipReader(source))
+  static async open(source: ResolvedReaderSource, signal?: AbortSignal): Promise<EpubArchive> {
+    signal?.throwIfAborted()
+    const zipReader = new ZipReader(new ReaderSourceZipReader(source, signal))
     try {
-      const resources = new EpubResourceStore(await zipReader.getEntries())
+      const entries = await zipReader.getEntries()
+      signal?.throwIfAborted()
+      const resources = new EpubResourceStore(entries)
       return new EpubArchive(zipReader, resources)
     }
     catch (error) {

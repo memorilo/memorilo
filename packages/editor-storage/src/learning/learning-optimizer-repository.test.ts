@@ -1,5 +1,7 @@
+import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { defaultOptimizerConfiguration, FSRSVersion } from '@memorilo/srs'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SqliteTestDatabase } from '../sqlite-test-database'
 import { LearningOptimizerCatalog } from './learning-optimizer-catalog'
 import { LearningOptimizerRepository } from './learning-optimizer-repository'
@@ -119,5 +121,62 @@ describe('learning optimizer repository', () => {
 
     await repository.create({ name: 'Shared supervisor' })
     expect(operations).toHaveLength(1)
+  })
+
+  it('releases shared database admission while FSRS training is running', async () => {
+    const database = new SqliteTestDatabase()
+    databases.push(database)
+    await database.exec(learningSchema)
+    const configuration = defaultOptimizerConfiguration()
+    await database.batch([
+      {
+        parameters: [GLOBAL_OPTIMIZER_ID, 'Global', GLOBAL_OPTIMIZER_REVISION_ID, 1, 1],
+        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 1, \'active\', ?, ?, ?)',
+      },
+      {
+        parameters: [GLOBAL_OPTIMIZER_REVISION_ID, GLOBAL_OPTIMIZER_ID, JSON.stringify(configuration), FSRSVersion, 1],
+        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?)',
+      },
+      {
+        parameters: ['card', 'note', 'topic', 0, 'source', 0, 'basic', 'forward', 1, 1, 1],
+        sql: 'INSERT INTO learning_cards (card_id, note_id, topic_id, topic_order, source_block_id, source_order, kind, direction, active, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      },
+      {
+        parameters: ['target', 'card', 'whole', 0, 1, 1],
+        sql: 'INSERT INTO learning_targets (target_id, card_id, target_kind, target_order, active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      },
+    ])
+    const trainingStarted = deferred<void>()
+    const releaseTraining = deferred<typeof configuration>()
+    const supervisor = createOperationSupervisor('Optimizer test')
+    const repository = new LearningOptimizerRepository({
+      catalog: new LearningOptimizerCatalog(database),
+      database,
+      history: {
+        buildRescheduleCommands: async () => [],
+        getRatingHistory: async targetId => ({
+          ratings: [{ eventId: 'rating', occurredAt: 1, rating: 'good' }],
+          targetId,
+        }),
+      },
+      optimizeFsrsParameters: async () => {
+        trainingStarted.resolve()
+        return releaseTraining.promise
+      },
+      runOperation: operation => supervisor.run(() => operation()),
+    })
+
+    const optimizing = repository.optimize({ optimizerId: GLOBAL_OPTIMIZER_ID })
+    await trainingStarted.promise
+    const readCompleted = vi.fn()
+    void repository.get(GLOBAL_OPTIMIZER_ID).then(readCompleted)
+    await vi.waitFor(() => expect(readCompleted).toHaveBeenCalledOnce())
+
+    releaseTraining.resolve({ ...configuration, desiredRetention: 0.94 })
+    await expect(optimizing).resolves.toMatchObject({
+      configuration: { desiredRetention: 0.94 },
+      id: GLOBAL_OPTIMIZER_ID,
+    })
+    await supervisor.close()
   })
 })
