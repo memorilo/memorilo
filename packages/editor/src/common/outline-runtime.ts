@@ -102,7 +102,14 @@ export class OutlineRuntime {
 
   private update(next: OutlineRuntimeSnapshot): void {
     this.snapshot = next
-    this.listeners.forEach(listener => listener())
+    for (const listener of [...this.listeners]) {
+      try {
+        listener()
+      }
+      catch (error) {
+        console.error('Outline runtime listener failed', error)
+      }
+    }
   }
 
   private patch(patch: Partial<OutlineRuntimeSnapshot>): void {

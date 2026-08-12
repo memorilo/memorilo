@@ -1,0 +1,137 @@
+import * as stylex from '@stylexjs/stylex'
+
+export const shelfTheme = stylex.defineVars({
+  accent: 'rgb(0, 113, 227)',
+  accentPressed: 'rgb(0, 91, 187)',
+  canvas: 'rgb(250, 250, 249)',
+  controlDuration: '110ms',
+  danger: 'rgb(198, 48, 48)',
+  focus: 'rgba(41, 97, 194, 0.84)',
+  text: 'rgba(27, 28, 31, 0.92)',
+  textMuted: 'rgba(46, 48, 54, 0.64)',
+  textQuiet: 'rgba(55, 57, 63, 0.46)',
+})
+const controlTransition = {
+  'default': shelfTheme.controlDuration,
+  '@media (prefers-reduced-motion: reduce)': '0ms',
+} as const
+
+export const shelfSharedStyles = stylex.create({
+  iconButton: {
+    display: 'grid',
+    width: 34,
+    height: 34,
+    flex: '0 0 34px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderColor: {
+      'default': 'rgba(255, 255, 255, 0.68)',
+      '@media (prefers-contrast: more)': 'rgba(49, 54, 63, 0.5)',
+    },
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 17,
+    padding: 0,
+    backgroundColor: {
+      'default': 'rgba(246, 248, 251, 0.56)',
+      ':hover': 'rgba(250, 251, 253, 0.68)',
+      ':active': 'rgba(226, 230, 237, 0.66)',
+      ':disabled': 'rgba(246, 248, 251, 0.38)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(245, 246, 248)',
+    },
+    backdropFilter: {
+      'default': 'blur(24px) saturate(175%)',
+      '@media (prefers-reduced-transparency: reduce)': 'none',
+    },
+    color: {
+      'default': shelfTheme.textMuted,
+      ':disabled': 'rgba(46, 48, 54, 0.25)',
+    },
+    cursor: 'default',
+    outline: 'none',
+    boxShadow: {
+      'default': '0 5px 14px rgba(27, 34, 44, 0.1), 0 1px 3px rgba(27, 34, 44, 0.06), inset 0 1px rgba(255, 255, 255, 0.82)',
+      ':focus-visible': `0 0 0 2px ${shelfTheme.focus}`,
+    },
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.94)',
+      ':disabled': 'scale(1)',
+    },
+    transitionDuration: controlTransition,
+    transitionProperty: 'background-color, color, transform',
+    transitionTimingFunction: 'ease-out',
+  },
+  spinner: {
+    animationDuration: {
+      'default': '850ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationIterationCount: 'infinite',
+    animationName: stylex.keyframes({
+      to: { transform: 'rotate(360deg)' },
+    }),
+    animationTimingFunction: 'linear',
+  },
+  primaryButton: {
+    display: 'inline-flex',
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderColor: 'rgba(0, 83, 170, 0.16)',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingRight: 14,
+    paddingLeft: 12,
+    backgroundColor: {
+      'default': shelfTheme.accent,
+      ':hover': 'rgb(0, 105, 211)',
+      ':active': shelfTheme.accentPressed,
+      ':disabled': 'rgba(0, 113, 227, 0.48)',
+    },
+    color: 'white',
+    cursor: 'default',
+    fontSize: 13,
+    fontWeight: 600,
+    outline: 'none',
+    boxShadow: {
+      'default': '0 4px 11px rgba(0, 86, 178, 0.2), inset 0 1px rgba(255, 255, 255, 0.24)',
+      ':focus-visible': `0 0 0 2px ${shelfTheme.focus}`,
+    },
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.975)',
+    },
+    transitionDuration: controlTransition,
+    transitionProperty: 'background-color, transform',
+  },
+  secondaryButton: {
+    display: 'inline-flex',
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.42)',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingRight: 14,
+    paddingLeft: 14,
+    backgroundColor: {
+      'default': 'rgba(235, 240, 247, 0.18)',
+      ':hover': 'rgba(255, 255, 255, 0.38)',
+      ':active': 'rgba(71, 79, 91, 0.1)',
+      ':disabled': 'rgba(235, 240, 247, 0.1)',
+    },
+    color: shelfTheme.text,
+    cursor: 'default',
+    fontSize: 13,
+    fontWeight: 550,
+    outline: 'none',
+    boxShadow: {
+      'default': 'inset 0 1px rgba(255, 255, 255, 0.54), 0 1px 2px rgba(35, 42, 52, 0.06)',
+      ':focus-visible': `0 0 0 2px ${shelfTheme.focus}`,
+    },
+  },
+})

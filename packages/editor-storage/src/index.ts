@@ -1,4 +1,5 @@
 export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
+export { assertJournalDate, createEditorStorage, SqliteEditorStorage } from './editor-storage'
 export type {
   AssetReferenceProjection,
   AssetStatistics,
@@ -9,6 +10,11 @@ export type {
   CreateEditorStorageOptions,
   CreateInitializedNoteInput,
   CreateNoteInput,
+  EditorAssetStorage,
+  EditorBookTopicStorage,
+  EditorJournalStorage,
+  EditorNoteStorage,
+  EditorSearchStorage,
   EditorStorage,
   FavoriteNoteItem,
   FolderProjection,
@@ -16,6 +22,7 @@ export type {
   GetOrCreateJournalInput,
   GetTopicBlockInput,
   IndexPendingEmbeddingsInput,
+  IndexPendingEmbeddingsResult,
   JournalDate,
   JournalMetadata,
   ListJournalDatesInput,
@@ -44,6 +51,7 @@ export type {
   SearchNotesInput,
   SearchTopicBlocksInput,
   SetNoteFavoriteInput,
+  SqliteEditorStorageOptions,
   StoredAsset,
   StoredJournal,
   StoredJournalPage,
@@ -58,10 +66,10 @@ export type {
   TopicEditorMode,
   TopicProjection,
   TopicSearchHit,
-} from './editor-storage'
-export { assertJournalDate, createEditorStorage, DuplicateNoteTitleError } from './editor-storage'
+} from './editor-storage-contracts'
+export { DuplicateNoteTitleError } from './editor-storage-contracts'
 export type { EmbeddingModel } from './embedding-model'
-export { defaultLearningPracticeConfiguration, GLOBAL_OPTIMIZER_ID } from './learning'
+export { createLearningStorage, defaultLearningPracticeConfiguration, GLOBAL_OPTIMIZER_ID, SqliteLearningStorage } from './learning'
 export type {
   AcknowledgeLearningSyncInput,
   AssignNoteOptimizerInput,
@@ -71,22 +79,29 @@ export type {
   LearningCardDirection,
   LearningCardKind,
   LearningCardProjection,
+  LearningCardStorage,
   LearningDailyGoalMode,
   LearningDailyProgress,
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
+  LearningMaintenanceStorage,
+  LearningOptimizerStorage,
   LearningPhase,
   LearningPracticeConfiguration,
   LearningQueueItem,
   LearningQueueMode,
   LearningQueuePolicy,
+  LearningQueueStorage,
   LearningRatingOutcome,
   LearningReviewPreparationToken,
+  LearningReviewStorage,
   LearningState,
   LearningStorage,
   LearningSyncChange,
+  LearningSyncStorage,
   LearningTarget,
   LearningTargetKind,
+  LearningTopicCardProjection,
   ListLearningQueueInput,
   MultiLineReviewResult,
   OptimizeFsrsOptimizerInput,
@@ -100,10 +115,17 @@ export type {
   ResetLearningTargetInput,
   ReviewRating,
   ReviewResult,
+  SaveFsrsOptimizerInput,
+  UndoLearningReviewCommand,
   UndoLearningReviewInput,
+  UndoLearningReviewsInput,
   UpdateFsrsOptimizerInput,
 } from './learning'
 export type { CreateShelfImageCacheOptions } from './shelf-image-cache'
 export { createShelfImageCache } from './shelf-image-cache'
+export type { SqliteShelfImageCacheOptions } from './shelf-image-cache'
+export { SqliteShelfImageCache } from './shelf-image-cache'
 export type { CreateShelfStorageOptions } from './shelf-storage'
 export { createShelfStorage } from './shelf-storage'
+export type { SqliteShelfStorageOptions } from './shelf-storage'
+export { SqliteShelfStorage } from './shelf-storage'

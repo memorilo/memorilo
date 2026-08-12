@@ -4,7 +4,7 @@ import { defineKeymap, Priority, unsetBlockType, withPriority } from 'prosekit/c
 import { joinTextblockBackward } from 'prosekit/pm/commands'
 import { TextSelection } from 'prosekit/pm/state'
 import { createDedentListCommand, createIndentListCommand, isListNode } from 'prosemirror-flat-list'
-import { addBlockToCardBackCommand } from '../card/card-extension'
+import { addBlockToCardBackCommand } from '../card/card-answer-membership-commands'
 import { insertBlockSiblingAfter } from '../common/block-sibling'
 import { currentListBlockContext } from '../common/list-keymap-context'
 import { OUTLINE_LIST_KIND } from '../common/outline-document'

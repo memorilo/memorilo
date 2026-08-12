@@ -5,6 +5,7 @@
   "private": true,
   "exports": {
     ".": "./src/contract.ts",
+    "./ipc": "./src/ipc-contract.ts",
     "./note-save-handshake": "./src/note-save-handshake.ts"
   },
   "scripts": {
@@ -17,9 +18,9 @@
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
+    "@memorilo/effect-lifecycle": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
-    "@memorilo/shelf": "workspace:*",
-    "electron-ipc-decorator": "1.0.1"
+    "@memorilo/shelf": "workspace:*"
   },
   "devDependencies": {
     "electron": "43.2.0"

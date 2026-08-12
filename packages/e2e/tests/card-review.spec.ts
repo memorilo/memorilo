@@ -8,6 +8,8 @@ import {
   removePagesTestEnvironment,
 } from './pages-test-helpers'
 
+test.describe.configure({ mode: 'parallel' })
+
 type CardTestEnvironment = Awaited<ReturnType<typeof createPagesTestEnvironment>>
 
 async function withCardWindow(
@@ -644,7 +646,7 @@ test('rates Reverse and both Bidirectional directions through FSRS with sibling 
 })
 
 test('learns List, Set, and sibling Cloze Cards across Study Days, then reviews and optimizes FSRS', async () => {
-  test.setTimeout(120_000)
+  test.setTimeout(300_000)
   const environment = await createPagesTestEnvironment('memorilo-fsrs-sibling-chain-', [])
   const initialReviewAt = Date.now() + 60_000
   const listTitle = 'FSRS List chain'

@@ -1,16 +1,18 @@
+import { combineLifecycleFailures, runLifecycleOperations } from '@memorilo/effect-lifecycle'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import {
+  bootstrapRenderer,
+} from './app/bootstrap-renderer'
+import {
   DesktopConfigurationEnvironment,
-} from './configuration'
-import { createRendererConfigurationStore } from './configuration-store'
-import { resolveConfigLanguage } from './i18n'
-import { initI18n } from './i18n/init'
-import { NotePersistenceProvider } from './note-persistence-context'
-import { router } from './router'
+} from './app/configuration/configuration-environment'
+import { router } from './app/router'
+import { NotePersistenceManager } from './features/notes/persistence/note-persistence-manager'
+import { NotePersistenceProvider } from './features/notes/persistence/note-persistence-provider'
 import './styles/renderer-global.css'
 
 const rootElement = document.querySelector('#root')
@@ -30,27 +32,40 @@ const queryClient = new QueryClient({
 
 const root = createRoot(rootElement)
 
-void createRendererConfigurationStore().then((store) => {
-  const configuration = store.getSnapshot()
-  const language = resolveConfigLanguage(configuration.language)
-  return initI18n(language).then(() => {
-    window.addEventListener('beforeunload', () => store.close(), { once: true })
-    root.render(
-      <StrictMode>
-        <DesktopConfigurationEnvironment store={store}>
-          <QueryClientProvider client={queryClient}>
-            <NotePersistenceProvider>
-              <RouterProvider router={router} />
-            </NotePersistenceProvider>
-          </QueryClientProvider>
-        </DesktopConfigurationEnvironment>
-      </StrictMode>,
-    )
-  })
-}, (error) => {
-  root.render(
-    <main role="alert">
-      {error instanceof Error ? error.message : String(error)}
-    </main>,
-  )
-})
+void bootstrapRenderer(
+  async (store) => {
+    const notePersistenceManager = new NotePersistenceManager({ adapter: window.desktop })
+    const dispose = () => runLifecycleOperations([
+      () => root.unmount(),
+      () => notePersistenceManager.close(),
+      () => queryClient.clear(),
+    ], 'Renderer application shutdown failed')
+    try {
+      root.render(
+        <StrictMode>
+          <DesktopConfigurationEnvironment store={store}>
+            <QueryClientProvider client={queryClient}>
+              <NotePersistenceProvider manager={notePersistenceManager}>
+                <RouterProvider router={router} />
+              </NotePersistenceProvider>
+            </QueryClientProvider>
+          </DesktopConfigurationEnvironment>
+        </StrictMode>,
+      )
+    }
+    catch (error) {
+      try {
+        await dispose()
+      }
+      catch (cleanupError) {
+        throw combineLifecycleFailures(
+          [error, cleanupError],
+          'Renderer application mount and cleanup failed',
+        )
+      }
+      throw error
+    }
+    return dispose
+  },
+  error => root.render(<main role="alert">{error instanceof Error ? error.message : String(error)}</main>),
+)

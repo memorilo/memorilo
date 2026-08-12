@@ -1,17 +1,14 @@
 import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from './contract'
-import type { DesktopServices } from './desktop-api'
-import type { NoteSaveRequest, NoteSaveResult } from './note-save-handshake'
+import type { NoteSaveRequest } from './note-save-handshake'
 import { desktopConfigurationChangedChannel } from '@memorilo/desktop-config/contract'
 import { contextBridge, ipcRenderer } from 'electron'
-import { createIpcProxy } from 'electron-ipc-decorator/client'
 
 import { createDesktopApi } from './desktop-api'
+import { createDesktopIpcClient } from './ipc-client'
+import { createNoteSaveCoordinator } from './note-save-coordinator'
 import { noteSaveRequestChannel, noteSaveResultChannel } from './note-save-handshake'
 
-const services = createIpcProxy<DesktopServices>(ipcRenderer)
-
-if (!services)
-  throw new Error('Failed to create the desktop IPC proxy')
+const services = createDesktopIpcClient(ipcRenderer)
 
 function subscribeConfiguration(listener: (configuration: DesktopConfiguration) => void): () => void {
   const handleChange = (_event: Electron.IpcRendererEvent, configuration: DesktopConfiguration) => {
@@ -21,27 +18,21 @@ function subscribeConfiguration(listener: (configuration: DesktopConfiguration) 
   return () => ipcRenderer.removeListener(desktopConfigurationChangedChannel, handleChange)
 }
 
-const noteSaveListeners = new Set<Parameters<DesktopApi['subscribeNoteSaveRequests']>[0]>()
+const noteSaveCoordinator = createNoteSaveCoordinator(result => ipcRenderer.send(noteSaveResultChannel, result))
 ipcRenderer.on(noteSaveRequestChannel, async (_event, request: NoteSaveRequest) => {
-  let result: NoteSaveResult
-  try {
-    await Promise.all([...noteSaveListeners].map(listener => listener()))
-    result = { requestId: request.requestId, status: 'saved' }
-  }
-  catch (error) {
-    console.error('Failed to flush renderer Note updates before shutdown', error)
-    result = {
-      message: error instanceof Error ? error.message : String(error),
-      requestId: request.requestId,
-      status: 'failed',
-    }
-  }
-  ipcRenderer.send(noteSaveResultChannel, result)
+  await noteSaveCoordinator.handle(request.requestId)
 })
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    void noteSaveCoordinator.close().catch(error => console.error(
+      'Failed to close the renderer Note save coordinator',
+      error,
+    ))
+  }, { once: true })
+}
 
 function subscribeNoteSaveRequests(listener: Parameters<DesktopApi['subscribeNoteSaveRequests']>[0]): () => void {
-  noteSaveListeners.add(listener)
-  return () => noteSaveListeners.delete(listener)
+  return noteSaveCoordinator.subscribe(listener)
 }
 
 function subscribeNoteUpdates(listener: Parameters<DesktopApi['subscribeNoteUpdates']>[0]): () => void {

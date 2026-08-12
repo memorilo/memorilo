@@ -1,16 +1,18 @@
 import type { LoroEventBatch, Subscription } from 'loro-crdt'
 import type { EditorState, StateField } from 'prosemirror-state'
 import type { EditorView } from 'prosemirror-view'
-import type { TreeDocumentRuntime } from './model'
+import type { TreeDocumentRuntime } from './tree-schema'
 import { Fragment, Slice } from 'prosemirror-model'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { convertPmSelectionToCursors, cursorToAbsolutePosition } from './cursor'
 import {
-  clearTreeMapping,
   createNodeFromLoroTree,
   getDocumentRoot,
+} from './tree-document'
+import {
+  clearTreeMapping,
   updateLoroTreeFromPmState,
-} from './model'
+} from './tree-reconciliation'
 import { loroTreeUndoPluginKey } from './undo-plugin'
 
 export interface LoroTreeSyncPluginProps extends TreeDocumentRuntime {}

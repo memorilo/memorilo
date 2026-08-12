@@ -1,0 +1,142 @@
+import * as stylex from '@stylexjs/stylex'
+
+const colors = {
+  focus: 'rgba(41, 97, 194, 0.85)',
+  text: 'rgba(25, 27, 31, 0.9)',
+  textQuiet: 'rgba(48, 52, 59, 0.46)',
+} as const
+
+export const noteLibraryColumnStyles = stylex.create({
+  titleCellControls: {
+    display: 'grid',
+    width: '100%',
+    minWidth: 0,
+    alignItems: 'center',
+    gridTemplateColumns: '28px minmax(0, 1fr) 28px',
+    gap: 3,
+  },
+  titleOpenButton: {
+    display: 'flex',
+    height: 32,
+    minWidth: 0,
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 0,
+    borderRadius: 6,
+    paddingRight: 6,
+    paddingLeft: 6,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(70, 79, 93, 0.06)',
+      ':active': 'rgba(70, 79, 93, 0.1)',
+    },
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+    color: 'inherit',
+    cursor: 'default',
+    font: 'inherit',
+    outline: 'none',
+    textAlign: 'left',
+    textOverflow: 'ellipsis',
+    transitionDuration: {
+      'default': '90ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'background-color, box-shadow',
+    transitionTimingFunction: 'ease-out',
+    whiteSpace: 'nowrap',
+  },
+  titleOpenLabel: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  titleIconButton: {
+    display: 'grid',
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderWidth: 0,
+    borderRadius: 7,
+    padding: 0,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(70, 79, 93, 0.075)',
+      ':active': 'rgba(70, 79, 93, 0.13)',
+      ':disabled': 'transparent',
+    },
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+    color: {
+      'default': colors.textQuiet,
+      ':hover': colors.text,
+      ':disabled': 'rgba(48, 52, 59, 0.25)',
+    },
+    cursor: 'default',
+    outline: 'none',
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.94)',
+    },
+    transitionDuration: {
+      'default': '100ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'background-color, color, transform',
+    transitionTimingFunction: 'ease-out',
+  },
+  favoriteButtonActive: {
+    color: 'rgb(215, 151, 25)',
+  },
+  titleEditor: {
+    position: 'relative',
+    width: '100%',
+    minWidth: 0,
+  },
+  titleEditSpacer: {
+    width: 28,
+    height: 28,
+  },
+  titleInput: {
+    width: '100%',
+    height: 30,
+    minWidth: 0,
+    borderColor: {
+      'default': 'rgba(104, 112, 125, 0.22)',
+      ':focus': 'rgba(41, 97, 194, 0.72)',
+      ':invalid': 'rgba(184, 62, 62, 0.74)',
+    },
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingRight: 6,
+    paddingLeft: 6,
+    backgroundColor: 'rgba(246, 248, 251, 0.9)',
+    boxShadow: {
+      'default': 'inset 0 1px 2px rgba(35, 42, 53, 0.05)',
+      ':focus': '0 0 0 2px rgba(41, 97, 194, 0.18), inset 0 1px 2px rgba(35, 42, 53, 0.05)',
+    },
+    color: colors.text,
+    font: 'inherit',
+    outline: 'none',
+    opacity: {
+      'default': 1,
+      ':read-only': 0.62,
+    },
+  },
+  visuallyHidden: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    overflow: 'hidden',
+    margin: -1,
+    clip: 'rect(0 0 0 0)',
+    clipPath: 'inset(50%)',
+    whiteSpace: 'nowrap',
+  },
+})

@@ -3,19 +3,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   exposeInMainWorld: vi.fn(),
+  ipcInvoke: vi.fn(),
   ipcOn: vi.fn(),
   ipcRemoveListener: vi.fn(),
   ipcSend: vi.fn(),
-  services: {},
 }))
 
 vi.mock('electron', () => ({
   contextBridge: { exposeInMainWorld: mocks.exposeInMainWorld },
-  ipcRenderer: { on: mocks.ipcOn, removeListener: mocks.ipcRemoveListener, send: mocks.ipcSend },
-}))
-
-vi.mock('electron-ipc-decorator/client', () => ({
-  createIpcProxy: () => mocks.services,
+  ipcRenderer: {
+    invoke: mocks.ipcInvoke,
+    on: mocks.ipcOn,
+    removeListener: mocks.ipcRemoveListener,
+    send: mocks.ipcSend,
+  },
 }))
 
 await import('./index')
@@ -28,11 +29,29 @@ function exposedApi(): DesktopApi {
 }
 
 beforeEach(() => {
+  mocks.ipcInvoke.mockReset()
   mocks.ipcRemoveListener.mockClear()
   mocks.ipcSend.mockClear()
 })
 
 describe('preload IPC bridge', () => {
+  it('invokes stable application-owned channels with the original arguments', async () => {
+    mocks.ipcInvoke.mockResolvedValueOnce({ platform: 'win32', version: '43.2.0' })
+    await expect(exposedApi().getRuntimeInfo()).resolves.toEqual({
+      platform: 'win32',
+      version: '43.2.0',
+    })
+    expect(mocks.ipcInvoke).toHaveBeenCalledWith('memorilo:invoke:app:getRuntimeInfo')
+
+    mocks.ipcInvoke.mockResolvedValueOnce({ reduceMotion: true })
+    await exposedApi().setConfigurationValue('reduceMotion', true)
+    expect(mocks.ipcInvoke).toHaveBeenLastCalledWith(
+      'memorilo:invoke:configuration:setValue',
+      'reduceMotion',
+      true,
+    )
+  })
+
   it('waits for all Note save listeners and acknowledges the correlated request', async () => {
     const first = vi.fn().mockResolvedValue(undefined)
     const second = vi.fn().mockResolvedValue(undefined)
@@ -71,6 +90,41 @@ describe('preload IPC bridge', () => {
       message: 'disk full',
       requestId: 'request-failed',
       status: 'failed',
+    })
+    unsubscribe()
+  })
+
+  it('serializes overlapping Note save requests', async () => {
+    let releaseFirst!: () => void
+    const firstReleased = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    let calls = 0
+    const listener = vi.fn(async () => {
+      calls += 1
+      if (calls === 1)
+        await firstReleased
+    })
+    const unsubscribe = exposedApi().subscribeNoteSaveRequests(listener)
+    const registration = mocks.ipcOn.mock.calls.find(([channel]) => channel === 'memorilo:note-save-request')
+    const handler = registration?.[1] as ((event: unknown, request: { requestId: string }) => Promise<void>) | undefined
+    if (!handler)
+      throw new Error('Preload did not register the Note save request channel')
+
+    const first = handler({}, { requestId: 'request-serial-1' })
+    const second = handler({}, { requestId: 'request-serial-2' })
+    await Promise.resolve()
+    expect(listener).toHaveBeenCalledOnce()
+    releaseFirst()
+    await Promise.all([first, second])
+    expect(listener).toHaveBeenCalledTimes(2)
+    expect(mocks.ipcSend).toHaveBeenNthCalledWith(1, 'memorilo:note-save-result', {
+      requestId: 'request-serial-1',
+      status: 'saved',
+    })
+    expect(mocks.ipcSend).toHaveBeenNthCalledWith(2, 'memorilo:note-save-result', {
+      requestId: 'request-serial-2',
+      status: 'saved',
     })
     unsubscribe()
   })

@@ -13,7 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@memorilo/reading-format": "workspace:*",
+    "@memorilo/effect-lifecycle": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
     "@readium/navigator": "2.8.1",
     "@readium/navigator-html-injectables": "2.6.3",

@@ -1,4 +1,3 @@
-import type { ReadingFormat } from '@memorilo/reading-format'
 import type {
   ReadingAnchor,
   ReadingAnnotation,
@@ -8,6 +7,7 @@ import type {
   ReadingEpubRegionAnchor,
   ReadingEpubRegionTarget,
   ReadingEpubTextAnchor,
+  ReadingFormat,
   ReadingHighlight,
   ReadingNormalizedRect,
   ReadingNote,
@@ -28,7 +28,7 @@ export type ReaderPresentationMode = 'publisher' | 'reader'
 
 export type ReaderAnnotationColor = ReadingAnnotationColor
 
-export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr' | 'recognizing'
+export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr'
 
 export type ReaderSourceData = ArrayBuffer | Blob | Uint8Array
 
@@ -46,7 +46,7 @@ export interface ReaderDataSource extends ReaderSourceMetadata {
 export interface ReaderRandomAccessSource extends ReaderSourceMetadata {
   byteLength: number
   data?: never
-  read: (offset: number, length: number) => Promise<Uint8Array>
+  read: (offset: number, length: number, signal?: AbortSignal) => Promise<Uint8Array>
 }
 
 export type ReaderSource = ReaderDataSource | ReaderRandomAccessSource

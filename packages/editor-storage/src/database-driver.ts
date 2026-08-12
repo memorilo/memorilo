@@ -5,6 +5,9 @@ export interface DatabaseCommand {
   sql: string
 }
 
+/** Admits one complete storage operation into its owner's lifecycle. */
+export type StorageOperationRunner = <Result>(operation: () => Promise<Result>) => Promise<Result>
+
 /**
  * Platform adapter for a SQLite database with FTS5 and sqlite-vec enabled.
  * Implementations must preserve command order and execute batches atomically.
