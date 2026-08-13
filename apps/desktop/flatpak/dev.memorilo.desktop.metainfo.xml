@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.memorilo.desktop</id>
+  <name>Memorilo</name>
+  <summary>Read, organize, and review your knowledge</summary>
+  <description>
+    <p>Memorilo is a desktop knowledge workspace for reading, structured notes, and spaced repetition.</p>
+  </description>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <developer id="dev.memorilo">
+    <name>Memorilo contributors</name>
+  </developer>
+  <launchable type="desktop-id">dev.memorilo.desktop.desktop</launchable>
+  <url type="homepage">https://github.com/memorilo/memorilo</url>
+  <url type="bugtracker">https://github.com/memorilo/memorilo/issues</url>
+  <url type="vcs-browser">https://github.com/memorilo/memorilo</url>
+  <content_rating type="oars-1.1"/>
+</component>

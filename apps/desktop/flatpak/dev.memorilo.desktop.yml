@@ -1,0 +1,42 @@
+app-id: dev.memorilo.desktop
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+command: memorilo
+separate-locales: false
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --share=network
+  - --socket=pulseaudio
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --talk-name=org.freedesktop.secrets
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+
+modules:
+  - name: memorilo
+    buildsystem: simple
+    build-commands:
+      - cp -a linux-unpacked /app/memorilo
+      - install -Dm755 memorilo.sh /app/bin/memorilo
+      - install -Dm644 dev.memorilo.desktop.desktop /app/share/applications/dev.memorilo.desktop.desktop
+      - install -Dm644 dev.memorilo.desktop.metainfo.xml /app/share/metainfo/dev.memorilo.desktop.metainfo.xml
+      - install -Dm644 memorilo.png /app/share/icons/hicolor/1024x1024/apps/dev.memorilo.desktop.png
+    sources:
+      - type: dir
+        path: ../dist/linux-unpacked
+        dest: linux-unpacked
+      - type: file
+        path: memorilo.sh
+      - type: file
+        path: dev.memorilo.desktop.desktop
+      - type: file
+        path: dev.memorilo.desktop.metainfo.xml
+      - type: file
+        url: https://raw.githubusercontent.com/electron/electron/0f54e56389941bb2963adc46bd323924c208af3e/default_app/icon.png
+        sha256: b0f6f06d7e94053dabcc7dd8adc83d925089dbca55df0ca573b267b710e1f79d
+        dest-filename: memorilo.png
