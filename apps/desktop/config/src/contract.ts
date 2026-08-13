@@ -8,6 +8,13 @@ export type DesktopReaderEpubPresentationMode = 'publisher' | 'reader'
 export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
 export type DesktopWeekStart = 'monday' | 'sunday'
 
+export interface DesktopAnkiConfiguration {
+  apiKey: string
+  enabled: boolean
+  host: string
+  port: number
+}
+
 export interface DesktopFlashcardConfiguration {
   buryInterdayLearningSiblings: boolean
   buryNewSiblings: boolean
@@ -32,6 +39,7 @@ export interface DesktopMcpConfiguration {
 }
 
 export interface DesktopConfiguration {
+  anki: DesktopAnkiConfiguration
   flashcards: DesktopFlashcardConfiguration
   goals: DesktopGoalConfiguration
   language: DesktopLanguage

@@ -5,6 +5,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./model": "./src/model.ts",
     "./react": "./src/react.ts",
     "./renderer": "./src/renderer.tsx"
   },

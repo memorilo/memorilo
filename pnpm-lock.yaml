@@ -115,6 +115,9 @@ importers:
       '@huggingface/transformers':
         specifier: 3.7.5
         version: 3.7.5
+      '@memorilo/anki-connect':
+        specifier: workspace:*
+        version: link:../../../packages/anki-connect
       '@memorilo/config':
         specifier: workspace:*
         version: link:../../../packages/config
@@ -167,6 +170,9 @@ importers:
 
   apps/desktop/preload:
     dependencies:
+      '@memorilo/anki-connect':
+        specifier: workspace:*
+        version: link:../../../packages/anki-connect
       '@memorilo/desktop-config':
         specifier: workspace:*
         version: link:../config
@@ -192,6 +198,9 @@ importers:
 
   apps/desktop/renderer:
     dependencies:
+      '@memorilo/anki-connect':
+        specifier: workspace:*
+        version: link:../../../packages/anki-connect
       '@memorilo/config':
         specifier: workspace:*
         version: link:../../../packages/config

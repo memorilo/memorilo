@@ -257,7 +257,10 @@ export function renderAnkiCardDocument(card: AnkiRenderableCard, html: string, m
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><style>${css}html,body{margin:0;padding:12px;background:transparent;color:inherit;font:inherit;overflow-wrap:anywhere}audio,video{max-width:100%}img{max-width:100%;height:auto}</style></head><body>${body}</body></html>`
 }
 
-export function resolveAnkiCardMedia(client: AnkiConnectClient, card: AnkiRenderableCard): Effect.Effect<AnkiCardMedia, AnkiConnectError> {
+export function resolveAnkiCardMedia(
+  client: Pick<AnkiConnectClient, 'retrieveMediaFile'>,
+  card: AnkiRenderableCard,
+): Effect.Effect<AnkiCardMedia, AnkiConnectError> {
   return Effect.gen(function* () {
     const pending = yield* Effect.try({
       try: () => [...findAnkiCardMediaFilenames(card)],
