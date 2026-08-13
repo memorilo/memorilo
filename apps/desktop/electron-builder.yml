@@ -5,6 +5,8 @@ executableName: memorilo
 directories:
   output: dist
 
+artifactName: Memorilo-${version}-${os}-${arch}.${ext}
+
 files:
   - out/**/*
   - package.json
@@ -26,6 +28,18 @@ asarUnpack:
 
 npmRebuild: false
 nativeRebuilder: sequential
+
+mac:
+  target:
+    - dmg
+    - zip
+
+linux:
+  category: Utility
+  target:
+    - AppImage
+    - deb
+    - rpm
 
 win:
   target:

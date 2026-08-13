@@ -1,0 +1,193 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-tag:
+    name: Validate tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      is-prerelease: ${{ steps.tag.outputs.is-prerelease }}
+      is-semver: ${{ steps.tag.outputs.is-semver }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Validate SemVer tag
+        id: tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          semver='^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$TAG" =~ $semver ]]; then
+            echo "Tag '$TAG' is not SemVer; release jobs will be skipped."
+            echo 'is-semver=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          version="${TAG#v}"
+          echo 'is-semver=true' >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          version_without_build="${version%%+*}"
+          if [[ "$version_without_build" == *-* ]]; then
+            echo 'is-prerelease=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'is-prerelease=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: validate-tag
+    if: needs.validate-tag.outputs.is-semver == 'true'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact: linux-x64
+            arch: x64
+            platform: linux
+            runner: ubuntu-latest
+          - artifact: mac-arm64
+            arch: arm64
+            platform: mac
+            runner: macos-15
+          - artifact: win-x64
+            arch: x64
+            platform: win
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Rebuild native Electron dependencies
+        run: pnpm --filter @memorilo/desktop rebuild:native
+
+      - name: Prepare embedding model
+        run: pnpm prepare:embedding-model
+
+      - name: Build application
+        run: pnpm --filter @memorilo/desktop build
+
+      - name: Package desktop application
+        shell: bash
+        working-directory: apps/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+        run: pnpm exec electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never --config.extraMetadata.version="$RELEASE_VERSION"
+
+      - name: Install Flatpak tooling
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.electronjs.Electron2.BaseApp//25.08
+
+      - name: Build Flatpak bundle
+        if: matrix.platform == 'linux'
+        working-directory: apps/desktop
+        env:
+          RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+        run: |
+          flatpak-builder --user --force-clean --repo=flatpak-repo flatpak-build flatpak/dev.memorilo.desktop.yml
+          flatpak build-bundle \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+            flatpak-repo \
+            "dist/Memorilo-${RELEASE_VERSION}-linux-x64.flatpak" \
+            dev.memorilo.desktop
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            apps/desktop/dist/*.AppImage
+            apps/desktop/dist/*.deb
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.flatpak
+            apps/desktop/dist/*.rpm
+            apps/desktop/dist/*.zip
+
+  release:
+    name: Publish release
+    needs:
+      - validate-tag
+      - build
+    if: needs.validate-tag.outputs.is-semver == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create checksums
+        working-directory: release-artifacts
+        run: sha256sum -- * > SHA256SUMS.txt
+
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: node .github/scripts/generate-release-notes.mjs "$TAG" release-notes.md
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ needs.validate-tag.outputs.is-prerelease }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          prerelease=()
+          if [[ "$IS_PRERELEASE" == 'true' ]]; then
+            prerelease+=(--prerelease)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-artifacts/* --clobber
+            gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md "${prerelease[@]}"
+          else
+            gh release create "$TAG" release-artifacts/* --title "$TAG" --notes-file release-notes.md --verify-tag "${prerelease[@]}"
+          fi
