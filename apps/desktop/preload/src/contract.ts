@@ -1,3 +1,9 @@
+import type {
+  AnkiDeck,
+  AnkiReviewAnswerInput,
+  AnkiReviewCardInput,
+  AnkiReviewerCard,
+} from '@memorilo/anki-connect/model'
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
 import type { EditorCardProjection } from '@memorilo/editor/card'
@@ -111,6 +117,9 @@ export interface RestoreDesktopReviewItemInput {
   topicId: string
 }
 
+export type DesktopAnkiDeck = AnkiDeck
+export type DesktopAnkiReviewerCard = AnkiReviewerCard
+
 interface DesktopLearningStorageApi {
   archiveOptimizer: LearningStorage['optimizers']['archive']
   assignNoteOptimizer: LearningStorage['optimizers']['assignToNote']
@@ -138,10 +147,18 @@ interface DesktopLearningStorageApi {
 }
 
 export interface DesktopLearningApi extends DesktopLearningStorageApi {
+  answerAnkiReviewCard: (input: AnkiReviewAnswerInput) => Promise<DesktopAnkiReviewerCard | null>
+  endAnkiReview: () => Promise<void>
+  getCurrentAnkiReviewCard: () => Promise<DesktopAnkiReviewerCard | null>
   getNextItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
   getNextNewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
   getNextReviewItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
   restoreReviewItem: (input: RestoreDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
+  listAnkiDecks: () => Promise<readonly DesktopAnkiDeck[]>
+  playAnkiReviewAudio: (input: AnkiReviewCardInput) => Promise<void>
+  retrieveAnkiMediaFile: (filename: string) => Promise<string | null>
+  showAnkiReviewAnswer: (input: AnkiReviewCardInput) => Promise<DesktopAnkiReviewerCard>
+  startAnkiDeckReview: (deck: DesktopAnkiDeck) => Promise<DesktopAnkiReviewerCard | null>
 }
 
 export interface DesktopTopicBlock {

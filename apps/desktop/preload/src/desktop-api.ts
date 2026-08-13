@@ -7,9 +7,12 @@ import type { DesktopIpcClient } from './ipc-contract'
 
 function createDesktopLearningApi(service: DesktopIpcClient['learning']): DesktopLearningApi {
   return {
+    answerAnkiReviewCard: input => service.answerAnkiReviewCard(input),
     archiveOptimizer: optimizerId => service.archiveOptimizer(optimizerId),
     assignNoteOptimizer: input => service.assignNoteOptimizer(input),
     createOptimizer: input => service.createOptimizer(input),
+    endAnkiReview: () => service.endAnkiReview(),
+    getCurrentAnkiReviewCard: () => service.getCurrentAnkiReviewCard(),
     getDailyProgress: now => service.getDailyProgress(now),
     getLearningState: targetId => service.getLearningState(targetId),
     getMaintenanceEstimate: () => service.getMaintenanceEstimate(),
@@ -20,22 +23,27 @@ function createDesktopLearningApi(service: DesktopIpcClient['learning']): Deskto
     getNextNewItem: input => service.getNextNewItem(input),
     getNextReviewItem: input => service.getNextReviewItem(input),
     listNotesWithCards: () => service.listNotesWithCards(),
+    listAnkiDecks: () => service.listAnkiDecks(),
     listOptimizers: () => service.listOptimizers(),
     listQueue: input => service.listQueue(input),
     listTargets: cardId => service.listTargets(cardId),
     maintainDatabase: () => service.maintainDatabase(),
     optimizeOptimizer: input => service.optimizeOptimizer(input),
     prepareReview: input => service.prepareReview(input),
+    playAnkiReviewAudio: input => service.playAnkiReviewAudio(input),
     rateMultiLineCard: input => service.rateMultiLineCard(input),
     rateTarget: input => service.rateTarget(input),
     resetOptimizerDefaults: (optimizerId, rescheduleNow) => (
       service.resetOptimizerDefaults(optimizerId, rescheduleNow)
     ),
     resetTarget: input => service.resetTarget(input),
+    retrieveAnkiMediaFile: filename => service.retrieveAnkiMediaFile(filename),
     restoreReviewItem: input => service.restoreReviewItem(input),
     undoLastReview: input => service.undoLastReview(input),
     undoReviews: input => service.undoReviews(input),
     saveOptimizer: input => service.saveOptimizer(input),
+    showAnkiReviewAnswer: input => service.showAnkiReviewAnswer(input),
+    startAnkiDeckReview: deck => service.startAnkiDeckReview(deck),
   }
 }
 

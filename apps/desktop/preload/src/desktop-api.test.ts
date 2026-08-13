@@ -29,9 +29,12 @@ function serviceStub(): DesktopIpcClient {
       prunePastEmptyJournals: vi.fn(),
     },
     learning: {
+      answerAnkiReviewCard: vi.fn(),
       archiveOptimizer: vi.fn(),
       assignNoteOptimizer: vi.fn(),
       createOptimizer: vi.fn(),
+      endAnkiReview: vi.fn(),
+      getCurrentAnkiReviewCard: vi.fn(),
       getDailyProgress: vi.fn(),
       getLearningState: vi.fn(),
       getMaintenanceEstimate: vi.fn(),
@@ -41,6 +44,7 @@ function serviceStub(): DesktopIpcClient {
       getNextItem: vi.fn(),
       getNextNewItem: vi.fn(),
       getNextReviewItem: vi.fn(),
+      listAnkiDecks: vi.fn(),
       listNotesWithCards: vi.fn(),
       listOptimizers: vi.fn(),
       listQueue: vi.fn(),
@@ -48,14 +52,18 @@ function serviceStub(): DesktopIpcClient {
       maintainDatabase: vi.fn(),
       optimizeOptimizer: vi.fn(),
       prepareReview: vi.fn(),
+      playAnkiReviewAudio: vi.fn(),
       rateMultiLineCard: vi.fn(),
       rateTarget: vi.fn(),
       resetOptimizerDefaults: vi.fn(),
       resetTarget: vi.fn(),
+      retrieveAnkiMediaFile: vi.fn(),
       restoreReviewItem: vi.fn(),
       undoLastReview: vi.fn(),
       undoReviews: vi.fn(),
       saveOptimizer: vi.fn(),
+      showAnkiReviewAnswer: vi.fn(),
+      startAnkiDeckReview: vi.fn(),
     },
     notes: {
       createNote: vi.fn(),
@@ -94,6 +102,7 @@ describe('desktop preload API', () => {
   it('exposes MCP configuration and external Note update subscriptions unchanged', async () => {
     const services = serviceStub()
     const configuration: DesktopConfiguration = {
+      anki: desktopConfigurationDefinition.defaults.anki,
       flashcards: desktopConfigurationDefinition.defaults.flashcards,
       goals: desktopConfigurationDefinition.defaults.goals,
       language: 'system',

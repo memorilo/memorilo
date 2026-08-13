@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import type { ReviewRating } from './learning-review-rating-model'
 import type { LearningReviewRoute } from './learning-review-route'
 import type { LearningReviewFailure, LearningReviewWorkflow } from './learning-review-workflow'
+import type { ReviewCardRating } from './review-card-session'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -12,17 +13,18 @@ import {
   LoaderCircle,
   RotateCcw,
 } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { learningQueryKeys } from '../query-keys'
-import { learningReviewSpring, learningReviewPageStyles as styles } from './learning-review-page.stylex'
+import { learningReviewPageStyles as styles } from './learning-review-page.stylex'
 import { learningReviewRoute } from './learning-review-route'
 import { LearningReviewTitlebar } from './learning-review-titlebar'
 import { createLearningReviewWorkflow } from './learning-review-workflow'
+import { ReviewCardSession } from './review-card-session'
 
 const ReviewMaterial = lazy(async () => {
   const module = await import('./learning-review-source')
@@ -269,81 +271,44 @@ function LearningReviewPageSession({
       }
     : undefined
   const materialKey = `${active.item.queue.cardId}:${active.targetId}`
+  const reviewRatings: readonly ReviewCardRating<ReviewRating>[] = ratings.map(rating => ({
+    id: rating,
+    interval: ratingIntervals ? intervalLabel(ratingIntervals[rating], t) : '...',
+    label: t(`rating.${rating}`),
+    tone: rating,
+  }))
 
   return (
-    <main
-      {...stylex.props(styles.page, styles.session)}
-      aria-label={t('reviewTitle')}
-      data-active-review-card-id={active.item.queue.cardId}
-      data-active-review-target-id={active.targetId}
+    <ReviewCardSession
+      actionError={inlineError ? reviewFailureMessage(inlineError, t) : null}
+      actionPending={actionPending}
+      ariaLabel={t('reviewTitle')}
+      dataAttributes={{
+        'data-active-review-card-id': active.item.queue.cardId,
+        'data-active-review-target-id': active.targetId,
+      }}
+      materialAriaLabel={active.sourceVisible ? t('cardSource') : t('currentCard')}
+      materialDataAttributes={{ 'data-review-target-id': active.targetId }}
+      materialKey={materialKey}
+      pendingLabel={t('savingRating')}
+      rateAriaLabel={t('rateCard')}
+      ratingsDisabled={ratingIntervals === null}
+      ratings={reviewRatings}
+      revealed={active.revealed}
+      shouldReduceMotion={shouldReduceMotion}
+      showAnswerLabel={t('showAnswer')}
+      onRate={rating => void workflow.rate(rating)}
+      onReveal={workflow.reveal}
     >
-      <div {...stylex.props(styles.materialViewport)}>
-        <AnimatePresence initial={false} mode="wait">
-          <motion.section
-            key={materialKey}
-            {...stylex.props(styles.material)}
-            animate={{ opacity: 1, y: 0 }}
-            aria-label={active.sourceVisible ? t('cardSource') : t('currentCard')}
-            data-review-target-id={active.targetId}
-            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
-            transition={shouldReduceMotion ? { duration: 0.08 } : learningReviewSpring}
-          >
-            <Suspense fallback={<div {...stylex.props(styles.materialLoading)} role="status">{t('loadingSource')}</div>}>
-              <ReviewMaterial
-                item={active.item}
-                itemSelection={itemSelection}
-                revealedItemBlockIds={activeProjection.visibleItemBlockIds}
-                showSource={active.sourceVisible}
-                side={active.revealed ? 'answer' : 'question'}
-              />
-            </Suspense>
-          </motion.section>
-        </AnimatePresence>
-      </div>
-
-      <div {...stylex.props(styles.dockRegion)}>
-        <div {...stylex.props(styles.reviewDock)}>
-          {inlineError
-            ? (
-                <p {...stylex.props(styles.inlineError)} role="alert">
-                  {reviewFailureMessage(inlineError, t)}
-                </p>
-              )
-            : null}
-          {!active.revealed
-            ? (
-                <button
-                  {...stylex.props(styles.showAnswerButton)}
-                  type="button"
-                  onClick={workflow.reveal}
-                >
-                  {t('showAnswer')}
-                </button>
-              )
-            : (
-                <div {...stylex.props(styles.ratingGrid)} aria-label={t('rateCard')} role="group">
-                  {ratings.map(rating => (
-                    <button
-                      key={rating}
-                      {...stylex.props(styles.ratingButton, styles[`rating_${rating}`])}
-                      disabled={actionPending || ratingIntervals === null}
-                      type="button"
-                      onClick={() => void workflow.rate(rating)}
-                    >
-                      <span {...stylex.props(styles.ratingInterval)}>
-                        {ratingIntervals ? intervalLabel(ratingIntervals[rating], t) : '...'}
-                      </span>
-                      <span {...stylex.props(styles.ratingLabel)}>{t(`rating.${rating}`)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-          {actionPending
-            ? <LoaderCircle {...stylex.props(styles.dockSpinner, styles.spinner)} aria-label={t('savingRating')} size={15} />
-            : null}
-        </div>
-      </div>
-    </main>
+      <Suspense fallback={<div {...stylex.props(styles.materialLoading)} role="status">{t('loadingSource')}</div>}>
+        <ReviewMaterial
+          item={active.item}
+          itemSelection={itemSelection}
+          revealedItemBlockIds={activeProjection.visibleItemBlockIds}
+          showSource={active.sourceVisible}
+          side={active.revealed ? 'answer' : 'question'}
+        />
+      </Suspense>
+    </ReviewCardSession>
   )
 }
