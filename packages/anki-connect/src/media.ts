@@ -1,5 +1,5 @@
 import type { AnkiConnectClient } from './client'
-import type { AnkiCard, AnkiCardMedia, AnkiConnectError, AnkiMediaFile } from './model'
+import type { AnkiCardMedia, AnkiConnectError, AnkiMediaFile, AnkiRenderableCard } from './model'
 import { Effect } from 'effect'
 import { AnkiConnectProtocolError } from './model'
 
@@ -11,18 +11,26 @@ const mimeTypes: Readonly<Record<string, string>> = {
   aac: 'audio/aac',
   apng: 'image/apng',
   avif: 'image/avif',
+  bmp: 'image/bmp',
   css: 'text/css;charset=utf-8',
   flac: 'audio/flac',
   gif: 'image/gif',
+  ico: 'image/x-icon',
+  jfif: 'image/jpeg',
   jpeg: 'image/jpeg',
   jpg: 'image/jpeg',
   m4a: 'audio/mp4',
+  m4v: 'video/mp4',
+  mid: 'audio/midi',
+  midi: 'audio/midi',
+  mov: 'video/quicktime',
   mp3: 'audio/mpeg',
   mp4: 'video/mp4',
   oga: 'audio/ogg',
   ogg: 'audio/ogg',
   ogv: 'video/ogg',
   opus: 'audio/ogg; codecs=opus',
+  otf: 'font/otf',
   png: 'image/png',
   svg: 'image/svg+xml',
   ttf: 'font/ttf',
@@ -126,13 +134,20 @@ function mediaDataUrl(files: AnkiCardMedia['files'], reference: string): string 
   return basename ? files[basename]?.dataUrl ?? null : null
 }
 
-function rewriteCss(css: string, files: AnkiCardMedia['files']): string {
+function isEmbeddedMedia(reference: string): boolean {
+  return /^data:(?:audio|font|image|video)\//iu.test(reference.trim())
+}
+
+function rewriteCss(css: string, files: AnkiCardMedia['files'], importStack: ReadonlySet<string> = new Set()): string {
   const withImports = css.replace(cssImportPattern, (original, urlReference: string, _stringQuote: string, stringReference: string) => {
     const reference = unquoteCssReference(urlReference || stringReference)
-    const file = reference ? files[mediaFilename(reference) ?? ''] : undefined
+    const filename = mediaFilename(reference)
+    const file = filename ? files[filename] : undefined
     if (!file?.stylesheet)
       return original
-    return rewriteCss(file.stylesheet, files)
+    if (!filename || importStack.has(filename))
+      return ''
+    return rewriteCss(file.stylesheet, files, new Set([...importStack, filename]))
   })
   return withImports.replace(cssUrlPattern, (original, rawReference: string) => {
     const reference = unquoteCssReference(rawReference)
@@ -148,27 +163,27 @@ function soundMarkup(filename: string, files: AnkiCardMedia['files']): string {
   return `<audio controls preload="metadata" src="${dataUrl}"></audio>`
 }
 
-function decodeStylesheet(filename: string, base64: string): string {
+function decodeBase64(filename: string, base64: string): Uint8Array {
   try {
-    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
-    return new TextDecoder().decode(bytes)
+    return Uint8Array.from(atob(base64), character => character.charCodeAt(0))
   }
   catch (error) {
-    throw new AnkiConnectProtocolError(`Anki media stylesheet ${filename} is not valid base64`, { cause: error })
+    throw new AnkiConnectProtocolError(`Anki media file ${filename} is not valid base64`, { action: 'retrieveMediaFile', cause: error })
   }
 }
 
 function mediaFile(filename: string, base64: string): AnkiMediaFile {
   const type = mimeType(filename)
+  const bytes = decodeBase64(filename, base64)
   return {
     dataUrl: `data:${type};base64,${base64}`,
     filename,
     mimeType: type,
-    ...(type.startsWith('text/css') ? { stylesheet: decodeStylesheet(filename, base64) } : {}),
+    ...(type.startsWith('text/css') ? { stylesheet: new TextDecoder().decode(bytes) } : {}),
   }
 }
 
-export function findAnkiCardMediaFilenames(card: AnkiCard): readonly string[] {
+export function findAnkiCardMediaFilenames(card: AnkiRenderableCard): readonly string[] {
   const filenames = new Set<string>()
   collectHtmlReferences(card.question, filenames)
   collectHtmlReferences(card.answer, filenames)
@@ -176,7 +191,7 @@ export function findAnkiCardMediaFilenames(card: AnkiCard): readonly string[] {
   return [...filenames]
 }
 
-export function renderAnkiCardDocument(card: AnkiCard, html: string, media: AnkiCardMedia | undefined): string {
+export function renderAnkiCardDocument(card: AnkiRenderableCard, html: string, media: AnkiCardMedia | undefined): string {
   const document = new DOMParser().parseFromString(html, 'text/html')
   for (const script of document.querySelectorAll('script'))
     script.remove()
@@ -204,6 +219,8 @@ export function renderAnkiCardDocument(card: AnkiCard, html: string, media: Anki
         element.setAttribute(attribute, dataUrl)
         continue
       }
+      if (attribute !== 'href' && isEmbeddedMedia(reference))
+        continue
       if (attribute !== 'href' || !reference.startsWith('#'))
         element.removeAttribute(attribute)
     }
@@ -212,12 +229,16 @@ export function renderAnkiCardDocument(card: AnkiCard, html: string, media: Anki
     const srcset = element.getAttribute('srcset')
     if (!srcset)
       continue
+    if (isEmbeddedMedia(srcset))
+      continue
     const rewritten = srcset.split(',').flatMap((candidate) => {
       const [reference, ...descriptors] = candidate.trim().split(/\s+/u)
       if (!reference)
         return []
       const dataUrl = mediaDataUrl(files, reference)
-      return dataUrl ? [[dataUrl, ...descriptors].join(' ')] : []
+      if (dataUrl)
+        return [[dataUrl, ...descriptors].join(' ')]
+      return isEmbeddedMedia(reference) ? [candidate.trim()] : []
     }).join(', ')
     if (rewritten.length > 0)
       element.setAttribute('srcset', rewritten)
@@ -231,12 +252,12 @@ export function renderAnkiCardDocument(card: AnkiCard, html: string, media: Anki
 
   const body = document.body.innerHTML.replace(soundPattern, (_original, filename: string) => soundMarkup(filename, files))
   const templateCss = [...document.head.querySelectorAll('style')].map(style => style.textContent ?? '').join('\n')
-  const css = rewriteCss(`${card.css}\n${templateCss}`, files).replaceAll('</style', '<\\/style')
+  const css = rewriteCss(`${card.css}\n${templateCss}`, files).replace(/<\/style/giu, '<\\/style')
   const policy = 'default-src \'none\'; font-src data:; img-src data:; media-src data:; style-src \'unsafe-inline\' data:'
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><style>${css}html,body{margin:0;padding:12px;background:transparent;color:inherit;font:inherit;overflow-wrap:anywhere}audio,video{max-width:100%}img{max-width:100%;height:auto}</style></head><body>${body}</body></html>`
 }
 
-export function resolveAnkiCardMedia(client: AnkiConnectClient, card: AnkiCard): Effect.Effect<AnkiCardMedia, AnkiConnectError> {
+export function resolveAnkiCardMedia(client: AnkiConnectClient, card: AnkiRenderableCard): Effect.Effect<AnkiCardMedia, AnkiConnectError> {
   return Effect.gen(function* () {
     const pending = yield* Effect.try({
       try: () => [...findAnkiCardMediaFilenames(card)],
