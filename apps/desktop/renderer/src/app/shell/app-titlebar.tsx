@@ -1,5 +1,4 @@
 import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
 import type { PageTitlebarOptions } from '../../shared/page-titlebar'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
@@ -13,6 +12,7 @@ import {
 } from 'react'
 
 import { useTranslation } from 'react-i18next'
+import { PageTitlebarButton } from '../../shared/page-titlebar-button'
 import { router } from '../router'
 import { appTitlebarStyles } from './app-titlebar.stylex'
 
@@ -168,34 +168,6 @@ function EditableTitle({
   )
 }
 
-function NavigationButton({
-  children,
-  disabled = false,
-  label,
-  onClick,
-  title = label,
-}: {
-  children: ReactNode
-  disabled?: boolean
-  label: string
-  onClick: () => void
-  title?: string
-}) {
-  return (
-    <button
-      {...stylex.props(appTitlebarStyles.navigationButton)}
-      aria-label={label}
-      data-window-no-drag=""
-      disabled={disabled}
-      title={title}
-      type="button"
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
-
 export function AppTitlebar({
   page,
   sidebarVisible,
@@ -242,22 +214,22 @@ export function AppTitlebar({
               role="group"
               transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
             >
-              <NavigationButton
+              <PageTitlebarButton
                 disabled={!canGoBack}
                 label={t('back')}
                 title={canGoBack ? t('back') : t('noPreviousPage')}
                 onClick={() => router.history.back()}
               >
                 <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
-              </NavigationButton>
-              <NavigationButton
+              </PageTitlebarButton>
+              <PageTitlebarButton
                 disabled={!canGoForward}
                 label={t('forward')}
                 title={canGoForward ? t('forward') : t('noNextPage')}
                 onClick={() => router.history.forward()}
               >
                 <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
-              </NavigationButton>
+              </PageTitlebarButton>
             </motion.div>
           )
         : null}

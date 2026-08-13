@@ -7,12 +7,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Effect } from 'effect'
 import { Check, LoaderCircle, Volume2, X } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../../../shared/page-titlebar'
+import { PageTitlebarButton } from '../../../shared/page-titlebar-button'
 import { learningQueryKeys } from '../query-keys'
+import { ReviewCardSession } from '../review/review-card-session'
 import { ankiReviewPageStyles as styles } from './anki-review-page.stylex'
 
 let pendingReviewClose: ReturnType<typeof setTimeout> | null = null
@@ -120,26 +122,22 @@ export function AnkiReviewPage({
     title: deck.name,
     trailing: (
       <div {...stylex.props(styles.titlebarActions)}>
-        <button
-          {...stylex.props(styles.titlebarButton)}
-          aria-label={t('playAnkiAudio')}
+        <PageTitlebarButton
           disabled={!card || playAudio.isPending}
+          label={t('playAnkiAudio')}
           title={t('playAnkiAudio')}
-          type="button"
           onClick={play}
         >
           <Volume2 aria-hidden="true" size={16} strokeWidth={1.8} />
-        </button>
-        <button
-          {...stylex.props(styles.titlebarButton)}
-          aria-label={t('closeReview')}
+        </PageTitlebarButton>
+        <PageTitlebarButton
           disabled={closeReview.isPending}
+          label={t('closeReview')}
           title={t('closeReview')}
-          type="button"
           onClick={close}
         >
           <X aria-hidden="true" size={16} strokeWidth={1.9} />
-        </button>
+        </PageTitlebarButton>
       </div>
     ),
   }), [card, close, closeReview.isPending, deck.name, play, playAudio.isPending, t])
@@ -209,60 +207,35 @@ export function AnkiReviewPage({
     )
   }
 
+  const reviewRatings = card.answerOptions.map(option => ({
+    id: option.rating,
+    interval: option.nextReview,
+    label: t(`rating.${ratingNames[option.rating]}`),
+    tone: ratingNames[option.rating],
+  }))
+
   return (
-    <main {...stylex.props(styles.page)} aria-label={t('ankiReview')} data-anki-card-id={card.cardId}>
-      <div {...stylex.props(styles.viewport)}>
-        <AnimatePresence initial={false} mode="wait">
-          <motion.section
-            key={`${card.cardId}:${revealed ? 'answer' : 'question'}`}
-            {...stylex.props(styles.card)}
-            animate={{ opacity: 1, y: 0 }}
-            aria-label={revealed ? t('ankiAnswer') : t('ankiQuestion')}
-            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
-            transition={shouldReduceMotion ? { duration: 0.08 } : { bounce: 0, type: 'spring', visualDuration: 0.24 }}
-          >
-            {mediaQuery.isError
-              ? <p {...stylex.props(styles.mediaWarning)} role="alert">{t('ankiMediaFailed', { message: errorMessage(mediaQuery.error) })}</p>
-              : null}
-            <AnkiNoteRenderer card={card} media={mediaQuery.data} side={revealed ? 'answer' : 'question'} />
-          </motion.section>
-        </AnimatePresence>
-      </div>
-      <div {...stylex.props(styles.dockRegion)}>
-        <div {...stylex.props(styles.dock)}>
-          {actionError
-            ? <p {...stylex.props(styles.inlineError)} role="alert">{errorMessage(actionError)}</p>
-            : null}
-          {!revealed
-            ? (
-                <button
-                  {...stylex.props(styles.showAnswerButton)}
-                  disabled={actionPending}
-                  type="button"
-                  onClick={() => showAnswer.mutate(card)}
-                >
-                  {t('showAnswer')}
-                </button>
-              )
-            : (
-                <div {...stylex.props(styles.ratingGrid)} aria-label={t('rateCard')} role="group">
-                  {card.answerOptions.map(option => (
-                    <button
-                      key={option.rating}
-                      {...stylex.props(styles.ratingButton, styles[`rating_${option.rating}`])}
-                      disabled={actionPending}
-                      type="button"
-                      onClick={() => rate.mutate({ current: card, rating: option.rating })}
-                    >
-                      <span {...stylex.props(styles.ratingInterval)}>{option.nextReview}</span>
-                      <span {...stylex.props(styles.ratingLabel)}>{t(`rating.${ratingNames[option.rating]}`)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-        </div>
-      </div>
-    </main>
+    <ReviewCardSession
+      actionError={actionError ? errorMessage(actionError) : null}
+      actionPending={actionPending}
+      ariaLabel={t('ankiReview')}
+      dataAttributes={{ 'data-anki-card-id': card.cardId }}
+      materialAriaLabel={revealed ? t('ankiAnswer') : t('ankiQuestion')}
+      materialKey={String(card.cardId)}
+      pendingLabel={showAnswer.isPending ? t('showAnswer') : t('savingRating')}
+      rateAriaLabel={t('rateCard')}
+      ratings={reviewRatings}
+      revealed={revealed}
+      revealDisabled={actionPending}
+      shouldReduceMotion={shouldReduceMotion}
+      showAnswerLabel={t('showAnswer')}
+      onRate={rating => rate.mutate({ current: card, rating })}
+      onReveal={() => showAnswer.mutate(card)}
+    >
+      {mediaQuery.isError
+        ? <p {...stylex.props(styles.mediaWarning)} role="alert">{t('ankiMediaFailed', { message: errorMessage(mediaQuery.error) })}</p>
+        : null}
+      <AnkiNoteRenderer card={card} media={mediaQuery.data} side={revealed ? 'answer' : 'question'} />
+    </ReviewCardSession>
   )
 }
