@@ -1,13 +1,18 @@
 import type { LearningStorage } from '@memorilo/editor-storage'
+import type { DesktopAnkiService } from '../anki/desktop-anki-service'
 import type { LearningReviewApplication } from '../learning/learning-review-application'
 import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
 export function createLearningHandlers(
   learning: LearningStorage,
   reviews: LearningReviewApplication,
+  anki: DesktopAnkiService,
   now: () => number = Date.now,
 ): DesktopIpcHandlers['learning'] {
   return {
+    answerAnkiReviewCard(input) {
+      return anki.answerReviewCard(input)
+    },
     archiveOptimizer(optimizerId: string) {
       return learning.optimizers.archive(optimizerId)
     },
@@ -16,6 +21,12 @@ export function createLearningHandlers(
     },
     createOptimizer(input: Parameters<LearningStorage['optimizers']['create']>[0]) {
       return learning.optimizers.create(input)
+    },
+    endAnkiReview() {
+      return anki.endReview()
+    },
+    getCurrentAnkiReviewCard() {
+      return anki.currentReviewCard()
     },
     getDailyProgress(requestedAt?: number) {
       return learning.queue.getDailyProgress(requestedAt ?? now())
@@ -47,6 +58,9 @@ export function createLearningHandlers(
     listOptimizers() {
       return learning.optimizers.list()
     },
+    listAnkiDecks() {
+      return anki.decks()
+    },
     listNotesWithCards() {
       return learning.cards.listNotesWithCards()
     },
@@ -68,6 +82,9 @@ export function createLearningHandlers(
         reviewedAt: input.reviewedAt ?? now(),
       })
     },
+    playAnkiReviewAudio(input) {
+      return anki.playReviewAudio(input)
+    },
     rateMultiLineCard(input: Parameters<LearningStorage['reviews']['rateMultiLineCard']>[0]) {
       return learning.reviews.rateMultiLineCard(input)
     },
@@ -83,6 +100,9 @@ export function createLearningHandlers(
     resetTarget(input: Parameters<LearningStorage['reviews']['resetTarget']>[0]) {
       return learning.reviews.resetTarget(input)
     },
+    retrieveAnkiMediaFile(filename) {
+      return anki.retrieveMediaFile(filename)
+    },
     restoreReviewItem(input: Parameters<LearningReviewApplication['restoreReviewItem']>[0]) {
       return reviews.restoreReviewItem(input)
     },
@@ -94,6 +114,12 @@ export function createLearningHandlers(
     },
     saveOptimizer(input: Parameters<LearningStorage['optimizers']['save']>[0]) {
       return learning.optimizers.save(input)
+    },
+    showAnkiReviewAnswer(input) {
+      return anki.showReviewAnswer(input)
+    },
+    startAnkiDeckReview(deck) {
+      return anki.startReview(deck)
     },
   }
 }

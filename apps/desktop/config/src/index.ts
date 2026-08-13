@@ -2,6 +2,7 @@ import { defineConfiguration } from '@memorilo/config'
 import * as Schema from 'effect/Schema'
 
 export type {
+  DesktopAnkiConfiguration,
   DesktopConfiguration,
   DesktopDailyGoalMode,
   DesktopFlashcardConfiguration,
@@ -36,6 +37,12 @@ const defaultGoalConfiguration = {
 } as const
 
 export const DesktopConfigurationSchema = Schema.Struct({
+  anki: Schema.Struct({
+    apiKey: Schema.String,
+    enabled: Schema.Boolean,
+    host: Schema.NonEmptyString.check(Schema.isPattern(/^[^\s/?#]+$/u)),
+    port: Schema.Int.check(Schema.isBetween({ maximum: 65535, minimum: 1 })),
+  }),
   flashcards: Schema.Struct({
     buryInterdayLearningSiblings: Schema.Boolean,
     buryNewSiblings: Schema.Boolean,
@@ -70,6 +77,12 @@ export const DesktopConfigurationSchema = Schema.Struct({
 
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
+    anki: {
+      apiKey: '',
+      enabled: false,
+      host: '127.0.0.1',
+      port: 8765,
+    },
     flashcards: defaultFlashcardConfiguration,
     goals: defaultGoalConfiguration,
     language: 'system' as const,
@@ -118,6 +131,35 @@ export const desktopConfigurationDefinition = defineConfiguration({
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Show Anki decks in Learning and use Anki\'s reviewer through AnkiConnect.',
+      label: 'Enable AnkiConnect',
+      path: 'anki.enabled',
+    }, {
+      control: 'text',
+      description: 'IP address or host name where AnkiConnect is listening.',
+      label: 'AnkiConnect host',
+      path: 'anki.host',
+      placeholder: '127.0.0.1',
+    }, {
+      control: 'number',
+      description: 'AnkiConnect listens on port 8765 by default.',
+      label: 'AnkiConnect port',
+      max: 65535,
+      min: 1,
+      path: 'anki.port',
+      step: 1,
+    }, {
+      control: 'text',
+      description: 'Optional API key configured in the AnkiConnect add-on. Keep it private.',
+      label: 'AnkiConnect API key',
+      path: 'anki.apiKey',
+      sensitive: true,
+    }],
+    id: 'anki',
+    label: 'Anki',
   }, {
     fields: [{
       control: 'number',
@@ -294,6 +336,21 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration))
     return configuration
   const current = configuration as Record<string, unknown>
+  const hasAnki = typeof current.anki === 'object'
+    && current.anki !== null
+    && !Array.isArray(current.anki)
+  const anki = hasAnki ? current.anki as Record<string, unknown> : {}
+  const ankiApiKey = typeof anki.apiKey === 'string' ? anki.apiKey : ''
+  const ankiEnabled = anki.enabled === true
+  const ankiHost = typeof anki.host === 'string' && /^[^\s/?#]+$/u.test(anki.host)
+    ? anki.host
+    : '127.0.0.1'
+  const ankiPort = typeof anki.port === 'number'
+    && Number.isSafeInteger(anki.port)
+    && anki.port >= 1
+    && anki.port <= 65535
+    ? anki.port
+    : 8765
   const hasFlashcards = typeof current.flashcards === 'object'
     && current.flashcards !== null
     && !Array.isArray(current.flashcards)
@@ -322,9 +379,14 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const tiffConversionFormat = current.tiffConversionFormat === undefined
     ? 'webp'
     : current.tiffConversionFormat
-  if (hasMcp
+  if (hasAnki
+    && hasMcp
     && hasFlashcards
     && hasGoals
+    && anki.apiKey === ankiApiKey
+    && anki.enabled === ankiEnabled
+    && anki.host === ankiHost
+    && anki.port === ankiPort
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
@@ -338,6 +400,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   }
   return {
     ...current,
+    anki: {
+      apiKey: ankiApiKey,
+      enabled: ankiEnabled,
+      host: ankiHost,
+      port: ankiPort,
+    },
     flashcards: hasFlashcards ? current.flashcards : defaultFlashcardConfiguration,
     goals: hasGoals ? current.goals : defaultGoalConfiguration,
     mcp: {

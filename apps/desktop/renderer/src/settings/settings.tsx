@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, GalleryVerticalEnd, Globe2, Image, Settings2, Target } from 'lucide-react'
+import { BookOpen, GalleryVerticalEnd, Globe2, Image, Settings2, Target, Waypoints } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,6 +13,7 @@ import { AssetSettings } from './asset-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
 const sectionIcons = {
+  anki: Waypoints,
   editor: BookOpen,
   flashcards: GalleryVerticalEnd,
   general: Settings2,
@@ -29,6 +30,8 @@ function sectionIcon(sectionId: string) {
 
 function translateSectionLabel(sectionId: string, t: TFunction): string {
   switch (sectionId) {
+    case 'anki':
+      return t('ankiSection')
     case 'general':
       return t('generalSection')
     case 'editor':
@@ -50,6 +53,14 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
 
 function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
   switch (field.path) {
+    case 'anki.enabled':
+      return t('ankiEnabled')
+    case 'anki.host':
+      return t('ankiHost')
+    case 'anki.port':
+      return t('ankiPort')
+    case 'anki.apiKey':
+      return t('ankiApiKey')
     case 'language':
       return t('language')
     case 'reduceMotion':
@@ -101,6 +112,14 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
 
 function translateFieldDescription(field: ConfigurationField, t: TFunction): string | undefined {
   switch (field.path) {
+    case 'anki.enabled':
+      return t('ankiEnabledDescription')
+    case 'anki.host':
+      return t('ankiHostDescription')
+    case 'anki.port':
+      return t('ankiPortDescription')
+    case 'anki.apiKey':
+      return t('ankiApiKeyDescription')
     case 'outdentBehavior':
       return t('outdentBehaviorDescription')
     case 'weekStart':
@@ -200,6 +219,8 @@ function translateUnit(unit: string | undefined, t: TFunction): string | undefin
 
 function translateSectionDescription(sectionId: string, t: TFunction): string {
   switch (sectionId) {
+    case 'anki':
+      return t('ankiDescription')
     case 'general':
       return t('generalDescription')
     case 'editor':

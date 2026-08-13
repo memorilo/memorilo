@@ -3,7 +3,7 @@ import { Data, Schema } from 'effect'
 const PositiveIntegerSchema = Schema.Int.check(Schema.isGreaterThan(0))
 const NonNegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
-export type AnkiConnectFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+export type AnkiConnectFetch = (input: Request | string | URL, init?: RequestInit) => Promise<Response>
 
 export interface AnkiConnectConfig {
   readonly apiKey?: string
