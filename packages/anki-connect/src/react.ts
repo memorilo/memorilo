@@ -1,10 +1,21 @@
-import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from '@tanstack/react-query'
-import type { Cause } from 'effect'
 import type { AnkiConnectClient } from './client'
-import type { AnkiCard, AnkiCardMedia, AnkiCollectionSnapshot, AnkiDeck, AnkiDeckSnapshot, AnkiPermission, AnkiReviewRating } from './model'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Effect } from 'effect'
+import type {
+  AnkiCardMedia,
+  AnkiCollectionSnapshot,
+  AnkiConnectError,
+  AnkiDeck,
+  AnkiDeckSnapshot,
+  AnkiPermission,
+  AnkiRenderableCard,
+  AnkiReviewAnswerInput,
+  AnkiReviewCardInput,
+  AnkiReviewerCard,
+} from './model'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Effect, Layer } from 'effect'
+import { createEffectQuery } from 'effect-query'
 import { resolveAnkiCardMedia } from './media'
+import { AnkiConnectInputError } from './model'
 
 export interface AnkiQueryOptions {
   readonly client: AnkiConnectClient
@@ -12,110 +23,210 @@ export interface AnkiQueryOptions {
   readonly staleTime?: number
 }
 
+const effectQuery = createEffectQuery(Layer.empty)
+
+function reviewerCardRevision(card: AnkiReviewerCard): string {
+  let hash = 2_166_136_261
+  for (const value of [card.question, card.answer, card.css]) {
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index)
+      hash = Math.imul(hash, 16_777_619)
+    }
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
 export const ankiQueryKeys = {
   all: ['anki'] as const,
-  collection: () => [...ankiQueryKeys.all, 'collection'] as const,
-  decks: () => [...ankiQueryKeys.all, 'decks'] as const,
-  media: (cardId: number, modificationTime: number) => [...ankiQueryKeys.all, 'media', cardId, modificationTime] as const,
-  permission: () => [...ankiQueryKeys.all, 'permission'] as const,
-  snapshot: (deckId: number) => [...ankiQueryKeys.all, 'deck', deckId] as const,
+  client: (clientKey: string) => [...ankiQueryKeys.all, clientKey] as const,
+  collection: (clientKey = 'default') => [...ankiQueryKeys.client(clientKey), 'collection'] as const,
+  decks: (clientKey = 'default') => [...ankiQueryKeys.client(clientKey), 'decks'] as const,
+  media: (card: AnkiRenderableCard, clientKey = 'default') => [
+    ...ankiQueryKeys.client(clientKey),
+    'media',
+    card.cardId,
+    ...('mod' in card
+      ? ['snapshot', card.mod]
+      : ['reviewer', reviewerCardRevision(card)]),
+  ] as const,
+  permission: (clientKey = 'default') => [...ankiQueryKeys.client(clientKey), 'permission'] as const,
+  review: (clientKey = 'default') => [...ankiQueryKeys.client(clientKey), 'review'] as const,
+  snapshots: (clientKey = 'default') => [...ankiQueryKeys.client(clientKey), 'deck'] as const,
+  snapshot: (deckId: number, clientKey = 'default') => [...ankiQueryKeys.client(clientKey), 'deck', deckId] as const,
 }
 
-function run<A>(effect: Effect.Effect<A, unknown>): Promise<A> {
-  return Effect.runPromise(effect)
-}
-
-export function ankiPermissionQueryOptions({ client, enabled = true, staleTime = 5_000 }: AnkiQueryOptions): UseQueryOptions<AnkiPermission, Cause.UnknownError, AnkiPermission, QueryKey> {
-  return {
+export function ankiPermissionQueryOptions({ client, enabled = true, staleTime = 5_000 }: AnkiQueryOptions) {
+  return effectQuery.queryOptions<AnkiPermission, AnkiConnectError, never>({
     enabled,
-    queryFn: () => run(client.permission()),
-    queryKey: ankiQueryKeys.permission(),
+    queryFn: () => client.permission(),
+    queryKey: ankiQueryKeys.permission(client.cacheKey),
     staleTime,
-  }
+  })
 }
 
-export function ankiDecksQueryOptions({ client, enabled = true, staleTime = 30_000 }: AnkiQueryOptions): UseQueryOptions<readonly AnkiDeck[], Cause.UnknownError, readonly AnkiDeck[], QueryKey> {
-  return {
+export function ankiDecksQueryOptions({ client, enabled = true, staleTime = 30_000 }: AnkiQueryOptions) {
+  return effectQuery.queryOptions<readonly AnkiDeck[], AnkiConnectError, never>({
     enabled,
-    queryFn: () => run(client.decks()),
-    queryKey: ankiQueryKeys.decks(),
+    queryFn: () => client.decks(),
+    queryKey: ankiQueryKeys.decks(client.cacheKey),
     staleTime,
-  }
+  })
 }
 
-export function ankiCollectionQueryOptions({ client, enabled = true, staleTime = 10_000 }: AnkiQueryOptions): UseQueryOptions<AnkiCollectionSnapshot, Cause.UnknownError, AnkiCollectionSnapshot, QueryKey> {
-  return {
+export function ankiCollectionQueryOptions({ client, enabled = true, staleTime = 10_000 }: AnkiQueryOptions) {
+  return effectQuery.queryOptions<AnkiCollectionSnapshot, AnkiConnectError, never>({
     enabled,
-    queryFn: () => run(client.collectionSnapshot()),
-    queryKey: ankiQueryKeys.collection(),
+    queryFn: () => client.collectionSnapshot(),
+    queryKey: ankiQueryKeys.collection(client.cacheKey),
     staleTime,
-  }
+  })
 }
 
-export function ankiDeckSnapshotQueryOptions({ client, deck, enabled = true, staleTime = 10_000 }: AnkiQueryOptions & { readonly deck: AnkiDeck }): UseQueryOptions<AnkiDeckSnapshot, Cause.UnknownError, AnkiDeckSnapshot, QueryKey> {
-  return {
+export function ankiDeckSnapshotQueryOptions({ client, deck, enabled = true, staleTime = 10_000 }: AnkiQueryOptions & { readonly deck: AnkiDeck }) {
+  return effectQuery.queryOptions<AnkiDeckSnapshot, AnkiConnectError, never>({
     enabled,
-    queryFn: () => run(client.deckSnapshot(deck)),
-    queryKey: ankiQueryKeys.snapshot(deck.id),
+    queryFn: () => client.deckSnapshot(deck),
+    queryKey: ankiQueryKeys.snapshot(deck.id, client.cacheKey),
     staleTime,
-  }
+  })
 }
 
-export function ankiCardMediaQueryOptions({ card, client, enabled = true, staleTime = Number.POSITIVE_INFINITY }: AnkiQueryOptions & { readonly card: AnkiCard }): UseQueryOptions<AnkiCardMedia, Cause.UnknownError, AnkiCardMedia, QueryKey> {
-  return {
+export function ankiCardMediaQueryOptions({ card, client, enabled = true, staleTime = Number.POSITIVE_INFINITY }: AnkiQueryOptions & { readonly card: AnkiRenderableCard }) {
+  return effectQuery.queryOptions<AnkiCardMedia, AnkiConnectError, never>({
     enabled,
-    queryFn: () => run(resolveAnkiCardMedia(client, card)),
-    queryKey: ankiQueryKeys.media(card.cardId, card.mod),
+    queryFn: () => resolveAnkiCardMedia(client, card),
+    queryKey: ankiQueryKeys.media(card, client.cacheKey),
     staleTime,
-  }
+  })
 }
 
-export function ankiAnswerCardsMutationOptions({ client }: { readonly client: AnkiConnectClient }): UseMutationOptions<readonly boolean[], Cause.UnknownError, readonly { cardId: number, ease: AnkiReviewRating }[]> {
-  return {
-    mutationFn: answers => run(client.answerCards(answers)),
-  }
+export function ankiCurrentReviewCardQueryOptions({ client, enabled = true, staleTime = 0 }: AnkiQueryOptions) {
+  return effectQuery.queryOptions<AnkiReviewerCard | null, AnkiConnectError, never>({
+    enabled,
+    queryFn: () => client.currentReviewCard(),
+    queryKey: ankiQueryKeys.review(client.cacheKey),
+    staleTime,
+  })
 }
 
-export function useAnkiPermission(options: AnkiQueryOptions): UseQueryResult<AnkiPermission, Cause.UnknownError> {
+export function ankiStartReviewMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<AnkiReviewerCard | null, AnkiConnectError, never, AnkiDeck>({
+    mutationFn: deck => client.startReview(deck),
+  })
+}
+
+export function ankiShowReviewAnswerMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<AnkiReviewerCard, AnkiConnectError, never, AnkiReviewCardInput>({
+    mutationFn: input => client.showReviewAnswer(input),
+  })
+}
+
+export function ankiShowReviewQuestionMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<AnkiReviewerCard, AnkiConnectError, never, AnkiReviewCardInput>({
+    mutationFn: input => client.showReviewQuestion(input),
+  })
+}
+
+export function ankiStartReviewCardTimerMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<void, AnkiConnectError, never, AnkiReviewCardInput>({
+    mutationFn: input => client.startReviewCardTimer(input),
+  })
+}
+
+export function ankiAnswerReviewCardMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<AnkiReviewerCard | null, AnkiConnectError, never, AnkiReviewAnswerInput>({
+    mutationFn: input => client.answerReviewCard(input),
+  })
+}
+
+export function ankiPlayReviewAudioMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<void, AnkiConnectError, never, AnkiReviewCardInput>({
+    mutationFn: input => client.playReviewAudio(input),
+  })
+}
+
+export function ankiEndReviewMutationOptions({ client }: { readonly client: AnkiConnectClient }) {
+  return effectQuery.mutationOptions<void, AnkiConnectError, never, void>({
+    mutationFn: () => client.endReview(),
+  })
+}
+
+export function useAnkiPermission(options: AnkiQueryOptions) {
   return useQuery(ankiPermissionQueryOptions(options))
 }
 
-export function useAnkiDecks(options: AnkiQueryOptions): UseQueryResult<readonly AnkiDeck[], Cause.UnknownError> {
+export function useAnkiDecks(options: AnkiQueryOptions) {
   return useQuery(ankiDecksQueryOptions(options))
 }
 
-export function useAnkiCollection(options: AnkiQueryOptions): UseQueryResult<AnkiCollectionSnapshot, Cause.UnknownError> {
+export function useAnkiCollection(options: AnkiQueryOptions) {
   return useQuery(ankiCollectionQueryOptions(options))
 }
 
-export function useAnkiDeckSnapshot(options: AnkiQueryOptions & { readonly deck: AnkiDeck | null }): UseQueryResult<AnkiDeckSnapshot, Cause.UnknownError> {
+export function useAnkiDeckSnapshot(options: AnkiQueryOptions & { readonly deck: AnkiDeck | null }) {
   return useQuery(options.deck === null
-    ? {
-        queryFn: async () => {
-          throw new Error('Anki deck snapshot requires a selected deck')
-        },
-        queryKey: [...ankiQueryKeys.all, 'deck', 'none'],
+    ? effectQuery.queryOptions<AnkiDeckSnapshot, AnkiConnectError, never>({
         enabled: false,
-      }
+        queryFn: () => Effect.fail(new AnkiConnectInputError('Anki deck snapshot requires a selected deck')),
+        queryKey: [...ankiQueryKeys.client(options.client.cacheKey), 'deck', 'none'],
+      })
     : ankiDeckSnapshotQueryOptions({ ...options, deck: options.deck }))
 }
 
-export function useAnkiCardMedia(options: AnkiQueryOptions & { readonly card: AnkiCard | null }): UseQueryResult<AnkiCardMedia, Cause.UnknownError> {
+export function useCurrentAnkiReviewCard(options: AnkiQueryOptions) {
+  return useQuery(ankiCurrentReviewCardQueryOptions(options))
+}
+
+export function useAnkiCardMedia(options: AnkiQueryOptions & { readonly card: AnkiRenderableCard | null }) {
   return useQuery(options.card === null
-    ? {
-        queryFn: async () => {
-          throw new Error('Anki card media requires a selected card')
-        },
-        queryKey: [...ankiQueryKeys.all, 'media', 'none'],
+    ? effectQuery.queryOptions<AnkiCardMedia, AnkiConnectError, never>({
         enabled: false,
-      }
+        queryFn: () => Effect.fail(new AnkiConnectInputError('Anki card media requires a selected card')),
+        queryKey: [...ankiQueryKeys.client(options.client.cacheKey), 'media', 'none'],
+      })
     : ankiCardMediaQueryOptions({ ...options, card: options.card }))
 }
 
-export function useAnswerAnkiCards(options: { readonly client: AnkiConnectClient }): UseMutationResult<readonly boolean[], Cause.UnknownError, readonly { cardId: number, ease: AnkiReviewRating }[]> {
-  return useMutation(ankiAnswerCardsMutationOptions(options))
+export function useStartAnkiReview(options: { readonly client: AnkiConnectClient }) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    ...ankiStartReviewMutationOptions(options),
+    onSuccess: card => queryClient.setQueryData(ankiQueryKeys.review(options.client.cacheKey), card),
+  })
 }
 
-export function studyCandidates(snapshot: AnkiDeckSnapshot): readonly AnkiCard[] {
-  return snapshot.queue
+export function useShowAnkiReviewAnswer(options: { readonly client: AnkiConnectClient }) {
+  return useMutation(ankiShowReviewAnswerMutationOptions(options))
+}
+
+export function useShowAnkiReviewQuestion(options: { readonly client: AnkiConnectClient }) {
+  return useMutation(ankiShowReviewQuestionMutationOptions(options))
+}
+
+export function useStartAnkiReviewCardTimer(options: { readonly client: AnkiConnectClient }) {
+  return useMutation(ankiStartReviewCardTimerMutationOptions(options))
+}
+
+export function useAnswerAnkiReviewCard(options: { readonly client: AnkiConnectClient }) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    ...ankiAnswerReviewCardMutationOptions(options),
+    onSuccess: (card) => {
+      queryClient.setQueryData(ankiQueryKeys.review(options.client.cacheKey), card)
+      void queryClient.invalidateQueries({ queryKey: ankiQueryKeys.collection(options.client.cacheKey) })
+      void queryClient.invalidateQueries({ queryKey: ankiQueryKeys.snapshots(options.client.cacheKey) })
+    },
+  })
+}
+
+export function usePlayAnkiReviewAudio(options: { readonly client: AnkiConnectClient }) {
+  return useMutation(ankiPlayReviewAudioMutationOptions(options))
+}
+
+export function useEndAnkiReview(options: { readonly client: AnkiConnectClient }) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    ...ankiEndReviewMutationOptions(options),
+    onSuccess: () => queryClient.setQueryData(ankiQueryKeys.review(options.client.cacheKey), null),
+  })
 }

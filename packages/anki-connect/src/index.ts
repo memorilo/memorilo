@@ -1,4 +1,4 @@
-export { createAnkiConnectClient } from './client'
+export { AnkiConnect, ankiConnectLayer } from './client'
 export type { AnkiConnectClient } from './client'
 export { findAnkiCardMediaFilenames, renderAnkiCardDocument, resolveAnkiCardMedia } from './media'
 export type {
@@ -7,18 +7,37 @@ export type {
   AnkiCollectionSnapshot,
   AnkiConnectConfig,
   AnkiConnectError,
+  AnkiConnectFetch,
   AnkiDeck,
   AnkiDeckSnapshot,
   AnkiField,
   AnkiMediaFile,
   AnkiNote,
   AnkiPermission,
-  AnkiRequest,
+  AnkiRenderableCard,
   AnkiReview,
+  AnkiReviewAnswerInput,
+  AnkiReviewAnswerOption,
+  AnkiReviewCardInput,
+  AnkiReviewerCard,
   AnkiReviewRating,
 } from './model'
 export {
+  AnkiCardSchema,
+  AnkiConnectConfigurationError,
+  AnkiConnectGuiStateError,
+  AnkiConnectHttpError,
+  AnkiConnectInputError,
   AnkiConnectNetworkError,
   AnkiConnectProtocolError,
   AnkiConnectResponseError,
+  AnkiDeckSchema,
+  AnkiFieldSchema,
+  AnkiNoteSchema,
+  AnkiReviewAnswerInputSchema,
+  AnkiReviewAnswerOptionSchema,
+  AnkiReviewCardInputSchema,
+  AnkiReviewerCardSchema,
+  AnkiReviewRatingSchema,
+  AnkiReviewSchema,
 } from './model'

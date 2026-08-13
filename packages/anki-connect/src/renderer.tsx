@@ -1,4 +1,4 @@
-import type { AnkiCard, AnkiCardMedia } from './model'
+import type { AnkiCardMedia, AnkiRenderableCard } from './model'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { renderAnkiCardDocument } from './media'
@@ -26,7 +26,7 @@ const styles = stylex.create({
   },
 })
 
-function NoteFrame({ card, html, label, media }: { card: AnkiCard, html: string, label: string, media?: AnkiCardMedia }) {
+function NoteFrame({ card, html, label, media }: { card: AnkiRenderableCard, html: string, label: string, media?: AnkiCardMedia }) {
   const source = useMemo(() => renderAnkiCardDocument(card, html, media), [card, html, media])
   const observerRef = useRef<ResizeObserver | null>(null)
   const resize = useCallback((frame: HTMLIFrameElement) => {
@@ -59,12 +59,12 @@ function NoteFrame({ card, html, label, media }: { card: AnkiCard, html: string,
   )
 }
 
-export function AnkiNoteRenderer({ card, media, side = 'question' }: { card: AnkiCard, media?: AnkiCardMedia, side?: 'answer' | 'question' }) {
+export function AnkiNoteRenderer({ card, media, side = 'question' }: { card: AnkiRenderableCard, media?: AnkiCardMedia, side?: 'answer' | 'question' }) {
   const html = side === 'answer' ? card.answer : card.question
   return <NoteFrame card={card} html={html} label={side === 'answer' ? 'Anki answer' : 'Anki question'} media={media} />
 }
 
-export function AnkiCardPreview({ card, media }: { card: AnkiCard, media?: AnkiCardMedia }) {
+export function AnkiCardPreview({ card, media }: { card: AnkiRenderableCard, media?: AnkiCardMedia }) {
   return (
     <div {...stylex.props(styles.surface)}>
       <div {...stylex.props(styles.side)}><AnkiNoteRenderer card={card} media={media} /></div>
