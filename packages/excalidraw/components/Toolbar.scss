@@ -2,16 +2,21 @@
 @import "../css/variables.module.scss";
 
 .excalidraw {
-  .App-toolbar {
-    @include liquidGlassLensing(var(--glass-compact-highlight));
+  .Island.App-toolbar {
+    @include memoriloNavigationSurface;
     position: relative;
     isolation: isolate;
-    background-color: var(--glass-compact-bg);
-    background-image: var(--glass-compact-highlight);
-    -webkit-backdrop-filter: var(--glass-filter-compact);
-    backdrop-filter: var(--glass-filter-compact);
-    box-shadow: var(--glass-inner-highlight), var(--glass-shadow-compact);
-    border-radius: var(--glass-radius-compact);
+    box-sizing: border-box;
+    height: 36px;
+    padding: 1px;
+    border-radius: 18px;
+
+    &::before {
+      content: none;
+      display: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
 
     & > * {
       position: relative;
@@ -28,6 +33,16 @@
       .HintViewer {
         display: none;
       }
+    }
+
+    .ToolIcon__icon,
+    .sidebar-trigger {
+      width: 32px;
+      height: 32px;
+    }
+
+    > .Stack_horizontal {
+      --gap: 0 !important;
     }
 
     &__divider {

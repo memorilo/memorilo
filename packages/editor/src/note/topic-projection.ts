@@ -9,6 +9,13 @@ export interface TopicBlockProjection {
   text: string
 }
 
+export interface TopicContentProjection {
+  blocks: readonly TopicBlockProjection[]
+  /** The effective title projected from the Topic's explicit title and content. */
+  title: string
+  topicId: string
+}
+
 const blockSeparators = new Set([
   'blockquote',
   'codeBlock',
@@ -95,4 +102,18 @@ export function projectTopicBlocks(document: NodeJSON): readonly TopicBlockProje
   const roots = document.content ?? []
   roots.forEach((node, ordinal) => visit(node, null, ordinal))
   return blocks
+}
+
+/** Projects a normalized Topic document without requiring any CRDT runtime. */
+export function projectTopicContent(
+  document: NodeJSON,
+  topicId: string,
+  explicitTitle: string,
+): TopicContentProjection {
+  const blocks = projectTopicBlocks(document)
+  const firstBlock = blocks.at(0)
+  const title = explicitTitle.length > 0
+    ? explicitTitle
+    : firstBlock?.text.split(/\r?\n/u, 1)[0]?.trim() ?? ''
+  return { blocks, title, topicId }
 }

@@ -13,13 +13,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.node.config.ts && vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@memorilo/effect-lifecycle": "workspace:*",
     "@memorilo/loro-prosemirror-tree": "workspace:*",
     "@memorilo/reader": "workspace:*",
-    "@memorilo/reading-format": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
     "@stylexjs/stylex": "0.19.0",
     "beautiful-mermaid": "^1.1.3",

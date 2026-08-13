@@ -1,0 +1,98 @@
+import type { JournalDate } from '@memorilo/desktop-preload'
+import { useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useDesktopConfiguration } from '../../shared/configuration'
+import { usePageTitlebar } from '../../shared/page-titlebar'
+import { JournalCalendarControl } from './journal-calendar-control'
+import {
+  fromJournalDate,
+  journalMonthBounds,
+  startOfJournalMonth,
+} from './journal-model'
+import { journalQueryKeys } from './query-keys'
+
+interface UseJournalCalendarTitlebarOptions {
+  onSelectDate: (journalDate: JournalDate) => void
+  selectedDate: JournalDate | null
+  selectingDate: boolean
+  today: JournalDate | undefined
+}
+
+export function useJournalCalendarTitlebar({
+  onSelectDate,
+  selectedDate,
+  selectingDate,
+  today,
+}: UseJournalCalendarTitlebarOptions): void {
+  const { t, i18n } = useTranslation('app')
+  const configuration = useDesktopConfiguration()
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [activeMonth, setActiveMonth] = useState(() => startOfJournalMonth(new Date()))
+  const effectiveSelectedDate = selectedDate ?? today
+  const monthBounds = useMemo(() => journalMonthBounds(activeMonth), [activeMonth])
+  const datesQuery = useQuery({
+    enabled: calendarOpen && today !== undefined,
+    queryFn: () => window.desktop.listJournalDates(monthBounds),
+    queryKey: journalQueryKeys.dates(monthBounds.from, monthBounds.through),
+  })
+  const knownDates = useMemo(() => {
+    const dates = new Set<JournalDate>(datesQuery.data ?? [])
+    if (today)
+      dates.add(today)
+    return dates
+  }, [datesQuery.data, today])
+
+  const locale = i18n.resolvedLanguage
+  if (!locale)
+    throw new Error('Journal calendar requires a resolved application language')
+
+  const openCalendar = useCallback(() => {
+    if (!effectiveSelectedDate)
+      return
+    setActiveMonth(startOfJournalMonth(fromJournalDate(effectiveSelectedDate)))
+    setCalendarOpen(true)
+  }, [effectiveSelectedDate])
+  const closeCalendar = useCallback(() => setCalendarOpen(false), [])
+  const changeActiveMonth = useCallback((date: Date) => setActiveMonth(startOfJournalMonth(date)), [])
+  const titlebar = useMemo(() => ({
+    title: t('journals'),
+    trailing: today && effectiveSelectedDate
+      ? (
+          <JournalCalendarControl
+            activeMonth={activeMonth}
+            calendarLabel={t('journalCalendarLabel')}
+            close={closeCalendar}
+            existingDates={knownDates}
+            loadingDates={datesQuery.isFetching || selectingDate}
+            locale={locale}
+            nextMonthLabel={t('nextMonth')}
+            open={calendarOpen}
+            previousMonthLabel={t('previousMonth')}
+            selectedDate={effectiveSelectedDate}
+            today={today}
+            weekStart={configuration.weekStart}
+            onActiveMonthChange={changeActiveMonth}
+            onOpen={openCalendar}
+            onSelectDate={onSelectDate}
+          />
+        )
+      : undefined,
+  }), [
+    activeMonth,
+    calendarOpen,
+    changeActiveMonth,
+    closeCalendar,
+    configuration.weekStart,
+    datesQuery.isFetching,
+    effectiveSelectedDate,
+    knownDates,
+    locale,
+    onSelectDate,
+    openCalendar,
+    selectingDate,
+    t,
+    today,
+  ])
+  usePageTitlebar(titlebar)
+}

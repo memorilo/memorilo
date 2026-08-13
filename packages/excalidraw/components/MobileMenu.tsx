@@ -37,6 +37,7 @@ type MobileMenuProps = {
   onHandToolToggle: () => void;
   onPenModeToggle: AppClassProperties["togglePenMode"];
 
+  renderToolbarUI?: ExcalidrawProps["renderToolbarUI"];
   renderTopRightUI?: (
     isMobile: boolean,
     appState: UIAppState,
@@ -58,6 +59,7 @@ export const MobileMenu = ({
   onHandToolToggle,
   onPenModeToggle,
 
+  renderToolbarUI,
   renderTopRightUI,
   renderCustomStats,
   renderSidebars,
@@ -88,14 +90,23 @@ export const MobileMenu = ({
                       UIOptions={UIOptions}
                       app={app}
                     />
+                    {renderToolbarUI ? (
+                      <>
+                        <div className="App-toolbar__divider" />
+                        {renderToolbarUI(true, appState)}
+                      </>
+                    ) : null}
+                    {!appState.viewModeEnabled &&
+                      appState.openDialog?.name !== "elementLinkSelector" && (
+                        <>
+                          <div className="App-toolbar__divider" />
+                          <DefaultSidebarTriggerTunnel.Out />
+                        </>
+                      )}
                   </Stack.Row>
                 </Island>
                 {renderTopRightUI && renderTopRightUI(true, appState)}
                 <div className="mobile-misc-tools-container">
-                  {!appState.viewModeEnabled &&
-                    appState.openDialog?.name !== "elementLinkSelector" && (
-                      <DefaultSidebarTriggerTunnel.Out />
-                    )}
                   <PenModeButton
                     checked={appState.penMode}
                     onChange={() => onPenModeToggle(null)}
@@ -172,7 +183,7 @@ export const MobileMenu = ({
           marginRight: SCROLLBAR_WIDTH + SCROLLBAR_MARGIN * 2,
         }}
       >
-        <Island padding={0}>
+        <Island className="App-bottom-bar-layout" padding={0}>
           {appState.openMenu === "shape" &&
           !appState.viewModeEnabled &&
           appState.openDialog?.name !== "elementLinkSelector" &&

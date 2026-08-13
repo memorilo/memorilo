@@ -1,12 +1,18 @@
+import type { OperationSupervisor } from '@memorilo/effect-lifecycle'
 import type { CachedShelfAsset, ShelfImageCache } from '@memorilo/shelf'
 import type { EditorStorageDatabase } from './database-driver'
+import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { assertNonEmpty } from './editor-storage-shared'
+import { normalizeShelfRemoteUrl } from './shelf-storage-shared'
 
 const defaultMaximumImageCacheBytes = 256 * 1024 * 1024
 
-export interface CreateShelfImageCacheOptions {
+export interface SqliteShelfImageCacheOptions {
   database: EditorStorageDatabase
   maximumBytes?: number
 }
+
+export interface CreateShelfImageCacheOptions extends SqliteShelfImageCacheOptions {}
 
 interface ShelfImageRow {
   bytes: Uint8Array
@@ -80,37 +86,31 @@ function pruningCommands(maximumBytes: number) {
   ] as const
 }
 
-function assertNonEmpty(value: string, name: string): void {
-  if (value.trim().length === 0)
-    throw new TypeError(`${name} must be a non-empty string`)
-}
-
-function validateRemoteUrl(value: string): string {
-  const url = new URL(value)
-  if (url.protocol !== 'http:' && url.protocol !== 'https:')
-    throw new TypeError('Shelf image URL must use HTTP or HTTPS')
-  return url.href
-}
-
-class DefaultShelfImageCache implements ShelfImageCache {
+export class SqliteShelfImageCache implements ShelfImageCache {
   readonly #database: EditorStorageDatabase
   readonly #maximumBytes: number
-  #writeQueue: Promise<void> = Promise.resolve()
+  readonly #operations: OperationSupervisor
 
   private constructor(database: EditorStorageDatabase, maximumBytes: number) {
-    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1)
-      throw new RangeError('Shelf image cache maximum size must be a positive safe integer')
     this.#database = database
     this.#maximumBytes = maximumBytes
+    this.#operations = createOperationSupervisor('Shelf image cache')
   }
 
-  static async create(options: CreateShelfImageCacheOptions): Promise<DefaultShelfImageCache> {
-    const cache = new DefaultShelfImageCache(
-      options.database,
-      options.maximumBytes ?? defaultMaximumImageCacheBytes,
-    )
+  static async open(options: SqliteShelfImageCacheOptions): Promise<SqliteShelfImageCache> {
+    const maximumBytes = options.maximumBytes ?? defaultMaximumImageCacheBytes
+    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1)
+      throw new RangeError('Shelf image cache maximum size must be a positive safe integer')
     await options.database.exec(imageCacheSchema)
     await options.database.batch([
+      {
+        sql: `
+          DELETE FROM shelf_assets
+          WHERE length(bytes) <= 0
+            OR mime_type NOT LIKE 'image/%'
+            OR fetched_at < 0
+        `,
+      },
       {
         sql: `
           INSERT INTO shelf_image_cache_entries (source_id, url, byte_size, last_accessed_at)
@@ -121,20 +121,22 @@ class DefaultShelfImageCache implements ShelfImageCache {
             byte_size = excluded.byte_size
         `,
       },
-      ...pruningCommands(cache.#maximumBytes),
+      ...pruningCommands(maximumBytes),
     ])
-    return cache
+    return new SqliteShelfImageCache(options.database, maximumBytes)
   }
 
-  async #serializeWrite<Result>(operation: () => Promise<Result>): Promise<Result> {
-    const result = this.#writeQueue.then(operation)
-    this.#writeQueue = result.then(() => undefined, () => undefined)
-    return result
+  #run<Result>(operation: () => Promise<Result>): Promise<Result> {
+    return this.#operations.run(operation)
+  }
+
+  close(): Promise<void> {
+    return this.#operations.close()
   }
 
   async deleteSource(sourceId: string): Promise<void> {
     assertNonEmpty(sourceId, 'Shelf image source id')
-    await this.#serializeWrite(() => this.#database.batch([
+    return this.#run(() => this.#database.batch([
       {
         parameters: [sourceId],
         sql: 'DELETE FROM shelf_image_cache_entries WHERE source_id = ?',
@@ -148,8 +150,8 @@ class DefaultShelfImageCache implements ShelfImageCache {
 
   async get(sourceId: string, url: string): Promise<CachedShelfAsset | null> {
     assertNonEmpty(sourceId, 'Shelf image source id')
-    const normalizedUrl = validateRemoteUrl(url)
-    return this.#serializeWrite(async () => {
+    const normalizedUrl = normalizeShelfRemoteUrl(url, 'Shelf image URL')
+    return this.#run(async () => {
       const row = await this.#database.get<ShelfImageRow>(`
         SELECT source_id, url, bytes, mime_type, etag, last_modified, fetched_at
         FROM shelf_assets
@@ -185,23 +187,26 @@ class DefaultShelfImageCache implements ShelfImageCache {
   }
 
   async save(asset: CachedShelfAsset): Promise<void> {
-    assertNonEmpty(asset.sourceId, 'Shelf image source id')
-    const normalizedUrl = validateRemoteUrl(asset.url)
-    if (asset.bytes.byteLength === 0)
+    const saved = structuredClone(asset)
+    assertNonEmpty(saved.sourceId, 'Shelf image source id')
+    const normalizedUrl = normalizeShelfRemoteUrl(saved.url, 'Shelf image URL')
+    if (saved.bytes.byteLength === 0)
       throw new TypeError('Shelf image must contain bytes')
-    if (!asset.mimeType.startsWith('image/'))
+    if (!saved.mimeType.startsWith('image/'))
       throw new TypeError('Shelf image MIME type must be an image')
+    if (!Number.isSafeInteger(saved.fetchedAt) || saved.fetchedAt < 0)
+      throw new RangeError('Shelf image fetch time must be a non-negative safe integer')
     const accessedAt = Date.now()
-    await this.#serializeWrite(() => this.#database.batch([
+    return this.#run(() => this.#database.batch([
       {
         parameters: [
-          asset.sourceId,
+          saved.sourceId,
           normalizedUrl,
-          asset.bytes,
-          asset.mimeType,
-          asset.etag,
-          asset.lastModified,
-          asset.fetchedAt,
+          saved.bytes,
+          saved.mimeType,
+          saved.etag,
+          saved.lastModified,
+          saved.fetchedAt,
         ],
         sql: `
           INSERT INTO shelf_assets (source_id, url, bytes, mime_type, etag, last_modified, fetched_at)
@@ -215,7 +220,7 @@ class DefaultShelfImageCache implements ShelfImageCache {
         `,
       },
       {
-        parameters: [asset.sourceId, normalizedUrl, asset.bytes.byteLength, accessedAt, accessedAt],
+        parameters: [saved.sourceId, normalizedUrl, saved.bytes.byteLength, accessedAt, accessedAt],
         sql: `
           INSERT INTO shelf_image_cache_entries (source_id, url, byte_size, last_accessed_at)
           VALUES (
@@ -234,6 +239,7 @@ class DefaultShelfImageCache implements ShelfImageCache {
   }
 }
 
-export async function createShelfImageCache(options: CreateShelfImageCacheOptions): Promise<ShelfImageCache> {
-  return DefaultShelfImageCache.create(options)
+/** @deprecated Prefer `SqliteShelfImageCache.open`. */
+export function createShelfImageCache(options: CreateShelfImageCacheOptions): Promise<SqliteShelfImageCache> {
+  return SqliteShelfImageCache.open(options)
 }

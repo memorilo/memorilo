@@ -1,0 +1,131 @@
+import type { BookFileBinding } from '@memorilo/reading-model'
+import type { LoroDoc } from 'loro-crdt'
+import type { NoteEntryKind, NoteEntrySnapshot } from './editor-note'
+import type { TopicContentProjection } from './topic-projection'
+import { createNodeJsonFromLoroTree } from '@memorilo/loro-prosemirror-tree/document'
+import { bookFileIdentityKey } from '@memorilo/reading-model'
+import { assertEditorMode } from '../common/editor-mode'
+import {
+  ENTRY_ID_KEY,
+  ENTRY_KIND_KEY,
+  FOLDER_NAME_KEY,
+  NOTE_META_KEY,
+  noteTree,
+  readBookBinding,
+  readString,
+  readTopicTitle,
+  readTopicType,
+  TOPIC_BLOCK_TREE_KEY,
+  TOPIC_EDITOR_MODE_KEY,
+} from './editor-note-crdt'
+import { projectWhiteboardContent } from './editor-note-whiteboard'
+import { projectTopicContent } from './topic-projection'
+
+export interface EditorNoteProjection {
+  entries: readonly NoteEntrySnapshot[]
+  topics: readonly TopicContentProjection[]
+}
+
+export function projectTopicContentFromTree(
+  blockTree: ReturnType<LoroDoc['getTree']>,
+  topicId: string,
+  explicitTitle: string,
+): TopicContentProjection {
+  const document = createNodeJsonFromLoroTree(blockTree)
+  if (!document)
+    throw new Error(`Topic ${topicId} does not contain an initialized document`)
+  return projectTopicContent(document, topicId, explicitTitle)
+}
+
+/** Validates and projects the complete Note entry tree from its CRDT document. */
+export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNoteProjection {
+  const entries: NoteEntrySnapshot[] = []
+  const topics: TopicContentProjection[] = []
+  const seenEntryIds = new Set<string>()
+  const bookTopicIdsByFile = new Map<string, string>()
+
+  const visit = (
+    nodes: ReturnType<ReturnType<typeof noteTree>['toArray']>,
+    parentId: string | null,
+    parentKind: NoteEntryKind | null,
+  ): void => {
+    nodes.forEach((node, ordinal) => {
+      const id = readString(node.meta, ENTRY_ID_KEY, 'NoteEntry id')
+      if (seenEntryIds.has(id))
+        throw new Error(`Duplicate NoteEntry id: ${id}`)
+      seenEntryIds.add(id)
+      const kind = node.meta.get(ENTRY_KIND_KEY)
+
+      if (kind === 'folder') {
+        if (parentKind === 'topic')
+          throw new Error(`Folder ${id} cannot use Topic ${parentId} as its parent`)
+        if (node.meta.get(TOPIC_BLOCK_TREE_KEY) !== undefined)
+          throw new Error(`Folder ${id} must not have a Topic Block tree`)
+        if (node.meta.get(TOPIC_EDITOR_MODE_KEY) !== undefined)
+          throw new Error(`Folder ${id} must not have an Editor mode`)
+        entries.push({
+          id,
+          kind,
+          name: readString(node.meta, FOLDER_NAME_KEY, `Folder ${id} name`),
+          ordinal,
+          parentId,
+        })
+      }
+      else if (kind === 'topic') {
+        const topicType = readTopicType(node.meta, `Topic ${id} type`)
+        const content = topicType === 'whiteboard'
+          ? projectWhiteboardContent({
+              doc,
+              noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id'),
+            }, id)
+          : projectTopicContentFromTree(
+              doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
+              id,
+              readTopicTitle(node.meta, `Topic ${id} title`),
+            )
+        if (topicType === 'book') {
+          const base = {
+            id,
+            kind,
+            mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+            ordinal,
+            parentId,
+            title: content.title,
+          } as const
+          const book: BookFileBinding = readBookBinding(node.meta, `BookTopic ${id} binding`)
+          const identity = bookFileIdentityKey(book.file)
+          const existingTopicId = bookTopicIdsByFile.get(identity)
+          if (existingTopicId)
+            throw new Error(`BookTopics ${existingTopicId} and ${id} bind the same file ${identity}`)
+          bookTopicIdsByFile.set(identity, id)
+          entries.push({ ...base, book, topicType })
+        }
+        else if (topicType === 'regular') {
+          entries.push({
+            id,
+            kind,
+            mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+            ordinal,
+            parentId,
+            title: content.title,
+            topicType,
+          })
+        }
+        else {
+          entries.push({ id, kind, ordinal, parentId, title: content.title, topicType })
+        }
+
+        if (includeTopics)
+          topics.push(content)
+      }
+      else {
+        throw new Error(`NoteEntry ${id} has unknown kind: ${String(kind)}`)
+      }
+
+      visit(node.children, id, kind)
+    })
+  }
+
+  visit(noteTree(doc).toArray(), null, null)
+  return { entries, topics }
+}

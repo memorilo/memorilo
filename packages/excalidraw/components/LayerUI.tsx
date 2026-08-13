@@ -71,6 +71,7 @@ interface LayerUIProps {
   onPenModeToggle: AppClassProperties["togglePenMode"];
   showExitZenModeBtn: boolean;
   langCode: Language["code"];
+  renderToolbarUI?: ExcalidrawProps["renderToolbarUI"];
   renderTopRightUI?: ExcalidrawProps["renderTopRightUI"];
   renderCustomStats?: ExcalidrawProps["renderCustomStats"];
   UIOptions: AppProps["UIOptions"];
@@ -129,6 +130,7 @@ const LayerUI = ({
   onHandToolToggle,
   onPenModeToggle,
   showExitZenModeBtn,
+  renderToolbarUI,
   renderTopRightUI,
   renderCustomStats,
   UIOptions,
@@ -296,6 +298,12 @@ const LayerUI = ({
                               UIOptions={UIOptions}
                               app={app}
                             />
+                            {renderToolbarUI ? (
+                              <>
+                                <div className="App-toolbar__divider" />
+                                {renderToolbarUI(false, appState)}
+                              </>
+                            ) : null}
                           </Stack.Row>
                         </Island>
                         {isCollaborating && (
@@ -510,6 +518,7 @@ const LayerUI = ({
           onLockToggle={onLockToggle}
           onHandToolToggle={onHandToolToggle}
           onPenModeToggle={onPenModeToggle}
+          renderToolbarUI={renderToolbarUI}
           renderTopRightUI={renderTopRightUI}
           renderCustomStats={renderCustomStats}
           renderSidebars={renderSidebars}

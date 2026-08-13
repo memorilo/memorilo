@@ -1,4 +1,3 @@
-import type { ReadingFormat } from '@memorilo/reading-format'
 import type {
   ReadingAnchor,
   ReadingAnnotation,
@@ -8,6 +7,7 @@ import type {
   ReadingEpubRegionAnchor,
   ReadingEpubRegionTarget,
   ReadingEpubTextAnchor,
+  ReadingFormat,
   ReadingHighlight,
   ReadingNormalizedRect,
   ReadingNote,
@@ -22,13 +22,24 @@ import type {
 } from '@memorilo/reading-model'
 import type { ReactNode } from 'react'
 
+export interface ReaderAuxiliarySidebarController {
+  active: boolean
+  toggle: () => void
+}
+
+export interface ReaderAuxiliarySidebar {
+  content: ReactNode
+  icon: ReactNode
+  label: string
+}
+
 export type ReaderFormat = ReadingFormat
 
 export type ReaderPresentationMode = 'publisher' | 'reader'
 
 export type ReaderAnnotationColor = ReadingAnnotationColor
 
-export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr' | 'recognizing'
+export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr'
 
 export type ReaderSourceData = ArrayBuffer | Blob | Uint8Array
 
@@ -46,7 +57,7 @@ export interface ReaderDataSource extends ReaderSourceMetadata {
 export interface ReaderRandomAccessSource extends ReaderSourceMetadata {
   byteLength: number
   data?: never
-  read: (offset: number, length: number) => Promise<Uint8Array>
+  read: (offset: number, length: number, signal?: AbortSignal) => Promise<Uint8Array>
 }
 
 export type ReaderSource = ReaderDataSource | ReaderRandomAccessSource
@@ -148,6 +159,7 @@ export interface ReaderCapabilities {
 }
 
 export interface ReaderProps {
+  auxiliarySidebar?: ReaderAuxiliarySidebar
   annotationEditingEnabled?: boolean
   arrowKeyPageTurning?: boolean
   annotations?: readonly ReaderAnnotation[]
@@ -162,6 +174,7 @@ export interface ReaderProps {
   onOcrStatusChange?: (status: ReaderOcrStatus) => void
   onPositionChange?: (position: ReaderPosition) => void
   onSelectionChange?: (selection: ReaderSelection | null) => void
+  sidebarActions?: ReactNode | ((controller: ReaderAuxiliarySidebarController) => ReactNode)
   title?: string
   toolbarActions?: ReactNode
   source: ReaderSource

@@ -1,123 +1,11 @@
 import type {
-  AddShelfSourceInput,
-  BrowseShelfInput,
-  CreateDesktopBookContextResult,
-  CreateDesktopNoteInput,
   DesktopApi,
-  DesktopAssetCheckResult,
-  DesktopBookTopicContextSummary,
-  DesktopColumnVisibilityMenuSelection,
-  DesktopConfiguration,
-  DesktopFavoriteNoteItem,
-  DesktopJournalNote,
-  DesktopJournalPage,
   DesktopLearningApi,
-  DesktopNote,
   DesktopNoteExternalUpdate,
-  DesktopNoteFavoriteState,
-  DesktopNotePage,
-  DesktopNoteSearchHit,
-  DesktopNoteWriteReceipt,
-  DesktopRecentNoteItem,
-  DesktopStoredTopicBlock,
-  DesktopTopicBlockSearchHit,
-  DesktopTopicBlockSearchMode,
-  GetDesktopNoteInput,
-  ImportDesktopNetworkImageInput,
-  JournalDate,
-  ListDesktopJournalDatesInput,
-  ListDesktopNotesInput,
-  ListDesktopPastJournalsInput,
-  OpenDesktopBookContextResult,
-  OpenDesktopJournalInput,
-  OpenShelfReadingInput,
-  PreparedShelfReading,
-  PrepareShelfReadingInput,
-  PruneDesktopPastEmptyJournalsResult,
-  ReclaimDesktopAssetsInput,
-  ReclaimDesktopAssetsResult,
-  RecordDesktopNoteOpenedInput,
-  RenameDesktopNoteInput,
-  RenameDesktopNoteResult,
-  RuntimeInfo,
-  SaveDesktopImageInput,
-  SaveDesktopImageResult,
-  SaveDesktopNoteUpdatesInput,
-  SetDesktopNoteFavoriteInput,
-  ShelfAssetInput,
-  ShelfAssetResult,
-  ShelfBrowseResult,
-  ShelfPublicationDetails,
-  ShelfPublicationDetailsInput,
-  ShelfReadingDocument,
-  ShelfReadingRangeInput,
-  ShelfSource,
-  ShowDesktopColumnVisibilityMenuInput,
-  UpdateShelfSourceInput,
 } from './contract'
+import type { DesktopIpcClient } from './ipc-contract'
 
-export interface DesktopServices {
-  app: { getRuntimeInfo: () => Promise<RuntimeInfo> }
-  assets: {
-    check: () => Promise<DesktopAssetCheckResult>
-    importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
-    reclaim: (input: ReclaimDesktopAssetsInput) => Promise<ReclaimDesktopAssetsResult>
-    saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
-  }
-  books: {
-    closeReadingSession: (sessionId: string) => Promise<boolean>
-    createContext: (input: { noteTitle: string, readingId: string, topicTitle: string }) => Promise<CreateDesktopBookContextResult>
-    isReadingAvailable: (readingId: string) => Promise<boolean>
-    listContexts: (readingId: string) => Promise<readonly DesktopBookTopicContextSummary[]>
-    rebindContext: (input: { noteId: string, readingId: string, sessionId?: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
-    selectContext: (input: { noteId: string, readingId: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
-  }
-  configuration: {
-    get: () => Promise<DesktopConfiguration>
-    set: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
-  }
-  journals: {
-    listJournalDates: (input: ListDesktopJournalDatesInput) => Promise<readonly JournalDate[]>
-    listPastJournals: (input?: ListDesktopPastJournalsInput) => Promise<DesktopJournalPage>
-    openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
-    prunePastEmptyJournals: () => Promise<PruneDesktopPastEmptyJournalsResult>
-  }
-  learning: DesktopLearningApi
-  notes: {
-    createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
-    getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
-    getTopicBlock: (input: { blockId: string, noteId: string, topicId: string }) => Promise<DesktopStoredTopicBlock | null>
-    listFavoriteNotes: (input?: { limit?: number }) => Promise<readonly DesktopFavoriteNoteItem[]>
-    listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
-    listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
-    openMostRecentNote: () => Promise<DesktopNote>
-    recordNoteOpened: (input: RecordDesktopNoteOpenedInput) => Promise<void>
-    renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
-    saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
-    searchNotes: (input: { limit?: number, query: string }) => Promise<readonly DesktopNoteSearchHit[]>
-    searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
-    setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
-  }
-  shelf: {
-    addSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
-    deleteReading: (readingId: string) => Promise<boolean>
-    getAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
-    getCachedView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
-    getPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>
-    listSources: () => Promise<readonly ShelfSource[]>
-    openReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
-    prepareReading: (input: PrepareShelfReadingInput) => Promise<PreparedShelfReading>
-    readReadingRange: (input: ShelfReadingRangeInput) => Promise<Uint8Array>
-    refreshView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
-    removeSource: (sourceId: string) => Promise<void>
-    updateSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
-  }
-  window: {
-    showColumnVisibilityMenu: (input: ShowDesktopColumnVisibilityMenuInput) => Promise<DesktopColumnVisibilityMenuSelection | null>
-  }
-}
-
-function createDesktopLearningApi(service: DesktopServices['learning']): DesktopLearningApi {
+function createDesktopLearningApi(service: DesktopIpcClient['learning']): DesktopLearningApi {
   return {
     archiveOptimizer: optimizerId => service.archiveOptimizer(optimizerId),
     assignNoteOptimizer: input => service.assignNoteOptimizer(input),
@@ -140,19 +28,19 @@ function createDesktopLearningApi(service: DesktopServices['learning']): Desktop
     prepareReview: input => service.prepareReview(input),
     rateMultiLineCard: input => service.rateMultiLineCard(input),
     rateTarget: input => service.rateTarget(input),
-    renameOptimizer: input => service.renameOptimizer(input),
     resetOptimizerDefaults: (optimizerId, rescheduleNow) => (
       service.resetOptimizerDefaults(optimizerId, rescheduleNow)
     ),
     resetTarget: input => service.resetTarget(input),
     restoreReviewItem: input => service.restoreReviewItem(input),
     undoLastReview: input => service.undoLastReview(input),
-    updateOptimizer: input => service.updateOptimizer(input),
+    undoReviews: input => service.undoReviews(input),
+    saveOptimizer: input => service.saveOptimizer(input),
   }
 }
 
 export function createDesktopApi(
-  services: DesktopServices,
+  services: DesktopIpcClient,
   subscribeConfiguration: DesktopApi['subscribeConfiguration'],
   subscribeNoteSaveRequests: DesktopApi['subscribeNoteSaveRequests'],
   subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void,
@@ -181,6 +69,7 @@ export function createDesktopApi(
     listRecentNotes: input => services.notes.listRecentNotes(input),
     learning: createDesktopLearningApi(services.learning),
     listShelfSources: () => services.shelf.listSources(),
+    loadWhiteboardLibrary: () => services.whiteboardLibrary.load(),
     openJournal: input => services.journals.openJournal(input),
     openMostRecentNote: () => services.notes.openMostRecentNote(),
     openShelfReading: input => services.shelf.openReading(input),
@@ -195,9 +84,11 @@ export function createDesktopApi(
     renameNote: input => services.notes.renameNote(input),
     saveImage: input => services.assets.saveImage(input),
     saveNoteUpdates: input => services.notes.saveNoteUpdates(input),
+    saveWhiteboardLibrary: data => services.whiteboardLibrary.save(data),
     searchNotes: input => services.notes.searchNotes(input),
     searchTopicBlocks: input => services.notes.searchTopicBlocks(input),
     setConfiguration: configuration => services.configuration.set(configuration),
+    setConfigurationValue: (path, value) => services.configuration.setValue(path, value),
     setNoteFavorite: input => services.notes.setNoteFavorite(input),
     selectBookContext: input => services.books.selectContext(input),
     showColumnVisibilityMenu: input => services.window.showColumnVisibilityMenu(input),

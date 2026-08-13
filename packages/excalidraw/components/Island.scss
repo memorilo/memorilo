@@ -29,4 +29,21 @@
       }
     }
   }
+
+  .selected-shape-actions .Island {
+    background-color: rgba(248, 249, 251, 0.96);
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+
+    &::before {
+      content: none;
+      display: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
 }

@@ -106,7 +106,7 @@ async function resolveQueueItem(
   })
   if (projection.card.sourceBlockId !== queue.sourceBlockId)
     throw unavailable(queue, 'its Source Block changed while the Queue was being resolved')
-  const resolvedTargets = resolveTargets(queue, projection.card, await learning.listTargets(queue.cardId))
+  const resolvedTargets = resolveTargets(queue, projection.card, await learning.cards.listTargets(queue.cardId))
   return reviewItem(projection, queue, resolvedTargets)
 }
 
@@ -138,13 +138,13 @@ export function createLearningReviewApplication(
     const queueInput = { ...input, now: input.now ?? now() }
     const unavailableCandidates = new Set<string>()
     while (true) {
-      const [queue] = await learning.listQueue({ ...queueInput, limit: 1, mode })
+      const [queue] = await learning.queue.list({ ...queueInput, limit: 1, mode })
       if (!queue)
         return null
       const candidateKey = queueItemIdentity(queue)
       try {
         const resolved = await resolveQueueItem(notes, learning, queue)
-        const [refreshed] = await learning.listQueue({ ...queueInput, limit: 1, mode })
+        const [refreshed] = await learning.queue.list({ ...queueInput, limit: 1, mode })
         if (!refreshed || queueItemFingerprint(refreshed) !== queueItemFingerprint(queue))
           continue
         return resolved
@@ -187,7 +187,7 @@ export function createLearningReviewApplication(
         throw error
       }
 
-      const activeTargets = (await learning.listTargets(input.cardId)).filter(target => target.active)
+      const activeTargets = (await learning.cards.listTargets(input.cardId)).filter(target => target.active)
       const selectedTarget = activeTargets.find(target => target.targetId === input.targetId)
       if (!selectedTarget)
         return null
@@ -196,7 +196,7 @@ export function createLearningReviewApplication(
       const targets = input.presentation === 'partial'
         ? [selectedTarget]
         : usesItemTargets ? activeTargets.filter(target => target.kind === 'item') : [selectedTarget]
-      const state = await learning.getLearningState(input.targetId)
+      const state = await learning.reviews.getState(input.targetId)
       const queue: LearningQueueItem = {
         cardId: input.cardId,
         dueAt: state.dueAt,

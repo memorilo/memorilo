@@ -1,13 +1,17 @@
 import stylexBabelPlugin from '@stylexjs/babel-plugin'
 import react from '@vitejs/plugin-react'
 import wasm from 'vite-plugin-wasm'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   optimizeDeps: {
     include: [
       '@memorilo/editor > prosekit/extensions/readonly',
       '@stylexjs/stylex/lib/stylex-inject',
+      '@tanstack/react-query',
+      '@tanstack/react-router',
+      '@tanstack/react-virtual',
+      'effect-query',
     ],
   },
   plugins: [
@@ -27,13 +31,13 @@ export default defineConfig({
   ],
   test: {
     browser: {
-      api: { port: 63316, strictPort: true },
       enabled: true,
       headless: true,
-      instances: [{ browser: 'chromium', launch: { channel: 'chrome' } }],
+      instances: [{ browser: 'chromium' }],
       provider: 'playwright',
       viewport: { height: 276, width: 540 },
     },
-    setupFiles: ['./src/test/setup.ts'],
+    exclude: [...configDefaults.exclude, '**/*.node.test.ts'],
+    setupFiles: ['../../../scripts/vitest-browser-setup.ts', './src/test/setup.ts'],
   },
 })

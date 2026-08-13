@@ -237,11 +237,16 @@ body.excalidraw-cursor-resize * {
     display: flex;
     flex-direction: column;
     align-items: center;
+
+    @media (max-width: 1024px) {
+      [data-topic-type="whiteboard"][data-note-inspector-visible="true"] & {
+        transform: translateX(-12px);
+      }
+    }
   }
 
   .App-bottom-bar {
     position: absolute;
-    top: 0;
     bottom: 0;
     left: 0;
     right: 0;
@@ -253,26 +258,72 @@ body.excalidraw-cursor-resize * {
     z-index: 4;
     display: flex;
     align-items: flex-end;
+    justify-content: center;
     pointer-events: none;
 
+    @media (max-width: 1024px) {
+      [data-topic-type="whiteboard"][data-note-inspector-visible="true"] & {
+        right: 292px;
+      }
+    }
+
     > .Island {
-      width: 100%;
-      max-width: 100%;
-      min-width: 100%;
+      width: fit-content;
+      max-width: min(100%, 32rem);
+      min-width: 0;
       box-sizing: border-box;
       max-height: 100%;
       display: flex;
       flex-direction: column;
       pointer-events: var(--ui-pointerEvents);
 
+      &:has(.App-mobile-menu) {
+        width: min(100%, 32rem);
+      }
+
       .panelColumn {
         padding: 8px 8px 0 8px;
+      }
+    }
+
+    > .App-bottom-bar-layout {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      filter: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      isolation: auto;
+      overflow: visible;
+      padding: 0;
+
+      &::before {
+        content: none;
+        display: none;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+
+      &:has(.dropdown-menu--mobile),
+      &:has(.App-mobile-menu) {
+        width: min(20rem, calc(100% - 1rem));
+      }
+
+      > footer.App-toolbar {
+        @include memoriloNavigationSurface;
+        align-self: center;
+        box-sizing: border-box;
+        display: flex;
+        height: 36px;
+        border-radius: 18px;
+        overflow: visible;
+        padding: 1px;
       }
     }
   }
 
   .App-toolbar {
-    width: 100%;
+    width: fit-content;
 
     .eraser {
       &.ToolIcon:hover {
@@ -287,13 +338,22 @@ body.excalidraw-cursor-resize * {
 
   .App-toolbar-content {
     display: flex;
+    height: 32px;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 0;
+
+    > div {
+      display: flex;
+    }
 
     .dropdown-menu--mobile {
-      bottom: 55px;
+      bottom: 44px;
       top: auto;
+      left: 50%;
+      width: min(20rem, calc(100vw - 2rem));
+      transform: translateX(-50%);
     }
   }
 
@@ -303,6 +363,10 @@ body.excalidraw-cursor-resize * {
     overflow-y: auto;
     box-sizing: border-box;
     margin-bottom: var(--bar-padding);
+    padding: 8px;
+    border: 1px solid rgba(56, 64, 77, 0.14);
+    border-radius: 14px;
+    background-color: rgba(248, 249, 251, 0.96);
   }
 
   .App-menu {
@@ -606,13 +670,14 @@ body.excalidraw-cursor-resize * {
   .mobile-misc-tools-container {
     position: absolute;
     top: calc(5rem - var(--editor-container-padding));
-    right: calc(var(--editor-container-padding) * -1);
+    right: 0;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--glass-border);
     border-top-left-radius: var(--border-radius-lg);
     border-bottom-left-radius: var(--border-radius-lg);
-    border-right: 0;
+    border-top-right-radius: var(--border-radius-lg);
+    border-bottom-right-radius: var(--border-radius-lg);
     overflow: hidden;
 
     background-color: var(--glass-compact-bg);
@@ -635,6 +700,12 @@ body.excalidraw-cursor-resize * {
     overflow: visible;
     max-width: 98vw;
 
+    .ToolIcon__icon,
+    .sidebar-trigger {
+      width: 2rem;
+      height: 2rem;
+    }
+
     .ToolIcon__keybinding {
       display: none;
     }
@@ -655,7 +726,29 @@ body.excalidraw-cursor-resize * {
   }
 
   .main-menu-trigger {
-    @include filledButtonOnCanvas;
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+
+    &::before {
+      content: none;
+      display: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    &:hover {
+      background-color: var(--glass-control-hover-bg);
+    }
+
+    &:active {
+      background-color: var(--glass-control-pressed-bg);
+      box-shadow: none;
+    }
   }
 
   .App-mobile-menu,

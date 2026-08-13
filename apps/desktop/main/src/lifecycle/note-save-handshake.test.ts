@@ -11,11 +11,22 @@ function createFixture() {
     on: (channel: string, listener: (event: Electron.IpcMainEvent, result: NoteSaveResult) => void) => ipc.on(channel, listener),
   }
   const sent: Array<{ id: number, request: NoteSaveRequest }> = []
-  const target = (id: number, destroyed = false) => ({
-    id,
-    isDestroyed: () => destroyed,
-    send: (_channel: string, request: NoteSaveRequest) => sent.push({ id, request }),
-  })
+  const target = (id: number, initiallyDestroyed = false) => {
+    const events = new EventEmitter()
+    let destroyed = initiallyDestroyed
+    return {
+      destroy: () => {
+        destroyed = true
+        events.emit('destroyed')
+      },
+      destroyedListenerCount: () => events.listenerCount('destroyed'),
+      id,
+      isDestroyed: () => destroyed,
+      once: (event: 'destroyed', listener: () => void) => events.once(event, listener),
+      removeListener: (event: 'destroyed', listener: () => void) => events.removeListener(event, listener),
+      send: (_channel: string, request: NoteSaveRequest) => sent.push({ id, request }),
+    }
+  }
   const respond = (id: number, result: NoteSaveResult) => {
     ipc.emit(noteSaveResultChannel, { sender: { id } }, result)
   }
@@ -100,5 +111,62 @@ describe('renderer Note save handshake', () => {
     await expect(second).resolves.toEqual({ status: 'saved' })
     fixture.respond(1, { requestId: firstRequestId, status: 'saved' })
     await expect(first).resolves.toEqual({ status: 'saved' })
+  })
+
+  it('fails immediately and releases listeners when a renderer is destroyed while saving', async () => {
+    const fixture = createFixture()
+    const target = fixture.target(7)
+    const outcome = flushRendererNotes({ ipcMain: fixture.ipcMain, targets: [target] })
+
+    expect(target.destroyedListenerCount()).toBe(1)
+    target.destroy()
+
+    await expect(outcome).resolves.toEqual({
+      message: 'Renderer 7 closed before confirming its Note save',
+      status: 'failed',
+    })
+    expect(target.destroyedListenerCount()).toBe(0)
+    expect(fixture.ipc.listenerCount(noteSaveResultChannel)).toBe(0)
+  })
+
+  it('turns a send failure into a failed outcome without leaking listeners', async () => {
+    const fixture = createFixture()
+    const target = fixture.target(9)
+    target.send = () => {
+      throw new Error('renderer unavailable')
+    }
+
+    await expect(
+      flushRendererNotes({ ipcMain: fixture.ipcMain, targets: [target] }),
+    ).resolves.toEqual({ message: 'renderer unavailable', status: 'failed' })
+    expect(target.destroyedListenerCount()).toBe(0)
+    expect(fixture.ipc.listenerCount(noteSaveResultChannel)).toBe(0)
+  })
+
+  it('runs every listener finalizer when one cleanup operation fails', async () => {
+    const fixture = createFixture()
+    const first = fixture.target(1)
+    const second = fixture.target(2)
+    const firstRemoveListener = vi.fn(first.removeListener)
+    const secondRemoveListener = vi.fn(() => {
+      throw new Error('second listener cleanup failed')
+    })
+    first.removeListener = firstRemoveListener
+    second.removeListener = secondRemoveListener
+
+    const outcome = flushRendererNotes({ ipcMain: fixture.ipcMain, targets: [first, second] })
+    const requestId = fixture.sent[0]?.request.requestId
+    if (!requestId)
+      throw new Error('No save request was sent')
+    fixture.respond(1, { requestId, status: 'saved' })
+    fixture.respond(2, { requestId, status: 'saved' })
+
+    await expect(outcome).resolves.toEqual({
+      message: 'second listener cleanup failed',
+      status: 'failed',
+    })
+    expect(firstRemoveListener).toHaveBeenCalledOnce()
+    expect(secondRemoveListener).toHaveBeenCalledOnce()
+    expect(fixture.ipc.listenerCount(noteSaveResultChannel)).toBe(0)
   })
 })

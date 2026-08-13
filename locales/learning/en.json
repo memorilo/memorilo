@@ -16,6 +16,7 @@
   "cardItemProgress": "Item {{count}} of {{total}}",
   "dailyProgress": "Daily review progress",
   "undoRating": "Undo last rating",
+  "undoReviewFailed": "Could not undo the rating: {{message}}",
   "showCard": "Show card",
   "showSource": "Show source context",
   "cardSource": "Card source",

@@ -1,4 +1,6 @@
 export * from './cursor'
-export * from './model'
 export * from './sync-plugin'
+export * from './tree-document'
+export * from './tree-reconciliation'
+export * from './tree-schema'
 export * from './undo-plugin'

@@ -4,6 +4,7 @@ import process from 'node:process'
 import { BrowserWindow } from 'electron'
 
 export interface SettingsWindowController {
+  close: () => void
   show: () => void
 }
 
@@ -66,5 +67,12 @@ export function createSettingsWindowController(mainDirectory: string): SettingsW
     }
   }
 
-  return { show }
+  const close = (): void => {
+    const current = settingsWindow
+    settingsWindow = null
+    if (current && !current.isDestroyed())
+      current.destroy()
+  }
+
+  return { close, show }
 }

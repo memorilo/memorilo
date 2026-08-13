@@ -48,7 +48,7 @@ export type {
   EditorCardSync,
   EditorCardSyncError,
 } from './card/card-sync'
-export { createEditorCardSync } from './card/card-sync'
+export { createEditorCardSync, EditorCardSyncClosedError } from './card/card-sync'
 export { EditorMode } from './common/editor-mode'
 export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
@@ -90,12 +90,22 @@ export type {
   WhiteboardTopicValidationInput,
 } from './note/editor-note'
 export { createEditorNote } from './note/editor-note'
+export { whiteboardSceneSignature } from './note/editor-note-whiteboard'
 export type { ResolveJournalTopicOptions } from './note/journal-note'
 export { resolveJournalTopic } from './note/journal-note'
 export type { TopicBlockProjection } from './note/topic-projection'
 export { projectTopicBlocks } from './note/topic-projection'
 export { hasTopicUserContent } from './note/topic-user-content'
 export { useEditorTopicMode } from './note/use-editor-topic-mode'
+export type {
+  WhiteboardLibraryDocument,
+  WhiteboardLibraryElement,
+  WhiteboardLibraryItem,
+} from './note/whiteboard-library-document'
+export {
+  createWhiteboardLibraryDocument,
+  whiteboardLibrarySchemaVersion,
+} from './note/whiteboard-library-document'
 export type {
   LoroBookTopic,
   LoroRegularTopic,

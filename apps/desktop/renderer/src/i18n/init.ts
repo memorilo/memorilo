@@ -153,7 +153,9 @@ if (import.meta.hot) {
     )
   }
 
-  import.meta.hot.accept(() => {
-    void hotReloadLocaleResources()
+  import.meta.hot.on('memorilo:locale-update', () => {
+    void hotReloadLocaleResources().catch(() => {
+      // A subsequent locale update will retry without taking down the renderer.
+    })
   })
 }

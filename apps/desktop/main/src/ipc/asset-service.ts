@@ -1,15 +1,17 @@
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration, DesktopTiffConversionFormat } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
+import type { DesktopIpcHandlers } from './ipc-handler-registry'
 import { randomUUID } from 'node:crypto'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
+import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
 import { BrowserWindow, dialog, net, shell } from 'electron'
-import { getIpcContext, IpcMethod, IpcService } from 'electron-ipc-decorator'
 import sharp from 'sharp'
 
 import { checkManagedAssets } from '../assets/asset-maintenance'
 import { assetSource } from '../assets/asset-uri'
+import { withIpcContext } from './ipc-handler-registry'
 
 interface SaveImageInput {
   data: Uint8Array
@@ -155,12 +157,12 @@ async function convertTiff(
   return { ...conversion, data: await pipeline.toBuffer() }
 }
 
-export function createAssetService(
+export function createAssetHandlers(
   assetDirectory: string | null,
   storage: EditorStorage,
   configuration: ConfigurationStore<DesktopConfiguration>,
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
-) {
+): DesktopIpcHandlers['assets'] {
   const persistImage = async (input: SaveImageInput): Promise<SaveImageResult> => {
     if (assetDirectory === null)
       throw new Error('Images cannot be stored when using an in-memory database')
@@ -188,9 +190,11 @@ export function createAssetService(
     const fileName = `${randomUUID()}${stored.extension}`
     await mkdir(assetDirectory, { recursive: true })
     const filePath = join(assetDirectory, fileName)
-    await writeFile(filePath, stored.data, { flag: 'wx' })
+    const temporaryPath = join(assetDirectory, `.${fileName}.${randomUUID()}.tmp`)
     try {
-      await storage.registerAsset({
+      await writeFile(temporaryPath, stored.data, { flag: 'wx' })
+      await rename(temporaryPath, filePath)
+      await storage.assets.register({
         byteSize: stored.data.byteLength,
         fileName,
         mimeType: stored.mimeType,
@@ -198,16 +202,27 @@ export function createAssetService(
       })
     }
     catch (error) {
-      await rm(filePath, { force: true })
+      const cleanupErrors: unknown[] = []
+      for (const path of [temporaryPath, filePath]) {
+        try {
+          await rm(path, { force: true })
+        }
+        catch (cleanupError) {
+          cleanupErrors.push(cleanupError)
+        }
+      }
+      if (cleanupErrors.length > 0) {
+        throw combineLifecycleFailures(
+          [error, ...cleanupErrors],
+          'Failed to persist image and clean up its files',
+        )
+      }
       throw error
     }
     return { src: assetSource(fileName) }
   }
 
-  class AssetService extends IpcService {
-    static override readonly groupName = 'assets'
-
-    @IpcMethod()
+  return {
     check() {
       return serializeAssetOperation(async () => {
         if (assetDirectory === null)
@@ -218,7 +233,7 @@ export function createAssetService(
           assetDirectory,
           Date.now() - assetCheckSafetyWindow,
         )
-        const statistics = await storage.getAssetStatistics()
+        const statistics = await storage.assets.getStatistics()
         return {
           candidates: result.candidates.map(asset => ({
             byteSize: asset.byteSize,
@@ -230,10 +245,8 @@ export function createAssetService(
           referencedAssetCount: statistics.referenceCount,
         }
       })
-    }
-
-    @IpcMethod()
-    reclaim(input: ReclaimAssetsInput): Promise<ReclaimAssetsResult> {
+    },
+    reclaim: withIpcContext((context, input: ReclaimAssetsInput): Promise<ReclaimAssetsResult> => {
       return serializeAssetOperation(async () => {
         if (assetDirectory === null)
           throw new Error('Assets cannot be reclaimed when using an in-memory database')
@@ -248,7 +261,7 @@ export function createAssetService(
           return { cancelled: false, failedFileNames: [], reclaimedFileNames: [] }
 
         if (input.mode === 'permanent') {
-          const owner = BrowserWindow.fromWebContents(getIpcContext().sender)
+          const owner = BrowserWindow.fromWebContents(context.sender)
           const options = {
             buttons: ['Cancel', 'Permanently Delete'],
             cancelId: 0,
@@ -270,7 +283,7 @@ export function createAssetService(
         const reclaimedFileNames: string[] = []
         const unreferencedBefore = Date.now() - assetCheckSafetyWindow
         for (const fileName of fileNames) {
-          const claimed = await storage.claimUnreferencedAsset({ fileName, unreferencedBefore })
+          const claimed = await storage.assets.claimUnreferenced({ fileName, unreferencedBefore })
           if (!claimed)
             continue
           const filePath = join(assetDirectory, fileName)
@@ -281,18 +294,16 @@ export function createAssetService(
               await rm(filePath, { force: true })
           }
           catch {
-            await storage.releaseAssetClaim({ fileName })
+            await storage.assets.releaseClaim({ fileName })
             failedFileNames.push(fileName)
             continue
           }
-          await storage.completeAssetDeletion({ fileName })
+          await storage.assets.completeDeletion({ fileName })
           reclaimedFileNames.push(fileName)
         }
         return { cancelled: false, failedFileNames, reclaimedFileNames }
       })
-    }
-
-    @IpcMethod()
+    }),
     importNetworkImage(input: ImportNetworkImageInput): Promise<SaveImageResult> {
       return serializeAssetOperation(async () => {
         if (typeof input !== 'object' || input === null || typeof input.source !== 'string')
@@ -328,13 +339,9 @@ export function createAssetService(
           mimeType,
         })
       })
-    }
-
-    @IpcMethod()
+    },
     saveImage(input: SaveImageInput): Promise<SaveImageResult> {
       return serializeAssetOperation(() => persistImage(input))
-    }
+    },
   }
-
-  return AssetService
 }

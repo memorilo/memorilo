@@ -32,6 +32,32 @@
     white-space: nowrap;
   }
 
+  .sidebar-trigger.default-sidebar-trigger {
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+
+    &::before {
+      content: none;
+      display: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    &:hover {
+      background-color: var(--glass-control-hover-bg);
+    }
+
+    &:active {
+      background-color: var(--glass-control-pressed-bg);
+      box-shadow: none;
+    }
+  }
+
   &.excalidraw--mobile .default-sidebar-trigger .sidebar-trigger__label {
     display: none;
   }

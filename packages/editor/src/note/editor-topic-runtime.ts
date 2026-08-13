@@ -1,4 +1,4 @@
-import type { LoroTreeNodeMapping } from '@memorilo/loro-prosemirror-tree/model'
+import type { LoroTreeNodeMapping } from '@memorilo/loro-prosemirror-tree/document'
 import type { EditorTopicDocument } from './editor-note'
 import { CursorEphemeralStore } from '@memorilo/loro-prosemirror-tree'
 import { resolveEditorTopicBinding } from './editor-note'

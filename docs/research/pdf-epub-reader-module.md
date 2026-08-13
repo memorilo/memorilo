@@ -2,6 +2,16 @@
 
 调研日期：2026-07-31
 
+> 实施状态（2026-08-12）：本文件保留为技术选型研究记录，不再描述待实施架构。
+> `@memorilo/reader` 已通过 package public entry point 暴露统一 Reader UI 和领域类型；
+> `ReaderAdapter`、session runtime、各格式 mounted resource module 均为 package 私有实现。
+> 当前实现选择 PDF.js + Readium，并为 CBZ/CBR 提供独立 archive adapter；operation
+> supervisor 和 resource scope 负责 admission、latest-wins 渲染、取消、启动回滚、
+> accepted archive read drain 与可重试 shutdown。PDF 的 `textLayer` 只描述已提交的文字投影，
+> OCR 进度通过独立的 page-scoped status 事件发布，避免 stale render 改写已提交页面状态。
+> 下文的 `ReaderEngine` 代码仅是早期候选草图，
+> 不应据此新增第二套公开 engine contract。
+
 ## 范围与结论
 
 本文调研一个供 `@memorilo/editor` 使用、同时支持 PDF 与 EPUB 的可扩展阅读模块。目标不是把两个现成阅读器并排嵌入应用，而是让 Memorilo 拥有统一的界面、交互、状态与持久化模型，底层渲染库只负责格式相关能力。
@@ -95,7 +105,7 @@ EPUB.js 是第一版成本最低的 EPUB 方案，但有三项风险：
 
 MuPDF.js 是 Artifex 提供的 WebAssembly 文档引擎。`mupdf` 1.28.0 用同一套 `Document` / `Page` API 打开 PDF、EPUB、MOBI、FB2、CBZ、SVG 和图像；`Document.style(publisherCSS, userCSS)` 与 `Document.layout(width, height, em)` 可以重新布局支持 reflow 的文档，页面 API 提供渲染、链接、搜索和 structured text。[MuPDF.js documentation](https://mupdfjs.readthedocs.io/)；[MuPDF.js source](https://github.com/ArtifexSoftware/mupdf.js/tree/f97c0a0a924c8aaec5b8fe656bc430eb0a7d8f89)
 
-这给出最直接的统一引擎模型：PDF 和 EPUB 都进入相同的打开、分页、渲染、搜索和 outline 流程；EPUB 无需把 publisher HTML 直接挂进应用 renderer。未来增加 CBZ 等格式也不需要重新设计 Reader Shell。
+这给出最直接的统一引擎模型：PDF 和 EPUB 都进入相同的打开、分页、渲染、搜索和 outline 流程；EPUB 无需把 publisher HTML 直接挂进应用 renderer。当前 CBZ/CBR 已复用同一个 Reader Shell，但采用专用 archive/page adapter；若未来改用 MuPDF，可进一步合并格式引擎而不改变 Shell contract。
 
 但 MuPDF.js 只提供 engine primitives，并不等价于 PDF.js viewer components 或 Readium navigator。要达到桌面阅读器质量，Memorilo 仍需实现：
 

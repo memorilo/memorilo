@@ -1,5 +1,6 @@
 import type { Editor } from 'prosekit/core'
 import type { EditorTag, EditorTagStorage } from '../../adapters/editor-adapters'
+import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { defineBasicExtension } from 'prosekit/basic'
 import { union } from 'prosekit/core'
@@ -14,16 +15,6 @@ import { defineTagView } from '../tag-view'
 import TagMenu from './tag-menu'
 
 const mountedEditors: VoidFunction[] = []
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise
-    reject = rejectPromise
-  })
-  return { promise, reject, resolve }
-}
 
 async function setupMenu(storage: EditorTagStorage) {
   const runtime = new TagRuntime(storage)

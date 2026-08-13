@@ -118,10 +118,19 @@ C
 
 被阻止时不会产生文档事务，也不会部分移动任何块。Outline 画布不提供策略选择器或独立 Outdent 按钮；桌面应用通过 `Settings > Editor > Outdent behavior` 配置 Shift-Tab 策略，默认为 Logical，并实时应用到已打开的编辑器。独立使用 `Editor` 时，可通过受控的 `OutlineOptions.outdentBehavior` 设置当前策略，或用 `defaultOutdentBehavior` 设置初始策略。
 
+## Async resource lifecycle
+
+The desktop Note session owns one authoritative opened projection. Every local CRDT change is validated before it enters the persistence queue, and successful structural changes republish the current entry tree so the inspector cannot retain a stale load-time snapshot. Invalid local or external changes are rebuilt from the last valid snapshot and replace that Note's pending queue with one authoritative recovery update. Cached Note sessions are merged into a disposable candidate first; a failed merge therefore cannot poison the retained Undo session.
+
+每个 Editor session 统一拥有图片上传、网络图片导入、Tag 操作和 Card 同步的生命周期。关闭开始后，这些模块停止接收新操作并停止向已经卸载的 UI 发布进度或结果；此前已经接收的操作仍由 Effect supervisor 持有并排空。session 会尝试关闭全部子资源、聚合失败，并在再次调用 `close()` 时只重试尚未成功释放的资源。
+
+Tag 搜索采用 latest-wins：新查询会使旧查询过时，即使底层存储不支持取消，旧结果也不能覆盖缓存或当前菜单结果。同一 Tag 的连续保存同样只允许最新结果发布，同时底层持久化仍保持串行，避免旧写入越过新写入。
+
 ## Browser test coverage
 
-所有交互测试都通过公开 `Editor` UI，在独立 Vitest Browser 页面内启动真实 Chrome，并由 Playwright provider 驱动；测试不依赖 Electron，也不依赖桌面 renderer 页面结构。
+所有交互测试都通过公开 `Editor` UI，在独立 Vitest Browser 页面内由 Playwright provider 驱动浏览器运行；测试不依赖 Electron，也不依赖桌面 renderer 页面结构。`vitest.config.ts` 使用 Playwright 自带的 Chromium（`instances: [{ browser: 'chromium' }]`），不要求系统安装 Google Chrome；运行浏览器测试前请先用 `pnpm exec playwright install chromium` 安装 Playwright 的 Chromium。
 
-- `packages/editor/src/document/document-interactions.test.tsx`：普通块 Enter 与历史、代码块、标题、引用、四种语义列表及混合 kind 嵌套、Document Tab/Shift-Tab 的选区和层级边界，以及语义列表拖拽 reparent 与无圆点块同父排序边界。
-- `packages/editor/src/outline/outline-interactions.test.tsx`：代码块、空分支回归、五种 list kind 与 paragraph/heading/blockquote/code/math/image/horizontal-rule/table 的 Tab/Shift-Tab、空叶 Backspace、连续/非连续选择、Focus、折叠、Logical/Traditional Outdent 及原子撤销。
+- `packages/editor/src/document/document-*-interactions.test.tsx`：按命令与媒体、块结构、缩进和编辑行为拆分；共享文档构造与 DOM 断言集中在 `document-interactions.fixture.ts`。覆盖普通块 Enter 与历史、代码块、标题、引用、语义列表、Document Tab/Shift-Tab、拖拽 reparent 和 Card back membership。
+- `packages/editor/src/card/card-*-interactions.test.tsx`：按 Card 创建、格式与 hover、SetCard 折叠和预览行为拆分；共享 Card 文档构造和文本选择辅助集中在 `card-authoring-interactions.fixture.ts`。
+- `packages/editor/src/outline/outline-*-interactions.test.tsx`：按创建与缩进、选择与 Focus、Outdent 与控件行为拆分；共享 Outline 树构造与 DOM 断言集中在 `outline-interactions.fixture.ts`。覆盖五种 list kind、丰富块体、空分支、Backspace、Logical/Traditional Outdent 和原子撤销。
 - `packages/editor/src/editor-mode.test.tsx`：受控/非受控切换、非空文档自由切换、两种列表语义、圆点对齐和跨模式历史。

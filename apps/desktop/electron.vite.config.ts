@@ -57,6 +57,8 @@ export default defineConfig({
         output: {
           entryFileNames: 'index.cjs',
           format: 'cjs',
+          intro: '(function () {',
+          outro: '})();',
         },
       },
     },
@@ -71,7 +73,10 @@ export default defineConfig({
     },
     plugins: [
       wasm(),
-      TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
+      TanStackRouterVite({
+        target: 'react',
+        autoCodeSplitting: true,
+      }),
       stylex(stylexOptions),
       react(),
     ],

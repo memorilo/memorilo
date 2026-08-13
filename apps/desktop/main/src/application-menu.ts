@@ -2,7 +2,7 @@ import type { MenuItemConstructorOptions } from 'electron'
 import process from 'node:process'
 import { app, Menu } from 'electron'
 
-export function installApplicationMenu(openSettings: () => void): void {
+export function installApplicationMenu(openSettings: () => void): () => void {
   const settingsItem: MenuItemConstructorOptions = {
     accelerator: 'CmdOrCtrl+,',
     click: openSettings,
@@ -36,4 +36,5 @@ export function installApplicationMenu(openSettings: () => void): void {
     { role: 'windowMenu' },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  return () => Menu.setApplicationMenu(null)
 }

@@ -1,6 +1,7 @@
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
 import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { WhiteboardLibraryItem } from '@memorilo/editor/note'
 import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
 import type {
   AddShelfSourceInput,
@@ -111,29 +112,31 @@ export interface RestoreDesktopReviewItemInput {
   topicId: string
 }
 
-type DesktopLearningStorageApi = Pick<LearningStorage, | 'archiveOptimizer'
-  | 'assignNoteOptimizer'
-  | 'createOptimizer'
-  | 'getDailyProgress'
-  | 'getLearningState'
-  | 'getMaintenanceEstimate'
-  | 'getNoteOptimizer'
-  | 'getOptimizer'
-  | 'getOptimizerNoteCount'
-  | 'listNotesWithCards'
-  | 'listOptimizers'
-  | 'listQueue'
-  | 'listTargets'
-  | 'maintainDatabase'
-  | 'optimizeOptimizer'
-  | 'prepareReview'
-  | 'rateMultiLineCard'
-  | 'rateTarget'
-  | 'renameOptimizer'
-  | 'resetOptimizerDefaults'
-  | 'resetTarget'
-  | 'undoLastReview'
-  | 'updateOptimizer'>
+interface DesktopLearningStorageApi {
+  archiveOptimizer: LearningStorage['optimizers']['archive']
+  assignNoteOptimizer: LearningStorage['optimizers']['assignToNote']
+  createOptimizer: LearningStorage['optimizers']['create']
+  getDailyProgress: LearningStorage['queue']['getDailyProgress']
+  getLearningState: LearningStorage['reviews']['getState']
+  getMaintenanceEstimate: LearningStorage['maintenance']['getEstimate']
+  getNoteOptimizer: LearningStorage['optimizers']['getForNote']
+  getOptimizer: LearningStorage['optimizers']['get']
+  getOptimizerNoteCount: LearningStorage['optimizers']['getNoteCount']
+  listNotesWithCards: LearningStorage['cards']['listNotesWithCards']
+  listOptimizers: LearningStorage['optimizers']['list']
+  listQueue: LearningStorage['queue']['list']
+  listTargets: LearningStorage['cards']['listTargets']
+  maintainDatabase: LearningStorage['maintenance']['maintain']
+  optimizeOptimizer: LearningStorage['optimizers']['optimize']
+  prepareReview: LearningStorage['reviews']['prepare']
+  rateMultiLineCard: LearningStorage['reviews']['rateMultiLineCard']
+  rateTarget: LearningStorage['reviews']['rateTarget']
+  resetOptimizerDefaults: LearningStorage['optimizers']['resetDefaults']
+  resetTarget: LearningStorage['reviews']['resetTarget']
+  undoLastReview: LearningStorage['reviews']['undoLast']
+  undoReviews: LearningStorage['reviews']['undoMany']
+  saveOptimizer: LearningStorage['optimizers']['save']
+}
 
 export interface DesktopLearningApi extends DesktopLearningStorageApi {
   getNextItem: (input?: GetNextDesktopReviewItemInput) => Promise<DesktopReviewItem | null>
@@ -361,6 +364,10 @@ export interface DesktopNoteExternalUpdate {
   updatedAt: number
 }
 
+export interface DesktopWhiteboardLibraryData {
+  libraryItems: readonly WhiteboardLibraryItem[]
+}
+
 export interface DesktopStoredTopicBlock extends DesktopTopicBlock {
   contentHash: string
   noteId: string
@@ -430,6 +437,7 @@ export interface DesktopApi {
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
   learning: DesktopLearningApi
   listShelfSources: () => Promise<readonly ShelfSource[]>
+  loadWhiteboardLibrary: () => Promise<DesktopWhiteboardLibraryData>
   openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
   openMostRecentNote: () => Promise<DesktopNote>
   openShelfReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
@@ -444,9 +452,11 @@ export interface DesktopApi {
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
   saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
+  saveWhiteboardLibrary: (data: DesktopWhiteboardLibraryData) => Promise<void>
   searchNotes: (input: { limit?: number, query: string }) => Promise<readonly DesktopNoteSearchHit[]>
   searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
   setConfiguration: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>
+  setConfigurationValue: (path: string, value: unknown) => Promise<DesktopConfiguration>
   setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
   selectBookContext: (input: { noteId: string, readingId: string, topicId: string }) => Promise<OpenDesktopBookContextResult>
   showColumnVisibilityMenu: (input: ShowDesktopColumnVisibilityMenuInput) => Promise<DesktopColumnVisibilityMenuSelection | null>

@@ -1,5 +1,5 @@
 import type { EmbeddingModel } from '@memorilo/editor-storage'
-import { createEditorStorage } from '@memorilo/editor-storage'
+import { SqliteEditorStorage } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BetterSqliteDatabase } from '../storage/better-sqlite-database'
@@ -17,7 +17,7 @@ const databases: BetterSqliteDatabase[] = []
 async function createFixture() {
   const database = new BetterSqliteDatabase(':memory:')
   databases.push(database)
-  const storage = await createEditorStorage({ database, embeddingModel })
+  const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
   const onExternalUpdate = vi.fn()
   const notes = createNoteApplicationService(storage, onExternalUpdate)
   const created = await notes.createNote({ initialHeading: 'Initial Topic', title: 'MCP Note' })
@@ -34,6 +34,45 @@ afterEach(async () => {
 })
 
 describe('application service for MCP Notes', () => {
+  it('opens a newly created Journal without a post-commit favorite read', async () => {
+    const database = new BetterSqliteDatabase(':memory:')
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    const favorite = vi.spyOn(storage.notes, 'getNoteFavorite').mockRejectedValue(new Error('post-commit read failed'))
+    const notes = createNoteApplicationService(storage, undefined, {
+      now: () => new Date('2026-08-08T12:00:00.000Z'),
+    })
+
+    const opened = await notes.openJournal({ journalDate: '2026-08-07' })
+
+    expect(opened).toMatchObject({ favorite: false, kind: 'journal', journalDate: '2026-08-07' })
+    expect(favorite).not.toHaveBeenCalled()
+    await expect(storage.journals.getMetadata({ noteId: opened.id })).resolves.toMatchObject({
+      journalDate: '2026-08-07',
+      noteId: opened.id,
+    })
+  })
+
+  it('creates a regular Note through one initialized commit without a post-commit favorite read', async () => {
+    const database = new BetterSqliteDatabase(':memory:')
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    const createPlaceholder = vi.spyOn(storage.notes, 'createNote')
+    const createInitialized = vi.spyOn(storage.notes, 'createInitializedNote')
+    const favorite = vi.spyOn(storage.notes, 'getNoteFavorite').mockRejectedValue(new Error('post-commit read failed'))
+    const notes = createNoteApplicationService(storage)
+
+    const created = await notes.createNote({ initialHeading: 'Created atomically', title: 'Atomic Note' })
+
+    expect(created).toMatchObject({ favorite: false, title: 'Atomic Note' })
+    expect(createPlaceholder).not.toHaveBeenCalled()
+    expect(createInitialized).toHaveBeenCalledOnce()
+    expect(favorite).not.toHaveBeenCalled()
+    const stored = await storage.notes.getNote({ noteId: created.id })
+    expect(stored.snapshot).toBeInstanceOf(Uint8Array)
+    expect(stored.updates).toEqual([])
+  })
+
   it('persists structured edits, updates projections, and broadcasts the exact Loro update', async () => {
     const fixture = await createFixture()
     const before = await fixture.notes.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
@@ -69,7 +108,7 @@ describe('application service for MCP Notes', () => {
       throw new Error('Fixture Topic must have a document')
     expect(validation.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Edited through MCP')
 
-    const projected = await fixture.storage.getTopicBlock({ blockId, noteId: fixture.created.id, topicId: fixture.topic.id })
+    const projected = await fixture.storage.search.getTopicBlock({ blockId, noteId: fixture.created.id, topicId: fixture.topic.id })
     expect(projected?.text).toBe('Edited through MCP')
 
     const restoredService = createNoteApplicationService(fixture.storage)
@@ -125,7 +164,7 @@ describe('application service for MCP Notes', () => {
   it('reloads the durable state after persistence rejects a CRDT mutation', async () => {
     const fixture = await createFixture()
     const before = await fixture.notes.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
-    vi.spyOn(fixture.storage, 'saveNoteUpdates').mockRejectedValueOnce(new Error('disk full'))
+    vi.spyOn(fixture.storage.notes, 'saveNoteUpdates').mockRejectedValueOnce(new Error('disk full'))
 
     await expect(fixture.notes.renameTopic({
       expectedRevision: before.revision,
@@ -144,8 +183,8 @@ describe('application service for MCP Notes', () => {
     const fixture = await createFixture()
     const before = await fixture.notes.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
     let releaseSave: (() => void) | undefined
-    const originalSave = fixture.storage.saveNoteUpdates.bind(fixture.storage)
-    vi.spyOn(fixture.storage, 'saveNoteUpdates').mockImplementationOnce(async (input) => {
+    const originalSave = fixture.storage.notes.saveNoteUpdates.bind(fixture.storage.notes)
+    vi.spyOn(fixture.storage.notes, 'saveNoteUpdates').mockImplementationOnce(async (input) => {
       await new Promise<void>((resolve) => {
         releaseSave = resolve
       })
@@ -196,7 +235,7 @@ describe('application service for MCP Notes', () => {
 
   it('checkpoints exactly at 32 durable updates and does not checkpoint at 31', async () => {
     const fixture = await createFixture()
-    const checkpoint = vi.spyOn(fixture.storage, 'checkpointNote')
+    const checkpoint = vi.spyOn(fixture.storage.notes, 'checkpointNote')
     const renderer = createEditorNote({ id: fixture.created.id, snapshot: fixture.created.snapshot })
 
     for (let index = 1; index <= 31; index += 1) {
@@ -219,9 +258,9 @@ describe('application service for MCP Notes', () => {
     expect(checkpoint).toHaveBeenCalledOnce()
     expect(checkpoint).toHaveBeenCalledWith(expect.objectContaining({
       noteId: fixture.created.id,
-      throughSequence: 33,
+      throughSequence: 32,
     }))
-    const stored = await fixture.storage.getNote({ noteId: fixture.created.id })
+    const stored = await fixture.storage.notes.getNote({ noteId: fixture.created.id })
     expect(stored.checkpointSequence).toBe(stored.latestSequence)
     expect(stored.updates).toEqual([])
   })
@@ -231,7 +270,7 @@ describe('application service for MCP Notes', () => {
     const created = [fixture.created]
     for (let index = 1; index < 65; index += 1)
       created.push(await fixture.notes.createNote({ title: `LRU Note ${index}` }))
-    const checkpoint = vi.spyOn(fixture.storage, 'checkpointNote')
+    const checkpoint = vi.spyOn(fixture.storage.notes, 'checkpointNote')
 
     await fixture.notes.renameNote({ noteId: created[0]!.id, title: 'Recently used' })
     await fixture.notes.renameNote({ noteId: created[1]!.id, title: 'Least recently used and dirty' })
@@ -254,9 +293,9 @@ describe('application service for MCP Notes', () => {
     for (let index = 1; index < 64; index += 1)
       await fixture.notes.createNote({ title: `Cache filler ${index}` })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const originalCheckpoint = fixture.storage.checkpointNote.bind(fixture.storage)
+    const originalCheckpoint = fixture.storage.notes.checkpointNote.bind(fixture.storage.notes)
     let failed = false
-    vi.spyOn(fixture.storage, 'checkpointNote').mockImplementation(async (input) => {
+    vi.spyOn(fixture.storage.notes, 'checkpointNote').mockImplementation(async (input) => {
       if (!failed && input.noteId === fixture.created.id) {
         failed = true
         throw new Error('checkpoint unavailable')
@@ -292,7 +331,7 @@ describe('application service for MCP Notes', () => {
     const version = renderer.getVersion()
     renderer.renameEntry(fixture.topic.id, 'One durable update')
     const update = renderer.exportUpdates(version)
-    const index = vi.spyOn(fixture.storage, 'indexPendingEmbeddings')
+    const index = vi.spyOn(fixture.storage.search, 'indexPendingEmbeddings')
 
     await service.saveNoteUpdates({ noteId: fixture.created.id, updates: [update] })
     await service.saveNoteUpdates({ noteId: fixture.created.id, updates: [update] })
@@ -300,7 +339,7 @@ describe('application service for MCP Notes', () => {
 
     expect(onExternalUpdate).toHaveBeenCalledOnce()
     expect(index).toHaveBeenCalledOnce()
-    const stored = await fixture.storage.getNote({ noteId: fixture.created.id })
+    const stored = await fixture.storage.notes.getNote({ noteId: fixture.created.id })
     expect(stored.latestSequence - stored.checkpointSequence).toBe(0)
   })
 
@@ -308,8 +347,8 @@ describe('application service for MCP Notes', () => {
     const fixture = await createFixture()
     const before = await fixture.notes.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
     let releaseSave: (() => void) | undefined
-    const originalSave = fixture.storage.saveNoteUpdates.bind(fixture.storage)
-    vi.spyOn(fixture.storage, 'saveNoteUpdates').mockImplementationOnce(async (input) => {
+    const originalSave = fixture.storage.notes.saveNoteUpdates.bind(fixture.storage.notes)
+    vi.spyOn(fixture.storage.notes, 'saveNoteUpdates').mockImplementationOnce(async (input) => {
       await new Promise<void>((resolve) => {
         releaseSave = resolve
       })
@@ -335,5 +374,33 @@ describe('application service for MCP Notes', () => {
       topicId: fixture.topic.id,
     })
     expect(restored.title).toBe('Admitted before close')
+  })
+
+  it('retries cached checkpoints after a failed close while still closing indexing', async () => {
+    const fixture = await createFixture()
+    await fixture.notes.renameNote({ noteId: fixture.created.id, title: 'Dirty before close' })
+    const originalCheckpoint = fixture.storage.notes.checkpointNote.bind(fixture.storage.notes)
+    let attempts = 0
+    vi.spyOn(fixture.storage.notes, 'checkpointNote').mockImplementation(async (input) => {
+      attempts += 1
+      if (attempts === 1)
+        throw new Error('checkpoint unavailable')
+      return originalCheckpoint(input)
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await expect(fixture.notes.close()).rejects.toMatchObject({
+      errors: [expect.objectContaining({
+        cause: expect.objectContaining({ message: 'checkpoint unavailable' }),
+        message: 'Failed to close Note cache',
+      })],
+      message: 'Note application service resource cleanup failed',
+    })
+    await expect(fixture.notes.getNote({ noteId: fixture.created.id })).rejects.toBeInstanceOf(NoteApplicationServiceClosedError)
+    await fixture.notes.close()
+
+    expect(attempts).toBe(2)
+    const stored = await fixture.storage.notes.getNote({ noteId: fixture.created.id })
+    expect(stored.latestSequence).toBe(stored.checkpointSequence)
   })
 })

@@ -1,7 +1,6 @@
 import type {
   ReaderAnnotation,
   ReaderComicRegionAnchor,
-  ReaderOutlineItem,
   ReaderPosition,
 } from '../../types'
 import type {
@@ -15,12 +14,20 @@ import type {
 import type { RegionSelectionResult } from '../region-selection'
 import type { ResolvedReaderSource } from '../source'
 import type { ComicArchive } from './comic-archive'
-import { fixedPageAnnotationTint } from '../fixed-page/annotations'
-import { clampFixedPageScale } from '../fixed-page/geometry'
-import { FixedPageViewportController } from '../fixed-page/viewport'
-import { readerZoomScaleCapability } from '../reader-adapter'
-import { RegionSelectionController } from '../region-selection'
+import {
+  combineLifecycleFailures,
+  createOperationSupervisor,
+  createResourceScope,
+} from '@memorilo/effect-lifecycle'
+import {
+  assertReaderPositionFormat,
+  clampReaderScale,
+  readerZoomScaleCapability,
+  runSingleMount,
+} from '../reader-adapter'
+import { ReaderOutlineProjection } from '../reader-outline'
 import { openComicArchive } from './comic-archive'
+import { ComicPageView } from './comic-page-view'
 
 type ComicSource = ResolvedReaderSource & { format: 'cbr' | 'cbz' }
 
@@ -30,24 +37,14 @@ function pageLabel(path: string, index: number): string {
 }
 
 class ComicAdapter implements ReaderAdapter {
-  private annotationLayer: HTMLDivElement | null = null
   private annotations: readonly ReaderAnnotation[] = []
-  private container: HTMLElement | null = null
   private destroyed = false
-  private image: HTMLImageElement | null = null
-  private imageNaturalHeight = 0
-  private imageNaturalWidth = 0
-  private objectUrl: string | null = null
+  private readonly finalizer = createResourceScope('Comic reader', { closeMode: 'dependent' })
+  private readonly operations = createOperationSupervisor('Comic reader', { shutdown: 'interrupt' })
   private pageIndex = 0
-  private readonly outline: readonly ReaderOutlineItem[]
-  private readonly outlineIndexes = new Map<string, number>()
-  private readonly regionSelection: RegionSelectionController
-  private renderGeneration = 0
-  private resizeObserver: ResizeObserver | null = null
+  private readonly outline: ReaderOutlineProjection<number>
+  private pageView: ComicPageView | null = null
   private scale = 1
-  private scroller: HTMLDivElement | null = null
-  private surface: HTMLDivElement | null = null
-  private viewport: FixedPageViewportController | null = null
 
   constructor(
     private readonly source: ComicSource,
@@ -56,15 +53,42 @@ class ComicAdapter implements ReaderAdapter {
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
     if (initialPosition !== null && initialPosition !== undefined) {
-      if (initialPosition.format !== source.format)
-        throw new TypeError(`Cannot restore ${initialPosition.format} position in a ${source.format} reader`)
+      assertReaderPositionFormat(initialPosition, source.format, `a ${source.format} reader`)
       if (!Number.isSafeInteger(initialPosition.pageNumber) || initialPosition.pageNumber < 1)
         throw new RangeError('Comic reading position must contain a positive page number')
       this.pageIndex = Math.min(initialPosition.pageNumber, archive.pages.length) - 1
     }
-    this.regionSelection = new RegionSelectionController({
-      onEnabledChange: enabled => this.callbacks.onRegionSelectionModeChange(enabled),
-      onSelection: (selection) => {
+    this.outline = new ReaderOutlineProjection('comic', archive.pages.map((page, index) => ({
+      children: [],
+      href: `page:${index + 1}`,
+      label: pageLabel(page.name, index),
+      navigable: true,
+      target: index,
+    })), outlineItemId => new Error(`Comic outline item ${outlineItemId} does not exist`))
+    this.registerFinalizers()
+    this.finalizer.commit()
+  }
+
+  mount(container: HTMLElement, externalSignal?: AbortSignal): Promise<void> {
+    if (this.destroyed)
+      return Promise.reject(new Error('Cannot mount a destroyed comic reader'))
+    if (this.pageView)
+      return Promise.reject(new Error('Comic reader is already mounted'))
+    return runSingleMount(
+      this.operations,
+      signal => this.mountReader(
+        container,
+        externalSignal ? AbortSignal.any([signal, externalSignal]) : signal,
+      ),
+      () => new Error('Comic reader is already mounted'),
+    )
+  }
+
+  private async mountReader(container: HTMLElement, signal: AbortSignal): Promise<void> {
+    const pageView = new ComicPageView(container, {
+      callbacks: this.callbacks,
+      format: this.source.format,
+      onRegionSelection: (selection) => {
         try {
           this.publishRegionSelection(selection)
         }
@@ -73,152 +97,120 @@ class ComicAdapter implements ReaderAdapter {
         }
       },
     })
-    this.outline = archive.pages.map((page, index) => {
-      const id = `comic.${index}`
-      this.outlineIndexes.set(id, index)
-      return {
-        children: [],
-        href: `page:${index + 1}`,
-        id,
-        label: pageLabel(page.name, index),
-        navigable: true,
+    this.pageView = pageView
+    try {
+      await this.renderPage(this.pageIndex, 'start', signal)
+    }
+    catch (error) {
+      try {
+        await pageView.close()
+        if (this.pageView === pageView)
+          this.pageView = null
       }
-    })
-  }
-
-  async mount(container: HTMLElement): Promise<void> {
-    if (this.destroyed)
-      throw new Error('Cannot mount a destroyed comic reader')
-    if (this.container)
-      throw new Error('Comic reader is already mounted')
-    this.container = container
-
-    const scroller = document.createElement('div')
-    Object.assign(scroller.style, {
-      alignItems: 'flex-start',
-      background: '#fff',
-      boxSizing: 'border-box',
-      display: 'flex',
-      height: '100%',
-      justifyContent: 'flex-start',
-      overflow: 'auto',
-      padding: '24px',
-      width: '100%',
-    })
-    const surface = document.createElement('div')
-    Object.assign(surface.style, {
-      flex: '0 0 auto',
-      margin: 'auto',
-      position: 'relative',
-    })
-    const image = document.createElement('img')
-    image.alt = ''
-    image.decoding = 'async'
-    Object.assign(image.style, {
-      display: 'block',
-      height: '100%',
-      objectFit: 'contain',
-      userSelect: 'none',
-      width: '100%',
-    })
-    const annotationLayer = document.createElement('div')
-    Object.assign(annotationLayer.style, { inset: '0', pointerEvents: 'none', position: 'absolute' })
-    const regionCapture = document.createElement('div')
-    regionCapture.setAttribute('aria-hidden', 'true')
-    surface.append(image, annotationLayer, regionCapture)
-    scroller.append(surface)
-    container.append(scroller)
-    this.scroller = scroller
-    this.surface = surface
-    this.image = image
-    this.annotationLayer = annotationLayer
-    this.regionSelection.mount(surface, regionCapture)
-    this.viewport = new FixedPageViewportController(scroller)
-    this.resizeObserver = new ResizeObserver(() => this.layoutImage())
-    this.resizeObserver.observe(scroller)
-    await this.renderPage('start')
+      catch (cleanupError) {
+        throw combineLifecycleFailures(
+          [error, cleanupError],
+          'Failed to mount and close comic reader',
+        )
+      }
+      throw error
+    }
   }
 
   clearSelection(): void {
+    if (this.destroyed)
+      return
     this.setRegionSelectionEnabled(false)
     this.callbacks.onSelectionChange(null)
   }
 
-  async destroy(): Promise<void> {
-    if (this.destroyed)
-      return
+  destroy(): Promise<void> {
     this.destroyed = true
-    this.renderGeneration += 1
-    this.resizeObserver?.disconnect()
-    this.resizeObserver = null
-    this.regionSelection.destroy()
-    this.viewport?.destroy()
-    this.viewport = null
-    if (this.objectUrl)
-      URL.revokeObjectURL(this.objectUrl)
-    this.objectUrl = null
-    this.container?.replaceChildren()
-    this.container = null
-    await this.archive.close()
+    return this.finalizer.close()
+  }
+
+  private registerFinalizers(): void {
+    this.finalizer.own({
+      close: () => this.operations.close(),
+      name: 'reader operations',
+    })
+    this.finalizer.own({
+      close: () => this.pageView?.close(),
+      name: 'comic page view',
+    })
+    this.finalizer.own({
+      close: () => this.archive.close(),
+      name: 'comic archive',
+    })
   }
 
   async goBackward(entryEdge: ReaderPageEdge): Promise<void> {
-    if (this.pageIndex === 0)
-      return
-    this.pageIndex -= 1
-    this.clearSelection()
-    await this.renderPage(entryEdge)
+    return this.operations.run(async (signal) => {
+      if (this.destroyed || this.pageIndex === 0)
+        return
+      await this.renderPageAt(this.pageIndex - 1, entryEdge, signal)
+    })
   }
 
   async goForward(entryEdge: ReaderPageEdge): Promise<void> {
-    if (this.pageIndex >= this.archive.pages.length - 1)
-      return
-    this.pageIndex += 1
-    this.clearSelection()
-    await this.renderPage(entryEdge)
+    return this.operations.run(async (signal) => {
+      if (this.destroyed || this.pageIndex >= this.archive.pages.length - 1)
+        return
+      await this.renderPageAt(this.pageIndex + 1, entryEdge, signal)
+    })
   }
 
   async goToAnnotation(annotationId: string): Promise<void> {
-    const annotation = this.annotations.find(item => item.id === annotationId)
-    if (!annotation || (annotation.anchor.format !== 'cbz' && annotation.anchor.format !== 'cbr'))
-      throw new Error(`Comic annotation ${annotationId} does not exist`)
-    this.pageIndex = annotation.anchor.pageNumber - 1
-    await this.renderPage('start')
-    this.annotationLayer?.querySelector<HTMLElement>(`[data-annotation-id="${CSS.escape(annotationId)}"]`)
-      ?.scrollIntoView({ block: 'center', inline: 'center' })
+    return this.operations.run(async (signal) => {
+      const annotation = this.annotations.find(item => item.id === annotationId)
+      if (!annotation || (annotation.anchor.format !== 'cbz' && annotation.anchor.format !== 'cbr'))
+        throw new Error(`Comic annotation ${annotationId} does not exist`)
+      if (this.destroyed)
+        return
+      if (!await this.renderPageAt(annotation.anchor.pageNumber - 1, 'start', signal))
+        return
+      this.pageView?.scrollToAnnotation(annotationId)
+    })
   }
 
   async goToOutlineItem(outlineItemId: string): Promise<void> {
-    const index = this.outlineIndexes.get(outlineItemId)
-    if (index === undefined)
-      throw new Error(`Comic outline item ${outlineItemId} does not exist`)
-    this.pageIndex = index
-    this.clearSelection()
-    await this.renderPage('start')
+    return this.operations.run(async (signal) => {
+      const index = this.outline.requireTarget(outlineItemId)
+      if (this.destroyed)
+        return
+      await this.renderPageAt(index, 'start', signal)
+    })
   }
 
   moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
-    return this.viewport?.move(direction) ?? 'at-boundary'
+    return this.pageView?.moveViewport(direction) ?? 'at-boundary'
   }
 
   setAnnotations(annotations: readonly ReaderAnnotation[]): void {
+    if (this.destroyed)
+      return
     this.annotations = annotations
-    this.renderAnnotations()
+    this.pageView?.setAnnotations(annotations)
   }
 
   setRegionSelectionEnabled(enabled: boolean): void {
-    this.regionSelection.setEnabled(enabled)
+    if (this.destroyed)
+      return
+    this.pageView?.setRegionSelectionEnabled(enabled)
   }
 
   async setScale(scale: number): Promise<void> {
-    const nextScale = clampFixedPageScale(scale)
-    if (nextScale === this.scale)
-      return
-    this.scale = nextScale
-    this.clearSelection()
-    this.layoutImage()
-    this.viewport?.positionAtEdge('start', 'next-frame')
-    this.emitState()
+    return this.operations.run(async () => {
+      if (this.destroyed)
+        return
+      const nextScale = clampReaderScale(scale)
+      if (nextScale === this.scale)
+        return
+      this.clearSelection()
+      this.pageView?.setScale(nextScale)
+      this.scale = nextScale
+      this.emitState()
+    })
   }
 
   private publishRegionSelection(result: RegionSelectionResult | null): void {
@@ -238,85 +230,40 @@ class ComicAdapter implements ReaderAdapter {
     })
   }
 
-  private async renderPage(entryEdge: ReaderPageEdge): Promise<void> {
-    const image = this.image
-    if (!image)
+  private async renderPage(
+    pageIndex: number,
+    entryEdge: ReaderPageEdge,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const pageView = this.pageView
+    if (!pageView)
       throw new Error('Comic reader image is not mounted')
-    const generation = ++this.renderGeneration
-    const blob = await this.archive.readPage(this.pageIndex)
-    if (this.destroyed || generation !== this.renderGeneration)
-      return
-    const nextUrl = URL.createObjectURL(blob)
-    const nextImage = new Image()
-    nextImage.decoding = 'async'
-    nextImage.src = nextUrl
-    try {
-      await nextImage.decode()
-    }
-    catch (error) {
-      URL.revokeObjectURL(nextUrl)
-      throw new Error(`Unable to decode comic page ${this.pageIndex + 1}`, { cause: error })
-    }
-    if (this.destroyed || generation !== this.renderGeneration) {
-      URL.revokeObjectURL(nextUrl)
-      return
-    }
-    const previousUrl = this.objectUrl
-    this.objectUrl = nextUrl
-    this.imageNaturalWidth = nextImage.naturalWidth
-    this.imageNaturalHeight = nextImage.naturalHeight
-    image.src = nextUrl
-    image.setAttribute('aria-label', `Page ${this.pageIndex + 1} of ${this.archive.pages.length}`)
-    this.layoutImage()
-    this.renderAnnotations()
-    this.viewport?.positionAtEdge(entryEdge, 'next-frame')
-    if (previousUrl)
-      URL.revokeObjectURL(previousUrl)
+    const blob = await this.archive.readPage(pageIndex, signal)
+    if (this.destroyed)
+      return false
+    const rendered = await pageView.render({
+      annotations: () => this.annotations,
+      blob,
+      entryEdge,
+      pageCount: this.archive.pages.length,
+      pageNumber: pageIndex + 1,
+      scale: this.scale,
+      signal,
+    })
+    if (!rendered)
+      return false
+    this.pageIndex = pageIndex
     this.emitState()
+    return true
   }
 
-  private layoutImage(): void {
-    const scroller = this.scroller
-    const surface = this.surface
-    if (!scroller || !surface || this.imageNaturalWidth <= 0 || this.imageNaturalHeight <= 0)
-      return
-    const availableWidth = Math.max(1, scroller.clientWidth - 48)
-    const availableHeight = Math.max(1, scroller.clientHeight - 48)
-    const fitScale = Math.min(1, availableWidth / this.imageNaturalWidth, availableHeight / this.imageNaturalHeight)
-    const displayScale = fitScale * this.scale
-    surface.style.width = `${Math.max(1, Math.round(this.imageNaturalWidth * displayScale))}px`
-    surface.style.height = `${Math.max(1, Math.round(this.imageNaturalHeight * displayScale))}px`
-  }
-
-  private renderAnnotations(): void {
-    const layer = this.annotationLayer
-    if (!layer)
-      return
-    layer.replaceChildren()
-    for (const annotation of this.annotations) {
-      const anchor = annotation.anchor
-      if ((anchor.format !== this.source.format) || anchor.type !== 'region' || anchor.pageNumber !== this.pageIndex + 1)
-        continue
-      const marker = document.createElement('button')
-      marker.dataset.annotationId = annotation.id
-      marker.setAttribute('aria-label', this.callbacks.regionAnnotationLabel())
-      marker.type = 'button'
-      const tint = fixedPageAnnotationTint(annotation.color)
-      Object.assign(marker.style, {
-        background: tint,
-        border: annotation.kind === 'annotation' ? `2px solid ${tint}` : '0',
-        cursor: 'pointer',
-        height: `${anchor.rect.height * 100}%`,
-        left: `${anchor.rect.x * 100}%`,
-        padding: '0',
-        pointerEvents: 'auto',
-        position: 'absolute',
-        top: `${anchor.rect.y * 100}%`,
-        width: `${anchor.rect.width * 100}%`,
-      })
-      marker.addEventListener('click', () => this.callbacks.onAnnotationActivate({ annotationId: annotation.id }))
-      layer.append(marker)
-    }
+  private async renderPageAt(
+    pageIndex: number,
+    entryEdge: ReaderPageEdge,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    this.clearSelection()
+    return this.renderPage(pageIndex, entryEdge, signal)
   }
 
   private emitState(): void {
@@ -342,7 +289,7 @@ class ComicAdapter implements ReaderAdapter {
         progression: pageCount === 1 ? 1 : this.pageIndex / (pageCount - 1),
         total: pageCount,
       },
-      outline: this.outline,
+      outline: this.outline.items,
       position: { format: this.source.format, pageNumber },
       presentationMode: 'publisher',
       scale: this.scale,
@@ -356,7 +303,23 @@ export async function openComicAdapter(
   source: ComicSource,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
+  signal?: AbortSignal,
 ): Promise<ReaderAdapter> {
-  const archive = await openComicArchive(source)
-  return new ComicAdapter(source, archive, initialPosition, callbacks)
+  const archive = await openComicArchive(source, signal)
+  try {
+    signal?.throwIfAborted()
+    return new ComicAdapter(source, archive, initialPosition, callbacks)
+  }
+  catch (error) {
+    try {
+      await archive.close()
+    }
+    catch (cleanupError) {
+      throw combineLifecycleFailures(
+        [error, cleanupError],
+        'Failed to construct and close comic reader',
+      )
+    }
+    throw error
+  }
 }

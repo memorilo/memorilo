@@ -3,23 +3,31 @@ import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage, LearningStorage } from '@memorilo/editor-storage'
 import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
-import type { MergeIpcService } from 'electron-ipc-decorator'
 import type { NoteApplicationService } from '../notes/note-application-service'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
-import { createServices } from 'electron-ipc-decorator'
+import type { WhiteboardLibraryApplication } from '../whiteboard/whiteboard-library-application'
+import type { IpcHandlerHost } from './ipc-handler-registry'
+import { createResourceScope } from '@memorilo/effect-lifecycle'
+import { ipcMain } from 'electron'
 import { createLearningReviewApplication } from '../learning/learning-review-application'
 
-import { AppService } from './app-service'
-import { createAssetService } from './asset-service'
-import { createBookService } from './book-service'
-import { createConfigurationService } from './configuration-service'
-import { createJournalService } from './journal-service'
-import { createLearningService } from './learning-service'
-import { createNoteService } from './note-service'
-import { createShelfService } from './shelf-service'
-import { WindowService } from './window-service'
+import { createAppHandlers } from './app-service'
+import { createAssetHandlers } from './asset-service'
+import { BookReadingApplication } from './book-reading-application'
+import { createBookHandlers } from './book-service'
+import { createConfigurationHandlers } from './configuration-service'
+import { createIpcHandlerRegistry } from './ipc-handler-registry'
+import { createJournalHandlers } from './journal-service'
+import { createLearningHandlers } from './learning-service'
+import { createNoteHandlers } from './note-service'
+import { createShelfOperationRuntime } from './shelf-operation-runtime'
+import { createShelfHandlers } from './shelf-service'
+import { createWhiteboardLibraryHandlers } from './whiteboard-library-service'
+import { createWindowHandlers } from './window-service'
 
-export function createDesktopServices(
+const maximumConcurrentShelfAssetRequests = 3
+
+export async function createDesktopServices(
   notes: NoteApplicationService,
   storage: EditorStorage,
   shelfStorage: ShelfStorage,
@@ -30,31 +38,53 @@ export function createDesktopServices(
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
   activeReadings: ActiveReadingRegistry,
   learning: LearningStorage,
+  whiteboardLibrary: WhiteboardLibraryApplication,
   now: () => number = Date.now,
 ) {
-  const AssetService = createAssetService(assetDirectory, storage, configuration, serializeAssetOperation)
-  const BookService = createBookService(notes, storage, shelfReadingFiles, activeReadings)
-  const ConfigurationService = createConfigurationService(configuration)
-  const JournalService = createJournalService(notes)
-  const LearningService = createLearningService(
-    learning,
-    createLearningReviewApplication(notes, learning, now),
-    now,
-  )
-  const NoteService = createNoteService(notes)
-  const ShelfService = createShelfService(shelfStorage, shelfImageCache, shelfReadingFiles, activeReadings)
-  return createServices([
-    AppService,
-    AssetService,
-    BookService,
-    ConfigurationService,
-    JournalService,
-    LearningService,
-    NoteService,
-    ShelfService,
-    WindowService,
-  ] as const)
+  const scope = createResourceScope('Desktop IPC services', { closeMode: 'dependent' })
+  try {
+    const shelfOperations = (await scope.acquire({
+      acquire: () => createShelfOperationRuntime(maximumConcurrentShelfAssetRequests),
+      close: operations => operations.close(),
+      name: 'Shelf operations',
+    })).resource
+    await scope.acquire({
+      acquire: () => createIpcHandlerRegistry({
+        app: createAppHandlers(),
+        assets: createAssetHandlers(assetDirectory, storage, configuration, serializeAssetOperation),
+        books: createBookHandlers(new BookReadingApplication({
+          activeReadings,
+          notes,
+          operations: shelfOperations,
+          readingFiles: shelfReadingFiles,
+          storage,
+        })),
+        configuration: createConfigurationHandlers(configuration),
+        journals: createJournalHandlers(notes),
+        learning: createLearningHandlers(
+          learning,
+          createLearningReviewApplication(notes, learning, now),
+          now,
+        ),
+        notes: createNoteHandlers(notes),
+        whiteboardLibrary: createWhiteboardLibraryHandlers(whiteboardLibrary),
+        shelf: createShelfHandlers(
+          shelfStorage,
+          shelfImageCache,
+          shelfReadingFiles,
+          activeReadings,
+          shelfOperations,
+        ),
+        window: createWindowHandlers(),
+      }, { host: ipcMain as unknown as IpcHandlerHost }),
+      close: current => current.close(),
+      name: 'IPC registry',
+    })
+    scope.commit()
+    return { close: scope.close }
+  }
+  catch (error) {
+    return scope.rollback(error)
+  }
 }
-
-export type IpcServices = MergeIpcService<ReturnType<typeof createDesktopServices>>
 export type { RuntimeInfo } from './app-service'
