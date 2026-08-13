@@ -3,8 +3,7 @@ import type { TFunction } from 'i18next'
 import type { ActiveReview, ReviewProjection } from './learning-review-rating-model'
 import type { LearningReviewRoute } from './learning-review-route'
 import * as stylex from '@stylexjs/stylex'
-import { Link } from '@tanstack/react-router'
-import { BookOpen, ChevronRight, RotateCcw, X } from 'lucide-react'
+import { BookOpen, ChevronRight, RotateCcw } from 'lucide-react'
 import { motion } from 'motion/react'
 import { learningReviewSpring } from './learning-review-page.stylex'
 import { learningReviewTitlebarStyles as styles } from './learning-review-titlebar.stylex'
@@ -53,15 +52,6 @@ export function LearningReviewTitlebar({
 
   return (
     <div {...stylex.props(styles.sessionBar)} data-review-session-titlebar="">
-      <Link
-        {...stylex.props(styles.iconButton)}
-        aria-label={t('closeReview')}
-        search={{}}
-        title={t('closeReview')}
-        to="/learning"
-      >
-        <X aria-hidden="true" size={17} strokeWidth={1.9} />
-      </Link>
       <div {...stylex.props(styles.identity)}>
         <span {...stylex.props(styles.scopeLabel)}>
           {scope === 'global' ? t('globalReview') : t('noteReview')}

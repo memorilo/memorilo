@@ -4,7 +4,6 @@
   "startReview": "Study",
   "startGlobalReview": "Study all Notes",
   "startNoteReview": "Study {{note}}",
-  "closeReview": "Close review",
   "globalReview": "All Notes",
   "noteReview": "Note review",
   "loadingReview": "Preparing the next card...",

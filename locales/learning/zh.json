@@ -4,7 +4,6 @@
   "startReview": "开始学习",
   "startGlobalReview": "学习全部笔记",
   "startNoteReview": "学习《{{note}}》",
-  "closeReview": "结束复习",
   "globalReview": "全部笔记",
   "noteReview": "笔记复习",
   "loadingReview": "正在准备下一张卡片…",
