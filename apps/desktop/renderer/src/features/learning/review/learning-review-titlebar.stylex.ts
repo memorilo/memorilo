@@ -16,7 +16,7 @@ export const learningReviewTitlebarStyles = stylex.create({
     height: 36,
     minWidth: 0,
     alignItems: 'center',
-    gridTemplateColumns: '30px minmax(0, 1fr) auto',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
     gap: 8,
     borderColor: 'rgba(255, 255, 255, 0.9)',
     borderStyle: 'solid',
@@ -25,7 +25,7 @@ export const learningReviewTitlebarStyles = stylex.create({
     paddingTop: 2,
     paddingRight: 3,
     paddingBottom: 2,
-    paddingLeft: 3,
+    paddingLeft: 10,
     backgroundColor: {
       'default': 'rgba(255, 255, 255, 0.74)',
       '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 252)',
