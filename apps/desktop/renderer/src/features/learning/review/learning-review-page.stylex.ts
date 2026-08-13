@@ -19,7 +19,6 @@ const colors = {
   text: 'rgba(23, 27, 33, 0.94)',
 } as const
 
-const glassShadow = '0 10px 28px rgba(30, 38, 49, 0.1), 0 2px 6px rgba(30, 38, 49, 0.06), 0 0 0 0.5px rgba(64, 72, 84, 0.08), inset 0 1px rgba(255, 255, 255, 0.96), inset 0 -1px rgba(70, 78, 90, 0.08)'
 const controlShadow = '0 2px 6px rgba(31, 38, 48, 0.08), 0 0 0 0.5px rgba(55, 63, 74, 0.08), inset 0 1px rgba(255, 255, 255, 0.98), inset 0 -1px rgba(72, 79, 90, 0.07)'
 
 export const learningReviewPageStyles = stylex.create({
@@ -83,24 +82,9 @@ export const learningReviewPageStyles = stylex.create({
     position: 'relative',
     display: 'flex',
     width: 'min(720px, 100%)',
-    minHeight: 60,
+    minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    borderColor: 'rgba(255, 255, 255, 0.92)',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 8,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.78)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 252)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
-    },
-    backdropFilter: {
-      'default': 'blur(24px) saturate(165%) contrast(1.025)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: glassShadow,
     pointerEvents: 'auto',
   },
   showAnswerButton: {
@@ -245,8 +229,8 @@ export const learningReviewPageStyles = stylex.create({
   },
   dockSpinner: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 15,
+    right: -22,
     color: colors.muted,
   },
   centeredStatus: {
