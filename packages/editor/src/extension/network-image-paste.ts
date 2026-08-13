@@ -1,5 +1,6 @@
 import type { Node as ProseMirrorNode } from 'prosekit/pm/model'
 import type { EditorAdapters } from '../adapters/editor-adapters'
+import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
 import { definePasteHandler, defineUpdateHandler, union } from 'prosekit/core'
 import { insertImage, replaceImageURL } from 'prosekit/extensions/image'
 import { Fragment, Slice } from 'prosekit/pm/model'
@@ -22,12 +23,6 @@ function temporaryImageSource(source: string): string {
   const url = new URL(source)
   url.hash = `memorilo-network-paste-${Date.now()}-${pasteSequence++}`
   return url.toString()
-}
-
-function importNetworkImage(source: string, adapters: EditorAdapters): Promise<string> {
-  return adapters.importNetworkImage
-    ? adapters.importNetworkImage(source)
-    : Promise.reject(new Error('Network image import is unavailable'))
 }
 
 function mapNetworkImages(
@@ -65,31 +60,102 @@ function prepareNetworkImageSlice(slice: Slice): {
   }
 }
 
-export function defineNetworkImagePaste(adapters: EditorAdapters) {
-  const completedReplacements = new Map<string, string>()
+type ApplyReplacement = (temporarySource: string, completedSource: string) => void
+
+export class NetworkImagePasteRuntime {
+  readonly #adapters: EditorAdapters
+  readonly #completedReplacements = new Map<string, string>()
+  readonly #imports = createOperationSupervisor('Network image paste', {
+    concurrency: 'unbounded',
+  })
+
+  constructor(adapters: EditorAdapters) {
+    this.#adapters = adapters
+  }
+
+  get closed() {
+    return this.#imports.isClosed()
+  }
+
+  startImport(source: string, temporarySource: string, applyReplacement: ApplyReplacement) {
+    if (this.#imports.isClosed())
+      return false
+    const operation = this.#imports.run(async () => {
+      try {
+        const storedSource = await this.#import(source)
+        this.#complete(temporarySource, storedSource, applyReplacement)
+      }
+      catch (error) {
+        if (this.#imports.isClosed())
+          return
+        this.#complete(temporarySource, source, applyReplacement)
+        console.error(`Failed to download pasted image ${source}`, error)
+      }
+    })
+    void operation.then(
+      () => undefined,
+      () => undefined,
+    )
+    return true
+  }
+
+  applyCompletedReplacements(applyReplacement: ApplyReplacement) {
+    if (this.#imports.isClosed())
+      return
+    for (const [temporarySource, completedSource] of this.#completedReplacements)
+      this.#apply(temporarySource, completedSource, applyReplacement)
+  }
+
+  close() {
+    if (!this.#imports.isClosed()) {
+      this.#completedReplacements.clear()
+    }
+    return this.#imports.close()
+  }
+
+  #import(source: string) {
+    return this.#adapters.importNetworkImage
+      ? this.#adapters.importNetworkImage(source)
+      : Promise.reject(new Error('Network image import is unavailable'))
+  }
+
+  #complete(temporarySource: string, completedSource: string, applyReplacement: ApplyReplacement) {
+    if (this.#imports.isClosed())
+      return
+    this.#completedReplacements.set(temporarySource, completedSource)
+    this.#apply(temporarySource, completedSource, applyReplacement)
+  }
+
+  #apply(temporarySource: string, completedSource: string, applyReplacement: ApplyReplacement) {
+    try {
+      applyReplacement(temporarySource, completedSource)
+    }
+    catch (error) {
+      console.error(`Failed to replace pasted image ${temporarySource}`, error)
+    }
+  }
+}
+
+export function createNetworkImagePaste(adapters: EditorAdapters) {
+  const runtime = new NetworkImagePasteRuntime(adapters)
   const applyCompletedReplacements: Parameters<typeof defineUpdateHandler>[0] = (view) => {
-    for (const [temporarySource, completedSource] of completedReplacements)
+    runtime.applyCompletedReplacements((temporarySource, completedSource) => {
       replaceImageURL(view, temporarySource, completedSource)
+    })
   }
   const replaceAfterImport = (
     source: string,
     temporarySource: string,
     view: Parameters<Parameters<typeof definePasteHandler>[0]>[0],
   ): void => {
-    void importNetworkImage(source, adapters).then(
-      (storedSource) => {
-        completedReplacements.set(temporarySource, storedSource)
-        replaceImageURL(view, temporarySource, storedSource)
-      },
-      (error) => {
-        completedReplacements.set(temporarySource, source)
-        replaceImageURL(view, temporarySource, source)
-        console.error(`Failed to download pasted image ${source}`, error)
-      },
-    )
+    runtime.startImport(source, temporarySource, (pendingSource, storedSource) => {
+      replaceImageURL(view, pendingSource, storedSource)
+    })
   }
 
-  return union(definePasteHandler((view, event, slice) => {
+  const extension = union(definePasteHandler((view, event, slice) => {
+    if (runtime.closed)
+      return false
     if (adapters.networkImagePasteBehavior !== 'download' && adapters.networkImagePasteBehavior !== 'url')
       return false
     const clipboardData = event.clipboardData
@@ -126,4 +192,6 @@ export function defineNetworkImagePaste(adapters: EditorAdapters) {
       replaceAfterImport(source, temporarySource, view)
     return true
   }), defineUpdateHandler(applyCompletedReplacements))
+
+  return { extension, runtime }
 }

@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const handle = vi.fn()
-vi.mock('electron', () => ({ protocol: { handle } }))
+const unhandle = vi.fn()
+vi.mock('electron', () => ({ protocol: { handle, unhandle } }))
 
 const { registerAssetProtocol } = await import('./asset-protocol')
 const temporaryDirectories: string[] = []
@@ -32,7 +33,7 @@ describe('asset protocol', () => {
     temporaryDirectories.push(directory)
     const fileName = '123e4567-e89b-42d3-a456-426614174000.png'
     await writeFile(join(directory, fileName), Uint8Array.from([1, 2, 3]))
-    registerAssetProtocol(directory)
+    await registerAssetProtocol(directory)
     const handler = registeredHandler()
 
     for (const url of [`memorilo-asset:///${fileName}`, `memorilo-asset://${fileName}/`]) {
@@ -51,22 +52,22 @@ describe('asset protocol', () => {
     ['memorilo-asset:///%E0%A4%A', 400],
     ['memorilo-asset:///not-a-uuid.png', 400],
   ])('rejects an invalid path %s', async (url, status) => {
-    registerAssetProtocol('/tmp')
+    await registerAssetProtocol('/tmp')
     expect((await registeredHandler()(request(url))).status).toBe(status)
   })
 
   it('rejects non-GET methods', async () => {
-    registerAssetProtocol('/tmp')
+    await registerAssetProtocol('/tmp')
     expect((await registeredHandler()(request('memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png', 'POST'))).status).toBe(405)
   })
 
   it('returns not found when assets are unavailable or missing', async () => {
-    registerAssetProtocol(null)
+    await registerAssetProtocol(null)
     expect((await registeredHandler()(request('memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png'))).status).toBe(404)
 
     const directory = await mkdtemp(join(tmpdir(), 'memorilo-asset-protocol-'))
     temporaryDirectories.push(directory)
-    registerAssetProtocol(directory)
+    await registerAssetProtocol(directory)
     expect((await registeredHandler()(request('memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png'))).status).toBe(404)
   })
 })

@@ -3,6 +3,8 @@ export type {
   ReaderAnchor,
   ReaderAnnotation,
   ReaderAnnotationColor,
+  ReaderAuxiliarySidebar,
+  ReaderAuxiliarySidebarController,
   ReaderCapabilities,
   ReaderComicRegionAnchor,
   ReaderDataSource,

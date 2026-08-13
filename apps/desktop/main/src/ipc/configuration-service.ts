@@ -1,21 +1,19 @@
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
-import { IpcMethod, IpcService } from 'electron-ipc-decorator'
+import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
-export function createConfigurationService(store: ConfigurationStore<DesktopConfiguration>) {
-  class ConfigurationService extends IpcService {
-    static override readonly groupName = 'configuration'
-
-    @IpcMethod()
+export function createConfigurationHandlers(
+  store: ConfigurationStore<DesktopConfiguration>,
+): DesktopIpcHandlers['configuration'] {
+  return {
     get(): DesktopConfiguration {
       return store.getSnapshot()
-    }
-
-    @IpcMethod()
+    },
     set(configuration: DesktopConfiguration): Promise<DesktopConfiguration> {
       return store.set(configuration)
-    }
+    },
+    setValue(path: string, value: unknown): Promise<DesktopConfiguration> {
+      return store.setValue(path, value)
+    },
   }
-
-  return ConfigurationService
 }

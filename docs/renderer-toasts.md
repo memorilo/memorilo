@@ -2,7 +2,7 @@
 
 桌面 renderer 使用全局挂载的 React-Toastify 容器显示非阻塞通知。容器由
 `AppShell` 统一提供，Liquid Glass 主题、图标、动画、关闭按钮、堆叠上限和
-辅助功能适配集中定义在 `apps/desktop/renderer/src/components/app-toast.*`。
+辅助功能适配集中定义在 `apps/desktop/renderer/src/app/shell/app-toast.*`。
 
 ## 模块边界
 

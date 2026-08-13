@@ -5,7 +5,7 @@ import { page } from '@vitest/browser/context'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../test/browser/editor-mode-harness'
 import { EditorTestHarness as Editor } from '../test/browser/editor-test-harness'
-import { userEvent } from '../test/browser/user-event'
+import { modShortcut, redoShortcut, userEvent } from '../test/browser/user-event'
 
 import { EditorMode } from './common/editor-mode'
 import { Editor as TopicEditor } from './editor'
@@ -285,7 +285,7 @@ describe('editor modes', () => {
 
     if (entry === 'Cmd+A') {
       await userEvent.click(page.getByText('First root', { exact: true }))
-      await userEvent.keyboard('{Meta>}a{/Meta}')
+      await userEvent.keyboard(modShortcut('a'))
     }
     else {
       fireEvent.contextMenu(rendered.getByText('First root', { exact: true }), { clientX: 320, clientY: 180 })
@@ -356,11 +356,11 @@ describe('editor modes', () => {
 
     await userEvent.click(page.getByRole('button', { name: 'Document mode' }))
     await userEvent.click(page.getByText('History block changed'))
-    await userEvent.keyboard('{Meta>}z{/Meta}')
+    await userEvent.keyboard(modShortcut('z'))
     expect(await within(rendered.container).findByText('History block')).toBeInTheDocument()
     expect(within(rendered.container).queryByText('History block changed')).not.toBeInTheDocument()
 
-    await userEvent.keyboard('{Meta>}{Shift>}z{/Shift}{/Meta}')
+    await userEvent.keyboard(redoShortcut())
     expect(await within(rendered.container).findByText('History block changed')).toBeInTheDocument()
   })
 })

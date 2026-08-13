@@ -1,9 +1,11 @@
 import type { EditorStorage, EmbeddingModel } from '@memorilo/editor-storage'
+import type { ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { NoteApplicationService } from '../notes/note-application-service'
 import { request as httpRequest } from 'node:http'
 import { createServer } from 'node:net'
-import { createEditorStorage } from '@memorilo/editor-storage'
+import { SqliteEditorStorage } from '@memorilo/editor-storage'
+import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createNoteApplicationService, NoteRevisionConflictError } from '../notes/note-application-service'
 import { BetterSqliteDatabase } from '../storage/better-sqlite-database'
@@ -29,6 +31,20 @@ async function unusedPort(): Promise<number> {
   const address = server.address() as AddressInfo
   await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
   return address.port
+}
+
+async function occupyPort(port: number): Promise<() => Promise<void>> {
+  const server = createServer()
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(port, '127.0.0.1', () => {
+      server.off('error', reject)
+      resolve()
+    })
+  })
+  return () => new Promise<void>((resolve, reject) => {
+    server.close(error => error ? reject(error) : resolve())
+  })
 }
 
 function createNotesStub() {
@@ -225,8 +241,9 @@ describe('streamable HTTP server for MCP', () => {
   })
 
   it('persists a real structured edit through HTTP and rejects its stale revision', async () => {
-    const storage = await createEditorStorage({
+    const storage = await SqliteEditorStorage.open({
       database: new BetterSqliteDatabase(':memory:'),
+      databaseOwnership: 'owned',
       embeddingModel,
     })
     storages.push(storage)
@@ -357,5 +374,170 @@ describe('streamable HTTP server for MCP', () => {
     const first = await startMcpHttpServer({ accessToken, enabled: true, port }, notes)
     stops.push(first)
     await expect(startMcpHttpServer({ accessToken, enabled: true, port }, notes)).rejects.toThrow()
+  })
+
+  it('releases listener admission immediately while sharing shutdown and draining an accepted tool operation', async () => {
+    const result = deferred<unknown>()
+    const { notes, spies } = createNotesStub()
+    spies.listNotes.mockImplementation(async () => result.promise as never)
+    const { endpoint, port } = await start(notes)
+    const response = request(endpoint, {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      params: { arguments: {}, name: 'list_notes' },
+    })
+    void response.catch(() => undefined)
+    await vi.waitFor(() => expect(spies.listNotes).toHaveBeenCalledOnce())
+
+    let stopped = false
+    const stop = stops[stops.length - 1]!
+    const firstShutdown = stop()
+    expect(stop()).toBe(firstShutdown)
+    const shutdown = firstShutdown.then(() => {
+      stopped = true
+    })
+    await new Promise(resolve => setImmediate(resolve))
+    expect(stopped).toBe(false)
+
+    const closeReplacement = await occupyPort(port)
+    await closeReplacement()
+    expect(stopped).toBe(false)
+
+    result.resolve({ items: [], page: 1, pageSize: 50, totalItems: 0, totalPages: 0 })
+    await shutdown
+    await response.catch(() => undefined)
+    expect(stopped).toBe(true)
+  })
+
+  it('closes an active transport while request shutdown is waiting for it', async () => {
+    const port = await unusedPort()
+    const handling = deferred<void>()
+    const started = deferred<void>()
+    let activeResponse: ServerResponse | undefined
+    const interruptConnection = vi.fn(async () => {
+      if (activeResponse && !activeResponse.headersSent)
+        activeResponse.writeHead(503).end()
+      handling.resolve()
+    })
+    const closeConnection = vi.fn(async () => undefined)
+    const { notes } = createNotesStub()
+    const stop = await startMcpHttpServer(
+      { accessToken, enabled: true, port },
+      notes,
+      {
+        createConnection: () => ({
+          close: closeConnection,
+          connect: async () => undefined,
+          handleRequest: async (_request, response) => {
+            activeResponse = response
+            started.resolve()
+            await handling.promise
+          },
+          interrupt: interruptConnection,
+        }),
+      },
+    )
+    stops.push(stop)
+    const response = request(`http://127.0.0.1:${port}/mcp`, {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'tools/list',
+    })
+    void response.catch(() => undefined)
+    await started.promise
+
+    await stop()
+    await response.catch(() => undefined)
+
+    expect(interruptConnection).toHaveBeenCalledOnce()
+    expect(closeConnection).toHaveBeenCalledOnce()
+  })
+
+  it('retains failed protocol cleanup for shutdown retry', async () => {
+    const port = await unusedPort()
+    const handling = deferred<void>()
+    const started = deferred<void>()
+    const closeFailure = new Error('protocol still busy')
+    const closeConnection = vi.fn()
+      .mockRejectedValueOnce(closeFailure)
+      .mockResolvedValue(undefined)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { notes } = createNotesStub()
+    const stop = await startMcpHttpServer(
+      { accessToken, enabled: true, port },
+      notes,
+      {
+        createConnection: () => ({
+          close: closeConnection,
+          connect: async () => undefined,
+          handleRequest: async (_request, response) => {
+            response.writeHead(200, { 'content-type': 'application/json' })
+            response.end('{}')
+            started.resolve()
+            await handling.promise
+          },
+          interrupt: async () => handling.resolve(),
+        }),
+      },
+    )
+    stops.push(stop)
+
+    const response = request(`http://127.0.0.1:${port}/mcp`, {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'tools/list',
+    })
+    await started.promise
+    await vi.waitFor(() => expect(closeConnection).toHaveBeenCalledOnce())
+
+    await expect(stop()).resolves.toBeUndefined()
+    expect((await response).status).toBe(200)
+    expect(closeConnection).toHaveBeenCalledTimes(2)
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to close disconnected MCP protocol',
+      expect.objectContaining({
+        cause: closeFailure,
+        message: 'Failed to close MCP protocol transport',
+      }),
+    )
+  })
+
+  it('aborts an incomplete request body instead of blocking shutdown', async () => {
+    const { notes } = createNotesStub()
+    const { endpoint } = await start(notes)
+    const url = new URL(endpoint)
+    const request = httpRequest({
+      headers: {
+        'authorization': `Bearer ${accessToken}`,
+        'content-length': '1024',
+        'content-type': 'application/json',
+      },
+      hostname: url.hostname,
+      method: 'POST',
+      path: url.pathname,
+      port: url.port,
+    })
+    const settled = new Promise<void>((resolve) => {
+      request.once('error', () => resolve())
+      request.once('response', (response) => {
+        response.resume()
+        response.once('end', resolve)
+      })
+    })
+    const connected = new Promise<void>((resolve) => {
+      request.once('socket', (socket) => {
+        if (socket.readyState === 'open')
+          resolve()
+        else
+          socket.once('connect', resolve)
+      })
+    })
+    request.write('{"jsonrpc":')
+    await connected
+    await new Promise(resolve => setImmediate(resolve))
+
+    await stops[stops.length - 1]!()
+    await settled
   })
 })

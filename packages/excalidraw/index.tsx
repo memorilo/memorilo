@@ -22,7 +22,12 @@ export type {
   AppState,
   BinaryFiles,
   ExcalidrawInitialDataState,
+  LibraryItems,
 } from "./types";
+export type {
+  LibraryPersistenceAdapter,
+  LibraryPersistedData,
+} from "./data/library";
 export type {
   ExcalidrawElement,
 } from "./element/types";
@@ -37,6 +42,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     isCollaborating = false,
     onPointerUpdate,
     renderTopRightUI,
+    renderToolbarUI,
     langCode = defaultLang.code,
     viewModeEnabled,
     zenModeEnabled,
@@ -148,6 +154,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           isCollaborating={isCollaborating}
           onPointerUpdate={onPointerUpdate}
           renderTopRightUI={renderTopRightUI}
+          renderToolbarUI={renderToolbarUI}
           langCode={langCode}
           viewModeEnabled={viewModeEnabled}
           zenModeEnabled={zenModeEnabled}

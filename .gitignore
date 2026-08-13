@@ -11,6 +11,7 @@ result/
 coverage/
 test-results/
 playwright-report/
+**/__screenshots__/
 
 *.log
 *.tsbuildinfo

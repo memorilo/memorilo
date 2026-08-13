@@ -1,55 +1,23 @@
-import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
-import type { DesktopConfiguration } from '@memorilo/desktop-config'
-import type { EditorStorage, LearningPracticeConfiguration } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
-import type { NoteApplicationService } from './notes/note-application-service'
-import { randomBytes } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import type { DesktopRuntime } from './desktop-runtime'
+import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { createConfigurationStore } from '@memorilo/config'
-import { createJsonFileConfigurationAdapter } from '@memorilo/config/node'
-import {
-  desktopConfigurationChangedChannel,
-  desktopConfigurationDefinition,
-  migrateDesktopConfiguration,
-} from '@memorilo/desktop-config'
-import { createEditorStorage, createShelfImageCache, createShelfStorage } from '@memorilo/editor-storage'
-import { createShelfReadingFileStore } from '@memorilo/shelf/node'
-import { app, BrowserWindow, dialog, ipcMain, powerMonitor, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 
-import { installApplicationMenu } from './application-menu'
-import { assetProtocol, registerAssetProtocol } from './asset-protocol'
-import { createAssetOperationQueue } from './assets/asset-operation-queue'
-import { createDesktopServices } from './ipc/services'
+import { assetProtocol } from './asset-protocol'
+import { createDesktopRuntime } from './desktop-runtime'
 import { flushRendererNotes } from './lifecycle/note-save-handshake'
-import { createMcpServerController } from './mcp/mcp-server-controller'
-import { createNoteApplicationService } from './notes/note-application-service'
-import { createActiveReadingRegistry } from './reading/active-reading-registry'
+import { createShutdownStateMachine } from './lifecycle/shutdown-state-machine'
 import {
   isRendererUrl,
-  registerRendererProtocol,
   rendererIndexUrl,
   rendererProtocol,
 } from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
-import { BetterSqliteDatabase } from './storage/better-sqlite-database'
-import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
-import { createSettingsWindowController } from './windows/settings-window'
 
-let editorStorage: EditorStorage | null = null
-let shelfImageCacheDatabase: BetterSqliteDatabase | null = null
-let configurationStore: ConfigurationStore<DesktopConfiguration> | null = null
-let unsubscribeConfiguration: (() => void) | null = null
-let closeMcpServer: (() => Promise<void>) | null = null
-let closeNoteApplication: (() => Promise<void>) | null = null
-let stopJournalRollover: (() => void) | null = null
-let shutdownPromise: Promise<boolean> | null = null
-let shutdownComplete = false
-let quitting = false
-const windowsReadyToClose = new WeakSet<BrowserWindow>()
+let desktopRuntime: DesktopRuntime | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 app.setName('Memorilo')
@@ -78,143 +46,16 @@ protocol.registerSchemesAsPrivileged([{
   },
 }])
 
-function databasePath(userDataPath: string): string {
-  const configured = process.env.MEMORILO_DATABASE_PATH
-  if (configured === undefined)
-    return join(userDataPath, 'memorilo.sqlite')
-  if (configured.length === 0)
-    throw new TypeError('MEMORILO_DATABASE_PATH must not be empty')
-  return configured
-}
-
-function assetDirectory(database: string): string | null {
-  if (database === ':memory:')
-    return null
-  const absoluteDatabase = isAbsolute(database) ? database : resolve(database)
-  return join(dirname(absoluteDatabase), 'assets')
-}
-
-function embeddingModelCacheDirectory(): string {
-  if (app.isPackaged)
-    return join(process.resourcesPath, 'embedding-models')
-  return resolve(mainDirectory, '../../../../.cache/embedding-models')
-}
-
-function learningPracticeConfiguration(
-  configuration: DesktopConfiguration,
-): LearningPracticeConfiguration {
-  return {
-    dailyGoal: {
-      fixedCards: configuration.goals.dailyLearningGoalCards,
-      mode: configuration.goals.dailyLearningGoalMode,
-    },
-    queuePolicy: {
-      buryInterdayLearningSiblings: configuration.flashcards.buryInterdayLearningSiblings,
-      buryNewSiblings: configuration.flashcards.buryNewSiblings,
-      buryReviewSiblings: configuration.flashcards.buryReviewSiblings,
-      interdayOrder: configuration.flashcards.interdayOrder,
-      learnAheadMinutes: configuration.flashcards.learnAheadMinutes,
-      maxNewCardsPerDay: configuration.flashcards.newCardsPerDay,
-      newGatherOrder: configuration.flashcards.newGatherOrder,
-      reviewOrder: configuration.flashcards.reviewOrder,
-      studyDayStartsAtHour: configuration.flashcards.studyDayStartsAtHour,
-    },
-  }
-}
-
-async function reportInvalidConfiguration(configurationPath: string, phase: 'reload' | 'startup'): Promise<void> {
-  const consequence = phase === 'startup'
-    ? 'Memorilo could not start.'
-    : 'The changes were not applied. Memorilo will keep using the last valid settings.'
-  console.error(`Invalid Memorilo configuration during ${phase}: ${configurationPath}`)
-  const options: MessageBoxOptions = {
-    buttons: ['OK'],
-    defaultId: 0,
-    detail: `One or more recognized settings have an invalid format. ${consequence}\n\nCheck the configuration file at:\n${configurationPath}`,
-    message: 'Invalid Memorilo Configuration',
-    noLink: true,
-    type: 'error',
-  }
-  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  if (owner)
-    await dialog.showMessageBox(owner, options)
-  else
-    await dialog.showMessageBox(options)
-}
-
-function desktopConfigurationAdapter(userDataPath: string): ConfigurationAdapter {
-  const adapter = createJsonFileConfigurationAdapter(join(userDataPath, 'configuration.json'))
-  return {
-    read: async () => {
-      const stored = await adapter.read()
-      if (stored === null)
-        return null
-      const migrated = migrateDesktopConfiguration(stored)
-      if (migrated !== stored)
-        await adapter.write(migrated)
-      return migrated
-    },
-    subscribe: adapter.subscribe,
-    write: adapter.write,
-  }
-}
-
-async function createDesktopConfigurationStore(userDataPath: string): Promise<ConfigurationStore<DesktopConfiguration>> {
-  const configurationPath = join(userDataPath, 'configuration.json')
-  try {
-    return await createConfigurationStore(
-      desktopConfigurationDefinition,
-      desktopConfigurationAdapter(userDataPath),
-      {
-        onError: () => void reportInvalidConfiguration(configurationPath, 'reload'),
-      },
-    )
-  }
-  catch {
-    await reportInvalidConfiguration(configurationPath, 'startup')
-    throw new Error(`Invalid Memorilo configuration: ${configurationPath}`)
-  }
-}
-
-function shelfImageCacheDatabasePath(): string {
-  const configured = process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH
-  if (configured !== undefined) {
-    if (configured.length === 0)
-      throw new TypeError('MEMORILO_SHELF_IMAGE_CACHE_PATH must not be empty')
-    return configured
-  }
-  const homePath = app.getPath('home')
-  const cacheDirectory = process.platform === 'darwin'
-    ? join(homePath, 'Library', 'Caches', 'Memorilo')
-    : process.platform === 'win32'
-      ? join(process.env.LOCALAPPDATA || app.getPath('sessionData'), 'Memorilo', 'Cache')
-      : join(process.env.XDG_CACHE_HOME || join(homePath, '.cache'), 'memorilo')
-  mkdirSync(cacheDirectory, { recursive: true })
-  return join(cacheDirectory, 'shelf-images.sqlite')
-}
-
-function shelfBookCacheDirectory(userDataPath: string): string {
-  const configured = process.env.MEMORILO_SHELF_BOOK_CACHE_PATH
-  if (configured !== undefined) {
-    if (configured.length === 0)
-      throw new TypeError('MEMORILO_SHELF_BOOK_CACHE_PATH must not be empty')
-    return configured
-  }
-  if (process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH === ':memory:')
-    return join(userDataPath, 'shelf-book-cache')
-  const homePath = app.getPath('home')
-  return process.platform === 'darwin'
-    ? join(homePath, 'Library', 'Caches', 'Memorilo', 'shelf-books')
-    : process.platform === 'win32'
-      ? join(process.env.LOCALAPPDATA || app.getPath('sessionData'), 'Memorilo', 'Cache', 'shelf-books')
-      : join(process.env.XDG_CACHE_HOME || join(homePath, '.cache'), 'memorilo', 'shelf-books')
-}
-
-function shelfLibraryDirectory(databaseFilePath: string, userDataPath: string): string {
-  if (databaseFilePath === ':memory:')
-    return join(userDataPath, 'shelf')
-  return join(dirname(resolve(databaseFilePath)), 'shelf')
-}
+const shutdown = createShutdownStateMachine({
+  closeRuntime: async () => {
+    await desktopRuntime?.close()
+    desktopRuntime = null
+  },
+  getWindows: () => BrowserWindow.getAllWindows(),
+  onError: (message, error) => console.error(message, error),
+  quit: () => app.quit(),
+  saveWindow: window => requestRendererSave([window.webContents], window),
+})
 
 function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
   if (rendererUrl)
@@ -225,69 +66,6 @@ function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
 
 function shouldShowWindow(): boolean {
   return process.env.MEMORILO_E2E_HIDE_WINDOW !== '1'
-}
-
-function installJournalRollover(notes: Pick<NoteApplicationService, 'openJournal'>): () => void {
-  let checking: Promise<void> | null = null
-  let stopped = false
-  let timer: ReturnType<typeof setTimeout> | null = null
-
-  const recheck = (): void => {
-    if (stopped || checking)
-      return
-    checking = notes.openJournal()
-      .then(() => undefined)
-      .catch(error => console.error('Failed to ensure today\'s Journal', error))
-      .finally(() => {
-        checking = null
-      })
-  }
-
-  const schedule = (): void => {
-    if (stopped)
-      return
-    if (timer)
-      clearTimeout(timer)
-    const now = new Date()
-    const nextMidnight = new Date(now)
-    nextMidnight.setDate(nextMidnight.getDate() + 1)
-    nextMidnight.setHours(0, 0, 0, 0)
-    timer = setTimeout(() => {
-      recheck()
-      schedule()
-    }, Math.max(nextMidnight.getTime() - now.getTime() + 250, 1_000))
-    timer.unref()
-  }
-
-  const handleTemporalChange = (): void => {
-    recheck()
-    schedule()
-  }
-
-  app.on('browser-window-focus', handleTemporalChange)
-  powerMonitor.on('resume', handleTemporalChange)
-  schedule()
-
-  return () => {
-    stopped = true
-    if (timer)
-      clearTimeout(timer)
-    timer = null
-    app.removeListener('browser-window-focus', handleTemporalChange)
-    powerMonitor.removeListener('resume', handleTemporalChange)
-  }
-}
-
-function learningNow(): () => number {
-  const configured = process.env.MEMORILO_E2E_NOW_MS
-  if (configured === undefined)
-    return Date.now
-  if (shouldShowWindow())
-    throw new Error('MEMORILO_E2E_NOW_MS is only available in hidden-window E2E runs')
-  const milliseconds = Number(configured)
-  if (!Number.isSafeInteger(milliseconds) || milliseconds < 0)
-    throw new TypeError('MEMORILO_E2E_NOW_MS must be a non-negative safe integer')
-  return () => milliseconds
 }
 
 function createWindow() {
@@ -307,6 +85,7 @@ function createWindow() {
     title: 'Memorilo',
     ...macOSWindowOptions,
     webPreferences: {
+      backgroundThrottling: shouldShowWindow(),
       contextIsolation: true,
       nodeIntegration: false,
       preload: join(mainDirectory, '../preload/index.cjs'),
@@ -327,18 +106,7 @@ function createWindow() {
       event.preventDefault()
   })
   window.on('close', (event) => {
-    if (quitting || windowsReadyToClose.has(window) || window.webContents.isDestroyed())
-      return
-    event.preventDefault()
-    window.setEnabled(false)
-    void requestRendererSave([window.webContents], window).then((saved) => {
-      if (!saved) {
-        window.setEnabled(true)
-        return
-      }
-      windowsReadyToClose.add(window)
-      window.close()
-    })
+    shutdown.handleWindowClose(window, event)
   })
 
   if (rendererUrl)
@@ -348,79 +116,10 @@ function createWindow() {
 }
 
 async function startApplication(): Promise<void> {
-  const userDataPath = app.getPath('userData')
-  const database = databasePath(userDataPath)
-  const assets = assetDirectory(database)
-  registerAssetProtocol(assets)
-  registerRendererProtocol(join(mainDirectory, '../renderer'))
-  const activeConfigurationStore = await createDesktopConfigurationStore(userDataPath)
-  configurationStore = activeConfigurationStore
-  const mainDatabase = new BetterSqliteDatabase(database)
-  editorStorage = await createEditorStorage({
-    database: mainDatabase,
-    embeddingModel: new TransformersEmbeddingModel({
-      allowRemoteModels: !app.isPackaged && process.env.MEMORILO_EMBEDDING_MODEL_OFFLINE !== '1',
-      cacheDirectory: embeddingModelCacheDirectory(),
-    }),
-    learningConfiguration: () => learningPracticeConfiguration(activeConfigurationStore.getSnapshot()),
-  })
-  const shelfStorage = await createShelfStorage({ database: mainDatabase })
-  shelfImageCacheDatabase = new BetterSqliteDatabase(shelfImageCacheDatabasePath(), {
-    loadVectorExtension: false,
-  })
-  const shelfImageCache = await createShelfImageCache({ database: shelfImageCacheDatabase })
-  const shelfReadingFiles = await createShelfReadingFileStore({
-    cacheDirectory: shelfBookCacheDirectory(userDataPath),
-    libraryDirectory: shelfLibraryDirectory(database, userDataPath),
-  })
-  const activeReadings = createActiveReadingRegistry()
-
-  let configuration = activeConfigurationStore.getSnapshot()
-  if (configuration.mcp.accessToken.length < 32) {
-    configuration = await activeConfigurationStore.set({
-      ...configuration,
-      mcp: { ...configuration.mcp, accessToken: randomBytes(32).toString('base64url') },
-    })
-  }
-
-  const serializeAssetOperation = createAssetOperationQueue()
-  const notes = createNoteApplicationService(editorStorage, ({ noteId, update, updatedAt }) => {
-    for (const window of BrowserWindow.getAllWindows())
-      window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
-  }, {}, activeReadings)
-  await notes.openJournal()
-  stopJournalRollover = installJournalRollover(notes)
-  const mcpServer = createMcpServerController(notes)
-  closeMcpServer = mcpServer.close
-  closeNoteApplication = notes.close
-
-  createDesktopServices(
-    notes,
-    editorStorage,
-    shelfStorage,
-    shelfImageCache,
-    shelfReadingFiles,
-    activeConfigurationStore,
-    assets,
-    serializeAssetOperation,
-    activeReadings,
-    editorStorage.learning,
-    learningNow(),
-  )
-  void mcpServer.update(configuration.mcp)
-  unsubscribeConfiguration = activeConfigurationStore.subscribe(() => {
-    const next = activeConfigurationStore.getSnapshot()
-    for (const window of BrowserWindow.getAllWindows())
-      window.webContents.send(desktopConfigurationChangedChannel, next)
-    void mcpServer.update(next.mcp)
-  })
-  const settingsWindow = createSettingsWindowController(mainDirectory)
-  installApplicationMenu(settingsWindow.show)
-  createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0)
-      createWindow()
+  desktopRuntime = await createDesktopRuntime({
+    allowTestClock: process.env.MEMORILO_E2E_NOW_MS !== undefined,
+    createWindow,
+    mainDirectory,
   })
 }
 
@@ -444,13 +143,13 @@ async function requestRendererSave(
       return true
     const detail = outcome.status === 'failed'
       ? `Memorilo could not save the latest Note changes.\n\n${outcome.message}`
-      : 'Memorilo did not receive a save confirmation before the timeout.'
+      : 'Memorilo did not receive confirmation that the latest Note changes were saved before the timeout.'
     const options: MessageBoxOptions = {
-      buttons: ['Retry', 'Cancel'],
+      buttons: ['Retry', 'Keep Open'],
       cancelId: 1,
       defaultId: 0,
-      detail: `${detail}\n\nRetry saving, or cancel closing to keep your changes open.`,
-      message: 'Note Changes Are Not Saved',
+      detail: `${detail}\n\nRetry saving, or keep the window open so your changes remain available.`,
+      message: 'Couldn\'t Confirm Changes Were Saved',
       noLink: true,
       type: 'warning',
     }
@@ -462,65 +161,8 @@ async function requestRendererSave(
   }
 }
 
-async function shutdownApplication(): Promise<boolean> {
-  if (!await requestRendererSave())
-    return false
-
-  stopJournalRollover?.()
-  stopJournalRollover = null
-
-  unsubscribeConfiguration?.()
-  unsubscribeConfiguration = null
-  configurationStore?.close()
-  configurationStore = null
-
-  const stopMcp = closeMcpServer
-  closeMcpServer = null
-  await stopMcp?.()
-
-  const closeNotes = closeNoteApplication
-  closeNoteApplication = null
-  await closeNotes?.()
-
-  const storage = editorStorage
-  editorStorage = null
-  await storage?.close()
-
-  const imageCacheDatabase = shelfImageCacheDatabase
-  shelfImageCacheDatabase = null
-  imageCacheDatabase?.close()
-  return true
-}
-
 app.on('before-quit', (event) => {
-  if (shutdownComplete)
-    return
-  event.preventDefault()
-  if (shutdownPromise)
-    return
-  const windows = BrowserWindow.getAllWindows()
-  windows.forEach(window => window.setEnabled(false))
-  shutdownPromise = shutdownApplication()
-    .catch((error) => {
-      console.error('Failed to shut down Memorilo cleanly', error)
-      return false
-    })
-    .then((closed) => {
-      if (!closed) {
-        windows.forEach((window) => {
-          if (!window.isDestroyed())
-            window.setEnabled(true)
-        })
-        return false
-      }
-      shutdownComplete = true
-      quitting = true
-      app.quit()
-      return true
-    })
-    .finally(() => {
-      shutdownPromise = null
-    })
+  shutdown.handleBeforeQuit(event)
 })
 
 app.on('window-all-closed', () => {

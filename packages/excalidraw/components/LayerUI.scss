@@ -24,6 +24,17 @@
       gap: 0.75rem;
       pointer-events: none !important;
 
+      // The host titlebar owns a second action group at the window edge.
+      // Reserve its current width plus an 8px gap from Excalidraw's trigger.
+      [data-topic-type="whiteboard"] & {
+        box-sizing: border-box;
+        padding-right: 42px;
+      }
+
+      [data-topic-type="whiteboard"][data-note-inspector-visible="true"] & {
+        padding-right: 74px;
+      }
+
       & > * {
         pointer-events: var(--ui-pointerEvents);
       }

@@ -1,0 +1,116 @@
+import type { JournalDate } from '@memorilo/editor-storage'
+import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { TopicBlockEdit } from '@memorilo/editor/note'
+import type { BookFileBinding } from '@memorilo/reading-model'
+import type { BookTopicReadingContext } from './note-application-projection'
+
+export type { ApplicationNoteDocument, BookTopicReadingContext } from './note-application-projection'
+
+export interface CreateNoteInput {
+  initialHeading?: string
+  title?: string
+}
+
+export interface CreateBookNoteInput {
+  book: BookFileBinding
+  noteTitle: string
+  topicTitle: string
+}
+
+export type CreateBookNoteResult
+  = | { context: BookTopicReadingContext, status: 'created' }
+    | { status: 'duplicate-title' }
+
+export interface RenameNoteInput {
+  noteId: string
+  title: string
+}
+
+export interface OpenJournalInput {
+  journalDate?: JournalDate
+}
+
+export interface ListPastJournalsInput {
+  before?: JournalDate
+  limit?: number
+}
+
+export interface ListJournalDatesInput {
+  from: JournalDate
+  through: JournalDate
+}
+
+export interface NoteApplicationServiceOptions {
+  now?: () => Date
+}
+
+export interface ApplyTopicEditsInput {
+  edits: readonly TopicBlockEdit[]
+  expectedRevision: string
+  noteId: string
+  topicId: string
+}
+
+export interface RenameTopicInput {
+  expectedRevision: string
+  noteId: string
+  title: string
+  topicId: string
+}
+
+export interface SetTopicModeInput {
+  expectedRevision: string
+  mode: 0 | 1
+  noteId: string
+  topicId: string
+}
+
+export interface RebindBookTopicInput {
+  book: BookFileBinding
+  noteId: string
+  topicId: string
+}
+
+export interface NoteExternalUpdate {
+  noteId: string
+  update: Uint8Array
+  updatedAt: number
+}
+
+export interface SaveNoteUpdatesInput {
+  noteId: string
+  updates: readonly Uint8Array[]
+}
+
+export interface GetNoteCardProjectionInput {
+  cardId: string
+  noteId: string
+  topicId: string
+}
+
+export interface NoteCardProjection {
+  card: EditorCardProjection
+  noteTitle: string
+  topicTitle: string
+  updatedAt: number
+}
+
+export class NoteRevisionConflictError extends Error {
+  override readonly name = 'NoteRevisionConflictError'
+
+  constructor(readonly currentRevision: string) {
+    super('The Note changed after it was read')
+  }
+}
+
+export class NoteCardProjectionNotFoundError extends Error {
+  override readonly name = 'NoteCardProjectionNotFoundError'
+
+  constructor(
+    readonly noteId: string,
+    readonly topicId: string,
+    readonly cardId: string,
+  ) {
+    super(`Note ${noteId} Topic ${topicId} does not contain Card ${cardId}`)
+  }
+}

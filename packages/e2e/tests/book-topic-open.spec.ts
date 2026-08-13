@@ -55,6 +55,7 @@ const publicationFeed = `<?xml version="1.0" encoding="UTF-8"?>
   </feed>`
 
 test('opens a BookTopic from Structure in its bound reader context', async () => {
+  test.setTimeout(120_000)
   const pdf = onePagePdf()
   const server = createServer((request, response) => {
     if (request.url === '/opds') {
@@ -88,7 +89,7 @@ test('opens a BookTopic from Structure in its bound reader context', async () =>
         ...process.env,
         MEMORILO_DATABASE_PATH: ':memory:',
         MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
-        MEMORILO_E2E_HIDE_WINDOW: '1',
+        MEMORILO_E2E_HIDE_WINDOW: process.env.MEMORILO_E2E_HIDE_WINDOW ?? '1',
         MEMORILO_SHELF_IMAGE_CACHE_PATH: ':memory:',
       },
       executablePath: electronExecutablePath,
@@ -140,7 +141,10 @@ test('opens a BookTopic from Structure in its bound reader context', async () =>
         path: expect.stringMatching(/^\/reader\/[a-f0-9]{64}$/u),
         topicId: expect.stringMatching(/\S/u),
       })
-      await expect(window.getByLabel('Page 1 of 1')).toBeVisible()
+      // The first packaged PDF load can initialize PDF.js's worker and range
+      // transport lazily; wait for the reader's ready state, not the default
+      // five-second assertion window used by ordinary DOM transitions.
+      await expect(window.getByLabel('Page 1 of 1')).toBeVisible({ timeout: 30_000 })
       await expect(window.getByRole('heading', { name: `${noteTitle} \u00B7 ${bookTitle}` })).toBeVisible()
       await expect(window.getByRole('heading', { name: 'Choose a reading context' })).toHaveCount(0)
       await expect(window.getByRole('button', { name: 'Select an area to annotate' })).toBeVisible()

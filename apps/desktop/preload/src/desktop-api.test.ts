@@ -1,10 +1,10 @@
 import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from './contract'
-import type { DesktopServices } from './desktop-api'
+import type { DesktopIpcClient } from './ipc-contract'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { describe, expect, it, vi } from 'vitest'
 import { createDesktopApi } from './desktop-api'
 
-function serviceStub(): DesktopServices {
+function serviceStub(): DesktopIpcClient {
   return {
     app: { getRuntimeInfo: vi.fn() },
     assets: {
@@ -21,7 +21,7 @@ function serviceStub(): DesktopServices {
       rebindContext: vi.fn(),
       selectContext: vi.fn(),
     },
-    configuration: { get: vi.fn(), set: vi.fn() },
+    configuration: { get: vi.fn(), set: vi.fn(), setValue: vi.fn() },
     journals: {
       listJournalDates: vi.fn(),
       listPastJournals: vi.fn(),
@@ -50,12 +50,12 @@ function serviceStub(): DesktopServices {
       prepareReview: vi.fn(),
       rateMultiLineCard: vi.fn(),
       rateTarget: vi.fn(),
-      renameOptimizer: vi.fn(),
       resetOptimizerDefaults: vi.fn(),
       resetTarget: vi.fn(),
       restoreReviewItem: vi.fn(),
       undoLastReview: vi.fn(),
-      updateOptimizer: vi.fn(),
+      undoReviews: vi.fn(),
+      saveOptimizer: vi.fn(),
     },
     notes: {
       createNote: vi.fn(),
@@ -71,6 +71,10 @@ function serviceStub(): DesktopServices {
       searchNotes: vi.fn(),
       searchTopicBlocks: vi.fn(),
       setNoteFavorite: vi.fn(),
+    },
+    whiteboardLibrary: {
+      load: vi.fn(),
+      save: vi.fn(),
     },
     shelf: {
       addSource: vi.fn(),
@@ -91,6 +95,39 @@ function serviceStub(): DesktopServices {
 }
 
 describe('desktop preload API', () => {
+  it('exposes the user Whiteboard Library transport unchanged', async () => {
+    const services = serviceStub()
+    const library = {
+      libraryItems: [{
+        created: 123,
+        elements: [{
+          height: 60,
+          id: 'rectangle-1',
+          isDeleted: false,
+          link: null,
+          type: 'rectangle',
+          width: 80,
+          x: 10,
+          y: 20,
+        }],
+        id: 'library-item-1',
+        status: 'unpublished' as const,
+      }],
+    }
+    vi.mocked(services.whiteboardLibrary.load).mockResolvedValue(library)
+    vi.mocked(services.whiteboardLibrary.save).mockResolvedValue()
+    const api = createDesktopApi(
+      services,
+      vi.fn(() => vi.fn()),
+      vi.fn(() => vi.fn()),
+      vi.fn(() => vi.fn()),
+    )
+
+    await expect(api.loadWhiteboardLibrary()).resolves.toEqual(library)
+    await expect(api.saveWhiteboardLibrary(library)).resolves.toBeUndefined()
+    expect(services.whiteboardLibrary.save).toHaveBeenCalledWith(library)
+  })
+
   it('exposes MCP configuration and external Note update subscriptions unchanged', async () => {
     const services = serviceStub()
     const configuration: DesktopConfiguration = {
@@ -108,6 +145,7 @@ describe('desktop preload API', () => {
     }
     vi.mocked(services.configuration.get).mockResolvedValue(configuration)
     vi.mocked(services.configuration.set).mockResolvedValue(configuration)
+    vi.mocked(services.configuration.setValue).mockResolvedValue(configuration)
 
     let noteListener: ((update: DesktopNoteExternalUpdate) => void) | undefined
     const stopNoteUpdates = vi.fn()
@@ -122,6 +160,8 @@ describe('desktop preload API', () => {
     await expect(api.getConfiguration()).resolves.toEqual(configuration)
     await expect(api.setConfiguration(configuration)).resolves.toEqual(configuration)
     expect(services.configuration.set).toHaveBeenCalledWith(configuration)
+    await expect(api.setConfigurationValue('reduceMotion', true)).resolves.toEqual(configuration)
+    expect(services.configuration.setValue).toHaveBeenCalledWith('reduceMotion', true)
 
     const listener = vi.fn()
     const unsubscribe = api.subscribeNoteUpdates(listener)

@@ -50,10 +50,12 @@ describe('desktop MCP configuration', () => {
       goals: desktopConfigurationDefinition.defaults.goals,
       language: 'en',
       mcp: { accessToken: '', enabled: false, port: 8765 },
+      networkImagePasteBehavior: 'download',
       outdentBehavior: 'logical',
       readerArrowKeyPageTurning: true,
       readerEpubPresentationMode: 'publisher',
       reduceMotion: true,
+      tiffConversionFormat: 'webp',
       weekStart: 'sunday',
     })
     expect(migrateDesktopConfiguration({
@@ -68,10 +70,12 @@ describe('desktop MCP configuration', () => {
       goals: desktopConfigurationDefinition.defaults.goals,
       language: 'en',
       mcp: { accessToken: token, enabled: false, port: 8765 },
+      networkImagePasteBehavior: 'download',
       outdentBehavior: 'traditional',
       readerArrowKeyPageTurning: true,
       readerEpubPresentationMode: 'publisher',
       reduceMotion: true,
+      tiffConversionFormat: 'webp',
       weekStart: 'sunday',
     })
     expect(migrateDesktopConfiguration(configuration({ accessToken: 'short', enabled: true, port: 80 }))).toEqual(

@@ -1,9 +1,6 @@
 const LIQUID_GLASS_SELECTORS = [
-  '.App-toolbar',
-  '.zoom-actions',
-  '.undo-redo-buttons',
-  '.Island',
-  '.dropdown-menu-container',
+  '.Island:not(.App-toolbar):not(.App-menu__left):not(.App-bottom-bar-layout)',
+  '.dropdown-menu:not(.dropdown-menu--mobile) .dropdown-menu-container',
   '.context-menu',
   '.Modal__content',
   '.popover',

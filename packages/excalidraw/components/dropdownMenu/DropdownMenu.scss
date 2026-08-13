@@ -45,6 +45,25 @@
       border-radius: var(--glass-radius-menu);
     }
 
+    &.dropdown-menu--mobile .dropdown-menu-container {
+      width: 100%;
+      min-width: 0;
+      background-color: rgba(248, 249, 251, 0.96);
+      background-image: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      border: 1px solid rgba(56, 64, 77, 0.14);
+      box-shadow: 0 8px 24px rgba(24, 30, 40, 0.14);
+      filter: none;
+
+      &::before {
+        content: none;
+        display: none;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+    }
+
     .dropdown-menu-item-base {
       display: flex;
       column-gap: 0.625rem;

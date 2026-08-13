@@ -57,7 +57,7 @@ test('packaged desktop executes offline embedding search', async () => {
         ...process.env,
         MEMORILO_DATABASE_PATH: ':memory:',
         MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
-        MEMORILO_E2E_HIDE_WINDOW: '1',
+        MEMORILO_E2E_HIDE_WINDOW: process.env.MEMORILO_E2E_HIDE_WINDOW ?? '1',
       },
       executablePath: application.executable,
     })
@@ -70,12 +70,14 @@ test('packaged desktop executes offline embedding search', async () => {
       await window.keyboard.press('Meta+P')
       await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill(noteTitle)
       await window.getByRole('option').filter({ hasText: `Create Note “${noteTitle}”` }).click()
-      await expect(editor).toBeVisible({ timeout: 10_000 })
-      await editor.locator('h1').click()
-      await window.keyboard.press('Meta+A')
-      await window.keyboard.type('数据库索引可以显著提升查询速度')
+      await expect(window.getByRole('button', { name: `Rename Note: ${noteTitle}` })).toBeVisible({
+        timeout: 10_000,
+      })
+      await expect(editor.locator('h1')).toHaveText(noteTitle)
+      await editor.locator('h1').selectText()
+      await window.keyboard.insertText('数据库索引可以显著提升查询速度')
       await window.keyboard.press('Enter')
-      await window.keyboard.type('红熊猫生活在高山森林中')
+      await window.keyboard.insertText('红熊猫生活在高山森林中')
       const noteId = await window.evaluate(async () => {
         const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
         const note = await desktop.openMostRecentNote()

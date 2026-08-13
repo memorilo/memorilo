@@ -281,7 +281,7 @@ ListItemBlockID      List/Set 中每个答案项的稳定 Block 身份
 
 ## 8. Editor-only 自动化验证
 
-Card 行为直接由 `packages/editor/src/card/*.test.*` 和 Document interaction tests 验证，不保留独立 Card Lab。测试使用内存文档、稳定 BlockID/CardID 和浏览器 Editor harness，不导入 Desktop、IPC、SQLite 或 scheduler。
+Card 行为直接由 `packages/editor/src/card/*.test.*` 和 Document interaction tests 验证，不保留独立 Card Lab。纯 ProseMirror transaction command 通过 Node 内存 schema 在模块接口处验证；NodeView、输入、键盘和 selection 交互继续使用带稳定 BlockID/CardID 的浏览器 Editor harness。两层测试都不导入 Desktop、IPC、SQLite 或 scheduler。
 
 覆盖范围包括 Forward、Backward、Bidirectional、Rich-content Cloze、inline/block 公式的 Math-source Cloze、Set、List、inline/whole-block Highlight、Card repository 同步，以及 Document 模式下的 Card answer membership。这样复杂的 ProseMirror selection、KaTeX source mapping、projection 和 List reveal 行为会进入持续回归测试，而不是只存在于手动 fixture 中。
 
