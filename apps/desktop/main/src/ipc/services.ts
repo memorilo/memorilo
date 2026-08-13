@@ -8,6 +8,7 @@ import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import type { IpcHandlerHost } from './ipc-handler-registry'
 import { createResourceScope } from '@memorilo/effect-lifecycle'
 import { ipcMain } from 'electron'
+import { createDesktopAnkiService } from '../anki/desktop-anki-service'
 import { createLearningReviewApplication } from '../learning/learning-review-application'
 
 import { createAppHandlers } from './app-service'
@@ -61,6 +62,7 @@ export async function createDesktopServices(
         learning: createLearningHandlers(
           learning,
           createLearningReviewApplication(notes, learning, now),
+          createDesktopAnkiService(configuration),
           now,
         ),
         notes: createNoteHandlers(notes),

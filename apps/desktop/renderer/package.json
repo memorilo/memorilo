@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@memorilo/anki-connect": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/desktop-preload": "workspace:*",

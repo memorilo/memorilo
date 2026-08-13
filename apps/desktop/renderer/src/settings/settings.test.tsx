@@ -59,6 +59,7 @@ describe('settings renderer', () => {
     fireEvent.change(localizedLanguage, { target: { value: 'zh-CN' } })
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
+        anki: desktopConfigurationDefinition.defaults.anki,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
         language: 'zh-CN',
@@ -77,6 +78,7 @@ describe('settings renderer', () => {
     fireEvent.click(rendered.getByRole('switch'))
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
+        anki: desktopConfigurationDefinition.defaults.anki,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
         language: 'zh-CN',
