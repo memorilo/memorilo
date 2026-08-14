@@ -430,6 +430,7 @@ import { textWysiwyg } from "../element/textWysiwyg";
 import { isOverScrollBars } from "../scene/scrollbars";
 import { syncInvalidIndices, syncMovedIndices } from "../fractionalIndex";
 import {
+  isElementLinkEnabled,
   isPointHittingLink,
   isPointHittingLinkIcon,
 } from "./hyperlink/helpers";
@@ -1015,7 +1016,8 @@ class App extends React.Component<AppProps, AppState> {
       .filter(
         (el): el is Ordered<NonDeleted<ExcalidrawIframeLikeElement>> =>
           (isEmbeddableElement(el) &&
-            this.embedsValidationStatus.get(el.id) === true) ||
+            (this.embedsValidationStatus.get(el.id) === true ||
+              this.props.renderEmbeddable !== undefined)) ||
           isIframeElement(el),
       );
 
@@ -1035,14 +1037,26 @@ class App extends React.Component<AppProps, AppState> {
             this.scene.getNonDeletedElementsMap(),
           );
           const hasBeenInitialized = this.initializedEmbeds.has(el.id);
-
-          if (isVisible && !hasBeenInitialized) {
-            this.initializedEmbeds.add(el.id);
-          }
           const shouldRender = isVisible || hasBeenInitialized;
 
           if (!shouldRender) {
             return null;
+          }
+
+          const renderedEmbeddable = isEmbeddableElement(el)
+            ? this.props.renderEmbeddable?.(el, this.state) ?? null
+            : null;
+
+          if (
+            isEmbeddableElement(el) &&
+            renderedEmbeddable === null &&
+            this.embedsValidationStatus.get(el.id) !== true
+          ) {
+            return null;
+          }
+
+          if (isVisible && !hasBeenInitialized) {
+            this.initializedEmbeds.add(el.id);
           }
 
           let src: IframeData | null;
@@ -1259,9 +1273,7 @@ class App extends React.Component<AppProps, AppState> {
                     padding: `${el.strokeWidth}px`,
                   }}
                 >
-                  {(isEmbeddableElement(el)
-                    ? this.props.renderEmbeddable?.(el, this.state)
-                    : null) ?? (
+                  {renderedEmbeddable ?? (
                     <iframe
                       ref={(ref) => this.cacheEmbeddableRef(el, ref)}
                       className="excalidraw__embeddable"
@@ -1623,6 +1635,10 @@ class App extends React.Component<AppProps, AppState> {
                         {selectedElements.length === 1 &&
                           this.state.openDialog?.name !==
                             "elementLinkSelector" &&
+                          isElementLinkEnabled(
+                            firstSelectedElement,
+                            this.props,
+                          ) &&
                           this.state.showHyperlinkPopup && (
                             <Hyperlink
                               key={firstSelectedElement.id}
@@ -5547,6 +5563,7 @@ class App extends React.Component<AppProps, AppState> {
       }
       if (
         element.link &&
+        isElementLinkEnabled(element, this.props) &&
         index >= hitElementIndex &&
         isPointHittingLink(
           element,
@@ -5576,6 +5593,9 @@ class App extends React.Component<AppProps, AppState> {
       ),
     );
     if (!this.hitLinkElement || draggedDistance > DRAGGING_THRESHOLD) {
+      return;
+    }
+    if (!isElementLinkEnabled(this.hitLinkElement, this.props)) {
       return;
     }
     const lastPointerDownCoords = viewportCoordsToSceneCoords(
@@ -6052,6 +6072,7 @@ class App extends React.Component<AppProps, AppState> {
       hideHyperlinkToolip();
       if (
         hitElement &&
+        isElementLinkEnabled(hitElement, this.props) &&
         (hitElement.link || isEmbeddableElement(hitElement)) &&
         this.state.selectedElementIds[hitElement.id] &&
         !this.state.contextMenu &&

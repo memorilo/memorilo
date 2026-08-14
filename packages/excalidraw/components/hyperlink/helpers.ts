@@ -6,10 +6,21 @@ import { getElementAbsoluteCoords } from "../../element/bounds";
 import { hitElementBoundingBox } from "../../element/collision";
 import type {
   ElementsMap,
+  ExcalidrawEmbeddableElement,
   NonDeletedExcalidrawElement,
 } from "../../element/types";
+import { isEmbeddableElement } from "../../element/typeChecks";
 import { DEFAULT_LINK_SIZE } from "../../renderer/renderElement";
-import type { AppState, UIAppState } from "../../types";
+import type { AppState, ExcalidrawProps, UIAppState } from "../../types";
+
+export const isElementLinkEnabled = (
+  element: NonDeletedExcalidrawElement,
+  appProps: Pick<ExcalidrawProps, "isEmbeddableLinkEnabled">,
+) =>
+  !isEmbeddableElement(element) ||
+  appProps.isEmbeddableLinkEnabled?.(
+    element as ExcalidrawEmbeddableElement & { isDeleted: false },
+  ) !== false;
 
 export const EXTERNAL_LINK_IMG = document.createElement("img");
 EXTERNAL_LINK_IMG.src = `data:${MIME_TYPES.svg}, ${encodeURIComponent(

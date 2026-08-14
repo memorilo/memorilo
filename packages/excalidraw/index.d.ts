@@ -71,6 +71,9 @@ export interface ExcalidrawProps {
     element: ExcalidrawEmbeddableElement,
     appState: AppState,
   ) => React.ReactElement | null;
+  isEmbeddableLinkEnabled?: (
+    element: ExcalidrawEmbeddableElement,
+  ) => boolean;
   renderTopRightUI?: (
     isMobile: boolean,
     appState: AppState,
@@ -150,7 +153,7 @@ export function newEmbeddableElement(options: {
   customData?: Record<string, unknown>;
   fillStyle?: string;
   height: number;
-  link: string;
+  link?: string | null;
   locked?: boolean;
   opacity?: number;
   roughness?: number;

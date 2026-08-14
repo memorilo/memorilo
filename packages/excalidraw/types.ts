@@ -588,6 +588,9 @@ export interface ExcalidrawProps {
     | RegExp
     | RegExp[]
     | ((link: string) => boolean | undefined);
+  isEmbeddableLinkEnabled?: (
+    element: NonDeleted<ExcalidrawEmbeddableElement>,
+  ) => boolean;
   renderEmbeddable?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
     appState: AppState,
