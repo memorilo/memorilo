@@ -13,6 +13,7 @@ function createDesktopLearningApi(service: DesktopIpcClient['learning']): Deskto
     createOptimizer: input => service.createOptimizer(input),
     endAnkiReview: () => service.endAnkiReview(),
     getCurrentAnkiReviewCard: () => service.getCurrentAnkiReviewCard(),
+    getActivitySummary: input => service.getActivitySummary(input),
     getDailyProgress: now => service.getDailyProgress(now),
     getLearningState: targetId => service.getLearningState(targetId),
     getMaintenanceEstimate: () => service.getMaintenanceEstimate(),

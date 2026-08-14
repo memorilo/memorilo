@@ -35,6 +35,7 @@ function serviceStub(): DesktopIpcClient {
       createOptimizer: vi.fn(),
       endAnkiReview: vi.fn(),
       getCurrentAnkiReviewCard: vi.fn(),
+      getActivitySummary: vi.fn(),
       getDailyProgress: vi.fn(),
       getLearningState: vi.fn(),
       getMaintenanceEstimate: vi.fn(),

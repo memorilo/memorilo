@@ -97,6 +97,7 @@ export function LearningReviewPage({
     current => createLearningReviewWorkflow({
       initialRoute: current.initialRoute,
       invalidateProgress: () => {
+        void current.queryClient.invalidateQueries({ queryKey: learningQueryKeys.activitySummary })
         void current.queryClient.invalidateQueries({ queryKey: learningQueryKeys.dailyProgress })
       },
       learning: window.desktop.learning,
