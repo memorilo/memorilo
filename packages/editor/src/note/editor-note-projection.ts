@@ -19,6 +19,7 @@ import {
   TOPIC_EDITOR_MODE_KEY,
 } from './editor-note-crdt'
 import { getImageOcclusionState, projectImageOcclusionContent } from './editor-note-image-occlusion'
+import { projectSpreadsheetContent } from './editor-note-spreadsheet'
 import { projectWhiteboardContent } from './editor-note-whiteboard'
 import { projectTopicContent } from './topic-projection'
 
@@ -83,11 +84,13 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
                 doc,
                 noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id'),
               }, id)
-            : projectTopicContentFromTree(
-                doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
-                id,
-                readTopicTitle(node.meta, `Topic ${id} title`),
-              )
+            : topicType === 'spreadsheet'
+              ? projectSpreadsheetContent(runtime, id)
+              : projectTopicContentFromTree(
+                  doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
+                  id,
+                  readTopicTitle(node.meta, `Topic ${id} title`),
+                )
         if (topicType === 'image-occlusion') {
           const state = getImageOcclusionState(runtime, id)
           if (parentId !== state.sourceTopicId)

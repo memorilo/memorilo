@@ -4,6 +4,12 @@ import type {
   ReadingAnnotation,
   ReadingPosition,
 } from '@memorilo/reading-model'
+import type {
+  SpreadsheetEdit,
+  SpreadsheetEditReceipt,
+  SpreadsheetWorkbook,
+  SpreadsheetWorkbookProjection,
+} from '@memorilo/spreadsheet/model'
 import type { Effect } from 'effect'
 import type { LoroDoc, UndoManager as LoroUndoManager } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
@@ -61,10 +67,15 @@ export interface WhiteboardTopicSnapshot extends TopicSnapshotBase {
   topicType: 'whiteboard'
 }
 
+export interface SpreadsheetTopicSnapshot extends TopicSnapshotBase {
+  topicType: 'spreadsheet'
+}
+
 export type TopicSnapshot
   = | BookTopicSnapshot
     | ImageOcclusionTopicSnapshot
     | RegularTopicSnapshot
+    | SpreadsheetTopicSnapshot
     | WhiteboardTopicSnapshot
 
 export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
@@ -142,6 +153,14 @@ export interface CreateWhiteboardTopicInput {
   title: string
 }
 
+export interface CreateSpreadsheetTopicInput {
+  columnCount?: number
+  index?: number
+  parentId?: string | null
+  rowCount?: number
+  title: string
+}
+
 export interface CreateEmbeddedEditorInput {
   /** Initial ProseMirror content. A canonical empty document is created when omitted. */
   initialContent?: NodeJSON
@@ -180,7 +199,13 @@ export type TopicValidationInput
   = | BookTopicValidationInput
     | ImageOcclusionTopicValidationInput
     | RegularTopicValidationInput
+    | SpreadsheetTopicValidationInput
     | WhiteboardTopicValidationInput
+
+export interface SpreadsheetTopicValidationInput {
+  readonly entry: unknown
+  readonly workbook: SpreadsheetWorkbook
+}
 
 export interface EmbeddedEditorValidationInput {
   readonly document: NodeJSON
@@ -252,8 +277,17 @@ export interface EditorWhiteboardTopicDocument {
   readonly topicId: string
 }
 
+export interface EditorSpreadsheetTopicDocument {
+  readonly apply: (edits: readonly SpreadsheetEdit[]) => SpreadsheetEditReceipt
+  readonly getWorkbook: () => SpreadsheetWorkbookProjection
+  readonly noteId: string
+  readonly subscribe: (listener: () => void) => () => void
+  readonly topicId: string
+}
+
 export type EditorOpenedTopic
   = | EditorImageOcclusionTopicDocument
+    | EditorSpreadsheetTopicDocument
     | EditorTopicDocument
     | EditorWhiteboardTopicDocument
 /**
@@ -276,6 +310,8 @@ export interface EditorNote {
   createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => Promise<string>
   /** Atomically creates a whiteboard Topic with an empty scene. */
   createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
+  /** Atomically creates a SpreadsheetTopic with one empty Sheet. */
+  createSpreadsheetTopic: (input: CreateSpreadsheetTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
   /** Deletes an entry using the requested child-handling strategy. */
@@ -299,6 +335,8 @@ export interface EditorNote {
   findImageOcclusionTopic: (sourceTopicId: string, sourceImageId: string) => EditorImageOcclusionTopicDocument | null
   /** Returns the scene and Embedded Editor handle for an existing WhiteboardTopic. */
   getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
+  /** Returns the cell-native Workbook handle for an existing SpreadsheetTopic. */
+  getSpreadsheetTopic: (topicId: string) => EditorSpreadsheetTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
   /** Returns the exact plain JavaScript object passed to Topic validation. */
@@ -378,12 +416,14 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     getImageOcclusionTopic: topicId => topics.getImageOcclusion(topicId),
     findImageOcclusionTopic: (sourceTopicId, sourceImageId) => topics.findImageOcclusion(sourceTopicId, sourceImageId),
     getWhiteboardTopic: topicId => topics.getWhiteboard(topicId),
+    getSpreadsheetTopic: topicId => topics.getSpreadsheet(topicId),
     checkout: collaboration.checkout,
     checkoutLatest: collaboration.checkoutLatest,
     createFolder: entryRepository.createFolder,
     createBookTopic: entryRepository.createBookTopic,
     createImageOcclusionTopic: entryRepository.createImageOcclusionTopic,
     createWhiteboardTopic: entryRepository.createWhiteboardTopic,
+    createSpreadsheetTopic: entryRepository.createSpreadsheetTopic,
     createTopic: entryRepository.createTopic,
     deleteEntry: entryRepository.deleteEntry,
     exportSnapshot: collaboration.exportSnapshot,
