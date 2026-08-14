@@ -33,21 +33,26 @@ export interface FolderSnapshot extends NoteEntryBase {
 
 interface TopicSnapshotBase extends NoteEntryBase {
   kind: 'topic'
-  mode: EditorModeValue
   /** The effective title: the explicit title, or the first content line when it is empty. */
   title: string
 }
 
 export interface RegularTopicSnapshot extends TopicSnapshotBase {
+  mode: EditorModeValue
   topicType: 'regular'
 }
 
 export interface BookTopicSnapshot extends TopicSnapshotBase {
   book: BookFileBinding
+  mode: EditorModeValue
   topicType: 'book'
 }
 
-export type TopicSnapshot = BookTopicSnapshot | RegularTopicSnapshot
+export interface WhiteboardTopicSnapshot extends TopicSnapshotBase {
+  topicType: 'whiteboard'
+}
+
+export type TopicSnapshot = BookTopicSnapshot | RegularTopicSnapshot | WhiteboardTopicSnapshot
 
 export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
 
@@ -109,6 +114,18 @@ export interface CreateBookTopicInput {
   title: string
 }
 
+export interface CreateWhiteboardTopicInput {
+  index?: number
+  parentId?: string | null
+  title: string
+}
+
+export interface CreateEmbeddedEditorInput {
+  /** Initial ProseMirror content. A canonical empty document is created when omitted. */
+  initialContent?: NodeJSON
+  mode: EditorModeValue
+}
+
 export interface MoveNoteEntryInput {
   entryId: string
   index?: number
@@ -132,9 +149,23 @@ export interface BookTopicValidationInput extends RegularTopicValidationInput {
   readonly readingState: unknown
 }
 
-export type TopicValidationInput = BookTopicValidationInput | RegularTopicValidationInput
+export interface EmbeddedEditorValidationInput {
+  readonly document: NodeJSON
+  readonly editorId: string
+  readonly editorMode: EditorModeValue
+}
+
+export interface WhiteboardTopicValidationInput {
+  readonly embeddedEditors: Readonly<Record<string, EmbeddedEditorValidationInput>>
+  readonly entry: unknown
+  readonly scene: unknown
+}
+
+export type TopicValidationInput = BookTopicValidationInput | RegularTopicValidationInput | WhiteboardTopicValidationInput
 
 export interface EditorTopicDocument {
+  /** Stable identity of this editor document. */
+  readonly documentId: string
   /** Returns the current editor mode stored in the Topic. */
   readonly getMode: () => EditorModeValue
   readonly noteId: string
@@ -143,6 +174,10 @@ export interface EditorTopicDocument {
   /** Subscribes to changes in the owning Note's LoroDoc. */
   readonly subscribe: (listener: () => void) => () => void
   readonly topicId: string
+}
+
+export interface EditorEmbeddedDocument extends EditorTopicDocument {
+  readonly editorId: string
 }
 
 export interface EditorBookTopicDocument extends EditorTopicDocument {
@@ -156,6 +191,26 @@ export interface EditorBookTopicDocument extends EditorTopicDocument {
   readonly setAnnotations: (annotations: readonly ReadingAnnotation[]) => void
   /** Stores the current format-specific reading position. */
   readonly setPosition: (position: ReadingPosition) => void
+}
+
+export type WhiteboardScene = Readonly<Record<string, unknown>>
+
+export interface EmbeddedEditorSnapshot {
+  readonly editorId: string
+  readonly mode: EditorModeValue
+}
+
+export interface EditorWhiteboardTopicDocument {
+  readonly createEmbeddedEditor: (input: CreateEmbeddedEditorInput) => string
+  readonly deleteEmbeddedEditor: (editorId: string) => void
+  readonly duplicateEmbeddedEditor: (editorId: string) => string
+  readonly getEmbeddedEditor: (editorId: string) => EditorEmbeddedDocument
+  readonly getEmbeddedEditors: () => readonly EmbeddedEditorSnapshot[]
+  readonly getScene: () => WhiteboardScene
+  readonly noteId: string
+  readonly setScene: (scene: WhiteboardScene) => void
+  readonly subscribe: (listener: () => void) => () => void
+  readonly topicId: string
 }
 
 /**
@@ -174,6 +229,8 @@ export interface EditorNote {
   createFolder: (input: CreateFolderInput) => string
   /** Atomically creates a BookTopic with editable content and initialized reading state. */
   createBookTopic: (input: CreateBookTopicInput) => string
+  /** Atomically creates a whiteboard Topic with an empty scene. */
+  createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
   /** Deletes an entry using the requested child-handling strategy. */
@@ -191,6 +248,8 @@ export interface EditorNote {
   getTopic: (topicId: string) => EditorTopicDocument
   /** Returns the reading handle for an existing BookTopic. */
   getBookTopic: (topicId: string) => EditorBookTopicDocument
+  /** Returns the scene and Embedded Editor handle for an existing WhiteboardTopic. */
+  getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
   /** Returns the exact plain JavaScript object passed to Topic validation. */
@@ -235,6 +294,7 @@ export interface CreateEditorNoteOptions {
 }
 
 export interface EditorTopicBinding {
+  documentId: string
   doc: LoroDoc
   tree: ReturnType<LoroDoc['getTree']>
   topicId: string
@@ -266,10 +326,12 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     applyTopicBlockEdits: input => topics.applyBlockEdits(input),
     getTopic: topicId => topics.get(topicId),
     getBookTopic: topicId => topics.getBook(topicId),
+    getWhiteboardTopic: topicId => topics.getWhiteboard(topicId),
     checkout: collaboration.checkout,
     checkoutLatest: collaboration.checkoutLatest,
     createFolder: entryRepository.createFolder,
     createBookTopic: entryRepository.createBookTopic,
+    createWhiteboardTopic: entryRepository.createWhiteboardTopic,
     createTopic: entryRepository.createTopic,
     deleteEntry: entryRepository.deleteEntry,
     exportSnapshot: collaboration.exportSnapshot,

@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, Plus, RefreshCw } from 'lucide-react'
+import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, PenLine, Plus, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
@@ -32,6 +32,7 @@ interface NoteEntryContextMenuActions {
   onAddBook: (parentId: string | null) => void
   onAddFolder: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
+  onAddWhiteboard: (parentId: string | null) => void
   onRebindBook: (topicId: string) => void
 }
 
@@ -45,6 +46,7 @@ export function useNoteEntryContextMenu({
   onAddBook,
   onAddFolder,
   onAddTopic,
+  onAddWhiteboard,
   onRebindBook,
 }: NoteEntryContextMenuActions): NoteEntryContextMenuController {
   const { t } = useTranslation('editor')
@@ -132,7 +134,7 @@ export function useNoteEntryContextMenu({
     const menuPadding = 8
     const menuItemHeight = 30
     const mainItemCount = contextMenu.kind === 'book' && contextMenu.resourceState !== 'available' ? 2 : 1
-    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 3 : 2
+    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 4 : 3
     const requiredHeight = Math.max(
       menuPadding + mainItemCount * menuItemHeight,
       menuPadding + submenuItemCount * menuItemHeight,
@@ -218,6 +220,18 @@ export function useNoteEntryContextMenu({
                     >
                       <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
                       {t('topic')}
+                    </button>
+                    <button
+                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                      role="menuitem"
+                      type="button"
+                      onClick={() => {
+                        onAddWhiteboard(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                        close()
+                      }}
+                    >
+                      <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
+                      {t('whiteboard')}
                     </button>
                     {contextMenu.kind === 'container' && contextMenu.allowFolder
                       ? (

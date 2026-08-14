@@ -1,5 +1,6 @@
 import type { ReaderAnnotation, ReaderProps } from './types'
 import * as stylex from '@stylexjs/stylex'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useReaderSessionEngine } from './internal/reader-session-engine'
 import { useReaderAnnotationWorkflow } from './reader-annotation-workflow'
@@ -32,6 +33,7 @@ function ReaderSession({
   annotations,
   ariaLabel,
   arrowKeyPageTurning = true,
+  auxiliarySidebar,
   chrome,
   defaultAnnotations = noAnnotations,
   initialPosition,
@@ -43,6 +45,7 @@ function ReaderSession({
   onOcrStatusChange,
   onPositionChange,
   onSelectionChange,
+  sidebarActions,
   source,
   title,
   toolbarActions,
@@ -55,6 +58,7 @@ function ReaderSession({
     onAnnotationsChange,
     onSelectionChange,
   })
+  const [auxiliarySidebarActive, setAuxiliarySidebarActive] = useState(false)
   const {
     clearSelection,
     containerRef: engineRef,
@@ -98,6 +102,36 @@ function ReaderSession({
     setRegionSelectionEnabled,
   })
 
+  const selectReaderSidebarTab = useCallback((tab: 'annotations' | 'contents') => {
+    setAuxiliarySidebarActive(false)
+    annotationWorkflow.setSidebarTab(tab)
+    if (!annotationWorkflow.annotationPanelOpen)
+      annotationWorkflow.toggleAnnotationPanel()
+  }, [annotationWorkflow])
+  const toggleReaderSidebar = useCallback(() => {
+    if (auxiliarySidebarActive) {
+      setAuxiliarySidebarActive(false)
+      annotationWorkflow.setSidebarTab('contents')
+      annotationWorkflow.toggleAnnotationPanel()
+      return
+    }
+    annotationWorkflow.toggleAnnotationPanel()
+  }, [annotationWorkflow, auxiliarySidebarActive])
+  const toggleAuxiliarySidebar = useCallback(() => {
+    if (auxiliarySidebar === undefined)
+      throw new Error('Cannot toggle an auxiliary sidebar that was not provided')
+    if (auxiliarySidebarActive) {
+      setAuxiliarySidebarActive(false)
+      return
+    }
+    if (annotationWorkflow.annotationPanelOpen)
+      annotationWorkflow.toggleAnnotationPanel()
+    setAuxiliarySidebarActive(true)
+  }, [annotationWorkflow, auxiliarySidebar, auxiliarySidebarActive])
+  const renderedSidebarActions = typeof sidebarActions === 'function'
+    ? sidebarActions({ active: auxiliarySidebarActive, toggle: toggleAuxiliarySidebar })
+    : sidebarActions
+
   const progress = Math.round(Math.min(1, Math.max(0, adapterState.location.progression)) * 100)
 
   return (
@@ -115,10 +149,11 @@ function ReaderSession({
         regionSelectionActive={regionSelectionActive}
         run={run}
         sourceName={source.name}
+        sidebarActions={renderedSidebarActions}
         status={status}
         title={title}
         toolbarActions={toolbarActions}
-        onToggleAnnotationPanel={annotationWorkflow.toggleAnnotationPanel}
+        onToggleAnnotationPanel={toggleReaderSidebar}
         onToggleRegionSelection={commands.toggleRegionSelection}
         ocrStatus={ocrStatus}
       />
@@ -143,7 +178,7 @@ function ReaderSession({
           activeAnnotationId={annotationWorkflow.activeAnnotationId}
           adapterState={adapterState}
           annotationEditingEnabled={annotationEditingEnabled}
-          annotationPanelOpen={annotationWorkflow.annotationPanelOpen}
+          annotationPanelOpen={annotationWorkflow.annotationPanelOpen || auxiliarySidebarActive}
           annotationRenderLimit={annotationWorkflow.annotationRenderLimit}
           annotations={annotationWorkflow.annotations}
           editingAnnotationId={annotationWorkflow.editingAnnotationId}
@@ -164,7 +199,13 @@ function ReaderSession({
             annotationWorkflow.activateAnnotation(annotationId)
             run(adapter => adapter.goToAnnotation(annotationId))
           }}
-          onTabChange={annotationWorkflow.setSidebarTab}
+          auxiliarySidebar={auxiliarySidebar}
+          auxiliarySidebarActive={auxiliarySidebarActive}
+          onAuxiliarySidebarSelect={() => {
+            if (!auxiliarySidebarActive)
+              toggleAuxiliarySidebar()
+          }}
+          onTabChange={selectReaderSidebarTab}
         />
       </div>
 

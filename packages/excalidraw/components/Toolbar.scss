@@ -1,0 +1,95 @@
+@import "open-color/open-color.scss";
+@import "../css/variables.module.scss";
+
+.excalidraw {
+  .Island.App-toolbar {
+    @include memoriloNavigationSurface;
+    position: relative;
+    isolation: isolate;
+    box-sizing: border-box;
+    height: 36px;
+    padding: 1px;
+    border-radius: 18px;
+
+    &::before {
+      content: none;
+      display: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    & > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    // The hint is anchored below the toolbar and must not create a second row.
+    & > .HintViewer {
+      position: absolute;
+    }
+
+    &.zen-mode {
+      .ToolIcon__keybinding,
+      .HintViewer {
+        display: none;
+      }
+    }
+
+    .ToolIcon__icon,
+    .sidebar-trigger {
+      width: 32px;
+      height: 32px;
+    }
+
+    > .Stack_horizontal {
+      --gap: 0 !important;
+    }
+
+    &__divider {
+      width: 1px;
+      height: 1.5rem;
+      align-self: center;
+      background-color: var(--glass-divider);
+      margin: 0 0.25rem;
+
+      @include isMobile {
+        margin: 0;
+      }
+    }
+  }
+
+  .App-toolbar__extra-tools-trigger {
+    box-shadow: none;
+    border: 0;
+    background-color: transparent;
+    transition:
+      background-color var(--glass-transition-duration)
+        var(--glass-transition-timing),
+      box-shadow var(--glass-transition-duration) var(--glass-transition-timing),
+      transform 100ms ease-out;
+
+    &:active {
+      background-color: var(--button-active-bg);
+      box-shadow:
+        inset 0 1px 2px rgba(55, 62, 82, 0.14),
+        inset 0 0 0 1px var(--button-active-border);
+      filter: brightness(1.035) saturate(1.08);
+      transform: translateY(1px) scale(0.95);
+    }
+
+    &--selected,
+    &--selected:hover {
+      background: var(--glass-control-selected-bg);
+      box-shadow: inset 0 0 0 1px var(--glass-control-selected-border);
+      color: var(--color-primary);
+    }
+  }
+
+  .App-toolbar__extra-tools-dropdown {
+    margin-top: 0.375rem;
+    right: 0;
+    min-width: 11.875rem;
+    z-index: 1;
+    transform-origin: top right;
+  }
+}

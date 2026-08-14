@@ -2,6 +2,7 @@ import type {
   CreateBookTopicInput,
   CreateFolderInput,
   CreateTopicInput,
+  CreateWhiteboardTopicInput,
   DeleteNoteEntryInput,
   MoveNoteEntryInput,
   NoteEntrySnapshot,
@@ -30,6 +31,7 @@ import {
   normalizeTopicTitle,
   resolveNoteEntryIndex,
 } from './editor-note-validation'
+import { createWhiteboardNode, whiteboardHasUserContent } from './editor-note-whiteboard'
 import { hasTopicUserContent } from './topic-user-content'
 
 interface EditorNoteEntryRepositoryDependencies {
@@ -41,6 +43,7 @@ export interface EditorNoteEntryRepository {
   readonly createBookTopic: (input: CreateBookTopicInput) => string
   readonly createFolder: (input: CreateFolderInput) => string
   readonly createTopic: (input: CreateTopicInput) => string
+  readonly createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   readonly deleteEntry: (input: DeleteNoteEntryInput) => void
   readonly getEntries: () => readonly NoteEntrySnapshot[]
   readonly hasUserContent: () => boolean
@@ -92,6 +95,13 @@ export function createEditorNoteEntryRepository(
       doc.commit({ origin: 'note:create-topic' })
       return entryId
     }),
+    createWhiteboardTopic: input => runMutation(() => {
+      const parent = resolveParent(input.parentId)
+      const entryId = createWhiteboardNode(doc, input, parent?.id)
+      validateTopicInput(readTopicValidationInput(runtime, entryId))
+      doc.commit({ origin: 'note:create-whiteboard-topic' })
+      return entryId
+    }),
     deleteEntry: input => runMutation(() => {
       const node = entryNode(input.entryId)
       const parent = node.parent()
@@ -127,6 +137,10 @@ export function createEditorNoteEntryRepository(
 
       const validation = readTopicValidationInput(runtime, entry.id)
       const topic = validateTopicInput(validation)
+      if (entry.topicType === 'whiteboard')
+        return topic.entry.title.length > 0 || whiteboardHasUserContent(validation)
+      if (!('document' in validation))
+        throw new Error(`Topic ${entry.id} is missing its document`)
       return topic.entry.title.length > 0 || hasTopicUserContent(validation.document)
     },
     moveEntry: input => runMutation(() => {

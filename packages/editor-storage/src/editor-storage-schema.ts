@@ -30,6 +30,12 @@ const schema = `
     updated_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS user_documents (
+    document_id TEXT PRIMARY KEY CHECK (length(trim(document_id)) > 0),
+    snapshot BLOB NOT NULL CHECK (length(snapshot) > 0),
+    updated_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS journals (
     note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
     journal_date TEXT NOT NULL UNIQUE
@@ -130,7 +136,8 @@ const schema = `
     row_id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
     topic_id TEXT NOT NULL,
-    editor_mode INTEGER NOT NULL CHECK (editor_mode IN (0, 1)),
+    topic_type TEXT NOT NULL CHECK (topic_type IN ('regular', 'book', 'whiteboard')),
+    editor_mode INTEGER CHECK (editor_mode IN (0, 1)),
     title TEXT NOT NULL,
     UNIQUE (note_row_id, topic_id)
   );

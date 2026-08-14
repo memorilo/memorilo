@@ -17,6 +17,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [pageCommands, setPageCommands] = useState<readonly PaletteCommand[]>([])
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const toggleSidebar = useCallback(() => setSidebarVisible(visible => !visible), [])
+  const compactCanvasTitlebar = pageTitlebar?.titleVisibility === 'hidden'
   const shellStyle = {
     '--reader-leading-offset': sidebarVisible ? '270px' : '120px',
   } as CSSProperties
@@ -28,6 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <AppTitlebar page={pageTitlebar} sidebarVisible={sidebarVisible} />
           <div {...stylex.props(appShellStyles.body)}>
             <WorkspaceSidebar
+              compactCollapsed={compactCanvasTitlebar}
               visible={sidebarVisible}
               onToggle={toggleSidebar}
             />

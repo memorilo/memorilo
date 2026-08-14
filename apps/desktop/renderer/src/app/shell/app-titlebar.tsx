@@ -196,13 +196,17 @@ export function AppTitlebar({
 
   const canGoBack = historyPosition.index > 0
   const canGoForward = historyPosition.index < historyPosition.maxIndex
-  const navigationOffset = sidebarVisible ? 270 : 120
+  const compactCanvasTitlebar = page?.titleVisibility === 'hidden'
+  const navigationOffset = sidebarVisible ? 270 : compactCanvasTitlebar ? 55 : 120
   const leadingOffset = navigationOffset + 76
 
   return (
     <header
-      {...stylex.props(appTitlebarStyles.titlebar)}
-      data-window-drag=""
+      {...stylex.props(
+        appTitlebarStyles.titlebar,
+        page?.titleVisibility === 'hidden' && appTitlebarStyles.titlebarPassThrough,
+      )}
+      data-window-drag={page?.titleVisibility === 'hidden' ? undefined : ''}
     >
       {page?.navigation !== 'hidden'
         ? (
@@ -246,29 +250,47 @@ export function AppTitlebar({
             </motion.div>
           )
         : null}
-      <div
-        {...stylex.props(
-          appTitlebarStyles.titleSlot,
-          page?.titleVisibility === 'wide' && appTitlebarStyles.titleSlotWide,
-        )}
-      >
-        {page?.title
-          ? page.onRenameTitle
-            ? <EditableTitle key={page.title} onRename={page.onRenameTitle} t={t} title={page.title} />
-            : (
-                <div {...stylex.props(appTitlebarStyles.staticTitle)}>
-                  <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
-                </div>
-              )
-          : null}
-      </div>
+      {page?.titleVisibility !== 'hidden'
+        ? (
+            <div
+              {...stylex.props(
+                appTitlebarStyles.titleSlot,
+                page?.titleVisibility === 'wide' && appTitlebarStyles.titleSlotWide,
+              )}
+            >
+              {page?.title
+                ? page.onRenameTitle
+                  ? <EditableTitle key={page.title} onRename={page.onRenameTitle} t={t} title={page.title} />
+                  : (
+                      <div {...stylex.props(appTitlebarStyles.staticTitle)}>
+                        <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
+                      </div>
+                    )
+                : null}
+            </div>
+          )
+        : null}
       {page?.trailing
         ? (
             <div
-              {...stylex.props(appTitlebarStyles.navigationGroup, appTitlebarStyles.trailingGroup)}
+              {...stylex.props(
+                appTitlebarStyles.navigationGroup,
+                appTitlebarStyles.trailingGroup,
+                page.sidebarAction !== undefined && appTitlebarStyles.trailingGroupWithSidebarAction,
+              )}
               data-window-no-drag=""
             >
               {page.trailing}
+            </div>
+          )
+        : null}
+      {page?.sidebarAction
+        ? (
+            <div
+              {...stylex.props(appTitlebarStyles.navigationGroup, appTitlebarStyles.sidebarActionGroup)}
+              data-window-no-drag=""
+            >
+              {page.sidebarAction}
             </div>
           )
         : null}

@@ -32,6 +32,7 @@ import { createActiveReadingRegistry } from './reading/active-reading-registry'
 import { registerRendererProtocol } from './renderer-protocol'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
+import { WhiteboardLibraryApplication } from './whiteboard/whiteboard-library-application'
 import { createSettingsWindowController } from './windows/settings-window'
 
 export interface DesktopRuntime {
@@ -226,6 +227,11 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'editor storage',
     })
     const editorStorage = editor.resource
+    const whiteboardLibrary = (await scope.acquire({
+      acquire: () => WhiteboardLibraryApplication.open(editorStorage.userDocuments),
+      close: application => application.close(),
+      name: 'Whiteboard Library',
+    })).resource
     const shelfStorage = (await scope.acquire({
       acquire: () => SqliteShelfStorage.open({
         database: mainDatabase,
@@ -306,6 +312,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         assetOperations.run,
         activeReadings,
         editorStorage.learning,
+        whiteboardLibrary,
         learningNow(options.allowTestClock),
       ),
       close: handle => handle.close(),

@@ -137,6 +137,20 @@ export const readerShellStyles = stylex.create({
     right: 0,
     pointerEvents: 'auto',
   },
+  actionsWindowWithSidebarActions: {
+    right: 44,
+  },
+  sidebarActions: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  sidebarActionsWindow: {
+    position: 'fixed',
+    zIndex: 24,
+    top: 10,
+    right: 14,
+    pointerEvents: 'auto',
+  },
   windowControlGroup: {
     height: 36,
     gap: 0,

@@ -143,13 +143,13 @@ async function requestRendererSave(
       return true
     const detail = outcome.status === 'failed'
       ? `Memorilo could not save the latest Note changes.\n\n${outcome.message}`
-      : 'Memorilo did not receive a save confirmation before the timeout.'
+      : 'Memorilo did not receive confirmation that the latest Note changes were saved before the timeout.'
     const options: MessageBoxOptions = {
-      buttons: ['Retry', 'Cancel'],
+      buttons: ['Retry', 'Keep Open'],
       cancelId: 1,
       defaultId: 0,
-      detail: `${detail}\n\nRetry saving, or cancel closing to keep your changes open.`,
-      message: 'Note Changes Are Not Saved',
+      detail: `${detail}\n\nRetry saving, or keep the window open so your changes remain available.`,
+      message: 'Couldn\'t Confirm Changes Were Saved',
       noLink: true,
       type: 'warning',
     }
