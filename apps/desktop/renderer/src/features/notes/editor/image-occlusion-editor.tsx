@@ -1,13 +1,23 @@
 import type {
   EditorImageOcclusionTopicDocument,
   ImageOcclusionState,
-  OcclusionBoundsShape,
   OcclusionShape,
 } from '@memorilo/editor'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { RefObject } from 'react'
-import { imageOcclusionStateSignature } from '@memorilo/editor'
+import {
+  containOcclusionBoundsShape,
+  imageOcclusionBoundsStrokeWidth,
+  imageOcclusionBrushStrokeWidth,
+  imageOcclusionColor,
+  imageOcclusionStateSignature,
+  minimumOcclusionShapeSize,
+  scaleOcclusionBrushPoints,
+  shouldRegroupImageOcclusionShapes,
+  transformOcclusionBrushShape,
+  translateOcclusionBrushShape,
+} from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import {
   Circle,
@@ -53,9 +63,6 @@ interface Viewport {
   width: number
 }
 
-const minimumShapeSize = 0.005
-const occlusionColor = '#2563eb'
-
 function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.min(maximum, Math.max(minimum, value))
 }
@@ -75,26 +82,10 @@ function normalizedPoint(
   }
 }
 
-function containedBounds(shape: OcclusionBoundsShape): OcclusionBoundsShape {
-  const x = clamp(shape.x, 0, 1 - minimumShapeSize)
-  const y = clamp(shape.y, 0, 1 - minimumShapeSize)
-  return {
-    ...shape,
-    height: clamp(shape.height, minimumShapeSize, 1 - y),
-    width: clamp(shape.width, minimumShapeSize, 1 - x),
-    x,
-    y,
-  }
-}
-
 function shapeWithOffset(shape: OcclusionShape, offset: number): OcclusionShape {
-  if (shape.kind === 'brush') {
-    return {
-      ...shape,
-      points: shape.points.map(value => clamp(value + offset)),
-    }
-  }
-  return containedBounds({ ...shape, x: shape.x + offset, y: shape.y + offset })
+  if (shape.kind === 'brush')
+    return translateOcclusionBrushShape(shape, offset, offset)
+  return containOcclusionBoundsShape({ ...shape, x: shape.x + offset, y: shape.y + offset })
 }
 
 function useElementSize(ref: RefObject<HTMLElement | null>) {
@@ -244,7 +235,7 @@ function shapeNodes(
 ) {
   const common = {
     draggable,
-    fill: shape.kind === 'brush' ? undefined : occlusionColor,
+    fill: shape.kind === 'brush' ? undefined : imageOcclusionColor,
     name: shape.id,
     onClick: onSelect,
     onDragEnd,
@@ -253,8 +244,8 @@ function shapeNodes(
     opacity: 1,
     perfectDrawEnabled: false,
     ref: register,
-    stroke: selected ? '#ffffff' : occlusionColor,
-    strokeWidth: selected ? 2 : 1,
+    stroke: selected ? '#ffffff' : imageOcclusionColor,
+    strokeWidth: selected ? 2 : imageOcclusionBoundsStrokeWidth(viewport.imageWidth, viewport.imageHeight),
   } as const
   if (shape.kind === 'rectangle') {
     return (
@@ -282,10 +273,13 @@ function shapeNodes(
   }
   if (shape.kind !== 'brush')
     throw new TypeError(`Unsupported OcclusionShape kind: ${String(shape.kind)}`)
-  const points = shape.points.map((value, index) => (
-    value * (index % 2 === 0 ? viewport.imageWidth : viewport.imageHeight)
-    + (index % 2 === 0 ? viewport.imageX : viewport.imageY)
-  ))
+  const points = scaleOcclusionBrushPoints(
+    shape,
+    viewport.imageWidth,
+    viewport.imageHeight,
+    viewport.imageX,
+    viewport.imageY,
+  )
   return (
     <Line
       key={shape.id}
@@ -294,9 +288,8 @@ function shapeNodes(
       lineCap="round"
       lineJoin="round"
       points={points}
-      stroke={occlusionColor}
-      strokeWidth={Math.max(4, shape.strokeWidth * Math.min(viewport.imageWidth, viewport.imageHeight))}
-      tension={0.25}
+      stroke={imageOcclusionColor}
+      strokeWidth={imageOcclusionBrushStrokeWidth(shape, viewport.imageWidth, viewport.imageHeight)}
     />
   )
 }
@@ -368,10 +361,7 @@ export function ImageOcclusionEditor({
       const dx = node.x() / viewport.imageWidth
       const dy = node.y() / viewport.imageHeight
       node.position({ x: 0, y: 0 })
-      replaceShape(shape.id, {
-        ...shape,
-        points: shape.points.map((value, index) => clamp(value + (index % 2 === 0 ? dx : dy))),
-      })
+      replaceShape(shape.id, translateOcclusionBrushShape(shape, dx, dy))
       return
     }
     const width = shape.width
@@ -382,7 +372,7 @@ export function ImageOcclusionEditor({
     const y = shape.kind === 'ellipse'
       ? (node.y() - viewport.imageY) / viewport.imageHeight - height / 2
       : (node.y() - viewport.imageY) / viewport.imageHeight
-    replaceShape(shape.id, containedBounds({ ...shape, x, y }))
+    replaceShape(shape.id, containOcclusionBoundsShape({ ...shape, x, y }))
   }, [replaceShape, viewport])
 
   const handleTransformEnd = useCallback((shape: OcclusionShape, event: KonvaEventObject<Event>) => {
@@ -394,23 +384,18 @@ export function ImageOcclusionEditor({
       const dx = node.x() / viewport.imageWidth
       const dy = node.y() / viewport.imageHeight
       node.position({ x: 0, y: 0 })
-      replaceShape(shape.id, {
-        ...shape,
-        points: shape.points.map((value, index) => clamp(
-          value * (index % 2 === 0 ? scaleX : scaleY) + (index % 2 === 0 ? dx : dy),
-        )),
-      })
+      replaceShape(shape.id, transformOcclusionBrushShape(shape, scaleX, scaleY, dx, dy))
       return
     }
-    const width = clamp(shape.width * Math.abs(scaleX), minimumShapeSize)
-    const height = clamp(shape.height * Math.abs(scaleY), minimumShapeSize)
+    const width = clamp(shape.width * Math.abs(scaleX), minimumOcclusionShapeSize)
+    const height = clamp(shape.height * Math.abs(scaleY), minimumOcclusionShapeSize)
     const x = shape.kind === 'ellipse'
       ? (node.x() - viewport.imageX) / viewport.imageWidth - width / 2
       : (node.x() - viewport.imageX) / viewport.imageWidth
     const y = shape.kind === 'ellipse'
       ? (node.y() - viewport.imageY) / viewport.imageHeight - height / 2
       : (node.y() - viewport.imageY) / viewport.imageHeight
-    replaceShape(shape.id, containedBounds({ ...shape, height, width, x, y }))
+    replaceShape(shape.id, containOcclusionBoundsShape({ ...shape, height, width, x, y }))
   }, [replaceShape, viewport])
 
   const pointer = useCallback((stage: Konva.Stage, requireInside = false) => {
@@ -444,10 +429,10 @@ export function ImageOcclusionEditor({
     }
     setDraft({
       groupId: id,
-      height: minimumShapeSize,
+      height: minimumOcclusionShapeSize,
       id,
       kind: tool,
-      width: minimumShapeSize,
+      width: minimumOcclusionShapeSize,
       x: point.x,
       y: point.y,
     })
@@ -469,8 +454,8 @@ export function ImageOcclusionEditor({
     const start = drawingStart.current
     setDraft({
       ...draft,
-      height: Math.max(minimumShapeSize, Math.abs(point.y - start.y)),
-      width: Math.max(minimumShapeSize, Math.abs(point.x - start.x)),
+      height: Math.max(minimumOcclusionShapeSize, Math.abs(point.y - start.y)),
+      width: Math.max(minimumOcclusionShapeSize, Math.abs(point.x - start.x)),
       x: Math.min(start.x, point.x),
       y: Math.min(start.y, point.y),
     })
@@ -482,7 +467,7 @@ export function ImageOcclusionEditor({
       return
     const next = draft.kind === 'brush'
       ? draft.points.length >= 4 ? draft : null
-      : containedBounds(draft)
+      : containOcclusionBoundsShape(draft)
     setDraft(null)
     if (!next)
       return
@@ -513,7 +498,7 @@ export function ImageOcclusionEditor({
   }, [history, selectedIds, state])
 
   const groupSelection = useCallback(() => {
-    if (selectedIds.length < 2)
+    if (!shouldRegroupImageOcclusionShapes(state.shapes, selectedIds))
       return
     const selected = new Set(selectedIds)
     const groupId = crypto.randomUUID()
@@ -534,6 +519,7 @@ export function ImageOcclusionEditor({
   }, [history, selectedIds, state])
 
   const selectedGroupIds = new Set(state.shapes.filter(shape => selectedIds.includes(shape.id)).map(shape => shape.groupId))
+  const canGroup = shouldRegroupImageOcclusionShapes(state.shapes, selectedIds)
   const canUngroup = selectedIds.length > 0 && [...selectedGroupIds].some(groupId => (
     state.shapes.filter(shape => shape.groupId === groupId).length > 1
   ))
@@ -595,7 +581,7 @@ export function ImageOcclusionEditor({
           <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.copy')} disabled={selectedIds.length === 0} title={t('imageOcclusion.copy')} type="button" onClick={copySelection}>
             <Copy aria-hidden="true" size={15} strokeWidth={1.8} />
           </button>
-          <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.group')} disabled={selectedIds.length < 2} title={t('imageOcclusion.group')} type="button" onClick={groupSelection}>
+          <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.group')} disabled={!canGroup} title={t('imageOcclusion.group')} type="button" onClick={groupSelection}>
             <Combine aria-hidden="true" size={15} strokeWidth={1.8} />
           </button>
           <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.ungroup')} disabled={!canUngroup} title={t('imageOcclusion.ungroup')} type="button" onClick={ungroupSelection}>

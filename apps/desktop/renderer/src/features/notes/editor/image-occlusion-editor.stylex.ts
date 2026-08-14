@@ -136,11 +136,14 @@ export const imageOcclusionEditorStyles = stylex.create({
     fontSize: 13,
   },
   spinner: {
-    animationName: stylex.keyframes({
+    'animationName': stylex.keyframes({
       to: { transform: 'rotate(360deg)' },
     }),
-    animationDuration: '800ms',
-    animationIterationCount: 'infinite',
-    animationTimingFunction: 'linear',
+    'animationDuration': '800ms',
+    'animationIterationCount': 'infinite',
+    'animationTimingFunction': 'linear',
+    '@media (prefers-reduced-motion: reduce)': {
+      animationName: 'none',
+    },
   },
 })

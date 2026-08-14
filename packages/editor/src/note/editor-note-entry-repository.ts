@@ -20,7 +20,11 @@ import {
   TOPIC_TITLE_KEY,
   validateBookBindingValue,
 } from './editor-note-crdt'
-import { createImageOcclusionNode, getImageOcclusionState } from './editor-note-image-occlusion'
+import {
+  createImageOcclusionNode,
+  getImageOcclusionSourceIdentity,
+  getImageOcclusionState,
+} from './editor-note-image-occlusion'
 import { projectEditorNote } from './editor-note-projection'
 import {
   assertBookFileAvailable,
@@ -44,7 +48,7 @@ interface EditorNoteEntryRepositoryDependencies {
 export interface EditorNoteEntryRepository {
   readonly createBookTopic: (input: CreateBookTopicInput) => string
   readonly createFolder: (input: CreateFolderInput) => string
-  readonly createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => string
+  readonly createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => Promise<string>
   readonly createTopic: (input: CreateTopicInput) => string
   readonly createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   readonly deleteEntry: (input: DeleteNoteEntryInput) => void
@@ -92,11 +96,22 @@ export function createEditorNoteEntryRepository(
       doc.commit({ origin: 'note:create-folder' })
       return entryId
     }),
-    createImageOcclusionTopic: input => runMutation(() => {
-      const entryId = createImageOcclusionNode(runtime, input)
-      doc.commit({ origin: 'note:create-image-occlusion-topic' })
-      return entryId
-    }),
+    createImageOcclusionTopic: async (input) => {
+      const sourceImage = getImageOcclusionSourceIdentity(runtime, input.sourceTopicId, input.sourceImageId)
+      const image = await input.snapshot(structuredClone(sourceImage))
+      return runMutation(() => {
+        const entryId = createImageOcclusionNode(runtime, {
+          image,
+          index: input.index,
+          sourceImage,
+          sourceImageId: input.sourceImageId,
+          sourceTopicId: input.sourceTopicId,
+          title: input.title,
+        })
+        doc.commit({ origin: 'note:create-image-occlusion-topic' })
+        return entryId
+      })
+    },
     createTopic: input => runMutation(() => {
       const parent = resolveParent(input.parentId)
       const entryId = createTopicNode(doc, input, parent?.id)

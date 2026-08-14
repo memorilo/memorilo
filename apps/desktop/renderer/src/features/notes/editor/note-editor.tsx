@@ -123,8 +123,8 @@ export function NoteEditor({
       await onOpenTopic(existing.topicId)
       return
     }
-    const topicId = opened.note.createImageOcclusionTopic({
-      image: await snapshotImage(image),
+    const topicId = await opened.note.createImageOcclusionTopic({
+      snapshot: source => snapshotImage({ ...image, src: source.src }),
       sourceImageId: imageId,
       sourceTopicId,
       title: t('imageOcclusion.defaultTitle', { ns: 'editor' }),

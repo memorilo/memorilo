@@ -143,8 +143,8 @@ describe('application service for MCP Notes', () => {
       }],
       topicId: fixture.topic.id,
     })
-    const occlusionTopicId = renderer.createImageOcclusionTopic({
-      image,
+    const occlusionTopicId = await renderer.createImageOcclusionTopic({
+      snapshot: async source => ({ ...image, src: source.src }),
       sourceImageId,
       sourceTopicId: fixture.topic.id,
       title: 'Image Occlusion',

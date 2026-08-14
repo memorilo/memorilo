@@ -1,5 +1,10 @@
 import type { ImageOcclusionCardProjection, OcclusionShape } from '@memorilo/editor'
 import type { RefObject } from 'react'
+import {
+  imageOcclusionBrushStrokeWidth,
+  imageOcclusionColor,
+  scaleOcclusionBrushPoints,
+} from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { LoaderCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -86,7 +91,7 @@ function shapeNode(
 ) {
   const fill = appearance === 'answer'
     ? 'rgb(22 163 74 / 10%)'
-    : target ? '#2563eb' : '#161b24'
+    : target ? imageOcclusionColor : '#161b24'
   const stroke = appearance === 'answer'
     ? '#16a34a'
     : target ? '#ffffff' : 'rgb(255 255 255 / 34%)'
@@ -123,10 +128,13 @@ function shapeNode(
   }
   if (shape.kind !== 'brush')
     throw new TypeError(`Unsupported OcclusionShape kind: ${String(shape.kind)}`)
-  const points = shape.points.map((value, index) => (
-    value * (index % 2 === 0 ? viewport.imageWidth : viewport.imageHeight)
-    + (index % 2 === 0 ? viewport.imageX : viewport.imageY)
-  ))
+  const points = scaleOcclusionBrushPoints(
+    shape,
+    viewport.imageWidth,
+    viewport.imageHeight,
+    viewport.imageX,
+    viewport.imageY,
+  )
   return (
     <Line
       key={`${appearance}:${shape.id}`}
@@ -134,11 +142,10 @@ function shapeNode(
       lineJoin="round"
       listening={false}
       points={points}
-      stroke={appearance === 'answer' ? '#16a34a' : target ? '#2563eb' : '#161b24'}
+      stroke={appearance === 'answer' ? '#16a34a' : target ? imageOcclusionColor : '#161b24'}
       strokeWidth={appearance === 'answer'
         ? 2
-        : Math.max(6, shape.strokeWidth * Math.min(viewport.imageWidth, viewport.imageHeight))}
-      tension={0.25}
+        : imageOcclusionBrushStrokeWidth(shape, viewport.imageWidth, viewport.imageHeight)}
     />
   )
 }

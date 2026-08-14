@@ -1,6 +1,9 @@
 import type { LoroDoc } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
-import type { ImageOcclusionState } from '../image-occlusion/image-occlusion-model'
+import type {
+  ImageOcclusionSource,
+  ImageOcclusionState,
+} from '../image-occlusion/image-occlusion-model'
 import type {
   CreateImageOcclusionTopicInput,
   ImageOcclusionTopicValidationInput,
@@ -10,7 +13,6 @@ import type { TopicContentProjection } from './topic-projection'
 import { createNodeJsonFromLoroTree } from '@memorilo/loro-prosemirror-tree/document'
 import { Effect } from 'effect'
 import { LoroMap } from 'loro-crdt'
-import { EditorMode } from '../common/editor-mode'
 import { validateLoroTopic } from '../schema/topic-schema'
 import {
   ENTRY_ID_KEY,
@@ -22,7 +24,6 @@ import {
   readTopicTitle,
   readTopicType,
   TOPIC_BLOCK_TREE_KEY,
-  TOPIC_EDITOR_MODE_KEY,
   TOPIC_TITLE_KEY,
   TOPIC_TYPE_KEY,
 } from './editor-note-crdt'
@@ -49,7 +50,6 @@ function imageOcclusionStateMap(node: NoteEntryNode): LoroMap {
 
 function imageOcclusionEntryValue(node: NoteEntryNode): Record<string, unknown> {
   return {
-    editorMode: node.data.get(TOPIC_EDITOR_MODE_KEY),
     entryId: readString(node.data, ENTRY_ID_KEY, 'ImageOcclusionTopic id'),
     kind: node.data.get(ENTRY_KIND_KEY),
     title: readTopicTitle(node.data, 'ImageOcclusionTopic title'),
@@ -79,11 +79,23 @@ function sourceImage(document: NodeJSON, imageId: string): NodeJSON | null {
   return null
 }
 
+function imageSource(node: NodeJSON, imageId: string): ImageOcclusionSource {
+  const src = node.attrs?.src
+  if (typeof src !== 'string' || src.length === 0)
+    throw new TypeError(`Image ${imageId} source must be a non-empty string`)
+  return { src }
+}
+
+interface ResolvedImageOcclusionSource {
+  image: ImageOcclusionSource
+  topic: NoteEntryNode
+}
+
 function assertSourceImage(
   runtime: EditorNoteDocument,
   sourceTopicId: string,
   sourceImageId: string,
-): NoteEntryNode {
+): ResolvedImageOcclusionSource {
   const source = findNoteEntry(runtime.doc, sourceTopicId)
   if (readTopicType(source.data, `Topic ${sourceTopicId} type`) !== 'regular')
     throw new TypeError(`ImageOcclusionTopic source ${sourceTopicId} must be a RegularTopic`)
@@ -91,9 +103,20 @@ function assertSourceImage(
   const document = createNodeJsonFromLoroTree(runtime.doc.getTree(blockTreeKey))
   if (!document)
     throw new Error(`Topic ${sourceTopicId} does not contain an initialized document`)
-  if (!sourceImage(document, sourceImageId))
+  const matchedImage = sourceImage(document, sourceImageId)
+  if (!matchedImage)
     throw new Error(`RegularTopic ${sourceTopicId} does not contain image ${sourceImageId}`)
-  return source
+  return { image: imageSource(matchedImage, sourceImageId), topic: source }
+}
+
+export function getImageOcclusionSourceIdentity(
+  runtime: EditorNoteDocument,
+  sourceTopicIdValue: string,
+  sourceImageIdValue: string,
+): ImageOcclusionSource {
+  const sourceTopicId = normalizeNonEmptyString(sourceTopicIdValue, 'Source Topic id')
+  const sourceImageId = normalizeNonEmptyString(sourceImageIdValue, 'Source image id')
+  return structuredClone(assertSourceImage(runtime, sourceTopicId, sourceImageId).image)
 }
 
 export function findImageOcclusionTopicId(
@@ -118,31 +141,50 @@ export function findImageOcclusionTopicId(
   return match
 }
 
+interface CreateImageOcclusionNodeInput extends Omit<CreateImageOcclusionTopicInput, 'snapshot'> {
+  image: ImageOcclusionState['image']
+  sourceImage: ImageOcclusionSource
+}
+
 export function createImageOcclusionNode(
   runtime: EditorNoteDocument,
-  input: CreateImageOcclusionTopicInput,
+  input: CreateImageOcclusionNodeInput,
 ): string {
   const sourceTopicId = normalizeNonEmptyString(input.sourceTopicId, 'Source Topic id')
   const sourceImageId = normalizeNonEmptyString(input.sourceImageId, 'Source image id')
   const source = assertSourceImage(runtime, sourceTopicId, sourceImageId)
+  if (source.image.src !== input.sourceImage.src)
+    throw new Error(`Image ${sourceTopicId}:${sourceImageId} changed while its snapshot was created`)
   const existing = findImageOcclusionTopicId(runtime, sourceTopicId, sourceImageId)
   if (existing)
     throw new Error(`Image ${sourceTopicId}:${sourceImageId} already belongs to ImageOcclusionTopic ${existing}`)
 
   const entryId = crypto.randomUUID()
-  const node = noteTree(runtime.doc).createNode(source.id, resolveNoteEntryIndex(input.index))
+  const topic = Effect.runSync(validateLoroTopic({
+    entry: {
+      entryId,
+      kind: 'topic',
+      title: normalizeTopicTitle(input.title),
+      topicType: 'image-occlusion',
+    },
+    state: {
+      image: structuredClone(input.image),
+      mode: 'hide-all',
+      shapes: [],
+      sourceImageId,
+      sourceTopicId,
+    },
+  }))
+  if (topic.entry.topicType !== 'image-occlusion' || !('state' in topic))
+    throw new TypeError(`Topic ${entryId} is not an ImageOcclusionTopic`)
+  const node = noteTree(runtime.doc).createNode(source.topic.id, resolveNoteEntryIndex(input.index))
   node.data.set(ENTRY_ID_KEY, entryId)
   node.data.set(ENTRY_KIND_KEY, 'topic')
   node.data.set(TOPIC_TYPE_KEY, 'image-occlusion')
-  node.data.set(TOPIC_TITLE_KEY, normalizeTopicTitle(input.title))
-  node.data.set(TOPIC_EDITOR_MODE_KEY, EditorMode.Document)
+  node.data.set(TOPIC_TITLE_KEY, topic.entry.title)
   const state = node.data.ensureMergeableMap(IMAGE_OCCLUSION_STATE_KEY)
-  state.set('image', structuredClone(input.image))
-  state.set('mode', 'hide-all')
-  state.set('shapes', [])
-  state.set('sourceImageId', sourceImageId)
-  state.set('sourceTopicId', sourceTopicId)
-  Effect.runSync(validateLoroTopic(readImageOcclusionValidationInput(runtime, entryId)))
+  for (const [key, value] of Object.entries(topic.state))
+    state.set(key, value)
   return entryId
 }
 

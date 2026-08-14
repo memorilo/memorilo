@@ -231,7 +231,6 @@ export const LoroBookTopicEntrySchema = Schema.Struct({
 })
 
 export const LoroImageOcclusionTopicEntrySchema = Schema.Struct({
-  editorMode: Schema.Literals([0, 1]),
   entryId: Schema.NonEmptyString,
   kind: Schema.Literal('topic'),
   title: Schema.String,
