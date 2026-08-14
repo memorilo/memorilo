@@ -21,6 +21,7 @@ import { useNoteInspectorVisibility } from '../note-inspector-state'
 import { desktopEditorAdapters } from './note-editor-session'
 import { noteEditorStyles } from './note-editor.stylex'
 import { useNoteEntryContextMenu } from './note-entry-context-menu'
+import { SpreadsheetEditor } from './spreadsheet-editor'
 import { WhiteboardEditor } from './whiteboard-editor'
 
 const ImageOcclusionTopicEditor = lazy(async () => {
@@ -47,6 +48,7 @@ export interface NoteEditorViewProps {
   focusBlockId?: string
   onAddBook: (parentId: string | null) => void
   onAddFolder: (parentId: string | null) => void
+  onAddSpreadsheet: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
   onAddWhiteboard: (parentId: string | null) => void
   onOpenImageOcclusion: (input: OpenImageOcclusionInput) => Promise<void> | void
@@ -65,6 +67,7 @@ export function NoteEditorView({
   focusBlockId,
   onAddBook,
   onAddFolder,
+  onAddSpreadsheet,
   onAddTopic,
   onAddWhiteboard,
   onOpenImageOcclusion,
@@ -90,10 +93,13 @@ export function NoteEditorView({
 
   const imageOcclusionTopic = isImageOcclusionTopic(opened.topic) ? opened.topic : null
   const editorTopic = 'documentId' in opened.topic ? opened.topic : null
+  const spreadsheetTopic = 'getWorkbook' in opened.topic ? opened.topic : null
   const whiteboardTopic = 'getScene' in opened.topic ? opened.topic : null
   if ((currentEntry.topicType === 'image-occlusion') !== (imageOcclusionTopic !== null))
     throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
   if ((currentEntry.topicType === 'whiteboard') !== (whiteboardTopic !== null))
+    throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
+  if ((currentEntry.topicType === 'spreadsheet') !== (spreadsheetTopic !== null))
     throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
 
   const mode = useEditorTopicMode(editorTopic)
@@ -101,6 +107,7 @@ export function NoteEditorView({
   const entryContextMenu = useNoteEntryContextMenu({
     onAddBook,
     onAddFolder,
+    onAddSpreadsheet,
     onAddTopic,
     onAddWhiteboard,
     onRebindBook,
@@ -170,7 +177,7 @@ export function NoteEditorView({
     ? copyFeedback.status
     : null
   const titlebar = useMemo(() => ({
-    ...(whiteboardTopic === null ? { onRenameTitle: renameNote } : {}),
+    ...(whiteboardTopic === null && spreadsheetTopic === null ? { onRenameTitle: renameNote } : {}),
     sidebarAction: (
       <NoteInspectorActions
         favorite={opened.stored.favorite}
@@ -181,7 +188,7 @@ export function NoteEditorView({
       />
     ),
     title: opened.stored.title,
-    titleVisibility: whiteboardTopic === null ? 'always' as const : 'hidden' as const,
+    titleVisibility: whiteboardTopic === null && spreadsheetTopic === null ? 'always' as const : 'hidden' as const,
   }), [
     favoritePending,
     inspectorVisible,
@@ -189,6 +196,7 @@ export function NoteEditorView({
     opened.stored.favorite,
     opened.stored.title,
     renameNote,
+    spreadsheetTopic,
     toggleInspector,
     whiteboardTopic,
   ])
@@ -199,7 +207,7 @@ export function NoteEditorView({
       <section
         {...stylex.props(
           noteEditorStyles.workspace,
-          whiteboardTopic !== null && noteEditorStyles.whiteboardWorkspace,
+          (whiteboardTopic !== null || spreadsheetTopic !== null) && noteEditorStyles.fullBleedWorkspace,
         )}
         aria-label={opened.stored.title}
       >
@@ -250,25 +258,33 @@ export function NoteEditorView({
                 />
               </Suspense>
             )
-          : editorTopic !== null
+          : spreadsheetTopic !== null
             ? (
-                <Editor
-                  adapters={editorAdapters}
-                  focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
-                  imageOcclusion={regularTopicImageOcclusion}
-                  outline={{ outdentBehavior: configuration.outdentBehavior }}
-                  topic={editorTopic}
+                <SpreadsheetEditor
+                  key={spreadsheetTopic.topicId}
+                  title={currentEntry.title}
+                  topic={spreadsheetTopic}
                 />
               )
-            : whiteboardTopic !== null
+            : editorTopic !== null
               ? (
-                  <WhiteboardEditor
+                  <Editor
                     adapters={editorAdapters}
-                    inspectorVisible={inspectorVisible}
-                    topic={whiteboardTopic}
+                    focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
+                    imageOcclusion={regularTopicImageOcclusion}
+                    outline={{ outdentBehavior: configuration.outdentBehavior }}
+                    topic={editorTopic}
                   />
                 )
-              : null}
+              : whiteboardTopic !== null
+                ? (
+                    <WhiteboardEditor
+                      adapters={editorAdapters}
+                      inspectorVisible={inspectorVisible}
+                      topic={whiteboardTopic}
+                    />
+                  )
+                : null}
       </section>
       <NoteInspector
         collapsedEntryIds={collapsedEntryIds}

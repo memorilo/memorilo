@@ -20,7 +20,12 @@ import { projectNoteAssetReferences } from '../assets/asset-references'
 import { createNoteAuthoritativeCache } from './note-authoritative-cache'
 import { createNoteAuthoritativeExternalUpdates } from './note-authoritative-external-updates'
 import { createNoteAuthoritativeLoading } from './note-authoritative-loading'
-import { noteRevision, toStoredEntries, toStoredTopic } from './note-authoritative-projection'
+import {
+  noteRevision,
+  toStoredEntries,
+  toStoredSpreadsheets,
+  toStoredTopic,
+} from './note-authoritative-projection'
 import { projectNoteLearningCards } from './note-learning-cards'
 
 const checkpointInterval = 32
@@ -114,6 +119,9 @@ export function createNoteAuthoritativeRuntime(
       : resolveJournalTopic(current.note, { expectedNoteTitle: current.journalDate })
     const update = current.note.exportUpdates(version)
     const assetReferences = projectNoteAssetReferences(current.note)
+    const spreadsheetTopicIds = persistOptions.entries || journalTopic !== null
+      ? undefined
+      : new Set(persistOptions.topicIds ?? [])
     const receipt = await storage.notes.saveNoteUpdates({
       allowedMissingAssetFileNames: assetReferences.map(reference => reference.fileName),
       assetReferences,
@@ -125,6 +133,7 @@ export function createNoteAuthoritativeRuntime(
           ? {}
           : { learningCards: projectNoteLearningCards(current.note, persistOptions.topicIds) }),
       noteId: current.note.id,
+      spreadsheets: toStoredSpreadsheets(current.note, spreadsheetTopicIds),
       ...(persistOptions.title || journalTopic !== null ? { title: current.note.getTitle() } : {}),
       topics: (journalTopic === null ? persistOptions.topicIds ?? [] : [journalTopic.topicId])
         .map(topicId => toStoredTopic(current.note.getTopicContent(topicId))),

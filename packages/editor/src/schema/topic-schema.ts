@@ -1,4 +1,5 @@
 import type { Effect } from 'effect'
+import { SpreadsheetWorkbookSchema } from '@memorilo/spreadsheet/model'
 import { Exit, Schema } from 'effect'
 import {
   LoroTopicDocumentSchema,
@@ -216,6 +217,13 @@ const LoroWhiteboardTopicEntryBaseFields = {
   topicType: Schema.Literal('whiteboard'),
 } as const
 
+const LoroSpreadsheetTopicEntryBaseFields = {
+  entryId: Schema.NonEmptyString,
+  kind: Schema.Literal('topic'),
+  title: Schema.String,
+  topicType: Schema.Literal('spreadsheet'),
+} as const
+
 export const LoroRegularTopicEntrySchema = Schema.Struct({
   ...LoroTopicEntryBaseFields,
   topicType: Schema.Literal('regular'),
@@ -241,10 +249,15 @@ export const LoroWhiteboardTopicEntrySchema = Schema.Struct({
   ...LoroWhiteboardTopicEntryBaseFields,
 })
 
+export const LoroSpreadsheetTopicEntrySchema = Schema.Struct({
+  ...LoroSpreadsheetTopicEntryBaseFields,
+})
+
 export const LoroTopicEntrySchema = Schema.Union([
   LoroBookTopicEntrySchema,
   LoroImageOcclusionTopicEntrySchema,
   LoroRegularTopicEntrySchema,
+  LoroSpreadsheetTopicEntrySchema,
   LoroWhiteboardTopicEntrySchema,
 ])
 
@@ -289,11 +302,17 @@ const LoroWhiteboardTopicSchema = Schema.Struct({
   expected: 'a WhiteboardTopic with Embedded Editors keyed by their editor IDs',
 }))
 
+const LoroSpreadsheetTopicSchema = Schema.Struct({
+  entry: LoroSpreadsheetTopicEntrySchema,
+  workbook: SpreadsheetWorkbookSchema,
+})
+
 /** A complete Topic projected from its Loro entry map and referenced block tree. */
 export const LoroTopicSchema = Schema.Union([
   LoroBookTopicSchema,
   LoroImageOcclusionTopicSchema,
   LoroRegularTopicSchema,
+  LoroSpreadsheetTopicSchema,
   LoroWhiteboardTopicSchema,
 ]).check(Schema.makeFilter((topic) => {
   const id = topic.entry.entryId
@@ -319,7 +338,7 @@ export const LoroTopicSchema = Schema.Union([
           path: ['entry', 'blockTreeKey'],
         }
   }
-  if (topic.entry.topicType === 'whiteboard') {
+  if (topic.entry.topicType === 'spreadsheet' || topic.entry.topicType === 'whiteboard') {
     return undefined
   }
   const expectedBlockTreeKey = `topic:${id}:blocks`
@@ -379,6 +398,7 @@ export type LoroTopic = typeof LoroTopicSchema.Type
 export type LoroBookTopic = typeof LoroBookTopicSchema.Type
 export type LoroImageOcclusionTopic = typeof LoroImageOcclusionTopicSchema.Type
 export type LoroRegularTopic = typeof LoroRegularTopicSchema.Type
+export type LoroSpreadsheetTopic = typeof LoroSpreadsheetTopicSchema.Type
 export type LoroWhiteboardTopic = typeof LoroWhiteboardTopicSchema.Type
 export type LoroTopicValidation = Effect.Effect<LoroTopic, Schema.SchemaError>
 

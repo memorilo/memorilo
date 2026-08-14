@@ -4,17 +4,20 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./model": "./src/spreadsheet-model.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "dev": "vite --config vite.config.ts",
     "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@stylexjs/stylex": "0.19.0",
     "effect": "4.0.0-beta.23",
+    "hyperformula": "3.4.0",
     "lucide-react": "^0.468.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"

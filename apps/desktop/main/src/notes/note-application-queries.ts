@@ -45,9 +45,11 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
       const entry = current.note.getEntries().find(candidate => candidate.id === input.topicId)
       if (!entry || entry.kind !== 'topic')
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
-      const cards = entry.topicType === 'image-occlusion'
-        ? projectImageOcclusionCards(current.note.getImageOcclusionTopic(entry.id).getState())
-        : topicDocuments(current.note, input.topicId).flatMap(document => projectEditorCards(document))
+      const cards = entry.topicType === 'spreadsheet'
+        ? []
+        : entry.topicType === 'image-occlusion'
+          ? projectImageOcclusionCards(current.note.getImageOcclusionTopic(entry.id).getState())
+          : topicDocuments(current.note, input.topicId).flatMap(document => projectEditorCards(document))
       const card = cards
         .find(candidate => candidate.id === input.cardId)
       if (!card)

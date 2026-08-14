@@ -1,19 +1,32 @@
 import type {
+  SpreadsheetCellProjection,
   SpreadsheetCollaborator,
   SpreadsheetLock,
-  SpreadsheetWorkbook,
+  SpreadsheetWorkbookProjection,
 } from './spreadsheet-model'
 
 export type {
   SpreadsheetCell,
+  SpreadsheetCellFormat,
   SpreadsheetCellKind,
+  SpreadsheetCellProjection,
   SpreadsheetCellUpdate,
   SpreadsheetCollaborator,
+  SpreadsheetColumn,
+  SpreadsheetEdit,
+  SpreadsheetEditReceipt,
+  SpreadsheetFormulaBindingContext,
+  SpreadsheetFormulaReference,
+  SpreadsheetHorizontalAlignment,
   SpreadsheetLock,
   SpreadsheetModelError,
+  SpreadsheetRow,
   SpreadsheetSelection,
   SpreadsheetSheet,
+  SpreadsheetSheetProjection,
+  SpreadsheetTopicWorkbook,
   SpreadsheetWorkbook,
+  SpreadsheetWorkbookProjection,
 } from './spreadsheet-model'
 
 export type SpreadsheetToolbarCommand
@@ -21,7 +34,9 @@ export type SpreadsheetToolbarCommand
     | 'align-left'
     | 'align-right'
     | 'bold'
+    | 'currency'
     | 'italic'
+    | 'percent'
     | 'redo'
     | 'underline'
     | 'undo'
@@ -53,14 +68,29 @@ export interface SpreadsheetStrings {
 
 export interface SpreadsheetWorkspaceProps {
   readonly activeSheetId: string
+  readonly ariaLabel: string
   readonly collaborators?: readonly SpreadsheetCollaborator[]
+  readonly enabledToolbarCommands?: readonly SpreadsheetToolbarCommand[]
   readonly lock: SpreadsheetLock
   readonly onActiveSheetChange: (sheetId: string) => void
   readonly onAddSheet?: () => void
-  readonly onCellCommit?: (sheetId: string, address: string, input: string) => void
+  readonly onCellCommit?: (
+    sheetId: string,
+    rowId: string,
+    columnId: string,
+    input: string,
+  ) => void
   readonly onLockRelease: () => void
   readonly onLockRequest: () => void
-  readonly onToolbarCommand?: (command: SpreadsheetToolbarCommand) => void
+  readonly onToolbarCommand?: (
+    command: SpreadsheetToolbarCommand,
+    target: {
+      readonly cell: SpreadsheetCellProjection
+      readonly columnId: string
+      readonly rowId: string
+      readonly sheetId: string
+    },
+  ) => void
   readonly strings: SpreadsheetStrings
-  readonly workbook: SpreadsheetWorkbook
+  readonly workbook: SpreadsheetWorkbookProjection
 }

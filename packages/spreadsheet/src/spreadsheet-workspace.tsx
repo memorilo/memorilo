@@ -1,9 +1,9 @@
 import type { CSSProperties, KeyboardEvent } from 'react'
 import type {
-  SpreadsheetCell,
   SpreadsheetCellKind,
+  SpreadsheetCellProjection,
   SpreadsheetSelection,
-  SpreadsheetSheet,
+  SpreadsheetSheetProjection,
   SpreadsheetToolbarCommand,
   SpreadsheetWorkspaceProps,
 } from './model'
@@ -32,7 +32,7 @@ import {
   resolveSpreadsheetSheet,
   spreadsheetAddress,
   validateSpreadsheetLock,
-  validateSpreadsheetWorkbook,
+  validateSpreadsheetWorkbookProjection,
 } from './spreadsheet-model'
 import { spreadsheetStyles as styles } from './spreadsheet-workspace.stylex'
 
@@ -41,12 +41,14 @@ interface ToolbarButtonProps {
   readonly disabled: boolean
   readonly icon: typeof Bold
   readonly label: string
-  readonly onCommand?: (command: SpreadsheetToolbarCommand) => void
+  readonly onCommand: (command: SpreadsheetToolbarCommand) => void
   readonly pressed?: boolean
 }
 
 interface CellEdit {
   readonly address: string
+  readonly columnId: string
+  readonly rowId: string
   readonly sheetId: string
   readonly source: 'cell' | 'formula'
   readonly value: string
@@ -59,8 +61,10 @@ interface SpreadsheetGridColumn {
 
 interface SpreadsheetGridCell {
   readonly address: string
-  readonly cell: SpreadsheetCell
+  readonly cell: SpreadsheetCellProjection
   readonly column: number
+  readonly columnId: string
+  readonly rowId: string
 }
 
 interface SpreadsheetGridRow {
@@ -77,7 +81,7 @@ function ToolbarButton({ command, disabled, icon: Icon, label, onCommand, presse
       disabled={disabled}
       title={label}
       type="button"
-      onClick={() => onCommand?.(command)}
+      onClick={() => onCommand(command)}
     >
       <Icon aria-hidden="true" size={16} strokeWidth={2} />
     </button>
@@ -93,11 +97,13 @@ function cellKindStyle(kind: SpreadsheetCellKind | undefined) {
 }
 
 interface SpreadsheetWorkspaceContentProps extends SpreadsheetWorkspaceProps {
-  readonly activeSheet: SpreadsheetSheet
+  readonly activeSheet: SpreadsheetSheetProjection
 }
 
 function SpreadsheetWorkspaceContent({
   activeSheet,
+  ariaLabel,
+  enabledToolbarCommands,
   lock,
   onActiveSheetChange,
   onAddSheet,
@@ -120,6 +126,23 @@ function SpreadsheetWorkspaceContent({
     : null
   const draft = activeEdit?.value ?? selectedCell.input
   const cellEditing = activeEdit?.source === 'cell'
+  const enabledCommands = useMemo(
+    () => new Set(enabledToolbarCommands ?? []),
+    [enabledToolbarCommands],
+  )
+  const toolbarTarget = {
+    cell: selectedCell,
+    columnId: activeSheet.columns[selection.column]!.id,
+    rowId: activeSheet.rows[selection.row]!.id,
+    sheetId: activeSheet.id,
+  }
+  const runToolbarCommand = (command: SpreadsheetToolbarCommand) => {
+    if (editable && enabledCommands.has(command))
+      onToolbarCommand?.(command, toolbarTarget)
+  }
+  const commandDisabled = (command: SpreadsheetToolbarCommand) => (
+    !editable || !enabledCommands.has(command) || onToolbarCommand === undefined
+  )
 
   const replaceEdit = (next: CellEdit | null) => {
     editRef.current = next
@@ -132,7 +155,7 @@ function SpreadsheetWorkspaceContent({
       return
     replaceEdit(null)
     if (commit && editable)
-      onCellCommit(current.sheetId, current.address, current.value)
+      onCellCommit(current.sheetId, current.rowId, current.columnId, current.value)
   }
 
   const handleEditKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -157,19 +180,19 @@ function SpreadsheetWorkspaceContent({
   }
 
   const gridStyle: CSSProperties = {
-    gridTemplateColumns: `44px repeat(${activeSheet.columnCount}, 112px)`,
+    gridTemplateColumns: `44px repeat(${activeSheet.columns.length}, 112px)`,
   }
 
   const { columns, rows } = useMemo(() => {
     const columns: SpreadsheetGridColumn[] = Array.from(
-      { length: activeSheet.columnCount },
+      { length: activeSheet.columns.length },
       (_, index) => ({
         index,
         label: Effect.runSync(spreadsheetAddress({ column: index, row: 0 }, activeSheet)).replace(/\d+$/u, ''),
       }),
     )
     const rows: SpreadsheetGridRow[] = Array.from(
-      { length: activeSheet.rowCount },
+      { length: activeSheet.rows.length },
       (_, row) => ({
         cells: columns.map(({ index: column }) => {
           const address = Effect.runSync(spreadsheetAddress({ column, row }, activeSheet))
@@ -177,6 +200,8 @@ function SpreadsheetWorkspaceContent({
             address,
             cell: Effect.runSync(readSpreadsheetCell(activeSheet, address)),
             column,
+            columnId: activeSheet.columns[column]!.id,
+            rowId: activeSheet.rows[row]!.id,
           }
         }),
         index: row,
@@ -186,7 +211,7 @@ function SpreadsheetWorkspaceContent({
   }, [activeSheet])
 
   return (
-    <section {...stylex.props(styles.root)} aria-label={workbook.title}>
+    <section {...stylex.props(styles.root)} aria-label={ariaLabel}>
       <div {...stylex.props(styles.gridScroller)}>
         <div {...stylex.props(styles.grid)} style={gridStyle} role="grid" aria-readonly={!editable}>
           <div {...stylex.props(styles.cornerCell)} role="columnheader" />
@@ -198,13 +223,13 @@ function SpreadsheetWorkspaceContent({
           {rows.map(row => (
             <div key={row.index} style={{ display: 'contents' }} role="row">
               <div {...stylex.props(styles.rowHeader)} role="rowheader">{row.index + 1}</div>
-              {row.cells.map(({ address, cell, column }) => {
+              {row.cells.map(({ address, cell, column, columnId, rowId }) => {
                 const selected = address === selectedAddress
                 const editing = selected && cellEditing
                 return (
                   <div
                     key={address}
-                    {...stylex.props(styles.cell, selected && styles.cellSelected, cellKindStyle(cell.kind))}
+                    {...stylex.props(styles.cell, selected && styles.cellSelected, cellKindStyle(cell.format.kind))}
                     aria-colindex={column + 1}
                     aria-rowindex={row.index + 1}
                     role="gridcell"
@@ -213,6 +238,8 @@ function SpreadsheetWorkspaceContent({
                       if (editable) {
                         replaceEdit({
                           address,
+                          columnId,
+                          rowId,
                           sheetId: activeSheet.id,
                           source: 'cell',
                           value: cell.input,
@@ -256,37 +283,37 @@ function SpreadsheetWorkspaceContent({
       <header {...stylex.props(styles.topControlLayer)}>
         <div {...stylex.props(styles.toolbarIsland, styles.glassMaterial)} aria-label="Spreadsheet formatting" role="toolbar">
           <div {...stylex.props(styles.toolbarGroup)}>
-            <ToolbarButton command="undo" disabled={!editable} icon={Undo2} label={strings.undo} onCommand={onToolbarCommand} />
-            <ToolbarButton command="redo" disabled={!editable} icon={Redo2} label={strings.redo} onCommand={onToolbarCommand} />
+            <ToolbarButton command="undo" disabled={commandDisabled('undo')} icon={Undo2} label={strings.undo} onCommand={runToolbarCommand} />
+            <ToolbarButton command="redo" disabled={commandDisabled('redo')} icon={Redo2} label={strings.redo} onCommand={runToolbarCommand} />
           </div>
           <span {...stylex.props(styles.toolbarDivider)} />
-          <button {...stylex.props(styles.menuButton)} disabled={!editable} title={strings.textStyle} type="button">
+          <button {...stylex.props(styles.menuButton)} disabled title={strings.textStyle} type="button">
             <span>Inter</span>
             <ChevronDown aria-hidden="true" size={12} />
           </button>
-          <button {...stylex.props(styles.numberButton)} disabled={!editable} aria-label="Font size" type="button">11</button>
+          <button {...stylex.props(styles.numberButton)} disabled aria-label="Font size" type="button">11</button>
           <span {...stylex.props(styles.toolbarDivider, styles.compactToolbarHidden)} />
           <div {...stylex.props(styles.toolbarGroup)}>
-            <ToolbarButton command="bold" disabled={!editable} icon={Bold} label={strings.bold} onCommand={onToolbarCommand} pressed />
-            <ToolbarButton command="italic" disabled={!editable} icon={Italic} label={strings.italic} onCommand={onToolbarCommand} />
-            <ToolbarButton command="underline" disabled={!editable} icon={Underline} label={strings.underline} onCommand={onToolbarCommand} />
+            <ToolbarButton command="bold" disabled={commandDisabled('bold')} icon={Bold} label={strings.bold} onCommand={runToolbarCommand} pressed={selectedCell.format.bold === true} />
+            <ToolbarButton command="italic" disabled={commandDisabled('italic')} icon={Italic} label={strings.italic} onCommand={runToolbarCommand} pressed={selectedCell.format.italic === true} />
+            <ToolbarButton command="underline" disabled={commandDisabled('underline')} icon={Underline} label={strings.underline} onCommand={runToolbarCommand} pressed={selectedCell.format.underline === true} />
           </div>
-          <button {...stylex.props(styles.iconButton)} disabled={!editable} title={strings.color} type="button">
+          <button {...stylex.props(styles.iconButton)} disabled title={strings.color} type="button">
             <PaintBucket aria-hidden="true" size={16} />
             <span {...stylex.props(styles.colorSwatch)} />
           </button>
           <span {...stylex.props(styles.toolbarDivider)} />
           <div {...stylex.props(styles.toolbarGroup, styles.wideToolbarGroup)}>
-            <ToolbarButton command="align-left" disabled={!editable} icon={AlignLeft} label={strings.alignLeft} onCommand={onToolbarCommand} pressed />
-            <ToolbarButton command="align-center" disabled={!editable} icon={AlignCenter} label={strings.alignCenter} onCommand={onToolbarCommand} />
-            <ToolbarButton command="align-right" disabled={!editable} icon={AlignRight} label={strings.alignRight} onCommand={onToolbarCommand} />
+            <ToolbarButton command="align-left" disabled={commandDisabled('align-left')} icon={AlignLeft} label={strings.alignLeft} onCommand={runToolbarCommand} pressed={(selectedCell.format.alignment ?? 'left') === 'left'} />
+            <ToolbarButton command="align-center" disabled={commandDisabled('align-center')} icon={AlignCenter} label={strings.alignCenter} onCommand={runToolbarCommand} pressed={selectedCell.format.alignment === 'center'} />
+            <ToolbarButton command="align-right" disabled={commandDisabled('align-right')} icon={AlignRight} label={strings.alignRight} onCommand={runToolbarCommand} pressed={selectedCell.format.alignment === 'right'} />
           </div>
           <span {...stylex.props(styles.toolbarDivider, styles.wideToolbarGroup)} />
           <div {...stylex.props(styles.toolbarGroup, styles.wideToolbarGroup)}>
-            <button {...stylex.props(styles.iconButton)} disabled={!editable} title={strings.currency} type="button"><CircleDollarSign aria-hidden="true" size={16} /></button>
-            <button {...stylex.props(styles.iconButton)} disabled={!editable} title={strings.percent} type="button"><Percent aria-hidden="true" size={16} /></button>
+            <ToolbarButton command="currency" disabled={commandDisabled('currency')} icon={CircleDollarSign} label={strings.currency} onCommand={runToolbarCommand} pressed={selectedCell.format.kind === 'currency'} />
+            <ToolbarButton command="percent" disabled={commandDisabled('percent')} icon={Percent} label={strings.percent} onCommand={runToolbarCommand} pressed={selectedCell.format.kind === 'percent'} />
           </div>
-          <button {...stylex.props(styles.iconButton, styles.moreButton)} disabled={!editable} title={strings.more} type="button"><MoreHorizontal aria-hidden="true" size={17} /></button>
+          <button {...stylex.props(styles.iconButton, styles.moreButton)} disabled title={strings.more} type="button"><MoreHorizontal aria-hidden="true" size={17} /></button>
         </div>
 
         <div {...stylex.props(styles.formulaIsland, styles.glassMaterial)}>
@@ -301,12 +328,16 @@ function SpreadsheetWorkspaceContent({
             onBlur={handleEditBlur}
             onChange={event => replaceEdit({
               address: selectedAddress,
+              columnId: activeSheet.columns[selection.column]!.id,
+              rowId: activeSheet.rows[selection.row]!.id,
               sheetId: activeSheet.id,
               source: 'formula',
               value: event.target.value,
             })}
             onFocus={() => replaceEdit({
               address: selectedAddress,
+              columnId: activeSheet.columns[selection.column]!.id,
+              rowId: activeSheet.rows[selection.row]!.id,
               sheetId: activeSheet.id,
               source: 'formula',
               value: selectedCell.input,
@@ -348,7 +379,7 @@ function SpreadsheetWorkspaceContent({
 
 export function SpreadsheetWorkspace(props: SpreadsheetWorkspaceProps) {
   const workbook = useMemo(
-    () => Effect.runSync(validateSpreadsheetWorkbook(props.workbook)),
+    () => Effect.runSync(validateSpreadsheetWorkbookProjection(props.workbook)),
     [props.workbook],
   )
   const lock = useMemo(
@@ -364,7 +395,7 @@ export function SpreadsheetWorkspace(props: SpreadsheetWorkspaceProps) {
   return (
     <SpreadsheetWorkspaceContent
       {...props}
-      key={`${activeSheet.id}:${activeSheet.columnCount}:${activeSheet.rowCount}:${editSession}`}
+      key={`${activeSheet.id}:${activeSheet.columns.length}:${activeSheet.rows.length}:${editSession}`}
       activeSheet={activeSheet}
       lock={lock}
       workbook={workbook}

@@ -10,6 +10,10 @@ interface TableColumnRow {
   name: string
 }
 
+interface SchemaSqlRow {
+  sql: string | null
+}
+
 interface DuplicateRegularNoteTitleRow {
   title: string
 }
@@ -136,7 +140,7 @@ const schema = `
     row_id INTEGER PRIMARY KEY AUTOINCREMENT,
     note_row_id INTEGER NOT NULL REFERENCES notes(row_id) ON DELETE CASCADE,
     topic_id TEXT NOT NULL,
-    topic_type TEXT NOT NULL CHECK (topic_type IN ('regular', 'book', 'image-occlusion', 'whiteboard')),
+    topic_type TEXT NOT NULL CHECK (topic_type IN ('regular', 'book', 'image-occlusion', 'spreadsheet', 'whiteboard')),
     editor_mode INTEGER CHECK (editor_mode IN (0, 1)),
     title TEXT NOT NULL,
     UNIQUE (note_row_id, topic_id)
@@ -162,6 +166,91 @@ const schema = `
 
   CREATE INDEX IF NOT EXISTS book_topics_file_idx
     ON book_topics(format, content_hash);
+
+  CREATE TABLE IF NOT EXISTS spreadsheet_sheets (
+    note_row_id INTEGER NOT NULL,
+    topic_id TEXT NOT NULL,
+    sheet_id TEXT NOT NULL CHECK (length(trim(sheet_id)) > 0),
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    PRIMARY KEY (note_row_id, topic_id, sheet_id),
+    UNIQUE (note_row_id, topic_id, ordinal),
+    FOREIGN KEY (note_row_id, topic_id)
+      REFERENCES topics(note_row_id, topic_id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS spreadsheet_rows (
+    note_row_id INTEGER NOT NULL,
+    topic_id TEXT NOT NULL,
+    sheet_id TEXT NOT NULL,
+    row_id TEXT NOT NULL CHECK (length(trim(row_id)) > 0),
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    PRIMARY KEY (note_row_id, topic_id, sheet_id, row_id),
+    UNIQUE (note_row_id, topic_id, sheet_id, ordinal),
+    FOREIGN KEY (note_row_id, topic_id, sheet_id)
+      REFERENCES spreadsheet_sheets(note_row_id, topic_id, sheet_id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS spreadsheet_columns (
+    note_row_id INTEGER NOT NULL,
+    topic_id TEXT NOT NULL,
+    sheet_id TEXT NOT NULL,
+    column_id TEXT NOT NULL CHECK (length(trim(column_id)) > 0),
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    PRIMARY KEY (note_row_id, topic_id, sheet_id, column_id),
+    UNIQUE (note_row_id, topic_id, sheet_id, ordinal),
+    FOREIGN KEY (note_row_id, topic_id, sheet_id)
+      REFERENCES spreadsheet_sheets(note_row_id, topic_id, sheet_id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS spreadsheet_cells (
+    storage_row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_row_id INTEGER NOT NULL,
+    topic_id TEXT NOT NULL,
+    sheet_id TEXT NOT NULL,
+    sheet_row_id TEXT NOT NULL,
+    column_id TEXT NOT NULL,
+    input TEXT NOT NULL,
+    display TEXT NOT NULL,
+    format_json TEXT NOT NULL,
+    formula_references_json TEXT NOT NULL,
+    UNIQUE (note_row_id, topic_id, sheet_id, sheet_row_id, column_id),
+    FOREIGN KEY (note_row_id, topic_id, sheet_id, sheet_row_id)
+      REFERENCES spreadsheet_rows(note_row_id, topic_id, sheet_id, row_id) ON DELETE CASCADE,
+    FOREIGN KEY (note_row_id, topic_id, sheet_id, column_id)
+      REFERENCES spreadsheet_columns(note_row_id, topic_id, sheet_id, column_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS spreadsheet_cells_topic_idx
+    ON spreadsheet_cells(note_row_id, topic_id, sheet_id, sheet_row_id, column_id);
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS spreadsheet_cells_fts USING fts5(
+    input,
+    display,
+    content='spreadsheet_cells',
+    content_rowid='storage_row_id',
+    tokenize='trigram'
+  );
+
+  CREATE TRIGGER IF NOT EXISTS spreadsheet_cells_fts_insert
+  AFTER INSERT ON spreadsheet_cells BEGIN
+    INSERT INTO spreadsheet_cells_fts(rowid, input, display)
+      VALUES (new.storage_row_id, new.input, new.display);
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS spreadsheet_cells_fts_delete
+  AFTER DELETE ON spreadsheet_cells BEGIN
+    INSERT INTO spreadsheet_cells_fts(spreadsheet_cells_fts, rowid, input, display)
+      VALUES ('delete', old.storage_row_id, old.input, old.display);
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS spreadsheet_cells_fts_update
+  AFTER UPDATE OF input, display ON spreadsheet_cells BEGIN
+    INSERT INTO spreadsheet_cells_fts(spreadsheet_cells_fts, rowid, input, display)
+      VALUES ('delete', old.storage_row_id, old.input, old.display);
+    INSERT INTO spreadsheet_cells_fts(rowid, input, display)
+      VALUES (new.storage_row_id, new.input, new.display);
+  END;
 
   CREATE TABLE IF NOT EXISTS note_favorites (
     note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
@@ -305,6 +394,16 @@ export async function initializeEditorStorageSchema(
   embeddingModel: EmbeddingModel,
 ): Promise<void> {
   validateEmbeddingModel(embeddingModel)
+  const existingTopics = await database.get<SchemaSqlRow>(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'topics'
+  `)
+  if (existingTopics && !existingTopics.sql?.includes('\'spreadsheet\'')) {
+    throw new Error(
+      'Unsupported topics schema: SpreadsheetTopic is required; delete the existing database before starting Memorilo',
+    )
+  }
   await database.exec(schema)
 
   const noteColumns = await database.all<TableColumnRow>('PRAGMA table_info(notes)')
