@@ -11,7 +11,7 @@ export const spreadsheetEditorStyles = stylex.create({
   error: {
     position: 'absolute',
     zIndex: 6,
-    top: 118,
+    top: 94,
     left: '50%',
     maxWidth: 'min(560px, calc(100% - 32px))',
     borderRadius: 8,

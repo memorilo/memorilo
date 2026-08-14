@@ -14,16 +14,11 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
-  ChevronDown,
   CircleDollarSign,
   Italic,
-  MoreHorizontal,
-  PaintBucket,
   Percent,
   Plus,
-  Redo2,
   Underline,
-  Undo2,
 } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import {
@@ -180,7 +175,7 @@ function SpreadsheetWorkspaceContent({
   }
 
   const gridStyle: CSSProperties = {
-    gridTemplateColumns: `44px repeat(${activeSheet.columns.length}, 112px)`,
+    gridTemplateColumns: `40px repeat(${activeSheet.columns.length}, 100px)`,
   }
 
   const { columns, rows } = useMemo(() => {
@@ -216,20 +211,45 @@ function SpreadsheetWorkspaceContent({
         <div {...stylex.props(styles.grid)} style={gridStyle} role="grid" aria-readonly={!editable}>
           <div {...stylex.props(styles.cornerCell)} role="columnheader" />
           {columns.map(column => (
-            <div key={column.label} {...stylex.props(styles.columnHeader)} role="columnheader">
+            <div
+              key={column.label}
+              {...stylex.props(
+                styles.columnHeader,
+                column.index === selection.column && styles.columnHeaderSelected,
+              )}
+              role="columnheader"
+            >
               {column.label}
             </div>
           ))}
           {rows.map(row => (
             <div key={row.index} style={{ display: 'contents' }} role="row">
-              <div {...stylex.props(styles.rowHeader)} role="rowheader">{row.index + 1}</div>
+              <div
+                {...stylex.props(
+                  styles.rowHeader,
+                  row.index === selection.row && styles.rowHeaderSelected,
+                )}
+                role="rowheader"
+              >
+                {row.index + 1}
+              </div>
               {row.cells.map(({ address, cell, column, columnId, rowId }) => {
                 const selected = address === selectedAddress
                 const editing = selected && cellEditing
                 return (
                   <div
                     key={address}
-                    {...stylex.props(styles.cell, selected && styles.cellSelected, cellKindStyle(cell.format.kind))}
+                    {...stylex.props(
+                      styles.cell,
+                      selected && styles.cellSelected,
+                      cellKindStyle(cell.format.kind),
+                      cell.format.bold === true && styles.cellBold,
+                      cell.format.italic === true && styles.cellItalic,
+                      cell.format.underline === true && styles.cellUnderline,
+                      cell.format.alignment === 'left' && styles.cellAlignLeft,
+                      cell.format.alignment === 'center' && styles.cellAlignCenter,
+                      cell.format.alignment === 'right' && styles.cellAlignRight,
+                    )}
                     aria-colindex={column + 1}
                     aria-rowindex={row.index + 1}
                     role="gridcell"
@@ -283,47 +303,34 @@ function SpreadsheetWorkspaceContent({
       <header {...stylex.props(styles.topControlLayer)}>
         <div {...stylex.props(styles.toolbarIsland, styles.glassMaterial)} aria-label="Spreadsheet formatting" role="toolbar">
           <div {...stylex.props(styles.toolbarGroup)}>
-            <ToolbarButton command="undo" disabled={commandDisabled('undo')} icon={Undo2} label={strings.undo} onCommand={runToolbarCommand} />
-            <ToolbarButton command="redo" disabled={commandDisabled('redo')} icon={Redo2} label={strings.redo} onCommand={runToolbarCommand} />
-          </div>
-          <span {...stylex.props(styles.toolbarDivider)} />
-          <button {...stylex.props(styles.menuButton)} disabled title={strings.textStyle} type="button">
-            <span>Inter</span>
-            <ChevronDown aria-hidden="true" size={12} />
-          </button>
-          <button {...stylex.props(styles.numberButton)} disabled aria-label="Font size" type="button">11</button>
-          <span {...stylex.props(styles.toolbarDivider, styles.compactToolbarHidden)} />
-          <div {...stylex.props(styles.toolbarGroup)}>
             <ToolbarButton command="bold" disabled={commandDisabled('bold')} icon={Bold} label={strings.bold} onCommand={runToolbarCommand} pressed={selectedCell.format.bold === true} />
             <ToolbarButton command="italic" disabled={commandDisabled('italic')} icon={Italic} label={strings.italic} onCommand={runToolbarCommand} pressed={selectedCell.format.italic === true} />
             <ToolbarButton command="underline" disabled={commandDisabled('underline')} icon={Underline} label={strings.underline} onCommand={runToolbarCommand} pressed={selectedCell.format.underline === true} />
           </div>
-          <button {...stylex.props(styles.iconButton)} disabled title={strings.color} type="button">
-            <PaintBucket aria-hidden="true" size={16} />
-            <span {...stylex.props(styles.colorSwatch)} />
-          </button>
           <span {...stylex.props(styles.toolbarDivider)} />
-          <div {...stylex.props(styles.toolbarGroup, styles.wideToolbarGroup)}>
+          <div {...stylex.props(styles.toolbarGroup, styles.segmentedGroup)}>
             <ToolbarButton command="align-left" disabled={commandDisabled('align-left')} icon={AlignLeft} label={strings.alignLeft} onCommand={runToolbarCommand} pressed={(selectedCell.format.alignment ?? 'left') === 'left'} />
             <ToolbarButton command="align-center" disabled={commandDisabled('align-center')} icon={AlignCenter} label={strings.alignCenter} onCommand={runToolbarCommand} pressed={selectedCell.format.alignment === 'center'} />
             <ToolbarButton command="align-right" disabled={commandDisabled('align-right')} icon={AlignRight} label={strings.alignRight} onCommand={runToolbarCommand} pressed={selectedCell.format.alignment === 'right'} />
           </div>
-          <span {...stylex.props(styles.toolbarDivider, styles.wideToolbarGroup)} />
-          <div {...stylex.props(styles.toolbarGroup, styles.wideToolbarGroup)}>
+          <span {...stylex.props(styles.toolbarDivider)} />
+          <div {...stylex.props(styles.toolbarGroup)}>
             <ToolbarButton command="currency" disabled={commandDisabled('currency')} icon={CircleDollarSign} label={strings.currency} onCommand={runToolbarCommand} pressed={selectedCell.format.kind === 'currency'} />
             <ToolbarButton command="percent" disabled={commandDisabled('percent')} icon={Percent} label={strings.percent} onCommand={runToolbarCommand} pressed={selectedCell.format.kind === 'percent'} />
           </div>
-          <button {...stylex.props(styles.iconButton, styles.moreButton)} disabled title={strings.more} type="button"><MoreHorizontal aria-hidden="true" size={17} /></button>
         </div>
 
-        <div {...stylex.props(styles.formulaIsland, styles.glassMaterial)}>
+        <div {...stylex.props(styles.formulaIsland, styles.glassMaterial, styles.formulaMaterial)}>
           <span {...stylex.props(styles.cellAddress)}>{selectedAddress}</span>
           <span {...stylex.props(styles.formulaDivider)} />
           <span {...stylex.props(styles.formulaIcon)} aria-hidden="true">ƒx</span>
           <input
             {...stylex.props(styles.formulaInput)}
             aria-label={strings.formula}
+            autoComplete="off"
             disabled={!editable}
+            name="spreadsheet-formula"
+            spellCheck={false}
             value={draft}
             onBlur={handleEditBlur}
             onChange={event => replaceEdit({

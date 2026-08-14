@@ -1,3 +1,4 @@
+import type { ElectronApplication } from '@playwright/test'
 import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -14,6 +15,21 @@ const electronModule: unknown = createRequire(import.meta.url)('electron')
 if (typeof electronModule !== 'string')
   throw new TypeError('Electron package did not resolve to an executable path')
 const electronExecutablePath = electronModule
+
+function launchApplication(databasePath: string, userDataDirectory: string): Promise<ElectronApplication> {
+  return electron.launch({
+    args: [desktopDirectory, `--user-data-dir=${userDataDirectory}`],
+    cwd: repositoryRoot,
+    env: {
+      ...process.env,
+      MEMORILO_DATABASE_PATH: databasePath,
+      MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
+      MEMORILO_E2E_HIDE_WINDOW: '1',
+      MEMORILO_SHELF_IMAGE_CACHE_PATH: ':memory:',
+    },
+    executablePath: electronExecutablePath,
+  })
+}
 
 interface PersistedSpreadsheetProjection {
   cells: readonly { display: string, input: string }[]
@@ -48,7 +64,7 @@ function readPersistedSpreadsheet(
   }
 }
 
-test('creates, edits, and persists a SpreadsheetTopic without title or lock chrome', async () => {
+test('creates, edits, persists, and reloads a SpreadsheetTopic without title or lock chrome', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'memorilo-spreadsheet-topic-'))
   const databasePath = resolve(directory, 'memorilo.sqlite')
   const noteTitle = 'Spreadsheet persistence'
@@ -60,19 +76,9 @@ test('creates, edits, and persists a SpreadsheetTopic without title or lock chro
     sheetCount: 2,
   }
   try {
-    const application = await electron.launch({
-      args: [desktopDirectory, `--user-data-dir=${directory}`],
-      cwd: repositoryRoot,
-      env: {
-        ...process.env,
-        MEMORILO_DATABASE_PATH: databasePath,
-        MEMORILO_EMBEDDING_MODEL_OFFLINE: '1',
-        MEMORILO_E2E_HIDE_WINDOW: '1',
-        MEMORILO_SHELF_IMAGE_CACHE_PATH: ':memory:',
-      },
-      executablePath: electronExecutablePath,
-    })
+    const application = await launchApplication(databasePath, directory)
     let persisted = false
+    let noteHash: string | null = null
     try {
       const window = await application.firstWindow()
       const spreadsheetTitle = 'Budget'
@@ -89,6 +95,7 @@ test('creates, edits, and persists a SpreadsheetTopic without title or lock chro
       await dialog.getByRole('textbox', { name: 'Topic title' }).fill(spreadsheetTitle)
       await dialog.getByRole('button', { name: 'Create' }).click()
       await window.getByRole('link', { name: spreadsheetTitle }).click()
+      noteHash = await window.evaluate(() => globalThis.location.hash)
 
       const grid = window.getByRole('grid')
       await expect(grid).toBeVisible()
@@ -134,6 +141,28 @@ test('creates, edits, and persists a SpreadsheetTopic without title or lock chro
     }
 
     expect(readPersistedSpreadsheet(databasePath, noteTitle)).toEqual(expectedProjection)
+    if (noteHash === null)
+      throw new Error('SpreadsheetTopic route was not captured before relaunch')
+
+    const reopenedApplication = await launchApplication(databasePath, directory)
+    try {
+      const reopenedWindow = await reopenedApplication.firstWindow()
+      await reopenedWindow.getByRole('link', { name: 'Journals' }).waitFor()
+      await reopenedWindow.evaluate((hash) => {
+        globalThis.location.hash = hash
+      }, noteHash)
+
+      const reopenedGrid = reopenedWindow.getByRole('grid')
+      await expect(reopenedGrid).toBeVisible()
+      const reopenedCells = reopenedGrid.getByRole('gridcell')
+      await expect(reopenedCells.nth(0)).toHaveText('21')
+      await expect(reopenedCells.nth(1)).toHaveText('42')
+      await expect(reopenedWindow.getByRole('tab', { name: 'Sheet 1' })).toHaveAttribute('aria-selected', 'true')
+      await expect(reopenedWindow.getByRole('tab', { name: 'Sheet 2' })).toBeVisible()
+    }
+    finally {
+      await reopenedApplication.close()
+    }
   }
   finally {
     await rm(directory, { force: true, recursive: true })
