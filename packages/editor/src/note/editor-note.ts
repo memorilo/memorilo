@@ -10,6 +10,7 @@ import type { NodeJSON } from 'prosekit/core'
 import type { EditorModeValue } from '../common/editor-mode'
 import type {
   ImageOcclusionSnapshot,
+  ImageOcclusionSource,
   ImageOcclusionState,
 } from '../image-occlusion/image-occlusion-model'
 import type { LoroTopic } from '../schema/topic-schema'
@@ -127,9 +128,9 @@ export interface CreateBookTopicInput {
 }
 
 export interface CreateImageOcclusionTopicInput {
-  image: ImageOcclusionSnapshot
   /** The zero-based position among the source Topic's children. Appends when omitted. */
   index?: number
+  snapshot: (source: ImageOcclusionSource) => Promise<ImageOcclusionSnapshot>
   sourceImageId: string
   sourceTopicId: string
   title: string
@@ -272,7 +273,7 @@ export interface EditorNote {
   /** Atomically creates a BookTopic with editable content and initialized reading state. */
   createBookTopic: (input: CreateBookTopicInput) => string
   /** Creates the only ImageOcclusionTopic associated with one RegularTopic image. */
-  createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => string
+  createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => Promise<string>
   /** Atomically creates a whiteboard Topic with an empty scene. */
   createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */

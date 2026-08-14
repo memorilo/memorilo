@@ -8,8 +8,18 @@ export type {
   OcclusionShape,
 } from '../image-occlusion/image-occlusion-model'
 export {
+  containOcclusionBoundsShape,
+  imageOcclusionBoundsStrokeWidth,
+  imageOcclusionBrushStrokeWidth,
+  imageOcclusionColor,
+  imageOcclusionPreviewColor,
   imageOcclusionStateSignature,
+  minimumOcclusionShapeSize,
   projectImageOcclusionCards,
+  scaleOcclusionBrushPoints,
+  shouldRegroupImageOcclusionShapes,
+  transformOcclusionBrushShape,
+  translateOcclusionBrushShape,
 } from '../image-occlusion/image-occlusion-model'
 export type {
   BasicCardDirection,

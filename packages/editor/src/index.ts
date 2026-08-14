@@ -60,6 +60,7 @@ export type {
   ImageOcclusionCardProjection,
   ImageOcclusionMode,
   ImageOcclusionSnapshot,
+  ImageOcclusionSource,
   ImageOcclusionState,
   OcclusionBoundsShape,
   OcclusionBrushShape,
@@ -67,8 +68,18 @@ export type {
   OpenImageOcclusionInput,
 } from './image-occlusion/image-occlusion-model'
 export {
+  containOcclusionBoundsShape,
+  imageOcclusionBoundsStrokeWidth,
+  imageOcclusionBrushStrokeWidth,
+  imageOcclusionColor,
+  imageOcclusionPreviewColor,
   imageOcclusionStateSignature,
+  minimumOcclusionShapeSize,
   projectImageOcclusionCards,
+  scaleOcclusionBrushPoints,
+  shouldRegroupImageOcclusionShapes,
+  transformOcclusionBrushShape,
+  translateOcclusionBrushShape,
 } from './image-occlusion/image-occlusion-model'
 export { JournalEditor } from './journal-editor'
 export type { JournalEditorProps } from './journal-editor'

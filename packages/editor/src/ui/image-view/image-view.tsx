@@ -15,12 +15,17 @@ import { NodeSelection } from 'prosekit/pm/state'
 import { ResizableHandle, ResizableRoot } from 'prosekit/react/resizable'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
-import { imageOcclusionStateSignature } from '../../image-occlusion/image-occlusion-model'
+import {
+  imageOcclusionBoundsStrokeWidth,
+  imageOcclusionBrushStrokeWidth,
+  imageOcclusionPreviewColor,
+  imageOcclusionStateSignature,
+  scaleOcclusionBrushPoints,
+} from '../../image-occlusion/image-occlusion-model'
 
 import { imageViewStyles } from './image-view.stylex'
 
 const subscribeToNothing = () => () => undefined
-const occlusionPreviewColor = 'rgb(37 99 235 / 42%)'
 
 function useImageOcclusionPreview(
   integration: EditorImageOcclusionIntegration | undefined,
@@ -43,14 +48,14 @@ function useImageOcclusionPreview(
 }
 
 function previewShape(shape: OcclusionShape, width: number, height: number) {
-  const strokeWidth = Math.max(1, Math.min(width, height) * 0.003)
+  const strokeWidth = imageOcclusionBoundsStrokeWidth(width, height)
   if (shape.kind === 'rectangle') {
     return (
       <rect
         key={shape.id}
-        fill={occlusionPreviewColor}
+        fill={imageOcclusionPreviewColor}
         height={shape.height * height}
-        stroke={occlusionPreviewColor}
+        stroke={imageOcclusionPreviewColor}
         strokeWidth={strokeWidth}
         width={shape.width * width}
         x={shape.x * width}
@@ -64,22 +69,21 @@ function previewShape(shape: OcclusionShape, width: number, height: number) {
         key={shape.id}
         cx={(shape.x + shape.width / 2) * width}
         cy={(shape.y + shape.height / 2) * height}
-        fill={occlusionPreviewColor}
+        fill={imageOcclusionPreviewColor}
         rx={shape.width * width / 2}
         ry={shape.height * height / 2}
-        stroke={occlusionPreviewColor}
+        stroke={imageOcclusionPreviewColor}
         strokeWidth={strokeWidth}
       />
     )
   }
   if (shape.kind !== 'brush')
     throw new TypeError(`Unsupported OcclusionShape kind: ${String(shape.kind)}`)
-  const points = shape.points.reduce<string[]>((values, value, index) => {
-    const scaled = value * (index % 2 === 0 ? width : height)
+  const points = scaleOcclusionBrushPoints(shape, width, height).reduce<string[]>((values, value, index) => {
     if (index % 2 === 0)
-      values.push(String(scaled))
+      values.push(String(value))
     else
-      values[values.length - 1] = `${values[values.length - 1]},${scaled}`
+      values[values.length - 1] = `${values[values.length - 1]},${value}`
     return values
   }, []).join(' ')
   return (
@@ -87,10 +91,10 @@ function previewShape(shape: OcclusionShape, width: number, height: number) {
       key={shape.id}
       fill="none"
       points={points}
-      stroke={occlusionPreviewColor}
+      stroke={imageOcclusionPreviewColor}
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={Math.max(3, shape.strokeWidth * Math.min(width, height))}
+      strokeWidth={imageOcclusionBrushStrokeWidth(shape, width, height)}
     />
   )
 }
