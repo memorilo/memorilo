@@ -267,10 +267,12 @@ function SourceGroup({
 
 export function WorkspaceSidebarMotion({
   children,
+  compactCollapsed,
   onToggle,
   visible,
 }: {
   children: ReactNode
+  compactCollapsed?: boolean
   onToggle: () => void
   visible: boolean
 }) {
@@ -306,7 +308,7 @@ export function WorkspaceSidebarMotion({
         : null}
       <motion.button
         {...stylex.props(workspaceSidebarStyles.toggle)}
-        animate={{ left: visible ? 217 : 80 }}
+        animate={{ left: visible ? 217 : compactCollapsed ? 14 : 80 }}
         aria-label={visible ? t('hideSidebar') : t('showSidebar')}
         data-window-no-drag=""
         initial={false}
@@ -321,7 +323,11 @@ export function WorkspaceSidebarMotion({
   )
 }
 
-export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, visible: boolean }) {
+export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
+  compactCollapsed?: boolean
+  onToggle: () => void
+  visible: boolean
+}) {
   const { t } = useTranslation('app')
   const favoritesQuery = useQuery(favoriteNotesQueryOptions())
   const recentQuery = useQuery(recentNotesQueryOptions())
@@ -341,7 +347,7 @@ export function WorkspaceSidebar({ onToggle, visible }: { onToggle: () => void, 
   }))
 
   return (
-    <WorkspaceSidebarMotion visible={visible} onToggle={onToggle}>
+    <WorkspaceSidebarMotion compactCollapsed={compactCollapsed} visible={visible} onToggle={onToggle}>
       <nav {...stylex.props(workspaceSidebarStyles.content)}>
         <section {...stylex.props(workspaceSidebarStyles.sourceGroup)}>
           <h2 {...stylex.props(workspaceSidebarStyles.navigationHeading)}>{t('navigation')}</h2>

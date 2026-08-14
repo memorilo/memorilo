@@ -19,12 +19,16 @@ export const appTitlebarStyles = stylex.create({
     color: colors.text,
     userSelect: 'none',
   },
+  titlebarPassThrough: {
+    pointerEvents: 'none',
+  },
   navigationGroup: {
     position: 'absolute',
     top: 10,
     display: 'flex',
     height: 36,
     alignItems: 'center',
+    pointerEvents: 'auto',
     padding: 1,
     borderColor: {
       'default': 'rgba(255, 255, 255, 0.82)',
@@ -51,12 +55,19 @@ export const appTitlebarStyles = stylex.create({
   trailingGroup: {
     right: 14,
   },
+  trailingGroupWithSidebarAction: {
+    right: 58,
+  },
+  sidebarActionGroup: {
+    right: 14,
+  },
   leadingSlot: {
     position: 'absolute',
     top: 10,
     right: 14,
     height: 36,
     minWidth: 0,
+    pointerEvents: 'auto',
   },
   titleSlot: {
     position: 'absolute',
@@ -68,6 +79,7 @@ export const appTitlebarStyles = stylex.create({
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    pointerEvents: 'auto',
     transform: 'translateX(-50%)',
   },
   titleSlotWide: {

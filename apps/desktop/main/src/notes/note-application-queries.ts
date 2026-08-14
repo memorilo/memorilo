@@ -16,6 +16,18 @@ import {
 } from './note-application-projection'
 import { noteRevision } from './note-authoritative-projection'
 
+type AuthoritativeNote = Awaited<ReturnType<NoteAuthoritativeRuntime['open']>>['note']
+type TopicDocument = Extract<ReturnType<AuthoritativeNote['getTopicValidationInput']>, { document: unknown }>['document']
+
+function topicDocuments(note: AuthoritativeNote, topicId: string): readonly TopicDocument[] {
+  const validation = note.getTopicValidationInput(topicId)
+  if ('document' in validation)
+    return [validation.document]
+  if ('embeddedEditors' in validation)
+    return Object.values(validation.embeddedEditors).map(editor => editor.document)
+  throw new TypeError(`ImageOcclusionTopic ${topicId} does not have ProseMirror documents`)
+}
+
 interface NoteApplicationQueriesDependencies {
   runtime: Pick<NoteAuthoritativeRuntime, 'load' | 'open' | 'run'>
   storage: EditorStorage
@@ -35,12 +47,7 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
       const cards = entry.topicType === 'image-occlusion'
         ? projectImageOcclusionCards(current.note.getImageOcclusionTopic(entry.id).getState())
-        : (() => {
-            const validation = current.note.getTopicValidationInput(entry.id)
-            if (!('document' in validation))
-              throw new Error(`Topic ${entry.id} is missing its document`)
-            return projectEditorCards(validation.document)
-          })()
+        : topicDocuments(current.note, input.topicId).flatMap(document => projectEditorCards(document))
       const card = cards
         .find(candidate => candidate.id === input.cardId)
       if (!card)
@@ -70,7 +77,9 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
         throw new Error(`Note ${input.noteId} does not contain Topic ${input.topicId}`)
       const validation = current.note.getTopicValidationInput(input.topicId)
       if (!('document' in validation))
-        throw new TypeError(`ImageOcclusionTopic ${input.topicId} does not have editable Blocks`)
+        throw new Error(`Topic ${input.topicId} does not have a single editable document`)
+      if (!('mode' in entry))
+        throw new Error(`Topic ${input.topicId} does not have a single editor mode`)
       return {
         document: validation.document,
         mode: entry.mode,

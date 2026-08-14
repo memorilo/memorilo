@@ -99,7 +99,7 @@ export function NoteEditor({
       title: option.publication.title,
     })
     setBookPickerTarget(undefined)
-    toast.success(t('bookTopicCreated', { ns: 'editor' }))
+    toast.success(t('bookTopicCreated', { ns: 'editor' }), { autoClose: 5_000 })
   }, [opened, t])
 
   const handleCreateEntry = useCallback((target: EntryCreationTarget, label: string) => {
@@ -107,6 +107,8 @@ export function NoteEditor({
       throw new Error('The Note is no longer open')
     if (target.kind === 'folder')
       opened.note.createFolder({ name: label, parentId: target.parentId })
+    else if (target.kind === 'whiteboard')
+      opened.note.createWhiteboardTopic({ parentId: target.parentId, title: label })
     else
       opened.note.createTopic({ mode: EditorMode.Document, parentId: target.parentId, title: label })
     setEntryCreationTarget(undefined)
@@ -178,6 +180,7 @@ export function NoteEditor({
         onAddBook={parentId => setBookPickerTarget({ kind: 'create', parentId })}
         onAddFolder={parentId => setEntryCreationTarget({ kind: 'folder', parentId })}
         onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
+        onAddWhiteboard={parentId => setEntryCreationTarget({ kind: 'whiteboard', parentId })}
         onOpenImageOcclusion={handleOpenImageOcclusion}
         onRebindBook={(topicId) => {
           const format = opened.note.getBookTopic(topicId).getBook().file.format

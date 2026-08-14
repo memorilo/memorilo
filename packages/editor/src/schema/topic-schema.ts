@@ -209,6 +209,13 @@ const LoroTopicEntryBaseFields = {
   title: Schema.String,
 } as const
 
+const LoroWhiteboardTopicEntryBaseFields = {
+  entryId: Schema.NonEmptyString,
+  kind: Schema.Literal('topic'),
+  title: Schema.String,
+  topicType: Schema.Literal('whiteboard'),
+} as const
+
 export const LoroRegularTopicEntrySchema = Schema.Struct({
   ...LoroTopicEntryBaseFields,
   topicType: Schema.Literal('regular'),
@@ -231,10 +238,15 @@ export const LoroImageOcclusionTopicEntrySchema = Schema.Struct({
   topicType: Schema.Literal('image-occlusion'),
 })
 
+export const LoroWhiteboardTopicEntrySchema = Schema.Struct({
+  ...LoroWhiteboardTopicEntryBaseFields,
+})
+
 export const LoroTopicEntrySchema = Schema.Union([
   LoroBookTopicEntrySchema,
   LoroImageOcclusionTopicEntrySchema,
   LoroRegularTopicEntrySchema,
+  LoroWhiteboardTopicEntrySchema,
 ])
 
 const LoroRegularTopicSchema = Schema.Struct({
@@ -256,11 +268,34 @@ const LoroImageOcclusionTopicSchema = Schema.Struct({
   state: ImageOcclusionStateSchema,
 })
 
+const LoroWhiteboardTopicSchema = Schema.Struct({
+  embeddedEditors: Schema.Record(Schema.String, Schema.Struct({
+    document: LoroTopicDocumentSchema,
+    editorId: Schema.NonEmptyString,
+    editorMode: Schema.Literals([0, 1]),
+  })),
+  entry: LoroWhiteboardTopicEntrySchema,
+  scene: Schema.Record(Schema.String, Schema.Unknown),
+}).check(Schema.makeFilter((topic) => {
+  for (const [editorId, editor] of Object.entries(topic.embeddedEditors)) {
+    if (editor.editorId !== editorId) {
+      return {
+        message: `expected Embedded Editor id ${JSON.stringify(editorId)}`,
+        path: ['embeddedEditors', editorId, 'editorId'],
+      }
+    }
+  }
+  return undefined
+}, {
+  expected: 'a WhiteboardTopic with Embedded Editors keyed by their editor IDs',
+}))
+
 /** A complete Topic projected from its Loro entry map and referenced block tree. */
 export const LoroTopicSchema = Schema.Union([
   LoroBookTopicSchema,
   LoroImageOcclusionTopicSchema,
   LoroRegularTopicSchema,
+  LoroWhiteboardTopicSchema,
 ]).check(Schema.makeFilter((topic) => {
   const id = topic.entry.entryId
   if (topic.entry.topicType === 'image-occlusion') {
@@ -277,6 +312,17 @@ export const LoroTopicSchema = Schema.Union([
         }
       : undefined
   }
+  if (topic.entry.topicType === 'regular') {
+    return topic.entry.blockTreeKey === `topic:${id}:blocks`
+      ? undefined
+      : {
+          message: `expected the Topic block tree key ${JSON.stringify(`topic:${id}:blocks`)}`,
+          path: ['entry', 'blockTreeKey'],
+        }
+  }
+  if (topic.entry.topicType === 'whiteboard') {
+    return undefined
+  }
   const expectedBlockTreeKey = `topic:${id}:blocks`
   if (topic.entry.blockTreeKey !== expectedBlockTreeKey) {
     return {
@@ -284,8 +330,6 @@ export const LoroTopicSchema = Schema.Union([
       path: ['entry', 'blockTreeKey'],
     }
   }
-  if (topic.entry.topicType === 'regular')
-    return undefined
   if (!('annotations' in topic) || !('readingState' in topic)) {
     return {
       message: 'expected BookTopic annotations and reading state',
@@ -336,6 +380,7 @@ export type LoroTopic = typeof LoroTopicSchema.Type
 export type LoroBookTopic = typeof LoroBookTopicSchema.Type
 export type LoroImageOcclusionTopic = typeof LoroImageOcclusionTopicSchema.Type
 export type LoroRegularTopic = typeof LoroRegularTopicSchema.Type
+export type LoroWhiteboardTopic = typeof LoroWhiteboardTopicSchema.Type
 export type LoroTopicValidation = Effect.Effect<LoroTopic, Schema.SchemaError>
 
 /** Validates unknown Topic JSON and retains all schema issues in Effect's error channel. */

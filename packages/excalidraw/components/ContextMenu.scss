@@ -1,0 +1,144 @@
+@import "../css/variables.module.scss";
+
+.excalidraw {
+  .context-menu {
+    @include liquidGlassLensing(var(--glass-menu-highlight));
+    position: relative;
+    border-radius: var(--glass-radius-menu);
+    box-shadow: var(--glass-inner-highlight), var(--glass-shadow-panel);
+    padding: 0;
+    list-style: none;
+    user-select: none;
+    margin: -0.25rem 0 0 0.125rem;
+    padding: 0.5rem 0;
+    background-color: var(--glass-menu-bg);
+    -webkit-backdrop-filter: var(--glass-filter-panel);
+    backdrop-filter: var(--glass-filter-panel);
+    border: 1px solid var(--glass-border);
+    cursor: default;
+    overflow: hidden;
+    transform-origin: top left;
+    will-change: filter, opacity, transform;
+    animation: glass-context-menu-materialize var(--glass-materialize-duration)
+      var(--glass-materialize-timing);
+  }
+
+  @keyframes glass-context-menu-materialize {
+    from {
+      opacity: 0;
+      filter: blur(5px) saturate(120%);
+      transform: scale(0.965);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0) saturate(100%);
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .context-menu {
+      animation-name: glass-context-menu-fade-in;
+    }
+  }
+
+  @keyframes glass-context-menu-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .context-menu button {
+    color: var(--popup-text-color);
+  }
+
+  .context-menu-item {
+    position: relative;
+    width: 100%;
+    min-width: 9.5rem;
+    margin: 0;
+    padding: 0.25rem 1rem 0.25rem 1.25rem;
+    text-align: start;
+    border-radius: var(--border-radius-md);
+    background-color: transparent;
+    border: none;
+    white-space: nowrap;
+    font-family: inherit;
+
+    display: grid;
+    grid-template-columns: 1fr 0.2fr;
+    align-items: center;
+    transition:
+      background-color var(--glass-transition-duration)
+        var(--glass-transition-timing),
+      color var(--glass-transition-duration) var(--glass-transition-timing),
+      transform 100ms ease-out;
+
+    &.checkmark::before {
+      position: absolute;
+      left: 6px;
+      margin-bottom: 1px;
+      content: "\2713";
+    }
+
+    &.dangerous {
+      .context-menu-item__label {
+        color: $oc-red-7;
+      }
+    }
+
+    .context-menu-item__label {
+      justify-self: start;
+      margin-inline-end: 20px;
+    }
+    .context-menu-item__shortcut {
+      justify-self: end;
+      opacity: 0.6;
+      font-family: inherit;
+      font-size: 0.7rem;
+    }
+  }
+
+  .context-menu-item:hover {
+    color: var(--color-on-surface);
+    background-color: var(--glass-control-selected-bg);
+
+    &.dangerous {
+      .context-menu-item__label {
+        color: var(--popup-bg-color);
+      }
+      background-color: $oc-red-6;
+    }
+  }
+
+  .context-menu-item:active {
+    background-color: var(--glass-control-pressed-bg);
+    transform: scale(0.98);
+  }
+
+  .context-menu-item:focus {
+    z-index: 1;
+  }
+
+  @include isMobile {
+    .context-menu-item {
+      display: block;
+
+      .context-menu-item__label {
+        margin-inline-end: 0;
+      }
+
+      .context-menu-item__shortcut {
+        display: none;
+      }
+    }
+  }
+
+  .context-menu-item-separator {
+    border: none;
+    border-top: 1px solid var(--glass-divider);
+  }
+}

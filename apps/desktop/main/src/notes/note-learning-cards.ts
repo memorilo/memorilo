@@ -7,6 +7,17 @@ import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { EditorNote } from '@memorilo/editor/note'
 import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
 
+type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
+
+function topicDocuments(note: EditorNote, topicId: string): readonly TopicDocument[] {
+  const validation = note.getTopicValidationInput(topicId)
+  if ('document' in validation)
+    return [validation.document]
+  if ('embeddedEditors' in validation)
+    return Object.values(validation.embeddedEditors).map(editor => editor.document)
+  throw new TypeError(`ImageOcclusionTopic ${topicId} does not have ProseMirror documents`)
+}
+
 function toLearningCard(card: ReviewCardProjection): LearningCardProjection {
   return {
     cardId: card.id,
@@ -34,12 +45,7 @@ export function projectNoteLearningCards(
       cards: entry?.kind === 'topic'
         ? entry.topicType === 'image-occlusion'
           ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
-          : (() => {
-              const validation = note.getTopicValidationInput(topicId)
-              if (!('document' in validation))
-                throw new Error(`Topic ${topicId} is missing its document`)
-              return projectEditorCards(validation.document).map(toLearningCard)
-            })()
+          : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
         : [],
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,

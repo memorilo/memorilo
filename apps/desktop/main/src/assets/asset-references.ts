@@ -36,9 +36,12 @@ export function projectNoteAssetReferences(note: EditorNote): readonly AssetRefe
       continue
     }
     const validation = note.getTopicValidationInput(entry.id)
-    if (!('document' in validation))
-      throw new Error(`Topic ${entry.id} is missing its document`)
-    collectAssetReferences(validation.document, counts)
+    if ('document' in validation) {
+      collectAssetReferences(validation.document, counts)
+      continue
+    }
+    if ('embeddedEditors' in validation)
+      Object.values(validation.embeddedEditors).forEach(editor => collectAssetReferences(editor.document, counts))
   }
   return [...counts].map(([fileName, count]) => ({ count, fileName }))
 }

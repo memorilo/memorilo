@@ -6,8 +6,13 @@ import type {
 } from './editor-note'
 import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
 import {
+  ENTRY_ID_KEY,
+  ENTRY_KIND_KEY,
   NOTE_ENTRIES_KEY,
   NOTE_META_KEY,
+  noteTree,
+  readString,
+  TOPIC_TYPE_KEY,
 } from './editor-note-crdt'
 
 interface CreateEditorNoteCollaborationRuntimeOptions {
@@ -105,7 +110,9 @@ export function createEditorNoteCollaborationRuntime(
     importUpdates: (updates) => {
       assertBinary(updates, 'Note updates')
       const roots = new Set<string>()
+      let importedEvents = false
       const unsubscribe = doc.subscribe((batch) => {
+        importedEvents ||= batch.events.length > 0
         for (const event of batch.events) {
           const path = doc.getPathToContainer(event.target) ?? []
           const root = mutationRoot(event.path, path)
@@ -122,10 +129,19 @@ export function createEditorNoteCollaborationRuntime(
       return {
         entriesChanged: roots.has(NOTE_ENTRIES_KEY),
         metadataChanged: roots.has(NOTE_META_KEY),
-        topicIds: [...new Set([...roots].flatMap((root) => {
-          const topicId = topicIdFromMutationRoot(root)
-          return topicId === undefined ? [] : [topicId]
-        }))],
+        topicIds: [...new Set([
+          ...(importedEvents
+            ? noteTree(doc).getNodes().flatMap((node) => {
+                if (node.data.get(ENTRY_KIND_KEY) !== 'topic' || node.data.get(TOPIC_TYPE_KEY) !== 'whiteboard')
+                  return []
+                return [readString(node.data, ENTRY_ID_KEY, 'WhiteboardTopic id')]
+              })
+            : []),
+          ...[...roots].flatMap((root) => {
+            const topicId = topicIdFromMutationRoot(root)
+            return topicId === undefined ? [] : [topicId]
+          }),
+        ])],
       }
     },
     isTimeTraveling: () => doc.isDetached(),

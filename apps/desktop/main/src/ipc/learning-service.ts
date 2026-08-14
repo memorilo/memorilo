@@ -28,6 +28,9 @@ export function createLearningHandlers(
     getCurrentAnkiReviewCard() {
       return anki.currentReviewCard()
     },
+    getActivitySummary(input?: Parameters<LearningStorage['queue']['getActivitySummary']>[0]) {
+      return learning.queue.getActivitySummary({ ...input, now: input?.now ?? now() })
+    },
     getDailyProgress(requestedAt?: number) {
       return learning.queue.getDailyProgress(requestedAt ?? now())
     },

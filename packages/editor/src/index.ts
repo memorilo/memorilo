@@ -77,12 +77,15 @@ export type {
   BookTopicValidationInput,
   CreateBookTopicInput,
   CreateEditorNoteOptions,
+  CreateEmbeddedEditorInput,
   CreateFolderInput,
   CreateImageOcclusionTopicInput,
   CreateTopicInput,
+  CreateWhiteboardTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
   EditorBookTopicDocument,
+  EditorEmbeddedDocument,
   EditorImageOcclusionTopicDocument,
   EditorNote,
   EditorNoteChange,
@@ -90,6 +93,8 @@ export type {
   EditorNoteVersion,
   EditorOpenedTopic,
   EditorTopicDocument,
+  EditorWhiteboardTopicDocument,
+  EmbeddedEditorSnapshot,
   FolderSnapshot,
   ImageOcclusionTopicSnapshot,
   ImageOcclusionTopicValidationInput,
@@ -101,14 +106,27 @@ export type {
   TopicContentProjection,
   TopicSnapshot,
   TopicValidationInput,
+  WhiteboardScene,
+  WhiteboardTopicSnapshot,
+  WhiteboardTopicValidationInput,
 } from './note/editor-note'
 export { createEditorNote } from './note/editor-note'
+export { whiteboardSceneSignature } from './note/editor-note-whiteboard'
 export type { ResolveJournalTopicOptions } from './note/journal-note'
 export { resolveJournalTopic } from './note/journal-note'
 export type { TopicBlockProjection } from './note/topic-projection'
 export { projectTopicBlocks } from './note/topic-projection'
 export { hasTopicUserContent } from './note/topic-user-content'
 export { useEditorTopicMode } from './note/use-editor-topic-mode'
+export type {
+  WhiteboardLibraryDocument,
+  WhiteboardLibraryElement,
+  WhiteboardLibraryItem,
+} from './note/whiteboard-library-document'
+export {
+  createWhiteboardLibraryDocument,
+  whiteboardLibrarySchemaVersion,
+} from './note/whiteboard-library-document'
 export type {
   LoroBookTopic,
   LoroImageOcclusionTopic,
@@ -119,6 +137,7 @@ export type {
   LoroTopicNode,
   LoroTopicNodeType,
   LoroTopicValidation,
+  LoroWhiteboardTopic,
 } from './schema'
 export {
   isLoroTopic,
@@ -129,5 +148,6 @@ export {
   LoroTopicEntrySchema,
   LoroTopicNodeSchema,
   LoroTopicSchema,
+  LoroWhiteboardTopicEntrySchema,
   validateLoroTopic,
 } from './schema'

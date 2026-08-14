@@ -5,8 +5,9 @@ export interface PageTitlebarOptions {
   leading?: ReactNode
   navigation?: 'default' | 'hidden'
   onRenameTitle?: (title: string) => Promise<{ error?: string } | void>
+  sidebarAction?: ReactNode
   title?: string
-  titleVisibility?: 'always' | 'wide'
+  titleVisibility?: 'always' | 'hidden' | 'wide'
   trailing?: ReactNode
 }
 

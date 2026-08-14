@@ -35,6 +35,7 @@ function serviceStub(): DesktopIpcClient {
       createOptimizer: vi.fn(),
       endAnkiReview: vi.fn(),
       getCurrentAnkiReviewCard: vi.fn(),
+      getActivitySummary: vi.fn(),
       getDailyProgress: vi.fn(),
       getLearningState: vi.fn(),
       getMaintenanceEstimate: vi.fn(),
@@ -80,6 +81,10 @@ function serviceStub(): DesktopIpcClient {
       searchTopicBlocks: vi.fn(),
       setNoteFavorite: vi.fn(),
     },
+    whiteboardLibrary: {
+      load: vi.fn(),
+      save: vi.fn(),
+    },
     shelf: {
       addSource: vi.fn(),
       deleteReading: vi.fn(),
@@ -99,6 +104,39 @@ function serviceStub(): DesktopIpcClient {
 }
 
 describe('desktop preload API', () => {
+  it('exposes the user Whiteboard Library transport unchanged', async () => {
+    const services = serviceStub()
+    const library = {
+      libraryItems: [{
+        created: 123,
+        elements: [{
+          height: 60,
+          id: 'rectangle-1',
+          isDeleted: false,
+          link: null,
+          type: 'rectangle',
+          width: 80,
+          x: 10,
+          y: 20,
+        }],
+        id: 'library-item-1',
+        status: 'unpublished' as const,
+      }],
+    }
+    vi.mocked(services.whiteboardLibrary.load).mockResolvedValue(library)
+    vi.mocked(services.whiteboardLibrary.save).mockResolvedValue()
+    const api = createDesktopApi(
+      services,
+      vi.fn(() => vi.fn()),
+      vi.fn(() => vi.fn()),
+      vi.fn(() => vi.fn()),
+    )
+
+    await expect(api.loadWhiteboardLibrary()).resolves.toEqual(library)
+    await expect(api.saveWhiteboardLibrary(library)).resolves.toBeUndefined()
+    expect(services.whiteboardLibrary.save).toHaveBeenCalledWith(library)
+  })
+
   it('exposes MCP configuration and external Note update subscriptions unchanged', async () => {
     const services = serviceStub()
     const configuration: DesktopConfiguration = {

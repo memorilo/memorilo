@@ -1,6 +1,6 @@
 import type { DesktopReviewItem } from '@memorilo/desktop-preload'
 import type { CardSurfaceItemSelection, CardSurfaceSide } from '@memorilo/editor'
-import { CardSurface, createEditorNote, demoEditorAdapters } from '@memorilo/editor'
+import { CardSurface, createEditorNote, demoEditorAdapters, projectEditorCards } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo } from 'react'
@@ -76,15 +76,30 @@ function EditorLearningReviewSource({
       snapshot: sourceQuery.data.snapshot,
       title: sourceQuery.data.title,
     })
-    const entry = note.getEntries().find(candidate => (
+    const entry = note.getEntries().find((candidate): candidate is Extract<typeof candidate, { kind: 'topic' }> => (
       candidate.kind === 'topic' && candidate.id === item.queue.topicId
     ))
     if (!entry || entry.kind !== 'topic')
       throw new Error(`Note ${note.id} does not contain Review Topic ${item.queue.topicId}`)
     if (entry.topicType === 'image-occlusion')
       throw new Error(`Review Topic ${entry.id} does not contain editor content`)
-    return { note, topic: note.getTopic(entry.id) }
-  }, [item.queue.topicId, sourceQuery.data])
+    if (entry.topicType !== 'whiteboard')
+      return { note, topic: note.getTopic(entry.id) }
+    const validation = note.getTopicValidationInput(entry.id)
+    if (!('embeddedEditors' in validation))
+      throw new Error(`WhiteboardTopic ${entry.id} is missing its Embedded Editors`)
+    const matchingEditors = Object.values(validation.embeddedEditors)
+      .filter(editor => projectEditorCards(editor.document).some(card => card.id === item.card.id))
+    if (matchingEditors.length !== 1) {
+      throw new Error(
+        `Card ${item.card.id} must belong to exactly one Embedded Editor in WhiteboardTopic ${entry.id}`,
+      )
+    }
+    const editor = matchingEditors[0]
+    if (!editor)
+      throw new Error(`Card ${item.card.id} has no Embedded Editor`)
+    return { note, topic: note.getWhiteboardTopic(entry.id).getEmbeddedEditor(editor.editorId) }
+  }, [item.card.id, item.queue.topicId, sourceQuery.data])
   if (sourceQuery.isError) {
     return (
       <div {...stylex.props(styles.sourceStatus, styles.sourceError)} role="alert">

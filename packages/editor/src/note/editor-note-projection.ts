@@ -19,6 +19,7 @@ import {
   TOPIC_EDITOR_MODE_KEY,
 } from './editor-note-crdt'
 import { getImageOcclusionState, projectImageOcclusionContent } from './editor-note-image-occlusion'
+import { projectWhiteboardContent } from './editor-note-whiteboard'
 import { projectTopicContent } from './topic-projection'
 
 export interface EditorNoteProjection {
@@ -77,19 +78,16 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
         const topicType = readTopicType(node.meta, `Topic ${id} type`)
         const content = topicType === 'image-occlusion'
           ? projectImageOcclusionContent(runtime, id)
-          : projectTopicContentFromTree(
-              doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
-              id,
-              readTopicTitle(node.meta, `Topic ${id} title`),
-            )
-        const base = {
-          id,
-          kind,
-          mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
-          ordinal,
-          parentId,
-          title: content.title,
-        } as const
+          : topicType === 'whiteboard'
+            ? projectWhiteboardContent({
+                doc,
+                noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id'),
+              }, id)
+            : projectTopicContentFromTree(
+                doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
+                id,
+                readTopicTitle(node.meta, `Topic ${id} title`),
+              )
         if (topicType === 'image-occlusion') {
           const state = getImageOcclusionState(runtime, id)
           if (parentId !== state.sourceTopicId)
@@ -99,9 +97,17 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
           if (existingTopicId)
             throw new Error(`ImageOcclusionTopics ${existingTopicId} and ${id} use the same source image`)
           imageOcclusionTopicIdsBySource.set(sourceKey, id)
-          entries.push({ ...base, topicType })
+          entries.push({ id, kind, ordinal, parentId, title: content.title, topicType })
         }
         else if (topicType === 'book') {
+          const base = {
+            id,
+            kind,
+            mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+            ordinal,
+            parentId,
+            title: content.title,
+          } as const
           const book: BookFileBinding = readBookBinding(node.meta, `BookTopic ${id} binding`)
           const identity = bookFileIdentityKey(book.file)
           const existingTopicId = bookTopicIdsByFile.get(identity)
@@ -110,8 +116,19 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
           bookTopicIdsByFile.set(identity, id)
           entries.push({ ...base, book, topicType })
         }
+        else if (topicType === 'regular') {
+          entries.push({
+            id,
+            kind,
+            mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
+            ordinal,
+            parentId,
+            title: content.title,
+            topicType,
+          })
+        }
         else {
-          entries.push({ ...base, topicType })
+          entries.push({ id, kind, ordinal, parentId, title: content.title, topicType })
         }
 
         if (includeTopics)
