@@ -26,9 +26,9 @@ export const assetSettingsStyles = stylex.create({
     gridTemplateColumns: 'minmax(0, 1fr) auto',
     gap: 24,
     paddingTop: 11,
-    paddingRight: 2,
+    paddingRight: 18,
     paddingBottom: 11,
-    paddingLeft: 2,
+    paddingLeft: 18,
   },
   compactAssetActionRow: {
     '@media (max-width: 420px)': {
@@ -109,9 +109,9 @@ export const assetSettingsStyles = stylex.create({
     borderTopStyle: 'solid',
     borderTopWidth: 1,
     paddingTop: 10,
-    paddingRight: 2,
+    paddingRight: 18,
     paddingBottom: 12,
-    paddingLeft: 2,
+    paddingLeft: 18,
   },
   assetSummary: {
     display: 'flex',
