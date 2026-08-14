@@ -4,7 +4,7 @@ import type { AuthoritativeNote, NoteAuthoritativeCache } from './note-authorita
 import { randomUUID } from 'node:crypto'
 import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { projectNoteAssetReferences } from '../assets/asset-references'
-import { toStoredEntries, toStoredTopic } from './note-authoritative-projection'
+import { toStoredEntries, toStoredSpreadsheets, toStoredTopic } from './note-authoritative-projection'
 import { projectNoteLearningCards, repairNoteLearningCards } from './note-learning-cards'
 
 interface NoteAuthoritativeLoadingDependencies {
@@ -50,6 +50,7 @@ export function createNoteAuthoritativeLoading({ cache, storage }: NoteAuthorita
           ...(journalTopic === null ? {} : { journalHasUserContent: note.hasUserContent() }),
           learningCards: projectNoteLearningCards(note),
           noteId: note.id,
+          spreadsheets: toStoredSpreadsheets(note),
           title: note.getTitle(),
           topics: entries
             .filter(entry => entry.kind === 'topic')
@@ -93,6 +94,7 @@ export function createNoteAuthoritativeLoading({ cache, storage }: NoteAuthorita
       id: note.id,
       learningCards: projectNoteLearningCards(note),
       snapshot: note.exportSnapshot(),
+      spreadsheets: toStoredSpreadsheets(note),
       title: note.getTitle(),
       topics: entries
         .filter(entry => entry.kind === 'topic')
@@ -120,6 +122,7 @@ export function createNoteAuthoritativeLoading({ cache, storage }: NoteAuthorita
       journalDate,
       learningCards: projectNoteLearningCards(note),
       snapshot: note.exportSnapshot(),
+      spreadsheets: toStoredSpreadsheets(note),
       topics: entries
         .filter(entry => entry.kind === 'topic')
         .map(entry => structuredClone(note.getTopicContent(entry.id))),

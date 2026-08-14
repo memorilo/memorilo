@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, PenLine, Plus, RefreshCw } from 'lucide-react'
+import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, PenLine, Plus, RefreshCw, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
@@ -31,6 +31,7 @@ type EntryContextMenu = BookEntryContextMenu | ContainerEntryContextMenu
 interface NoteEntryContextMenuActions {
   onAddBook: (parentId: string | null) => void
   onAddFolder: (parentId: string | null) => void
+  onAddSpreadsheet: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
   onAddWhiteboard: (parentId: string | null) => void
   onRebindBook: (topicId: string) => void
@@ -45,6 +46,7 @@ interface NoteEntryContextMenuController {
 export function useNoteEntryContextMenu({
   onAddBook,
   onAddFolder,
+  onAddSpreadsheet,
   onAddTopic,
   onAddWhiteboard,
   onRebindBook,
@@ -134,7 +136,7 @@ export function useNoteEntryContextMenu({
     const menuPadding = 8
     const menuItemHeight = 30
     const mainItemCount = contextMenu.kind === 'book' && contextMenu.resourceState !== 'available' ? 2 : 1
-    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 4 : 3
+    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 5 : 4
     const requiredHeight = Math.max(
       menuPadding + mainItemCount * menuItemHeight,
       menuPadding + submenuItemCount * menuItemHeight,
@@ -232,6 +234,18 @@ export function useNoteEntryContextMenu({
                     >
                       <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
                       {t('whiteboard')}
+                    </button>
+                    <button
+                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                      role="menuitem"
+                      type="button"
+                      onClick={() => {
+                        onAddSpreadsheet(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                        close()
+                      }}
+                    >
+                      <Table2 aria-hidden="true" size={14} strokeWidth={1.8} />
+                      {t('spreadsheet.label')}
                     </button>
                     {contextMenu.kind === 'container' && contextMenu.allowFolder
                       ? (

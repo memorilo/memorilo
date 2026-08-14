@@ -43,9 +43,11 @@ export function projectNoteLearningCards(
     const entry = topicOrder === -1 ? undefined : entries[topicOrder]
     return {
       cards: entry?.kind === 'topic'
-        ? entry.topicType === 'image-occlusion'
-          ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
-          : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
+        ? entry.topicType === 'spreadsheet'
+          ? []
+          : entry.topicType === 'image-occlusion'
+            ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
+            : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
         : [],
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,
