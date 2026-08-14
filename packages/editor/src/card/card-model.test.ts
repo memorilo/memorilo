@@ -1,5 +1,11 @@
 import type { NodeJSON } from 'prosekit/core'
+import type { OcclusionShape } from '../image-occlusion/image-occlusion-model'
 import { describe, expect, it } from 'vitest'
+import {
+  containOcclusionBoundsShape,
+  shouldRegroupImageOcclusionShapes,
+  translateOcclusionBrushShape,
+} from '../image-occlusion/image-occlusion-model'
 
 import { projectEditorCards } from './card-model'
 
@@ -502,5 +508,77 @@ describe('projectEditorCards', () => {
     }
 
     expect(() => projectEditorCards(document)).toThrow('mixes ordered and non-ordered Card members')
+  })
+})
+
+describe('image occlusion editing geometry', () => {
+  const groupedShapes: readonly OcclusionShape[] = [{
+    groupId: 'stable-card',
+    height: 0.2,
+    id: 'first-shape',
+    kind: 'rectangle' as const,
+    width: 0.2,
+    x: 0.1,
+    y: 0.1,
+  }, {
+    groupId: 'stable-card',
+    height: 0.2,
+    id: 'second-shape',
+    kind: 'ellipse' as const,
+    width: 0.2,
+    x: 0.4,
+    y: 0.4,
+  }]
+
+  it('does not replace a CardID when the complete existing group is selected', () => {
+    expect(shouldRegroupImageOcclusionShapes(groupedShapes, ['first-shape', 'second-shape'])).toBe(false)
+    expect(shouldRegroupImageOcclusionShapes(groupedShapes, ['first-shape'])).toBe(false)
+    expect(shouldRegroupImageOcclusionShapes([
+      ...groupedShapes,
+      {
+        groupId: 'another-card',
+        height: 0.2,
+        id: 'third-shape',
+        kind: 'ellipse',
+        width: 0.2,
+        x: 0.7,
+        y: 0.7,
+      },
+    ], ['first-shape', 'third-shape'])).toBe(true)
+  })
+
+  it('keeps a bounds shape size stable when moved beyond an image edge', () => {
+    expect(containOcclusionBoundsShape({
+      groupId: 'card',
+      height: 0.3,
+      id: 'shape',
+      kind: 'rectangle',
+      width: 0.2,
+      x: 0.95,
+      y: -0.1,
+    })).toEqual({
+      groupId: 'card',
+      height: 0.3,
+      id: 'shape',
+      kind: 'rectangle',
+      width: 0.2,
+      x: 0.8,
+      y: 0,
+    })
+  })
+
+  it('keeps brush point spacing stable when moved beyond an image edge', () => {
+    const translated = translateOcclusionBrushShape({
+      groupId: 'card',
+      id: 'brush',
+      kind: 'brush',
+      points: [0.1, 0.2, 0.3, 0.4],
+      strokeWidth: 0.025,
+    }, 1, -1)
+    expect(translated.points).toHaveLength(4)
+    expect(translated.points[0]).toBeCloseTo(0.8)
+    expect(translated.points[1]).toBeCloseTo(0)
+    expect(translated.points[2]).toBeCloseTo(1)
+    expect(translated.points[3]).toBeCloseTo(0.2)
   })
 })

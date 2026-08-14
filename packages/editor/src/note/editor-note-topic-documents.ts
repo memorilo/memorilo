@@ -9,6 +9,7 @@ import type {
   ApplyTopicBlockEditsInput,
   EditorBookTopicDocument,
   EditorEmbeddedDocument,
+  EditorImageOcclusionTopicDocument,
   EditorTopicBinding,
   EditorTopicDocument,
   EditorWhiteboardTopicDocument,
@@ -44,6 +45,13 @@ import {
   TOPIC_TYPE_KEY,
   validateBookBindingValue,
 } from './editor-note-crdt'
+import {
+  findImageOcclusionTopicId,
+  getImageOcclusionState,
+  projectImageOcclusionContent,
+  readImageOcclusionValidationInput,
+  setImageOcclusionState,
+} from './editor-note-image-occlusion'
 import { projectTopicContentFromTree } from './editor-note-projection'
 import { normalizeNonEmptyString } from './editor-note-validation'
 import {
@@ -111,6 +119,8 @@ function readBookReadingState(runtime: EditorNoteDocument, node: NoteEntryNode):
 export function readTopicValidationInput(runtime: EditorNoteDocument, topicId: string): TopicValidationInput {
   const node = findTopicNode(runtime, topicId)
   const topicType = readTopicType(node.data, `Topic ${topicId} type`)
+  if (topicType === 'image-occlusion')
+    return readImageOcclusionValidationInput(runtime, topicId)
   if (topicType === 'whiteboard')
     return readWhiteboardValidationInput(runtime, topicId)
   const blockTree = topicBlockTree(runtime, node)
@@ -158,7 +168,10 @@ export function assertBookFileAvailable(
 function createTopicDocument(runtime: EditorNoteDocument, topicId: string): EditorTopicDocument {
   const normalizedTopicId = topicId.trim()
   const node = findTopicNode(runtime, normalizedTopicId)
-  if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'whiteboard')
+  const topicType = readTopicType(node.data, `Topic ${normalizedTopicId} type`)
+  if (topicType === 'image-occlusion')
+    throw new TypeError(`ImageOcclusionTopic ${normalizedTopicId} does not have a ProseMirror document`)
+  if (topicType === 'whiteboard')
     throw new TypeError(`WhiteboardTopic ${normalizedTopicId} does not have a single Topic document`)
   topicBlockTree(runtime, node)
   assertEditorMode(node.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${normalizedTopicId} Editor mode`)
@@ -296,11 +309,11 @@ export class EditorNoteTopics {
     this.#runtime.runMutation(() => {
       const validation = readTopicValidationInput(this.#runtime, input.topicId)
       if (!('document' in validation))
-        throw new TypeError(`WhiteboardTopic ${input.topicId} does not have a single editable document`)
+        throw new TypeError(`Topic ${input.topicId} does not have a single editable document`)
       const document = applyTopicBlockEdits(validation.document, input.edits)
       const topic = EffectRuntime.runSync(validateLoroTopic({ ...validation, document }))
       if (!('document' in topic))
-        throw new TypeError(`WhiteboardTopic ${input.topicId} does not have a single editable document`)
+        throw new TypeError(`Topic ${input.topicId} does not have a single editable document`)
       const node = findNoteEntry(this.#runtime.doc, input.topicId)
       const blockTree = topicBlockTree(this.#runtime, node)
       const state = EditorState.create({
@@ -314,7 +327,10 @@ export class EditorNoteTopics {
   content(topicId: string): TopicContentProjection {
     const normalizedTopicId = normalizeNonEmptyString(topicId, 'Topic id')
     const node = findNoteEntry(this.#runtime.doc, normalizedTopicId)
-    if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'whiteboard')
+    const topicType = readTopicType(node.data, `Topic ${normalizedTopicId} type`)
+    if (topicType === 'image-occlusion')
+      return projectImageOcclusionContent(this.#runtime, normalizedTopicId)
+    if (topicType === 'whiteboard')
       return projectWhiteboardContent(this.#runtime, normalizedTopicId)
     return projectTopicContentFromTree(
       topicBlockTree(this.#runtime, node),
@@ -329,6 +345,18 @@ export class EditorNoteTopics {
 
   getBook(topicId: string): EditorBookTopicDocument {
     return createBookTopicDocument(this.#runtime, topicId)
+  }
+
+  getImageOcclusion(topicId: string): EditorImageOcclusionTopicDocument {
+    const normalizedTopicId = normalizeNonEmptyString(topicId, 'ImageOcclusionTopic id')
+    getImageOcclusionState(this.#runtime, normalizedTopicId)
+    return {
+      getState: () => getImageOcclusionState(this.#runtime, normalizedTopicId),
+      noteId: this.#runtime.noteId,
+      setState: state => setImageOcclusionState(this.#runtime, normalizedTopicId, state),
+      subscribe: listener => this.#runtime.doc.subscribe(() => listener()),
+      topicId: normalizedTopicId,
+    }
   }
 
   getWhiteboard(topicId: string): EditorWhiteboardTopicDocument {
@@ -346,6 +374,11 @@ export class EditorNoteTopics {
       subscribe: listener => this.#runtime.doc.subscribe(() => listener()),
       topicId: normalizedTopicId,
     }
+  }
+
+  findImageOcclusion(sourceTopicId: string, sourceImageId: string): EditorImageOcclusionTopicDocument | null {
+    const topicId = findImageOcclusionTopicId(this.#runtime, sourceTopicId, sourceImageId)
+    return topicId ? this.getImageOcclusion(topicId) : null
   }
 
   validationInput(topicId: string): TopicValidationInput {

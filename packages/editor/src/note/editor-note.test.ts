@@ -151,6 +151,76 @@ describe('editor note topic creation', () => {
     expect(note.getVersion()).toEqual(beforeVersion)
   })
 
+  it('creates an ImageOcclusionTopic from the authoritative source image snapshot', async () => {
+    const note = createEditorNote({ id: 'image-occlusion-note' })
+    const [sourceTopic] = note.getEntries()
+    if (!sourceTopic || sourceTopic.kind !== 'topic')
+      throw new Error('Expected the source Topic')
+    const sourceDocument = note.getTopicValidationInput(sourceTopic.id)
+    if (!('document' in sourceDocument))
+      throw new TypeError('Expected a RegularTopic document')
+    const sourceBlockId = sourceDocument.document.content?.[0]?.attrs?.blockId
+    if (typeof sourceBlockId !== 'string')
+      throw new Error('Expected the source Block ID')
+    const sourceImage = { height: 599.25, src: 'https://example.com/source.png', width: 799.5 }
+    note.applyTopicBlockEdits({
+      edits: [{
+        blockId: sourceBlockId,
+        content: [{ type: 'image', attrs: { ...sourceImage, imageId: 'source-image' } }],
+        operation: 'update-block-content',
+      }],
+      topicId: sourceTopic.id,
+    })
+    const capturedSources: unknown[] = []
+    const storedSnapshot = { height: 600, src: 'memorilo-asset:/snapshot.png', width: 800 }
+
+    const topicId = await note.createImageOcclusionTopic({
+      snapshot: async (source) => {
+        capturedSources.push(source)
+        return storedSnapshot
+      },
+      sourceImageId: 'source-image',
+      sourceTopicId: sourceTopic.id,
+      title: 'Image Occlusion',
+    })
+
+    expect(capturedSources).toEqual([{ src: sourceImage.src }])
+    expect(note.getImageOcclusionTopic(topicId).getState().image).toEqual(storedSnapshot)
+    expect(note.getTopicValidationInput(topicId).entry).not.toHaveProperty('editorMode')
+  })
+
+  it('rejects an invalid ImageOcclusionTopic snapshot without publishing partial state', async () => {
+    const note = createEditorNote({ id: 'invalid-image-occlusion-note' })
+    const [sourceTopic] = note.getEntries()
+    if (!sourceTopic || sourceTopic.kind !== 'topic')
+      throw new Error('Expected the source Topic')
+    const sourceDocument = note.getTopicValidationInput(sourceTopic.id)
+    if (!('document' in sourceDocument))
+      throw new TypeError('Expected a RegularTopic document')
+    const sourceBlockId = sourceDocument.document.content?.[0]?.attrs?.blockId
+    if (typeof sourceBlockId !== 'string')
+      throw new Error('Expected the source Block ID')
+    note.applyTopicBlockEdits({
+      edits: [{
+        blockId: sourceBlockId,
+        content: [{
+          type: 'image',
+          attrs: { height: 600, imageId: 'source-image', src: 'https://example.com/source.png', width: 800 },
+        }],
+        operation: 'update-block-content',
+      }],
+      topicId: sourceTopic.id,
+    })
+
+    await expect(note.createImageOcclusionTopic({
+      snapshot: async () => ({ height: 0.5, src: 'memorilo-asset:/wrong.png', width: 1 }),
+      sourceImageId: 'source-image',
+      sourceTopicId: sourceTopic.id,
+      title: 'Image Occlusion',
+    })).rejects.toThrow(/height/u)
+    expect(note.getEntries()).toHaveLength(1)
+  })
+
   it('records a Note rename as one undo step', () => {
     const note = createEditorNote({ id: 'rename-note', title: 'Before' })
     const [entry] = note.getEntries()

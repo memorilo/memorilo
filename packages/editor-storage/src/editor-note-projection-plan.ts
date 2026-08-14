@@ -74,7 +74,7 @@ function planNoteProjection(
         noteParameter,
         entry.id,
         entry.topicType,
-        entry.topicType === 'whiteboard' ? null : entry.mode,
+        entry.topicType === 'book' || entry.topicType === 'regular' ? entry.mode : null,
         entry.title,
       ],
       sql: `

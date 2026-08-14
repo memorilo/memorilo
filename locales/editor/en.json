@@ -60,6 +60,31 @@
   "entryNameRequired": "Enter a name before creating this item.",
   "closeEntryDialog": "Close",
   "create": "Create",
+  "imageOcclusion": {
+    "defaultTitle": "Image Occlusion",
+    "title": "Image occlusion topic title",
+    "tools": "Occlusion tools",
+    "tool": {
+      "select": "Select",
+      "rectangle": "Rectangle",
+      "ellipse": "Ellipse",
+      "brush": "Brush"
+    },
+    "cardMode": "Card mode",
+    "mode": {
+      "hide-all": "Hide all, guess one",
+      "hide-one": "Hide current only"
+    },
+    "editSelection": "Edit selection",
+    "copy": "Duplicate selection",
+    "group": "Group as one Card",
+    "ungroup": "Split into separate Cards",
+    "delete": "Delete selection",
+    "history": "History",
+    "undo": "Undo",
+    "redo": "Redo",
+    "imageLoadFailed": "Could not load the image snapshot"
+  },
   "ui": {
     "text": "Text",
     "heading": "Heading {{level}}",
@@ -185,6 +210,8 @@
     "upload": "Upload",
     "insertImageButton": "Insert Image",
     "uploadImage": "Upload Image",
+    "openImageOcclusion": "Open image occlusion",
+    "openImageOcclusionFailed": "Could not open image occlusion",
     "enterTagName": "Enter a tag name",
     "tagNameTooLong": "Tag names must be {{count}} characters or fewer",
     "invalidTagLabel": "Use letters, numbers, underscores, or hyphens"

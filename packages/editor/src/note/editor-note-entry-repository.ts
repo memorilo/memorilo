@@ -1,6 +1,7 @@
 import type {
   CreateBookTopicInput,
   CreateFolderInput,
+  CreateImageOcclusionTopicInput,
   CreateTopicInput,
   CreateWhiteboardTopicInput,
   DeleteNoteEntryInput,
@@ -19,6 +20,11 @@ import {
   TOPIC_TITLE_KEY,
   validateBookBindingValue,
 } from './editor-note-crdt'
+import {
+  createImageOcclusionNode,
+  getImageOcclusionSourceIdentity,
+  getImageOcclusionState,
+} from './editor-note-image-occlusion'
 import { projectEditorNote } from './editor-note-projection'
 import {
   assertBookFileAvailable,
@@ -42,6 +48,7 @@ interface EditorNoteEntryRepositoryDependencies {
 export interface EditorNoteEntryRepository {
   readonly createBookTopic: (input: CreateBookTopicInput) => string
   readonly createFolder: (input: CreateFolderInput) => string
+  readonly createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => Promise<string>
   readonly createTopic: (input: CreateTopicInput) => string
   readonly createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   readonly deleteEntry: (input: DeleteNoteEntryInput) => void
@@ -89,6 +96,22 @@ export function createEditorNoteEntryRepository(
       doc.commit({ origin: 'note:create-folder' })
       return entryId
     }),
+    createImageOcclusionTopic: async (input) => {
+      const sourceImage = getImageOcclusionSourceIdentity(runtime, input.sourceTopicId, input.sourceImageId)
+      const image = await input.snapshot(structuredClone(sourceImage))
+      return runMutation(() => {
+        const entryId = createImageOcclusionNode(runtime, {
+          image,
+          index: input.index,
+          sourceImage,
+          sourceImageId: input.sourceImageId,
+          sourceTopicId: input.sourceTopicId,
+          title: input.title,
+        })
+        doc.commit({ origin: 'note:create-image-occlusion-topic' })
+        return entryId
+      })
+    },
     createTopic: input => runMutation(() => {
       const parent = resolveParent(input.parentId)
       const entryId = createTopicNode(doc, input, parent?.id)
@@ -111,6 +134,15 @@ export function createEditorNoteEntryRepository(
 
       if (input.strategy === 'promote-children') {
         const children = node.children() ?? []
+        const boundImageOcclusion = children.find(child => (
+          child.data.get(ENTRY_KIND_KEY) === 'topic'
+          && readTopicType(child.data, 'Child Topic type') === 'image-occlusion'
+          && getImageOcclusionState(runtime, readString(child.data, ENTRY_ID_KEY, 'Child Topic id')).sourceTopicId === input.entryId
+        ))
+        if (boundImageOcclusion) {
+          const childId = readString(boundImageOcclusion.data, ENTRY_ID_KEY, 'ImageOcclusionTopic id')
+          throw new TypeError(`Topic ${input.entryId} cannot promote bound ImageOcclusionTopic ${childId}`)
+        }
         children.forEach((child, offset) => child.move(parent, index + offset))
         noteTree(doc).delete(node.id)
       }
@@ -137,6 +169,10 @@ export function createEditorNoteEntryRepository(
 
       const validation = readTopicValidationInput(runtime, entry.id)
       const topic = validateTopicInput(validation)
+      if (topic.entry.topicType === 'image-occlusion') {
+        getImageOcclusionState(runtime, entry.id)
+        return true
+      }
       if (entry.topicType === 'whiteboard')
         return topic.entry.title.length > 0 || whiteboardHasUserContent(validation)
       if (!('document' in validation))
@@ -148,6 +184,13 @@ export function createEditorNoteEntryRepository(
       const parent = resolveParent(input.parentId)
       if (node.data.get(ENTRY_KIND_KEY) === 'folder')
         assertFolderParent(parent)
+      if (node.data.get(ENTRY_KIND_KEY) === 'topic'
+        && readTopicType(node.data, `Topic ${input.entryId} type`) === 'image-occlusion') {
+        const sourceTopicId = getImageOcclusionState(runtime, input.entryId).sourceTopicId
+        const parentId = parent ? readString(parent.data, ENTRY_ID_KEY, 'Parent Topic id') : null
+        if (parentId !== sourceTopicId)
+          throw new TypeError(`ImageOcclusionTopic ${input.entryId} must remain a child of Topic ${sourceTopicId}`)
+      }
       noteTree(doc).move(node.id, parent?.id, resolveNoteEntryIndex(input.index))
       doc.commit({ origin: 'note:move-entry' })
     }),

@@ -3,27 +3,29 @@ import type {
   LearningCardProjection,
   LearningTopicCardProjection,
 } from '@memorilo/editor-storage'
-import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { EditorNote } from '@memorilo/editor/note'
-import { projectEditorCards } from '@memorilo/editor/card'
+import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
 
 type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
 
 function topicDocuments(note: EditorNote, topicId: string): readonly TopicDocument[] {
   const validation = note.getTopicValidationInput(topicId)
-  return 'document' in validation
-    ? [validation.document]
-    : Object.values(validation.embeddedEditors).map(editor => editor.document)
+  if ('document' in validation)
+    return [validation.document]
+  if ('embeddedEditors' in validation)
+    return Object.values(validation.embeddedEditors).map(editor => editor.document)
+  throw new TypeError(`ImageOcclusionTopic ${topicId} does not have ProseMirror documents`)
 }
 
-function toLearningCard(card: EditorCardProjection): LearningCardProjection {
+function toLearningCard(card: ReviewCardProjection): LearningCardProjection {
   return {
     cardId: card.id,
     direction: card.kind === 'cloze' ? 'forward' : card.direction,
     itemBlockIds: (card.kind === 'list' || card.kind === 'set') && card.direction === 'forward'
       ? card.items.map(item => item.blockId)
       : [],
-    kind: card.kind,
+    kind: card.kind === 'image-occlusion' ? 'basic' : card.kind,
     sourceBlockId: card.sourceBlockId,
   }
 }
@@ -41,7 +43,9 @@ export function projectNoteLearningCards(
     const entry = topicOrder === -1 ? undefined : entries[topicOrder]
     return {
       cards: entry?.kind === 'topic'
-        ? topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
+        ? entry.topicType === 'image-occlusion'
+          ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
+          : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
         : [],
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,

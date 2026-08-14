@@ -6,7 +6,7 @@ import type {
 } from '@memorilo/anki-connect/model'
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
-import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { WhiteboardLibraryItem } from '@memorilo/editor/note'
 import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
 import type {
@@ -99,7 +99,7 @@ export interface DesktopReviewTarget {
 }
 
 export interface DesktopReviewItem {
-  card: EditorCardProjection
+  card: ReviewCardProjection
   mainTargetId: string
   noteTitle: string
   queue: LearningQueueItem

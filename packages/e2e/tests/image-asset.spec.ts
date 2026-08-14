@@ -56,6 +56,28 @@ function readStoredAssets(databasePath: string): readonly StoredAssetRow[] {
   }
 }
 
+function readBoundImageOcclusionTopicCount(databasePath: string): number {
+  const database: Database.Database = new BetterSqlite3(databasePath, { readonly: true })
+  try {
+    const row = database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM topics AS occlusion
+      JOIN note_entries AS child
+        ON child.note_row_id = occlusion.note_row_id
+        AND child.entry_id = occlusion.topic_id
+      JOIN topics AS source
+        ON source.note_row_id = child.note_row_id
+        AND source.topic_id = child.parent_entry_id
+      WHERE occlusion.topic_type = 'image-occlusion'
+        AND source.topic_type = 'regular'
+    `).get() as { count: number }
+    return row.count
+  }
+  finally {
+    database.close()
+  }
+}
+
 function launchApplication(databasePath: string, userDataDirectory: string): Promise<ElectronApplication> {
   return electron.launch({
     args: [desktopDirectory, `--user-data-dir=${userDataDirectory}`],
@@ -164,6 +186,56 @@ test('persists an uploaded image beside the database and renders it after restar
       mime_type: 'image/png',
       original_file_name: 'sample-image.png',
       reference_count: 1,
+      unreferenced_at: null,
+    }])
+
+    let openImageOcclusion = window.getByRole('button', { name: 'Open image occlusion' })
+    if (!await openImageOcclusion.isVisible())
+      await reopenedImage.click({ force: true })
+    await openImageOcclusion.click()
+    const occlusionEditor = window.locator('[data-topic-type="image-occlusion"]')
+    await expect(occlusionEditor).toBeVisible()
+    await expect(occlusionEditor.getByRole('textbox', { name: 'Image occlusion topic title' }))
+      .toHaveValue('Image Occlusion')
+    const occlusionHash = await window.evaluate(() => globalThis.location.hash)
+
+    await occlusionEditor.getByRole('button', { name: 'Rectangle' }).click()
+    const canvas = occlusionEditor.locator('canvas').first()
+    const canvasBounds = await canvas.boundingBox()
+    if (!canvasBounds)
+      throw new Error('Image occlusion canvas did not receive layout bounds')
+    await window.mouse.move(
+      canvasBounds.x + canvasBounds.width * 0.35,
+      canvasBounds.y + canvasBounds.height * 0.35,
+    )
+    await window.mouse.down()
+    await window.mouse.move(
+      canvasBounds.x + canvasBounds.width * 0.6,
+      canvasBounds.y + canvasBounds.height * 0.6,
+    )
+    await window.mouse.up()
+    await expect(occlusionEditor.getByRole('button', { name: 'Delete' })).toBeEnabled()
+
+    await window.evaluate((hash) => {
+      globalThis.location.hash = hash
+    }, noteHash)
+    const sourceEditor = window.getByRole('textbox', { name: 'Editor content' })
+    const sourceImage = sourceEditor.getByRole('img', { name: 'upload preview' })
+    await expect(sourceImage).toBeVisible()
+    await expect(sourceEditor.locator('[data-image-occlusion-preview]')).toBeVisible()
+    openImageOcclusion = window.getByRole('button', { name: 'Open image occlusion' })
+    if (!await openImageOcclusion.isVisible())
+      await sourceImage.click({ force: true })
+    await openImageOcclusion.click()
+    await expect.poll(() => window.evaluate(() => globalThis.location.hash)).toBe(occlusionHash)
+    await expect.poll(() => readBoundImageOcclusionTopicCount(databasePath)).toBe(1)
+    await expect.poll(() => readStoredAssets(databasePath)).toEqual([{
+      byte_size: imageContents.byteLength,
+      deletion_claimed_at: null,
+      file_name: assetFileName,
+      mime_type: 'image/png',
+      original_file_name: 'sample-image.png',
+      reference_count: 2,
       unreferenced_at: null,
     }])
   }

@@ -28,12 +28,20 @@ export function projectNoteAssetReferences(note: EditorNote): readonly AssetRefe
   for (const entry of note.getEntries()) {
     if (entry.kind !== 'topic')
       continue
+    if (entry.topicType === 'image-occlusion') {
+      collectAssetReferences({
+        attrs: { src: note.getImageOcclusionTopic(entry.id).getState().image.src },
+        type: 'image',
+      }, counts)
+      continue
+    }
     const validation = note.getTopicValidationInput(entry.id)
     if ('document' in validation) {
       collectAssetReferences(validation.document, counts)
       continue
     }
-    Object.values(validation.embeddedEditors).forEach(editor => collectAssetReferences(editor.document, counts))
+    if ('embeddedEditors' in validation)
+      Object.values(validation.embeddedEditors).forEach(editor => collectAssetReferences(editor.document, counts))
   }
   return [...counts].map(([fileName, count]) => ({ count, fileName }))
 }
