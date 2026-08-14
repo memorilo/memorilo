@@ -32,6 +32,7 @@ function serviceStub(): DesktopIpcClient {
       archiveOptimizer: vi.fn(),
       assignNoteOptimizer: vi.fn(),
       createOptimizer: vi.fn(),
+      getActivitySummary: vi.fn(),
       getDailyProgress: vi.fn(),
       getLearningState: vi.fn(),
       getMaintenanceEstimate: vi.fn(),

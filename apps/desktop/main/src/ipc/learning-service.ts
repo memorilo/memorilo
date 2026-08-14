@@ -17,6 +17,9 @@ export function createLearningHandlers(
     createOptimizer(input: Parameters<LearningStorage['optimizers']['create']>[0]) {
       return learning.optimizers.create(input)
     },
+    getActivitySummary(input?: Parameters<LearningStorage['queue']['getActivitySummary']>[0]) {
+      return learning.queue.getActivitySummary({ ...input, now: input?.now ?? now() })
+    },
     getDailyProgress(requestedAt?: number) {
       return learning.queue.getDailyProgress(requestedAt ?? now())
     },

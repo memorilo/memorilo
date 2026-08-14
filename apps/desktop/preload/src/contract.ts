@@ -115,6 +115,7 @@ interface DesktopLearningStorageApi {
   archiveOptimizer: LearningStorage['optimizers']['archive']
   assignNoteOptimizer: LearningStorage['optimizers']['assignToNote']
   createOptimizer: LearningStorage['optimizers']['create']
+  getActivitySummary: LearningStorage['queue']['getActivitySummary']
   getDailyProgress: LearningStorage['queue']['getDailyProgress']
   getLearningState: LearningStorage['reviews']['getState']
   getMaintenanceEstimate: LearningStorage['maintenance']['getEstimate']

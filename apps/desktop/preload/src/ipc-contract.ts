@@ -155,6 +155,7 @@ export const desktopIpcChannels = {
     archiveOptimizer: 'memorilo:invoke:learning:archiveOptimizer',
     assignNoteOptimizer: 'memorilo:invoke:learning:assignNoteOptimizer',
     createOptimizer: 'memorilo:invoke:learning:createOptimizer',
+    getActivitySummary: 'memorilo:invoke:learning:getActivitySummary',
     getDailyProgress: 'memorilo:invoke:learning:getDailyProgress',
     getLearningState: 'memorilo:invoke:learning:getLearningState',
     getMaintenanceEstimate: 'memorilo:invoke:learning:getMaintenanceEstimate',
