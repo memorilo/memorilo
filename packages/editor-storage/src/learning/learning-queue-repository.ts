@@ -4,6 +4,8 @@ import type { LearningReviewHistory } from './learning-review-history'
 import type { LearningStateRow } from './learning-storage-shared'
 import type {
   FsrsOptimizerConfiguration,
+  GetLearningActivitySummaryInput,
+  LearningActivitySummary,
   LearningDailyProgress,
   LearningPracticeConfiguration,
   LearningQueueItem,
@@ -74,6 +76,12 @@ export class LearningQueueRepository {
 
   #practiceConfiguration(): LearningPracticeConfiguration {
     return validateLearningPracticeConfiguration(this.#configuration())
+  }
+
+  getActivitySummary(
+    input: GetLearningActivitySummaryInput = {},
+  ): Promise<LearningActivitySummary> {
+    return this.#runOperation(() => this.#progress.getActivitySummary(input))
   }
 
   getDailyProgress(now = Date.now()): Promise<LearningDailyProgress> {

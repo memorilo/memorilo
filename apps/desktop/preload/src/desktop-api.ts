@@ -10,6 +10,7 @@ function createDesktopLearningApi(service: DesktopIpcClient['learning']): Deskto
     archiveOptimizer: optimizerId => service.archiveOptimizer(optimizerId),
     assignNoteOptimizer: input => service.assignNoteOptimizer(input),
     createOptimizer: input => service.createOptimizer(input),
+    getActivitySummary: input => service.getActivitySummary(input),
     getDailyProgress: now => service.getDailyProgress(now),
     getLearningState: targetId => service.getLearningState(targetId),
     getMaintenanceEstimate: () => service.getMaintenanceEstimate(),
