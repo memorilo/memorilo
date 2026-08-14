@@ -36,7 +36,11 @@ export interface BookTopicProjection extends TopicProjectionBase {
   topicType: 'book'
 }
 
-export type TopicProjection = BookTopicProjection | RegularTopicProjection
+export interface ImageOcclusionTopicProjection extends TopicProjectionBase {
+  topicType: 'image-occlusion'
+}
+
+export type TopicProjection = BookTopicProjection | ImageOcclusionTopicProjection | RegularTopicProjection
 
 export type NoteEntryProjection = FolderProjection | TopicProjection
 

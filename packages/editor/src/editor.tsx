@@ -4,6 +4,7 @@ import type { CardReviewOptions } from './card/card-review-runtime'
 import type { EditorCardIntegration } from './card/card-sync'
 import type { EditorModeValue } from './common/editor-mode'
 import type { OutlineOptions } from './common/outline-runtime'
+import type { EditorImageOcclusionIntegration } from './image-occlusion/image-occlusion-model'
 import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
@@ -32,6 +33,7 @@ interface EditorBaseProps {
   cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
   focus?: EditorFocusTarget
+  imageOcclusion?: EditorImageOcclusionIntegration
   mode?: EditorModeValue
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
@@ -54,6 +56,7 @@ export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
   const onCardSyncErrorRef = useRef(props.cards?.onSyncError)
+  const imageOcclusionRef = useRef(props.imageOcclusion)
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const controlledOutdentBehaviorProvided = Boolean(
@@ -73,6 +76,7 @@ export function Editor(props: EditorProps) {
   const initialCardReviewRef = useRef(props.cardReview)
   onDocumentChangeRef.current = props.onDocumentChange
   onCardSyncErrorRef.current = props.cards?.onSyncError
+  imageOcclusionRef.current = props.imageOcclusion
   const cardRepository = props.cards?.repository
   const cardIntegration = useMemo<EditorCardIntegration | undefined>(() => cardRepository
     ? {
@@ -85,6 +89,29 @@ export function Editor(props: EditorProps) {
         repository: cardRepository,
       }
     : undefined, [cardRepository])
+  const imageOcclusionAvailable = props.imageOcclusion !== undefined
+  const imageOcclusion = useMemo<EditorImageOcclusionIntegration | undefined>(() => imageOcclusionAvailable
+    ? {
+        getState: (imageId) => {
+          const integration = imageOcclusionRef.current
+          if (!integration)
+            throw new Error('Image occlusion integration is unavailable')
+          return integration.getState(imageId)
+        },
+        open: (input) => {
+          const integration = imageOcclusionRef.current
+          if (!integration)
+            throw new Error('Image occlusion integration is unavailable')
+          return integration.open(input)
+        },
+        subscribe: (listener) => {
+          const integration = imageOcclusionRef.current
+          if (!integration)
+            throw new Error('Image occlusion integration is unavailable')
+          return integration.subscribe(listener)
+        },
+      }
+    : undefined, [imageOcclusionAvailable])
   const storedMode = useEditorTopicMode(props.topic)
   const mode = props.mode ?? storedMode
   const layout = props.layout ?? 'standalone'
@@ -96,6 +123,7 @@ export function Editor(props: EditorProps) {
     adapters: props.adapters,
     cardReview: initialCardReviewRef.current,
     cards: cardIntegration,
+    imageOcclusion,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
     readOnly: props.readOnly === true,
@@ -103,7 +131,7 @@ export function Editor(props: EditorProps) {
     // The underlying Note topic is stable by ID; ignore wrapper-object changes
     // caused by persistence receipts so asynchronous uploads retain their view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [props.adapters, cardIntegration, props.readOnly, props.topic.noteId, props.topic.topicId])
+  }), [props.adapters, cardIntegration, imageOcclusion, props.readOnly, props.topic.noteId, props.topic.topicId])
 
   useEffect(() => {
     return () => {

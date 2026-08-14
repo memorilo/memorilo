@@ -5,7 +5,7 @@ import type {
   ListPastJournalsInput,
 } from './note-application-contracts'
 import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
-import { projectEditorCards } from '@memorilo/editor/card'
+import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
 import { NoteCardProjectionNotFoundError } from './note-application-contracts'
 import {
   projectApplicationNote,
@@ -33,7 +33,15 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
       const entry = current.note.getEntries().find(candidate => candidate.id === input.topicId)
       if (!entry || entry.kind !== 'topic')
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
-      const card = projectEditorCards(current.note.getTopicValidationInput(input.topicId).document)
+      const cards = entry.topicType === 'image-occlusion'
+        ? projectImageOcclusionCards(current.note.getImageOcclusionTopic(entry.id).getState())
+        : (() => {
+            const validation = current.note.getTopicValidationInput(entry.id)
+            if (!('document' in validation))
+              throw new Error(`Topic ${entry.id} is missing its document`)
+            return projectEditorCards(validation.document)
+          })()
+      const card = cards
         .find(candidate => candidate.id === input.cardId)
       if (!card)
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
@@ -61,6 +69,8 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
       if (!entry || entry.kind !== 'topic')
         throw new Error(`Note ${input.noteId} does not contain Topic ${input.topicId}`)
       const validation = current.note.getTopicValidationInput(input.topicId)
+      if (!('document' in validation))
+        throw new TypeError(`ImageOcclusionTopic ${input.topicId} does not have editable Blocks`)
       return {
         document: validation.document,
         mode: entry.mode,

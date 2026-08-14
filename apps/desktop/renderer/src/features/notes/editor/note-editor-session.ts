@@ -125,9 +125,11 @@ export function useEditorNoteSession<TStored extends DesktopNote>({
   const resolveTopicDocument = useCallback<EditorTopicResolver<TStored>>((note, stored) => {
     if (topicId !== undefined) {
       const topic = note.getEntries().find(entry => entry.kind === 'topic' && entry.id === topicId)
-      if (!topic)
+      if (!topic || topic.kind !== 'topic')
         throw new Error(`Note ${note.id} does not contain Topic ${topicId}`)
-      return note.getTopic(topic.id)
+      return topic.topicType === 'image-occlusion'
+        ? note.getImageOcclusionTopic(topic.id)
+        : note.getTopic(topic.id)
     }
     const currentResolver = resolveTopicRef.current
     if (!currentResolver)

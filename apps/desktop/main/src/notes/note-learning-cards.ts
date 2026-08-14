@@ -3,18 +3,18 @@ import type {
   LearningCardProjection,
   LearningTopicCardProjection,
 } from '@memorilo/editor-storage'
-import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { EditorNote } from '@memorilo/editor/note'
-import { projectEditorCards } from '@memorilo/editor/card'
+import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
 
-function toLearningCard(card: EditorCardProjection): LearningCardProjection {
+function toLearningCard(card: ReviewCardProjection): LearningCardProjection {
   return {
     cardId: card.id,
     direction: card.kind === 'cloze' ? 'forward' : card.direction,
     itemBlockIds: (card.kind === 'list' || card.kind === 'set') && card.direction === 'forward'
       ? card.items.map(item => item.blockId)
       : [],
-    kind: card.kind,
+    kind: card.kind === 'image-occlusion' ? 'basic' : card.kind,
     sourceBlockId: card.sourceBlockId,
   }
 }
@@ -32,7 +32,14 @@ export function projectNoteLearningCards(
     const entry = topicOrder === -1 ? undefined : entries[topicOrder]
     return {
       cards: entry?.kind === 'topic'
-        ? projectEditorCards(note.getTopicValidationInput(topicId).document).map(toLearningCard)
+        ? entry.topicType === 'image-occlusion'
+          ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
+          : (() => {
+              const validation = note.getTopicValidationInput(topicId)
+              if (!('document' in validation))
+                throw new Error(`Topic ${topicId} is missing its document`)
+              return projectEditorCards(validation.document).map(toLearningCard)
+            })()
         : [],
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,

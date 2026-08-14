@@ -24,6 +24,18 @@ _Avoid_: Page, editor document
 A Topic bound to one concrete BookFile. It keeps normal editable Topic content while owning that file's reading position and annotations.
 _Avoid_: ReadingTopic, book registry entry
 
+**ImageOcclusionTopic**:
+A Topic created from one image in a RegularTopic. It owns an immutable image snapshot and the occlusion definitions used to generate Cards.
+_Avoid_: Image card, masked RegularTopic
+
+**OcclusionShape**:
+One rectangle, ellipse, or brush stroke placed over an ImageOcclusionTopic's image snapshot.
+_Avoid_: Mask Card, OcclusionGroup
+
+**OcclusionGroup**:
+One or more OcclusionShapes that are hidden and revealed together as one Card.
+_Avoid_: OcclusionShape, CardID
+
 **Publication**:
 Catalog metadata used to discover one or more downloadable renditions of a work. A Publication is not the identity of a BookTopic.
 _Avoid_: BookFile, BookTopic

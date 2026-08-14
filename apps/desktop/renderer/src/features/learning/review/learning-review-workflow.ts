@@ -402,8 +402,13 @@ export function createLearningReviewWorkflow({
       emit()
     },
     toggleSource: () => {
-      if (!session.isActive() || view.status !== 'active')
+      if (
+        !session.isActive()
+        || view.status !== 'active'
+        || view.item.card.kind === 'image-occlusion'
+      ) {
         return
+      }
       view = { ...view, sourceVisible: !view.sourceVisible }
       emit()
     },

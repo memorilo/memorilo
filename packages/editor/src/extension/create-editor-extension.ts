@@ -2,6 +2,7 @@ import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { CardReviewRuntime } from '../card/card-review-runtime'
 import type { OutlineRuntime } from '../common/outline-runtime'
+import type { EditorImageOcclusionIntegration } from '../image-occlusion/image-occlusion-model'
 import type { EditorTopicRuntime } from '../note/editor-topic-runtime'
 import type { EditorStore } from '../state/editor-store'
 import {
@@ -46,6 +47,7 @@ import { defineImageView } from '../ui/image-view/index.ts'
 import { defineTagView } from '../ui/tag-view/index.ts'
 import { defineTaskListView } from '../ui/task-list-view/index.ts'
 import { EditorUploadRuntime } from './editor-upload-runtime'
+import { defineImageIdExtension } from './image-id-extension'
 import { defineInlineMathInputRule } from './inline-math-input-rule'
 import { defineMathKeymapExtension } from './math-keymap-extension'
 import { createNetworkImagePaste } from './network-image-paste'
@@ -74,6 +76,7 @@ export function createEditorExtension(
   topic?: EditorTopicRuntime,
   readOnly = false,
   cardReviewRuntime?: CardReviewRuntime,
+  imageOcclusion?: EditorImageOcclusionIntegration,
 ) {
   const uploadRuntime = new EditorUploadRuntime(adapters.uploadImage, store)
   const uploader = uploadRuntime.uploader
@@ -85,6 +88,7 @@ export function createEditorExtension(
     defineCardExtension(),
     ...(cardReviewRuntime ? [defineCardReviewExtension(cardReviewRuntime)] : []),
     withPriority(defineBlockIdExtension(), Priority.highest),
+    withPriority(defineImageIdExtension(), Priority.highest),
     defineTableKeymapExtension(),
     defineEditorKeymapExtension(),
     defineMathKeymapExtension(),
@@ -110,7 +114,7 @@ export function createEditorExtension(
     defineCodeBlockShiki(),
     defineHorizontalRule(),
     defineCodeBlockView(),
-    defineImageView(),
+    defineImageView(imageOcclusion),
     defineTagView(tagRuntime),
     defineTaskListView(),
     defineImageUploadHandler({

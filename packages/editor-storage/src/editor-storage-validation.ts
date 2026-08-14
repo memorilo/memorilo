@@ -115,7 +115,7 @@ export function validateProjectionPatch(
           throw new Error(`BookTopics ${existingTopicId} and ${entryId} bind the same file ${identity}`)
         bookTopicIdsByFile.set(identity, entryId)
       }
-      else if (entry.topicType !== 'regular') {
+      else if (entry.topicType !== 'image-occlusion' && entry.topicType !== 'regular') {
         throw new TypeError(`Topic ${entryId} has an unknown subtype`)
       }
       topicEntries.set(entryId, entry)

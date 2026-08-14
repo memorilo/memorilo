@@ -8,6 +8,10 @@ import type { Effect } from 'effect'
 import type { LoroDoc, UndoManager as LoroUndoManager } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorModeValue } from '../common/editor-mode'
+import type {
+  ImageOcclusionSnapshot,
+  ImageOcclusionState,
+} from '../image-occlusion/image-occlusion-model'
 import type { LoroTopic } from '../schema/topic-schema'
 import type { TopicBlockEdit } from './editor-note-block-edits'
 import type { TopicContentProjection } from './topic-projection'
@@ -47,7 +51,11 @@ export interface BookTopicSnapshot extends TopicSnapshotBase {
   topicType: 'book'
 }
 
-export type TopicSnapshot = BookTopicSnapshot | RegularTopicSnapshot
+export interface ImageOcclusionTopicSnapshot extends TopicSnapshotBase {
+  topicType: 'image-occlusion'
+}
+
+export type TopicSnapshot = BookTopicSnapshot | ImageOcclusionTopicSnapshot | RegularTopicSnapshot
 
 export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
 
@@ -109,6 +117,15 @@ export interface CreateBookTopicInput {
   title: string
 }
 
+export interface CreateImageOcclusionTopicInput {
+  image: ImageOcclusionSnapshot
+  /** The zero-based position among the source Topic's children. Appends when omitted. */
+  index?: number
+  sourceImageId: string
+  sourceTopicId: string
+  title: string
+}
+
 export interface MoveNoteEntryInput {
   entryId: string
   index?: number
@@ -132,7 +149,15 @@ export interface BookTopicValidationInput extends RegularTopicValidationInput {
   readonly readingState: unknown
 }
 
-export type TopicValidationInput = BookTopicValidationInput | RegularTopicValidationInput
+export interface ImageOcclusionTopicValidationInput {
+  readonly entry: unknown
+  readonly state: unknown
+}
+
+export type TopicValidationInput
+  = | BookTopicValidationInput
+    | ImageOcclusionTopicValidationInput
+    | RegularTopicValidationInput
 
 export interface EditorTopicDocument {
   /** Returns the current editor mode stored in the Topic. */
@@ -158,6 +183,16 @@ export interface EditorBookTopicDocument extends EditorTopicDocument {
   readonly setPosition: (position: ReadingPosition) => void
 }
 
+export interface EditorImageOcclusionTopicDocument {
+  readonly getState: () => ImageOcclusionState
+  readonly noteId: string
+  readonly setState: (state: ImageOcclusionState) => void
+  readonly subscribe: (listener: () => void) => () => void
+  readonly topicId: string
+}
+
+export type EditorOpenedTopic = EditorImageOcclusionTopicDocument | EditorTopicDocument
+
 /**
  * Owns a Note's authoritative in-memory LoroDoc and exposes Note-level editing operations.
  * Topic documents returned by `getTopic` are lightweight handles over this same LoroDoc.
@@ -174,6 +209,8 @@ export interface EditorNote {
   createFolder: (input: CreateFolderInput) => string
   /** Atomically creates a BookTopic with editable content and initialized reading state. */
   createBookTopic: (input: CreateBookTopicInput) => string
+  /** Creates the only ImageOcclusionTopic associated with one RegularTopic image. */
+  createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
   /** Deletes an entry using the requested child-handling strategy. */
@@ -191,6 +228,10 @@ export interface EditorNote {
   getTopic: (topicId: string) => EditorTopicDocument
   /** Returns the reading handle for an existing BookTopic. */
   getBookTopic: (topicId: string) => EditorBookTopicDocument
+  /** Returns the specialized state handle for an existing ImageOcclusionTopic. */
+  getImageOcclusionTopic: (topicId: string) => EditorImageOcclusionTopicDocument
+  /** Finds the unique ImageOcclusionTopic associated with a RegularTopic image. */
+  findImageOcclusionTopic: (sourceTopicId: string, sourceImageId: string) => EditorImageOcclusionTopicDocument | null
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
   /** Returns the exact plain JavaScript object passed to Topic validation. */
@@ -266,10 +307,13 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     applyTopicBlockEdits: input => topics.applyBlockEdits(input),
     getTopic: topicId => topics.get(topicId),
     getBookTopic: topicId => topics.getBook(topicId),
+    getImageOcclusionTopic: topicId => topics.getImageOcclusion(topicId),
+    findImageOcclusionTopic: (sourceTopicId, sourceImageId) => topics.findImageOcclusion(sourceTopicId, sourceImageId),
     checkout: collaboration.checkout,
     checkoutLatest: collaboration.checkoutLatest,
     createFolder: entryRepository.createFolder,
     createBookTopic: entryRepository.createBookTopic,
+    createImageOcclusionTopic: entryRepository.createImageOcclusionTopic,
     createTopic: entryRepository.createTopic,
     deleteEntry: entryRepository.deleteEntry,
     exportSnapshot: collaboration.exportSnapshot,

@@ -13,6 +13,7 @@ export const TOPIC_TITLE_KEY = 'title'
 export const TOPIC_EDITOR_MODE_KEY = 'editorMode'
 export const TOPIC_BLOCK_TREE_KEY = 'blockTreeKey'
 export const TOPIC_TYPE_KEY = 'topicType'
+export const IMAGE_OCCLUSION_STATE_KEY = 'imageOcclusion'
 export const BOOK_BINDING_KEY = 'book'
 export const BOOK_READING_STATE_KEY = 'readingStateKey'
 export const BOOK_ANNOTATIONS_KEY = 'annotationsKey'
@@ -31,10 +32,10 @@ export function readTopicTitle(map: LoroMap, description: string): string {
   return value
 }
 
-export function readTopicType(map: LoroMap, description: string): 'book' | 'regular' {
+export function readTopicType(map: LoroMap, description: string): 'book' | 'image-occlusion' | 'regular' {
   const value = map.get(TOPIC_TYPE_KEY)
-  if (value !== 'book' && value !== 'regular')
-    throw new Error(`${description} must be "book" or "regular"`)
+  if (value !== 'book' && value !== 'image-occlusion' && value !== 'regular')
+    throw new Error(`${description} must be "book", "image-occlusion", or "regular"`)
   return value
 }
 

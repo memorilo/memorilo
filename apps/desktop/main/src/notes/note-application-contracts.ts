@@ -1,5 +1,5 @@
 import type { JournalDate } from '@memorilo/editor-storage'
-import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { TopicBlockEdit } from '@memorilo/editor/note'
 import type { BookFileBinding } from '@memorilo/reading-model'
 import type { BookTopicReadingContext } from './note-application-projection'
@@ -89,7 +89,7 @@ export interface GetNoteCardProjectionInput {
 }
 
 export interface NoteCardProjection {
-  card: EditorCardProjection
+  card: ReviewCardProjection
   noteTitle: string
   topicTitle: string
   updatedAt: number

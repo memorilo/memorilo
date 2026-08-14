@@ -1,4 +1,17 @@
 export type {
+  ImageOcclusionCardProjection,
+  ImageOcclusionMode,
+  ImageOcclusionSnapshot,
+  ImageOcclusionState,
+  OcclusionBoundsShape,
+  OcclusionBrushShape,
+  OcclusionShape,
+} from '../image-occlusion/image-occlusion-model'
+export {
+  imageOcclusionStateSignature,
+  projectImageOcclusionCards,
+} from '../image-occlusion/image-occlusion-model'
+export type {
   BasicCardDirection,
   BasicEditorCardProjection,
   CardAnswerPresentation,
@@ -12,5 +25,6 @@ export type {
   InlineHighlightMarkAttrs,
   MultiLineCardItemProjection,
   MultiLineEditorCardProjection,
+  ReviewCardProjection,
 } from './card-model'
 export { projectEditorCards } from './card-model'

@@ -262,6 +262,7 @@ function LearningReviewPageSession({
   if (!projection)
     throw new Error('Active Learning Review is missing its projection')
   const activeProjection = projection
+  const showSource = active.item.card.kind !== 'image-occlusion' && active.sourceVisible
   const inlineError = actionError ?? preparationError
   const itemSelection: CardSurfaceItemSelection | undefined = activeProjection.supportsForgottenSelection
     ? {
@@ -287,7 +288,7 @@ function LearningReviewPageSession({
         'data-active-review-card-id': active.item.queue.cardId,
         'data-active-review-target-id': active.targetId,
       }}
-      materialAriaLabel={active.sourceVisible ? t('cardSource') : t('currentCard')}
+      materialAriaLabel={showSource ? t('cardSource') : t('currentCard')}
       materialDataAttributes={{ 'data-review-target-id': active.targetId }}
       materialKey={materialKey}
       pendingLabel={t('savingRating')}
@@ -305,7 +306,7 @@ function LearningReviewPageSession({
           item={active.item}
           itemSelection={itemSelection}
           revealedItemBlockIds={activeProjection.visibleItemBlockIds}
-          showSource={active.sourceVisible}
+          showSource={showSource}
           side={active.revealed ? 'answer' : 'question'}
         />
       </Suspense>
