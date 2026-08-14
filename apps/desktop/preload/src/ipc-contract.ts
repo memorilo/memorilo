@@ -158,6 +158,7 @@ export const desktopIpcChannels = {
     createOptimizer: 'memorilo:invoke:learning:createOptimizer',
     endAnkiReview: 'memorilo:invoke:learning:endAnkiReview',
     getCurrentAnkiReviewCard: 'memorilo:invoke:learning:getCurrentAnkiReviewCard',
+    getActivitySummary: 'memorilo:invoke:learning:getActivitySummary',
     getDailyProgress: 'memorilo:invoke:learning:getDailyProgress',
     getLearningState: 'memorilo:invoke:learning:getLearningState',
     getMaintenanceEstimate: 'memorilo:invoke:learning:getMaintenanceEstimate',
