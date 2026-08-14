@@ -108,6 +108,7 @@ function validateTopicDocument(
   options: SchemaAST.ParseOptions,
 ): undefined | SchemaIssue.Issue {
   const blockIds = new Set<string>()
+  const imageIds = new Set<string>()
   const issues: SchemaIssue.Issue[] = []
 
   const addIssue = (path: readonly PropertyKey[], actual: unknown, message: string): void => {
@@ -208,9 +209,20 @@ function validateTopicDocument(
       case 'cardDelimiter':
       case 'hardBreak':
       case 'horizontalRule':
-      case 'image':
       case 'tag':
         break
+      case 'image': {
+        const imageId = node.attrs?.imageId
+        if (imageId !== null && imageId !== undefined) {
+          if (typeof imageId !== 'string' || imageId.length === 0)
+            addIssue([...path, 'attrs', 'imageId'], imageId, 'expected a non-empty imageId or null')
+          else if (imageIds.has(imageId))
+            addIssue([...path, 'attrs', 'imageId'], imageId, `duplicate imageId: ${imageId}`)
+          else
+            imageIds.add(imageId)
+        }
+        break
+      }
     }
 
     if (requiresChildren && children.length === 0)

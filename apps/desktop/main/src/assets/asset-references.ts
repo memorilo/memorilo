@@ -26,8 +26,19 @@ function collectAssetReferences(node: AssetNode, counts: Map<string, number>): v
 export function projectNoteAssetReferences(note: EditorNote): readonly AssetReferenceProjection[] {
   const counts = new Map<string, number>()
   for (const entry of note.getEntries()) {
-    if (entry.kind === 'topic')
-      collectAssetReferences(note.getTopicValidationInput(entry.id).document, counts)
+    if (entry.kind !== 'topic')
+      continue
+    if (entry.topicType === 'image-occlusion') {
+      collectAssetReferences({
+        attrs: { src: note.getImageOcclusionTopic(entry.id).getState().image.src },
+        type: 'image',
+      }, counts)
+      continue
+    }
+    const validation = note.getTopicValidationInput(entry.id)
+    if (!('document' in validation))
+      throw new Error(`Topic ${entry.id} is missing its document`)
+    collectAssetReferences(validation.document, counts)
   }
   return [...counts].map(([fileName, count]) => ({ count, fileName }))
 }

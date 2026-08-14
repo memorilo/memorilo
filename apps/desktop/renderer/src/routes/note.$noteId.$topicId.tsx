@@ -26,6 +26,7 @@ function NoteRoute() {
       noteId={noteId}
       topicId={topicId}
       onOpenJournal={date => navigate({ search: { date }, to: '/journals' })}
+      onOpenTopic={nextTopicId => navigate({ params: { noteId, topicId: nextTopicId }, search: {}, to: '/note/$noteId/$topicId' })}
     />
   )
 }

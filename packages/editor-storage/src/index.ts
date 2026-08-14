@@ -21,6 +21,7 @@ export type {
   GetNoteInput,
   GetOrCreateJournalInput,
   GetTopicBlockInput,
+  ImageOcclusionTopicProjection,
   IndexPendingEmbeddingsInput,
   IndexPendingEmbeddingsResult,
   JournalDate,

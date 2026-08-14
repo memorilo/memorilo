@@ -27,11 +27,13 @@ export function NotePage({
   focus,
   noteId,
   onOpenJournal,
+  onOpenTopic,
   topicId,
 }: {
   focus?: string
   noteId: string
   onOpenJournal: (journalDate: JournalDate) => Promise<void>
+  onOpenTopic: (topicId: string) => Promise<void>
   topicId: string
 }) {
   const { t } = useTranslation('editor')
@@ -44,6 +46,7 @@ export function NotePage({
       noteId={noteId}
       topicId={topicId}
       onOpenJournal={onOpenJournal}
+      onOpenTopic={onOpenTopic}
     />
   )
 }
@@ -52,11 +55,13 @@ function NoteWorkspace({
   focus,
   noteId,
   onOpenJournal,
+  onOpenTopic,
   topicId,
 }: {
   focus?: string
   noteId: string
   onOpenJournal: (journalDate: JournalDate) => Promise<void>
+  onOpenTopic: (topicId: string) => Promise<void>
   topicId: string
 }) {
   const [collapsedEntryIds, setCollapsedEntryIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -80,6 +85,7 @@ function NoteWorkspace({
         focusBlockId={focus}
         noteId={noteId}
         onOpenJournal={onOpenJournal}
+        onOpenTopic={onOpenTopic}
         onToggleEntry={toggleEntry}
         topicId={topicId}
       />

@@ -26,6 +26,7 @@ export type {
   InlineHighlightMarkAttrs,
   MultiLineCardItemProjection,
   MultiLineEditorCardProjection,
+  ReviewCardProjection,
 } from './card/card-model'
 export { projectEditorCards } from './card/card-model'
 export type { CardPreviewItemSelection, CardPreviewMode, CardPreviewProps } from './card/card-preview'
@@ -54,6 +55,21 @@ export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
 export type { EditorFocusTarget, EditorLayout, EditorProps } from './editor'
+export type {
+  EditorImageOcclusionIntegration,
+  ImageOcclusionCardProjection,
+  ImageOcclusionMode,
+  ImageOcclusionSnapshot,
+  ImageOcclusionState,
+  OcclusionBoundsShape,
+  OcclusionBrushShape,
+  OcclusionShape,
+  OpenImageOcclusionInput,
+} from './image-occlusion/image-occlusion-model'
+export {
+  imageOcclusionStateSignature,
+  projectImageOcclusionCards,
+} from './image-occlusion/image-occlusion-model'
 export { JournalEditor } from './journal-editor'
 export type { JournalEditorProps } from './journal-editor'
 export type {
@@ -62,16 +78,21 @@ export type {
   CreateBookTopicInput,
   CreateEditorNoteOptions,
   CreateFolderInput,
+  CreateImageOcclusionTopicInput,
   CreateTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
   EditorBookTopicDocument,
+  EditorImageOcclusionTopicDocument,
   EditorNote,
   EditorNoteChange,
   EditorNoteMutation,
   EditorNoteVersion,
+  EditorOpenedTopic,
   EditorTopicDocument,
   FolderSnapshot,
+  ImageOcclusionTopicSnapshot,
+  ImageOcclusionTopicValidationInput,
   MoveNoteEntryInput,
   NoteEntryKind,
   NoteEntrySnapshot,
@@ -90,6 +111,7 @@ export { hasTopicUserContent } from './note/topic-user-content'
 export { useEditorTopicMode } from './note/use-editor-topic-mode'
 export type {
   LoroBookTopic,
+  LoroImageOcclusionTopic,
   LoroRegularTopic,
   LoroTopic,
   LoroTopicDocument,
@@ -101,6 +123,7 @@ export type {
 export {
   isLoroTopic,
   LoroBookTopicEntrySchema,
+  LoroImageOcclusionTopicEntrySchema,
   LoroRegularTopicEntrySchema,
   LoroTopicDocumentSchema,
   LoroTopicEntrySchema,

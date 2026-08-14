@@ -1,4 +1,5 @@
 import type { DesktopRegularNote, JournalDate } from '@memorilo/desktop-preload'
+import type { ImageOcclusionSnapshot, OpenImageOcclusionInput } from '@memorilo/editor'
 import type { ShelfReadingFormat } from '@memorilo/shelf'
 import type { BookPickerTarget, EntryCreationTarget, ShelfBookOption } from './note-editor-dialogs'
 import { EditorMode } from '@memorilo/editor'
@@ -15,11 +16,22 @@ import { NoteEditorView } from './note-editor-view'
 import { useNoteMetadata } from './note-metadata'
 import { noteSharedStyles } from './note-shared.stylex'
 
+async function snapshotImage(image: ImageOcclusionSnapshot): Promise<ImageOcclusionSnapshot> {
+  const source = new URL(image.src)
+  if (source.protocol === 'blob:')
+    throw new Error('The image is still uploading')
+  if (source.protocol !== 'http:' && source.protocol !== 'https:')
+    return image
+  const imported = await window.desktop.importNetworkImage({ source: source.toString() })
+  return { ...image, src: imported.src }
+}
+
 export function NoteEditor({
   collapsedEntryIds,
   focusBlockId,
   noteId,
   onOpenJournal,
+  onOpenTopic,
   onToggleEntry,
   topicId,
 }: {
@@ -27,6 +39,7 @@ export function NoteEditor({
   focusBlockId?: string
   noteId: string
   onOpenJournal: (journalDate: JournalDate) => Promise<void>
+  onOpenTopic: (topicId: string) => Promise<void>
   onToggleEntry: (entryId: string) => void
   topicId: string
 }) {
@@ -99,6 +112,24 @@ export function NoteEditor({
     setEntryCreationTarget(undefined)
   }, [opened])
 
+  const handleOpenImageOcclusion = useCallback(async ({ image, imageId }: OpenImageOcclusionInput) => {
+    if (!opened)
+      throw new Error('The Note is no longer open')
+    const sourceTopicId = opened.topic.topicId
+    const existing = opened.note.findImageOcclusionTopic(sourceTopicId, imageId)
+    if (existing) {
+      await onOpenTopic(existing.topicId)
+      return
+    }
+    const topicId = opened.note.createImageOcclusionTopic({
+      image: await snapshotImage(image),
+      sourceImageId: imageId,
+      sourceTopicId,
+      title: t('imageOcclusion.defaultTitle', { ns: 'editor' }),
+    })
+    await onOpenTopic(topicId)
+  }, [onOpenTopic, opened, t])
+
   const handleRebindBookTopic = useCallback(async (
     option: ShelfBookOption,
     format: ShelfReadingFormat,
@@ -147,6 +178,7 @@ export function NoteEditor({
         onAddBook={parentId => setBookPickerTarget({ kind: 'create', parentId })}
         onAddFolder={parentId => setEntryCreationTarget({ kind: 'folder', parentId })}
         onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
+        onOpenImageOcclusion={handleOpenImageOcclusion}
         onRebindBook={(topicId) => {
           const format = opened.note.getBookTopic(topicId).getBook().file.format
           setBookPickerTarget({ format, kind: 'rebind', topicId })

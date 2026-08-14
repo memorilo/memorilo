@@ -59,6 +59,16 @@ export const noteEditorStyles = stylex.create({
     paddingLeft: 10,
     backgroundColor: noteTheme.canvas,
   },
+  topicLoading: {
+    display: 'grid',
+    width: '100%',
+    height: '100%',
+    minHeight: 0,
+    placeItems: 'center',
+    color: noteTheme.chromeTextMuted,
+    fontSize: 12,
+    letterSpacing: 0,
+  },
   alertStack: {
     position: 'absolute',
     zIndex: 2,

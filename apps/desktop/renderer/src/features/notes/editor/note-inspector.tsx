@@ -2,7 +2,7 @@ import type { BookTopicSnapshot, NoteEntrySnapshot } from '@memorilo/editor'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
-import { BookOpen, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
+import { BookOpen, ChevronRight, FileText, Folder, FolderOpen, ScanLine } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -184,17 +184,29 @@ export function NoteInspector({
                                             strokeWidth={1.7}
                                           />
                                         )
-                                      : (
-                                          <FileText
-                                            {...stylex.props(
-                                              noteInspectorStyles.topicIcon,
-                                              current && noteInspectorStyles.topicIconCurrent,
-                                            )}
-                                            aria-hidden="true"
-                                            size={14}
-                                            strokeWidth={1.7}
-                                          />
-                                        )}
+                                      : entry.topicType === 'image-occlusion'
+                                        ? (
+                                            <ScanLine
+                                              {...stylex.props(
+                                                noteInspectorStyles.topicIcon,
+                                                current && noteInspectorStyles.topicIconCurrent,
+                                              )}
+                                              aria-hidden="true"
+                                              size={14}
+                                              strokeWidth={1.7}
+                                            />
+                                          )
+                                        : (
+                                            <FileText
+                                              {...stylex.props(
+                                                noteInspectorStyles.topicIcon,
+                                                current && noteInspectorStyles.topicIconCurrent,
+                                              )}
+                                              aria-hidden="true"
+                                              size={14}
+                                              strokeWidth={1.7}
+                                            />
+                                          )}
                                     {entry.topicType === 'book'
                                       ? (
                                           <Link

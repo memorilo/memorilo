@@ -3,12 +3,14 @@ import { union } from 'prosekit/core'
 import { defineMathBlockSpec, defineMathInlineSpec } from 'prosekit/extensions/math'
 import { defineBlockIdAttr } from './block-id-schema'
 import { defineCardSchema } from './card-schema'
+import { defineImageIdAttr } from './image-schema'
 import { defineTagSpec } from './tag-schema'
 import { defineTaskAttrs } from './task-schema'
 
 const topicProseMirrorExtension = union(
   defineBasicExtension(),
   defineCardSchema(),
+  defineImageIdAttr(),
   defineBlockIdAttr(),
   defineTaskAttrs(),
   defineTagSpec(),

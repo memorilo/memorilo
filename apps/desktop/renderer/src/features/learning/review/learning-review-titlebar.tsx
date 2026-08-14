@@ -101,17 +101,21 @@ export function LearningReviewTitlebar({
               >
                 <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
               </button>
-              <button
-                {...stylex.props(styles.iconButton, active.sourceVisible && styles.iconButtonActive)}
-                aria-label={active.sourceVisible ? t('showCard') : t('showSource')}
-                aria-pressed={active.sourceVisible}
-                disabled={!active.revealed}
-                title={active.sourceVisible ? t('showCard') : t('showSource')}
-                type="button"
-                onClick={onToggleSource}
-              >
-                <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
-              </button>
+              {active.item.card.kind === 'image-occlusion'
+                ? null
+                : (
+                    <button
+                      {...stylex.props(styles.iconButton, active.sourceVisible && styles.iconButtonActive)}
+                      aria-label={active.sourceVisible ? t('showCard') : t('showSource')}
+                      aria-pressed={active.sourceVisible}
+                      disabled={!active.revealed}
+                      title={active.sourceVisible ? t('showCard') : t('showSource')}
+                      type="button"
+                      onClick={onToggleSource}
+                    >
+                      <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
+                    </button>
+                  )}
             </div>
           )
         : null}

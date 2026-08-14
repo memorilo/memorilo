@@ -8,6 +8,7 @@ import type { LoroDoc, LoroMap } from 'loro-crdt'
 import type {
   ApplyTopicBlockEditsInput,
   EditorBookTopicDocument,
+  EditorImageOcclusionTopicDocument,
   EditorTopicBinding,
   EditorTopicDocument,
   TopicValidationInput,
@@ -42,6 +43,13 @@ import {
   TOPIC_TYPE_KEY,
   validateBookBindingValue,
 } from './editor-note-crdt'
+import {
+  findImageOcclusionTopicId,
+  getImageOcclusionState,
+  projectImageOcclusionContent,
+  readImageOcclusionValidationInput,
+  setImageOcclusionState,
+} from './editor-note-image-occlusion'
 import { projectTopicContentFromTree } from './editor-note-projection'
 import { normalizeNonEmptyString } from './editor-note-validation'
 
@@ -89,12 +97,15 @@ function readBookReadingState(runtime: EditorNoteDocument, node: NoteEntryNode):
 
 export function readTopicValidationInput(runtime: EditorNoteDocument, topicId: string): TopicValidationInput {
   const node = findTopicNode(runtime, topicId)
+  const topicType = readTopicType(node.data, `Topic ${topicId} type`)
+  if (topicType === 'image-occlusion')
+    return readImageOcclusionValidationInput(runtime, topicId)
   const blockTree = topicBlockTree(runtime, node)
   const document = createNodeJsonFromLoroTree(blockTree)
   if (!document)
     throw new Error(`Topic ${topicId} does not contain an initialized document`)
   const base: TopicValidationInput = { document, entry: node.data.toJSON() }
-  if (readTopicType(node.data, `Topic ${topicId} type`) === 'regular')
+  if (topicType === 'regular')
     return base
   const containers = bookTopicContainers(runtime, node)
   return {
@@ -134,6 +145,8 @@ export function assertBookFileAvailable(
 function createTopicDocument(runtime: EditorNoteDocument, topicId: string): EditorTopicDocument {
   const normalizedTopicId = topicId.trim()
   const node = findTopicNode(runtime, normalizedTopicId)
+  if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'image-occlusion')
+    throw new TypeError(`ImageOcclusionTopic ${normalizedTopicId} does not have a ProseMirror document`)
   topicBlockTree(runtime, node)
   assertEditorMode(node.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${normalizedTopicId} Editor mode`)
   const document: EditorTopicDocument = {
@@ -238,8 +251,12 @@ export class EditorNoteTopics {
 
     this.#runtime.runMutation(() => {
       const validation = readTopicValidationInput(this.#runtime, input.topicId)
+      if (!('document' in validation))
+        throw new TypeError(`ImageOcclusionTopic ${input.topicId} does not have editable Blocks`)
       const document = applyTopicBlockEdits(validation.document, input.edits)
       const topic = EffectRuntime.runSync(validateLoroTopic({ ...validation, document }))
+      if (!('document' in topic))
+        throw new TypeError(`ImageOcclusionTopic ${input.topicId} does not have editable Blocks`)
       const node = findNoteEntry(this.#runtime.doc, input.topicId)
       const blockTree = topicBlockTree(this.#runtime, node)
       const state = EditorState.create({
@@ -253,6 +270,8 @@ export class EditorNoteTopics {
   content(topicId: string): TopicContentProjection {
     const normalizedTopicId = normalizeNonEmptyString(topicId, 'Topic id')
     const node = findNoteEntry(this.#runtime.doc, normalizedTopicId)
+    if (readTopicType(node.data, `Topic ${normalizedTopicId} type`) === 'image-occlusion')
+      return projectImageOcclusionContent(this.#runtime, normalizedTopicId)
     return projectTopicContentFromTree(
       topicBlockTree(this.#runtime, node),
       normalizedTopicId,
@@ -266,6 +285,23 @@ export class EditorNoteTopics {
 
   getBook(topicId: string): EditorBookTopicDocument {
     return createBookTopicDocument(this.#runtime, topicId)
+  }
+
+  getImageOcclusion(topicId: string): EditorImageOcclusionTopicDocument {
+    const normalizedTopicId = normalizeNonEmptyString(topicId, 'ImageOcclusionTopic id')
+    getImageOcclusionState(this.#runtime, normalizedTopicId)
+    return {
+      getState: () => getImageOcclusionState(this.#runtime, normalizedTopicId),
+      noteId: this.#runtime.noteId,
+      setState: state => setImageOcclusionState(this.#runtime, normalizedTopicId, state),
+      subscribe: listener => this.#runtime.doc.subscribe(() => listener()),
+      topicId: normalizedTopicId,
+    }
+  }
+
+  findImageOcclusion(sourceTopicId: string, sourceImageId: string): EditorImageOcclusionTopicDocument | null {
+    const topicId = findImageOcclusionTopicId(this.#runtime, sourceTopicId, sourceImageId)
+    return topicId ? this.getImageOcclusion(topicId) : null
   }
 
   validationInput(topicId: string): TopicValidationInput {
