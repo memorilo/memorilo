@@ -23,6 +23,7 @@ export function createDesktopIpcClient(renderer: Pick<IpcRenderer, 'invoke'>): D
     journals: createGroupClient(desktopIpcChannels.journals, invoke),
     learning: createGroupClient(desktopIpcChannels.learning, invoke),
     notes: createGroupClient(desktopIpcChannels.notes, invoke),
+    whiteboardLibrary: createGroupClient(desktopIpcChannels.whiteboardLibrary, invoke),
     shelf: createGroupClient(desktopIpcChannels.shelf, invoke),
     window: createGroupClient(desktopIpcChannels.window, invoke),
   } as unknown as DesktopIpcClient

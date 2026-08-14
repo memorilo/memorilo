@@ -7,6 +7,7 @@ import type {
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
 import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
+import type { WhiteboardLibraryItem } from '@memorilo/editor/note'
 import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
 import type {
   AddShelfSourceInput,
@@ -124,6 +125,7 @@ interface DesktopLearningStorageApi {
   archiveOptimizer: LearningStorage['optimizers']['archive']
   assignNoteOptimizer: LearningStorage['optimizers']['assignToNote']
   createOptimizer: LearningStorage['optimizers']['create']
+  getActivitySummary: LearningStorage['queue']['getActivitySummary']
   getDailyProgress: LearningStorage['queue']['getDailyProgress']
   getLearningState: LearningStorage['reviews']['getState']
   getMaintenanceEstimate: LearningStorage['maintenance']['getEstimate']
@@ -380,6 +382,10 @@ export interface DesktopNoteExternalUpdate {
   updatedAt: number
 }
 
+export interface DesktopWhiteboardLibraryData {
+  libraryItems: readonly WhiteboardLibraryItem[]
+}
+
 export interface DesktopStoredTopicBlock extends DesktopTopicBlock {
   contentHash: string
   noteId: string
@@ -449,6 +455,7 @@ export interface DesktopApi {
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
   learning: DesktopLearningApi
   listShelfSources: () => Promise<readonly ShelfSource[]>
+  loadWhiteboardLibrary: () => Promise<DesktopWhiteboardLibraryData>
   openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>
   openMostRecentNote: () => Promise<DesktopNote>
   openShelfReading: (input: OpenShelfReadingInput) => Promise<ShelfReadingDocument>
@@ -463,6 +470,7 @@ export interface DesktopApi {
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
   saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
+  saveWhiteboardLibrary: (data: DesktopWhiteboardLibraryData) => Promise<void>
   searchNotes: (input: { limit?: number, query: string }) => Promise<readonly DesktopNoteSearchHit[]>
   searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
   setConfiguration: (configuration: DesktopConfiguration) => Promise<DesktopConfiguration>

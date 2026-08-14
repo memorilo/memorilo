@@ -94,6 +94,10 @@ export const readerSidebarStyles = stylex.create({
     overflow: 'hidden',
     flex: 1,
   },
+  auxiliaryPanel: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
   annotationList: {
     minHeight: 0,
     overflowY: 'auto',

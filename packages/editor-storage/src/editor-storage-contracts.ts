@@ -21,18 +21,19 @@ export type TopicEditorMode = 0 | 1
 interface TopicProjectionBase {
   id: string
   kind: 'topic'
-  mode: TopicEditorMode
   ordinal: number
   parentId: string | null
   title: string
 }
 
 export interface RegularTopicProjection extends TopicProjectionBase {
+  mode: TopicEditorMode
   topicType: 'regular'
 }
 
 export interface BookTopicProjection extends TopicProjectionBase {
   book: BookFileBinding
+  mode: TopicEditorMode
   topicType: 'book'
 }
 
@@ -40,7 +41,15 @@ export interface ImageOcclusionTopicProjection extends TopicProjectionBase {
   topicType: 'image-occlusion'
 }
 
-export type TopicProjection = BookTopicProjection | ImageOcclusionTopicProjection | RegularTopicProjection
+export interface WhiteboardTopicProjection extends TopicProjectionBase {
+  topicType: 'whiteboard'
+}
+
+export type TopicProjection
+  = | BookTopicProjection
+    | ImageOcclusionTopicProjection
+    | RegularTopicProjection
+    | WhiteboardTopicProjection
 
 export type NoteEntryProjection = FolderProjection | TopicProjection
 
@@ -406,6 +415,16 @@ export interface EditorSearchStorage {
   searchTopicBlocks: (input: SearchTopicBlocksInput) => Promise<readonly TopicBlockSearchHit[]>
 }
 
+export interface SaveUserDocumentInput {
+  documentId: string
+  snapshot: Uint8Array
+}
+
+export interface EditorUserDocumentStorage {
+  load: (documentId: string) => Promise<Uint8Array | null>
+  save: (input: SaveUserDocumentInput) => Promise<void>
+}
+
 /**
  * Owns the shared database operation lifecycle and exposes the storage package's
  * deep modules as named facets. Callers choose a domain facet instead of learning
@@ -419,6 +438,7 @@ export interface EditorStorage {
   readonly learning: LearningStorage
   readonly notes: EditorNoteStorage
   readonly search: EditorSearchStorage
+  readonly userDocuments: EditorUserDocumentStorage
   /** @deprecated Use the domain facets above. */
   checkpointNote: (input: CheckpointNoteInput) => Promise<NoteWriteReceipt>
   /** @deprecated Use `assets.claimUnreferenced`. */

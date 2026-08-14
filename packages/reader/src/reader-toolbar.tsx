@@ -4,10 +4,10 @@ import type { ReaderSessionEngine } from './internal/reader-session-engine'
 import type { ReaderOcrStatus, ReaderScaleCapability } from './types'
 import * as stylex from '@stylexjs/stylex'
 import {
+  BookOpenText,
   ChevronLeft,
   ChevronRight,
   Minus,
-  PanelRight,
   Plus,
   ScanLine,
   Sparkles,
@@ -28,6 +28,7 @@ interface ReaderToolbarProps {
   onToggleRegionSelection: () => void
   regionSelectionActive: boolean
   run: ReaderSessionEngine['run']
+  sidebarActions?: ReactNode
   sourceName?: string
   status: ReaderSessionEngine['state']['status']
   title?: string
@@ -55,6 +56,7 @@ export function ReaderToolbar({
   onToggleRegionSelection,
   regionSelectionActive,
   run,
+  sidebarActions,
   sourceName,
   status,
   title,
@@ -63,13 +65,35 @@ export function ReaderToolbar({
   const { t } = useTranslation('common')
   const scaleCapability = adapterState.capabilities.scale
   const displayTitle = title || adapterState.title || sourceName || t('reader.document')
-  const sidebarLabel = annotationPanelOpen ? t('reader.hideSidebar') : t('reader.showSidebar')
+  const sidebarLabel = annotationEditingEnabled
+    ? annotationPanelOpen ? t('reader.hideSidebar') : t('reader.showSidebar')
+    : annotationPanelOpen ? t('reader.hideContents') : t('reader.showContents')
   const currentOcrState = adapterState.position.format === 'pdf'
     && ocrStatus?.pageNumber === adapterState.position.pageNumber
     ? ocrStatus.state
     : undefined
+  const sidebarButton = (
+    <button
+      {...stylex.props(
+        readerStyles.button,
+        chrome === 'window' && readerStyles.buttonWindow,
+        annotationPanelOpen && readerStyles.buttonActive,
+      )}
+      aria-label={sidebarLabel}
+      aria-pressed={annotationPanelOpen}
+      data-window-no-drag=""
+      title={sidebarLabel}
+      type="button"
+      onClick={onToggleAnnotationPanel}
+    >
+      <BookOpenText aria-hidden="true" size={16} strokeWidth={1.8} />
+      {annotationCount > 0
+        ? <span {...stylex.props(readerStyles.annotationBadge)}>{annotationCount}</span>
+        : null}
+    </button>
+  )
 
-  return (
+  const toolbar = (
     <header {...stylex.props(readerStyles.toolbar, chrome === 'window' && readerStyles.toolbarWindow)}>
       {chrome === 'embedded'
         ? (
@@ -132,8 +156,10 @@ export function ReaderToolbar({
           readerStyles.actions,
           chrome === 'window' && readerStyles.windowControlGroup,
           chrome === 'window' && readerStyles.actionsWindow,
+          chrome === 'window' && sidebarActions !== undefined && readerStyles.actionsWindowWithSidebarActions,
         )}
       >
+        {sidebarButton}
         {toolbarActions}
         {annotationEditingEnabled && adapterState.capabilities.regionSelection
           ? (
@@ -208,25 +234,24 @@ export function ReaderToolbar({
               </>
             )
           : null}
-        <button
-          {...stylex.props(
-            readerStyles.button,
-            chrome === 'window' && readerStyles.buttonWindow,
-            annotationPanelOpen && readerStyles.buttonActive,
-          )}
-          aria-label={sidebarLabel}
-          aria-pressed={annotationPanelOpen}
-          data-window-no-drag=""
-          title={sidebarLabel}
-          type="button"
-          onClick={onToggleAnnotationPanel}
-        >
-          <PanelRight aria-hidden="true" size={16} strokeWidth={1.8} />
-          {annotationCount > 0
-            ? <span {...stylex.props(readerStyles.annotationBadge)}>{annotationCount}</span>
-            : null}
-        </button>
       </div>
     </header>
+  )
+  if (chrome !== 'window' || sidebarActions === undefined)
+    return toolbar
+  return (
+    <>
+      {toolbar}
+      <div
+        {...stylex.props(
+          readerStyles.sidebarActions,
+          readerStyles.windowControlGroup,
+          readerStyles.sidebarActionsWindow,
+        )}
+        data-window-no-drag=""
+      >
+        {sidebarActions}
+      </div>
+    </>
   )
 }

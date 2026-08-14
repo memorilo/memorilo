@@ -17,6 +17,11 @@ export const IMAGE_OCCLUSION_STATE_KEY = 'imageOcclusion'
 export const BOOK_BINDING_KEY = 'book'
 export const BOOK_READING_STATE_KEY = 'readingStateKey'
 export const BOOK_ANNOTATIONS_KEY = 'annotationsKey'
+export const WHITEBOARD_SCENE_KEY = 'scene'
+export const WHITEBOARD_EMBEDDED_EDITORS_KEY = 'embeddedEditors'
+export const EMBEDDED_EDITOR_ID_KEY = 'editorId'
+export const EMBEDDED_EDITOR_MODE_KEY = 'editorMode'
+export const EMBEDDED_EDITOR_DOCUMENT_KEY = 'document'
 
 export function readString(map: LoroMap, key: string, description: string): string {
   const value = map.get(key)
@@ -32,10 +37,10 @@ export function readTopicTitle(map: LoroMap, description: string): string {
   return value
 }
 
-export function readTopicType(map: LoroMap, description: string): 'book' | 'image-occlusion' | 'regular' {
+export function readTopicType(map: LoroMap, description: string): 'book' | 'image-occlusion' | 'regular' | 'whiteboard' {
   const value = map.get(TOPIC_TYPE_KEY)
-  if (value !== 'book' && value !== 'image-occlusion' && value !== 'regular')
-    throw new Error(`${description} must be "book", "image-occlusion", or "regular"`)
+  if (value !== 'book' && value !== 'image-occlusion' && value !== 'regular' && value !== 'whiteboard')
+    throw new Error(`${description} must be "book", "image-occlusion", "regular", or "whiteboard"`)
   return value
 }
 

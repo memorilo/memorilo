@@ -1,0 +1,44 @@
+.excalidraw {
+  .popover {
+    position: absolute;
+    z-index: 10;
+    padding: 5px 0 5px;
+    outline: none;
+    transform-origin: top left;
+    will-change: filter, opacity, transform;
+    animation: glass-popover-in var(--glass-materialize-duration)
+      var(--glass-materialize-timing);
+  }
+
+  @keyframes glass-popover-in {
+    from {
+      opacity: 0;
+      filter: blur(5px) saturate(120%);
+      transform: translateY(-6px) scale(0.965);
+    }
+    55% {
+      opacity: 1;
+      filter: blur(0) saturate(160%);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0) saturate(100%);
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes glass-popover-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .popover {
+      animation: glass-popover-fade-in 120ms ease-out;
+    }
+  }
+}

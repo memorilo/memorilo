@@ -203,6 +203,24 @@ export interface LearningDailyProgress {
   studyDayStartedAt: number
 }
 
+export interface GetLearningActivitySummaryInput {
+  days?: number
+  now?: number
+}
+
+export interface LearningActivityDay {
+  reviewCount: number
+  reviewedCards: number
+  studyDayStartedAt: number
+  successfulReviewCount: number
+}
+
+export interface LearningActivitySummary {
+  currentStreakDays: number
+  dailyProgress: LearningDailyProgress
+  days: readonly LearningActivityDay[]
+}
+
 export interface LearningNoteSummary {
   cardCount: number
   noteId: string
@@ -275,6 +293,7 @@ export interface LearningOptimizerStorage {
 }
 
 export interface LearningQueueStorage {
+  getActivitySummary: (input?: GetLearningActivitySummaryInput) => Promise<LearningActivitySummary>
   getDailyProgress: (now?: number) => Promise<LearningDailyProgress>
   list: (input?: ListLearningQueueInput) => Promise<readonly LearningQueueItem[]>
 }

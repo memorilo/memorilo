@@ -1,0 +1,126 @@
+@import "../css/variables.module.scss";
+
+.zoom-actions,
+.undo-redo-buttons {
+  background-color: rgba(248, 249, 251, 0.96);
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 0;
+  border-radius: var(--glass-radius-compact);
+  box-shadow: none;
+  filter: none;
+  overflow: hidden;
+
+  &::before {
+    content: none;
+    display: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.zoom-button,
+.undo-redo-buttons button {
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  font-size: 0.875rem !important;
+  width: var(--lg-button-size);
+  height: var(--lg-button-size);
+  transition:
+    background-color var(--glass-transition-duration)
+      var(--glass-transition-timing),
+    box-shadow var(--glass-transition-duration) var(--glass-transition-timing),
+    filter 100ms ease-out,
+    transform 100ms ease-out;
+
+  &:hover {
+    background-color: var(--glass-control-hover-bg) !important;
+    box-shadow: none;
+  }
+
+  &:active {
+    background-color: var(--glass-control-pressed-bg) !important;
+    box-shadow: none;
+    filter: none;
+    transform: translateY(1px) scale(0.95);
+  }
+
+  svg {
+    width: var(--lg-icon-size) !important;
+    height: var(--lg-icon-size) !important;
+  }
+
+  .ToolIcon__icon {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.reset-zoom-button {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  padding: 0 0.625rem !important;
+  width: 3.75rem !important;
+  justify-content: center;
+  color: var(--text-primary-color);
+}
+
+.zoom-out-button {
+  border-top-left-radius: var(--border-radius-lg) !important;
+  border-bottom-left-radius: var(--border-radius-lg) !important;
+
+  :root[dir="rtl"] & {
+    transform: scaleX(-1);
+  }
+
+  .ToolIcon__icon {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+}
+
+.zoom-in-button {
+  border-top-right-radius: var(--border-radius-lg) !important;
+  border-bottom-right-radius: var(--border-radius-lg) !important;
+
+  :root[dir="rtl"] & {
+    transform: scaleX(-1);
+  }
+
+  .ToolIcon__icon {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+  }
+}
+
+.undo-redo-buttons {
+  .undo-button-container button {
+    border-top-left-radius: var(--border-radius-lg) !important;
+    border-bottom-left-radius: var(--border-radius-lg) !important;
+    border-right: 0 !important;
+
+    :root[dir="rtl"] & {
+      transform: scaleX(-1);
+    }
+
+    .ToolIcon__icon {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+  }
+
+  .redo-button-container button {
+    border-top-right-radius: var(--border-radius-lg) !important;
+    border-bottom-right-radius: var(--border-radius-lg) !important;
+
+    :root[dir="rtl"] & {
+      transform: scaleX(-1);
+    }
+
+    .ToolIcon__icon {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+  }
+}

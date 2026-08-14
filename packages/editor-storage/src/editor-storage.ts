@@ -8,6 +8,7 @@ import type {
   EditorNoteStorage,
   EditorSearchStorage,
   EditorStorage,
+  EditorUserDocumentStorage,
   SqliteEditorStorageOptions,
 } from './editor-storage-contracts'
 import type { LearningStorage } from './learning'
@@ -21,6 +22,7 @@ import { EditorNoteRepository } from './editor-note-repository'
 import { EditorSearch } from './editor-search'
 import { initializeEditorStorageSchema } from './editor-storage-schema'
 import { assertJournalDate } from './editor-storage-shared'
+import { EditorUserDocumentRepository } from './editor-user-document-repository'
 import { SqliteLearningStorage } from './learning/learning-storage'
 
 export { assertJournalDate }
@@ -73,6 +75,7 @@ export class SqliteEditorStorage implements EditorStorage {
   readonly notes: EditorNoteStorage
   readonly #resources: ReturnType<typeof createResourceScope>
   readonly search: EditorSearchStorage
+  readonly userDocuments: EditorUserDocumentStorage
 
   private constructor(
     options: SqliteEditorStorageOptions,
@@ -113,6 +116,7 @@ export class SqliteEditorStorage implements EditorStorage {
       runOperation,
     })
     this.search = new EditorSearch(options.database, options.embeddingModel, runOperation)
+    this.userDocuments = new EditorUserDocumentRepository({ database: options.database, runOperation })
     this.checkpointNote = input => this.notes.checkpointNote(input)
     this.claimUnreferencedAsset = input => this.assets.claimUnreferenced(input)
     this.completeAssetDeletion = input => this.assets.completeDeletion(input)

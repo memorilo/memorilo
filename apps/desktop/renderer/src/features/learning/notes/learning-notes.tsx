@@ -10,6 +10,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDesktopConfiguration } from '../../../shared/configuration'
+import * as LearningActivity from '../components/learning-activity'
 import { learningQueryKeys } from '../query-keys'
 import { buildAnkiDeckTree } from './anki-deck-tree'
 import { learningNotesStyles as styles } from './learning-notes.stylex'
@@ -354,12 +355,7 @@ export function LearningNotesPanel() {
     <div {...stylex.props(styles.workspace)}>
       <div {...stylex.props(styles.scroll)}>
         <div {...stylex.props(styles.content)}>
-          <header {...stylex.props(styles.header)}>
-            <div {...stylex.props(styles.heading)}>
-              <h2 {...stylex.props(styles.title)}>{t('notes')}</h2>
-              <p {...stylex.props(styles.summary)}>{t('learningNoteCount', { count: notes.length })}</p>
-            </div>
-          </header>
+          <LearningActivity.Root />
           {notes.length > 0 || configuration.anki.enabled
             ? (
                 <div {...stylex.props(styles.list)} role="list">

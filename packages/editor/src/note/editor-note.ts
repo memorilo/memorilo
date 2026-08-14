@@ -37,17 +37,18 @@ export interface FolderSnapshot extends NoteEntryBase {
 
 interface TopicSnapshotBase extends NoteEntryBase {
   kind: 'topic'
-  mode: EditorModeValue
   /** The effective title: the explicit title, or the first content line when it is empty. */
   title: string
 }
 
 export interface RegularTopicSnapshot extends TopicSnapshotBase {
+  mode: EditorModeValue
   topicType: 'regular'
 }
 
 export interface BookTopicSnapshot extends TopicSnapshotBase {
   book: BookFileBinding
+  mode: EditorModeValue
   topicType: 'book'
 }
 
@@ -55,7 +56,15 @@ export interface ImageOcclusionTopicSnapshot extends TopicSnapshotBase {
   topicType: 'image-occlusion'
 }
 
-export type TopicSnapshot = BookTopicSnapshot | ImageOcclusionTopicSnapshot | RegularTopicSnapshot
+export interface WhiteboardTopicSnapshot extends TopicSnapshotBase {
+  topicType: 'whiteboard'
+}
+
+export type TopicSnapshot
+  = | BookTopicSnapshot
+    | ImageOcclusionTopicSnapshot
+    | RegularTopicSnapshot
+    | WhiteboardTopicSnapshot
 
 export type NoteEntrySnapshot = FolderSnapshot | TopicSnapshot
 
@@ -126,6 +135,18 @@ export interface CreateImageOcclusionTopicInput {
   title: string
 }
 
+export interface CreateWhiteboardTopicInput {
+  index?: number
+  parentId?: string | null
+  title: string
+}
+
+export interface CreateEmbeddedEditorInput {
+  /** Initial ProseMirror content. A canonical empty document is created when omitted. */
+  initialContent?: NodeJSON
+  mode: EditorModeValue
+}
+
 export interface MoveNoteEntryInput {
   entryId: string
   index?: number
@@ -158,8 +179,23 @@ export type TopicValidationInput
   = | BookTopicValidationInput
     | ImageOcclusionTopicValidationInput
     | RegularTopicValidationInput
+    | WhiteboardTopicValidationInput
+
+export interface EmbeddedEditorValidationInput {
+  readonly document: NodeJSON
+  readonly editorId: string
+  readonly editorMode: EditorModeValue
+}
+
+export interface WhiteboardTopicValidationInput {
+  readonly embeddedEditors: Readonly<Record<string, EmbeddedEditorValidationInput>>
+  readonly entry: unknown
+  readonly scene: unknown
+}
 
 export interface EditorTopicDocument {
+  /** Stable identity of this editor document. */
+  readonly documentId: string
   /** Returns the current editor mode stored in the Topic. */
   readonly getMode: () => EditorModeValue
   readonly noteId: string
@@ -168,6 +204,10 @@ export interface EditorTopicDocument {
   /** Subscribes to changes in the owning Note's LoroDoc. */
   readonly subscribe: (listener: () => void) => () => void
   readonly topicId: string
+}
+
+export interface EditorEmbeddedDocument extends EditorTopicDocument {
+  readonly editorId: string
 }
 
 export interface EditorBookTopicDocument extends EditorTopicDocument {
@@ -191,8 +231,30 @@ export interface EditorImageOcclusionTopicDocument {
   readonly topicId: string
 }
 
-export type EditorOpenedTopic = EditorImageOcclusionTopicDocument | EditorTopicDocument
+export type WhiteboardScene = Readonly<Record<string, unknown>>
 
+export interface EmbeddedEditorSnapshot {
+  readonly editorId: string
+  readonly mode: EditorModeValue
+}
+
+export interface EditorWhiteboardTopicDocument {
+  readonly createEmbeddedEditor: (input: CreateEmbeddedEditorInput) => string
+  readonly deleteEmbeddedEditor: (editorId: string) => void
+  readonly duplicateEmbeddedEditor: (editorId: string) => string
+  readonly getEmbeddedEditor: (editorId: string) => EditorEmbeddedDocument
+  readonly getEmbeddedEditors: () => readonly EmbeddedEditorSnapshot[]
+  readonly getScene: () => WhiteboardScene
+  readonly noteId: string
+  readonly setScene: (scene: WhiteboardScene) => void
+  readonly subscribe: (listener: () => void) => () => void
+  readonly topicId: string
+}
+
+export type EditorOpenedTopic
+  = | EditorImageOcclusionTopicDocument
+    | EditorTopicDocument
+    | EditorWhiteboardTopicDocument
 /**
  * Owns a Note's authoritative in-memory LoroDoc and exposes Note-level editing operations.
  * Topic documents returned by `getTopic` are lightweight handles over this same LoroDoc.
@@ -211,6 +273,8 @@ export interface EditorNote {
   createBookTopic: (input: CreateBookTopicInput) => string
   /** Creates the only ImageOcclusionTopic associated with one RegularTopic image. */
   createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => string
+  /** Atomically creates a whiteboard Topic with an empty scene. */
+  createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   /** Atomically creates a Topic entry and its initialized content tree, then returns its stable entry ID. */
   createTopic: (input: CreateTopicInput) => string
   /** Deletes an entry using the requested child-handling strategy. */
@@ -232,6 +296,8 @@ export interface EditorNote {
   getImageOcclusionTopic: (topicId: string) => EditorImageOcclusionTopicDocument
   /** Finds the unique ImageOcclusionTopic associated with a RegularTopic image. */
   findImageOcclusionTopic: (sourceTopicId: string, sourceImageId: string) => EditorImageOcclusionTopicDocument | null
+  /** Returns the scene and Embedded Editor handle for an existing WhiteboardTopic. */
+  getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
   /** Returns the exact plain JavaScript object passed to Topic validation. */
@@ -276,6 +342,7 @@ export interface CreateEditorNoteOptions {
 }
 
 export interface EditorTopicBinding {
+  documentId: string
   doc: LoroDoc
   tree: ReturnType<LoroDoc['getTree']>
   topicId: string
@@ -309,11 +376,13 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     getBookTopic: topicId => topics.getBook(topicId),
     getImageOcclusionTopic: topicId => topics.getImageOcclusion(topicId),
     findImageOcclusionTopic: (sourceTopicId, sourceImageId) => topics.findImageOcclusion(sourceTopicId, sourceImageId),
+    getWhiteboardTopic: topicId => topics.getWhiteboard(topicId),
     checkout: collaboration.checkout,
     checkoutLatest: collaboration.checkoutLatest,
     createFolder: entryRepository.createFolder,
     createBookTopic: entryRepository.createBookTopic,
     createImageOcclusionTopic: entryRepository.createImageOcclusionTopic,
+    createWhiteboardTopic: entryRepository.createWhiteboardTopic,
     createTopic: entryRepository.createTopic,
     deleteEntry: entryRepository.deleteEntry,
     exportSnapshot: collaboration.exportSnapshot,

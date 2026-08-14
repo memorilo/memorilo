@@ -131,7 +131,7 @@ export function Editor(props: EditorProps) {
     // The underlying Note topic is stable by ID; ignore wrapper-object changes
     // caused by persistence receipts so asynchronous uploads retain their view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [props.adapters, cardIntegration, imageOcclusion, props.readOnly, props.topic.noteId, props.topic.topicId])
+  }), [props.adapters, cardIntegration, imageOcclusion, props.readOnly, props.topic.documentId, props.topic.noteId])
 
   useEffect(() => {
     return () => {

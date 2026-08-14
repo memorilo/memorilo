@@ -1,9 +1,10 @@
 import type { JournalDate } from '@memorilo/desktop-preload'
 import * as stylex from '@stylexjs/stylex'
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../../../shared/page-titlebar'
+import { useNoteInspectorEntries } from '../note-inspector-state'
 import { noteSharedStyles } from './note-shared.stylex'
 
 const NoteEditor = lazy(async () => {
@@ -64,17 +65,7 @@ function NoteWorkspace({
   onOpenTopic: (topicId: string) => Promise<void>
   topicId: string
 }) {
-  const [collapsedEntryIds, setCollapsedEntryIds] = useState<ReadonlySet<string>>(() => new Set())
-  const toggleEntry = useCallback((entryId: string) => {
-    setCollapsedEntryIds((current) => {
-      const next = new Set(current)
-      if (next.has(entryId))
-        next.delete(entryId)
-      else
-        next.add(entryId)
-      return next
-    })
-  }, [])
+  const { collapsedEntryIds, toggleEntry } = useNoteInspectorEntries(noteId)
   const editorKey = `${noteId}\0${topicId}\0${focus ?? ''}`
 
   return (
