@@ -99,7 +99,7 @@ function serviceStub(): DesktopIpcClient {
       removeSource: vi.fn(),
       updateSource: vi.fn(),
     },
-    window: { showColumnVisibilityMenu: vi.fn() },
+    window: { captureReaderRegion: vi.fn(), showColumnVisibilityMenu: vi.fn() },
   }
 }
 
@@ -148,6 +148,7 @@ describe('desktop preload API', () => {
       networkImagePasteBehavior: 'download',
       outdentBehavior: 'logical',
       readerArrowKeyPageTurning: true,
+      readerAnnotationCopyFormat: 'text',
       readerEpubPresentationMode: 'publisher',
       reduceMotion: false,
       tiffConversionFormat: 'webp',
@@ -172,6 +173,11 @@ describe('desktop preload API', () => {
     expect(services.configuration.set).toHaveBeenCalledWith(configuration)
     await expect(api.setConfigurationValue('reduceMotion', true)).resolves.toEqual(configuration)
     expect(services.configuration.setValue).toHaveBeenCalledWith('reduceMotion', true)
+
+    const png = Uint8Array.from([137, 80, 78, 71])
+    vi.mocked(services.window.captureReaderRegion).mockResolvedValue(png)
+    await expect(api.captureReaderRegion({ height: 20, width: 30, x: 10, y: 5 })).resolves.toEqual(png)
+    expect(services.window.captureReaderRegion).toHaveBeenCalledWith({ height: 20, width: 30, x: 10, y: 5 })
 
     const listener = vi.fn()
     const unsubscribe = api.subscribeNoteUpdates(listener)

@@ -1,8 +1,18 @@
-import type { ReaderAnnotation, ReaderProps } from './types'
+import type { RefObject } from 'react'
+import type {
+  ReaderAnnotation,
+  ReaderClientRect,
+  ReaderProps,
+} from './types'
 import * as stylex from '@stylexjs/stylex'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { annotationCopyText } from './internal/annotation-copy'
+import { findAnnotationClientRect } from './internal/annotation-geometry'
+import { readerAnnotationLabel } from './internal/annotation-label'
 import { useReaderSessionEngine } from './internal/reader-session-engine'
+import { ReaderAnnotationConnectors } from './reader-annotation-connectors'
+import { ReaderAnnotationPopover } from './reader-annotation-popover'
 import { useReaderAnnotationWorkflow } from './reader-annotation-workflow'
 import { ReaderSelectionPopover } from './reader-selection-popover'
 import { useReaderSessionCommands } from './reader-session-commands'
@@ -24,11 +34,64 @@ function readerSourceKey(source: ReaderProps['source']): number {
   return key
 }
 
+function visibleClientRect(rect: ReaderClientRect | null): ReaderClientRect | null {
+  if (!rect)
+    return null
+  if (rect.left + rect.width <= 0
+    || rect.top + rect.height <= 0
+    || rect.left >= window.innerWidth
+    || rect.top >= window.innerHeight) {
+    return null
+  }
+  return rect
+}
+
+function useAnnotationClientRect(
+  engineRef: RefObject<HTMLDivElement | null>,
+  annotationId: string | null,
+  invalidationKey: unknown,
+): ReaderClientRect | null {
+  const [rect, setRect] = useState<ReaderClientRect | null>(null)
+
+  useLayoutEffect(() => {
+    const engine = engineRef.current
+    if (!engine || annotationId === null) {
+      setRect(null)
+      return
+    }
+    let frame: number | null = null
+    const calculate = (): void => {
+      frame = null
+      setRect(visibleClientRect(findAnnotationClientRect(engine, annotationId)))
+    }
+    const schedule = (): void => {
+      if (frame === null)
+        frame = requestAnimationFrame(calculate)
+    }
+    const resize = new ResizeObserver(schedule)
+    resize.observe(engine)
+    document.addEventListener('scroll', schedule, true)
+    window.addEventListener('resize', schedule, { passive: true })
+    calculate()
+    return () => {
+      if (frame !== null)
+        cancelAnimationFrame(frame)
+      resize.disconnect()
+      document.removeEventListener('scroll', schedule, true)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [annotationId, engineRef, invalidationKey])
+
+  return rect
+}
+
 interface ReaderSessionProps extends ReaderProps {
   chrome: 'embedded' | 'window'
 }
 
 function ReaderSession({
+  annotationCopyBookTitle,
+  annotationCopyFormat = 'text',
   annotationEditingEnabled = true,
   annotations,
   ariaLabel,
@@ -36,16 +99,20 @@ function ReaderSession({
   auxiliarySidebar,
   chrome,
   defaultAnnotations = noAnnotations,
+  initialAnnotationId,
   initialPosition,
   initialPresentationMode = 'publisher',
   ocrProvider,
   onAnnotationsChange,
+  onCreateAnnotationTopic,
+  onDetachAnnotationTopic,
   onError,
   onLocationChange,
   onOcrStatusChange,
   onPositionChange,
   onSelectionChange,
   sidebarActions,
+  renderAnnotationEditor,
   source,
   title,
   toolbarActions,
@@ -89,13 +156,20 @@ function ReaderSession({
     regionAnnotationLabel: () => t('reader.openAreaAnnotation'),
     source,
   })
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const annotationCardsRef = useRef(new Map<string, HTMLElement>())
+  const annotationTopicCreationControllersRef = useRef(new Map<string, AbortController>())
+  const mountedRef = useRef(true)
+  const initialNavigationRef = useRef<string | null>(null)
+  const [creatingTopicIds, setCreatingTopicIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [deletingAnnotationId, setDeletingAnnotationId] = useState<string | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
 
   const commands = useReaderSessionCommands({
     annotationEditingEnabled,
     clearSelection,
     handleReaderKeyboardEvent,
     onCreateHighlight: annotationWorkflow.createHighlight,
-    onCreateNote: annotationWorkflow.createNote,
     regionSelectionActive,
     reportError,
     selection,
@@ -132,7 +206,134 @@ function ReaderSession({
     ? sidebarActions({ active: auxiliarySidebarActive, toggle: toggleAuxiliarySidebar })
     : sidebarActions
 
+  const activeAnnotation = annotationWorkflow.activeAnnotationId === null
+    ? null
+    : annotationWorkflow.annotations.find(annotation => annotation.id === annotationWorkflow.activeAnnotationId) ?? null
+  const linkedAnnotations = useMemo(
+    () => annotationWorkflow.annotations.filter(annotation => annotation.annotationTopicId !== undefined),
+    [annotationWorkflow.annotations],
+  )
+  const activeRect = useAnnotationClientRect(
+    engineRef,
+    annotationWorkflow.activeAnnotationId,
+    adapterState,
+  )
   const progress = Math.round(Math.min(1, Math.max(0, adapterState.location.progression)) * 100)
+  const bookTitle = annotationCopyBookTitle?.trim() || source.name?.trim() || undefined
+
+  useEffect(() => {
+    const controllers = annotationTopicCreationControllersRef.current
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      for (const [annotationId, controller] of controllers) {
+        controller.abort(new Error(`Reader closed while creating annotation Topic for ${annotationId}`))
+      }
+      controllers.clear()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (status !== 'ready'
+      || initialAnnotationId === undefined
+      || initialNavigationRef.current === initialAnnotationId
+      || !annotationWorkflow.annotations.some(annotation => annotation.id === initialAnnotationId)) {
+      return
+    }
+    annotationWorkflow.activateAnnotation(initialAnnotationId)
+    if (run(adapter => adapter.goToAnnotation(initialAnnotationId)))
+      initialNavigationRef.current = initialAnnotationId
+  }, [annotationWorkflow, initialAnnotationId, run, status])
+
+  const copyAnnotation = useCallback((annotation: ReaderAnnotation) => {
+    const location = readerAnnotationLabel(annotation, t)
+    const text = annotationCopyText(annotation, annotationCopyFormat, bookTitle, location)
+    void navigator.clipboard.writeText(text).catch(reportError)
+  }, [annotationCopyFormat, bookTitle, reportError, t])
+
+  const addAnnotationTopic = useCallback((annotation: ReaderAnnotation) => {
+    if (!onCreateAnnotationTopic) {
+      reportError(new Error('Reader annotation Topic creation is unavailable'))
+      return
+    }
+    const engine = engineRef.current
+    if (!engine) {
+      reportError(new Error('Reader annotation surface is unavailable'))
+      return
+    }
+    const clientRect = findAnnotationClientRect(engine, annotation.id)
+    if (!clientRect) {
+      reportError(new Error(`Reader annotation ${annotation.id} is not visible`))
+      return
+    }
+    const controllers = annotationTopicCreationControllersRef.current
+    if (controllers.has(annotation.id))
+      return
+    const controller = new AbortController()
+    controllers.set(annotation.id, controller)
+    setCreatingTopicIds((current) => {
+      const next = new Set(current)
+      next.add(annotation.id)
+      return next
+    })
+    void onCreateAnnotationTopic({
+      annotation,
+      clientRect,
+      location: readerAnnotationLabel(annotation, t),
+    }, controller.signal)
+      .then((topicId) => {
+        controller.signal.throwIfAborted()
+        annotationWorkflow.attachAnnotationTopic(annotation.id, topicId)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted)
+          reportError(error)
+      })
+      .finally(() => {
+        if (controllers.get(annotation.id) === controller)
+          controllers.delete(annotation.id)
+        if (!mountedRef.current)
+          return
+        setCreatingTopicIds((current) => {
+          if (!current.has(annotation.id))
+            return current
+          const next = new Set(current)
+          next.delete(annotation.id)
+          return next
+        })
+      })
+  }, [annotationWorkflow, engineRef, onCreateAnnotationTopic, reportError, t])
+
+  const requestDeleteAnnotation = useCallback((annotation: ReaderAnnotation) => {
+    annotationTopicCreationControllersRef.current.get(annotation.id)?.abort(
+      new Error(`Reader annotation ${annotation.id} was deleted while its Topic was being created`),
+    )
+    if (annotation.annotationTopicId === undefined) {
+      annotationWorkflow.removeAnnotation(annotation.id)
+      return
+    }
+    setDeletingAnnotationId(annotation.id)
+  }, [annotationWorkflow])
+
+  const finishLinkedDeletion = useCallback(() => {
+    if (deletingAnnotationId === null)
+      throw new Error('No linked Reader annotation is pending deletion')
+    const annotation = annotationWorkflow.annotations.find(candidate => candidate.id === deletingAnnotationId)
+    if (!annotation?.annotationTopicId)
+      throw new Error(`Reader annotation ${deletingAnnotationId} has no linked Topic`)
+    if (!onDetachAnnotationTopic) {
+      reportError(new Error('Reader annotation Topic detachment is unavailable'))
+      return
+    }
+    setDeletePending(true)
+    void onDetachAnnotationTopic(annotation.annotationTopicId)
+      .then(() => {
+        annotationWorkflow.removeAnnotation(annotation.id)
+        setDeletingAnnotationId(null)
+      })
+      .catch(reportError)
+      .finally(() => setDeletePending(false))
+  }, [annotationWorkflow, deletingAnnotationId, onDetachAnnotationTopic, reportError])
 
   return (
     <div
@@ -142,7 +343,7 @@ function ReaderSession({
     >
       <ReaderToolbar
         adapterState={adapterState}
-        annotationCount={annotationWorkflow.annotations.length}
+        annotationCount={linkedAnnotations.length}
         annotationEditingEnabled={annotationEditingEnabled}
         annotationPanelOpen={annotationWorkflow.annotationPanelOpen}
         chrome={chrome}
@@ -158,7 +359,7 @@ function ReaderSession({
         ocrStatus={ocrStatus}
       />
 
-      <div {...stylex.props(readerStyles.viewport)}>
+      <div ref={viewportRef} {...stylex.props(readerStyles.viewport)}>
         <div {...stylex.props(readerStyles.enginePane)}>
           <div ref={engineRef} {...stylex.props(readerStyles.engine)} />
           {status !== 'ready'
@@ -180,21 +381,18 @@ function ReaderSession({
           annotationEditingEnabled={annotationEditingEnabled}
           annotationPanelOpen={annotationWorkflow.annotationPanelOpen || auxiliarySidebarActive}
           annotationRenderLimit={annotationWorkflow.annotationRenderLimit}
-          annotations={annotationWorkflow.annotations}
-          editingAnnotationId={annotationWorkflow.editingAnnotationId}
-          editingDraft={annotationWorkflow.editingDraft}
+          annotations={linkedAnnotations}
+          renderAnnotationEditor={renderAnnotationEditor === undefined
+            ? undefined
+            : (annotation, readOnly) => renderAnnotationEditor({ annotation, readOnly })}
           run={run}
           sidebarTab={annotationWorkflow.sidebarTab}
-          onBeginEdit={annotationWorkflow.beginEditAnnotation}
-          onCancelEdit={annotationWorkflow.cancelEditAnnotation}
-          onEditingDraftChange={annotationWorkflow.setEditingDraft}
+          onActivateAnnotation={annotationWorkflow.activateAnnotation}
           onLoadMoreAnnotations={(event) => {
             const element = event.currentTarget
             if (element.scrollHeight - element.scrollTop - element.clientHeight <= 240)
               annotationWorkflow.loadMoreAnnotations()
           }}
-          onRemoveAnnotation={annotationWorkflow.removeAnnotation}
-          onSaveEditedAnnotation={annotationWorkflow.saveEditedAnnotation}
           onSelectAnnotation={(annotationId) => {
             annotationWorkflow.activateAnnotation(annotationId)
             run(adapter => adapter.goToAnnotation(annotationId))
@@ -206,6 +404,21 @@ function ReaderSession({
               toggleAuxiliarySidebar()
           }}
           onTabChange={selectReaderSidebarTab}
+          registerAnnotationCard={(annotationId, element) => {
+            if (element)
+              annotationCardsRef.current.set(annotationId, element)
+            else
+              annotationCardsRef.current.delete(annotationId)
+          }}
+        />
+        <ReaderAnnotationConnectors
+          activeAnnotationId={annotationWorkflow.activeAnnotationId}
+          adapterState={adapterState}
+          annotations={linkedAnnotations}
+          cardElements={annotationCardsRef}
+          engineRef={engineRef}
+          open={annotationWorkflow.annotationPanelOpen && annotationWorkflow.sidebarTab === 'annotations'}
+          viewportRef={viewportRef}
         />
       </div>
 
@@ -214,21 +427,73 @@ function ReaderSession({
             <ReaderSelectionPopover
               annotationEditingEnabled={annotationEditingEnabled}
               colorPaletteOpen={annotationWorkflow.colorPaletteOpen}
-              noteComposerOpen={annotationWorkflow.noteComposerOpen}
-              noteDraft={annotationWorkflow.noteDraft}
               selectedColor={annotationWorkflow.selectedColor}
               selection={selection}
               onColorPaletteOpenChange={annotationWorkflow.setColorPaletteOpen}
               onCopy={commands.copySelection}
               onCreateHighlight={commands.createHighlight}
-              onCreateNote={commands.createNote}
               onDismiss={commands.dismissSelection}
-              onNoteComposerOpenChange={annotationWorkflow.setNoteComposerOpen}
-              onNoteDraftChange={annotationWorkflow.setNoteDraft}
               onSelectedColorChange={annotationWorkflow.setSelectedColor}
             />
           )
         : null}
+
+      {activeAnnotation && activeRect
+        ? (
+            <ReaderAnnotationPopover
+              anchorRect={activeRect}
+              annotation={activeAnnotation}
+              colorPaletteOpen={annotationWorkflow.colorPaletteOpen}
+              creatingTopic={creatingTopicIds.has(activeAnnotation.id)}
+              onAddAnnotation={() => addAnnotationTopic(activeAnnotation)}
+              onColorChange={color => annotationWorkflow.reviseAnnotation(activeAnnotation.id, { color })}
+              onColorPaletteOpenChange={annotationWorkflow.setColorPaletteOpen}
+              onCopy={() => copyAnnotation(activeAnnotation)}
+              onDelete={() => requestDeleteAnnotation(activeAnnotation)}
+              onDismiss={annotationWorkflow.dismissAnnotation}
+              onStyleChange={style => annotationWorkflow.reviseAnnotation(activeAnnotation.id, { style })}
+            />
+          )
+        : null}
+
+      {deletingAnnotationId === null
+        ? null
+        : (
+            <div {...stylex.props(readerStyles.dialogScrim)}>
+              <section
+                {...stylex.props(readerStyles.dialog)}
+                aria-labelledby="reader-delete-highlight-title"
+                aria-modal="true"
+                role="dialog"
+              >
+                <h2 id="reader-delete-highlight-title" {...stylex.props(readerStyles.dialogTitle)}>
+                  {t('reader.deleteLinkedHighlightTitle')}
+                </h2>
+                <p {...stylex.props(readerStyles.dialogDescription)}>
+                  {t('reader.deleteLinkedHighlightDescription')}
+                </p>
+                <div {...stylex.props(readerStyles.dialogActions)}>
+                  <button
+                    {...stylex.props(readerStyles.dialogButton)}
+                    disabled={deletePending}
+                    type="button"
+                    onClick={() => setDeletingAnnotationId(null)}
+                  >
+                    {t('reader.cancel')}
+                  </button>
+                  <button
+                    {...stylex.props(readerStyles.dialogButton, readerStyles.dialogPrimaryButton)}
+                    autoFocus
+                    disabled={deletePending}
+                    type="button"
+                    onClick={finishLinkedDeletion}
+                  >
+                    {t('reader.deleteHighlight')}
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
 
       <div {...stylex.props(readerStyles.footer)} aria-hidden="true">
         <div {...stylex.props(readerStyles.progress)} style={{ width: `${progress}%` }} />

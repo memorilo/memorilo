@@ -11,6 +11,7 @@ export type {
   DesktopMcpConfiguration,
   DesktopNetworkImagePasteBehavior,
   DesktopOutdentBehavior,
+  DesktopReaderAnnotationCopyFormat,
   DesktopReaderEpubPresentationMode,
   DesktopTiffConversionFormat,
   DesktopWeekStart,
@@ -67,6 +68,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   networkImagePasteBehavior: Schema.Literals(['download', 'url']),
   outdentBehavior: Schema.Literals(['logical', 'traditional']),
   readerArrowKeyPageTurning: Schema.Boolean,
+  readerAnnotationCopyFormat: Schema.Literals(['text', 'text-book', 'text-book-location']),
   readerEpubPresentationMode: Schema.Literals(['publisher', 'reader']),
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
@@ -94,6 +96,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     networkImagePasteBehavior: 'download' as const,
     outdentBehavior: defaultDesktopOutdentBehavior,
     readerArrowKeyPageTurning: true,
+    readerAnnotationCopyFormat: 'text' as const,
     readerEpubPresentationMode: 'publisher' as const,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
@@ -283,6 +286,17 @@ export const desktopConfigurationDefinition = defineConfiguration({
         path: 'readerEpubPresentationMode',
       },
       {
+        control: 'select',
+        description: 'Choose what is included when copying highlighted text.',
+        label: 'Highlight copy format',
+        options: [
+          { label: 'Text only', value: 'text' },
+          { label: 'Text and book title', value: 'text-book' },
+          { label: 'Text, book title, and location', value: 'text-book-location' },
+        ],
+        path: 'readerAnnotationCopyFormat',
+      },
+      {
         control: 'toggle',
         description: 'Use the left and right arrow keys to turn pages while reading.',
         label: 'Arrow keys turn pages',
@@ -373,6 +387,9 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const readerArrowKeyPageTurning = current.readerArrowKeyPageTurning === undefined
     ? true
     : current.readerArrowKeyPageTurning
+  const readerAnnotationCopyFormat = current.readerAnnotationCopyFormat === undefined
+    ? 'text'
+    : current.readerAnnotationCopyFormat
   const readerEpubPresentationMode = current.readerEpubPresentationMode === undefined
     ? 'publisher'
     : current.readerEpubPresentationMode
@@ -393,6 +410,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && current.networkImagePasteBehavior !== undefined
     && current.outdentBehavior !== undefined
     && current.readerArrowKeyPageTurning !== undefined
+    && current.readerAnnotationCopyFormat !== undefined
     && current.readerEpubPresentationMode !== undefined
     && current.tiffConversionFormat !== undefined
     && current.weekStart !== undefined) {
@@ -416,6 +434,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     networkImagePasteBehavior,
     outdentBehavior: current.outdentBehavior ?? defaultDesktopOutdentBehavior,
     readerArrowKeyPageTurning,
+    readerAnnotationCopyFormat,
     readerEpubPresentationMode,
     tiffConversionFormat,
     weekStart: current.weekStart ?? 'sunday',

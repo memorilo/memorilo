@@ -13,6 +13,7 @@ import {
   noteTree,
   readBookBinding,
   readString,
+  readTopicReaderReference,
   readTopicTitle,
   readTopicType,
   TOPIC_BLOCK_TREE_KEY,
@@ -117,12 +118,14 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
           entries.push({ ...base, book, topicType })
         }
         else if (topicType === 'regular') {
+          const readerReference = readTopicReaderReference(node.meta)
           entries.push({
             id,
             kind,
             mode: assertEditorMode(node.meta.get(TOPIC_EDITOR_MODE_KEY), `Topic ${id} Editor mode`),
             ordinal,
             parentId,
+            ...(readerReference === null ? {} : { readerReference }),
             title: content.title,
             topicType,
           })

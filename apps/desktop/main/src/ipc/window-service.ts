@@ -22,6 +22,24 @@ export interface ColumnVisibilityMenuSelection {
   columnId: string
 }
 
+interface CaptureReaderRegionInput {
+  height: number
+  width: number
+  x: number
+  y: number
+}
+
+function validateCaptureRegion(input: CaptureReaderRegionInput): void {
+  for (const [field, value] of Object.entries(input)) {
+    if (!Number.isSafeInteger(value))
+      throw new TypeError(`Reader capture ${field} must be an integer`)
+  }
+  if (input.x < 0 || input.y < 0)
+    throw new RangeError('Reader capture origin must not be negative')
+  if (input.width < 1 || input.height < 1)
+    throw new RangeError('Reader capture dimensions must be positive')
+}
+
 function validateColumns(columns: readonly ColumnVisibilityMenuItem[]): void {
   if (columns.length === 0)
     throw new TypeError('Column visibility menu requires at least one column')
@@ -45,6 +63,14 @@ function validateAnchor(anchor: ShowColumnVisibilityMenuInput['anchor']): void {
 
 export function createWindowHandlers(): DesktopIpcHandlers['window'] {
   return {
+    captureReaderRegion: withIpcContext(async (context, input: CaptureReaderRegionInput) => {
+      validateCaptureRegion(input)
+      const image = await context.sender.capturePage(input)
+      const png = image.toPNG()
+      if (png.byteLength === 0)
+        throw new Error('Reader region capture produced an empty PNG')
+      return Uint8Array.from(png)
+    }),
     showColumnVisibilityMenu: withIpcContext((context, input: ShowColumnVisibilityMenuInput) => {
       validateAnchor(input.anchor)
       validateColumns(input.columns)

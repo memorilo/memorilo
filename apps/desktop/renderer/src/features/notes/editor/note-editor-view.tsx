@@ -9,7 +9,8 @@ import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
 import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
-import { AlignLeft, Copy, ListTree } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { AlignLeft, Copy, ListTree, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCommandPaletteCommands } from '../../../shared/command-palette'
@@ -97,6 +98,17 @@ export function NoteEditorView({
     throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
 
   const mode = useEditorTopicMode(editorTopic)
+  const readerReference = currentEntry.topicType === 'regular'
+    ? currentEntry.readerReference ?? null
+    : null
+  const sourceBookTopic = readerReference?.annotationId === undefined
+    ? null
+    : opened.entries.find(entry => entry.kind === 'topic'
+      && entry.topicType === 'book'
+      && entry.id === readerReference.bookTopicId) ?? null
+  const sourceReadingId = sourceBookTopic?.kind === 'topic' && sourceBookTopic.topicType === 'book'
+    ? sourceBookTopic.book.retrievalHints[0]?.readingId
+    : undefined
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
   const entryContextMenu = useNoteEntryContextMenu({
     onAddBook,
@@ -237,6 +249,61 @@ export function NoteEditorView({
                       </div>
                     )
                   : null}
+              </div>
+            )
+          : null}
+        {readerReference
+          ? (
+              <div {...stylex.props(noteEditorStyles.readerSourceHeader)}>
+                {readerReference.annotationId !== undefined && sourceReadingId !== undefined
+                  ? (
+                      <Link
+                        {...stylex.props(noteEditorStyles.readerSourceLink)}
+                        aria-label={t('openReaderSource')}
+                        params={{ readingId: sourceReadingId }}
+                        search={{
+                          annotationId: readerReference.annotationId,
+                          noteId: opened.note.id,
+                          topicId: readerReference.bookTopicId,
+                        }}
+                        title={t('openReaderSource')}
+                        to="/reader/$readingId"
+                      >
+                        {readerReference.source.kind === 'text'
+                          ? <blockquote {...stylex.props(noteEditorStyles.readerSourceText)}>{readerReference.source.text}</blockquote>
+                          : (
+                              <img
+                                {...stylex.props(noteEditorStyles.readerSourceImage)}
+                                alt={readerReference.source.location}
+                                src={readerReference.source.imageSrc}
+                              />
+                            )}
+                        <span {...stylex.props(noteEditorStyles.readerSourceLocation)}>{readerReference.source.location}</span>
+                      </Link>
+                    )
+                  : (
+                      <div {...stylex.props(noteEditorStyles.readerSourceSnapshot)}>
+                        {readerReference.source.kind === 'text'
+                          ? <blockquote {...stylex.props(noteEditorStyles.readerSourceText)}>{readerReference.source.text}</blockquote>
+                          : (
+                              <img
+                                {...stylex.props(noteEditorStyles.readerSourceImage)}
+                                alt={readerReference.source.location}
+                                src={readerReference.source.imageSrc}
+                              />
+                            )}
+                        <span {...stylex.props(noteEditorStyles.readerSourceLocation)}>{readerReference.source.location}</span>
+                      </div>
+                    )}
+                <button
+                  {...stylex.props(noteEditorStyles.readerSourceRemove)}
+                  aria-label={t('removeReaderSource')}
+                  title={t('removeReaderSource')}
+                  type="button"
+                  onClick={() => opened.note.setTopicReaderReference(opened.topic.topicId, null)}
+                >
+                  <X aria-hidden="true" size={16} strokeWidth={1.9} />
+                </button>
               </div>
             )
           : null}

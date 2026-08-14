@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import type { ReaderAnnotation } from '../../types'
 import type { ReaderAdapterCallbacks } from '../reader-adapter'
 import type { PdfDocumentSession } from './pdf-document-session'
 import type { PdfPageRenderInput } from './pdf-page-view'
@@ -12,6 +13,7 @@ interface FakePdfPageView {
   captureTextSelection: ReturnType<typeof vi.fn>
   close: ReturnType<typeof vi.fn>
   render: ReturnType<typeof vi.fn<(input: PdfPageRenderInput) => Promise<boolean>>>
+  scrollAnnotationIntoView: ReturnType<typeof vi.fn>
   setAnnotations: ReturnType<typeof vi.fn>
 }
 
@@ -114,7 +116,24 @@ function pageView(
     captureTextSelection: vi.fn(),
     close: vi.fn(async () => undefined),
     render,
+    scrollAnnotationIntoView: vi.fn(),
     setAnnotations: vi.fn(),
+  }
+}
+
+function annotation(): ReaderAnnotation {
+  return {
+    anchor: {
+      format: 'pdf',
+      pageNumber: 1,
+      rect: { height: 0.1, width: 0.2, x: 0.1, y: 0.1 },
+      type: 'region',
+    },
+    color: 'yellow',
+    createdAt: 1,
+    id: 'annotation',
+    style: 'highlight',
+    updatedAt: 1,
   }
 }
 
@@ -214,6 +233,17 @@ describe('pdf adapter layout ownership', () => {
     observer.trigger()
     await adapter.setScale!(1)
     expect(harness.pageView.render).toHaveBeenCalledTimes(2)
+    await adapter.destroy()
+  })
+
+  it('scrolls the exact annotation marker into view', async () => {
+    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    await adapter.mount(fakeElement())
+    adapter.setAnnotations([annotation()])
+
+    await adapter.goToAnnotation('annotation')
+
+    expect(harness.pageView.scrollAnnotationIntoView).toHaveBeenCalledExactlyOnceWith('annotation')
     await adapter.destroy()
   })
 

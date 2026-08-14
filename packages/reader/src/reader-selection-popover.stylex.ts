@@ -75,7 +75,7 @@ export const readerSelectionPopoverStyles = stylex.create({
     },
   },
   selectionToolbar: {
-    width: 234,
+    width: 188,
     height: 44,
     boxSizing: 'border-box',
     overflow: 'hidden',
@@ -86,7 +86,10 @@ export const readerSelectionPopoverStyles = stylex.create({
     width: 96,
   },
   selectionToolbarRegion: {
-    width: 188,
+    width: 142,
+  },
+  selectionToolbarPalette: {
+    width: 234,
   },
   paletteTool: {
     position: 'absolute',
@@ -145,13 +148,6 @@ export const readerSelectionPopoverStyles = stylex.create({
   },
   paletteHighlightRegion: {
     left: 98,
-  },
-  paletteAnnotate: {
-    top: 6,
-    left: 190,
-  },
-  paletteAnnotateRegion: {
-    left: 144,
   },
   paletteColorTool: {
     backgroundColor: {

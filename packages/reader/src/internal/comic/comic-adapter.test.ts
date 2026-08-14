@@ -63,11 +63,11 @@ function annotation(pageNumber: number): ReaderAnnotation {
       rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.2 },
       type: 'region',
     },
-    body: 'Remember this',
+    annotationTopicId: `topic-${pageNumber}`,
     color: 'yellow',
     createdAt: 1,
     id: `annotation-${pageNumber}`,
-    kind: 'annotation',
+    style: 'highlight',
     updatedAt: 1,
   }
 }

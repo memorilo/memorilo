@@ -2,6 +2,7 @@ import type { BookFileBinding } from '@memorilo/reading-model'
 import type { LoroDoc } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorModeValue } from '../common/editor-mode'
+import type { TopicReaderReference } from './topic-reader-reference'
 import { initializeLoroTreeFromJson } from '@memorilo/loro-prosemirror-tree/document'
 import { Effect } from 'effect'
 import { assertEditorMode, EditorMode } from '../common/editor-mode'
@@ -16,6 +17,7 @@ import {
   noteTree,
   TOPIC_BLOCK_TREE_KEY,
   TOPIC_EDITOR_MODE_KEY,
+  TOPIC_READER_REFERENCE_KEY,
   TOPIC_TITLE_KEY,
   TOPIC_TYPE_KEY,
   validateBookBindingValue,
@@ -25,11 +27,13 @@ import {
   normalizeTopicTitle,
   resolveNoteEntryIndex,
 } from './editor-note-validation'
+import { normalizeTopicReaderReference } from './topic-reader-reference'
 
 interface TopicNodeInput {
   index?: number
   initialContent?: NodeJSON
   mode: EditorModeValue
+  readerReference?: TopicReaderReference
   title: string
 }
 
@@ -40,6 +44,7 @@ interface PreparedTopicNode {
   document: NodeJSON
   entryId: string
   mode: EditorModeValue
+  readerReference?: TopicReaderReference
   readingStateKey?: string
   title: string
   topicType: 'book' | 'regular'
@@ -71,6 +76,9 @@ function prepareTopicNode(input: TopicNodeInput, bookValue?: BookFileBinding): P
     : normalizeTopicTitle(input.title)
 
   if (bookValue === undefined) {
+    const readerReference = input.readerReference === undefined
+      ? undefined
+      : normalizeTopicReaderReference(input.readerReference)
     Effect.runSync(validateLoroTopic({
       document,
       entry: {
@@ -78,12 +86,16 @@ function prepareTopicNode(input: TopicNodeInput, bookValue?: BookFileBinding): P
         editorMode: mode,
         entryId,
         kind: 'topic',
+        ...(readerReference === undefined ? {} : { readerReference }),
         title,
         topicType,
       },
     }))
-    return { blockTreeKey, document, entryId, mode, title, topicType }
+    return { blockTreeKey, document, entryId, mode, readerReference, title, topicType }
   }
+
+  if (input.readerReference !== undefined)
+    throw new TypeError('BookTopic cannot contain a Reader source reference')
 
   const book = validateBookBindingValue(bookValue, 'BookTopic binding')
   const annotationsKey = `topic:${entryId}:annotations`
@@ -131,6 +143,8 @@ export function createTopicNode(
   node.data.set(TOPIC_TYPE_KEY, prepared.topicType)
   node.data.set(TOPIC_TITLE_KEY, prepared.title)
   node.data.set(TOPIC_EDITOR_MODE_KEY, prepared.mode)
+  if (prepared.readerReference !== undefined)
+    node.data.set(TOPIC_READER_REFERENCE_KEY, prepared.readerReference)
   const blockTree = doc.getTree(prepared.blockTreeKey)
   node.data.set(TOPIC_BLOCK_TREE_KEY, prepared.blockTreeKey)
   if (prepared.book !== undefined) {

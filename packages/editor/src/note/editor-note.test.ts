@@ -52,6 +52,51 @@ describe('editor note topic creation', () => {
     expect(resolveEditorTopicBinding(note.getTopic(entry.id)).undoManager.canUndo()).toBe(false)
   })
 
+  it('stores, detaches, and removes a Reader source reference on an annotation Topic', () => {
+    const note = createEditorNote({
+      id: 'reader-reference-note',
+      initialBookTopic: {
+        book,
+        mode: EditorMode.Document,
+        title: 'An Ambiguous Utopia',
+      },
+    })
+    const [bookTopic] = note.getEntries()
+    if (!bookTopic || bookTopic.kind !== 'topic')
+      throw new Error('Expected the initial BookTopic')
+    const source = {
+      kind: 'text' as const,
+      location: 'Chapter 1',
+      text: 'There was a wall.',
+    }
+    const topicId = note.createTopic({
+      mode: EditorMode.Document,
+      parentId: bookTopic.id,
+      readerReference: {
+        annotationId: 'annotation-1',
+        bookTopicId: bookTopic.id,
+        source,
+      },
+      title: 'There was a wall.',
+    })
+
+    expect(note.getTopicReaderReference(topicId)).toEqual({
+      annotationId: 'annotation-1',
+      bookTopicId: bookTopic.id,
+      source,
+    })
+    expect(note.getEntries().find(entry => entry.id === topicId)).toMatchObject({
+      parentId: bookTopic.id,
+      readerReference: { annotationId: 'annotation-1', bookTopicId: bookTopic.id, source },
+    })
+
+    note.setTopicReaderReference(topicId, { source })
+    expect(note.getTopicReaderReference(topicId)).toEqual({ source })
+
+    note.setTopicReaderReference(topicId, null)
+    expect(note.getTopicReaderReference(topicId)).toBeNull()
+  })
+
   it('binds Topic documents to their owning CRDT tree and shared editor mode', () => {
     const note = createEditorNote({ id: 'bound-note' })
     const [entry] = note.getEntries()
@@ -257,7 +302,7 @@ describe('editor note topic creation', () => {
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-1',
-      kind: 'highlight',
+      style: 'highlight',
       updatedAt: 1,
     }
 

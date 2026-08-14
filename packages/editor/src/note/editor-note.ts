@@ -16,12 +16,19 @@ import type {
 import type { LoroTopic } from '../schema/topic-schema'
 import type { TopicBlockEdit } from './editor-note-block-edits'
 import type { TopicContentProjection } from './topic-projection'
+import type { TopicReaderReference } from './topic-reader-reference'
 import { createEditorNoteCollaborationRuntime } from './editor-note-collaboration-runtime'
 import { createEditorNoteEntryRepository } from './editor-note-entry-repository'
 import { EditorNoteRuntime } from './editor-note-runtime'
 import { EditorNoteTopics } from './editor-note-topic-documents'
 
 export { resolveEditorTopicBinding } from './editor-note-topic-documents'
+export type {
+  TopicReaderReference,
+  TopicReaderRegionSource,
+  TopicReaderSource,
+  TopicReaderTextSource,
+} from './topic-reader-reference'
 
 export type NoteEntryKind = 'folder' | 'topic'
 
@@ -44,6 +51,7 @@ interface TopicSnapshotBase extends NoteEntryBase {
 
 export interface RegularTopicSnapshot extends TopicSnapshotBase {
   mode: EditorModeValue
+  readerReference?: TopicReaderReference
   topicType: 'regular'
 }
 
@@ -110,6 +118,8 @@ export interface CreateTopicInput {
   mode: EditorModeValue
   /** The containing Topic or Folder, or `null`/omitted for a root Topic. */
   parentId?: string | null
+  /** A system-managed source shown above the Topic Editor. */
+  readerReference?: TopicReaderReference
   /** An explicit title. Use an empty string to derive the effective title from the first content line. */
   title: string
 }
@@ -301,6 +311,8 @@ export interface EditorNote {
   getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
+  /** Returns the system-managed Reader source for a regular Topic, when present. */
+  getTopicReaderReference: (topicId: string) => TopicReaderReference | null
   /** Returns the exact plain JavaScript object passed to Topic validation. */
   getTopicValidationInput: (topicId: string) => TopicValidationInput
   /** Validates a Topic's Loro entry and referenced content tree as one complete object. */
@@ -319,6 +331,8 @@ export interface EditorNote {
   moveEntry: (input: MoveNoteEntryInput) => void
   /** Renames an entry. Topic labels may be empty; Folder names must remain non-empty. */
   renameEntry: (entryId: string, label: string) => void
+  /** Replaces, detaches, or removes the system-managed Reader source for a regular Topic. */
+  setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
   /** Replaces the non-empty Note title. */
   renameNote: (title: string) => void
   /** Subscribes to locally generated Loro updates that callers should persist or transmit. */
@@ -390,6 +404,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     exportUpdates: collaboration.exportUpdates,
     getEntries: entryRepository.getEntries,
     getTopicContent: topicId => topics.content(topicId),
+    getTopicReaderReference: entryRepository.getTopicReaderReference,
     getTitle: () => runtime.getTitle(),
     getTopicValidationInput: topicId => topics.validationInput(topicId),
     validateTopic: topicId => topics.validate(topicId),
@@ -400,6 +415,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     moveEntry: entryRepository.moveEntry,
     renameEntry: entryRepository.renameEntry,
     renameNote: title => runtime.rename(title),
+    setTopicReaderReference: entryRepository.setTopicReaderReference,
     subscribe: collaboration.subscribe,
   }
   return note

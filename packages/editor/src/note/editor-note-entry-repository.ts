@@ -9,6 +9,7 @@ import type {
   NoteEntrySnapshot,
 } from './editor-note'
 import type { EditorNoteDocument } from './editor-note-runtime'
+import type { TopicReaderReference } from './topic-reader-reference'
 import {
   ENTRY_ID_KEY,
   ENTRY_KIND_KEY,
@@ -16,7 +17,9 @@ import {
   FOLDER_NAME_KEY,
   noteTree,
   readString,
+  readTopicReaderReference,
   readTopicType,
+  TOPIC_READER_REFERENCE_KEY,
   TOPIC_TITLE_KEY,
   validateBookBindingValue,
 } from './editor-note-crdt'
@@ -38,6 +41,7 @@ import {
   resolveNoteEntryIndex,
 } from './editor-note-validation'
 import { createWhiteboardNode, whiteboardHasUserContent } from './editor-note-whiteboard'
+import { normalizeTopicReaderReference } from './topic-reader-reference'
 import { hasTopicUserContent } from './topic-user-content'
 
 interface EditorNoteEntryRepositoryDependencies {
@@ -53,9 +57,11 @@ export interface EditorNoteEntryRepository {
   readonly createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   readonly deleteEntry: (input: DeleteNoteEntryInput) => void
   readonly getEntries: () => readonly NoteEntrySnapshot[]
+  readonly getTopicReaderReference: (topicId: string) => TopicReaderReference | null
   readonly hasUserContent: () => boolean
   readonly moveEntry: (input: MoveNoteEntryInput) => void
   readonly renameEntry: (entryId: string, label: string) => void
+  readonly setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
 }
 
 export function createEditorNoteEntryRepository(
@@ -159,6 +165,12 @@ export function createEditorNoteEntryRepository(
       doc.commit({ origin: 'note:delete-entry' })
     }),
     getEntries: () => projectEditorNote(doc, false).entries,
+    getTopicReaderReference: (topicId) => {
+      const node = entryNode(topicId)
+      if (readTopicType(node.data, `Topic ${topicId} type`) !== 'regular')
+        throw new TypeError(`BookTopic ${topicId} cannot contain a Reader source reference`)
+      return readTopicReaderReference(node.data)
+    },
     hasUserContent: () => {
       const entries = projectEditorNote(doc, false).entries
       if (entries.length !== 1)
@@ -209,6 +221,23 @@ export function createEditorNoteEntryRepository(
         throw new Error(`NoteEntry ${entryId} has unknown kind: ${String(kind)}`)
       }
       doc.commit({ origin: 'note:rename-entry' })
+    }),
+    setTopicReaderReference: (topicId, reference) => runMutation(() => {
+      const node = entryNode(topicId)
+      if (readTopicType(node.data, `Topic ${topicId} type`) !== 'regular')
+        throw new TypeError(`BookTopic ${topicId} cannot contain a Reader source reference`)
+      const normalized = reference === null ? null : normalizeTopicReaderReference(reference)
+      const entry = node.data.toJSON()
+      if (normalized === null)
+        Reflect.deleteProperty(entry, TOPIC_READER_REFERENCE_KEY)
+      else
+        entry[TOPIC_READER_REFERENCE_KEY] = normalized
+      validateTopicInput({ ...readTopicValidationInput(runtime, topicId), entry })
+      if (normalized === null)
+        node.data.delete(TOPIC_READER_REFERENCE_KEY)
+      else
+        node.data.set(TOPIC_READER_REFERENCE_KEY, normalized)
+      doc.commit({ origin: 'reader:set-topic-source-reference' })
     }),
   }
 }
