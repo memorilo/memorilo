@@ -1,6 +1,7 @@
 import type { DatabaseCommand } from './database-driver'
 import type {
   NoteEntryProjection,
+  SpreadsheetProjection,
   TopicContentProjection,
   TopicProjection,
 } from './editor-storage-contracts'
@@ -31,6 +32,7 @@ function planNoteProjection(
   target: NoteProjectionTarget,
   entries: readonly NoteEntryProjection[] | undefined,
   topics: readonly TopicContentProjection[],
+  spreadsheets: readonly SpreadsheetProjection[],
   mode: ProjectionWriteMode,
 ): NoteProjectionPlan {
   const noteParameter = 'noteId' in target ? target.noteId : target.noteRowId
@@ -95,6 +97,18 @@ function planNoteProjection(
       parameters: [noteParameter],
       sql: `DELETE FROM book_topics WHERE note_row_id = ${noteRowSql}`,
     })
+    commands.push({
+      parameters: [noteParameter],
+      sql: `DELETE FROM spreadsheet_sheets WHERE note_row_id = ${noteRowSql}`,
+    })
+  }
+  else if (mode === 'upsert') {
+    for (const spreadsheet of spreadsheets) {
+      commands.push({
+        parameters: [noteParameter, spreadsheet.topicId],
+        sql: `DELETE FROM spreadsheet_sheets WHERE note_row_id = ${noteRowSql} AND topic_id = ?`,
+      })
+    }
   }
   for (const entry of topicEntries.values()) {
     if (entry.topicType !== 'book')
@@ -184,6 +198,64 @@ function planNoteProjection(
     }
   }
 
+  for (const spreadsheet of spreadsheets) {
+    spreadsheet.sheets.forEach((sheet, sheetOrdinal) => {
+      commands.push({
+        parameters: [noteParameter, spreadsheet.topicId, sheet.id, sheetOrdinal, sheet.name],
+        sql: `
+          INSERT INTO spreadsheet_sheets (note_row_id, topic_id, sheet_id, ordinal, name)
+          VALUES (${noteRowSql}, ?, ?, ?, ?)
+        `,
+      })
+      sheet.rowIds.forEach((rowId, rowOrdinal) => {
+        commands.push({
+          parameters: [noteParameter, spreadsheet.topicId, sheet.id, rowId, rowOrdinal],
+          sql: `
+            INSERT INTO spreadsheet_rows (note_row_id, topic_id, sheet_id, row_id, ordinal)
+            VALUES (${noteRowSql}, ?, ?, ?, ?)
+          `,
+        })
+      })
+      sheet.columnIds.forEach((columnId, columnOrdinal) => {
+        commands.push({
+          parameters: [noteParameter, spreadsheet.topicId, sheet.id, columnId, columnOrdinal],
+          sql: `
+            INSERT INTO spreadsheet_columns (note_row_id, topic_id, sheet_id, column_id, ordinal)
+            VALUES (${noteRowSql}, ?, ?, ?, ?)
+          `,
+        })
+      })
+      for (const cell of sheet.cells) {
+        commands.push({
+          parameters: [
+            noteParameter,
+            spreadsheet.topicId,
+            sheet.id,
+            cell.rowId,
+            cell.columnId,
+            cell.input,
+            cell.display,
+            JSON.stringify(cell.format),
+            JSON.stringify(cell.formulaReferences),
+          ],
+          sql: `
+            INSERT INTO spreadsheet_cells (
+              note_row_id,
+              topic_id,
+              sheet_id,
+              sheet_row_id,
+              column_id,
+              input,
+              display,
+              format_json,
+              formula_references_json
+            ) VALUES (${noteRowSql}, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+        })
+      }
+    })
+  }
+
   return { blocks, commands, entryIds, topicIds }
 }
 
@@ -191,14 +263,16 @@ export function planInitializedNoteProjection(
   noteId: string,
   entries: readonly NoteEntryProjection[],
   topics: readonly TopicContentProjection[],
+  spreadsheets: readonly SpreadsheetProjection[],
 ): NoteProjectionPlan {
-  return planNoteProjection({ noteId }, entries, topics, 'insert')
+  return planNoteProjection({ noteId }, entries, topics, spreadsheets, 'insert')
 }
 
 export function planUpdatedNoteProjection(
   noteRowId: number,
   entries: readonly NoteEntryProjection[] | undefined,
   topics: readonly TopicContentProjection[],
+  spreadsheets: readonly SpreadsheetProjection[],
 ): NoteProjectionPlan {
-  return planNoteProjection({ noteRowId }, entries, topics, 'upsert')
+  return planNoteProjection({ noteRowId }, entries, topics, spreadsheets, 'upsert')
 }

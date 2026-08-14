@@ -146,7 +146,7 @@ export class EditorNoteRecords {
     assertNonEmpty(input.id, 'Note id')
     assertNonEmpty(input.title, 'Note title')
     validateBinary(input.snapshot, 'Note snapshot')
-    validateProjectionPatch(input.entries, input.topics)
+    validateProjectionPatch(input.entries, input.topics, input.spreadsheets)
 
     const entryTopicIds = new Set(input.entries.flatMap(entry => entry.kind === 'topic' ? [entry.id] : []))
     const projectedTopicIds = new Set(input.topics.map(topic => topic.topicId))
@@ -159,6 +159,7 @@ export class EditorNoteRecords {
       input.id,
       input.entries,
       input.topics,
+      input.spreadsheets ?? [],
     )
     const commands: DatabaseCommand[] = [
       {

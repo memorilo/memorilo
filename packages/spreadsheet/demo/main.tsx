@@ -1,17 +1,27 @@
 import type {
   SpreadsheetCell,
+  SpreadsheetCellKind,
   SpreadsheetCollaborator,
   SpreadsheetLock,
+  SpreadsheetSheet,
   SpreadsheetStrings,
   SpreadsheetWorkbook,
 } from '../src'
 import * as stylex from '@stylexjs/stylex'
 import { Effect } from 'effect'
-import { StrictMode, useEffect, useRef, useState } from 'react'
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { SpreadsheetWorkspace, updateSpreadsheetCell } from '../src'
+import {
+  bindSpreadsheetCellInput,
+  evaluateSpreadsheetWorkbooks,
+  parseSpreadsheetAddress,
+  spreadsheetCellKey,
+  SpreadsheetWorkspace,
+} from '../src'
 import { demoStyles } from './main.stylex'
 import './global.css'
+
+const demoTopicId = 'demo-topic'
 
 const alex: SpreadsheetCollaborator = {
   color: 'rgb(203, 77, 90)',
@@ -52,81 +62,83 @@ const strings: SpreadsheetStrings = {
   undo: 'Undo',
 }
 
-function cell(input: string, display = input, kind: SpreadsheetCell['kind'] = 'text'): SpreadsheetCell {
-  return { display, input, kind }
+interface DemoCell {
+  readonly input: string
+  readonly kind?: SpreadsheetCellKind
+}
+
+function createDemoSheet(
+  id: string,
+  name: string,
+  sourceCells: Readonly<Record<string, DemoCell>>,
+): SpreadsheetSheet {
+  const rows = Array.from({ length: 24 }, (_, index) => ({ id: `${id}:row:${index + 1}` }))
+  const columns = Array.from({ length: 12 }, (_, index) => ({ id: `${id}:column:${index + 1}` }))
+  const dimensions = { columns, id, rows }
+  const cells = Object.fromEntries(Object.entries(sourceCells).map(([address, source]) => {
+    const selection = Effect.runSync(parseSpreadsheetAddress(address, dimensions))
+    const cell: SpreadsheetCell = {
+      format: source.kind === undefined ? {} : { kind: source.kind },
+      formulaReferences: [],
+      input: source.input,
+    }
+    return [spreadsheetCellKey(rows[selection.row]!.id, columns[selection.column]!.id), cell]
+  }))
+  return { cells, columns, id, name, rows }
 }
 
 const initialWorkbook: SpreadsheetWorkbook = {
-  title: 'Q3 Launch Budget',
   sheets: [
-    {
-      id: 'overview',
-      name: 'Overview',
-      columnCount: 12,
-      rowCount: 24,
-      cells: {
-        A1: cell('Q3 launch plan'),
-        A2: cell('Workstream'),
-        B2: cell('Budget'),
-        C2: cell('Spent'),
-        D2: cell('Variance'),
-        E2: cell('Owner'),
-        F2: cell('Status'),
-        A3: cell('Brand campaign'),
-        B3: cell('42000', '$42,000', 'currency'),
-        C3: cell('31840', '$31,840', 'currency'),
-        D3: cell('=B3-C3', '$10,160', 'currency'),
-        E3: cell('Alex Morgan'),
-        F3: cell('On track'),
-        A4: cell('Partner events'),
-        B4: cell('28000', '$28,000', 'currency'),
-        C4: cell('24110', '$24,110', 'currency'),
-        D4: cell('=B4-C4', '$3,890', 'currency'),
-        E4: cell('Mei Lin'),
-        F4: cell('At risk'),
-        A5: cell('Product video'),
-        B5: cell('=SUM(B3:B4)', '$70,000', 'currency'),
-        C5: cell('=SUM(C3:C4)', '$55,950', 'currency'),
-        D5: cell('=SUM(D3:D4)', '$14,050', 'currency'),
-        E5: cell('Sam Kim'),
-        F5: cell('On track'),
-        A7: cell('Quarter summary'),
-        A8: cell('Budget used'),
-        B8: cell('=C5/B5', '79.9%', 'percent'),
-        A9: cell('Remaining'),
-        B9: cell('=D5', '$14,050', 'currency'),
-      },
-    },
-    {
-      id: 'campaigns',
-      name: 'Campaigns',
-      columnCount: 12,
-      rowCount: 24,
-      cells: {
-        A1: cell('Campaign'),
-        B1: cell('Channel'),
-        C1: cell('Spend'),
-        D1: cell('Conversion'),
-        A2: cell('Launch film'),
-        B2: cell('Video'),
-        C2: cell('18500', '$18,500', 'currency'),
-        D2: cell('0.064', '6.4%', 'percent'),
-      },
-    },
-    {
-      id: 'vendors',
-      name: 'Vendors',
-      columnCount: 12,
-      rowCount: 24,
-      cells: {
-        A1: cell('Vendor'),
-        B1: cell('Commitment'),
-        C1: cell('Paid'),
-        A2: cell('Northstar Studio'),
-        B2: cell('24000', '$24,000', 'currency'),
-        C2: cell('18000', '$18,000', 'currency'),
-      },
-    },
+    createDemoSheet('overview', 'Overview', {
+      A1: { input: 'Q3 launch plan' },
+      A2: { input: 'Workstream' },
+      A3: { input: 'Brand campaign' },
+      A4: { input: 'Partner events' },
+      A5: { input: 'Product video' },
+      A7: { input: 'Quarter summary' },
+      A8: { input: 'Budget used' },
+      A9: { input: 'Remaining' },
+      B2: { input: 'Budget' },
+      B3: { input: '42000', kind: 'currency' },
+      B4: { input: '28000', kind: 'currency' },
+      B5: { input: '=SUM(B3:B4)', kind: 'currency' },
+      B8: { input: '=C5/B5', kind: 'percent' },
+      B9: { input: '=D5', kind: 'currency' },
+      C2: { input: 'Spent' },
+      C3: { input: '31840', kind: 'currency' },
+      C4: { input: '24110', kind: 'currency' },
+      C5: { input: '=SUM(C3:C4)', kind: 'currency' },
+      D2: { input: 'Variance' },
+      D3: { input: '=B3-C3', kind: 'currency' },
+      D4: { input: '=B4-C4', kind: 'currency' },
+      D5: { input: '=SUM(D3:D4)', kind: 'currency' },
+      E2: { input: 'Owner' },
+      E3: { input: 'Alex Morgan' },
+      E4: { input: 'Mei Lin' },
+      E5: { input: 'Sam Kim' },
+      F2: { input: 'Status' },
+      F3: { input: 'On track' },
+      F4: { input: 'At risk' },
+      F5: { input: 'On track' },
+    }),
+    createDemoSheet('campaigns', 'Campaigns', {
+      A1: { input: 'Campaign' },
+      A2: { input: 'Launch film' },
+      B1: { input: 'Channel' },
+      B2: { input: 'Video' },
+      C1: { input: 'Spend' },
+      C2: { input: '18500', kind: 'currency' },
+      D1: { input: 'Conversion' },
+      D2: { input: '0.064', kind: 'percent' },
+    }),
+    createDemoSheet('vendors', 'Vendors', {
+      A1: { input: 'Vendor' },
+      A2: { input: 'Northstar Studio' },
+      B1: { input: 'Commitment' },
+      B2: { input: '24000', kind: 'currency' },
+      C1: { input: 'Paid' },
+      C2: { input: '18000', kind: 'currency' },
+    }),
   ],
 }
 
@@ -135,6 +147,16 @@ export function Demo() {
   const [lock, setLock] = useState<SpreadsheetLock>({ owner: alex, state: 'locked' })
   const [workbook, setWorkbook] = useState(initialWorkbook)
   const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const projection = useMemo(() => {
+    const projected = evaluateSpreadsheetWorkbooks([{
+      title: 'Q3 Launch Budget',
+      topicId: demoTopicId,
+      workbook,
+    }]).get(demoTopicId)
+    if (!projected)
+      throw new Error('Missing demo Workbook projection')
+    return projected
+  }, [workbook])
 
   useEffect(() => () => {
     if (lockTimer.current)
@@ -162,12 +184,38 @@ export function Demo() {
       <div {...stylex.props(demoStyles.workspaceFrame)}>
         <SpreadsheetWorkspace
           activeSheetId={activeSheetId}
+          ariaLabel="Q3 Launch Budget"
           lock={lock}
           strings={strings}
-          workbook={workbook}
+          workbook={projection}
           onActiveSheetChange={setActiveSheetId}
-          onCellCommit={(sheetId, address, input) => {
-            setWorkbook(current => Effect.runSync(updateSpreadsheetCell(current, { address, input, sheetId })))
+          onCellCommit={(sheetId, rowId, columnId, input) => {
+            setWorkbook((current) => {
+              const sheet = current.sheets.find(candidate => candidate.id === sheetId)
+              if (!sheet)
+                throw new Error(`Missing demo Sheet ${sheetId}`)
+              const key = spreadsheetCellKey(rowId, columnId)
+              const previous = sheet.cells[key]
+              const bound = bindSpreadsheetCellInput(input, {
+                currentSheetId: sheetId,
+                currentTopicId: demoTopicId,
+                topics: [{ title: 'Q3 Launch Budget', topicId: demoTopicId, workbook: current }],
+              })
+              return {
+                sheets: current.sheets.map(candidate => candidate.id === sheetId
+                  ? {
+                      ...candidate,
+                      cells: {
+                        ...candidate.cells,
+                        [key]: {
+                          format: previous?.format ?? {},
+                          ...bound,
+                        },
+                      },
+                    }
+                  : candidate),
+              }
+            })
           }}
           onLockRelease={releaseLock}
           onLockRequest={requestLock}

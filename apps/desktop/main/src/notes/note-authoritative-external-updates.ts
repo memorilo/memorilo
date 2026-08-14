@@ -8,6 +8,7 @@ import { projectNoteAssetReferences } from '../assets/asset-references'
 import {
   mergeMutation,
   toStoredEntries,
+  toStoredSpreadsheets,
   toStoredTopic,
   updateHash,
 } from './note-authoritative-projection'
@@ -74,6 +75,7 @@ export function createNoteAuthoritativeExternalUpdates({
           const topics = (journalTopic === null ? [...changed.topicIds] : [journalTopic.topicId])
             .filter(topicId => topicEntries.has(topicId))
             .map(topicId => toStoredTopic(current.note.getTopicContent(topicId)))
+          const spreadsheetTopicIds = entries === undefined ? changed.topicIds : undefined
           return {
             assetReferences: projectNoteAssetReferences(current.note),
             entries,
@@ -81,6 +83,7 @@ export function createNoteAuthoritativeExternalUpdates({
             learningCards: entries === undefined
               ? projectNoteLearningCards(current.note, changed.topicIds)
               : projectNoteLearningCards(current.note),
+            spreadsheets: toStoredSpreadsheets(current.note, spreadsheetTopicIds),
             topics,
           }
         },
@@ -94,6 +97,7 @@ export function createNoteAuthoritativeExternalUpdates({
           ...(projection.journalTopic === null ? {} : { journalHasUserContent: current.note.hasUserContent() }),
           learningCards: projection.learningCards,
           noteId: current.note.id,
+          spreadsheets: projection.spreadsheets,
           ...(changed.metadataChanged || projection.journalTopic !== null ? { title: current.note.getTitle() } : {}),
           topics: projection.topics,
           updates: input.updates,

@@ -109,6 +109,8 @@ export function NoteEditor({
       opened.note.createFolder({ name: label, parentId: target.parentId })
     else if (target.kind === 'whiteboard')
       opened.note.createWhiteboardTopic({ parentId: target.parentId, title: label })
+    else if (target.kind === 'spreadsheet')
+      opened.note.createSpreadsheetTopic({ parentId: target.parentId, title: label })
     else
       opened.note.createTopic({ mode: EditorMode.Document, parentId: target.parentId, title: label })
     setEntryCreationTarget(undefined)
@@ -179,6 +181,7 @@ export function NoteEditor({
         focusBlockId={focusBlockId}
         onAddBook={parentId => setBookPickerTarget({ kind: 'create', parentId })}
         onAddFolder={parentId => setEntryCreationTarget({ kind: 'folder', parentId })}
+        onAddSpreadsheet={parentId => setEntryCreationTarget({ kind: 'spreadsheet', parentId })}
         onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
         onAddWhiteboard={parentId => setEntryCreationTarget({ kind: 'whiteboard', parentId })}
         onOpenImageOcclusion={handleOpenImageOcclusion}

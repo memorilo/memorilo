@@ -34,7 +34,7 @@ export const noteEditorStyles = stylex.create({
     fontSize: 12,
     letterSpacing: 0,
   },
-  whiteboardWorkspace: {
+  fullBleedWorkspace: {
     paddingTop: 0,
   },
   alertStack: {
