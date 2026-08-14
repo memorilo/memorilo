@@ -1,8 +1,8 @@
-import type { UIEvent } from 'react'
+import type { ReactNode, UIEvent } from 'react'
 import type { ReaderAdapter, ReaderAdapterState } from './internal/reader-adapter'
-import type { ReaderAnnotation, ReaderAuxiliarySidebar, ReaderNote } from './types'
+import type { ReaderAnnotation, ReaderAuxiliarySidebar } from './types'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpenText, Check, Pencil, StickyNote, Trash2 } from 'lucide-react'
+import { BookOpenText, StickyNote } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { readerAnnotationLabel } from './internal/annotation-label'
 import { ReaderOutline } from './reader-outline'
@@ -20,17 +20,13 @@ interface ReaderSidebarProps {
   annotations: readonly ReaderAnnotation[]
   auxiliarySidebar?: ReaderAuxiliarySidebar
   auxiliarySidebarActive: boolean
-  editingAnnotationId: string | null
-  editingDraft: string
-  onBeginEdit: (annotation: ReaderNote) => void
+  onActivateAnnotation: (annotationId: string) => void
   onAuxiliarySidebarSelect: () => void
-  onCancelEdit: () => void
-  onEditingDraftChange: (draft: string) => void
   onLoadMoreAnnotations: (event: UIEvent<HTMLDivElement>) => void
-  onRemoveAnnotation: (annotationId: string) => void
-  onSaveEditedAnnotation: () => void
   onSelectAnnotation: (annotationId: string) => void
   onTabChange: (tab: ReaderSidebarTab) => void
+  registerAnnotationCard: (annotationId: string, element: HTMLElement | null) => void
+  renderAnnotationEditor?: (annotation: ReaderAnnotation, readOnly: boolean) => ReactNode
   run: (operation: (adapter: ReaderAdapter) => Promise<void>) => void
   sidebarTab: ReaderSidebarTab
 }
@@ -62,21 +58,19 @@ export function ReaderSidebar({
   annotations,
   auxiliarySidebar,
   auxiliarySidebarActive,
-  editingAnnotationId,
-  editingDraft,
-  onBeginEdit,
+  onActivateAnnotation,
   onAuxiliarySidebarSelect,
-  onCancelEdit,
-  onEditingDraftChange,
   onLoadMoreAnnotations,
-  onRemoveAnnotation,
-  onSaveEditedAnnotation,
   onSelectAnnotation,
   onTabChange,
+  registerAnnotationCard,
+  renderAnnotationEditor,
   run,
   sidebarTab,
 }: ReaderSidebarProps) {
   const { t } = useTranslation('common')
+  if (annotations.length > 0 && renderAnnotationEditor === undefined)
+    throw new Error('Reader annotation Topics require an Editor renderer')
 
   return (
     <aside
@@ -181,14 +175,16 @@ export function ReaderSidebar({
                   ? <div {...stylex.props(readerStyles.emptyAnnotations)}>{t('reader.noAnnotations')}</div>
                   : annotations.slice(0, annotationRenderLimit).map((annotation) => {
                       const quote = annotationQuote(annotation)
-                      const editing = editingAnnotationId === annotation.id
+                      const active = activeAnnotationId === annotation.id
                       return (
                         <article
                           key={annotation.id}
+                          ref={element => registerAnnotationCard(annotation.id, element)}
                           {...stylex.props(
                             readerStyles.annotationItem,
-                            activeAnnotationId === annotation.id && readerStyles.annotationItemActive,
+                            active && readerStyles.annotationItemActive,
                           )}
+                          onPointerDown={() => onActivateAnnotation(annotation.id)}
                         >
                           <button
                             {...stylex.props(readerStyles.annotationTarget)}
@@ -197,73 +193,15 @@ export function ReaderSidebar({
                           >
                             <span {...stylex.props(readerStyles.annotationDot, colorStyle(annotation.color))} />
                             <span {...stylex.props(readerStyles.annotationMeta)}>
-                              {annotation.kind === 'annotation' ? t('reader.annotationLabel') : t('reader.highlightLabel')}
-                              {' · '}
                               {readerAnnotationLabel(annotation, t)}
                             </span>
                           </button>
                           {quote
                             ? <blockquote {...stylex.props(readerStyles.annotationQuote)}>{quote}</blockquote>
                             : null}
-                          {annotation.kind === 'annotation'
-                            ? editing
-                              ? (
-                                  <div {...stylex.props(readerStyles.panelEditor)}>
-                                    <textarea
-                                      {...stylex.props(readerStyles.panelTextarea)}
-                                      aria-label={t('reader.editAnnotation')}
-                                      rows={4}
-                                      value={editingDraft}
-                                      onChange={event => onEditingDraftChange(event.target.value)}
-                                    />
-                                    <div {...stylex.props(readerStyles.panelEditorActions)}>
-                                      <button
-                                        {...stylex.props(readerStyles.textButton)}
-                                        type="button"
-                                        onClick={onCancelEdit}
-                                      >
-                                        {t('reader.cancel')}
-                                      </button>
-                                      <button
-                                        {...stylex.props(readerSharedStyles.primaryTextButton)}
-                                        disabled={!editingDraft.trim()}
-                                        type="button"
-                                        onClick={onSaveEditedAnnotation}
-                                      >
-                                        <Check aria-hidden="true" size={13} />
-                                        {t('reader.save')}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              : <p {...stylex.props(readerStyles.annotationBody)}>{annotation.body}</p>
-                            : null}
-                          {!editing
-                            ? (
-                                <div {...stylex.props(readerStyles.annotationActions)}>
-                                  {annotation.kind === 'annotation'
-                                    ? (
-                                        <button
-                                          {...stylex.props(readerStyles.itemButton)}
-                                          aria-label={t('reader.editAnnotation')}
-                                          type="button"
-                                          onClick={() => onBeginEdit(annotation)}
-                                        >
-                                          <Pencil aria-hidden="true" size={13} />
-                                        </button>
-                                      )
-                                    : null}
-                                  <button
-                                    {...stylex.props(readerStyles.itemButton, readerStyles.deleteButton)}
-                                    aria-label={t('reader.deleteAnnotation')}
-                                    type="button"
-                                    onClick={() => onRemoveAnnotation(annotation.id)}
-                                  >
-                                    <Trash2 aria-hidden="true" size={13} />
-                                  </button>
-                                </div>
-                              )
-                            : null}
+                          <div {...stylex.props(readerStyles.annotationEditor)}>
+                            {renderAnnotationEditor?.(annotation, !active)}
+                          </div>
                         </article>
                       )
                     })}

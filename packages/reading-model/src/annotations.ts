@@ -1,4 +1,5 @@
 export type ReadingAnnotationColor = 'blue' | 'green' | 'pink' | 'purple' | 'yellow'
+export type ReadingAnnotationStyle = 'highlight' | 'underline'
 
 /** A rectangle normalized to its rendered anchor surface, with every value between 0 and 1. */
 export interface ReadingNormalizedRect {
@@ -88,21 +89,15 @@ export type ReadingRegionAnchor
     | ReadingTxtRegionAnchor
 export type ReadingAnchor = ReadingRegionAnchor | ReadingTextAnchor
 
-interface ReadingAnnotationBase {
+export interface ReadingAnnotation {
   anchor: ReadingAnchor
+  annotationTopicId?: string
   color: ReadingAnnotationColor
   createdAt: number
   id: string
+  style: ReadingAnnotationStyle
   updatedAt: number
 }
 
-export interface ReadingHighlight extends ReadingAnnotationBase {
-  kind: 'highlight'
-}
-
-export interface ReadingNote extends ReadingAnnotationBase {
-  body: string
-  kind: 'annotation'
-}
-
-export type ReadingAnnotation = ReadingHighlight | ReadingNote
+export type ReadingHighlight = ReadingAnnotation
+export type ReadingNote = ReadingAnnotation & { annotationTopicId: string }

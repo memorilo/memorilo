@@ -38,6 +38,13 @@ describe('settings renderer', () => {
     expect(await rendered.findByRole('heading', { name: 'Images' })).toBeInTheDocument()
     expect(rendered.getByRole('combobox', { name: 'TIFF conversion format' })).toHaveValue('webp')
 
+    fireEvent.click(rendered.getByRole('button', { name: 'Reading' }))
+    expect(await rendered.findByRole('heading', { name: 'Reading' })).toBeInTheDocument()
+    const copyFormat = rendered.getByRole('combobox', { name: 'Highlight copy format' })
+    expect(copyFormat).toHaveValue('text')
+    fireEvent.change(copyFormat, { target: { value: 'text-book-location' } })
+    await waitFor(() => expect(store.getSnapshot().readerAnnotationCopyFormat).toBe('text-book-location'))
+
     fireEvent.click(rendered.getByRole('button', { name: 'MCP' }))
     expect(await rendered.findByRole('heading', { name: 'MCP' })).toBeInTheDocument()
     expect(rendered.getByRole('switch', { name: 'Enable MCP server' })).toHaveAttribute('aria-checked', 'false')
@@ -67,6 +74,7 @@ describe('settings renderer', () => {
         networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
         readerArrowKeyPageTurning: true,
+        readerAnnotationCopyFormat: 'text-book-location',
         readerEpubPresentationMode: 'publisher',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
@@ -86,6 +94,7 @@ describe('settings renderer', () => {
         networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
         readerArrowKeyPageTurning: true,
+        readerAnnotationCopyFormat: 'text-book-location',
         readerEpubPresentationMode: 'publisher',
         reduceMotion: true,
         tiffConversionFormat: 'webp',

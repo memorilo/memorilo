@@ -26,6 +26,7 @@ import { readerPageStyles } from './reader-page.stylex'
 import { createReaderContextSession } from './session/reader-context-session'
 
 interface RequestedBookContext {
+  annotationId?: string
   noteId: string
   topicId: string
 }
@@ -302,6 +303,7 @@ function ShelfReaderSession({
                         <BoundShelfReader
                           key={`${context.note.id}:${context.topicId}:${sessionId}`}
                           context={context}
+                          initialAnnotationId={requestedContext?.annotationId}
                           initialPosition={contextInitialPosition}
                           source={source}
                         />
@@ -373,9 +375,13 @@ export function ReaderPage({
 }) {
   const requestedContext = search.noteId === undefined
     ? null
-    : { noteId: search.noteId, topicId: search.topicId }
+    : {
+        ...(search.annotationId === undefined ? {} : { annotationId: search.annotationId }),
+        noteId: search.noteId,
+        topicId: search.topicId,
+      }
   const sessionKey = requestedContext === null
     ? readingId
-    : `${readingId}:${requestedContext.noteId}:${requestedContext.topicId}`
+    : `${readingId}:${requestedContext.noteId}:${requestedContext.topicId}:${requestedContext.annotationId ?? ''}`
   return <ShelfReaderSession key={sessionKey} readingId={readingId} requestedContext={requestedContext} />
 }

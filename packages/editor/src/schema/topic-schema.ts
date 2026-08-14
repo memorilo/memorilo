@@ -24,6 +24,7 @@ const PositiveUnitIntervalSchema = UnitIntervalSchema.check(Schema.isGreaterThan
 const ReadingFormatSchema = Schema.Literals(['cbr', 'cbz', 'epub', 'pdf', 'txt'])
 const BookFileSha256Schema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u))
 const ReadingAnnotationColorSchema = Schema.Literals(['blue', 'green', 'pink', 'purple', 'yellow'])
+const ReadingAnnotationStyleSchema = Schema.Literals(['highlight', 'underline'])
 const ReadingNormalizedRectSchema = Schema.Struct({
   height: UnitIntervalSchema,
   width: UnitIntervalSchema,
@@ -90,17 +91,19 @@ const ReadingComicRegionAnchorSchema = Schema.Struct({
   rect: ReadingNormalizedRectSchema,
   type: Schema.Literal('region'),
 })
-const ReadingAnchorSchema = Schema.Union([
-  ReadingComicRegionAnchorSchema,
-  ReadingEpubRegionAnchorSchema,
+const ReadingTextAnchorSchema = Schema.Union([
   ReadingEpubTextAnchorSchema,
-  ReadingPdfRegionAnchorSchema,
   ReadingPdfTextAnchorSchema,
-  ReadingTxtRegionAnchorSchema,
   ReadingTxtTextAnchorSchema,
 ])
+const ReadingRegionAnchorSchema = Schema.Union([
+  ReadingComicRegionAnchorSchema,
+  ReadingEpubRegionAnchorSchema,
+  ReadingPdfRegionAnchorSchema,
+  ReadingTxtRegionAnchorSchema,
+])
 const ReadingAnnotationBaseFields = {
-  anchor: ReadingAnchorSchema,
+  annotationTopicId: Schema.optionalKey(Schema.NonEmptyString),
   color: ReadingAnnotationColorSchema,
   createdAt: NonNegativeIntegerSchema,
   id: Schema.NonEmptyString,
@@ -109,12 +112,13 @@ const ReadingAnnotationBaseFields = {
 const ReadingAnnotationSchema = Schema.Union([
   Schema.Struct({
     ...ReadingAnnotationBaseFields,
-    kind: Schema.Literal('highlight'),
+    anchor: ReadingTextAnchorSchema,
+    style: ReadingAnnotationStyleSchema,
   }),
   Schema.Struct({
     ...ReadingAnnotationBaseFields,
-    body: Schema.NonEmptyString,
-    kind: Schema.Literal('annotation'),
+    anchor: ReadingRegionAnchorSchema,
+    style: Schema.Literal('highlight'),
   }),
 ])
 const ReadingPositionSchema = Schema.Union([
@@ -216,8 +220,31 @@ const LoroWhiteboardTopicEntryBaseFields = {
   topicType: Schema.Literal('whiteboard'),
 } as const
 
+const TopicReaderSourceSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal('text'),
+    location: Schema.NonEmptyString,
+    text: Schema.NonEmptyString,
+  }),
+  Schema.Struct({
+    imageSrc: Schema.NonEmptyString,
+    kind: Schema.Literal('region'),
+    location: Schema.NonEmptyString,
+  }),
+])
+
+const TopicReaderReferenceSchema = Schema.Union([
+  Schema.Struct({
+    annotationId: Schema.NonEmptyString,
+    bookTopicId: Schema.NonEmptyString,
+    source: TopicReaderSourceSchema,
+  }),
+  Schema.Struct({ source: TopicReaderSourceSchema }),
+])
+
 export const LoroRegularTopicEntrySchema = Schema.Struct({
   ...LoroTopicEntryBaseFields,
+  readerReference: Schema.optionalKey(TopicReaderReferenceSchema),
   topicType: Schema.Literal('regular'),
 })
 

@@ -1,36 +1,35 @@
 import type { DesktopBookTopicReadingContext } from '@memorilo/desktop-preload'
-import type { ReaderAnnotation, ReaderPosition, ReaderSource } from '@memorilo/editor/reader'
-import { createEditorNote } from '@memorilo/editor'
+import type {
+  ReaderAnnotation,
+  ReaderAnnotationTopicCreateInput,
+  ReaderPosition,
+  ReaderSource,
+} from '@memorilo/editor/reader'
+import { createEditorNote, Editor } from '@memorilo/editor'
 import { WindowReader } from '@memorilo/editor/reader'
 import { PanelRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDesktopConfiguration } from '../../shared/configuration'
+import { desktopEditorAdapters } from '../notes/editor/note-editor-session'
 import { useNoteFavorite } from '../notes/note-favorite'
 import { NoteInspectorContent } from '../notes/note-inspector'
 import { NoteInspectorActions } from '../notes/note-inspector-actions'
 import { useNoteInspectorEntries } from '../notes/note-inspector-state'
 import { useNotePersistence } from '../notes/persistence/note-persistence-hooks'
-
-function normalizedTitle(value: string): string {
-  return value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase()
-}
-
-function readerTitle(context: DesktopBookTopicReadingContext): string {
-  const noteTitle = context.note.title.trim()
-  const topicTitle = context.topicTitle.trim()
-  return normalizedTitle(noteTitle) === normalizedTitle(topicTitle)
-    ? noteTitle
-    : `${noteTitle} · ${topicTitle}`
-}
+import { boundReaderPresentation } from './bound-reader-presentation'
+import { reconciledReaderAnnotations } from './reader-annotation-bindings'
+import { createReaderAnnotationTopic } from './reader-annotation-topics'
 
 export function BoundShelfReader({
   context,
+  initialAnnotationId,
   initialPosition,
   source,
 }: {
   context: DesktopBookTopicReadingContext
+  initialAnnotationId?: string
   initialPosition: ReaderPosition | null
   source: ReaderSource
 }) {
@@ -49,20 +48,38 @@ export function BoundShelfReader({
     return restored
   }, [context.note.id, context.note.snapshot, context.note.title, getPendingChanges])
   const bookTopic = useMemo(() => note.getBookTopic(context.topicId), [context.topicId, note])
+  const editorAdapters = useMemo(
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
+    [configuration.networkImagePasteBehavior],
+  )
   const initialReadingState = useRef(bookTopic.getReadingState()).current
   const initialReaderPosition = useRef(initialReadingState.position ?? initialPosition).current
-  const [annotations, setAnnotations] = useState(initialReadingState.annotations)
+  const initialAnnotations = useRef(reconciledReaderAnnotations(
+    note,
+    context.topicId,
+    initialReadingState.annotations,
+  )).current
+  const initialReconciliationAppliedRef = useRef(false)
+  const [annotations, setAnnotations] = useState(initialAnnotations)
   const [entries, setEntries] = useState(() => note.getEntries())
   const positionRef = useRef(initialReadingState.position)
-  const annotationsRef = useRef(initialReadingState.annotations)
+  const annotationsRef = useRef(initialAnnotations)
+  const presentation = boundReaderPresentation({
+    bookTitle: context.book.book.title,
+    noteTitle: context.note.title,
+    topicTitle: context.topicTitle,
+  })
 
   const syncNoteProjection = useCallback(() => {
     const next = bookTopic.getReadingState()
+    const nextAnnotations = reconciledReaderAnnotations(note, context.topicId, next.annotations)
     positionRef.current = next.position
-    annotationsRef.current = next.annotations
-    setAnnotations(next.annotations)
+    annotationsRef.current = nextAnnotations
+    setAnnotations(nextAnnotations)
     setEntries(note.getEntries())
-  }, [bookTopic, note])
+    if (nextAnnotations !== next.annotations)
+      bookTopic.setAnnotations(nextAnnotations)
+  }, [bookTopic, context.topicId, note])
   const handleNoteChange = useCallback((change: { noteId: string, update: Uint8Array }) => {
     enqueue(change)
     syncNoteProjection()
@@ -76,13 +93,26 @@ export function BoundShelfReader({
       note.importUpdates(update.update)
       syncNoteProjection()
     })
+    if (initialAnnotations !== initialReadingState.annotations && !initialReconciliationAppliedRef.current) {
+      initialReconciliationAppliedRef.current = true
+      bookTopic.setAnnotations(initialAnnotations)
+    }
     if (initialReadingState.position === null && initialReaderPosition !== null)
       bookTopic.setPosition(initialReaderPosition)
     return () => {
       unsubscribeLocal()
       unsubscribeExternal()
     }
-  }, [bookTopic, handleNoteChange, initialReaderPosition, initialReadingState.position, note, syncNoteProjection])
+  }, [
+    bookTopic,
+    handleNoteChange,
+    initialAnnotations,
+    initialReaderPosition,
+    initialReadingState.annotations,
+    initialReadingState.position,
+    note,
+    syncNoteProjection,
+  ])
 
   const onPositionChange = useCallback((position: ReaderPosition) => {
     if (JSON.stringify(position) === JSON.stringify(positionRef.current))
@@ -94,9 +124,27 @@ export function BoundShelfReader({
       return
     bookTopic.setAnnotations(nextAnnotations)
   }, [bookTopic])
-
+  const createAnnotationTopic = useCallback((input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => {
+    return createReaderAnnotationTopic({
+      bookTopicId: context.topicId,
+      captureReaderRegion: window.desktop.captureReaderRegion,
+      createTopic: note.createTopic,
+      input,
+      saveImage: window.desktop.saveImage,
+      signal,
+      viewport: { height: window.innerHeight, width: window.innerWidth },
+    })
+  }, [context.topicId, note])
+  const detachAnnotationTopic = useCallback(async (topicId: string) => {
+    const reference = note.getTopicReaderReference(topicId)
+    if (!reference)
+      throw new Error(`Annotation Topic ${topicId} has no Reader source`)
+    note.setTopicReaderReference(topicId, { source: reference.source })
+  }, [note])
   return (
     <WindowReader
+      annotationCopyBookTitle={presentation.annotationCopyBookTitle}
+      annotationCopyFormat={configuration.readerAnnotationCopyFormat}
       annotationEditingEnabled
       annotations={annotations}
       arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
@@ -116,6 +164,22 @@ export function BoundShelfReader({
       }}
       initialPosition={initialReaderPosition}
       initialPresentationMode={configuration.readerEpubPresentationMode}
+      initialAnnotationId={initialAnnotationId}
+      onCreateAnnotationTopic={createAnnotationTopic}
+      onDetachAnnotationTopic={detachAnnotationTopic}
+      renderAnnotationEditor={({ annotation, readOnly }) => {
+        if (!annotation.annotationTopicId)
+          throw new Error(`Reader annotation ${annotation.id} has no Topic Editor binding`)
+        return (
+          <Editor
+            adapters={editorAdapters}
+            layout="embedded"
+            outline={{ outdentBehavior: configuration.outdentBehavior }}
+            readOnly={readOnly}
+            topic={note.getTopic(annotation.annotationTopicId)}
+          />
+        )
+      }}
       sidebarActions={({ active, toggle }) => (
         <NoteInspectorActions
           favorite={favorite}
@@ -126,7 +190,7 @@ export function BoundShelfReader({
         />
       )}
       source={source}
-      title={readerTitle(context)}
+      title={presentation.title}
       onAnnotationsChange={onAnnotationsChange}
       onPositionChange={onPositionChange}
     />

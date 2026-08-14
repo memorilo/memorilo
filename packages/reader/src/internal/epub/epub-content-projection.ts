@@ -31,9 +31,10 @@ export function readiumDecoration(annotation: ReaderAnnotation): Decoration | nu
     id: annotation.id,
     locator,
     style: {
+      expand: 0.001,
       tint: annotationDecorationTint(annotation.color),
-      type: annotation.kind === 'annotation'
-        ? DecorationStyleType.HighlightUnderline
+      type: annotation.style === 'underline'
+        ? DecorationStyleType.Underline
         : DecorationStyleType.Highlight,
     },
   }

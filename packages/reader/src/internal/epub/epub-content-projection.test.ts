@@ -57,11 +57,11 @@ describe('epub content projection', () => {
         quote: { exact: 'Selected text' },
         type: 'text',
       },
-      body: 'Remember this',
+      annotationTopicId: 'topic-1',
       color: 'purple',
       createdAt: 10,
       id: 'annotation-1',
-      kind: 'annotation',
+      style: 'underline',
       updatedAt: 20,
     }
 
@@ -74,7 +74,7 @@ describe('epub content projection', () => {
       id: 'annotation-1',
       style: {
         tint: '#B99BFF',
-        type: DecorationStyleType.HighlightUnderline,
+        type: DecorationStyleType.Underline,
       },
     })
   })

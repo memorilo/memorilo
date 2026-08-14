@@ -36,12 +36,15 @@ export function projectNoteAssetReferences(note: EditorNote): readonly AssetRefe
       continue
     }
     const validation = note.getTopicValidationInput(entry.id)
-    if ('document' in validation) {
+    if ('document' in validation)
       collectAssetReferences(validation.document, counts)
-      continue
-    }
-    if ('embeddedEditors' in validation)
+    else if ('embeddedEditors' in validation)
       Object.values(validation.embeddedEditors).forEach(editor => collectAssetReferences(editor.document, counts))
+    if (entry.topicType === 'regular' && entry.readerReference?.source.kind === 'region') {
+      const fileName = parseAssetFileName(entry.readerReference.source.imageSrc)
+      if (fileName)
+        counts.set(fileName, (counts.get(fileName) ?? 0) + 1)
+    }
   }
   return [...counts].map(([fileName, count]) => ({ count, fileName }))
 }

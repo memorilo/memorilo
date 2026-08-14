@@ -1,6 +1,7 @@
 import type {
   AddShelfSourceInput,
   BrowseShelfInput,
+  CaptureDesktopReaderRegionInput,
   CreateDesktopBookContextResult,
   CreateDesktopNoteInput,
   DesktopAssetCheckResult,
@@ -117,6 +118,7 @@ export interface DesktopIpcClient {
     updateSource: (input: UpdateShelfSourceInput) => Promise<ShelfSource>
   }
   window: {
+    captureReaderRegion: (input: CaptureDesktopReaderRegionInput) => Promise<Uint8Array>
     showColumnVisibilityMenu: (input: ShowDesktopColumnVisibilityMenuInput) => Promise<DesktopColumnVisibilityMenuSelection | null>
   }
 }
@@ -228,6 +230,7 @@ export const desktopIpcChannels = {
     updateSource: 'memorilo:invoke:shelf:updateSource',
   },
   window: {
+    captureReaderRegion: 'memorilo:invoke:window:captureReaderRegion',
     showColumnVisibilityMenu: 'memorilo:invoke:window:showColumnVisibilityMenu',
   },
 } as const satisfies DesktopIpcChannels

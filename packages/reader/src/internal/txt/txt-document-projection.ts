@@ -132,9 +132,13 @@ export function createTxtDocumentProjection(
       }
       const marker = article.ownerDocument.createElement('span')
       marker.dataset.annotationId = run.annotation.id
-      marker.style.backgroundColor = annotationOverlayTint(run.annotation.color)
-      if (run.annotation.kind === 'annotation')
+      if (run.annotation.style === 'underline') {
         marker.style.textDecoration = `underline 1.5px ${annotationOverlayTint(run.annotation.color)}`
+        marker.style.textUnderlineOffset = '2px'
+      }
+      else {
+        marker.style.backgroundColor = annotationOverlayTint(run.annotation.color)
+      }
       marker.textContent = run.text
       fragment.append(marker)
     }

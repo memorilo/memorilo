@@ -2,6 +2,7 @@ import type {
   ReadingAnchor,
   ReadingAnnotation,
   ReadingAnnotationColor,
+  ReadingAnnotationStyle,
   ReadingComicRegionAnchor,
   ReadingEpubLocator,
   ReadingEpubRegionAnchor,
@@ -38,6 +39,8 @@ export type ReaderFormat = ReadingFormat
 export type ReaderPresentationMode = 'publisher' | 'reader'
 
 export type ReaderAnnotationColor = ReadingAnnotationColor
+export type ReaderAnnotationStyle = ReadingAnnotationStyle
+export type ReaderAnnotationCopyFormat = 'text' | 'text-book' | 'text-book-location'
 
 export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr'
 
@@ -69,6 +72,13 @@ export interface ReaderLocation {
   position?: number
   progression: number
   total?: number
+}
+
+export interface ReaderClientRect {
+  height: number
+  left: number
+  top: number
+  width: number
 }
 
 export interface ReaderOutlineItem {
@@ -111,6 +121,17 @@ export type ReaderSelection = ReaderRegionSelection | ReaderTextSelection
 export type ReaderHighlight = ReadingHighlight
 export type ReaderNote = ReadingNote
 export type ReaderAnnotation = ReadingAnnotation
+
+export interface ReaderAnnotationEditorRenderInput {
+  annotation: ReaderAnnotation
+  readOnly: boolean
+}
+
+export interface ReaderAnnotationTopicCreateInput {
+  annotation: ReaderAnnotation
+  clientRect: ReaderClientRect
+  location: string
+}
 
 export interface ReaderOcrTextItem {
   confidence?: number
@@ -159,21 +180,27 @@ export interface ReaderCapabilities {
 }
 
 export interface ReaderProps {
-  auxiliarySidebar?: ReaderAuxiliarySidebar
+  annotationCopyBookTitle?: string
+  annotationCopyFormat?: ReaderAnnotationCopyFormat
   annotationEditingEnabled?: boolean
   arrowKeyPageTurning?: boolean
   annotations?: readonly ReaderAnnotation[]
   ariaLabel?: string
+  auxiliarySidebar?: ReaderAuxiliarySidebar
   defaultAnnotations?: readonly ReaderAnnotation[]
   initialPosition?: ReaderPosition | null
   initialPresentationMode?: ReaderPresentationMode
+  initialAnnotationId?: string
   ocrProvider?: ReaderOcrProvider
   onAnnotationsChange?: (annotations: readonly ReaderAnnotation[]) => void
+  onCreateAnnotationTopic?: (input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => Promise<string>
+  onDetachAnnotationTopic?: (topicId: string) => Promise<void>
   onError?: (error: Error) => void
   onLocationChange?: (location: ReaderLocation) => void
   onOcrStatusChange?: (status: ReaderOcrStatus) => void
   onPositionChange?: (position: ReaderPosition) => void
   onSelectionChange?: (selection: ReaderSelection | null) => void
+  renderAnnotationEditor?: (input: ReaderAnnotationEditorRenderInput) => ReactNode
   sidebarActions?: ReactNode | ((controller: ReaderAuxiliarySidebarController) => ReactNode)
   title?: string
   toolbarActions?: ReactNode

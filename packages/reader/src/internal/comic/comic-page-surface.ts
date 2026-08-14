@@ -365,7 +365,7 @@ export class ComicPageSurface {
       const tint = annotationOverlayTint(annotation.color)
       Object.assign(marker.style, {
         background: tint,
-        border: annotation.kind === 'annotation' ? `2px solid ${tint}` : '0',
+        border: annotation.annotationTopicId === undefined ? '0' : `2px solid ${tint}`,
         cursor: 'pointer',
         height: `${anchor.rect.height * 100}%`,
         left: `${anchor.rect.x * 100}%`,

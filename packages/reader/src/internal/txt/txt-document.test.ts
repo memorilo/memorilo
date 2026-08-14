@@ -19,7 +19,7 @@ function textAnnotation(
     color: 'yellow',
     createdAt: updatedAt,
     id,
-    kind: 'highlight',
+    style: 'highlight',
     updatedAt,
   }
 }

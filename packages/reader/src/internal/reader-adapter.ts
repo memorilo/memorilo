@@ -2,6 +2,7 @@ import type { OperationSupervisor } from '@memorilo/effect-lifecycle'
 import type {
   ReaderAnnotation,
   ReaderCapabilities,
+  ReaderClientRect,
   ReaderFormat,
   ReaderLocation,
   ReaderOcrStatus,
@@ -14,12 +15,7 @@ import type {
   ReaderTextQuote,
 } from '../types'
 
-export interface ReaderClientRect {
-  height: number
-  left: number
-  top: number
-  width: number
-}
+export type { ReaderClientRect } from '../types'
 
 export interface ReaderAdapterSelection {
   clientRect: ReaderClientRect

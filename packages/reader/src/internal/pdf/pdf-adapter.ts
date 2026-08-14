@@ -200,7 +200,7 @@ class PdfAdapter implements ReaderAdapter {
         this.pageNumber = nextPageNumber
         this.emitState()
       }
-      this.mounted?.scrollPageIntoView()
+      this.mounted?.scrollAnnotationIntoView(annotationId)
     })
   }
 

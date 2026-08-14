@@ -1,4 +1,6 @@
 {
+  "openReaderSource": "在阅读器中打开来源",
+  "removeReaderSource": "移除阅读器来源",
   "noteTitle": "笔记",
   "loadingEditor": "正在加载编辑器…",
   "openingNote": "正在打开笔记…",
