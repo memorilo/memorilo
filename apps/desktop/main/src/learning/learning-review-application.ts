@@ -4,7 +4,7 @@ import type {
   RestoreDesktopReviewItemInput,
 } from '@memorilo/desktop-preload'
 import type { LearningQueueItem, LearningStorage, LearningTarget } from '@memorilo/editor-storage'
-import type { EditorCardProjection } from '@memorilo/editor/card'
+import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { NoteApplicationService, NoteCardProjection } from '../notes/note-application-service'
 import { NoteCardProjectionNotFoundError } from '../notes/note-application-service'
 
@@ -37,7 +37,7 @@ function queueItemFingerprint(queue: LearningQueueItem): string {
 
 function resolveTargets(
   queue: LearningQueueItem,
-  card: EditorCardProjection,
+  card: ReviewCardProjection,
   cardTargets: readonly LearningTarget[],
 ): Pick<DesktopReviewItem, 'mainTargetId' | 'targets'> {
   const activeTargets = cardTargets.filter(target => target.active && target.cardId === queue.cardId)

@@ -37,11 +37,19 @@ export interface BookTopicProjection extends TopicProjectionBase {
   topicType: 'book'
 }
 
+export interface ImageOcclusionTopicProjection extends TopicProjectionBase {
+  topicType: 'image-occlusion'
+}
+
 export interface WhiteboardTopicProjection extends TopicProjectionBase {
   topicType: 'whiteboard'
 }
 
-export type TopicProjection = BookTopicProjection | RegularTopicProjection | WhiteboardTopicProjection
+export type TopicProjection
+  = | BookTopicProjection
+    | ImageOcclusionTopicProjection
+    | RegularTopicProjection
+    | WhiteboardTopicProjection
 
 export type NoteEntryProjection = FolderProjection | TopicProjection
 

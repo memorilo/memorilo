@@ -26,6 +26,7 @@ export type {
   InlineHighlightMarkAttrs,
   MultiLineCardItemProjection,
   MultiLineEditorCardProjection,
+  ReviewCardProjection,
 } from './card/card-model'
 export { projectEditorCards } from './card/card-model'
 export type { CardPreviewItemSelection, CardPreviewMode, CardPreviewProps } from './card/card-preview'
@@ -54,6 +55,32 @@ export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
 export type { EditorFocusTarget, EditorLayout, EditorProps } from './editor'
+export type {
+  EditorImageOcclusionIntegration,
+  ImageOcclusionCardProjection,
+  ImageOcclusionMode,
+  ImageOcclusionSnapshot,
+  ImageOcclusionSource,
+  ImageOcclusionState,
+  OcclusionBoundsShape,
+  OcclusionBrushShape,
+  OcclusionShape,
+  OpenImageOcclusionInput,
+} from './image-occlusion/image-occlusion-model'
+export {
+  containOcclusionBoundsShape,
+  imageOcclusionBoundsStrokeWidth,
+  imageOcclusionBrushStrokeWidth,
+  imageOcclusionColor,
+  imageOcclusionPreviewColor,
+  imageOcclusionStateSignature,
+  minimumOcclusionShapeSize,
+  projectImageOcclusionCards,
+  scaleOcclusionBrushPoints,
+  shouldRegroupImageOcclusionShapes,
+  transformOcclusionBrushShape,
+  translateOcclusionBrushShape,
+} from './image-occlusion/image-occlusion-model'
 export { JournalEditor } from './journal-editor'
 export type { JournalEditorProps } from './journal-editor'
 export type {
@@ -63,20 +90,25 @@ export type {
   CreateEditorNoteOptions,
   CreateEmbeddedEditorInput,
   CreateFolderInput,
+  CreateImageOcclusionTopicInput,
   CreateTopicInput,
   CreateWhiteboardTopicInput,
   DeleteNoteEntryInput,
   DeleteNoteEntryStrategy,
   EditorBookTopicDocument,
   EditorEmbeddedDocument,
+  EditorImageOcclusionTopicDocument,
   EditorNote,
   EditorNoteChange,
   EditorNoteMutation,
   EditorNoteVersion,
+  EditorOpenedTopic,
   EditorTopicDocument,
   EditorWhiteboardTopicDocument,
   EmbeddedEditorSnapshot,
   FolderSnapshot,
+  ImageOcclusionTopicSnapshot,
+  ImageOcclusionTopicValidationInput,
   MoveNoteEntryInput,
   NoteEntryKind,
   NoteEntrySnapshot,
@@ -108,6 +140,7 @@ export {
 } from './note/whiteboard-library-document'
 export type {
   LoroBookTopic,
+  LoroImageOcclusionTopic,
   LoroRegularTopic,
   LoroTopic,
   LoroTopicDocument,
@@ -120,6 +153,7 @@ export type {
 export {
   isLoroTopic,
   LoroBookTopicEntrySchema,
+  LoroImageOcclusionTopicEntrySchema,
   LoroRegularTopicEntrySchema,
   LoroTopicDocumentSchema,
   LoroTopicEntrySchema,

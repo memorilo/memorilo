@@ -2,6 +2,7 @@ import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { CardReviewOptions } from '../card/card-review-runtime'
 import type { EditorCardIntegration } from '../card/card-sync'
+import type { EditorImageOcclusionIntegration } from '../image-occlusion/image-occlusion-model'
 import type { EditorTopicDocument } from '../note/editor-note'
 import type { OutlineOptions } from './outline-runtime'
 
@@ -20,6 +21,7 @@ export interface EditorSessionOptions {
   adapters: EditorAdapters
   cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
+  imageOcclusion?: EditorImageOcclusionIntegration
   onDocumentChange: (document: NodeJSON) => void
   outline?: OutlineOptions
   readOnly: boolean
@@ -61,7 +63,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     outlineRuntime.reconcileDocument(document)
     options.onDocumentChange(document)
     scheduleCardSync(document)
-  }, topic, options.readOnly, cardReviewRuntime)
+  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion)
   const resources = createResourceScope('Editor session')
   resources.own({
     close: () => configured.networkImagePasteRuntime.close(),

@@ -1,14 +1,16 @@
-import type { EditorNote } from '@memorilo/editor'
+import type {
+  EditorImageOcclusionIntegration,
+  EditorImageOcclusionTopicDocument,
+  EditorNote,
+  EditorOpenedTopic,
+  OpenImageOcclusionInput,
+} from '@memorilo/editor'
 import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
 import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
-import {
-  AlignLeft,
-  Copy,
-  ListTree,
-} from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { AlignLeft, Copy, ListTree } from 'lucide-react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCommandPaletteCommands } from '../../../shared/command-palette'
 import { useDesktopConfiguration } from '../../../shared/configuration'
@@ -21,11 +23,22 @@ import { noteEditorStyles } from './note-editor.stylex'
 import { useNoteEntryContextMenu } from './note-entry-context-menu'
 import { WhiteboardEditor } from './whiteboard-editor'
 
+const ImageOcclusionTopicEditor = lazy(async () => {
+  const module = await import('./image-occlusion-editor')
+  return { default: module.ImageOcclusionEditor }
+})
+
 type CopyStatus = 'copied' | 'failed'
 
 interface CopyFeedback {
   diagnostics: string
   status: CopyStatus
+}
+
+function isImageOcclusionTopic(
+  topic: EditorOpenedTopic,
+): topic is EditorImageOcclusionTopicDocument {
+  return 'getState' in topic
 }
 
 export interface NoteEditorViewProps {
@@ -36,6 +49,7 @@ export interface NoteEditorViewProps {
   onAddFolder: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
   onAddWhiteboard: (parentId: string | null) => void
+  onOpenImageOcclusion: (input: OpenImageOcclusionInput) => Promise<void> | void
   onRebindBook: (topicId: string) => void
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   onToggleEntry: (entryId: string) => void
@@ -53,6 +67,7 @@ export function NoteEditorView({
   onAddFolder,
   onAddTopic,
   onAddWhiteboard,
+  onOpenImageOcclusion,
   onRebindBook,
   onRenameNote,
   onToggleEntry,
@@ -69,8 +84,18 @@ export function NoteEditorView({
     () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
     [configuration.networkImagePasteBehavior],
   )
+  const currentEntry = opened.entries.find(entry => entry.id === opened.topic.topicId)
+  if (!currentEntry || currentEntry.kind !== 'topic')
+    throw new Error(`Note ${opened.note.id} does not contain open Topic ${opened.topic.topicId}`)
+
+  const imageOcclusionTopic = isImageOcclusionTopic(opened.topic) ? opened.topic : null
   const editorTopic = 'documentId' in opened.topic ? opened.topic : null
-  const whiteboardTopic = 'documentId' in opened.topic ? null : opened.topic
+  const whiteboardTopic = 'getScene' in opened.topic ? opened.topic : null
+  if ((currentEntry.topicType === 'image-occlusion') !== (imageOcclusionTopic !== null))
+    throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
+  if ((currentEntry.topicType === 'whiteboard') !== (whiteboardTopic !== null))
+    throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
+
   const mode = useEditorTopicMode(editorTopic)
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
   const entryContextMenu = useNoteEntryContextMenu({
@@ -80,15 +105,9 @@ export function NoteEditorView({
     onAddWhiteboard,
     onRebindBook,
   })
-  const showDocumentMode = useCallback(() => {
-    if ('documentId' in opened.topic)
-      opened.topic.setMode(EditorMode.Document)
-  }, [opened.topic])
-  const showOutlineMode = useCallback(() => {
-    if ('documentId' in opened.topic)
-      opened.topic.setMode(EditorMode.Outline)
-  }, [opened.topic])
-  const modeCommands = useMemo<readonly PaletteCommand[]>(() => whiteboardTopic !== null
+  const showDocumentMode = useCallback(() => editorTopic?.setMode(EditorMode.Document), [editorTopic])
+  const showOutlineMode = useCallback(() => editorTopic?.setMode(EditorMode.Outline), [editorTopic])
+  const modeCommands = useMemo<readonly PaletteCommand[]>(() => editorTopic === null
     ? []
     : mode === EditorMode.Document
       ? [{
@@ -112,10 +131,27 @@ export function NoteEditorView({
           label: t('switchToDocumentMode'),
           run: showDocumentMode,
           section: t('editorSection') as PaletteCommand['section'],
-        }], [mode, showDocumentMode, showOutlineMode, t, whiteboardTopic])
+        }], [editorTopic, mode, showDocumentMode, showOutlineMode, t])
   useCommandPaletteCommands(modeCommands)
 
+  const regularTopicImageOcclusion = useMemo<EditorImageOcclusionIntegration | undefined>(() => {
+    if (currentEntry.topicType !== 'regular' || editorTopic === null)
+      return undefined
+    const sourceTopicId = editorTopic.topicId
+    return {
+      getState: (imageId) => {
+        const topic = opened.note.findImageOcclusionTopic(sourceTopicId, imageId)
+        return topic ? topic.getState() : null
+      },
+      open: onOpenImageOcclusion,
+      subscribe: editorTopic.subscribe,
+    }
+  }, [currentEntry.topicType, editorTopic, onOpenImageOcclusion, opened.note])
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
+  const renameImageOcclusionTopic = useCallback(
+    (title: string) => opened.note.renameEntry(opened.topic.topicId, title),
+    [opened.note, opened.topic.topicId],
+  )
   const copyValidationDiagnostics = useCallback(async () => {
     if (!validationError)
       return
@@ -204,22 +240,35 @@ export function NoteEditorView({
               </div>
             )
           : null}
-        {'documentId' in opened.topic
+        {imageOcclusionTopic !== null
           ? (
-              <Editor
-                adapters={editorAdapters}
-                focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
-                outline={{ outdentBehavior: configuration.outdentBehavior }}
-                topic={opened.topic}
-              />
+              <Suspense fallback={<div {...stylex.props(noteEditorStyles.topicLoading)} role="status">{t('loadingEditor')}</div>}>
+                <ImageOcclusionTopicEditor
+                  onRename={renameImageOcclusionTopic}
+                  title={currentEntry.title}
+                  topic={imageOcclusionTopic}
+                />
+              </Suspense>
             )
-          : (
-              <WhiteboardEditor
-                adapters={editorAdapters}
-                inspectorVisible={inspectorVisible}
-                topic={opened.topic}
-              />
-            )}
+          : editorTopic !== null
+            ? (
+                <Editor
+                  adapters={editorAdapters}
+                  focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
+                  imageOcclusion={regularTopicImageOcclusion}
+                  outline={{ outdentBehavior: configuration.outdentBehavior }}
+                  topic={editorTopic}
+                />
+              )
+            : whiteboardTopic !== null
+              ? (
+                  <WhiteboardEditor
+                    adapters={editorAdapters}
+                    inspectorVisible={inspectorVisible}
+                    topic={whiteboardTopic}
+                  />
+                )
+              : null}
       </section>
       <NoteInspector
         collapsedEntryIds={collapsedEntryIds}

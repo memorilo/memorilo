@@ -1,5 +1,6 @@
 export type {
   LoroBookTopic,
+  LoroImageOcclusionTopic,
   LoroRegularTopic,
   LoroTopic,
   LoroTopicDocument,
@@ -12,6 +13,7 @@ export type {
 export {
   isLoroTopic,
   LoroBookTopicEntrySchema,
+  LoroImageOcclusionTopicEntrySchema,
   LoroRegularTopicEntrySchema,
   LoroTopicDocumentSchema,
   LoroTopicEntrySchema,

@@ -20,6 +20,7 @@ export {
 const NonNegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 const PositiveIntegerSchema = Schema.Int.check(Schema.isGreaterThan(0))
 const UnitIntervalSchema = Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 }))
+const PositiveUnitIntervalSchema = UnitIntervalSchema.check(Schema.isGreaterThan(0))
 const ReadingFormatSchema = Schema.Literals(['cbr', 'cbz', 'epub', 'pdf', 'txt'])
 const BookFileSha256Schema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u))
 const ReadingAnnotationColorSchema = Schema.Literals(['blue', 'green', 'pink', 'purple', 'yellow'])
@@ -148,6 +149,58 @@ const BookFileBindingSchema = Schema.Struct({
   retrievalHints: Schema.Array(BookFileLocatorSchema),
 })
 
+const OcclusionShapeBaseFields = {
+  groupId: Schema.NonEmptyString,
+  id: Schema.NonEmptyString,
+} as const
+const OcclusionBoundsShapeSchema = Schema.Struct({
+  ...OcclusionShapeBaseFields,
+  height: PositiveUnitIntervalSchema,
+  kind: Schema.Literals(['ellipse', 'rectangle']),
+  width: PositiveUnitIntervalSchema,
+  x: UnitIntervalSchema,
+  y: UnitIntervalSchema,
+}).check(Schema.makeFilter((shape) => {
+  if (shape.x + shape.width > 1)
+    return { message: 'expected the OcclusionShape width to stay inside the image', path: ['width'] }
+  if (shape.y + shape.height > 1)
+    return { message: 'expected the OcclusionShape height to stay inside the image', path: ['height'] }
+  return undefined
+}, { expected: 'an OcclusionShape contained by the image bounds' }))
+const OcclusionBrushShapeSchema = Schema.Struct({
+  ...OcclusionShapeBaseFields,
+  kind: Schema.Literal('brush'),
+  points: Schema.Array(UnitIntervalSchema),
+  strokeWidth: PositiveUnitIntervalSchema,
+}).check(Schema.makeFilter(shape => shape.points.length >= 4 && shape.points.length % 2 === 0
+  ? undefined
+  : { message: 'expected at least two complete OcclusionShape brush points', path: ['points'] }, {
+  expected: 'an OcclusionShape brush path with complete point pairs',
+}))
+const OcclusionShapeSchema = Schema.Union([
+  OcclusionBoundsShapeSchema,
+  OcclusionBrushShapeSchema,
+])
+const ImageOcclusionStateSchema = Schema.Struct({
+  image: Schema.Struct({
+    height: PositiveIntegerSchema,
+    src: Schema.NonEmptyString,
+    width: PositiveIntegerSchema,
+  }),
+  mode: Schema.Literals(['hide-all', 'hide-one']),
+  shapes: Schema.Array(OcclusionShapeSchema),
+  sourceImageId: Schema.NonEmptyString,
+  sourceTopicId: Schema.NonEmptyString,
+}).check(Schema.makeFilter((state) => {
+  const shapeIds = new Set<string>()
+  for (const [index, shape] of state.shapes.entries()) {
+    if (shapeIds.has(shape.id))
+      return { message: `duplicate OcclusionShape id ${JSON.stringify(shape.id)}`, path: ['shapes', index, 'id'] }
+    shapeIds.add(shape.id)
+  }
+  return undefined
+}, { expected: 'an ImageOcclusionTopic state with unique OcclusionShape IDs' }))
+
 const LoroTopicEntryBaseFields = {
   blockTreeKey: Schema.NonEmptyString,
   editorMode: Schema.Literals([0, 1]),
@@ -177,12 +230,20 @@ export const LoroBookTopicEntrySchema = Schema.Struct({
   topicType: Schema.Literal('book'),
 })
 
+export const LoroImageOcclusionTopicEntrySchema = Schema.Struct({
+  entryId: Schema.NonEmptyString,
+  kind: Schema.Literal('topic'),
+  title: Schema.String,
+  topicType: Schema.Literal('image-occlusion'),
+})
+
 export const LoroWhiteboardTopicEntrySchema = Schema.Struct({
   ...LoroWhiteboardTopicEntryBaseFields,
 })
 
 export const LoroTopicEntrySchema = Schema.Union([
   LoroBookTopicEntrySchema,
+  LoroImageOcclusionTopicEntrySchema,
   LoroRegularTopicEntrySchema,
   LoroWhiteboardTopicEntrySchema,
 ])
@@ -199,6 +260,11 @@ const LoroBookTopicSchema = Schema.Struct({
   readingState: Schema.Struct({
     position: Schema.NullOr(ReadingPositionSchema),
   }),
+})
+
+const LoroImageOcclusionTopicSchema = Schema.Struct({
+  entry: LoroImageOcclusionTopicEntrySchema,
+  state: ImageOcclusionStateSchema,
 })
 
 const LoroWhiteboardTopicSchema = Schema.Struct({
@@ -226,10 +292,25 @@ const LoroWhiteboardTopicSchema = Schema.Struct({
 /** A complete Topic projected from its Loro entry map and referenced block tree. */
 export const LoroTopicSchema = Schema.Union([
   LoroBookTopicSchema,
+  LoroImageOcclusionTopicSchema,
   LoroRegularTopicSchema,
   LoroWhiteboardTopicSchema,
 ]).check(Schema.makeFilter((topic) => {
   const id = topic.entry.entryId
+  if (topic.entry.topicType === 'image-occlusion') {
+    if (!('state' in topic)) {
+      return {
+        message: 'expected an ImageOcclusionTopic state',
+        path: ['state'],
+      }
+    }
+    return topic.state.sourceTopicId === id
+      ? {
+          message: 'expected an ImageOcclusionTopic to reference a different source Topic',
+          path: ['state', 'sourceTopicId'],
+        }
+      : undefined
+  }
   if (topic.entry.topicType === 'regular') {
     return topic.entry.blockTreeKey === `topic:${id}:blocks`
       ? undefined
@@ -296,6 +377,7 @@ export const LoroTopicSchema = Schema.Union([
 
 export type LoroTopic = typeof LoroTopicSchema.Type
 export type LoroBookTopic = typeof LoroBookTopicSchema.Type
+export type LoroImageOcclusionTopic = typeof LoroImageOcclusionTopicSchema.Type
 export type LoroRegularTopic = typeof LoroRegularTopicSchema.Type
 export type LoroWhiteboardTopic = typeof LoroWhiteboardTopicSchema.Type
 export type LoroTopicValidation = Effect.Effect<LoroTopic, Schema.SchemaError>

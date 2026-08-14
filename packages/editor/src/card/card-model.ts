@@ -1,4 +1,5 @@
 import type { NodeJSON } from 'prosekit/core'
+import type { ImageOcclusionCardProjection } from '../image-occlusion/image-occlusion-model'
 
 export type BasicCardDirection = 'backward' | 'forward'
 export type CardPracticeDirection = BasicCardDirection | 'both' | 'disabled'
@@ -43,6 +44,7 @@ export interface MultiLineEditorCardProjection {
 }
 
 export type EditorCardProjection = BasicEditorCardProjection | ClozeEditorCardProjection | MultiLineEditorCardProjection
+export type ReviewCardProjection = EditorCardProjection | ImageOcclusionCardProjection
 
 export interface CardDelimiterAttrs {
   backwardCardId: string | null

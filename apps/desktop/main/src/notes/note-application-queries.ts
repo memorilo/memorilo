@@ -5,7 +5,7 @@ import type {
   ListPastJournalsInput,
 } from './note-application-contracts'
 import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
-import { projectEditorCards } from '@memorilo/editor/card'
+import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
 import { NoteCardProjectionNotFoundError } from './note-application-contracts'
 import {
   projectApplicationNote,
@@ -21,9 +21,11 @@ type TopicDocument = Extract<ReturnType<AuthoritativeNote['getTopicValidationInp
 
 function topicDocuments(note: AuthoritativeNote, topicId: string): readonly TopicDocument[] {
   const validation = note.getTopicValidationInput(topicId)
-  return 'document' in validation
-    ? [validation.document]
-    : Object.values(validation.embeddedEditors).map(editor => editor.document)
+  if ('document' in validation)
+    return [validation.document]
+  if ('embeddedEditors' in validation)
+    return Object.values(validation.embeddedEditors).map(editor => editor.document)
+  throw new TypeError(`ImageOcclusionTopic ${topicId} does not have ProseMirror documents`)
 }
 
 interface NoteApplicationQueriesDependencies {
@@ -43,8 +45,10 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
       const entry = current.note.getEntries().find(candidate => candidate.id === input.topicId)
       if (!entry || entry.kind !== 'topic')
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
-      const card = topicDocuments(current.note, input.topicId)
-        .flatMap(document => projectEditorCards(document))
+      const cards = entry.topicType === 'image-occlusion'
+        ? projectImageOcclusionCards(current.note.getImageOcclusionTopic(entry.id).getState())
+        : topicDocuments(current.note, input.topicId).flatMap(document => projectEditorCards(document))
+      const card = cards
         .find(candidate => candidate.id === input.cardId)
       if (!card)
         throw new NoteCardProjectionNotFoundError(input.noteId, input.topicId, input.cardId)
@@ -73,9 +77,9 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
         throw new Error(`Note ${input.noteId} does not contain Topic ${input.topicId}`)
       const validation = current.note.getTopicValidationInput(input.topicId)
       if (!('document' in validation))
-        throw new Error(`WhiteboardTopic ${input.topicId} does not have a single Topic document`)
+        throw new Error(`Topic ${input.topicId} does not have a single editable document`)
       if (!('mode' in entry))
-        throw new Error(`WhiteboardTopic ${input.topicId} does not have a single editor mode`)
+        throw new Error(`Topic ${input.topicId} does not have a single editor mode`)
       return {
         document: validation.document,
         mode: entry.mode,

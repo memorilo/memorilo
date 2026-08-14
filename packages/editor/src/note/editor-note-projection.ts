@@ -18,6 +18,7 @@ import {
   TOPIC_BLOCK_TREE_KEY,
   TOPIC_EDITOR_MODE_KEY,
 } from './editor-note-crdt'
+import { getImageOcclusionState, projectImageOcclusionContent } from './editor-note-image-occlusion'
 import { projectWhiteboardContent } from './editor-note-whiteboard'
 import { projectTopicContent } from './topic-projection'
 
@@ -43,6 +44,8 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
   const topics: TopicContentProjection[] = []
   const seenEntryIds = new Set<string>()
   const bookTopicIdsByFile = new Map<string, string>()
+  const imageOcclusionTopicIdsBySource = new Map<string, string>()
+  const runtime = { doc, noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id') }
 
   const visit = (
     nodes: ReturnType<ReturnType<typeof noteTree>['toArray']>,
@@ -73,17 +76,30 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
       }
       else if (kind === 'topic') {
         const topicType = readTopicType(node.meta, `Topic ${id} type`)
-        const content = topicType === 'whiteboard'
-          ? projectWhiteboardContent({
-              doc,
-              noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id'),
-            }, id)
-          : projectTopicContentFromTree(
-              doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
-              id,
-              readTopicTitle(node.meta, `Topic ${id} title`),
-            )
-        if (topicType === 'book') {
+        const content = topicType === 'image-occlusion'
+          ? projectImageOcclusionContent(runtime, id)
+          : topicType === 'whiteboard'
+            ? projectWhiteboardContent({
+                doc,
+                noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id'),
+              }, id)
+            : projectTopicContentFromTree(
+                doc.getTree(readString(node.meta, TOPIC_BLOCK_TREE_KEY, `Topic ${id} Block tree key`)),
+                id,
+                readTopicTitle(node.meta, `Topic ${id} title`),
+              )
+        if (topicType === 'image-occlusion') {
+          const state = getImageOcclusionState(runtime, id)
+          if (parentId !== state.sourceTopicId)
+            throw new Error(`ImageOcclusionTopic ${id} must be a child of source Topic ${state.sourceTopicId}`)
+          const sourceKey = `${state.sourceTopicId}\0${state.sourceImageId}`
+          const existingTopicId = imageOcclusionTopicIdsBySource.get(sourceKey)
+          if (existingTopicId)
+            throw new Error(`ImageOcclusionTopics ${existingTopicId} and ${id} use the same source image`)
+          imageOcclusionTopicIdsBySource.set(sourceKey, id)
+          entries.push({ id, kind, ordinal, parentId, title: content.title, topicType })
+        }
+        else if (topicType === 'book') {
           const base = {
             id,
             kind,

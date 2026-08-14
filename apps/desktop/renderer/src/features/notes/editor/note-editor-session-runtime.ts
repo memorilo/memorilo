@@ -6,8 +6,7 @@ import type {
 import type {
   EditorNote,
   EditorNoteChange,
-  EditorTopicDocument,
-  EditorWhiteboardTopicDocument,
+  EditorOpenedTopic,
   NoteEntrySnapshot,
 } from '@memorilo/editor/note'
 import type { EditorNoteSessionCache } from '../note-runtime'
@@ -19,7 +18,7 @@ export interface EditorNoteSessionOpened<TStored extends DesktopNote = DesktopNo
   entries: readonly NoteEntrySnapshot[]
   note: EditorNote
   stored: TStored
-  topic: EditorTopicDocument | EditorWhiteboardTopicDocument
+  topic: EditorOpenedTopic
 }
 
 export interface TopicValidationError {
@@ -34,7 +33,7 @@ export type EditorStoredNotePatch<TStored extends DesktopNote> = Partial<
 export type EditorTopicResolver<TStored extends DesktopNote> = (
   note: EditorNote,
   stored: TStored,
-) => EditorTopicDocument | EditorWhiteboardTopicDocument
+) => EditorOpenedTopic
 
 export interface EditorNoteSessionPersistence {
   enqueue: (change: EditorNoteChange) => void
@@ -67,7 +66,7 @@ interface EditorNoteSessionRuntimeOptions<TStored extends DesktopNote> {
 
 interface ValidatedEditorNote {
   entries: readonly NoteEntrySnapshot[]
-  topic: EditorTopicDocument | EditorWhiteboardTopicDocument
+  topic: EditorOpenedTopic
 }
 
 export function toEditorNoteError(error: unknown): Error {
