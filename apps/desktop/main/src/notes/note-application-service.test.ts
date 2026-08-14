@@ -2,6 +2,7 @@ import type { EmbeddingModel } from '@memorilo/editor-storage'
 import { SqliteEditorStorage } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createLearningReviewApplication } from '../learning/learning-review-application'
 import { BetterSqliteDatabase } from '../storage/better-sqlite-database'
 import { createNoteApplicationService, NoteApplicationServiceClosedError, NoteRevisionConflictError } from './note-application-service'
 
@@ -115,6 +116,131 @@ describe('application service for MCP Notes', () => {
     const restored = await restoredService.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
     expect(restored.revision).toBe(receipt.revision)
     expect(restored.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Edited through MCP')
+  })
+
+  it('rates an ImageOcclusionTopic Card and schedules it in the review queue', async () => {
+    const fixture = await createFixture()
+    const renderer = createEditorNote({ id: fixture.created.id, snapshot: fixture.created.snapshot })
+    const sourceValidation = renderer.getTopicValidationInput(fixture.topic.id)
+    if (!('document' in sourceValidation))
+      throw new TypeError(`Topic ${fixture.topic.id} does not contain editor Blocks`)
+    const sourceBlockId = sourceValidation.document.content?.[0]?.attrs?.blockId
+    if (typeof sourceBlockId !== 'string')
+      throw new Error('Initial Topic is missing its Block ID')
+    const sourceImageId = 'source-image'
+    const cardId = 'occlusion-group'
+    const image = {
+      height: 600,
+      src: 'https://example.com/diagram.png',
+      width: 800,
+    }
+    const version = renderer.getVersion()
+    renderer.applyTopicBlockEdits({
+      edits: [{
+        blockId: sourceBlockId,
+        content: [{ type: 'image', attrs: { ...image, imageId: sourceImageId } }],
+        operation: 'update-block-content',
+      }],
+      topicId: fixture.topic.id,
+    })
+    const occlusionTopicId = renderer.createImageOcclusionTopic({
+      image,
+      sourceImageId,
+      sourceTopicId: fixture.topic.id,
+      title: 'Image Occlusion',
+    })
+    const occlusionTopic = renderer.getImageOcclusionTopic(occlusionTopicId)
+    occlusionTopic.setState({
+      ...occlusionTopic.getState(),
+      shapes: [{
+        groupId: cardId,
+        height: 0.25,
+        id: 'occlusion-shape',
+        kind: 'rectangle',
+        width: 0.25,
+        x: 0.25,
+        y: 0.25,
+      }],
+    })
+    await fixture.notes.saveNoteUpdates({
+      noteId: fixture.created.id,
+      updates: [renderer.exportUpdates(version)],
+    })
+
+    const reviewedAt = Date.now() + 1_000
+    const reviews = createLearningReviewApplication(
+      fixture.notes,
+      fixture.storage.learning,
+      () => reviewedAt,
+    )
+    const newItem = await reviews.getNextNewItem({
+      noteId: fixture.created.id,
+      now: reviewedAt,
+      topicId: occlusionTopicId,
+    })
+    expect(newItem).toMatchObject({
+      card: {
+        id: cardId,
+        kind: 'image-occlusion',
+        targetGroupId: cardId,
+      },
+      queue: {
+        cardId,
+        phase: 'new',
+        topicId: occlusionTopicId,
+      },
+    })
+    if (!newItem)
+      throw new Error('Expected the ImageOcclusionTopic Card in the new queue')
+
+    const prepared = await fixture.storage.learning.reviews.prepare({
+      reviewedAt,
+      targetId: newItem.mainTargetId,
+    })
+    const { outcomes, ...preparation } = prepared
+    const rated = await fixture.storage.learning.reviews.rateTarget({
+      ...preparation,
+      rating: 'easy',
+    })
+
+    expect(rated).toEqual({
+      eventId: preparation.eventId,
+      state: outcomes.easy.state,
+    })
+    expect(rated.state).toMatchObject({
+      phase: 'review',
+      reps: 1,
+      targetId: newItem.mainTargetId,
+    })
+    expect(rated.state.dueAt).toBeGreaterThan(reviewedAt)
+    expect(await fixture.storage.learning.queue.list({
+      mode: 'review',
+      noteId: fixture.created.id,
+      now: rated.state.dueAt - 1,
+      topicId: occlusionTopicId,
+    })).not.toContainEqual(expect.objectContaining({ cardId }))
+    expect(await fixture.storage.learning.queue.list({
+      mode: 'review',
+      noteId: fixture.created.id,
+      now: rated.state.dueAt,
+      topicId: occlusionTopicId,
+    })).toEqual([
+      expect.objectContaining({
+        cardId,
+        dueAt: rated.state.dueAt,
+        phase: 'review',
+        targetIds: [newItem.mainTargetId],
+        topicId: occlusionTopicId,
+      }),
+    ])
+    await expect(reviews.getNextReviewItem({
+      noteId: fixture.created.id,
+      now: rated.state.dueAt,
+      topicId: occlusionTopicId,
+    })).resolves.toMatchObject({
+      card: { id: cardId, kind: 'image-occlusion' },
+      mainTargetId: newItem.mainTargetId,
+    })
   })
 
   it('does not report a persisted edit as failed when renderer notification throws', async () => {
