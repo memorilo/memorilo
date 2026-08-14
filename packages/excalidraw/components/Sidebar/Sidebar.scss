@@ -185,8 +185,82 @@
   // ---------------------------- default sidebar ------------------------------
 
   .default-sidebar {
+    --library-panel-bg: rgba(248, 249, 251, 0.78);
+    --library-panel-border: rgba(59, 67, 78, 0.13);
+    --library-divider: rgba(59, 67, 78, 0.1);
+    --library-control-bg: rgba(255, 255, 255, 0.42);
+    --library-control-hover-bg: rgba(255, 255, 255, 0.68);
+    --library-control-active-bg: rgba(66, 74, 85, 0.1);
+    --library-control-selected-bg: rgba(66, 74, 85, 0.12);
+    --library-control-selected-border: rgba(57, 65, 76, 0.15);
+    --library-text: #343a43;
+    --library-text-muted: #737b86;
+
     display: flex;
     flex-direction: column;
+    top: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    width: calc(var(--right-sidebar-width) - 1.5rem);
+    overflow: hidden;
+    border: 1px solid var(--library-panel-border);
+    border-radius: 0.875rem;
+    background-color: var(--library-panel-bg);
+    background-image: none;
+    -webkit-backdrop-filter: blur(24px) saturate(145%);
+    backdrop-filter: blur(24px) saturate(145%);
+    box-shadow:
+      0 16px 36px rgba(31, 38, 48, 0.11),
+      0 2px 8px rgba(31, 38, 48, 0.06);
+
+    &::before {
+      display: none;
+    }
+
+    &.sidebar--docked {
+      box-shadow:
+        0 16px 36px rgba(31, 38, 48, 0.11),
+        0 2px 8px rgba(31, 38, 48, 0.06);
+    }
+
+    .sidebar__header {
+      min-height: 3.5rem;
+      padding: 0.625rem 0.75rem;
+
+      &::after {
+        width: calc(100% - 1.5rem);
+        background: var(--library-divider);
+      }
+    }
+
+    .sidebar__header__buttons button {
+      --button-bg: transparent;
+      --button-hover-bg: var(--library-control-hover-bg);
+      --button-active-bg: var(--library-control-active-bg);
+      --button-active-border: transparent;
+
+      border-radius: 0.5rem;
+      color: var(--library-text-muted);
+
+      &:hover {
+        box-shadow: none;
+        color: var(--library-text);
+      }
+
+      &:focus-visible {
+        outline: 2px solid rgba(70, 79, 91, 0.28);
+        outline-offset: 1px;
+      }
+    }
+
+    .sidebar-tabs-root {
+      padding: 0.75rem 0;
+    }
+
+    .sidebar-tabs-root > .sidebar__header {
+      padding-top: 0;
+      padding-bottom: 0.75rem;
+    }
 
     .sidebar-triggers {
       $padding: 2px;
@@ -198,16 +272,100 @@
       // buttons (both from top and bototm, due to flex layout)
       margin-top: -#{$padding + $border};
       margin-bottom: -#{$padding + $border};
-      border: $border solid var(--glass-divider);
-      background: var(--glass-control-bg);
+      border: $border solid var(--library-divider);
+      background: rgba(68, 76, 87, 0.055);
       border-radius: 0.625rem;
+      box-shadow: none;
 
       .sidebar-tab-trigger {
+        --button-bg: transparent;
+        --button-hover-bg: var(--library-control-hover-bg);
+        --button-active-bg: var(--library-control-active-bg);
+        --button-hover-color: var(--library-text);
+        --button-hover-border: transparent;
+
         height: var(--lg-button-size);
         width: var(--lg-button-size);
-
         border: none;
+        border-radius: 0.5rem;
+        color: var(--library-text-muted);
+
+        &[data-state="active"] {
+          --button-bg: var(--library-control-selected-bg);
+          --button-hover-bg: var(--library-control-selected-bg);
+          --button-hover-color: var(--library-text);
+          --button-border: transparent;
+
+          color: var(--library-text);
+          box-shadow: inset 0 0 0 1px var(--library-control-selected-border);
+        }
+
+        &:focus-visible {
+          outline: 2px solid rgba(70, 79, 91, 0.28);
+          outline-offset: 1px;
+        }
       }
     }
+  }
+
+  &.theme--dark .default-sidebar {
+    --library-panel-bg: rgba(29, 32, 39, 0.78);
+    --library-panel-border: rgba(255, 255, 255, 0.14);
+    --library-divider: rgba(255, 255, 255, 0.1);
+    --library-control-bg: rgba(255, 255, 255, 0.06);
+    --library-control-hover-bg: rgba(255, 255, 255, 0.11);
+    --library-control-active-bg: rgba(255, 255, 255, 0.15);
+    --library-control-selected-bg: rgba(255, 255, 255, 0.13);
+    --library-control-selected-border: rgba(255, 255, 255, 0.12);
+    --library-text: #e7e9ed;
+    --library-text-muted: #a6adb8;
+
+    box-shadow:
+      0 18px 40px rgba(0, 0, 0, 0.34),
+      0 2px 8px rgba(0, 0, 0, 0.24);
+  }
+
+  &.excalidraw--mobile .default-sidebar {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: calc(var(--right-sidebar-width) - var(--space-factor) * 2);
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .excalidraw .default-sidebar {
+    background-color: rgb(246, 247, 249);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .excalidraw.theme--dark .default-sidebar {
+    background-color: rgb(35, 37, 43);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .excalidraw .default-sidebar {
+    --library-panel-border: rgba(18, 18, 18, 0.72);
+    --library-text: #17191d;
+    --library-text-muted: #40464f;
+
+    background-color: #ffffff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .excalidraw.theme--dark .default-sidebar {
+    --library-panel-border: rgba(255, 255, 255, 0.72);
+    --library-text: #ffffff;
+    --library-text-muted: #d3d6dc;
+
+    background-color: #18181c;
   }
 }
