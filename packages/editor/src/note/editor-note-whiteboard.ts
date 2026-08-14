@@ -159,11 +159,14 @@ export function projectWhiteboardContent(
 ): TopicContentProjection {
   const normalizedTopicId = normalizeNonEmptyString(topicId, 'WhiteboardTopic id')
   const node = whiteboardNode(runtime, normalizedTopicId)
+  let nextRootOrdinal = 0
   const blocks = getWhiteboardEmbeddedEditors(runtime, normalizedTopicId).flatMap((editor) => {
     const document = createNodeJsonFromLoroTree(whiteboardEmbeddedEditorTree(runtime, normalizedTopicId, editor.editorId))
     if (!document)
       throw new Error(`Embedded Editor ${editor.editorId} does not contain an initialized document`)
-    return projectTopicBlocks(document)
+    return projectTopicBlocks(document).map(block => block.parentId === null
+      ? { ...block, ordinal: nextRootOrdinal++ }
+      : block)
   })
   const explicitTitle = readTopicTitle(node.data, `WhiteboardTopic ${normalizedTopicId} title`)
   const firstBlock = blocks.at(0)

@@ -22,7 +22,6 @@ import { whiteboardLibraryPersistenceAdapter } from './whiteboard-library-storag
 import '@excalidraw/excalidraw/index.css'
 
 const editorEmbedKind = 'topic-editor'
-const editorEmbedLinkPrefix = 'https://memorilo.local/whiteboard-editor/'
 const editorEmbedWidth = 560
 const editorEmbedHeight = 400
 
@@ -43,6 +42,12 @@ function editorEmbedData(element: ExcalidrawElement): WhiteboardEditorEmbedData 
 
 function isEditorEmbed(element: ExcalidrawElement): element is ExcalidrawEmbeddableElement {
   return element.type === 'embeddable' && editorEmbedData(element) !== null
+}
+
+function withoutEditorEmbedLinks(elements: readonly ExcalidrawElement[]): ExcalidrawElement[] {
+  return elements.map(element => isEditorEmbed(element) && element.link !== null
+    ? { ...element, link: null }
+    : element)
 }
 
 function EmbeddedWhiteboardEditor({ adapters, topic }: {
@@ -97,7 +102,7 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
     if (files !== undefined && (files === null || typeof files !== 'object' || Array.isArray(files)))
       throw new Error(`WhiteboardTopic ${topic.topicId} scene files must be an object`)
     return {
-      elements: elements as ExcalidrawElement[],
+      elements: withoutEditorEmbedLinks(elements as ExcalidrawElement[]),
       appState: {
         ...(appState === undefined ? {} : appState as AppState),
         currentItemFontFamily: FONT_FAMILY.Helvetica,
@@ -137,7 +142,7 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
         viewBackgroundColor: appState.viewBackgroundColor,
         zoom: appState.zoom,
       }),
-      elements: structuredClone(elements),
+      elements: structuredClone(withoutEditorEmbedLinks(elements)),
       files: structuredClone(files),
     }
     const signature = whiteboardSceneSignature(nextScene)
@@ -173,7 +178,7 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
       customData: { memoriloEmbed: { editorId, kind: editorEmbedKind } },
       fillStyle: 'solid',
       height: editorEmbedHeight,
-      link: `${editorEmbedLinkPrefix}${encodeURIComponent(editorId)}`,
+      link: null,
       roughness: 0,
       roundness: { type: ROUNDNESS.ADAPTIVE_RADIUS, value: 8 },
       strokeColor: '#c9ced6',
@@ -229,12 +234,15 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
           ...element.customData,
           memoriloEmbed: { editorId, kind: editorEmbedKind },
         },
-        link: `${editorEmbedLinkPrefix}${encodeURIComponent(editorId)}`,
+        link: null,
       }
     })
   }, [topic])
 
-  const validateEmbeddable = useCallback((link: string) => link.startsWith(editorEmbedLinkPrefix) || undefined, [])
+  const isEmbeddableLinkEnabled = useCallback(
+    (element: ExcalidrawEmbeddableElement) => !isEditorEmbed(element),
+    [],
+  )
 
   useEffect(() => {
     const signature = whiteboardSceneSignature(scene)
@@ -248,7 +256,7 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
     if (appState !== undefined && (appState === null || typeof appState !== 'object' || Array.isArray(appState)))
       throw new Error(`WhiteboardTopic ${topic.topicId} scene appState must be an object`)
     apiRef.current?.updateScene({
-      elements: elements as ExcalidrawElement[],
+      elements: withoutEditorEmbedLinks(elements as ExcalidrawElement[]),
       ...(appState === undefined ? {} : { appState: appState as AppState }),
     })
   }, [scene, topic.topicId])
@@ -266,9 +274,9 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
         onDuplicate={handleDuplicate}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
+        isEmbeddableLinkEnabled={isEmbeddableLinkEnabled}
         renderEmbeddable={renderEmbeddable}
         renderToolbarUI={renderToolbarUI}
-        validateEmbeddable={validateEmbeddable}
       />
     </div>
   )

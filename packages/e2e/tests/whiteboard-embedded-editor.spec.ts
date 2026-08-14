@@ -86,7 +86,7 @@ function expectRectangleOutline(renderedPixels: Awaited<ReturnType<typeof render
   expect(renderedPixels.bottom - renderedPixels.top, 'the rendered outline must retain the dragged height').toBeGreaterThan(90)
 }
 
-test('inserts an editable document from the Whiteboard toolbar', async () => {
+test('keeps Whiteboard shortcuts inactive while typing in an embedded editor', async () => {
   const userDataDirectory = await mkdtemp(resolve(tmpdir(), 'memorilo-whiteboard-embed-'))
   const application = await launchApplication(userDataDirectory)
 
@@ -104,7 +104,15 @@ test('inserts an editable document from the Whiteboard toolbar', async () => {
     await expect(window.getByText('Something went wrong!')).toHaveCount(0)
     await expect(window.locator('.excalidraw__embeddable-container')).toHaveCount(1)
     await expect(window.locator('[data-memorilo-whiteboard-editor]')).toHaveCount(1)
-    await expect(window.locator('[data-memorilo-whiteboard-editor]').getByRole('textbox', { name: 'Editor content' })).toBeVisible()
+    const editor = window.locator('[data-memorilo-whiteboard-editor]').getByRole('textbox', { name: 'Editor content' })
+    await expect(editor).toBeVisible()
+    await editor.focus()
+    await expect(window.getByRole('radio', { name: 'Selection' })).toBeChecked()
+
+    await window.keyboard.type('r')
+
+    await expect(editor).toContainText('r')
+    await expect(window.getByRole('radio', { name: 'Selection' })).toBeChecked()
   }
   finally {
     await application.close()

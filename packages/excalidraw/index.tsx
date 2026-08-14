@@ -65,6 +65,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onDuplicate,
     children,
     validateEmbeddable,
+    isEmbeddableLinkEnabled,
     renderEmbeddable,
     aiEnabled,
     showDeprecatedFonts,
@@ -177,6 +178,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onScrollChange={onScrollChange}
           onDuplicate={onDuplicate}
           validateEmbeddable={validateEmbeddable}
+          isEmbeddableLinkEnabled={isEmbeddableLinkEnabled}
           renderEmbeddable={renderEmbeddable}
           aiEnabled={aiEnabled !== false}
           showDeprecatedFonts={showDeprecatedFonts}
