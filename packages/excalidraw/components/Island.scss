@@ -1,0 +1,49 @@
+@import "../css/variables.module.scss";
+
+.excalidraw {
+  .Island {
+    @include liquidGlassLensing(var(--glass-panel-highlight));
+    --padding: 0;
+    box-sizing: border-box;
+    background-color: var(--glass-panel-bg);
+    -webkit-backdrop-filter: var(--glass-filter-panel);
+    backdrop-filter: var(--glass-filter-panel);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-inner-highlight), var(--shadow-island);
+    border-radius: var(--glass-radius-panel);
+    padding: calc(var(--padding) * var(--space-factor));
+    position: relative;
+    isolation: isolate;
+    transition:
+      background-color var(--glass-transition-duration)
+        var(--glass-transition-timing),
+      border-color var(--glass-transition-duration)
+        var(--glass-transition-timing),
+      box-shadow var(--glass-transition-duration) var(--glass-transition-timing);
+
+    &.zen-mode {
+      box-shadow: none;
+
+      &::before {
+        opacity: 0;
+      }
+    }
+  }
+
+  .selected-shape-actions .Island {
+    background-color: rgba(248, 249, 251, 0.96);
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+
+    &::before {
+      content: none;
+      display: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+}

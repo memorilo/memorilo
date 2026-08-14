@@ -3,31 +3,23 @@ import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
 import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
-import { useAtom } from 'jotai'
-import { atomWithStorage } from 'jotai/utils'
 import {
   AlignLeft,
   Copy,
   ListTree,
-  PanelRight,
-  Star,
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCommandPaletteCommands } from '../../../shared/command-palette'
 import { useDesktopConfiguration } from '../../../shared/configuration'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
+import { NoteInspector } from '../note-inspector'
+import { NoteInspectorActions } from '../note-inspector-actions'
+import { useNoteInspectorVisibility } from '../note-inspector-state'
 import { desktopEditorAdapters } from './note-editor-session'
 import { noteEditorStyles } from './note-editor.stylex'
 import { useNoteEntryContextMenu } from './note-entry-context-menu'
-import { NoteInspector } from './note-inspector'
-
-const noteInspectorVisibleAtom = atomWithStorage(
-  'memorilo.note-inspector-visible.v1',
-  false,
-  undefined,
-  { getOnInit: true },
-)
+import { WhiteboardEditor } from './whiteboard-editor'
 
 type CopyStatus = 'copied' | 'failed'
 
@@ -43,6 +35,7 @@ export interface NoteEditorViewProps {
   onAddBook: (parentId: string | null) => void
   onAddFolder: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
+  onAddWhiteboard: (parentId: string | null) => void
   onRebindBook: (topicId: string) => void
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   onToggleEntry: (entryId: string) => void
@@ -59,6 +52,7 @@ export function NoteEditorView({
   onAddBook,
   onAddFolder,
   onAddTopic,
+  onAddWhiteboard,
   onRebindBook,
   onRenameNote,
   onToggleEntry,
@@ -69,45 +63,56 @@ export function NoteEditorView({
 }: NoteEditorViewProps) {
   const { t } = useTranslation('editor')
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
-  const [inspectorVisible, setInspectorVisible] = useAtom(noteInspectorVisibleAtom)
+  const [inspectorVisible, setInspectorVisible] = useNoteInspectorVisibility()
   const configuration = useDesktopConfiguration()
   const editorAdapters = useMemo(
     () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
     [configuration.networkImagePasteBehavior],
   )
-  const mode = useEditorTopicMode(opened.topic)
+  const editorTopic = 'documentId' in opened.topic ? opened.topic : null
+  const whiteboardTopic = 'documentId' in opened.topic ? null : opened.topic
+  const mode = useEditorTopicMode(editorTopic)
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
   const entryContextMenu = useNoteEntryContextMenu({
     onAddBook,
     onAddFolder,
     onAddTopic,
+    onAddWhiteboard,
     onRebindBook,
   })
-  const showDocumentMode = useCallback(() => opened.topic.setMode(EditorMode.Document), [opened.topic])
-  const showOutlineMode = useCallback(() => opened.topic.setMode(EditorMode.Outline), [opened.topic])
-  const modeCommands = useMemo<readonly PaletteCommand[]>(() => mode === EditorMode.Document
-    ? [{
-        accent: 'violet',
-        action: t('switchMode'),
-        description: t('switchToOutlineDescription'),
-        icon: ListTree,
-        id: 'editor-mode-outline',
-        keywords: t('switchToOutlineKeywords') as unknown as readonly string[],
-        label: t('switchToOutlineMode'),
-        run: showOutlineMode,
-        section: t('editorSection') as PaletteCommand['section'],
-      }]
-    : [{
-        accent: 'blue',
-        action: t('switchMode'),
-        description: t('switchToDocumentDescription'),
-        icon: AlignLeft,
-        id: 'editor-mode-document',
-        keywords: t('switchToDocumentKeywords') as unknown as readonly string[],
-        label: t('switchToDocumentMode'),
-        run: showDocumentMode,
-        section: t('editorSection') as PaletteCommand['section'],
-      }], [mode, showDocumentMode, showOutlineMode, t])
+  const showDocumentMode = useCallback(() => {
+    if ('documentId' in opened.topic)
+      opened.topic.setMode(EditorMode.Document)
+  }, [opened.topic])
+  const showOutlineMode = useCallback(() => {
+    if ('documentId' in opened.topic)
+      opened.topic.setMode(EditorMode.Outline)
+  }, [opened.topic])
+  const modeCommands = useMemo<readonly PaletteCommand[]>(() => whiteboardTopic !== null
+    ? []
+    : mode === EditorMode.Document
+      ? [{
+          accent: 'violet',
+          action: t('switchMode'),
+          description: t('switchToOutlineDescription'),
+          icon: ListTree,
+          id: 'editor-mode-outline',
+          keywords: t('switchToOutlineKeywords') as unknown as readonly string[],
+          label: t('switchToOutlineMode'),
+          run: showOutlineMode,
+          section: t('editorSection') as PaletteCommand['section'],
+        }]
+      : [{
+          accent: 'blue',
+          action: t('switchMode'),
+          description: t('switchToDocumentDescription'),
+          icon: AlignLeft,
+          id: 'editor-mode-document',
+          keywords: t('switchToDocumentKeywords') as unknown as readonly string[],
+          label: t('switchToDocumentMode'),
+          run: showDocumentMode,
+          section: t('editorSection') as PaletteCommand['section'],
+        }], [mode, showDocumentMode, showOutlineMode, t, whiteboardTopic])
   useCommandPaletteCommands(modeCommands)
 
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
@@ -129,40 +134,18 @@ export function NoteEditorView({
     ? copyFeedback.status
     : null
   const titlebar = useMemo(() => ({
-    onRenameTitle: renameNote,
-    title: opened.stored.title,
-    trailing: (
-      <>
-        <button
-          {...stylex.props(
-            noteEditorStyles.titlebarActionButton,
-            opened.stored.favorite && noteEditorStyles.titlebarFavoriteActive,
-          )}
-          aria-label={opened.stored.favorite ? t('removeFromFavorites') : t('addToFavorites')}
-          aria-pressed={opened.stored.favorite}
-          disabled={favoritePending}
-          title={opened.stored.favorite ? t('removeFromFavorites') : t('addToFavorites')}
-          type="button"
-          onClick={onToggleFavorite}
-        >
-          <Star
-            aria-hidden="true"
-            fill={opened.stored.favorite ? 'currentColor' : 'none'}
-            size={16}
-            strokeWidth={1.8}
-          />
-        </button>
-        <button
-          {...stylex.props(noteEditorStyles.titlebarActionButton)}
-          aria-label={inspectorVisible ? t('hideNoteInspector') : t('showNoteInspector')}
-          title={inspectorVisible ? t('hideNoteInspector') : t('showNoteInspector')}
-          type="button"
-          onClick={toggleInspector}
-        >
-          <PanelRight aria-hidden="true" size={17} strokeWidth={1.8} />
-        </button>
-      </>
+    ...(whiteboardTopic === null ? { onRenameTitle: renameNote } : {}),
+    sidebarAction: (
+      <NoteInspectorActions
+        favorite={opened.stored.favorite}
+        favoritePending={favoritePending}
+        inspectorVisible={inspectorVisible}
+        onToggleFavorite={onToggleFavorite}
+        onToggleInspector={toggleInspector}
+      />
     ),
+    title: opened.stored.title,
+    titleVisibility: whiteboardTopic === null ? 'always' as const : 'hidden' as const,
   }), [
     favoritePending,
     inspectorVisible,
@@ -170,14 +153,20 @@ export function NoteEditorView({
     opened.stored.favorite,
     opened.stored.title,
     renameNote,
-    t,
     toggleInspector,
+    whiteboardTopic,
   ])
   usePageTitlebar(titlebar)
 
   return (
     <main {...stylex.props(noteEditorStyles.page)}>
-      <section {...stylex.props(noteEditorStyles.workspace)} aria-label={opened.stored.title}>
+      <section
+        {...stylex.props(
+          noteEditorStyles.workspace,
+          whiteboardTopic !== null && noteEditorStyles.whiteboardWorkspace,
+        )}
+        aria-label={opened.stored.title}
+      >
         {saveError || validationError
           ? (
               <div {...stylex.props(noteEditorStyles.alertStack)}>
@@ -215,20 +204,32 @@ export function NoteEditorView({
               </div>
             )
           : null}
-        <Editor
-          adapters={editorAdapters}
-          focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
-          outline={{ outdentBehavior: configuration.outdentBehavior }}
-          topic={opened.topic}
-        />
+        {'documentId' in opened.topic
+          ? (
+              <Editor
+                adapters={editorAdapters}
+                focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
+                outline={{ outdentBehavior: configuration.outdentBehavior }}
+                topic={opened.topic}
+              />
+            )
+          : (
+              <WhiteboardEditor
+                adapters={editorAdapters}
+                inspectorVisible={inspectorVisible}
+                topic={opened.topic}
+              />
+            )}
       </section>
       <NoteInspector
         collapsedEntryIds={collapsedEntryIds}
+        contextMenu={{
+          onOpenBook: entryContextMenu.openBook,
+          onOpenContainer: entryContextMenu.openContainer,
+        }}
         currentTopicId={opened.topic.topicId}
         entries={opened.entries}
         noteId={opened.note.id}
-        onOpenBookContextMenu={entryContextMenu.openBook}
-        onOpenContainerContextMenu={entryContextMenu.openContainer}
         onToggleEntry={onToggleEntry}
         open={inspectorVisible}
       />

@@ -5,6 +5,7 @@ import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
 import type { NoteApplicationService } from '../notes/note-application-service'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
+import type { WhiteboardLibraryApplication } from '../whiteboard/whiteboard-library-application'
 import type { IpcHandlerHost } from './ipc-handler-registry'
 import { createResourceScope } from '@memorilo/effect-lifecycle'
 import { ipcMain } from 'electron'
@@ -22,6 +23,7 @@ import { createLearningHandlers } from './learning-service'
 import { createNoteHandlers } from './note-service'
 import { createShelfOperationRuntime } from './shelf-operation-runtime'
 import { createShelfHandlers } from './shelf-service'
+import { createWhiteboardLibraryHandlers } from './whiteboard-library-service'
 import { createWindowHandlers } from './window-service'
 
 const maximumConcurrentShelfAssetRequests = 3
@@ -37,6 +39,7 @@ export async function createDesktopServices(
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
   activeReadings: ActiveReadingRegistry,
   learning: LearningStorage,
+  whiteboardLibrary: WhiteboardLibraryApplication,
   now: () => number = Date.now,
 ) {
   const scope = createResourceScope('Desktop IPC services', { closeMode: 'dependent' })
@@ -66,6 +69,7 @@ export async function createDesktopServices(
           now,
         ),
         notes: createNoteHandlers(notes),
+        whiteboardLibrary: createWhiteboardLibraryHandlers(whiteboardLibrary),
         shelf: createShelfHandlers(
           shelfStorage,
           shelfImageCache,

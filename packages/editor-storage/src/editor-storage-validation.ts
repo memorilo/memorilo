@@ -104,7 +104,7 @@ export function validateProjectionPatch(
     else if (entry.kind === 'topic') {
       const entryId = entry.id
       assertString(entry.title, `Topic ${entryId} title`)
-      if (entry.mode !== 0 && entry.mode !== 1)
+      if (entry.topicType !== 'whiteboard' && entry.mode !== 0 && entry.mode !== 1)
         throw new TypeError(`Topic ${entryId} Editor mode must be 0 (Document) or 1 (Outline)`)
       if (entry.topicType === 'book') {
         assertNonEmpty(entry.title, `BookTopic ${entryId} title`)
@@ -115,7 +115,7 @@ export function validateProjectionPatch(
           throw new Error(`BookTopics ${existingTopicId} and ${entryId} bind the same file ${identity}`)
         bookTopicIdsByFile.set(identity, entryId)
       }
-      else if (entry.topicType !== 'regular') {
+      else if (entry.topicType !== 'regular' && entry.topicType !== 'whiteboard') {
         throw new TypeError(`Topic ${entryId} has an unknown subtype`)
       }
       topicEntries.set(entryId, entry)

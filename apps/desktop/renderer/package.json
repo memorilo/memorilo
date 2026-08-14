@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "workspace:*",
     "@memorilo/anki-connect": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",

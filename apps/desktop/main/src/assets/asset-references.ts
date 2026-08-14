@@ -26,8 +26,14 @@ function collectAssetReferences(node: AssetNode, counts: Map<string, number>): v
 export function projectNoteAssetReferences(note: EditorNote): readonly AssetReferenceProjection[] {
   const counts = new Map<string, number>()
   for (const entry of note.getEntries()) {
-    if (entry.kind === 'topic')
-      collectAssetReferences(note.getTopicValidationInput(entry.id).document, counts)
+    if (entry.kind !== 'topic')
+      continue
+    const validation = note.getTopicValidationInput(entry.id)
+    if ('document' in validation) {
+      collectAssetReferences(validation.document, counts)
+      continue
+    }
+    Object.values(validation.embeddedEditors).forEach(editor => collectAssetReferences(editor.document, counts))
   }
   return [...counts].map(([fileName, count]) => ({ count, fileName }))
 }

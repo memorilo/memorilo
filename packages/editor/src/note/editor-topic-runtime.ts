@@ -13,6 +13,6 @@ export function resolveEditorTopicDocument(document: EditorTopicDocument): Edito
   return {
     ...binding,
     mapping: new Map(),
-    presence: new CursorEphemeralStore(binding.doc.peerIdStr, binding.topicId),
+    presence: new CursorEphemeralStore(binding.doc.peerIdStr, binding.documentId),
   }
 }

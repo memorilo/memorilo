@@ -20,6 +20,7 @@ import type {
   DesktopStoredTopicBlock,
   DesktopTopicBlockSearchHit,
   DesktopTopicBlockSearchMode,
+  DesktopWhiteboardLibraryData,
   GetDesktopNoteInput,
   ImportDesktopNetworkImageInput,
   JournalDate,
@@ -96,6 +97,10 @@ export interface DesktopIpcClient {
     searchNotes: (input: { limit?: number, query: string }) => Promise<readonly DesktopNoteSearchHit[]>
     searchTopicBlocks: (input: { limit?: number, mode?: DesktopTopicBlockSearchMode, noteId?: string, query: string }) => Promise<readonly DesktopTopicBlockSearchHit[]>
     setNoteFavorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
+  }
+  whiteboardLibrary: {
+    load: () => Promise<DesktopWhiteboardLibraryData>
+    save: (data: DesktopWhiteboardLibraryData) => Promise<void>
   }
   shelf: {
     addSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
@@ -203,6 +208,10 @@ export const desktopIpcChannels = {
     searchNotes: 'memorilo:invoke:notes:searchNotes',
     searchTopicBlocks: 'memorilo:invoke:notes:searchTopicBlocks',
     setNoteFavorite: 'memorilo:invoke:notes:setNoteFavorite',
+  },
+  whiteboardLibrary: {
+    load: 'memorilo:invoke:whiteboardLibrary:load',
+    save: 'memorilo:invoke:whiteboardLibrary:save',
   },
   shelf: {
     addSource: 'memorilo:invoke:shelf:addSource',

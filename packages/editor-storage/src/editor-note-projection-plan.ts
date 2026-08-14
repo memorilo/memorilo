@@ -70,12 +70,19 @@ function planNoteProjection(
 
   for (const entry of topicEntries.values()) {
     commands.push({
-      parameters: [noteParameter, entry.id, entry.mode, entry.title],
+      parameters: [
+        noteParameter,
+        entry.id,
+        entry.topicType,
+        entry.topicType === 'whiteboard' ? null : entry.mode,
+        entry.title,
+      ],
       sql: `
-        INSERT INTO topics (note_row_id, topic_id, editor_mode, title)
-        VALUES (${noteRowSql}, ?, ?, ?)
+        INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, title)
+        VALUES (${noteRowSql}, ?, ?, ?, ?)
         ${mode === 'upsert'
           ? `ON CONFLICT(note_row_id, topic_id) DO UPDATE SET
+              topic_type = excluded.topic_type,
               editor_mode = excluded.editor_mode,
               title = excluded.title`
           : ''}

@@ -1,0 +1,51 @@
+{
+  "name": "@excalidraw/math",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "types": "./index.ts",
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*"
+  },
+  "description": "Excalidraw math functions",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "keywords": [
+    "excalidraw",
+    "excalidraw-math",
+    "math",
+    "vector",
+    "algebra",
+    "2d"
+  ],
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not ie <= 11",
+      "not op_mini all",
+      "not safari < 12",
+      "not kaios <= 2.5",
+      "not edge < 79",
+      "not chrome < 70",
+      "not and_uc < 13",
+      "not samsung < 10"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "bugs": "https://github.com/excalidraw/excalidraw/issues",
+  "repository": "https://github.com/excalidraw/excalidraw",
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

@@ -24,6 +24,14 @@ _Avoid_: Page, editor document
 A Topic bound to one concrete BookFile. It keeps normal editable Topic content while owning that file's reading position and annotations.
 _Avoid_: ReadingTopic, book registry entry
 
+**WhiteboardTopic**:
+A Topic whose primary editable content is a spatial whiteboard scene with zero or more Embedded Editors. It remains a normal member of the Note hierarchy: it may have a Folder or Topic parent and may organize child Topics.
+_Avoid_: Canvas attachment, drawing block
+
+**Embedded Editor**:
+A complete rich-text editor owned by exactly one WhiteboardTopic and positioned by that WhiteboardTopic's scene. A WhiteboardTopic may own multiple independently editable Embedded Editors; they are not Topics and do not appear in the Note hierarchy.
+_Avoid_: Child Topic, hidden Topic, WhiteboardTopic document
+
 **Publication**:
 Catalog metadata used to discover one or more downloadable renditions of a work. A Publication is not the identity of a BookTopic.
 _Avoid_: BookFile, BookTopic

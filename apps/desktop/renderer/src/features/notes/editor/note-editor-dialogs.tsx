@@ -15,7 +15,7 @@ export interface ShelfBookOption {
 }
 
 export interface EntryCreationTarget {
-  kind: 'folder' | 'topic'
+  kind: 'folder' | 'topic' | 'whiteboard'
   parentId: string | null
 }
 
@@ -267,7 +267,7 @@ export function EntryCreationDialog({
   const { t } = useTranslation('editor')
   const [error, setError] = useState<string | null>(null)
   const [label, setLabel] = useState('')
-  const title = kind === 'folder' ? t('newFolder') : t('newTopic')
+  const title = kind === 'folder' ? t('newFolder') : kind === 'whiteboard' ? t('newWhiteboard') : t('newTopic')
   const fieldLabel = kind === 'folder' ? t('folderName') : t('topicTitle')
 
   const submit = (event: FormEvent<HTMLFormElement>) => {

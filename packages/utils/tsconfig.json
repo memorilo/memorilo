@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@excalidraw/math": ["../math/index.ts"],
+      "@excalidraw/math/*": ["../math/*"],
+      "@excalidraw/utils": ["./index.ts"],
+      "@excalidraw/utils/*": ["./*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["**/*.test.*", "dist"]
+}

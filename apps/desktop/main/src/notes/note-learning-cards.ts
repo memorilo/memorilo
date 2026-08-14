@@ -7,6 +7,15 @@ import type { EditorCardProjection } from '@memorilo/editor/card'
 import type { EditorNote } from '@memorilo/editor/note'
 import { projectEditorCards } from '@memorilo/editor/card'
 
+type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
+
+function topicDocuments(note: EditorNote, topicId: string): readonly TopicDocument[] {
+  const validation = note.getTopicValidationInput(topicId)
+  return 'document' in validation
+    ? [validation.document]
+    : Object.values(validation.embeddedEditors).map(editor => editor.document)
+}
+
 function toLearningCard(card: EditorCardProjection): LearningCardProjection {
   return {
     cardId: card.id,
@@ -32,7 +41,7 @@ export function projectNoteLearningCards(
     const entry = topicOrder === -1 ? undefined : entries[topicOrder]
     return {
       cards: entry?.kind === 'topic'
-        ? projectEditorCards(note.getTopicValidationInput(topicId).document).map(toLearningCard)
+        ? topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
         : [],
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,

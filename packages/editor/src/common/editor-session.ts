@@ -45,7 +45,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     ? createEditorCardSync({
         ...options.cards,
         noteId: options.topicDocument.noteId,
-        topicId: options.topicDocument.topicId,
+        topicId: options.topicDocument.documentId,
       })
     : undefined
   const scheduleCardSync = (document: NodeJSON) => {
