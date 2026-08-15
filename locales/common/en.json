@@ -107,6 +107,7 @@
       "areaInSection": "Area in {{section}}",
       "areaNearCharacter": "Area near character {{position}}",
       "areaOnPage": "Area on page {{page}}",
+      "imageOcclusion": "Image occlusion",
       "page": "Page {{page}}",
       "textNearCharacter": "Text near character {{position}}"
     }

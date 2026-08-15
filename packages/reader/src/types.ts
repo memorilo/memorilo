@@ -108,6 +108,7 @@ export interface ReaderImageOcclusionOverlay {
   annotationId: string
   image: {
     height: number
+    src: string
     width: number
   }
   shapes: readonly ReaderImageOcclusionShape[]
