@@ -28,10 +28,6 @@ import {
 } from './reader-annotation-bindings'
 import { createReaderAnnotationTopic } from './reader-annotation-topics'
 import { captureReaderAnnotationRegion } from './reader-capture'
-import {
-  openReaderRegionImageOcclusion,
-  readReaderImageSize,
-} from './reader-image-occlusion'
 
 export function BoundShelfReader({
   context,
@@ -94,6 +90,8 @@ export function BoundShelfReader({
       bookTopic.setAnnotations(nextAnnotations)
   }, [bookTopic, context.topicId, note])
   const imageOcclusionOverlays = useMemo<readonly ReaderImageOcclusionOverlay[]>(() => {
+    if (!configuration.learning.enabled)
+      return []
     return annotations.flatMap((annotation) => {
       if (annotation.anchors[0].type !== 'region')
         return []
@@ -111,7 +109,7 @@ export function BoundShelfReader({
         shapes: state.shapes,
       }]
     })
-  }, [annotations, context.topicId, note])
+  }, [annotations, configuration.learning.enabled, context.topicId, note])
   const handleNoteChange = useCallback((change: { noteId: string, update: Uint8Array }) => {
     enqueue(change)
     syncNoteProjection()
@@ -182,6 +180,9 @@ export function BoundShelfReader({
     input: ReaderAnnotationTopicCreateInput,
     signal: AbortSignal,
   ) => {
+    if (!configuration.learning.enabled)
+      throw new Error('Learning features are disabled')
+    const { openReaderRegionImageOcclusion, readReaderImageSize } = await import('./reader-image-occlusion')
     const topicId = await openReaderRegionImageOcclusion({
       bookTopicId: context.topicId,
       captureReaderRegion: captureAnnotationRegion,
@@ -195,7 +196,7 @@ export function BoundShelfReader({
     })
     signal.throwIfAborted()
     await onOpenTopic(topicId)
-  }, [captureAnnotationRegion, context.topicId, note, onOpenTopic, t])
+  }, [captureAnnotationRegion, configuration.learning.enabled, context.topicId, note, onOpenTopic, t])
   return (
     <WindowReader
       annotationCopyBookTitle={presentation.annotationCopyBookTitle}
@@ -203,13 +204,14 @@ export function BoundShelfReader({
       annotationEditingEnabled
       annotations={annotations}
       arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
-      imageOcclusionOverlays={imageOcclusionOverlays}
+      imageOcclusionOverlays={configuration.learning.enabled ? imageOcclusionOverlays : undefined}
       auxiliarySidebar={{
         content: (
           <NoteInspectorContent
             collapsedEntryIds={collapsedEntryIds}
             currentTopicId={context.topicId}
             entries={entries}
+            learningEnabled={configuration.learning.enabled}
             noteId={note.id}
             onToggleEntry={toggleEntry}
             showTitle={false}
@@ -225,7 +227,7 @@ export function BoundShelfReader({
       onCreateAnnotationTopic={createAnnotationTopic}
       onPrepareAnnotationDeletion={prepareAnnotationDeletion}
       onGetAnnotationDependents={getAnnotationDependents}
-      onOpenReaderRegionImageOcclusion={openImageOcclusion}
+      onOpenReaderRegionImageOcclusion={configuration.learning.enabled ? openImageOcclusion : undefined}
       renderAnnotationEditor={({ annotation, readOnly }) => {
         if (!annotation.annotationTopicId)
           throw new Error(`Reader annotation ${annotation.id} has no Topic Editor binding`)
@@ -233,6 +235,7 @@ export function BoundShelfReader({
           <Editor
             adapters={editorAdapters}
             layout="embedded"
+            learningEnabled={configuration.learning.enabled}
             outline={{ outdentBehavior: configuration.outdentBehavior }}
             readOnly={readOnly}
             topic={note.getTopic(annotation.annotationTopicId)}

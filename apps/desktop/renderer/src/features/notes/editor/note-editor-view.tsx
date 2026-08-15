@@ -273,7 +273,7 @@ export function NoteEditorView({
   useCommandPaletteCommands(modeCommands)
 
   const regularTopicImageOcclusion = useMemo<EditorImageOcclusionIntegration | undefined>(() => {
-    if (currentEntry.topicType !== 'regular' || editorTopic === null)
+    if (!configuration.learning.enabled || currentEntry.topicType !== 'regular' || editorTopic === null)
       return undefined
     const sourceTopicId = editorTopic.topicId
     return {
@@ -288,7 +288,7 @@ export function NoteEditorView({
       open: onOpenImageOcclusion,
       subscribe: editorTopic.subscribe,
     }
-  }, [currentEntry.topicType, editorTopic, onOpenImageOcclusion, opened.note])
+  }, [configuration.learning.enabled, currentEntry.topicType, editorTopic, onOpenImageOcclusion, opened.note])
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
   const renameImageOcclusionTopic = useCallback(
     (title: string) => opened.note.renameEntry(opened.topic.topicId, title),
@@ -401,7 +401,7 @@ export function NoteEditorView({
                   source={imageOcclusionSource}
                 />
               )}
-        {imageOcclusionTopic !== null
+        {configuration.learning.enabled && imageOcclusionTopic !== null
           ? (
               <Suspense fallback={<div {...stylex.props(noteEditorStyles.topicLoading)} role="status">{t('loadingEditor')}</div>}>
                 <ImageOcclusionTopicEditor
@@ -425,6 +425,7 @@ export function NoteEditorView({
                     adapters={editorAdapters}
                     focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
                     imageOcclusion={regularTopicImageOcclusion}
+                    learningEnabled={configuration.learning.enabled}
                     outline={{ outdentBehavior: configuration.outdentBehavior }}
                     topic={editorTopic}
                   />
@@ -434,6 +435,7 @@ export function NoteEditorView({
                     <WhiteboardEditor
                       adapters={editorAdapters}
                       inspectorVisible={inspectorVisible}
+                      learningEnabled={configuration.learning.enabled}
                       topic={whiteboardTopic}
                     />
                   )
@@ -447,6 +449,7 @@ export function NoteEditorView({
         }}
         currentTopicId={opened.topic.topicId}
         entries={opened.entries}
+        learningEnabled={configuration.learning.enabled}
         noteId={opened.note.id}
         onToggleEntry={onToggleEntry}
         open={inspectorVisible}

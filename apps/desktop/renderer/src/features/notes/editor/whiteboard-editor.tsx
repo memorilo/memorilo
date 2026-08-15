@@ -50,20 +50,22 @@ function withoutEditorEmbedLinks(elements: readonly ExcalidrawElement[]): Excali
     : element)
 }
 
-function EmbeddedWhiteboardEditor({ adapters, topic }: {
+function EmbeddedWhiteboardEditor({ adapters, learningEnabled, topic }: {
   adapters: EditorAdapters
+  learningEnabled: boolean
   topic: EditorEmbeddedDocument
 }) {
   return (
     <article {...stylex.props(whiteboardEditorStyles.editorEmbed)} data-memorilo-whiteboard-editor="">
-      <Editor adapters={adapters} layout="embedded" mode={EditorMode.Document} topic={topic} />
+      <Editor adapters={adapters} layout="embedded" learningEnabled={learningEnabled} mode={EditorMode.Document} topic={topic} />
     </article>
   )
 }
 
-export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
+export function WhiteboardEditor({ adapters, inspectorVisible, learningEnabled, topic }: {
   adapters: EditorAdapters
   inspectorVisible: boolean
+  learningEnabled: boolean
   topic: EditorWhiteboardTopicDocument
 }) {
   const { t } = useTranslation('editor')
@@ -200,9 +202,9 @@ export function WhiteboardEditor({ adapters, inspectorVisible, topic }: {
   const renderEmbeddable = useCallback((element: ExcalidrawEmbeddableElement) => {
     const embed = editorEmbedData(element)
     return embed
-      ? <EmbeddedWhiteboardEditor adapters={adapters} topic={topic.getEmbeddedEditor(embed.editorId)} />
+      ? <EmbeddedWhiteboardEditor adapters={adapters} learningEnabled={learningEnabled} topic={topic.getEmbeddedEditor(embed.editorId)} />
       : null
-  }, [adapters, topic])
+  }, [adapters, learningEnabled, topic])
 
   const renderToolbarUI = useCallback(() => (
     <button

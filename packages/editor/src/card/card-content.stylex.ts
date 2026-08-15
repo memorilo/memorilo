@@ -1,6 +1,7 @@
 import inject from '@stylexjs/stylex/lib/stylex-inject'
 
 const cardContentRules = [
+  '[data-editor-learning-disabled] [data-editor-content] [data-card-delimiter] { display: none; }',
   '[data-editor-content] [data-card-delimiter] { position: static; display: inline-flex; min-width: 1.1em; height: 1.1em; align-items: center; justify-content: center; margin-inline: 0.12em; border-radius: 999px; padding-inline: 0.06em; background: transparent; color: #4f78a6; cursor: default; font-size: 0.88em; font-weight: 650; line-height: 1; user-select: none; vertical-align: -0.05em; }',
   '[data-editor-content] [data-card-direction-symbol] { display: inline-flex; transform: rotate(0deg); transition: color 120ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }',
   '[data-editor-content] [data-card-delimiter].card-delimiter-multiline [data-card-direction-symbol] { transform: rotate(90deg); }',

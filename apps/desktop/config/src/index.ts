@@ -8,6 +8,7 @@ export type {
   DesktopFlashcardConfiguration,
   DesktopGoalConfiguration,
   DesktopLanguage,
+  DesktopLearningConfiguration,
   DesktopMcpConfiguration,
   DesktopNetworkImagePasteBehavior,
   DesktopOutdentBehavior,
@@ -60,6 +61,9 @@ export const DesktopConfigurationSchema = Schema.Struct({
     dailyLearningGoalCards: Schema.Int.check(Schema.isBetween({ maximum: 100_000, minimum: 1 })),
     dailyLearningGoalMode: Schema.Literals(['all-due', 'fixed', 'spread-week']),
   }),
+  learning: Schema.Struct({
+    enabled: Schema.Boolean,
+  }),
   language: Schema.Literals(['system', 'en', 'zh-CN']),
   mcp: Schema.Struct({
     accessToken: Schema.String,
@@ -89,6 +93,9 @@ export const desktopConfigurationDefinition = defineConfiguration({
     },
     flashcards: defaultFlashcardConfiguration,
     goals: defaultGoalConfiguration,
+    learning: {
+      enabled: true,
+    },
     language: 'system' as const,
     mcp: {
       accessToken: '',
@@ -137,6 +144,15 @@ export const desktopConfigurationDefinition = defineConfiguration({
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Enable flashcards, cloze authoring, FSRS scheduling, learning pages, and image occlusion.',
+      label: 'Enable learning features',
+      path: 'learning.enabled',
+    }],
+    id: 'learning',
+    label: 'Learning',
   }, {
     fields: [{
       control: 'toggle',
@@ -384,6 +400,11 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const hasGoals = typeof current.goals === 'object'
     && current.goals !== null
     && !Array.isArray(current.goals)
+  const hasLearning = typeof current.learning === 'object'
+    && current.learning !== null
+    && !Array.isArray(current.learning)
+  const learning = hasLearning ? current.learning as Record<string, unknown> : {}
+  const learningEnabled = learning.enabled === undefined ? true : learning.enabled
   const hasMcp = typeof current.mcp === 'object' && current.mcp !== null && !Array.isArray(current.mcp)
   const mcp = hasMcp ? current.mcp as Record<string, unknown> : {}
   const accessToken = typeof mcp.accessToken === 'string' ? mcp.accessToken : ''
@@ -416,6 +437,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && hasMcp
     && hasFlashcards
     && hasGoals
+    && hasLearning
     && anki.apiKey === ankiApiKey
     && anki.enabled === ankiEnabled
     && anki.host === ankiHost
@@ -423,6 +445,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
+    && learning.enabled === learningEnabled
     && current.networkImagePasteBehavior !== undefined
     && current.outdentBehavior !== undefined
     && current.readerArrowKeyPageTurning !== undefined
@@ -443,6 +466,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     },
     flashcards: hasFlashcards ? current.flashcards : defaultFlashcardConfiguration,
     goals: hasGoals ? current.goals : defaultGoalConfiguration,
+    learning: { enabled: learningEnabled },
     mcp: {
       accessToken,
       enabled,

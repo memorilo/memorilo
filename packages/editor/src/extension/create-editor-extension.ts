@@ -77,6 +77,7 @@ export function createEditorExtension(
   readOnly = false,
   cardReviewRuntime?: CardReviewRuntime,
   imageOcclusion?: EditorImageOcclusionIntegration,
+  learningEnabled = true,
 ) {
   const uploadRuntime = new EditorUploadRuntime(adapters.uploadImage, store)
   const uploader = uploadRuntime.uploader
@@ -85,7 +86,7 @@ export function createEditorExtension(
 
   const editorExtension = union(
     defineBasicExtension(),
-    defineCardExtension(),
+    defineCardExtension({ authoringEnabled: learningEnabled }),
     ...(cardReviewRuntime ? [defineCardReviewExtension(cardReviewRuntime)] : []),
     withPriority(defineBlockIdExtension(), Priority.highest),
     withPriority(defineImageIdExtension(), Priority.highest),

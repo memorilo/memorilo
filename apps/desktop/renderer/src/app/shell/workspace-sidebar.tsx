@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 
 import { formatJournalHeading } from '../../features/journals/journal-model'
 import { noteQueryKeys } from '../../features/notes/query-keys'
+import { useDesktopConfiguration } from '../../shared/configuration'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
 
 const sidebarSpring = {
@@ -60,13 +61,15 @@ interface SourceItemContentProps {
   selected: boolean
 }
 
-function navigationItems(t: (key: string) => string): readonly SourceItemProps[] {
-  return [
+function navigationItems(t: (key: string) => string, learningEnabled: boolean): readonly SourceItemProps[] {
+  const items: SourceItemProps[] = [
     { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
     { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
     { destination: { kind: 'route', to: '/shelf' }, icon: BookOpen, label: t('shelf') },
-    { destination: { kind: 'route', to: '/learning' }, icon: GraduationCap, label: t('learning') },
   ]
+  if (learningEnabled)
+    items.push({ destination: { kind: 'route', to: '/learning' }, icon: GraduationCap, label: t('learning') })
+  return items
 }
 
 const sourceRowHeight = 33
@@ -329,6 +332,7 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
   visible: boolean
 }) {
   const { t } = useTranslation('app')
+  const configuration = useDesktopConfiguration()
   const favoritesQuery = useQuery(favoriteNotesQueryOptions())
   const recentQuery = useQuery(recentNotesQueryOptions())
   const favoriteItems = (favoritesQuery.data ?? []).map(item => ({
@@ -352,7 +356,7 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
         <section {...stylex.props(workspaceSidebarStyles.sourceGroup)}>
           <h2 {...stylex.props(workspaceSidebarStyles.navigationHeading)}>{t('navigation')}</h2>
           <div {...stylex.props(workspaceSidebarStyles.sourceList)}>
-            {navigationItems(t).map(item => <SourceItem key={item.label} {...item} />)}
+            {navigationItems(t, configuration.learning.enabled).map(item => <SourceItem key={item.label} {...item} />)}
           </div>
         </section>
         <SourceGroup
