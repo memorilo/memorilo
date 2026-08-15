@@ -1,6 +1,7 @@
 import type {
   ReaderAnnotation,
   ReaderComicRegionAnchor,
+  ReaderPageMode,
   ReaderPosition,
 } from '../../types'
 import type {
@@ -27,6 +28,7 @@ import {
 } from '../reader-adapter'
 import { ReaderOutlineProjection } from '../reader-outline'
 import { openComicArchive } from './comic-archive'
+import { ComicContinuousReaderMount } from './comic-continuous-reader-mount'
 import { ComicPageView } from './comic-page-view'
 
 type ComicSource = ResolvedReaderSource & { format: 'cbr' | 'cbz' }
@@ -42,13 +44,15 @@ class ComicAdapter implements ReaderAdapter {
   private readonly finalizer = createResourceScope('Comic reader', { closeMode: 'dependent' })
   private readonly operations = createOperationSupervisor('Comic reader', { shutdown: 'interrupt' })
   private pageIndex = 0
+  private pageProgress = 0
   private readonly outline: ReaderOutlineProjection<number>
-  private pageView: ComicPageView | null = null
+  private pageView: ComicContinuousReaderMount | ComicPageView | null = null
   private scale = 1
 
   constructor(
     private readonly source: ComicSource,
     private readonly archive: ComicArchive,
+    private readonly pageMode: ReaderPageMode,
     initialPosition: ReaderPosition | null | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
@@ -57,6 +61,7 @@ class ComicAdapter implements ReaderAdapter {
       if (!Number.isSafeInteger(initialPosition.pageNumber) || initialPosition.pageNumber < 1)
         throw new RangeError('Comic reading position must contain a positive page number')
       this.pageIndex = Math.min(initialPosition.pageNumber, archive.pages.length) - 1
+      this.pageProgress = initialPosition.pageProgress
     }
     this.outline = new ReaderOutlineProjection('comic', archive.pages.map((page, index) => ({
       children: [],
@@ -85,12 +90,60 @@ class ComicAdapter implements ReaderAdapter {
   }
 
   private async mountReader(container: HTMLElement, signal: AbortSignal): Promise<void> {
+    if (this.pageMode === 'continuous') {
+      const mount = await ComicContinuousReaderMount.open(container, this.archive, {
+        annotations: this.annotations,
+        callbacks: this.callbacks,
+        format: this.source.format,
+        initialPosition: {
+          format: this.source.format,
+          pageNumber: this.pageIndex + 1,
+          pageProgress: this.pageProgress,
+        },
+        name: this.source.name,
+        onPositionChange: (pageNumber, pageProgress) => {
+          this.pageIndex = pageNumber - 1
+          this.pageProgress = pageProgress
+          if (this.pageView)
+            this.emitState()
+        },
+        onRegionSelection: (pageNumber, selection) => {
+          try {
+            this.publishRegionSelection(pageNumber - 1, selection)
+          }
+          catch (error) {
+            this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+          }
+        },
+        scale: this.scale,
+        signal,
+      })
+      try {
+        signal.throwIfAborted()
+        this.pageView = mount
+        mount.positionAt(this.pageIndex + 1, this.pageProgress)
+        this.emitState()
+        return
+      }
+      catch (error) {
+        try {
+          await mount.close()
+        }
+        catch (cleanupError) {
+          throw combineLifecycleFailures(
+            [error, cleanupError],
+            'Failed to mount and close continuous comic reader',
+          )
+        }
+        throw error
+      }
+    }
     const pageView = new ComicPageView(container, {
       callbacks: this.callbacks,
       format: this.source.format,
       onRegionSelection: (selection) => {
         try {
-          this.publishRegionSelection(selection)
+          this.publishRegionSelection(this.pageIndex, selection)
         }
         catch (error) {
           this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
@@ -163,13 +216,14 @@ class ComicAdapter implements ReaderAdapter {
   async goToAnnotation(annotationId: string): Promise<void> {
     return this.operations.run(async (signal) => {
       const annotation = this.annotations.find(item => item.id === annotationId)
-      if (!annotation || (annotation.anchor.format !== 'cbz' && annotation.anchor.format !== 'cbr'))
+      const anchor = annotation?.anchors[0]
+      if (!annotation || !anchor || (anchor.format !== 'cbz' && anchor.format !== 'cbr'))
         throw new Error(`Comic annotation ${annotationId} does not exist`)
       if (this.destroyed)
         return
-      if (!await this.renderPageAt(annotation.anchor.pageNumber - 1, 'start', signal))
+      if (!await this.renderPageAt(anchor.pageNumber - 1, 'start', signal))
         return
-      this.pageView?.scrollToAnnotation(annotationId)
+      await this.pageView?.scrollToAnnotation(annotationId)
     })
   }
 
@@ -208,25 +262,27 @@ class ComicAdapter implements ReaderAdapter {
         return
       this.clearSelection()
       this.pageView?.setScale(nextScale)
+      if (this.pageMode === 'continuous')
+        (this.pageView as ComicContinuousReaderMount | null)?.positionAt(this.pageIndex + 1, this.pageProgress)
       this.scale = nextScale
       this.emitState()
     })
   }
 
-  private publishRegionSelection(result: RegionSelectionResult | null): void {
+  private publishRegionSelection(pageIndex: number, result: RegionSelectionResult | null): void {
     if (!result) {
       this.callbacks.onSelectionChange(null)
       return
     }
     const anchor: ReaderComicRegionAnchor = {
       format: this.source.format,
-      pageNumber: this.pageIndex + 1,
+      pageNumber: pageIndex + 1,
       rect: result.rect,
       type: 'region',
     }
     this.callbacks.onSelectionChange({
       clientRect: result.clientRect,
-      selection: { anchor, type: 'region' },
+      selection: { anchors: [anchor], type: 'region' },
     })
   }
 
@@ -238,10 +294,22 @@ class ComicAdapter implements ReaderAdapter {
     const pageView = this.pageView
     if (!pageView)
       throw new Error('Comic reader image is not mounted')
+    if (this.pageMode === 'continuous') {
+      const continuousMount = pageView as ComicContinuousReaderMount
+      if (!await continuousMount.ensurePage(pageIndex + 1, signal))
+        return false
+      if (this.destroyed)
+        return false
+      this.pageIndex = pageIndex
+      this.pageProgress = entryEdge === 'start' ? 0 : 1
+      continuousMount.positionAt(pageIndex + 1, this.pageProgress)
+      this.emitState()
+      return true
+    }
     const blob = await this.archive.readPage(pageIndex, signal)
     if (this.destroyed)
       return false
-    const rendered = await pageView.render({
+    const rendered = await (pageView as ComicPageView).render({
       annotations: () => this.annotations,
       blob,
       entryEdge,
@@ -253,6 +321,7 @@ class ComicAdapter implements ReaderAdapter {
     if (!rendered)
       return false
     this.pageIndex = pageIndex
+    this.pageProgress = 0
     this.emitState()
     return true
   }
@@ -290,7 +359,8 @@ class ComicAdapter implements ReaderAdapter {
         total: pageCount,
       },
       outline: this.outline.items,
-      position: { format: this.source.format, pageNumber },
+      pageMode: this.pageMode,
+      position: { format: this.source.format, pageNumber, pageProgress: this.pageProgress },
       presentationMode: 'publisher',
       scale: this.scale,
       title: this.source.name,
@@ -301,6 +371,7 @@ class ComicAdapter implements ReaderAdapter {
 
 export async function openComicAdapter(
   source: ComicSource,
+  pageMode: ReaderPageMode,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
   signal?: AbortSignal,
@@ -308,7 +379,7 @@ export async function openComicAdapter(
   const archive = await openComicArchive(source, signal)
   try {
     signal?.throwIfAborted()
-    return new ComicAdapter(source, archive, initialPosition, callbacks)
+    return new ComicAdapter(source, archive, pageMode, initialPosition, callbacks)
   }
   catch (error) {
     try {

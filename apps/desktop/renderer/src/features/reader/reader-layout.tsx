@@ -40,8 +40,10 @@ export function ReaderLayout() {
       {source
         ? (
             <WindowReader
+              annotationEditingEnabled={false}
               arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
               initialPresentationMode={configuration.readerEpubPresentationMode}
+              pageMode={configuration.readerPageMode}
               source={source}
             />
           )

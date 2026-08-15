@@ -10,6 +10,7 @@ import type {
   NoteEntrySnapshot,
 } from './editor-note'
 import type { EditorNoteDocument } from './editor-note-runtime'
+import type { TopicReaderReference } from './topic-reader-reference'
 import {
   ENTRY_ID_KEY,
   ENTRY_KIND_KEY,
@@ -17,7 +18,9 @@ import {
   FOLDER_NAME_KEY,
   noteTree,
   readString,
+  readTopicReaderReference,
   readTopicType,
+  TOPIC_READER_REFERENCE_KEY,
   TOPIC_TITLE_KEY,
   validateBookBindingValue,
 } from './editor-note-crdt'
@@ -27,6 +30,10 @@ import {
   getImageOcclusionState,
 } from './editor-note-image-occlusion'
 import { projectEditorNote } from './editor-note-projection'
+import {
+  assertLinkedReaderAnnotationExists,
+  findReaderAnnotationTopicId,
+} from './editor-note-reader-bindings'
 import { createSpreadsheetNode, spreadsheetHasUserContent } from './editor-note-spreadsheet'
 import {
   assertBookFileAvailable,
@@ -40,6 +47,7 @@ import {
   resolveNoteEntryIndex,
 } from './editor-note-validation'
 import { createWhiteboardNode, whiteboardHasUserContent } from './editor-note-whiteboard'
+import { isLinkedTopicReaderReference, normalizeTopicReaderReference } from './topic-reader-reference'
 import { hasTopicUserContent } from './topic-user-content'
 
 interface EditorNoteEntryRepositoryDependencies {
@@ -56,9 +64,11 @@ export interface EditorNoteEntryRepository {
   readonly createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
   readonly deleteEntry: (input: DeleteNoteEntryInput) => void
   readonly getEntries: () => readonly NoteEntrySnapshot[]
+  readonly getTopicReaderReference: (topicId: string) => TopicReaderReference | null
   readonly hasUserContent: () => boolean
   readonly moveEntry: (input: MoveNoteEntryInput) => void
   readonly renameEntry: (entryId: string, label: string) => void
+  readonly setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
 }
 
 export function createEditorNoteEntryRepository(
@@ -74,6 +84,41 @@ export function createEditorNoteEntryRepository(
     if (parent?.data.get(ENTRY_KIND_KEY) === 'topic') {
       const parentId = readString(parent.data, ENTRY_ID_KEY, 'Topic id')
       throw new TypeError(`Folder cannot use Topic ${parentId} as its parent`)
+    }
+  }
+  const assertReaderBoundTopicParent = (
+    topicId: string,
+    reference: TopicReaderReference | null | undefined,
+    parent: ReturnType<typeof entryNode> | undefined,
+  ): void => {
+    if (reference === null || reference === undefined || !isLinkedTopicReaderReference(reference))
+      return
+    const parentId = parent?.data.get(ENTRY_KIND_KEY) === 'topic'
+      ? readString(parent.data, ENTRY_ID_KEY, 'Parent Topic id')
+      : null
+    if (parentId !== reference.bookTopicId
+      || parent === undefined
+      || readTopicType(parent.data, `Parent Topic ${parentId ?? 'unknown'} type`) !== 'book') {
+      throw new TypeError(
+        `Reader-bound Topic ${topicId} must be a direct child of BookTopic ${reference.bookTopicId}`,
+      )
+    }
+  }
+  const assertReaderBoundTopicReference = (
+    topicId: string,
+    reference: TopicReaderReference | null | undefined,
+    parent: ReturnType<typeof entryNode> | undefined,
+    excludedTopicId?: string,
+  ): void => {
+    assertReaderBoundTopicParent(topicId, reference, parent)
+    if (reference === null || reference === undefined || !isLinkedTopicReaderReference(reference))
+      return
+    assertLinkedReaderAnnotationExists(runtime, topicId, reference)
+    const existingTopicId = findReaderAnnotationTopicId(doc, reference, excludedTopicId)
+    if (existingTopicId) {
+      throw new TypeError(
+        `Topic ${existingTopicId} already binds Reader annotation ${reference.annotationId}`,
+      )
     }
   }
 
@@ -100,15 +145,15 @@ export function createEditorNoteEntryRepository(
       return entryId
     }),
     createImageOcclusionTopic: async (input) => {
-      const sourceImage = getImageOcclusionSourceIdentity(runtime, input.sourceTopicId, input.sourceImageId)
-      const image = await input.snapshot(structuredClone(sourceImage))
+      const source = structuredClone(input.source)
+      const snapshotSource = getImageOcclusionSourceIdentity(runtime, source)
+      const image = await input.snapshot(structuredClone(snapshotSource))
       return runMutation(() => {
         const entryId = createImageOcclusionNode(runtime, {
           image,
           index: input.index,
-          sourceImage,
-          sourceImageId: input.sourceImageId,
-          sourceTopicId: input.sourceTopicId,
+          snapshotSource,
+          source,
           title: input.title,
         })
         doc.commit({ origin: 'note:create-image-occlusion-topic' })
@@ -124,7 +169,14 @@ export function createEditorNoteEntryRepository(
     }),
     createTopic: input => runMutation(() => {
       const parent = resolveParent(input.parentId)
-      const entryId = createTopicNode(doc, input, parent?.id)
+      const readerReference = input.readerReference === undefined
+        ? undefined
+        : normalizeTopicReaderReference(input.readerReference)
+      assertReaderBoundTopicReference('new', readerReference, parent)
+      const entryId = createTopicNode(doc, {
+        ...input,
+        ...(readerReference === undefined ? {} : { readerReference }),
+      }, parent?.id)
       doc.commit({ origin: 'note:create-topic' })
       return entryId
     }),
@@ -144,10 +196,22 @@ export function createEditorNoteEntryRepository(
 
       if (input.strategy === 'promote-children') {
         const children = node.children() ?? []
+        const boundReaderTopic = children.find((child) => {
+          if (child.data.get(ENTRY_KIND_KEY) !== 'topic'
+            || readTopicType(child.data, 'Child Topic type') !== 'regular') {
+            return false
+          }
+          const reference = readTopicReaderReference(child.data)
+          return reference !== null && isLinkedTopicReaderReference(reference)
+        })
+        if (boundReaderTopic) {
+          const childId = readString(boundReaderTopic.data, ENTRY_ID_KEY, 'Reader-bound Topic id')
+          throw new TypeError(`Topic ${input.entryId} cannot promote Reader-bound Topic ${childId}`)
+        }
         const boundImageOcclusion = children.find(child => (
           child.data.get(ENTRY_KIND_KEY) === 'topic'
           && readTopicType(child.data, 'Child Topic type') === 'image-occlusion'
-          && getImageOcclusionState(runtime, readString(child.data, ENTRY_ID_KEY, 'Child Topic id')).sourceTopicId === input.entryId
+          && getImageOcclusionState(runtime, readString(child.data, ENTRY_ID_KEY, 'Child Topic id')).source.topicId === input.entryId
         ))
         if (boundImageOcclusion) {
           const childId = readString(boundImageOcclusion.data, ENTRY_ID_KEY, 'ImageOcclusionTopic id')
@@ -169,6 +233,12 @@ export function createEditorNoteEntryRepository(
       doc.commit({ origin: 'note:delete-entry' })
     }),
     getEntries: () => projectEditorNote(doc, false).entries,
+    getTopicReaderReference: (topicId) => {
+      const node = entryNode(topicId)
+      if (readTopicType(node.data, `Topic ${topicId} type`) !== 'regular')
+        throw new TypeError(`BookTopic ${topicId} cannot contain a Reader source reference`)
+      return readTopicReaderReference(node.data)
+    },
     hasUserContent: () => {
       const entries = projectEditorNote(doc, false).entries
       if (entries.length !== 1)
@@ -201,10 +271,14 @@ export function createEditorNoteEntryRepository(
         assertFolderParent(parent)
       if (node.data.get(ENTRY_KIND_KEY) === 'topic'
         && readTopicType(node.data, `Topic ${input.entryId} type`) === 'image-occlusion') {
-        const sourceTopicId = getImageOcclusionState(runtime, input.entryId).sourceTopicId
+        const sourceTopicId = getImageOcclusionState(runtime, input.entryId).source.topicId
         const parentId = parent ? readString(parent.data, ENTRY_ID_KEY, 'Parent Topic id') : null
         if (parentId !== sourceTopicId)
           throw new TypeError(`ImageOcclusionTopic ${input.entryId} must remain a child of Topic ${sourceTopicId}`)
+      }
+      if (node.data.get(ENTRY_KIND_KEY) === 'topic'
+        && readTopicType(node.data, `Topic ${input.entryId} type`) === 'regular') {
+        assertReaderBoundTopicParent(input.entryId, readTopicReaderReference(node.data), parent)
       }
       noteTree(doc).move(node.id, parent?.id, resolveNoteEntryIndex(input.index))
       doc.commit({ origin: 'note:move-entry' })
@@ -224,6 +298,24 @@ export function createEditorNoteEntryRepository(
         throw new Error(`NoteEntry ${entryId} has unknown kind: ${String(kind)}`)
       }
       doc.commit({ origin: 'note:rename-entry' })
+    }),
+    setTopicReaderReference: (topicId, reference) => runMutation(() => {
+      const node = entryNode(topicId)
+      if (readTopicType(node.data, `Topic ${topicId} type`) !== 'regular')
+        throw new TypeError(`BookTopic ${topicId} cannot contain a Reader source reference`)
+      const normalized = reference === null ? null : normalizeTopicReaderReference(reference)
+      assertReaderBoundTopicReference(topicId, normalized, node.parent(), topicId)
+      const entry = node.data.toJSON()
+      if (normalized === null)
+        Reflect.deleteProperty(entry, TOPIC_READER_REFERENCE_KEY)
+      else
+        entry[TOPIC_READER_REFERENCE_KEY] = normalized
+      validateTopicInput({ ...readTopicValidationInput(runtime, topicId), entry })
+      if (normalized === null)
+        node.data.delete(TOPIC_READER_REFERENCE_KEY)
+      else
+        node.data.set(TOPIC_READER_REFERENCE_KEY, normalized)
+      doc.commit({ origin: 'reader:set-topic-source-reference' })
     }),
   }
 }

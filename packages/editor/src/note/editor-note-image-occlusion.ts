@@ -1,7 +1,9 @@
+import type { ReadingAnnotation } from '@memorilo/reading-model'
 import type { LoroDoc } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
 import type {
   ImageOcclusionSource,
+  ImageOcclusionSourceReference,
   ImageOcclusionState,
 } from '../image-occlusion/image-occlusion-model'
 import type {
@@ -13,8 +15,12 @@ import type { TopicContentProjection } from './topic-projection'
 import { createNodeJsonFromLoroTree } from '@memorilo/loro-prosemirror-tree/document'
 import { Effect } from 'effect'
 import { LoroMap } from 'loro-crdt'
+import {
+  imageOcclusionSourceKey,
+} from '../image-occlusion/image-occlusion-model'
 import { validateLoroTopic } from '../schema/topic-schema'
 import {
+  BOOK_ANNOTATIONS_KEY,
   ENTRY_ID_KEY,
   ENTRY_KIND_KEY,
   findNoteEntry,
@@ -79,63 +85,131 @@ function sourceImage(document: NodeJSON, imageId: string): NodeJSON | null {
   return null
 }
 
-function imageSource(node: NodeJSON, imageId: string): ImageOcclusionSource {
+function topicImageSource(
+  node: NodeJSON,
+  source: Extract<ImageOcclusionSourceReference, { kind: 'topic-image' }>,
+): ImageOcclusionSource {
   const src = node.attrs?.src
   if (typeof src !== 'string' || src.length === 0)
-    throw new TypeError(`Image ${imageId} source must be a non-empty string`)
-  return { src }
+    throw new TypeError(`Image ${source.imageId} source must be a non-empty string`)
+  return { ...source, src }
 }
 
 interface ResolvedImageOcclusionSource {
-  image: ImageOcclusionSource
+  snapshotSource: ImageOcclusionSource
   topic: NoteEntryNode
 }
 
-function assertSourceImage(
+function normalizeSourceReference(source: ImageOcclusionSourceReference): ImageOcclusionSourceReference {
+  if (source === null || typeof source !== 'object')
+    throw new TypeError('Image occlusion source must be an object')
+  const topicId = normalizeNonEmptyString(source.topicId, 'Source Topic id')
+  if (source.kind === 'topic-image') {
+    return {
+      imageId: normalizeNonEmptyString(source.imageId, 'Source image id'),
+      kind: 'topic-image',
+      topicId,
+    }
+  }
+  if (source.kind === 'reader-region') {
+    return {
+      annotationId: normalizeNonEmptyString(source.annotationId, 'Reader annotation id'),
+      kind: 'reader-region',
+      topicId,
+    }
+  }
+  throw new TypeError(`Unknown image occlusion source kind: ${String((source as { kind?: unknown }).kind)}`)
+}
+
+function sourceSignature(source: ImageOcclusionSource): string {
+  return source.kind === 'topic-image' ? source.src : JSON.stringify(source.anchor)
+}
+
+function assertTopicImageSource(
   runtime: EditorNoteDocument,
-  sourceTopicId: string,
-  sourceImageId: string,
+  source: Extract<ImageOcclusionSourceReference, { kind: 'topic-image' }>,
 ): ResolvedImageOcclusionSource {
-  const source = findNoteEntry(runtime.doc, sourceTopicId)
-  if (readTopicType(source.data, `Topic ${sourceTopicId} type`) !== 'regular')
-    throw new TypeError(`ImageOcclusionTopic source ${sourceTopicId} must be a RegularTopic`)
-  const blockTreeKey = readString(source.data, TOPIC_BLOCK_TREE_KEY, `Topic ${sourceTopicId} Block tree key`)
+  const topic = findNoteEntry(runtime.doc, source.topicId)
+  if (readTopicType(topic.data, `Topic ${source.topicId} type`) !== 'regular')
+    throw new TypeError(`ImageOcclusionTopic source ${source.topicId} must be a RegularTopic`)
+  const blockTreeKey = readString(topic.data, TOPIC_BLOCK_TREE_KEY, `Topic ${source.topicId} Block tree key`)
   const document = createNodeJsonFromLoroTree(runtime.doc.getTree(blockTreeKey))
   if (!document)
-    throw new Error(`Topic ${sourceTopicId} does not contain an initialized document`)
-  const matchedImage = sourceImage(document, sourceImageId)
+    throw new Error(`Topic ${source.topicId} does not contain an initialized document`)
+  const matchedImage = sourceImage(document, source.imageId)
   if (!matchedImage)
-    throw new Error(`RegularTopic ${sourceTopicId} does not contain image ${sourceImageId}`)
-  return { image: imageSource(matchedImage, sourceImageId), topic: source }
+    throw new Error(`RegularTopic ${source.topicId} does not contain image ${source.imageId}`)
+  return { snapshotSource: topicImageSource(matchedImage, source), topic }
+}
+
+function assertReaderRegionSource(
+  runtime: EditorNoteDocument,
+  source: Extract<ImageOcclusionSourceReference, { kind: 'reader-region' }>,
+): ResolvedImageOcclusionSource {
+  const topic = findNoteEntry(runtime.doc, source.topicId)
+  if (readTopicType(topic.data, `Topic ${source.topicId} type`) !== 'book')
+    throw new TypeError(`Reader region source ${source.topicId} must be a BookTopic`)
+  const annotationsKey = readString(
+    topic.data,
+    BOOK_ANNOTATIONS_KEY,
+    `BookTopic ${source.topicId} annotations key`,
+  )
+  const value = runtime.doc.getMap(annotationsKey).get(source.annotationId)
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(
+      `BookTopic ${source.topicId} does not contain Reader annotation ${source.annotationId}`,
+    )
+  }
+  const annotation = structuredClone(value) as ReadingAnnotation
+  if (annotation.id !== source.annotationId) {
+    throw new Error(
+      `BookTopic ${source.topicId} Reader annotation ${source.annotationId} has mismatched identity`,
+    )
+  }
+  const anchor = annotation.anchors[0]
+  if (!anchor || anchor.type !== 'region') {
+    throw new TypeError(
+      `BookTopic ${source.topicId} Reader annotation ${source.annotationId} is not a region`,
+    )
+  }
+  return {
+    snapshotSource: { ...source, anchor: structuredClone(anchor) },
+    topic,
+  }
+}
+
+function assertImageOcclusionSource(
+  runtime: EditorNoteDocument,
+  sourceValue: ImageOcclusionSourceReference,
+): ResolvedImageOcclusionSource {
+  const source = normalizeSourceReference(sourceValue)
+  return source.kind === 'topic-image'
+    ? assertTopicImageSource(runtime, source)
+    : assertReaderRegionSource(runtime, source)
 }
 
 export function getImageOcclusionSourceIdentity(
   runtime: EditorNoteDocument,
-  sourceTopicIdValue: string,
-  sourceImageIdValue: string,
+  source: ImageOcclusionSourceReference,
 ): ImageOcclusionSource {
-  const sourceTopicId = normalizeNonEmptyString(sourceTopicIdValue, 'Source Topic id')
-  const sourceImageId = normalizeNonEmptyString(sourceImageIdValue, 'Source image id')
-  return structuredClone(assertSourceImage(runtime, sourceTopicId, sourceImageId).image)
+  return structuredClone(assertImageOcclusionSource(runtime, source).snapshotSource)
 }
 
 export function findImageOcclusionTopicId(
   runtime: EditorNoteDocument,
-  sourceTopicIdValue: string,
-  sourceImageIdValue: string,
+  sourceValue: ImageOcclusionSourceReference,
 ): string | null {
-  const sourceTopicId = normalizeNonEmptyString(sourceTopicIdValue, 'Source Topic id')
-  const sourceImageId = normalizeNonEmptyString(sourceImageIdValue, 'Source image id')
+  const source = normalizeSourceReference(sourceValue)
+  const sourceKey = imageOcclusionSourceKey(source)
   let match: string | null = null
   for (const node of noteTree(runtime.doc).getNodes()) {
     if (node.data.get(ENTRY_KIND_KEY) !== 'topic' || node.data.get(TOPIC_TYPE_KEY) !== 'image-occlusion')
       continue
-    const state = imageOcclusionStateMap(node)
-    if (state.get('sourceTopicId') !== sourceTopicId || state.get('sourceImageId') !== sourceImageId)
-      continue
     const topicId = readString(node.data, ENTRY_ID_KEY, 'ImageOcclusionTopic id')
+    if (imageOcclusionSourceKey(getImageOcclusionState(runtime, topicId).source) !== sourceKey)
+      continue
     if (match)
-      throw new Error(`Image ${sourceTopicId}:${sourceImageId} has multiple ImageOcclusionTopics`)
+      throw new Error(`Image occlusion source ${sourceKey} has multiple ImageOcclusionTopics`)
     match = topicId
   }
   return match
@@ -143,21 +217,23 @@ export function findImageOcclusionTopicId(
 
 interface CreateImageOcclusionNodeInput extends Omit<CreateImageOcclusionTopicInput, 'snapshot'> {
   image: ImageOcclusionState['image']
-  sourceImage: ImageOcclusionSource
+  snapshotSource: ImageOcclusionSource
 }
 
 export function createImageOcclusionNode(
   runtime: EditorNoteDocument,
   input: CreateImageOcclusionNodeInput,
 ): string {
-  const sourceTopicId = normalizeNonEmptyString(input.sourceTopicId, 'Source Topic id')
-  const sourceImageId = normalizeNonEmptyString(input.sourceImageId, 'Source image id')
-  const source = assertSourceImage(runtime, sourceTopicId, sourceImageId)
-  if (source.image.src !== input.sourceImage.src)
-    throw new Error(`Image ${sourceTopicId}:${sourceImageId} changed while its snapshot was created`)
-  const existing = findImageOcclusionTopicId(runtime, sourceTopicId, sourceImageId)
+  const sourceReference = normalizeSourceReference(input.source)
+  const source = assertImageOcclusionSource(runtime, sourceReference)
+  if (sourceSignature(source.snapshotSource) !== sourceSignature(input.snapshotSource)) {
+    throw new Error(
+      `Image occlusion source ${imageOcclusionSourceKey(sourceReference)} changed while its snapshot was created`,
+    )
+  }
+  const existing = findImageOcclusionTopicId(runtime, sourceReference)
   if (existing)
-    throw new Error(`Image ${sourceTopicId}:${sourceImageId} already belongs to ImageOcclusionTopic ${existing}`)
+    throw new Error(`Image occlusion source ${imageOcclusionSourceKey(sourceReference)} already belongs to ImageOcclusionTopic ${existing}`)
 
   const entryId = crypto.randomUUID()
   const topic = Effect.runSync(validateLoroTopic({
@@ -171,8 +247,7 @@ export function createImageOcclusionNode(
       image: structuredClone(input.image),
       mode: 'hide-all',
       shapes: [],
-      sourceImageId,
-      sourceTopicId,
+      source: structuredClone(sourceReference),
     },
   }))
   if (topic.entry.topicType !== 'image-occlusion' || !('state' in topic))
@@ -205,10 +280,8 @@ export function setImageOcclusionState(
 ): void {
   const node = imageOcclusionNode(runtime, topicId)
   const current = getImageOcclusionState(runtime, topicId)
-  if (stateValue.sourceTopicId !== current.sourceTopicId)
-    throw new TypeError(`ImageOcclusionTopic ${topicId} cannot change its source Topic`)
-  if (stateValue.sourceImageId !== current.sourceImageId)
-    throw new TypeError(`ImageOcclusionTopic ${topicId} cannot change its source image`)
+  if (imageOcclusionSourceKey(stateValue.source) !== imageOcclusionSourceKey(current.source))
+    throw new TypeError(`ImageOcclusionTopic ${topicId} cannot change its source`)
   if (stateValue.image.src !== current.image.src
     || stateValue.image.width !== current.image.width
     || stateValue.image.height !== current.image.height) {

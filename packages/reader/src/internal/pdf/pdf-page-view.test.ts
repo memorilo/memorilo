@@ -337,23 +337,23 @@ describe('pdf page view lifecycle', () => {
     })
     const view = createView(async () => page(), { annotationLayer, callbacks })
     const annotation: ReaderAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'pdf',
         pageNumber: 1,
         rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.2 },
         type: 'region',
-      },
-      body: 'Remember this',
+      }],
+      annotationTopicId: 'topic-1',
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-1',
-      kind: 'annotation',
+      style: 'highlight',
       updatedAt: 1,
     }
 
     view.setAnnotations([annotation], 1)
 
-    const marker = appended.find(element => element.className === 'reader-pdf-note-marker')
+    const marker = appended.find(element => element.className === 'reader-pdf-annotation')
     expect(marker?.dataset.annotationId).toBe(annotation.id)
     clickListener?.({
       target: { closest: () => marker },
@@ -381,29 +381,29 @@ describe('pdf page view lifecycle', () => {
     })
     const view = createView(async () => page(), { annotationLayer })
     const valid: ReaderAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'pdf',
         pageNumber: 1,
         rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.2 },
         type: 'region',
-      },
-      body: 'Valid note',
+      }],
+      annotationTopicId: 'topic-valid',
       color: 'yellow',
       createdAt: 1,
       id: 'valid',
-      kind: 'annotation',
+      style: 'highlight',
       updatedAt: 1,
     }
     const invalid: ReaderAnnotation = {
       ...valid,
-      anchor: {
+      anchors: [{
         format: 'pdf',
         pageNumber: 1,
         quote: { exact: 'Missing rectangle' },
         rects: [],
         source: 'embedded',
         type: 'text',
-      },
+      }],
       id: 'invalid',
     }
 

@@ -1,10 +1,12 @@
 import type { BookFileBinding } from '@memorilo/reading-model'
 import type { LoroDoc, LoroMap } from 'loro-crdt'
+import type { TopicReaderReference } from './topic-reader-reference'
 import { assertBookFileBinding } from '@memorilo/reading-model'
+import { normalizeTopicReaderReference } from './topic-reader-reference'
 
 export const NOTE_META_KEY = 'noteMeta'
 export const NOTE_ENTRIES_KEY = 'entries'
-export const NOTE_SCHEMA_VERSION = 5
+export const NOTE_SCHEMA_VERSION = 6
 export const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
 export const ENTRY_ID_KEY = 'entryId'
 export const ENTRY_KIND_KEY = 'kind'
@@ -12,6 +14,7 @@ export const FOLDER_NAME_KEY = 'name'
 export const TOPIC_TITLE_KEY = 'title'
 export const TOPIC_EDITOR_MODE_KEY = 'editorMode'
 export const TOPIC_BLOCK_TREE_KEY = 'blockTreeKey'
+export const TOPIC_READER_REFERENCE_KEY = 'readerReference'
 export const TOPIC_TYPE_KEY = 'topicType'
 export const IMAGE_OCCLUSION_STATE_KEY = 'imageOcclusion'
 export const BOOK_BINDING_KEY = 'book'
@@ -61,6 +64,11 @@ export function validateBookBindingValue(value: unknown, description: string): B
 
 export function readBookBinding(map: LoroMap, description: string): BookFileBinding {
   return validateBookBindingValue(map.get(BOOK_BINDING_KEY), description)
+}
+
+export function readTopicReaderReference(map: LoroMap): TopicReaderReference | null {
+  const value = map.get(TOPIC_READER_REFERENCE_KEY)
+  return value === undefined ? null : normalizeTopicReaderReference(value)
 }
 
 export function noteTree(doc: LoroDoc) {

@@ -19,7 +19,9 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',
     readerArrowKeyPageTurning: true,
+    readerAnnotationCopyFormat: 'text',
     readerEpubPresentationMode: 'publisher',
+    readerPageMode: 'continuous',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
     weekStart: 'sunday',
@@ -27,6 +29,19 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
 }
 
 describe('desktop MCP configuration', () => {
+  it('copies only highlighted text by default and validates every copy format', () => {
+    expect(desktopConfigurationDefinition.defaults.readerAnnotationCopyFormat).toBe('text')
+    expect(desktopConfigurationDefinition.defaults.readerPageMode).toBe('continuous')
+    expect(decode({
+      ...configuration({ accessToken: '', enabled: false, port: 8765 }),
+      readerAnnotationCopyFormat: 'text-book-location',
+    }).readerAnnotationCopyFormat).toBe('text-book-location')
+    expect(() => decode({
+      ...configuration({ accessToken: '', enabled: false, port: 8765 }),
+      readerAnnotationCopyFormat: 'html',
+    })).toThrow()
+  })
+
   it('is disabled by default on the loopback MCP port', () => {
     expect(desktopConfigurationDefinition.defaults.mcp).toEqual({
       accessToken: '',
@@ -55,7 +70,9 @@ describe('desktop MCP configuration', () => {
       networkImagePasteBehavior: 'download',
       outdentBehavior: 'logical',
       readerArrowKeyPageTurning: true,
+      readerAnnotationCopyFormat: 'text',
       readerEpubPresentationMode: 'publisher',
+      readerPageMode: 'continuous',
       reduceMotion: true,
       tiffConversionFormat: 'webp',
       weekStart: 'sunday',
@@ -76,7 +93,9 @@ describe('desktop MCP configuration', () => {
       networkImagePasteBehavior: 'download',
       outdentBehavior: 'traditional',
       readerArrowKeyPageTurning: true,
+      readerAnnotationCopyFormat: 'text',
       readerEpubPresentationMode: 'publisher',
+      readerPageMode: 'continuous',
       reduceMotion: true,
       tiffConversionFormat: 'webp',
       weekStart: 'sunday',

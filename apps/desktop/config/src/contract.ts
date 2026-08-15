@@ -5,6 +5,8 @@ export type DesktopOutdentBehavior = 'logical' | 'traditional'
 export type DesktopDailyGoalMode = 'all-due' | 'fixed' | 'spread-week'
 export type DesktopNetworkImagePasteBehavior = 'download' | 'url'
 export type DesktopReaderEpubPresentationMode = 'publisher' | 'reader'
+export type DesktopReaderPageMode = 'continuous' | 'single-page'
+export type DesktopReaderAnnotationCopyFormat = 'text' | 'text-book' | 'text-book-location'
 export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
 export type DesktopWeekStart = 'monday' | 'sunday'
 
@@ -47,7 +49,9 @@ export interface DesktopConfiguration {
   networkImagePasteBehavior: DesktopNetworkImagePasteBehavior
   outdentBehavior: DesktopOutdentBehavior
   readerArrowKeyPageTurning: boolean
+  readerAnnotationCopyFormat: DesktopReaderAnnotationCopyFormat
   readerEpubPresentationMode: DesktopReaderEpubPresentationMode
+  readerPageMode: DesktopReaderPageMode
   reduceMotion: boolean
   tiffConversionFormat: DesktopTiffConversionFormat
   weekStart: DesktopWeekStart

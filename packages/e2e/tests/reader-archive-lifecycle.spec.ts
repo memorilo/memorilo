@@ -53,10 +53,10 @@ test('releases and reopens EPUB and CBZ reader sessions', async () => {
         mimeType: 'application/epub+zip',
         name: 'lifecycle.epub',
       })
-      const surface = window.getByRole('document', { name: 'Lifecycle EPUB' })
-      await expect(surface).toBeVisible()
-      await expect(surface.locator('iframe')).toHaveCount(1)
-      await expect(surface.locator('iframe').contentFrame().getByText('EPUB lifecycle fixture')).toBeVisible()
+      const frame = window.locator('main iframe[aria-label="Lifecycle EPUB"]')
+      await expect(frame).toBeVisible()
+      await expect(frame).toHaveCount(1)
+      await expect(frame.contentFrame().getByText('EPUB lifecycle fixture')).toBeVisible()
     }
     const expectCbz = async () => {
       await window.getByLabel(fileInputLabel).setInputFiles({

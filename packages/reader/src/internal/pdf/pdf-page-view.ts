@@ -18,7 +18,6 @@ import {
   runSyncLifecycleOperations,
 } from '@memorilo/effect-lifecycle'
 import { AnnotationActivationOwner, annotationOverlayTint } from '../annotations'
-import { clampUnit } from '../fixed-page/geometry'
 import { interruptPromise } from '../interrupt-promise'
 import { PdfTextLayer } from './pdf-text-layer'
 
@@ -48,12 +47,6 @@ interface PdfPageViewOptions {
   pageSurface: HTMLDivElement
   pdfJs: PdfJsModule
   textLayer: HTMLDivElement
-}
-
-function annotationRects(annotation: ReaderAnnotation): readonly ReaderNormalizedRect[] {
-  if (annotation.anchor.format !== 'pdf')
-    return []
-  return annotation.anchor.type === 'region' ? [annotation.anchor.rect] : annotation.anchor.rects
 }
 
 export class PdfPageView {
@@ -118,6 +111,14 @@ export class PdfPageView {
     return this.renders.run('page', attempt => this.renderPage(input, attempt)).then(
       result => result.status === 'current' && result.value,
     )
+  }
+
+  scrollAnnotationIntoView(annotationId: string): void {
+    const selector = `[data-annotation-id="${CSS.escape(annotationId)}"]`
+    const marker = this.options.annotationLayer.querySelector(selector)
+    if (!(marker instanceof HTMLElement))
+      throw new Error(`PDF annotation ${annotationId} has no rendered marker`)
+    marker.scrollIntoView({ block: 'center', inline: 'center' })
   }
 
   private async renderPage(
@@ -261,32 +262,29 @@ export class PdfPageView {
   private prepareAnnotations(pageNumber: number): HTMLElement[] {
     const elements: HTMLElement[] = []
     for (const annotation of this.annotations) {
-      if (annotation.anchor.format !== 'pdf' || annotation.anchor.pageNumber !== pageNumber)
-        continue
-      const rects = annotationRects(annotation)
-      for (const rect of rects) {
-        const highlight = document.createElement('div')
-        highlight.className = 'reader-pdf-annotation'
-        highlight.dataset.kind = annotation.kind
-        highlight.style.backgroundColor = annotationOverlayTint(annotation.color)
-        highlight.style.left = `${rect.x * 100}%`
-        highlight.style.top = `${rect.y * 100}%`
-        highlight.style.width = `${rect.width * 100}%`
-        highlight.style.height = `${rect.height * 100}%`
-        elements.push(highlight)
-      }
-      if (annotation.kind === 'annotation') {
-        const firstRect = rects[0]
-        if (!firstRect)
+      for (const anchor of annotation.anchors) {
+        if (anchor.format !== 'pdf' || anchor.pageNumber !== pageNumber)
+          continue
+        const rects: readonly ReaderNormalizedRect[] = anchor.type === 'region' ? [anchor.rect] : anchor.rects
+        if (rects.length === 0)
           throw new Error(`PDF annotation ${annotation.id} has no visible anchor rectangle`)
-        const marker = document.createElement('button')
-        marker.className = 'reader-pdf-note-marker'
-        marker.dataset.annotationId = annotation.id
-        marker.setAttribute('aria-label', this.options.callbacks.regionAnnotationLabel())
-        marker.style.left = `${clampUnit(firstRect.x + firstRect.width) * 100}%`
-        marker.style.top = `${firstRect.y * 100}%`
-        marker.type = 'button'
-        elements.push(marker)
+        for (const rect of rects) {
+          const highlight = document.createElement('button')
+          highlight.className = 'reader-pdf-annotation'
+          highlight.dataset.annotationId = annotation.id
+          highlight.dataset.style = annotation.style
+          highlight.setAttribute('aria-label', this.options.callbacks.regionAnnotationLabel())
+          highlight.type = 'button'
+          if (annotation.style === 'highlight')
+            highlight.style.backgroundColor = annotationOverlayTint(annotation.color)
+          else
+            highlight.style.borderBottomColor = annotationOverlayTint(annotation.color)
+          highlight.style.left = `${rect.x * 100}%`
+          highlight.style.top = `${rect.y * 100}%`
+          highlight.style.width = `${rect.width * 100}%`
+          highlight.style.height = `${rect.height * 100}%`
+          elements.push(highlight)
+        }
       }
     }
     return elements

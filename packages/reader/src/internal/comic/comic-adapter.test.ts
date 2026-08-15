@@ -7,10 +7,24 @@ import { openComicAdapter } from './comic-adapter'
 import { FakeImage, installComicDom } from './comic-test-dom'
 
 const harness = vi.hoisted(() => ({
+  continuousMount: undefined as unknown as {
+    close: ReturnType<typeof vi.fn>
+    ensurePage: ReturnType<typeof vi.fn>
+    moveViewport: ReturnType<typeof vi.fn>
+    positionAt: ReturnType<typeof vi.fn>
+    scrollToAnnotation: ReturnType<typeof vi.fn>
+    setAnnotations: ReturnType<typeof vi.fn>
+    setRegionSelectionEnabled: ReturnType<typeof vi.fn>
+    setScale: ReturnType<typeof vi.fn>
+  },
+  continuousOpen: vi.fn(),
   openArchive: vi.fn(),
 }))
 
 vi.mock('./comic-archive', () => ({ openComicArchive: harness.openArchive }))
+vi.mock('./comic-continuous-reader-mount', () => ({
+  ComicContinuousReaderMount: { open: harness.continuousOpen },
+}))
 vi.mock('../region-selection.stylex', () => ({
   regionSelectionClassNames: {
     annotation: 'annotation',
@@ -57,17 +71,17 @@ function archive(readPage: ComicArchive['readPage'], pageCount = 1): ComicArchiv
 
 function annotation(pageNumber: number): ReaderAnnotation {
   return {
-    anchor: {
+    anchors: [{
       format: 'cbz',
       pageNumber,
       rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.2 },
       type: 'region',
-    },
-    body: 'Remember this',
+    }],
+    annotationTopicId: `topic-${pageNumber}`,
     color: 'yellow',
     createdAt: 1,
     id: `annotation-${pageNumber}`,
-    kind: 'annotation',
+    style: 'highlight',
     updatedAt: 1,
   }
 }
@@ -85,6 +99,18 @@ async function closesBeforeRelease(closing: Promise<void>, release: () => void):
 
 beforeEach(() => {
   harness.openArchive.mockReset()
+  harness.continuousMount = {
+    close: vi.fn(async () => undefined),
+    ensurePage: vi.fn(async () => true),
+    moveViewport: vi.fn(() => 'at-boundary'),
+    positionAt: vi.fn(),
+    scrollToAnnotation: vi.fn(),
+    setAnnotations: vi.fn(),
+    setRegionSelectionEnabled: vi.fn(),
+    setScale: vi.fn(),
+  }
+  harness.continuousOpen.mockReset()
+  harness.continuousOpen.mockResolvedValue(harness.continuousMount)
 })
 
 afterEach(() => {
@@ -92,12 +118,30 @@ afterEach(() => {
 })
 
 describe('comic adapter lifecycle', () => {
+  it('uses the continuous mount and restores page progress', async () => {
+    const { container } = installComicDom()
+    const ownedArchive = archive(vi.fn(async () => new Blob(['page'], { type: 'image/png' })), 10)
+    harness.openArchive.mockResolvedValue(ownedArchive)
+    const initialPosition = { format: 'cbz' as const, pageNumber: 6, pageProgress: 0.35 }
+    const adapter = await openComicAdapter(source(), 'continuous', initialPosition, callbacks())
+
+    await adapter.mount(container as unknown as HTMLElement)
+
+    expect(harness.continuousOpen).toHaveBeenCalledWith(
+      container,
+      ownedArchive,
+      expect.objectContaining({ initialPosition }),
+    )
+    expect(harness.continuousMount.positionAt).toHaveBeenCalledWith(6, 0.35)
+    await adapter.destroy()
+  })
+
   it('rejects an overlapping mount before the first page extraction settles', async () => {
     const { container } = installComicDom()
     const extraction = deferred<Blob>()
     const ownedArchive = archive(vi.fn(() => extraction.promise))
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     const mounting = adapter.mount(container as unknown as HTMLElement)
 
     await expect(adapter.mount(container as unknown as HTMLElement)).rejects.toThrow(
@@ -126,7 +170,7 @@ describe('comic adapter lifecycle', () => {
       return extraction.promise
     })
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     const mounting = adapter.mount(container as unknown as HTMLElement)
     await extractionEntered
 
@@ -147,7 +191,7 @@ describe('comic adapter lifecycle', () => {
     const readPage = vi.fn(() => extraction.promise)
     const ownedArchive = archive(readPage)
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     const mounting = adapter.mount(container as unknown as HTMLElement)
     await vi.waitFor(() => expect(readPage).toHaveBeenCalledOnce())
 
@@ -174,7 +218,7 @@ describe('comic adapter lifecycle', () => {
     })
     const ownedArchive = archive(vi.fn(async () => new Blob(['page'], { type: 'image/png' })))
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     const mounting = adapter.mount(container as unknown as HTMLElement)
     await vi.waitFor(() => expect(decode).toHaveBeenCalledOnce())
 
@@ -189,7 +233,7 @@ describe('comic adapter lifecycle', () => {
     const { container } = installComicDom()
     const ownedArchive = archive(vi.fn(async () => new Blob(['page'], { type: 'image/png' })))
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     await adapter.mount(container as unknown as HTMLElement)
 
     const scroller = container.children[0]!
@@ -208,7 +252,7 @@ describe('comic adapter lifecycle', () => {
       .mockResolvedValueOnce(new Blob(['page'], { type: 'image/png' }))
     const ownedArchive = archive(readPage)
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     const first = installComicDom().container
 
     await expect(adapter.mount(first as unknown as HTMLElement)).rejects.toBe(firstReadFailure)
@@ -228,7 +272,7 @@ describe('comic adapter lifecycle', () => {
     const ownedArchive = archive(readPage, 2)
     harness.openArchive.mockResolvedValue(ownedArchive)
     const { container } = installComicDom()
-    const adapter = await openComicAdapter(source(), null, callbacks())
+    const adapter = await openComicAdapter(source(), 'single-page', null, callbacks())
     await adapter.mount(container as unknown as HTMLElement)
 
     const navigating = adapter.goForward('start')
@@ -247,7 +291,7 @@ describe('comic adapter lifecycle', () => {
     const readerCallbacks = callbacks()
     const ownedArchive = archive(vi.fn(async () => new Blob(['page'], { type: 'image/png' })))
     harness.openArchive.mockResolvedValue(ownedArchive)
-    const adapter = await openComicAdapter(source(), null, readerCallbacks)
+    const adapter = await openComicAdapter(source(), 'single-page', null, readerCallbacks)
     await adapter.mount(container as unknown as HTMLElement)
     const scroller = container.children[0]!
     scroller.scrollTo = vi.fn(() => {
@@ -275,7 +319,7 @@ describe('comic adapter lifecycle', () => {
     }
     harness.openArchive.mockResolvedValue(ownedArchive)
 
-    const failure = openComicAdapter(source(), { format: 'pdf', pageNumber: 1 }, callbacks())
+    const failure = openComicAdapter(source(), 'single-page', { format: 'pdf', pageNumber: 1, pageProgress: 0 }, callbacks())
     await expect(failure).rejects.toBeInstanceOf(AggregateError)
     const error = await failure.catch(reason => reason)
     if (!(error instanceof AggregateError))

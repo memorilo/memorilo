@@ -2,6 +2,7 @@ import type {
   ReadingAnchor,
   ReadingAnnotation,
   ReadingAnnotationColor,
+  ReadingAnnotationStyle,
   ReadingComicRegionAnchor,
   ReadingEpubLocator,
   ReadingEpubRegionAnchor,
@@ -15,7 +16,9 @@ import type {
   ReadingPdfTextAnchor,
   ReadingPosition,
   ReadingRegionAnchor,
+  ReadingRegionAnchorList,
   ReadingTextAnchor,
+  ReadingTextAnchorList,
   ReadingTextQuote,
   ReadingTxtRegionAnchor,
   ReadingTxtTextAnchor,
@@ -36,8 +39,11 @@ export interface ReaderAuxiliarySidebar {
 export type ReaderFormat = ReadingFormat
 
 export type ReaderPresentationMode = 'publisher' | 'reader'
+export type ReaderPageMode = 'continuous' | 'single-page'
 
 export type ReaderAnnotationColor = ReadingAnnotationColor
+export type ReaderAnnotationStyle = ReadingAnnotationStyle
+export type ReaderAnnotationCopyFormat = 'text' | 'text-book' | 'text-book-location'
 
 export type ReaderTextLayerKind = 'embedded' | 'none' | 'ocr'
 
@@ -71,6 +77,46 @@ export interface ReaderLocation {
   total?: number
 }
 
+export interface ReaderClientRect {
+  height: number
+  left: number
+  top: number
+  width: number
+}
+
+interface ReaderImageOcclusionShapeBase {
+  groupId: string
+  id: string
+}
+
+export interface ReaderImageOcclusionBoundsShape extends ReaderImageOcclusionShapeBase {
+  height: number
+  kind: 'ellipse' | 'rectangle'
+  width: number
+  x: number
+  y: number
+}
+
+export interface ReaderImageOcclusionBrushShape extends ReaderImageOcclusionShapeBase {
+  kind: 'brush'
+  points: readonly number[]
+  strokeWidth: number
+}
+
+export type ReaderImageOcclusionShape
+  = | ReaderImageOcclusionBoundsShape
+    | ReaderImageOcclusionBrushShape
+
+export interface ReaderImageOcclusionOverlay {
+  annotationId: string
+  image: {
+    height: number
+    src: string
+    width: number
+  }
+  shapes: readonly ReaderImageOcclusionShape[]
+}
+
 export interface ReaderOutlineItem {
   children: readonly ReaderOutlineItem[]
   href?: string
@@ -96,13 +142,13 @@ export type ReaderAnchor = ReadingAnchor
 export type ReaderPosition = ReadingPosition
 
 export interface ReaderTextSelection {
-  anchor: ReaderTextAnchor
+  anchors: ReadingTextAnchorList
   text: string
   type: 'text'
 }
 
 export interface ReaderRegionSelection {
-  anchor: ReaderRegionAnchor
+  anchors: ReadingRegionAnchorList
   type: 'region'
 }
 
@@ -111,6 +157,22 @@ export type ReaderSelection = ReaderRegionSelection | ReaderTextSelection
 export type ReaderHighlight = ReadingHighlight
 export type ReaderNote = ReadingNote
 export type ReaderAnnotation = ReadingAnnotation
+
+export interface ReaderAnnotationEditorRenderInput {
+  annotation: ReaderAnnotation
+  readOnly: boolean
+}
+
+export interface ReaderAnnotationTopicCreateInput {
+  annotation: ReaderAnnotation
+  clientRect: ReaderClientRect
+  location: string
+}
+
+export interface ReaderAnnotationDependents {
+  annotationTopicId?: string
+  imageOcclusionTopicIds: readonly string[]
+}
 
 export interface ReaderOcrTextItem {
   confidence?: number
@@ -159,21 +221,35 @@ export interface ReaderCapabilities {
 }
 
 export interface ReaderProps {
-  auxiliarySidebar?: ReaderAuxiliarySidebar
+  annotationCopyBookTitle?: string
+  annotationCopyFormat?: ReaderAnnotationCopyFormat
   annotationEditingEnabled?: boolean
   arrowKeyPageTurning?: boolean
   annotations?: readonly ReaderAnnotation[]
   ariaLabel?: string
+  auxiliarySidebar?: ReaderAuxiliarySidebar
   defaultAnnotations?: readonly ReaderAnnotation[]
   initialPosition?: ReaderPosition | null
+  pageMode?: ReaderPageMode
   initialPresentationMode?: ReaderPresentationMode
+  initialAnnotationId?: string
+  imageOcclusionOverlays?: readonly ReaderImageOcclusionOverlay[]
   ocrProvider?: ReaderOcrProvider
   onAnnotationsChange?: (annotations: readonly ReaderAnnotation[]) => void
+  onCreateAnnotationTopic?: (input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => Promise<string>
+  onPrepareAnnotationDeletion?: (annotation: ReaderAnnotation) => Promise<void>
+  onDetachAnnotationTopic?: (topicId: string) => Promise<void>
   onError?: (error: Error) => void
   onLocationChange?: (location: ReaderLocation) => void
   onOcrStatusChange?: (status: ReaderOcrStatus) => void
+  onGetAnnotationDependents?: (annotation: ReaderAnnotation) => ReaderAnnotationDependents
+  onOpenReaderRegionImageOcclusion?: (
+    input: ReaderAnnotationTopicCreateInput,
+    signal: AbortSignal,
+  ) => Promise<void>
   onPositionChange?: (position: ReaderPosition) => void
   onSelectionChange?: (selection: ReaderSelection | null) => void
+  renderAnnotationEditor?: (input: ReaderAnnotationEditorRenderInput) => ReactNode
   sidebarActions?: ReactNode | ((controller: ReaderAuxiliarySidebarController) => ReactNode)
   title?: string
   toolbarActions?: ReactNode

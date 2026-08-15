@@ -2,10 +2,12 @@ import type { OperationSupervisor } from '@memorilo/effect-lifecycle'
 import type {
   ReaderAnnotation,
   ReaderCapabilities,
+  ReaderClientRect,
   ReaderFormat,
   ReaderLocation,
   ReaderOcrStatus,
   ReaderOutlineItem,
+  ReaderPageMode,
   ReaderPosition,
   ReaderPresentationMode,
   ReaderScaleCapability,
@@ -14,12 +16,7 @@ import type {
   ReaderTextQuote,
 } from '../types'
 
-export interface ReaderClientRect {
-  height: number
-  left: number
-  top: number
-  width: number
-}
+export type { ReaderClientRect } from '../types'
 
 export interface ReaderAdapterSelection {
   clientRect: ReaderClientRect
@@ -30,7 +27,7 @@ export interface ReaderAdapterAnnotationActivation {
   annotationId: string
 }
 
-export type ReaderScrollDirection = 'down' | 'left' | 'right' | 'up'
+export type ReaderScrollDirection = 'down' | 'left' | 'page-down' | 'page-up' | 'right' | 'up'
 export type ReaderScrollResult = 'at-boundary' | 'scrolled'
 export type ReaderPageEdge = 'end' | 'start'
 
@@ -119,6 +116,7 @@ export interface ReaderAdapterState {
   format: ReaderFormat
   location: ReaderLocation
   outline: readonly ReaderOutlineItem[]
+  pageMode: ReaderPageMode
   position: ReaderPosition
   presentationMode: ReaderPresentationMode
   presentationModeReason?: string

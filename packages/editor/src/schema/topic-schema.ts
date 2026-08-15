@@ -25,6 +25,7 @@ const PositiveUnitIntervalSchema = UnitIntervalSchema.check(Schema.isGreaterThan
 const ReadingFormatSchema = Schema.Literals(['cbr', 'cbz', 'epub', 'pdf', 'txt'])
 const BookFileSha256Schema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u))
 const ReadingAnnotationColorSchema = Schema.Literals(['blue', 'green', 'pink', 'purple', 'yellow'])
+const ReadingAnnotationStyleSchema = Schema.Literals(['highlight', 'underline'])
 const ReadingNormalizedRectSchema = Schema.Struct({
   height: UnitIntervalSchema,
   width: UnitIntervalSchema,
@@ -91,17 +92,19 @@ const ReadingComicRegionAnchorSchema = Schema.Struct({
   rect: ReadingNormalizedRectSchema,
   type: Schema.Literal('region'),
 })
-const ReadingAnchorSchema = Schema.Union([
-  ReadingComicRegionAnchorSchema,
-  ReadingEpubRegionAnchorSchema,
+const ReadingTextAnchorSchema = Schema.Union([
   ReadingEpubTextAnchorSchema,
-  ReadingPdfRegionAnchorSchema,
   ReadingPdfTextAnchorSchema,
-  ReadingTxtRegionAnchorSchema,
   ReadingTxtTextAnchorSchema,
 ])
+const ReadingRegionAnchorSchema = Schema.Union([
+  ReadingComicRegionAnchorSchema,
+  ReadingEpubRegionAnchorSchema,
+  ReadingPdfRegionAnchorSchema,
+  ReadingTxtRegionAnchorSchema,
+])
 const ReadingAnnotationBaseFields = {
-  anchor: ReadingAnchorSchema,
+  annotationTopicId: Schema.optionalKey(Schema.NonEmptyString),
   color: ReadingAnnotationColorSchema,
   createdAt: NonNegativeIntegerSchema,
   id: Schema.NonEmptyString,
@@ -110,18 +113,32 @@ const ReadingAnnotationBaseFields = {
 const ReadingAnnotationSchema = Schema.Union([
   Schema.Struct({
     ...ReadingAnnotationBaseFields,
-    kind: Schema.Literal('highlight'),
+    anchors: Schema.NonEmptyArray(ReadingTextAnchorSchema),
+    style: ReadingAnnotationStyleSchema,
   }),
   Schema.Struct({
     ...ReadingAnnotationBaseFields,
-    body: Schema.NonEmptyString,
-    kind: Schema.Literal('annotation'),
+    anchors: Schema.NonEmptyArray(ReadingRegionAnchorSchema),
+    style: Schema.Literal('highlight'),
   }),
-])
+]).check(Schema.makeFilter((annotation) => {
+  const first = annotation.anchors[0]
+  return annotation.anchors.some(anchor => anchor.format !== first.format || anchor.type !== first.type)
+    ? { message: 'expected annotation fragments to use one format and type', path: ['anchors'] }
+    : undefined
+}, { expected: 'a ReadingAnnotation with consistent fragments' }))
 const ReadingPositionSchema = Schema.Union([
-  Schema.Struct({ format: Schema.Literals(['cbr', 'cbz']), pageNumber: PositiveIntegerSchema }),
+  Schema.Struct({
+    format: Schema.Literals(['cbr', 'cbz']),
+    pageNumber: PositiveIntegerSchema,
+    pageProgress: UnitIntervalSchema,
+  }),
   Schema.Struct({ format: Schema.Literal('epub'), locator: ReadingEpubLocatorSchema }),
-  Schema.Struct({ format: Schema.Literal('pdf'), pageNumber: PositiveIntegerSchema }),
+  Schema.Struct({
+    format: Schema.Literal('pdf'),
+    pageNumber: PositiveIntegerSchema,
+    pageProgress: UnitIntervalSchema,
+  }),
   Schema.Struct({ format: Schema.Literal('txt'), offset: NonNegativeIntegerSchema }),
 ])
 const BookFileLocatorSchema = Schema.Union([
@@ -182,6 +199,18 @@ const OcclusionShapeSchema = Schema.Union([
   OcclusionBoundsShapeSchema,
   OcclusionBrushShapeSchema,
 ])
+const ImageOcclusionSourceReferenceSchema = Schema.Union([
+  Schema.Struct({
+    imageId: Schema.NonEmptyString,
+    kind: Schema.Literal('topic-image'),
+    topicId: Schema.NonEmptyString,
+  }),
+  Schema.Struct({
+    annotationId: Schema.NonEmptyString,
+    kind: Schema.Literal('reader-region'),
+    topicId: Schema.NonEmptyString,
+  }),
+])
 const ImageOcclusionStateSchema = Schema.Struct({
   image: Schema.Struct({
     height: PositiveIntegerSchema,
@@ -190,8 +219,7 @@ const ImageOcclusionStateSchema = Schema.Struct({
   }),
   mode: Schema.Literals(['hide-all', 'hide-one']),
   shapes: Schema.Array(OcclusionShapeSchema),
-  sourceImageId: Schema.NonEmptyString,
-  sourceTopicId: Schema.NonEmptyString,
+  source: ImageOcclusionSourceReferenceSchema,
 }).check(Schema.makeFilter((state) => {
   const shapeIds = new Set<string>()
   for (const [index, shape] of state.shapes.entries()) {
@@ -223,9 +251,31 @@ const LoroSpreadsheetTopicEntryBaseFields = {
   title: Schema.String,
   topicType: Schema.Literal('spreadsheet'),
 } as const
+const TopicReaderSourceSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal('text'),
+    location: Schema.NonEmptyString,
+    text: Schema.NonEmptyString,
+  }),
+  Schema.Struct({
+    imageSrc: Schema.NonEmptyString,
+    kind: Schema.Literal('region'),
+    location: Schema.NonEmptyString,
+  }),
+])
+
+const TopicReaderReferenceSchema = Schema.Union([
+  Schema.Struct({
+    annotationId: Schema.NonEmptyString,
+    bookTopicId: Schema.NonEmptyString,
+    source: TopicReaderSourceSchema,
+  }),
+  Schema.Struct({ source: TopicReaderSourceSchema }),
+])
 
 export const LoroRegularTopicEntrySchema = Schema.Struct({
   ...LoroTopicEntryBaseFields,
+  readerReference: Schema.optionalKey(TopicReaderReferenceSchema),
   topicType: Schema.Literal('regular'),
 })
 
@@ -323,10 +373,10 @@ export const LoroTopicSchema = Schema.Union([
         path: ['state'],
       }
     }
-    return topic.state.sourceTopicId === id
+    return topic.state.source.topicId === id
       ? {
           message: 'expected an ImageOcclusionTopic to reference a different source Topic',
-          path: ['state', 'sourceTopicId'],
+          path: ['state', 'source', 'topicId'],
         }
       : undefined
   }
@@ -382,10 +432,10 @@ export const LoroTopicSchema = Schema.Union([
         path: ['annotations', annotationId, 'id'],
       }
     }
-    if (annotation.anchor.format !== format) {
+    if (annotation.anchors.some(anchor => anchor.format !== format)) {
       return {
-        message: `expected a ${format} BookTopic annotation anchor`,
-        path: ['annotations', annotationId, 'anchor', 'format'],
+        message: `expected ${format} BookTopic annotation anchors`,
+        path: ['annotations', annotationId, 'anchors'],
       }
     }
   }

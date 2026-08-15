@@ -1,4 +1,4 @@
-import type { ReaderAnnotation, ReaderTxtRegionAnchor } from '../../types'
+import type { ReaderAnnotation } from '../../types'
 import type { ReaderAdapterSelection, ReaderClientRect } from '../reader-adapter'
 import type { TxtDocument } from './txt-document'
 import { annotationOverlayTint } from '../annotations'
@@ -98,11 +98,10 @@ export function createTxtDocumentProjection(
     annotationLayer.replaceChildren()
     const contentRect = content.getBoundingClientRect()
     for (const annotation of annotations) {
-      const anchor = annotation.anchor
+      const anchor = annotation.anchors[0]
       if (anchor.format !== 'txt' || anchor.type !== 'region')
         continue
-      const txtRegionAnnotation = annotation as ReaderAnnotation & { anchor: ReaderTxtRegionAnchor }
-      const { end, start } = document.requireRegionRange(txtRegionAnnotation)
+      const { end, start } = document.requireRegionRange(annotation, anchor)
       const rects = [...textRange(article, start, end).getClientRects()]
         .filter(rect => rect.width > 0 && rect.height > 0)
       for (const rect of rects) {
@@ -132,9 +131,13 @@ export function createTxtDocumentProjection(
       }
       const marker = article.ownerDocument.createElement('span')
       marker.dataset.annotationId = run.annotation.id
-      marker.style.backgroundColor = annotationOverlayTint(run.annotation.color)
-      if (run.annotation.kind === 'annotation')
+      if (run.annotation.style === 'underline') {
         marker.style.textDecoration = `underline 1.5px ${annotationOverlayTint(run.annotation.color)}`
+        marker.style.textUnderlineOffset = '2px'
+      }
+      else {
+        marker.style.backgroundColor = annotationOverlayTint(run.annotation.color)
+      }
       marker.textContent = run.text
       fragment.append(marker)
     }
@@ -161,7 +164,7 @@ export function createTxtDocumentProjection(
     const anchor = document.textAnchor(selectionStart, selectionEnd)
     return {
       clientRect: boundingReaderClientRect(rects),
-      selection: { anchor, text: anchor.quote.exact, type: 'text' },
+      selection: { anchors: [anchor], text: anchor.quote.exact, type: 'text' },
     }
   }
 
@@ -170,7 +173,7 @@ export function createTxtDocumentProjection(
     return {
       clientRect: rect,
       selection: {
-        anchor: { end, format: 'txt', start, type: 'region' },
+        anchors: [{ end, format: 'txt', start, type: 'region' }],
         type: 'region',
       },
     }
@@ -181,7 +184,7 @@ export function createTxtDocumentProjection(
       return 0
     const articleRect = article.getBoundingClientRect()
     const scrollerRect = scroller.getBoundingClientRect()
-    const x = articleRect.left + Math.min(8, Math.max(1, articleRect.width / 2))
+    const x = Math.min(articleRect.right - 1, Math.max(articleRect.left + 1, scrollerRect.left + 8))
     const y = Math.min(articleRect.bottom - 1, Math.max(articleRect.top + 1, scrollerRect.top + 8))
     const offset = textOffsetAtPoint(article, x, y)
     if (offset !== null)
@@ -198,6 +201,7 @@ export function createTxtDocumentProjection(
     const start = Math.min(offset, document.length - 1)
     const rect = textRange(article, start, start + 1).getBoundingClientRect()
     const scrollerRect = scroller.getBoundingClientRect()
+    scroller.scrollLeft = Math.max(0, scroller.scrollLeft + rect.left - scrollerRect.left - 8)
     scroller.scrollTop = Math.max(0, scroller.scrollTop + rect.top - scrollerRect.top - 8)
   }
 

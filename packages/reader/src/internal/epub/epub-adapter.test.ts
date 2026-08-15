@@ -10,6 +10,22 @@ import { EpubReaderSurface } from './epub-reader-surface'
 const harness = vi.hoisted(() => {
   const state = {
     archiveClose: vi.fn(),
+    continuousMount: undefined as unknown as {
+      activate: ReturnType<typeof vi.fn>
+      clearSelection: ReturnType<typeof vi.fn>
+      close: ReturnType<typeof vi.fn>
+      goBackward: ReturnType<typeof vi.fn>
+      goForward: ReturnType<typeof vi.fn>
+      goToAnnotation: ReturnType<typeof vi.fn>
+      goToOutlineItem: ReturnType<typeof vi.fn>
+      moveViewport: ReturnType<typeof vi.fn>
+      positionAt: ReturnType<typeof vi.fn>
+      ready: Promise<void>
+      setAnnotations: ReturnType<typeof vi.fn>
+      setRegionSelectionEnabled: ReturnType<typeof vi.fn>
+      setScale: ReturnType<typeof vi.fn>
+    },
+    continuousOpen: vi.fn(),
     destroyFailures: [] as unknown[],
     forwardCallback: undefined as (() => void) | undefined,
     instances: [] as Array<{
@@ -44,6 +60,23 @@ const harness = vi.hoisted(() => {
       state.resizeObserverConstructionFailure = undefined
       state.resizeObservers.length = 0
       state.surfaceElements.length = 0
+      state.continuousMount = {
+        activate: vi.fn(),
+        clearSelection: vi.fn(),
+        close: vi.fn(async () => undefined),
+        goBackward: vi.fn(async () => undefined),
+        goForward: vi.fn(async () => undefined),
+        goToAnnotation: vi.fn(async () => undefined),
+        goToOutlineItem: vi.fn(async () => undefined),
+        moveViewport: vi.fn(() => 'at-boundary'),
+        positionAt: vi.fn(),
+        ready: Promise.resolve(),
+        setAnnotations: vi.fn(),
+        setRegionSelectionEnabled: vi.fn(),
+        setScale: vi.fn(async () => undefined),
+      }
+      state.continuousOpen.mockReset()
+      state.continuousOpen.mockReturnValue(state.continuousMount)
     },
   }
   return state
@@ -109,6 +142,9 @@ vi.mock('@readium/navigator', () => {
 })
 
 vi.mock('./epub-parser', () => ({ parseEpub: harness.parseEpub }))
+vi.mock('./epub-continuous-reader-mount', () => ({
+  EpubContinuousReaderMount: { open: harness.continuousOpen },
+}))
 vi.mock('../region-selection.stylex', () => ({
   regionSelectionClassNames: {
     annotation: 'annotation',
@@ -205,7 +241,7 @@ async function openAdapter(readerCallbacks = callbacks()) {
     format: 'epub',
     name: 'book.epub',
     read: vi.fn(async () => new Uint8Array([0])),
-  }, 'reader', null, readerCallbacks)
+  }, 'reader', 'single-page', null, readerCallbacks)
 }
 
 async function openMountedAdapter() {
@@ -235,6 +271,29 @@ async function closesBeforeRelease(
 }
 
 describe('epub adapter lifecycle', () => {
+  it('uses the continuous spine mount and restores the locator', async () => {
+    const readerCallbacks = callbacks()
+    const parsed = parsedEpub()
+    harness.parseEpub.mockResolvedValueOnce(parsed)
+    const adapter = await openEpubAdapter({
+      byteLength: 1,
+      format: 'epub',
+      name: 'book.epub',
+      read: vi.fn(async () => new Uint8Array([0])),
+    }, 'reader', 'continuous', null, readerCallbacks)
+    const container = fakeElement()
+
+    await adapter.mount(container)
+
+    expect(harness.continuousOpen).toHaveBeenCalledWith(expect.objectContaining({
+      container,
+      initialLocator: parsed.positions[0],
+      pageMode: 'continuous',
+    }))
+    expect(harness.continuousMount.activate).toHaveBeenCalledOnce()
+    await adapter.destroy()
+  })
+
   it('rejects an overlapping mount before it can queue behind the first mount', async () => {
     const adapter = await openAdapter()
     const mounting = adapter.mount(fakeElement())

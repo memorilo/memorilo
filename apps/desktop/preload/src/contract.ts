@@ -49,6 +49,13 @@ export interface RuntimeInfo {
   version: string
 }
 
+export interface CaptureDesktopReaderRegionInput {
+  height: number
+  width: number
+  x: number
+  y: number
+}
+
 export interface SaveDesktopImageInput {
   data: Uint8Array
   fileName: string
@@ -434,6 +441,7 @@ export type DesktopNoteSearchHit = DesktopNoteTitleSearchHit | DesktopTopicSearc
 export interface DesktopApi {
   addShelfSource: (input: AddShelfSourceInput) => Promise<ShelfSource>
   checkAssets: () => Promise<DesktopAssetCheckResult>
+  captureReaderRegion: (input: CaptureDesktopReaderRegionInput) => Promise<Uint8Array>
   closeBookReadingSession: (sessionId: string) => Promise<boolean>
   createBookContext: (input: { noteTitle: string, readingId: string, topicTitle: string }) => Promise<CreateDesktopBookContextResult>
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>

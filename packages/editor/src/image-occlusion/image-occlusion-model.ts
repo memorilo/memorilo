@@ -1,3 +1,5 @@
+import type { ReadingRegionAnchor } from '@memorilo/reading-model'
+
 export type ImageOcclusionMode = 'hide-all' | 'hide-one'
 
 export const imageOcclusionColor = '#2563eb'
@@ -12,9 +14,29 @@ export interface ImageOcclusionSnapshot {
   width: number
 }
 
-export interface ImageOcclusionSource {
-  src: string
+export interface TopicImageOcclusionSourceReference {
+  imageId: string
+  kind: 'topic-image'
+  topicId: string
 }
+
+export interface ReaderRegionImageOcclusionSourceReference {
+  annotationId: string
+  kind: 'reader-region'
+  topicId: string
+}
+
+export type ImageOcclusionSourceReference
+  = | ReaderRegionImageOcclusionSourceReference
+    | TopicImageOcclusionSourceReference
+
+export type ImageOcclusionSource
+  = | ReaderRegionImageOcclusionSourceReference & {
+    anchor: ReadingRegionAnchor
+  }
+  | TopicImageOcclusionSourceReference & {
+    src: string
+  }
 
 interface OcclusionShapeBase {
   groupId: string
@@ -41,8 +63,7 @@ export interface ImageOcclusionState {
   image: ImageOcclusionSnapshot
   mode: ImageOcclusionMode
   shapes: readonly OcclusionShape[]
-  sourceImageId: string
-  sourceTopicId: string
+  source: ImageOcclusionSourceReference
 }
 
 export interface OpenImageOcclusionInput {
@@ -66,6 +87,16 @@ export interface ImageOcclusionCardProjection {
   shapes: readonly OcclusionShape[]
   sourceBlockId: string
   targetGroupId: string
+}
+
+export function imageOcclusionSourceKey(source: ImageOcclusionSourceReference): string {
+  return source.kind === 'topic-image'
+    ? `${source.topicId}\0topic-image\0${source.imageId}`
+    : `${source.topicId}\0reader-region\0${source.annotationId}`
+}
+
+export function imageOcclusionSourceObjectId(source: ImageOcclusionSourceReference): string {
+  return source.kind === 'topic-image' ? source.imageId : source.annotationId
 }
 
 function clamp(value: number, minimum = 0, maximum = 1): number {
@@ -221,7 +252,7 @@ export function projectImageOcclusionCards(
     kind: 'image-occlusion',
     mode: state.mode,
     shapes: structuredClone(state.shapes),
-    sourceBlockId: state.sourceImageId,
+    sourceBlockId: imageOcclusionSourceObjectId(state.source),
     targetGroupId: groupId,
   }))
 }

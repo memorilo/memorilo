@@ -38,6 +38,16 @@ describe('settings renderer', () => {
     expect(await rendered.findByRole('heading', { name: 'Images' })).toBeInTheDocument()
     expect(rendered.getByRole('combobox', { name: 'TIFF conversion format' })).toHaveValue('webp')
 
+    fireEvent.click(rendered.getByRole('button', { name: 'Reading' }))
+    expect(await rendered.findByRole('heading', { name: 'Reading' })).toBeInTheDocument()
+    expect(rendered.getByRole('radio', { name: 'Continuous' })).toBeChecked()
+    fireEvent.click(rendered.getByRole('radio', { name: 'Single page' }))
+    await waitFor(() => expect(store.getSnapshot().readerPageMode).toBe('single-page'))
+    const copyFormat = rendered.getByRole('combobox', { name: 'Highlight copy format' })
+    expect(copyFormat).toHaveValue('text')
+    fireEvent.change(copyFormat, { target: { value: 'text-book-location' } })
+    await waitFor(() => expect(store.getSnapshot().readerAnnotationCopyFormat).toBe('text-book-location'))
+
     fireEvent.click(rendered.getByRole('button', { name: 'MCP' }))
     expect(await rendered.findByRole('heading', { name: 'MCP' })).toBeInTheDocument()
     expect(rendered.getByRole('switch', { name: 'Enable MCP server' })).toHaveAttribute('aria-checked', 'false')
@@ -67,7 +77,9 @@ describe('settings renderer', () => {
         networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
         readerArrowKeyPageTurning: true,
+        readerAnnotationCopyFormat: 'text-book-location',
         readerEpubPresentationMode: 'publisher',
+        readerPageMode: 'single-page',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
         weekStart: 'monday',
@@ -86,7 +98,9 @@ describe('settings renderer', () => {
         networkImagePasteBehavior: 'download',
         outdentBehavior: 'logical',
         readerArrowKeyPageTurning: true,
+        readerAnnotationCopyFormat: 'text-book-location',
         readerEpubPresentationMode: 'publisher',
+        readerPageMode: 'single-page',
         reduceMotion: true,
         tiffConversionFormat: 'webp',
         weekStart: 'monday',

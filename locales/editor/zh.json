@@ -1,4 +1,6 @@
 {
+  "openReaderSource": "在阅读器中打开来源",
+  "removeReaderSource": "移除阅读器来源",
   "noteTitle": "笔记",
   "loadingEditor": "正在加载编辑器…",
   "openingNote": "正在打开笔记…",
@@ -89,6 +91,7 @@
   "create": "创建",
   "imageOcclusion": {
     "defaultTitle": "图片遮挡题",
+    "readerRegionSource": "阅读器区域快照",
     "title": "图片遮挡题标题",
     "tools": "遮挡工具",
     "tool": {

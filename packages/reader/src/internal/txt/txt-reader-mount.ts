@@ -1,4 +1,4 @@
-import type { ReaderAnnotation } from '../../types'
+import type { ReaderAnnotation, ReaderPageMode } from '../../types'
 import type {
   ReaderAdapterCallbacks,
   ReaderAdapterState,
@@ -29,6 +29,7 @@ interface OpenTxtReaderMountOptions {
   name: string
   onLayoutChange: () => void
   onStateRequest: () => void
+  pageMode: ReaderPageMode
 }
 
 interface TxtReaderDom {
@@ -121,6 +122,7 @@ export class TxtReaderMount {
     private readonly regionSelection: RegionSelectionController,
     private readonly name: string,
     private readonly onStateRequest: () => void,
+    private readonly pageMode: ReaderPageMode,
   ) {}
 
   static async open(
@@ -216,10 +218,12 @@ export class TxtReaderMount {
         regionSelection,
         options.name,
         options.onStateRequest,
+        options.pageMode,
       )
       resizeObserver = new ResizeObserver(options.onLayoutChange)
       resizeObserver.observe(dom.scroller)
       projection.setAnnotations(options.annotations)
+      mount.applyPageModeLayout()
       projection.restoreOffset(options.initialOffset)
       resources.commit()
       return mount
@@ -250,29 +254,43 @@ export class TxtReaderMount {
     )
     if (!marker)
       throw new Error(`TXT annotation ${annotationId} is outside the document`)
-    marker.scrollIntoView({ behavior: keyboardScrollBehavior(), block: 'center' })
+    marker.scrollIntoView({ behavior: keyboardScrollBehavior(), block: 'center', inline: 'center' })
   }
 
   movePage(direction: -1 | 1): void {
-    const maximum = Math.max(0, this.dom.scroller.scrollHeight - this.dom.scroller.clientHeight)
-    const amount = Math.max(1, this.dom.scroller.clientHeight * 0.9)
-    const next = Math.min(maximum, Math.max(0, this.dom.scroller.scrollTop + direction * amount))
+    const horizontal = this.pageMode === 'single-page'
+    const maximum = horizontal
+      ? Math.max(0, this.dom.scroller.scrollWidth - this.dom.scroller.clientWidth)
+      : Math.max(0, this.dom.scroller.scrollHeight - this.dom.scroller.clientHeight)
+    const current = horizontal ? this.dom.scroller.scrollLeft : this.dom.scroller.scrollTop
+    const viewport = horizontal ? this.dom.scroller.clientWidth : this.dom.scroller.clientHeight
+    const amount = Math.max(1, viewport * 0.9)
+    const next = Math.min(maximum, Math.max(0, current + direction * amount))
     this.keyboardScrollTarget = null
-    this.dom.scroller.scrollTo({ behavior: keyboardScrollBehavior(), top: next })
+    this.dom.scroller.scrollTo(horizontal
+      ? { behavior: keyboardScrollBehavior(), left: next }
+      : { behavior: keyboardScrollBehavior(), top: next })
   }
 
   moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
+    if (this.pageMode === 'single-page')
+      return 'at-boundary'
     const vertical = direction === 'down' || direction === 'up'
+      || direction === 'page-down' || direction === 'page-up'
     if (!vertical)
       return 'at-boundary'
     const current = this.dom.scroller.scrollTop
     const maximum = Math.max(0, this.dom.scroller.scrollHeight - this.dom.scroller.clientHeight)
-    const boundary = direction === 'down' ? maximum : 0
+    const forward = direction === 'down' || direction === 'page-down'
+    const boundary = forward ? maximum : 0
     if (maximum <= scrollBoundaryTolerance || Math.abs(boundary - current) <= scrollBoundaryTolerance) {
       this.keyboardScrollTarget = null
       return 'at-boundary'
     }
-    const delta = direction === 'down' ? scrollStep : -scrollStep
+    const amount = direction === 'page-down' || direction === 'page-up'
+      ? Math.max(1, this.dom.scroller.clientHeight * 0.9)
+      : scrollStep
+    const delta = forward ? amount : -amount
     const base = this.keyboardScrollTarget?.direction === direction
       ? this.keyboardScrollTarget.value
       : current
@@ -282,15 +300,19 @@ export class TxtReaderMount {
     return 'scrolled'
   }
 
-  readerState(scale: number): ReaderAdapterState {
-    const maximum = Math.max(0, this.dom.scroller.scrollHeight - this.dom.scroller.clientHeight)
-    const scrollTop = this.dom.scroller.scrollTop
-    const pageHeight = Math.max(1, this.dom.scroller.clientHeight * 0.9)
-    const total = Math.max(1, Math.ceil(maximum / pageHeight) + 1)
-    const position = Math.min(total, Math.floor(scrollTop / pageHeight) + 1)
+  readerState(scale: number, pageMode: ReaderPageMode): ReaderAdapterState {
+    const horizontal = pageMode === 'single-page'
+    const maximum = horizontal
+      ? Math.max(0, this.dom.scroller.scrollWidth - this.dom.scroller.clientWidth)
+      : Math.max(0, this.dom.scroller.scrollHeight - this.dom.scroller.clientHeight)
+    const scrollPosition = horizontal ? this.dom.scroller.scrollLeft : this.dom.scroller.scrollTop
+    const viewport = horizontal ? this.dom.scroller.clientWidth : this.dom.scroller.clientHeight
+    const pageSize = Math.max(1, viewport * 0.9)
+    const total = Math.max(1, Math.ceil(maximum / pageSize) + 1)
+    const position = Math.min(total, Math.floor(scrollPosition / pageSize) + 1)
     return {
-      canGoBackward: scrollTop > scrollBoundaryTolerance,
-      canGoForward: maximum - scrollTop > scrollBoundaryTolerance,
+      canGoBackward: scrollPosition > scrollBoundaryTolerance,
+      canGoForward: maximum - scrollPosition > scrollBoundaryTolerance,
       capabilities: {
         annotations: true,
         regionSelection: true,
@@ -302,10 +324,11 @@ export class TxtReaderMount {
         format: 'txt',
         label: `Page ${position} of ${total}`,
         position,
-        progression: maximum === 0 ? 1 : scrollTop / maximum,
+        progression: maximum === 0 ? 1 : scrollPosition / maximum,
         total,
       },
       outline: [],
+      pageMode,
       position: { format: 'txt', offset: this.projection.currentOffset() },
       presentationMode: 'reader',
       scale,
@@ -314,6 +337,7 @@ export class TxtReaderMount {
   }
 
   refreshLayout(): void {
+    this.applyPageModeLayout()
     this.projection.refreshRegionAnnotations()
   }
 
@@ -334,6 +358,41 @@ export class TxtReaderMount {
     if (this.scrollFrame !== null)
       cancelAnimationFrame(this.scrollFrame)
     this.scrollFrame = null
+  }
+
+  private applyPageModeLayout(): void {
+    const { article, content, scroller } = this.dom
+    if (this.pageMode === 'continuous') {
+      Object.assign(scroller.style, { overflowX: 'hidden', overflowY: 'auto' })
+      Object.assign(content.style, { height: 'auto', minHeight: '100%', width: 'auto' })
+      Object.assign(article.style, {
+        columnFill: 'balance',
+        columnGap: 'normal',
+        columnWidth: 'auto',
+        height: 'auto',
+        margin: '0 auto',
+        maxWidth: '72ch',
+        width: 'auto',
+      })
+      return
+    }
+    const pageWidth = Math.max(1, scroller.clientWidth - 48)
+    const pageHeight = Math.max(1, scroller.clientHeight - 120)
+    Object.assign(scroller.style, { overflowX: 'auto', overflowY: 'hidden' })
+    Object.assign(article.style, {
+      columnFill: 'auto',
+      columnGap: '48px',
+      columnWidth: `${pageWidth}px`,
+      height: `${pageHeight}px`,
+      margin: '0',
+      maxWidth: 'none',
+      width: `${pageWidth}px`,
+    })
+    Object.assign(content.style, {
+      height: `${pageHeight}px`,
+      minHeight: '0',
+      width: `${Math.max(pageWidth, article.scrollWidth)}px`,
+    })
   }
 
   private captureSelection(): void {

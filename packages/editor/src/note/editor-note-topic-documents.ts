@@ -5,6 +5,7 @@ import type {
   ReadingPosition,
 } from '@memorilo/reading-model'
 import type { LoroDoc, LoroMap } from 'loro-crdt'
+import type { ImageOcclusionSourceReference } from '../image-occlusion/image-occlusion-model'
 import type {
   ApplyTopicBlockEditsInput,
   EditorBookTopicDocument,
@@ -54,6 +55,7 @@ import {
   setImageOcclusionState,
 } from './editor-note-image-occlusion'
 import { projectTopicContentFromTree } from './editor-note-projection'
+import { readerAnnotationTopicBindings } from './editor-note-reader-bindings'
 import {
   applySpreadsheetEdits,
   projectSpreadsheetContent,
@@ -277,6 +279,13 @@ function createBookTopicDocument(runtime: EditorNoteDocument, topicId: string): 
           throw new TypeError(`Duplicate BookTopic annotation id: ${annotation.id}`)
         annotations.set(annotation.id, annotation)
       }
+      const boundTopic = readerAnnotationTopicBindings(runtime.doc, normalizedTopicId)
+        .find(binding => !annotations.has(binding.reference.annotationId))
+      if (boundTopic) {
+        throw new TypeError(
+          `BookTopic ${normalizedTopicId} cannot remove Reader annotation ${boundTopic.reference.annotationId} while Topic ${boundTopic.topicId} remains bound`,
+        )
+      }
       const boundNode = findTopicNode(runtime, normalizedTopicId)
       validateTopicInput({ ...readTopicValidationInput(runtime, normalizedTopicId), annotations: Object.fromEntries(annotations) })
       const containers = bookTopicContainers(runtime, boundNode)
@@ -401,8 +410,8 @@ export class EditorNoteTopics {
     }
   }
 
-  findImageOcclusion(sourceTopicId: string, sourceImageId: string): EditorImageOcclusionTopicDocument | null {
-    const topicId = findImageOcclusionTopicId(this.#runtime, sourceTopicId, sourceImageId)
+  findImageOcclusion(source: ImageOcclusionSourceReference): EditorImageOcclusionTopicDocument | null {
+    const topicId = findImageOcclusionTopicId(this.#runtime, source)
     return topicId ? this.getImageOcclusion(topicId) : null
   }
 

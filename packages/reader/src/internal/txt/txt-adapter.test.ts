@@ -84,6 +84,8 @@ function fakeElement(tagName = 'div'): FakeElement {
     remove: vi.fn(),
     replaceChildren: vi.fn(),
     scrollHeight: 1200,
+    scrollLeft: 0,
+    scrollWidth: 1280,
     scrollTo: vi.fn(),
     scrollTop: 0,
     setAttribute: vi.fn(),
@@ -140,8 +142,27 @@ afterEach(() => {
 })
 
 describe('txt adapter lifecycle', () => {
+  it('paginates single-page mode into horizontal columns', async () => {
+    const adapter = await openTxtAdapter(source(), 'single-page', null, callbacks())
+    await adapter.mount(fakeElement())
+    const scroller = createdElements.find(element => element.listeners.some(listener => listener.type === 'scroll'))!
+    const article = createdElements.find(element => element.tagName === 'ARTICLE')!
+
+    expect(scroller.style).toMatchObject({ overflowX: 'auto', overflowY: 'hidden' })
+    expect(article.style).toMatchObject({
+      columnFill: 'auto',
+      columnGap: '48px',
+      columnWidth: '592px',
+      height: '480px',
+    })
+
+    await adapter.goForward('start')
+    expect(scroller.scrollTo).toHaveBeenCalledWith({ behavior: 'smooth', left: 576 })
+    await adapter.destroy()
+  })
+
   it('rejects an overlapping mount before the first mount settles', async () => {
-    const adapter = await openTxtAdapter(source(), null, callbacks())
+    const adapter = await openTxtAdapter(source(), 'continuous', null, callbacks())
     const mounting = adapter.mount(fakeElement())
 
     await expect(adapter.mount(fakeElement())).rejects.toThrow('TXT reader is already mounted')
@@ -151,7 +172,7 @@ describe('txt adapter lifecycle', () => {
 
   it('releases observers, frames, listeners and DOM exactly once', async () => {
     const container = fakeElement()
-    const adapter = await openTxtAdapter(source(), null, callbacks())
+    const adapter = await openTxtAdapter(source(), 'continuous', null, callbacks())
     await adapter.mount(container)
     const scroller = createdElements.find(element => element.listeners.some(listener => listener.type === 'scroll'))!
     const scroll = scroller.listeners.find(listener => listener.type === 'scroll')!
@@ -178,7 +199,7 @@ describe('txt adapter lifecycle', () => {
 
   it('can release partially mounted DOM after projection construction fails', async () => {
     const container = fakeElement()
-    const adapter = await openTxtAdapter(source(), null, callbacks())
+    const adapter = await openTxtAdapter(source(), 'continuous', null, callbacks())
     harness.createProjection.mockImplementationOnce(() => {
       throw new Error('projection failed')
     })
@@ -193,7 +214,7 @@ describe('txt adapter lifecycle', () => {
   })
 
   it('retries failed DOM removal without repeating successful cleanup', async () => {
-    const adapter = await openTxtAdapter(source(), null, callbacks())
+    const adapter = await openTxtAdapter(source(), 'continuous', null, callbacks())
     await adapter.mount(fakeElement())
     const surface = createdElements.find(element => element.className === 'reader-txt-surface')!
     const remove = vi.mocked(surface.remove)

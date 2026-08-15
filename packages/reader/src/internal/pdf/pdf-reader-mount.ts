@@ -194,8 +194,8 @@ export class PdfReaderMount {
     })
   }
 
-  scrollPageIntoView(): void {
-    this.surface.scrollPageIntoView()
+  scrollAnnotationIntoView(annotationId: string): void {
+    this.pageView.scrollAnnotationIntoView(annotationId)
   }
 
   setAnnotations(annotations: readonly ReaderAnnotation[], pageNumber: number): void {
