@@ -337,12 +337,12 @@ describe('pdf page view lifecycle', () => {
     })
     const view = createView(async () => page(), { annotationLayer, callbacks })
     const annotation: ReaderAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'pdf',
         pageNumber: 1,
         rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.2 },
         type: 'region',
-      },
+      }],
       annotationTopicId: 'topic-1',
       color: 'yellow',
       createdAt: 1,
@@ -381,12 +381,12 @@ describe('pdf page view lifecycle', () => {
     })
     const view = createView(async () => page(), { annotationLayer })
     const valid: ReaderAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'pdf',
         pageNumber: 1,
         rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.2 },
         type: 'region',
-      },
+      }],
       annotationTopicId: 'topic-valid',
       color: 'yellow',
       createdAt: 1,
@@ -396,14 +396,14 @@ describe('pdf page view lifecycle', () => {
     }
     const invalid: ReaderAnnotation = {
       ...valid,
-      anchor: {
+      anchors: [{
         format: 'pdf',
         pageNumber: 1,
         quote: { exact: 'Missing rectangle' },
         rects: [],
         source: 'embedded',
         type: 'text',
-      },
+      }],
       id: 'invalid',
     }
 

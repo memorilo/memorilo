@@ -150,6 +150,7 @@ describe('desktop preload API', () => {
       readerArrowKeyPageTurning: true,
       readerAnnotationCopyFormat: 'text',
       readerEpubPresentationMode: 'publisher',
+      readerPageMode: 'continuous',
       reduceMotion: false,
       tiffConversionFormat: 'webp',
       weekStart: 'sunday',

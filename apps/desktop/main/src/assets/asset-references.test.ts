@@ -45,7 +45,7 @@ describe('note asset references', () => {
     if (!bookTopic || bookTopic.kind !== 'topic' || bookTopic.topicType !== 'book')
       throw new Error('Expected the initial BookTopic')
     const annotation = {
-      anchor: { end: 20, format: 'txt' as const, start: 10, type: 'region' as const },
+      anchors: [{ end: 20, format: 'txt' as const, start: 10, type: 'region' as const }] as const,
       color: 'yellow' as const,
       createdAt: 1,
       id: 'region-annotation',

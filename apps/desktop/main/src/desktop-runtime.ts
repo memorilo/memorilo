@@ -31,6 +31,7 @@ import { createNoteApplicationService } from './notes/note-application-service'
 import { createActiveReadingRegistry } from './reading/active-reading-registry'
 import { registerRendererProtocol } from './renderer-protocol'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
+import { openCurrentMainDatabase } from './storage/main-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
 import { WhiteboardLibraryApplication } from './whiteboard/whiteboard-library-application'
 import { createSettingsWindowController } from './windows/settings-window'
@@ -203,7 +204,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     })
     const configurationStore = configuration.resource
     const mainDatabase = (await scope.acquire({
-      acquire: () => new BetterSqliteDatabase(database),
+      acquire: () => openCurrentMainDatabase(database),
       close: current => current.close(),
       name: 'main database',
     })).resource

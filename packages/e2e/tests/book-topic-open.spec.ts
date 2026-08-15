@@ -22,13 +22,16 @@ const electronExecutablePath = electronModule
 const bookTitle = 'Direct Reader Book'
 const noteTitle = 'BookTopic Reading Context'
 
-function onePagePdf(): Buffer {
-  const content = 'BT /F1 24 Tf 72 700 Td (Direct reader context) Tj ET'
+function twoPagePdf(): Buffer {
+  const pageOne = 'BT /F1 24 Tf 72 700 Td (Direct reader context starts) Tj ET'
+  const pageTwo = 'BT /F1 24 Tf 72 700 Td (and continues on page two) Tj ET'
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>',
+    `<< /Length ${pageOne.length} >>\nstream\n${pageOne}\nendstream`,
+    `<< /Length ${pageTwo.length} >>\nstream\n${pageTwo}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]
   const offsets = [0]
@@ -42,7 +45,7 @@ function onePagePdf(): Buffer {
     .slice(1)
     .map(offset => `${String(offset).padStart(10, '0')} 00000 n `)
     .join('\n')
-  body += `xref\n0 6\n0000000000 65535 f \n${entries}\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
+  body += `xref\n0 8\n0000000000 65535 f \n${entries}\ntrailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
   return Buffer.from(body, 'ascii')
 }
 
@@ -147,7 +150,7 @@ function expectCleanSourcePixel(pixel: readonly number[]): void {
 
 test('persists and reloads a BookTopic annotation and region occlusion', async () => {
   test.setTimeout(120_000)
-  const pdf = onePagePdf()
+  const pdf = twoPagePdf()
   const server = createServer((request, response) => {
     if (request.url === '/opds') {
       response.writeHead(200, { 'content-type': 'application/atom+xml;profile=opds-catalog' })
@@ -225,7 +228,8 @@ test('persists and reloads a BookTopic annotation and region occlusion', async (
     // The first packaged PDF load can initialize PDF.js's worker and range
     // transport lazily; wait for the reader's ready state, not the default
     // five-second assertion window used by ordinary DOM transitions.
-    await expect(window.getByLabel('Page 1 of 1')).toBeVisible({ timeout: 30_000 })
+    await expect(window.getByLabel('Page 1 of 2')).toBeVisible({ timeout: 30_000 })
+    await expect(window.locator('.reader-pdf-page-slot')).toHaveCount(2)
     await expect(window.getByRole('heading', { name: `${noteTitle} \u00B7 ${bookTitle}` })).toBeVisible()
     await expect(window.getByRole('heading', { name: 'Choose a reading context' })).toHaveCount(0)
     await expect(window.getByRole('button', { name: 'Select an area to annotate' })).toBeVisible()
@@ -240,8 +244,48 @@ test('persists and reloads a BookTopic annotation and region occlusion', async (
       return { noteId, topicId }
     })
     const readerHash = await window.evaluate(() => globalThis.location.hash)
+
+    await expect.poll(() => window.locator('.reader-pdf-text-layer').count()).toBe(2)
+    await window.evaluate(() => {
+      const layers = Array.from(document.querySelectorAll<HTMLElement>('.reader-pdf-text-layer'))
+      const firstLayer = layers[0]
+      const secondLayer = layers[1]
+      if (!firstLayer || !secondLayer)
+        throw new Error('Cross-page selection requires two PDF text layers')
+      const firstWalker = document.createTreeWalker(firstLayer, NodeFilter.SHOW_TEXT)
+      const secondWalker = document.createTreeWalker(secondLayer, NodeFilter.SHOW_TEXT)
+      const firstText = firstWalker.nextNode()
+      const secondText = secondWalker.nextNode()
+      if (!(firstText instanceof Text) || !(secondText instanceof Text))
+        throw new Error('Cross-page selection requires text nodes in both PDF pages')
+      const range = document.createRange()
+      range.setStart(firstText, 0)
+      range.setEnd(secondText, secondText.data.length)
+      const selection = document.getSelection()
+      if (!selection)
+        throw new Error('Cross-page selection requires a document selection')
+      selection.removeAllRanges()
+      selection.addRange(range)
+      secondLayer.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
+    })
+    const selectionToolbar = window.getByRole('toolbar', { name: 'Selection actions' })
+    await expect(selectionToolbar).toBeVisible()
+    await selectionToolbar.getByRole('button', { name: 'Highlight selection' }).click()
+    await expect.poll(() => window.locator('.reader-pdf-annotation').count()).toBe(2)
+    await expect.poll(() => window.locator('.reader-pdf-annotation').evaluateAll((elements) => {
+      return new Set(elements.map(element => element.getAttribute('data-annotation-id'))).size
+    })).toBe(1)
+
+    await window.getByRole('button', { name: 'Show reader sidebar' }).click()
+    await window.getByRole('tab', { name: /Annotations/u }).click()
+    const annotationsPanel = window.locator('#reader-annotations-panel')
+    const crossPageAnnotation = annotationsPanel.getByRole('article', { exact: true, name: 'Page 1' })
+    await expect(crossPageAnnotation).toBeVisible()
+    await expect(crossPageAnnotation).toContainText('Direct reader context starts')
+    await expect(crossPageAnnotation).toContainText('and continues on page two')
+
     await window.getByRole('button', { name: 'Select an area to annotate' }).click()
-    const page = window.locator('.reader-pdf-page')
+    const page = window.locator('.reader-pdf-page').first()
     const pageBox = await page.boundingBox()
     if (!pageBox)
       throw new Error('PDF page is not visible')
@@ -251,11 +295,9 @@ test('persists and reloads a BookTopic annotation and region occlusion', async (
     await window.mouse.up()
     await window.getByRole('button', { name: 'Highlight area' }).click()
 
-    const highlightedArea = window.getByRole('button', { name: 'Open area annotation' })
+    const highlightedArea = window.getByRole('button', { name: 'Open area annotation' }).last()
     await expect(highlightedArea).toBeVisible()
-    await window.getByRole('button', { name: 'Show reader sidebar' }).click()
     await window.getByRole('tab', { name: /Annotations/u }).click()
-    const annotationsPanel = window.locator('#reader-annotations-panel')
     const regionAnnotation = annotationsPanel.getByRole('article', { name: 'Area on page 1' })
     await expect(regionAnnotation).toBeVisible()
     const regionPreview = regionAnnotation.getByRole('img', { name: 'Area on page 1' })
@@ -276,7 +318,7 @@ test('persists and reloads a BookTopic annotation and region occlusion', async (
     await window.evaluate((hash) => {
       globalThis.location.hash = hash
     }, readerHash)
-    const restoredArea = window.getByRole('button', { name: 'Open area annotation' })
+    const restoredArea = window.getByRole('button', { name: 'Open area annotation' }).last()
     await expect(restoredArea).toBeVisible({ timeout: 30_000 })
     await window.getByRole('button', { name: 'Show reader sidebar' }).click()
     await window.getByRole('tab', { name: /Annotations/u }).click()
@@ -388,7 +430,12 @@ test('persists and reloads a BookTopic annotation and region occlusion', async (
     })
     await expect(window.getByRole('toolbar', { name: 'Highlight actions' })).toBeVisible({ timeout: 30_000 })
     await expect(window.getByText('Margin annotation')).toBeVisible()
-    const restoredHighlight = window.getByRole('button', { name: 'Open area annotation' })
+    await window.getByRole('tab', { name: /Annotations/u }).click()
+    const restoredCrossPageAnnotation = window.locator('#reader-annotations-panel').getByRole('article', { exact: true, name: 'Page 1' })
+    await expect(restoredCrossPageAnnotation).toContainText('Direct reader context starts')
+    await expect(restoredCrossPageAnnotation).toContainText('and continues on page two')
+    await expect.poll(() => window.locator('.reader-pdf-annotation').count()).toBe(3)
+    const restoredHighlight = window.getByRole('button', { name: 'Open area annotation' }).last()
     await expect(restoredHighlight).toHaveAttribute('data-style', 'highlight')
     const restoredHighlightActions = window.getByRole('toolbar', { name: 'Highlight actions' })
     await expect(restoredHighlightActions.getByRole('button', { name: 'Add annotation' })).toHaveCount(0)
@@ -411,18 +458,18 @@ test('persists and reloads a BookTopic annotation and region occlusion', async (
     await expect(cancelDelete).toBeFocused()
     await window.keyboard.press('Enter')
     await expect(deleteDialog).toHaveCount(0)
-    await expect(window.getByRole('button', { name: 'Open area annotation' })).toBeVisible()
+    await expect(window.getByRole('button', { name: 'Open area annotation' }).last()).toBeVisible()
 
     await restoredHighlightActions.getByRole('button', { name: 'Delete highlight' }).click()
     await expect(deleteDialog).toBeVisible()
     await window.keyboard.press('Escape')
     await expect(deleteDialog).toHaveCount(0)
-    await expect(window.getByRole('button', { name: 'Open area annotation' })).toBeVisible()
+    await expect(window.getByRole('button', { name: 'Open area annotation' }).last()).toBeVisible()
 
     await restoredHighlightActions.getByRole('button', { name: 'Delete highlight' }).click()
     await expect(window.getByRole('dialog')).toBeVisible()
     await deleteHighlight.click()
-    await expect(window.getByRole('button', { name: 'Open area annotation' })).toHaveCount(0)
+    await expect(window.locator('.reader-pdf-annotation')).toHaveCount(2)
 
     await window.evaluate(({ noteId, topicId }) => {
       globalThis.location.hash = `/note/${encodeURIComponent(noteId)}/${encodeURIComponent(topicId)}`

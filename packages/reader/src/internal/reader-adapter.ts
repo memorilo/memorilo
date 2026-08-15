@@ -7,6 +7,7 @@ import type {
   ReaderLocation,
   ReaderOcrStatus,
   ReaderOutlineItem,
+  ReaderPageMode,
   ReaderPosition,
   ReaderPresentationMode,
   ReaderScaleCapability,
@@ -26,7 +27,7 @@ export interface ReaderAdapterAnnotationActivation {
   annotationId: string
 }
 
-export type ReaderScrollDirection = 'down' | 'left' | 'right' | 'up'
+export type ReaderScrollDirection = 'down' | 'left' | 'page-down' | 'page-up' | 'right' | 'up'
 export type ReaderScrollResult = 'at-boundary' | 'scrolled'
 export type ReaderPageEdge = 'end' | 'start'
 
@@ -115,6 +116,7 @@ export interface ReaderAdapterState {
   format: ReaderFormat
   location: ReaderLocation
   outline: readonly ReaderOutlineItem[]
+  pageMode: ReaderPageMode
   position: ReaderPosition
   presentationMode: ReaderPresentationMode
   presentationModeReason?: string

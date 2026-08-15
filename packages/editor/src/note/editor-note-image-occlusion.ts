@@ -166,13 +166,14 @@ function assertReaderRegionSource(
       `BookTopic ${source.topicId} Reader annotation ${source.annotationId} has mismatched identity`,
     )
   }
-  if (annotation.anchor?.type !== 'region') {
+  const anchor = annotation.anchors[0]
+  if (!anchor || anchor.type !== 'region') {
     throw new TypeError(
       `BookTopic ${source.topicId} Reader annotation ${source.annotationId} is not a region`,
     )
   }
   return {
-    snapshotSource: { ...source, anchor: structuredClone(annotation.anchor) },
+    snapshotSource: { ...source, anchor: structuredClone(anchor) },
     topic,
   }
 }

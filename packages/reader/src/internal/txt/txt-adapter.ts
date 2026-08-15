@@ -1,5 +1,6 @@
 import type {
   ReaderAnnotation,
+  ReaderPageMode,
   ReaderPosition,
 } from '../../types'
 import type {
@@ -39,6 +40,7 @@ class TxtAdapter implements ReaderAdapter {
   constructor(
     private readonly source: TxtSource,
     private readonly document: TxtDocument,
+    private readonly pageMode: ReaderPageMode,
     initialPosition: ReaderPosition | null | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
@@ -105,7 +107,7 @@ class TxtAdapter implements ReaderAdapter {
   async goToAnnotation(annotationId: string): Promise<void> {
     return this.operations.run(async () => {
       const annotation = this.annotations.find(item => item.id === annotationId)
-      if (!annotation || annotation.anchor.format !== 'txt')
+      if (!annotation || annotation.anchors[0].format !== 'txt')
         throw new Error(`TXT annotation ${annotationId} does not exist`)
       if (!this.destroyed)
         this.mounted?.goToAnnotation(annotationId)
@@ -144,7 +146,7 @@ class TxtAdapter implements ReaderAdapter {
 
   private emitState(): void {
     if (!this.destroyed && this.mounted)
-      this.callbacks.onStateChange(this.mounted.readerState(this.scale))
+      this.callbacks.onStateChange(this.mounted.readerState(this.scale, this.pageMode))
   }
 
   private handleLayoutChange(): void {
@@ -174,6 +176,7 @@ class TxtAdapter implements ReaderAdapter {
       name: this.source.name,
       onLayoutChange: () => this.handleLayoutChange(),
       onStateRequest: () => this.emitState(),
+      pageMode: this.pageMode,
     })
     try {
       signal.throwIfAborted()
@@ -199,11 +202,12 @@ class TxtAdapter implements ReaderAdapter {
 
 export async function openTxtAdapter(
   source: TxtSource,
+  pageMode: ReaderPageMode,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
   signal?: AbortSignal,
 ): Promise<ReaderAdapter> {
   const bytes = await readSourceBytes(source, signal)
   signal?.throwIfAborted()
-  return new TxtAdapter(source, decodeTxtDocument(bytes), initialPosition, callbacks)
+  return new TxtAdapter(source, decodeTxtDocument(bytes), pageMode, initialPosition, callbacks)
 }

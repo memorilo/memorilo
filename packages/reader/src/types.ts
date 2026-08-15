@@ -16,7 +16,9 @@ import type {
   ReadingPdfTextAnchor,
   ReadingPosition,
   ReadingRegionAnchor,
+  ReadingRegionAnchorList,
   ReadingTextAnchor,
+  ReadingTextAnchorList,
   ReadingTextQuote,
   ReadingTxtRegionAnchor,
   ReadingTxtTextAnchor,
@@ -37,6 +39,7 @@ export interface ReaderAuxiliarySidebar {
 export type ReaderFormat = ReadingFormat
 
 export type ReaderPresentationMode = 'publisher' | 'reader'
+export type ReaderPageMode = 'continuous' | 'single-page'
 
 export type ReaderAnnotationColor = ReadingAnnotationColor
 export type ReaderAnnotationStyle = ReadingAnnotationStyle
@@ -139,13 +142,13 @@ export type ReaderAnchor = ReadingAnchor
 export type ReaderPosition = ReadingPosition
 
 export interface ReaderTextSelection {
-  anchor: ReaderTextAnchor
+  anchors: ReadingTextAnchorList
   text: string
   type: 'text'
 }
 
 export interface ReaderRegionSelection {
-  anchor: ReaderRegionAnchor
+  anchors: ReadingRegionAnchorList
   type: 'region'
 }
 
@@ -227,6 +230,7 @@ export interface ReaderProps {
   auxiliarySidebar?: ReaderAuxiliarySidebar
   defaultAnnotations?: readonly ReaderAnnotation[]
   initialPosition?: ReaderPosition | null
+  pageMode?: ReaderPageMode
   initialPresentationMode?: ReaderPresentationMode
   initialAnnotationId?: string
   imageOcclusionOverlays?: readonly ReaderImageOcclusionOverlay[]

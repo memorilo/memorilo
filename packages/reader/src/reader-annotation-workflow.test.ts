@@ -9,21 +9,21 @@ import {
   reviseReaderAnnotation,
 } from './reader-annotation-workflow'
 
-const selection: ReaderSelection = {
-  anchor: {
+const selection: Extract<ReaderSelection, { type: 'text' }> = {
+  anchors: [{
     end: 8,
     format: 'txt',
     quote: { exact: 'selected' },
     start: 0,
     type: 'text',
-  },
+  }],
   text: 'selected',
   type: 'text',
 }
 
 function annotation(id = 'annotation', annotationTopicId?: string): ReaderAnnotation {
   return {
-    anchor: selection.anchor,
+    anchors: selection.anchors,
     ...(annotationTopicId === undefined ? {} : { annotationTopicId }),
     color: 'yellow',
     createdAt: 1,
@@ -51,7 +51,7 @@ describe('reader annotation workflow', () => {
 
     expect(original).toHaveLength(1)
     expect(highlighted[1]).toEqual({
-      anchor: selection.anchor,
+      anchors: selection.anchors,
       color: 'blue',
       createdAt: 2,
       id: 'highlight',
@@ -75,9 +75,13 @@ describe('reader annotation workflow', () => {
       { ...annotation(), color: 'pink', style: 'underline', updatedAt: 4 },
     ])
 
-    const region = {
-      ...annotation('region'),
-      anchor: { end: 8, format: 'txt' as const, start: 0, type: 'region' as const },
+    const region: ReaderAnnotation = {
+      anchors: [{ end: 8, format: 'txt' as const, start: 0, type: 'region' as const }],
+      color: 'yellow',
+      createdAt: 1,
+      id: 'region',
+      style: 'highlight',
+      updatedAt: 1,
     }
     expect(() => reviseReaderAnnotation([region], 'region', { style: 'underline' }, 4)).toThrow(
       'Region annotation region cannot use underline style',

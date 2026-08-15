@@ -49,12 +49,6 @@ interface PdfPageViewOptions {
   textLayer: HTMLDivElement
 }
 
-function annotationRects(annotation: ReaderAnnotation): readonly ReaderNormalizedRect[] {
-  if (annotation.anchor.format !== 'pdf')
-    return []
-  return annotation.anchor.type === 'region' ? [annotation.anchor.rect] : annotation.anchor.rects
-}
-
 export class PdfPageView {
   private readonly annotationActivation: AnnotationActivationOwner
   private annotations: readonly ReaderAnnotation[] = []
@@ -268,27 +262,29 @@ export class PdfPageView {
   private prepareAnnotations(pageNumber: number): HTMLElement[] {
     const elements: HTMLElement[] = []
     for (const annotation of this.annotations) {
-      if (annotation.anchor.format !== 'pdf' || annotation.anchor.pageNumber !== pageNumber)
-        continue
-      const rects = annotationRects(annotation)
-      if (rects.length === 0)
-        throw new Error(`PDF annotation ${annotation.id} has no visible anchor rectangle`)
-      for (const rect of rects) {
-        const highlight = document.createElement('button')
-        highlight.className = 'reader-pdf-annotation'
-        highlight.dataset.annotationId = annotation.id
-        highlight.dataset.style = annotation.style
-        highlight.setAttribute('aria-label', this.options.callbacks.regionAnnotationLabel())
-        highlight.type = 'button'
-        if (annotation.style === 'highlight')
-          highlight.style.backgroundColor = annotationOverlayTint(annotation.color)
-        else
-          highlight.style.borderBottomColor = annotationOverlayTint(annotation.color)
-        highlight.style.left = `${rect.x * 100}%`
-        highlight.style.top = `${rect.y * 100}%`
-        highlight.style.width = `${rect.width * 100}%`
-        highlight.style.height = `${rect.height * 100}%`
-        elements.push(highlight)
+      for (const anchor of annotation.anchors) {
+        if (anchor.format !== 'pdf' || anchor.pageNumber !== pageNumber)
+          continue
+        const rects: readonly ReaderNormalizedRect[] = anchor.type === 'region' ? [anchor.rect] : anchor.rects
+        if (rects.length === 0)
+          throw new Error(`PDF annotation ${annotation.id} has no visible anchor rectangle`)
+        for (const rect of rects) {
+          const highlight = document.createElement('button')
+          highlight.className = 'reader-pdf-annotation'
+          highlight.dataset.annotationId = annotation.id
+          highlight.dataset.style = annotation.style
+          highlight.setAttribute('aria-label', this.options.callbacks.regionAnnotationLabel())
+          highlight.type = 'button'
+          if (annotation.style === 'highlight')
+            highlight.style.backgroundColor = annotationOverlayTint(annotation.color)
+          else
+            highlight.style.borderBottomColor = annotationOverlayTint(annotation.color)
+          highlight.style.left = `${rect.x * 100}%`
+          highlight.style.top = `${rect.y * 100}%`
+          highlight.style.width = `${rect.width * 100}%`
+          highlight.style.height = `${rect.height * 100}%`
+          elements.push(highlight)
+        }
       }
     }
     return elements

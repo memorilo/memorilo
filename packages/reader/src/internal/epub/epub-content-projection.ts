@@ -21,23 +21,29 @@ export function serializedEpubLocator(locator: Locator): ReaderEpubLocator {
   return serialized
 }
 
+export function readiumDecorations(annotation: ReaderAnnotation): Decoration[] {
+  return annotation.anchors.flatMap((anchor, index): Decoration[] => {
+    if (anchor.format !== 'epub' || anchor.type !== 'text')
+      return []
+    const locator = Locator.deserialize(anchor.locator)
+    if (!locator)
+      throw new Error(`Annotation ${annotation.id} contains an invalid EPUB locator`)
+    return [{
+      id: index === 0 ? annotation.id : `${annotation.id}:${index}`,
+      locator,
+      style: {
+        expand: 0.001,
+        tint: annotationDecorationTint(annotation.color),
+        type: annotation.style === 'underline'
+          ? DecorationStyleType.Underline
+          : DecorationStyleType.Highlight,
+      },
+    }]
+  })
+}
+
 export function readiumDecoration(annotation: ReaderAnnotation): Decoration | null {
-  if (annotation.anchor.format !== 'epub' || annotation.anchor.type !== 'text')
-    return null
-  const locator = Locator.deserialize(annotation.anchor.locator)
-  if (!locator)
-    throw new Error(`Annotation ${annotation.id} contains an invalid EPUB locator`)
-  return {
-    id: annotation.id,
-    locator,
-    style: {
-      expand: 0.001,
-      tint: annotationDecorationTint(annotation.color),
-      type: annotation.style === 'underline'
-        ? DecorationStyleType.Underline
-        : DecorationStyleType.Highlight,
-    },
-  }
+  return readiumDecorations(annotation)[0] ?? null
 }
 
 export function epubOutline(
@@ -77,12 +83,12 @@ export function projectEpubTextSelection(
       width: selection.width,
     },
     selection: {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: readerLocator(selection.locator, quote),
         quote,
         type: 'text',
-      },
+      }],
       text: selection.text,
       type: 'text',
     },

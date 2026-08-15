@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { annotationCopyText } from './annotation-copy'
 
 const annotation: ReaderAnnotation = {
-  anchor: {
+  anchors: [{
     end: 13,
     format: 'txt',
     quote: { exact: 'Selected text' },
     start: 0,
     type: 'text',
-  },
+  }],
   color: 'yellow',
   createdAt: 1,
   id: 'annotation-1',

@@ -15,6 +15,29 @@
   box-shadow: 0 2px 12px rgba(22, 27, 35, 0.16);
 }
 
+.reader-pdf-scroller-continuous {
+  display: block;
+  padding: 0;
+}
+
+.reader-pdf-continuous-list {
+  display: flex;
+  min-width: 100%;
+  width: max-content;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+}
+
+.reader-pdf-page-slot {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: center;
+}
+
 .reader-pdf-canvas {
   position: absolute;
   inset: 0;

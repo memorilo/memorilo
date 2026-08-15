@@ -66,30 +66,31 @@ export function projectEpubRegionMarkers(
   const frames = visibleEpubFrames(surface, navigator)
   const markers: EpubRegionMarker[] = []
   for (const annotation of annotations) {
-    const anchor = annotation.anchor
-    if (anchor.format !== 'epub' || anchor.type !== 'region')
-      continue
-    const locator = Locator.deserialize(anchor.locator)
-    if (!locator)
-      throw new Error(`Annotation ${annotation.id} contains an invalid EPUB locator`)
-    if (!locatorIsVisible(locator, navigator))
-      continue
-    const visibleFrame = frames.find(frame => frame.href === locator.href)
-    if (!visibleFrame)
-      continue
-    const frameRect = visibleFrame.frame.getBoundingClientRect()
-    for (const target of anchor.targets) {
-      const targetRect = markerRectForTarget(target, visibleFrame.frame)
-      if (!targetRect)
+    for (const anchor of annotation.anchors) {
+      if (anchor.format !== 'epub' || anchor.type !== 'region')
         continue
-      markers.push({
-        annotationId: annotation.id,
-        color: annotation.color,
-        height: targetRect.height * targetRect.frameScaleY,
-        left: frameRect.left - surfaceRect.left + targetRect.left * targetRect.frameScaleX,
-        top: frameRect.top - surfaceRect.top + targetRect.top * targetRect.frameScaleY,
-        width: targetRect.width * targetRect.frameScaleX,
-      })
+      const locator = Locator.deserialize(anchor.locator)
+      if (!locator)
+        throw new Error(`Annotation ${annotation.id} contains an invalid EPUB locator`)
+      if (!locatorIsVisible(locator, navigator))
+        continue
+      const visibleFrame = frames.find(frame => frame.href === locator.href)
+      if (!visibleFrame)
+        continue
+      const frameRect = visibleFrame.frame.getBoundingClientRect()
+      for (const target of anchor.targets) {
+        const targetRect = markerRectForTarget(target, visibleFrame.frame)
+        if (!targetRect)
+          continue
+        markers.push({
+          annotationId: annotation.id,
+          color: annotation.color,
+          height: targetRect.height * targetRect.frameScaleY,
+          left: frameRect.left - surfaceRect.left + targetRect.left * targetRect.frameScaleX,
+          top: frameRect.top - surfaceRect.top + targetRect.top * targetRect.frameScaleY,
+          width: targetRect.width * targetRect.frameScaleX,
+        })
+      }
     }
   }
   return markers

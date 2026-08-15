@@ -34,17 +34,22 @@ export class FixedPageViewportController {
 
   move(direction: ReaderScrollDirection): ReaderScrollResult {
     const vertical = direction === 'down' || direction === 'up'
+      || direction === 'page-down' || direction === 'page-up'
     const current = vertical ? this.scroller.scrollTop : this.scroller.scrollLeft
     const maximum = vertical
       ? this.scroller.scrollHeight - this.scroller.clientHeight
       : this.scroller.scrollWidth - this.scroller.clientWidth
-    const boundary = direction === 'down' || direction === 'right' ? maximum : 0
+    const forward = direction === 'down' || direction === 'page-down' || direction === 'right'
+    const boundary = forward ? maximum : 0
     if (maximum <= scrollBoundaryTolerance || Math.abs(boundary - current) <= scrollBoundaryTolerance) {
       this.keyboardScrollTarget = null
       return 'at-boundary'
     }
 
-    const delta = direction === 'down' || direction === 'right' ? scrollStep : -scrollStep
+    const amount = direction === 'page-down' || direction === 'page-up'
+      ? Math.max(1, this.scroller.clientHeight * 0.9)
+      : scrollStep
+    const delta = forward ? amount : -amount
     const base = this.keyboardScrollTarget?.direction === direction
       ? this.keyboardScrollTarget.value
       : current

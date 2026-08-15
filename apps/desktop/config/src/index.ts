@@ -13,6 +13,7 @@ export type {
   DesktopOutdentBehavior,
   DesktopReaderAnnotationCopyFormat,
   DesktopReaderEpubPresentationMode,
+  DesktopReaderPageMode,
   DesktopTiffConversionFormat,
   DesktopWeekStart,
 } from './contract'
@@ -70,6 +71,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   readerArrowKeyPageTurning: Schema.Boolean,
   readerAnnotationCopyFormat: Schema.Literals(['text', 'text-book', 'text-book-location']),
   readerEpubPresentationMode: Schema.Literals(['publisher', 'reader']),
+  readerPageMode: Schema.Literals(['continuous', 'single-page']),
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   weekStart: Schema.Literals(['monday', 'sunday']),
@@ -98,6 +100,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerArrowKeyPageTurning: true,
     readerAnnotationCopyFormat: 'text' as const,
     readerEpubPresentationMode: 'publisher' as const,
+    readerPageMode: 'continuous' as const,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
     weekStart: 'sunday' as const,
@@ -276,6 +279,16 @@ export const desktopConfigurationDefinition = defineConfiguration({
   }, {
     fields: [
       {
+        control: 'segmented',
+        description: 'Choose continuous vertical reading or one page at a time.',
+        label: 'Page mode',
+        options: [
+          { label: 'Continuous', value: 'continuous' },
+          { label: 'Single page', value: 'single-page' },
+        ],
+        path: 'readerPageMode',
+      },
+      {
         control: 'select',
         description: 'Choose the default layout mode for reflowable EPUB books.',
         label: 'EPUB layout mode',
@@ -393,6 +406,9 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const readerEpubPresentationMode = current.readerEpubPresentationMode === undefined
     ? 'publisher'
     : current.readerEpubPresentationMode
+  const readerPageMode = current.readerPageMode === undefined
+    ? 'continuous'
+    : current.readerPageMode
   const tiffConversionFormat = current.tiffConversionFormat === undefined
     ? 'webp'
     : current.tiffConversionFormat
@@ -412,6 +428,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && current.readerArrowKeyPageTurning !== undefined
     && current.readerAnnotationCopyFormat !== undefined
     && current.readerEpubPresentationMode !== undefined
+    && current.readerPageMode !== undefined
     && current.tiffConversionFormat !== undefined
     && current.weekStart !== undefined) {
     return configuration
@@ -436,6 +453,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     readerArrowKeyPageTurning,
     readerAnnotationCopyFormat,
     readerEpubPresentationMode,
+    readerPageMode,
     tiffConversionFormat,
     weekStart: current.weekStart ?? 'sunday',
   }

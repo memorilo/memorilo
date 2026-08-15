@@ -95,7 +95,7 @@ export function BoundShelfReader({
   }, [bookTopic, context.topicId, note])
   const imageOcclusionOverlays = useMemo<readonly ReaderImageOcclusionOverlay[]>(() => {
     return annotations.flatMap((annotation) => {
-      if (annotation.anchor.type !== 'region')
+      if (annotation.anchors[0].type !== 'region')
         return []
       const topic = note.findImageOcclusionTopic({
         annotationId: annotation.id,
@@ -220,6 +220,7 @@ export function BoundShelfReader({
       }}
       initialPosition={initialReaderPosition}
       initialPresentationMode={configuration.readerEpubPresentationMode}
+      pageMode={configuration.readerPageMode}
       initialAnnotationId={initialAnnotationId}
       onCreateAnnotationTopic={createAnnotationTopic}
       onPrepareAnnotationDeletion={prepareAnnotationDeletion}

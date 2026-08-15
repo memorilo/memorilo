@@ -1,6 +1,6 @@
 import type { EpubNavigator } from '@readium/navigator'
 import type { Locator } from '@readium/shared'
-import type { ReaderPresentationMode } from '../../types'
+import type { ReaderPageMode, ReaderPresentationMode } from '../../types'
 import type { ReaderAdapterState } from '../reader-adapter'
 import type { ReaderOutlineProjection } from '../reader-outline'
 import type { EpubLayoutKind, ParsedEpub } from './epub-parser'
@@ -11,6 +11,7 @@ interface EpubReaderStateInput {
   locator: Locator
   navigator: EpubNavigator | null
   outline: ReaderOutlineProjection<unknown>
+  pageMode: ReaderPageMode
   parsed: ParsedEpub
   presentationMode: ReaderPresentationMode
   scale: number
@@ -29,6 +30,7 @@ export function projectEpubReaderState({
   locator,
   navigator,
   outline,
+  pageMode,
   parsed,
   presentationMode,
   scale,
@@ -64,6 +66,7 @@ export function projectEpubReaderState({
       total: readingOrder.length,
     },
     outline: outline.items,
+    pageMode,
     position: { format: 'epub', locator: serializedEpubLocator(locator) },
     presentationMode,
     presentationModeReason: presentationReason(parsed.layout),

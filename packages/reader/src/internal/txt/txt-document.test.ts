@@ -9,13 +9,13 @@ function textAnnotation(
   updatedAt: number,
 ): ReaderAnnotation {
   return {
-    anchor: {
+    anchors: [{
       end,
       format: 'txt',
       quote: { after: '', before: '', exact: '' },
       start,
       type: 'text',
-    },
+    }],
     color: 'yellow',
     createdAt: updatedAt,
     id,

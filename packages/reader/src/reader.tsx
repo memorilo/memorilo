@@ -185,6 +185,7 @@ function ReaderSession({
   onOpenReaderRegionImageOcclusion,
   onPositionChange,
   onSelectionChange,
+  pageMode = 'continuous',
   sidebarActions,
   renderAnnotationEditor,
   source,
@@ -219,6 +220,7 @@ function ReaderSession({
     annotations: annotationWorkflow.annotations,
     arrowKeyPageTurning,
     initialPosition,
+    pageMode,
     initialPresentationMode,
     ocrProvider,
     onAnnotationActivate: annotationWorkflow.activateAnnotation,
@@ -386,7 +388,7 @@ function ReaderSession({
   }, [annotationWorkflow, engineRef, onCreateAnnotationTopic, reportError, t])
 
   const openReaderRegionImageOcclusion = useCallback((annotation: ReaderAnnotation) => {
-    if (annotation.anchor.type !== 'region')
+    if (annotation.anchors[0].type !== 'region')
       throw new TypeError(`Reader annotation ${annotation.id} is not a region`)
     if (!onOpenReaderRegionImageOcclusion) {
       reportError(new Error('Reader region image occlusion is unavailable'))
