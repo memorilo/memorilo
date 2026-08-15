@@ -354,8 +354,7 @@ export class ComicPageSurface {
     annotations: readonly ReaderAnnotation[],
     pageNumber: number,
   ): HTMLButtonElement[] {
-    return annotations.flatMap((annotation): HTMLButtonElement[] => {
-      const anchor = annotation.anchor
+    return annotations.flatMap((annotation): HTMLButtonElement[] => annotation.anchors.flatMap((anchor) => {
       if (anchor.format !== this.options.format || anchor.type !== 'region' || anchor.pageNumber !== pageNumber)
         return []
       const marker = document.createElement('button')
@@ -376,7 +375,7 @@ export class ComicPageSurface {
         width: `${anchor.rect.width * 100}%`,
       })
       return [marker]
-    })
+    }))
   }
 
   #applyLayout(naturalWidth: number, naturalHeight: number, scale: number): void {

@@ -1,6 +1,7 @@
 import type {
   ReaderAnnotation,
   ReaderOcrProvider,
+  ReaderPageMode,
   ReaderPosition,
   ReaderTextLayerKind,
 } from '../../types'
@@ -26,23 +27,28 @@ import {
   runSingleMount,
   toReaderError,
 } from '../reader-adapter'
+import { PdfContinuousReaderMount } from './pdf-continuous-reader-mount'
 import { PdfReaderMount } from './pdf-reader-mount'
 import './pdf-layer.css'
+
+type PdfMount = PdfContinuousReaderMount | PdfReaderMount
 
 class PdfAdapter implements ReaderAdapter {
   private annotations: readonly ReaderAnnotation[] = []
   private destroyed = false
   private readonly finalizer = createResourceScope('PDF reader')
-  private mounted: PdfReaderMount | null = null
+  private mounted: PdfMount | null = null
   private readonly mountOperations = createOperationSupervisor('PDF reader mount', { shutdown: 'interrupt' })
   private readonly operations = createOperationSupervisor('PDF reader', { shutdown: 'interrupt' })
   private pageNumber = 1
+  private pageProgress = 0
   private scale = 1
   private textLayerKind: ReaderTextLayerKind = 'none'
   readonly recognizeCurrentPage?: () => Promise<void>
 
   constructor(
     private readonly source: PdfSource,
+    private readonly pageMode: ReaderPageMode,
     initialPosition: ReaderPosition | null | undefined,
     private readonly ocrProvider: ReaderOcrProvider | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
@@ -52,6 +58,7 @@ class PdfAdapter implements ReaderAdapter {
       if (!Number.isSafeInteger(initialPosition.pageNumber) || initialPosition.pageNumber < 1)
         throw new RangeError('PDF reading position must contain a positive page number')
       this.pageNumber = initialPosition.pageNumber
+      this.pageProgress = initialPosition.pageProgress
     }
     if (ocrProvider) {
       this.recognizeCurrentPage = () => this.operations.run(async (signal) => {
@@ -79,33 +86,64 @@ class PdfAdapter implements ReaderAdapter {
   }
 
   private async mountReader(container: HTMLElement, signal: AbortSignal): Promise<void> {
-    const mount = await PdfReaderMount.open({
-      annotations: this.annotations,
-      callbacks: this.callbacks,
-      container,
-      initialPageNumber: this.pageNumber,
-      ocrProvider: this.ocrProvider,
-      onRegionSelection: (selection) => {
-        try {
-          this.publishRegionSelection(selection)
-        }
-        catch (error) {
-          this.callbacks.onError(toReaderError(error))
-        }
-      },
-      onResize: () => this.renderCurrentLayoutAfterResize(),
-      onTextLayerKindChange: (kind) => {
-        this.textLayerKind = kind
-      },
-      onTextSelection: () => this.mounted?.captureTextSelection(this.pageNumber),
-      scale: this.scale,
-      signal,
-      source: this.source,
-    })
+    const mount = this.pageMode === 'continuous'
+      ? await PdfContinuousReaderMount.open({
+          annotations: this.annotations,
+          callbacks: this.callbacks,
+          container,
+          initialPosition: {
+            format: 'pdf',
+            pageNumber: this.pageNumber,
+            pageProgress: this.pageProgress,
+          },
+          ocrProvider: this.ocrProvider,
+          onPositionChange: (pageNumber, pageProgress, kind) => {
+            this.pageNumber = pageNumber
+            this.pageProgress = pageProgress
+            this.textLayerKind = kind
+            if (this.mounted)
+              this.emitState()
+          },
+          onResize: () => this.renderCurrentLayoutAfterResize(),
+          scale: this.scale,
+          signal,
+          source: this.source,
+        })
+      : await PdfReaderMount.open({
+          annotations: this.annotations,
+          callbacks: this.callbacks,
+          container,
+          initialPageNumber: this.pageNumber,
+          ocrProvider: this.ocrProvider,
+          onRegionSelection: (selection) => {
+            try {
+              this.publishRegionSelection(selection)
+            }
+            catch (error) {
+              this.callbacks.onError(toReaderError(error))
+            }
+          },
+          onResize: () => this.renderCurrentLayoutAfterResize(),
+          onTextLayerKindChange: (kind) => {
+            this.textLayerKind = kind
+          },
+          onTextSelection: () => (this.mounted as PdfReaderMount | null)?.captureTextSelection(this.pageNumber),
+          scale: this.scale,
+          signal,
+          source: this.source,
+        })
     try {
       signal.throwIfAborted()
       this.mounted = mount
       this.pageNumber = mount.initialPageNumber
+      if (this.pageMode === 'continuous') {
+        const continuousMount = mount as PdfContinuousReaderMount
+        continuousMount.positionAt(this.pageNumber, this.pageProgress)
+        this.textLayerKind = continuousMount.textLayerKindAt(this.pageNumber)
+      }
+      else {
+        this.pageProgress = 0
+      }
       this.emitState()
     }
     catch (error) {
@@ -167,7 +205,7 @@ class PdfAdapter implements ReaderAdapter {
       if (!await this.renderPage(false, nextPageNumber, this.scale, signal))
         return
       this.pageNumber = nextPageNumber
-      mount.positionAtEdge(entryEdge)
+      this.positionPageAtEdge(mount, nextPageNumber, entryEdge)
       this.emitState()
     })
   }
@@ -182,7 +220,7 @@ class PdfAdapter implements ReaderAdapter {
       if (!await this.renderPage(false, nextPageNumber, this.scale, signal))
         return
       this.pageNumber = nextPageNumber
-      mount.positionAtEdge(entryEdge)
+      this.positionPageAtEdge(mount, nextPageNumber, entryEdge)
       this.emitState()
     })
   }
@@ -190,9 +228,10 @@ class PdfAdapter implements ReaderAdapter {
   async goToAnnotation(annotationId: string) {
     return this.operations.run(async (signal) => {
       const annotation = this.annotations.find(item => item.id === annotationId)
-      if (!annotation || annotation.anchor.format !== 'pdf')
+      const anchor = annotation?.anchors[0]
+      if (!annotation || !anchor || anchor.format !== 'pdf')
         throw new Error(`PDF annotation ${annotationId} does not exist`)
-      const nextPageNumber = annotation.anchor.pageNumber
+      const nextPageNumber = anchor.pageNumber
       if (nextPageNumber !== this.pageNumber) {
         this.clearSelection()
         if (!await this.renderPage(false, nextPageNumber, this.scale, signal))
@@ -200,7 +239,7 @@ class PdfAdapter implements ReaderAdapter {
         this.pageNumber = nextPageNumber
         this.emitState()
       }
-      this.mounted?.scrollAnnotationIntoView(annotationId)
+      await this.mounted?.scrollAnnotationIntoView(annotationId)
     })
   }
 
@@ -214,6 +253,7 @@ class PdfAdapter implements ReaderAdapter {
       if (!await this.renderPage(false, nextPageNumber, this.scale, signal))
         return
       this.pageNumber = nextPageNumber
+      this.positionPageAtEdge(mount, nextPageNumber, 'start')
       this.emitState()
     })
   }
@@ -269,7 +309,8 @@ class PdfAdapter implements ReaderAdapter {
         total,
       },
       outline: this.mounted?.outlineItems ?? [],
-      position: { format: 'pdf', pageNumber: this.pageNumber },
+      pageMode: this.pageMode,
+      position: { format: 'pdf', pageNumber: this.pageNumber, pageProgress: this.pageProgress },
       presentationMode: 'publisher',
       scale: this.scale,
       textLayer: this.textLayerKind,
@@ -286,15 +327,27 @@ class PdfAdapter implements ReaderAdapter {
     this.callbacks.onSelectionChange({
       clientRect: result.clientRect,
       selection: {
-        anchor: {
+        anchors: [{
           format: 'pdf',
           pageNumber: this.pageNumber,
           rect: result.rect,
           type: 'region',
-        },
+        }],
         type: 'region',
       },
     })
+  }
+
+  private positionPageAtEdge(
+    mount: PdfMount,
+    pageNumber: number,
+    edge: ReaderPageEdge,
+  ): void {
+    this.pageProgress = edge === 'start' ? 0 : 1
+    if (this.pageMode === 'continuous')
+      (mount as PdfContinuousReaderMount).positionAt(pageNumber, this.pageProgress)
+    else
+      mount.positionAtEdge(edge)
   }
 
   private async renderPage(
@@ -335,9 +388,10 @@ class PdfAdapter implements ReaderAdapter {
 
 export function openPdfAdapter(
   source: PdfSource,
+  pageMode: ReaderPageMode,
   initialPosition: ReaderPosition | null | undefined,
   ocrProvider: ReaderOcrProvider | undefined,
   callbacks: ReaderAdapterCallbacks,
 ): ReaderAdapter {
-  return new PdfAdapter(source, initialPosition, ocrProvider, callbacks)
+  return new PdfAdapter(source, pageMode, initialPosition, ocrProvider, callbacks)
 }

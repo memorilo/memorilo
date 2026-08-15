@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import type { ReaderAdapterState } from './internal/reader-adapter'
 import type { ReaderAnnotation } from './types'
+import { readingAnnotationFirstAnchor } from '@memorilo/reading-model'
 import * as stylex from '@stylexjs/stylex'
 import { useLayoutEffect, useState } from 'react'
 import { findAnnotationClientRect } from './internal/annotation-geometry'
@@ -15,7 +16,7 @@ interface ConnectorPath {
 }
 
 function annotationEdge(annotation: ReaderAnnotation, adapterState: ReaderAdapterState): 'end' | 'start' {
-  const anchor = annotation.anchor
+  const anchor = readingAnnotationFirstAnchor(annotation)
   const position = adapterState.position
   if (anchor.format === 'pdf' && position.format === 'pdf')
     return anchor.pageNumber < position.pageNumber ? 'start' : 'end'

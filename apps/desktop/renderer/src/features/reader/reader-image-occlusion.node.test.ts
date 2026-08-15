@@ -1,4 +1,4 @@
-import type { ReaderAnnotationTopicCreateInput } from '@memorilo/editor/reader'
+import type { ReaderAnnotation, ReaderAnnotationTopicCreateInput } from '@memorilo/editor/reader'
 import type { BookFileBinding } from '@memorilo/reading-model'
 import { createEditorNote } from '@memorilo/editor/note'
 import { describe, expect, it, vi } from 'vitest'
@@ -24,8 +24,8 @@ describe('reader region image occlusion', () => {
     const [bookTopicEntry] = note.getEntries()
     if (!bookTopicEntry || bookTopicEntry.kind !== 'topic' || bookTopicEntry.topicType !== 'book')
       throw new Error('Expected the initial BookTopic')
-    const annotation = {
-      anchor: { end: 20, format: 'txt' as const, start: 10, type: 'region' as const },
+    const annotation: ReaderAnnotation = {
+      anchors: [{ end: 20, format: 'txt' as const, start: 10, type: 'region' as const }],
       color: 'yellow' as const,
       createdAt: 1,
       id: 'region-annotation',

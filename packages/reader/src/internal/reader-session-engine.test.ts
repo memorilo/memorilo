@@ -36,7 +36,7 @@ describe('reader session runtime', () => {
       state: {
         ...recognizing.adapter,
         location: { format: 'pdf', label: '2 of 2', progression: 1 },
-        position: { format: 'pdf', pageNumber: 2 },
+        position: { format: 'pdf', pageNumber: 2, pageProgress: 0 },
       },
       type: 'state',
     })
@@ -70,12 +70,125 @@ describe('reader session runtime', () => {
     await runtime.close()
   })
 
+  it('reopens the adapter in a new page mode at the last logical position', async () => {
+    const first = fakeAdapter()
+    const second = fakeAdapter()
+    const openAdapter = vi.fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second)
+    const runtime = createReaderSessionRuntime({
+      arrowKeyPageTurning: () => true,
+      container: {} as HTMLElement,
+      initialAnnotations: [],
+      initialPageMode: 'continuous',
+      initialPresentationMode: 'publisher',
+      onEvent: vi.fn(),
+      regionAnnotationLabel: () => 'Open annotation',
+      source,
+    }, { openAdapter })
+    await runtime.start()
+    const callbacks = openAdapter.mock.calls[0]?.[5] as ReaderAdapterCallbacks | undefined
+    if (!callbacks)
+      throw new Error('Reader adapter callbacks were not provided')
+    callbacks.onStateChange({
+      canGoBackward: true,
+      canGoForward: true,
+      capabilities: {},
+      format: 'pdf',
+      location: { format: 'pdf', label: '8 of 20', progression: 0.375 },
+      outline: [],
+      pageMode: 'continuous',
+      position: { format: 'pdf', pageNumber: 8, pageProgress: 0.42 },
+      presentationMode: 'publisher',
+      scale: 1,
+      title: 'Book',
+    })
+
+    runtime.setPageMode('single-page')
+
+    await vi.waitFor(() => expect(openAdapter).toHaveBeenCalledTimes(2))
+    expect(first.destroy).toHaveBeenCalledOnce()
+    expect(openAdapter.mock.calls[1]?.[2]).toBe('single-page')
+    expect(openAdapter.mock.calls[1]?.[3]).toEqual({ format: 'pdf', pageNumber: 8, pageProgress: 0.42 })
+    expect(second.mount).toHaveBeenCalledOnce()
+    await runtime.close()
+  })
+
+  it('applies a page mode change requested while the adapter is opening', async () => {
+    const acquisition = deferred<ReaderAdapter>()
+    const first = fakeAdapter()
+    const second = fakeAdapter()
+    const openAdapter = vi.fn()
+      .mockImplementationOnce(() => acquisition.promise)
+      .mockResolvedValueOnce(second)
+    const runtime = createReaderSessionRuntime({
+      arrowKeyPageTurning: () => true,
+      container: {} as HTMLElement,
+      initialAnnotations: [],
+      initialPageMode: 'continuous',
+      initialPresentationMode: 'publisher',
+      onEvent: vi.fn(),
+      regionAnnotationLabel: () => 'Open annotation',
+      source,
+    }, { openAdapter })
+
+    const opening = runtime.start()
+    await vi.waitFor(() => expect(openAdapter).toHaveBeenCalledOnce())
+    runtime.setPageMode('single-page')
+    acquisition.resolve(first)
+    await opening
+
+    await vi.waitFor(() => expect(openAdapter).toHaveBeenCalledTimes(2))
+    expect(openAdapter.mock.calls[1]?.[2]).toBe('single-page')
+    expect(first.destroy).toHaveBeenCalledOnce()
+    expect(second.mount).toHaveBeenCalledOnce()
+    await runtime.close()
+  })
+
+  it('uses continuous-reading keyboard semantics', async () => {
+    const adapter = fakeAdapter()
+    const runtime = createReaderSessionRuntime({
+      arrowKeyPageTurning: () => true,
+      container: {} as HTMLElement,
+      initialAnnotations: [],
+      initialPageMode: 'continuous',
+      initialPresentationMode: 'publisher',
+      onEvent: vi.fn(),
+      regionAnnotationLabel: () => 'Open annotation',
+      source,
+    }, { openAdapter: async () => adapter })
+    await runtime.start()
+    const event = (key: string) => ({
+      altKey: false,
+      ctrlKey: false,
+      key,
+      metaKey: false,
+      repeat: false,
+      shiftKey: false,
+    })
+
+    expect(runtime.handleKeyboardEvent(event('ArrowDown'))).toBe(true)
+    expect(runtime.handleKeyboardEvent(event('ArrowRight'))).toBe(true)
+    expect(runtime.handleKeyboardEvent(event('ArrowLeft'))).toBe(true)
+    expect(runtime.handleKeyboardEvent(event('PageDown'))).toBe(true)
+    expect(runtime.handleKeyboardEvent(event('PageUp'))).toBe(true)
+
+    expect(adapter.moveViewport).toHaveBeenNthCalledWith(1, 'down')
+    expect(adapter.moveViewport).toHaveBeenNthCalledWith(2, 'page-down')
+    expect(adapter.moveViewport).toHaveBeenNthCalledWith(3, 'page-up')
+    await vi.waitFor(() => {
+      expect(adapter.goForward).toHaveBeenCalledExactlyOnceWith('start')
+      expect(adapter.goBackward).toHaveBeenCalledExactlyOnceWith('end')
+    })
+    await runtime.close()
+  })
+
   it('suppresses adapter callbacks after close starts', async () => {
     let callbacks!: ReaderAdapterCallbacks
     const eventTypes: string[] = []
     const adapter = fakeAdapter()
     const openAdapter = vi.fn(async (...args: Parameters<typeof openReaderAdapter>) => {
-      callbacks = args[4]
+      callbacks = args[5]
       return adapter
     })
     const runtime = createReaderSessionRuntime({

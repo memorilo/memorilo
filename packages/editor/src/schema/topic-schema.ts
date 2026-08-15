@@ -112,19 +112,32 @@ const ReadingAnnotationBaseFields = {
 const ReadingAnnotationSchema = Schema.Union([
   Schema.Struct({
     ...ReadingAnnotationBaseFields,
-    anchor: ReadingTextAnchorSchema,
+    anchors: Schema.NonEmptyArray(ReadingTextAnchorSchema),
     style: ReadingAnnotationStyleSchema,
   }),
   Schema.Struct({
     ...ReadingAnnotationBaseFields,
-    anchor: ReadingRegionAnchorSchema,
+    anchors: Schema.NonEmptyArray(ReadingRegionAnchorSchema),
     style: Schema.Literal('highlight'),
   }),
-])
+]).check(Schema.makeFilter((annotation) => {
+  const first = annotation.anchors[0]
+  return annotation.anchors.some(anchor => anchor.format !== first.format || anchor.type !== first.type)
+    ? { message: 'expected annotation fragments to use one format and type', path: ['anchors'] }
+    : undefined
+}, { expected: 'a ReadingAnnotation with consistent fragments' }))
 const ReadingPositionSchema = Schema.Union([
-  Schema.Struct({ format: Schema.Literals(['cbr', 'cbz']), pageNumber: PositiveIntegerSchema }),
+  Schema.Struct({
+    format: Schema.Literals(['cbr', 'cbz']),
+    pageNumber: PositiveIntegerSchema,
+    pageProgress: UnitIntervalSchema,
+  }),
   Schema.Struct({ format: Schema.Literal('epub'), locator: ReadingEpubLocatorSchema }),
-  Schema.Struct({ format: Schema.Literal('pdf'), pageNumber: PositiveIntegerSchema }),
+  Schema.Struct({
+    format: Schema.Literal('pdf'),
+    pageNumber: PositiveIntegerSchema,
+    pageProgress: UnitIntervalSchema,
+  }),
   Schema.Struct({ format: Schema.Literal('txt'), offset: NonNegativeIntegerSchema }),
 ])
 const BookFileLocatorSchema = Schema.Union([
@@ -401,10 +414,10 @@ export const LoroTopicSchema = Schema.Union([
         path: ['annotations', annotationId, 'id'],
       }
     }
-    if (annotation.anchor.format !== format) {
+    if (annotation.anchors.some(anchor => anchor.format !== format)) {
       return {
-        message: `expected a ${format} BookTopic annotation anchor`,
-        path: ['annotations', annotationId, 'anchor', 'format'],
+        message: `expected ${format} BookTopic annotation anchors`,
+        path: ['annotations', annotationId, 'anchors'],
       }
     }
   }

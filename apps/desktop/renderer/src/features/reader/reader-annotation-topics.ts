@@ -5,6 +5,7 @@ import type {
   ReaderClientRect,
 } from '@memorilo/editor/reader'
 import type { ReaderCaptureRegion } from './reader-capture'
+import { readingAnnotationText } from '@memorilo/reading-model'
 
 export interface ReaderViewport {
   height: number
@@ -22,9 +23,12 @@ interface CreateReaderAnnotationTopicOptions {
 }
 
 function annotationTopicTitle(input: ReaderAnnotationTopicCreateInput): string {
-  if (input.annotation.anchor.type === 'region')
+  if (input.annotation.anchors[0].type === 'region')
     return input.location
-  const text = input.annotation.anchor.quote.exact.trim().replace(/\s+/gu, ' ')
+  const annotationText = readingAnnotationText(input.annotation)
+  if (annotationText === null)
+    throw new TypeError(`Reader annotation ${input.annotation.id} is not text`)
+  const text = annotationText.trim().replace(/\s+/gu, ' ')
   return text.length > 80 ? `${text.slice(0, 77)}...` : text
 }
 
@@ -49,14 +53,15 @@ export async function createReaderAnnotationTopic({
 }: CreateReaderAnnotationTopicOptions): Promise<string> {
   signal.throwIfAborted()
   let source: CreateTopicInput['readerReference']
-  if (input.annotation.anchor.type === 'text') {
+  const annotationText = readingAnnotationText(input.annotation)
+  if (annotationText !== null) {
     source = {
       annotationId: input.annotation.id,
       bookTopicId,
       source: {
         kind: 'text',
         location: input.location,
-        text: input.annotation.anchor.quote.exact,
+        text: annotationText,
       },
     }
   }

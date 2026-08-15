@@ -54,6 +54,7 @@ export async function createPagesTestEnvironment(
         updated_at INTEGER NOT NULL
       )
     `)
+    database.exec('PRAGMA user_version = 1')
     const insert = database.prepare(`
       INSERT INTO notes (
         id,

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   epubOutline,
   readiumDecoration,
+  readiumDecorations,
   serializedEpubLocator,
 } from './epub-content-projection'
 
@@ -51,12 +52,12 @@ describe('epub content projection', () => {
   it('serializes locators and projects text annotations into Readium decorations', () => {
     const serialized = serializedEpubLocator(locator())
     const annotation: ReaderAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: serialized,
         quote: { exact: 'Selected text' },
         type: 'text',
-      },
+      }],
       annotationTopicId: 'topic-1',
       color: 'purple',
       createdAt: 10,
@@ -77,5 +78,41 @@ describe('epub content projection', () => {
         type: DecorationStyleType.Underline,
       },
     })
+  })
+
+  it('projects every EPUB text anchor while preserving one annotation identity', () => {
+    const annotation: ReaderAnnotation = {
+      anchors: [
+        {
+          format: 'epub',
+          locator: serializedEpubLocator(locator()),
+          quote: { exact: 'First section' },
+          type: 'text',
+        },
+        {
+          format: 'epub',
+          locator: serializedEpubLocator(new Locator({
+            href: 'text/chapter-2.xhtml',
+            locations: new LocatorLocations({ progression: 0.5 }),
+            type: 'application/xhtml+xml',
+          })),
+          quote: { exact: 'Second section' },
+          type: 'text',
+        },
+      ],
+      color: 'yellow',
+      createdAt: 1,
+      id: 'annotation-cross-section',
+      style: 'highlight',
+      updatedAt: 1,
+    }
+
+    expect(readiumDecorations(annotation).map(decoration => ({
+      href: decoration.locator.href,
+      id: decoration.id,
+    }))).toEqual([
+      { href: 'text/chapter.xhtml', id: 'annotation-cross-section' },
+      { href: 'text/chapter-2.xhtml', id: 'annotation-cross-section:1' },
+    ])
   })
 })

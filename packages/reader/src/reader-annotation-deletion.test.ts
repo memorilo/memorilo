@@ -8,13 +8,13 @@ import {
 
 function annotation(annotationTopicId?: string): ReaderAnnotation {
   return {
-    anchor: {
+    anchors: [{
       end: 8,
       format: 'txt',
       quote: { exact: 'selected' },
       start: 0,
       type: 'text',
-    },
+    }],
     ...(annotationTopicId === undefined ? {} : { annotationTopicId }),
     color: 'yellow',
     createdAt: 1,

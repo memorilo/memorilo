@@ -4,13 +4,13 @@ import { EditorMode } from '../common/editor-mode'
 import { createEditorNote } from './editor-note'
 
 const readerAnnotation: ReadingAnnotation = {
-  anchor: {
+  anchors: [{
     end: 13,
     format: 'txt',
     quote: { exact: 'Selected text' },
     start: 0,
     type: 'text',
-  },
+  }],
   color: 'yellow',
   createdAt: 1,
   id: 'annotation-1',

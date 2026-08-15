@@ -43,6 +43,7 @@ export function ReaderLayout() {
               annotationEditingEnabled={false}
               arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
               initialPresentationMode={configuration.readerEpubPresentationMode}
+              pageMode={configuration.readerPageMode}
               source={source}
             />
           )

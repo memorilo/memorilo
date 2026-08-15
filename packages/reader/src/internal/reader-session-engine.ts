@@ -4,6 +4,7 @@ import type {
   ReaderLocation,
   ReaderOcrProvider,
   ReaderOcrStatus,
+  ReaderPageMode,
   ReaderPosition,
   ReaderPresentationMode,
   ReaderSelection,
@@ -41,7 +42,8 @@ const initialAdapterState: ReaderAdapterState = {
   format: 'pdf',
   location: { format: 'pdf', label: '', progression: 0 },
   outline: [],
-  position: { format: 'pdf', pageNumber: 1 },
+  pageMode: 'continuous',
+  position: { format: 'pdf', pageNumber: 1, pageProgress: 0 },
   presentationMode: 'publisher',
   scale: 1,
   title: '',
@@ -85,6 +87,7 @@ interface UseReaderSessionEngineOptions {
   annotations: readonly ReaderAnnotation[]
   arrowKeyPageTurning: boolean
   initialPosition?: ReaderPosition | null
+  pageMode: ReaderPageMode
   initialPresentationMode: ReaderPresentationMode
   ocrProvider?: ReaderOcrProvider
   onAnnotationActivate: (annotationId: string) => void
@@ -160,6 +163,7 @@ export function useReaderSessionEngine(options: UseReaderSessionEngineOptions): 
       container,
       initialAnnotations: optionsRef.current.annotations,
       initialPosition: options.initialPosition,
+      initialPageMode: optionsRef.current.pageMode,
       initialPresentationMode: options.initialPresentationMode,
       ocrProvider: options.ocrProvider,
       onEvent,
@@ -185,6 +189,10 @@ export function useReaderSessionEngine(options: UseReaderSessionEngineOptions): 
       )
     }
   }, [onEvent, options.initialPosition, options.initialPresentationMode, options.ocrProvider, options.source])
+
+  useEffect(() => {
+    runtimeRef.current?.setPageMode(options.pageMode)
+  }, [options.pageMode])
 
   useEffect(() => {
     runtimeRef.current?.setAnnotations(options.annotations)

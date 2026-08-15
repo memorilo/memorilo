@@ -5,6 +5,7 @@ import type {
   ReaderAnnotationStyle,
   ReaderSelection,
 } from './types'
+import { isReadingRegionAnnotation } from '@memorilo/reading-model'
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 
 const initialAnnotationRenderLimit = 40
@@ -143,14 +144,17 @@ export function appendReaderHighlight(
   color: ReaderAnnotationColor,
   identity: AnnotationIdentity,
 ): readonly ReaderAnnotation[] {
-  return [...annotations, {
-    anchor: selection.anchor,
+  const base = {
     color,
     createdAt: identity.timestamp,
     id: identity.id,
-    style: 'highlight',
+    style: 'highlight' as const,
     updatedAt: identity.timestamp,
-  }]
+  }
+  const annotation: ReaderAnnotation = selection.type === 'text'
+    ? { ...base, anchors: selection.anchors }
+    : { ...base, anchors: selection.anchors }
+  return [...annotations, annotation]
 }
 
 export function reviseReaderAnnotation(
@@ -161,13 +165,17 @@ export function reviseReaderAnnotation(
 ): readonly ReaderAnnotation[] {
   const current = requireAnnotation(annotations, annotationId)
   const style = patch.style ?? current.style
-  if (current.anchor.type === 'region' && style !== 'highlight')
+  if (isReadingRegionAnnotation(current) && style !== 'highlight')
     throw new TypeError(`Region annotation ${annotationId} cannot use ${style} style`)
   if (patch.color === undefined && patch.style === undefined)
     throw new TypeError('Reader annotation revision must change color or style')
-  return annotations.map(annotation => annotation.id === annotationId
-    ? { ...annotation, ...patch, style, updatedAt }
-    : annotation)
+  return annotations.map((annotation): ReaderAnnotation => {
+    if (annotation.id !== annotationId)
+      return annotation
+    if (isReadingRegionAnnotation(annotation))
+      return { ...annotation, color: patch.color ?? annotation.color, style: 'highlight', updatedAt }
+    return { ...annotation, ...patch, style, updatedAt }
+  })
 }
 
 export function attachReaderAnnotationTopic(

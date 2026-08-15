@@ -40,6 +40,9 @@ describe('settings renderer', () => {
 
     fireEvent.click(rendered.getByRole('button', { name: 'Reading' }))
     expect(await rendered.findByRole('heading', { name: 'Reading' })).toBeInTheDocument()
+    expect(rendered.getByRole('radio', { name: 'Continuous' })).toBeChecked()
+    fireEvent.click(rendered.getByRole('radio', { name: 'Single page' }))
+    await waitFor(() => expect(store.getSnapshot().readerPageMode).toBe('single-page'))
     const copyFormat = rendered.getByRole('combobox', { name: 'Highlight copy format' })
     expect(copyFormat).toHaveValue('text')
     fireEvent.change(copyFormat, { target: { value: 'text-book-location' } })
@@ -76,6 +79,7 @@ describe('settings renderer', () => {
         readerArrowKeyPageTurning: true,
         readerAnnotationCopyFormat: 'text-book-location',
         readerEpubPresentationMode: 'publisher',
+        readerPageMode: 'single-page',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
         weekStart: 'monday',
@@ -96,6 +100,7 @@ describe('settings renderer', () => {
         readerArrowKeyPageTurning: true,
         readerAnnotationCopyFormat: 'text-book-location',
         readerEpubPresentationMode: 'publisher',
+        readerPageMode: 'single-page',
         reduceMotion: true,
         tiffConversionFormat: 'webp',
         weekStart: 'monday',

@@ -103,7 +103,7 @@ export function ReaderAnnotationPopover({
           )
         : (
             <>
-              {annotation.anchor.type === 'text'
+              {annotation.anchors[0].type === 'text'
                 ? (
                     <button {...stylex.props(styles.tool)} aria-label={t('reader.copyAnnotationText')} title={t('copy')} type="button" onClick={onCopy}>
                       <Copy aria-hidden="true" size={17} strokeWidth={1.9} />
@@ -120,7 +120,7 @@ export function ReaderAnnotationPopover({
               >
                 <span {...stylex.props(styles.swatch, colorStyle(annotation.color))} />
               </button>
-              {annotation.anchor.type === 'text'
+              {annotation.anchors[0].type === 'text'
                 ? (
                     <>
                       <button
@@ -146,7 +146,7 @@ export function ReaderAnnotationPopover({
                     </>
                   )
                 : null}
-              {annotation.anchor.type === 'region' && onOpenImageOcclusion !== undefined
+              {annotation.anchors[0].type === 'region' && onOpenImageOcclusion !== undefined
                 ? (
                     <button
                       {...stylex.props(styles.tool)}

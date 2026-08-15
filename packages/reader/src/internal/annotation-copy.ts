@@ -2,6 +2,7 @@ import type {
   ReaderAnnotation,
   ReaderAnnotationCopyFormat,
 } from '../types'
+import { readingAnnotationText } from '@memorilo/reading-model'
 
 export function annotationCopyText(
   annotation: ReaderAnnotation,
@@ -9,9 +10,9 @@ export function annotationCopyText(
   bookTitle: string | undefined,
   location: string,
 ): string {
-  if (annotation.anchor.type !== 'text')
+  const text = readingAnnotationText(annotation)
+  if (text === null)
     throw new TypeError('Only text annotations can be copied')
-  const text = annotation.anchor.quote.exact
   if (format === 'text' || bookTitle === undefined)
     return text
   if (format === 'text-book')

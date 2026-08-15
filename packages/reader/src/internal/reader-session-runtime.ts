@@ -2,6 +2,7 @@ import type {
   ReaderAnnotation,
   ReaderOcrProvider,
   ReaderOcrStatus,
+  ReaderPageMode,
   ReaderPosition,
   ReaderPresentationMode,
   ReaderSource,
@@ -41,6 +42,7 @@ interface ReaderSessionRuntimeOptions {
   container: HTMLElement
   initialAnnotations: readonly ReaderAnnotation[]
   initialPosition?: ReaderPosition | null
+  initialPageMode?: ReaderPageMode
   initialPresentationMode: ReaderPresentationMode
   ocrProvider?: ReaderOcrProvider
   onEvent: (event: ReaderSessionEvent) => void
@@ -59,12 +61,14 @@ export interface ReaderSessionRuntime {
   reportError: (error: unknown) => void
   run: (operation: ReaderOperation) => boolean
   setAnnotations: (annotations: readonly ReaderAnnotation[]) => void
+  setPageMode: (pageMode: ReaderPageMode) => void
   setRegionSelectionEnabled: (enabled: boolean) => void
   start: () => Promise<void>
 }
 
 interface OwnedAdapter {
   adapter: ReaderAdapter
+  pageMode: ReaderPageMode
   released: boolean
 }
 
@@ -87,7 +91,10 @@ export function createReaderSessionRuntime(
   const openAdapter = dependencies.openAdapter ?? openDefaultReaderAdapter
   let active = true
   let adapter: ReaderAdapter | null = null
+  let ownedAdapter: OwnedAdapter | null = null
   let annotations = options.initialAnnotations
+  let pageMode = options.initialPageMode ?? 'continuous'
+  let lastPosition = options.initialPosition ?? null
   let directionalKeyAction: 'none' | 'page-turned' | 'scrolled' = 'none'
   let startPromise: Promise<void> | undefined
   const commands = createOperationSupervisor('Reader session commands', { shutdown: 'interrupt' })
@@ -146,6 +153,15 @@ export function createReaderSessionRuntime(
     if (!active || !adapter)
       return false
 
+    if (pageMode === 'continuous' && (event.key === 'PageUp' || event.key === 'PageDown')) {
+      try {
+        adapter.moveViewport(event.key === 'PageUp' ? 'page-up' : 'page-down')
+      }
+      catch (error) {
+        reportError(error)
+      }
+      return true
+    }
     if (event.key === 'PageUp') {
       run(current => current.goBackward('end'))
       return true
@@ -158,6 +174,24 @@ export function createReaderSessionRuntime(
     const direction = readerScrollDirection(event.key)
     if (!direction)
       return false
+
+    if (pageMode === 'continuous' && (direction === 'left' || direction === 'right')) {
+      if (direction === 'right')
+        run(current => current.goForward('start'))
+      else
+        run(current => current.goBackward('end'))
+      return true
+    }
+
+    if (pageMode === 'continuous') {
+      try {
+        adapter.moveViewport(direction)
+      }
+      catch (error) {
+        reportError(error)
+      }
+      return true
+    }
 
     if (!event.repeat)
       directionalKeyAction = 'none'
@@ -197,17 +231,24 @@ export function createReaderSessionRuntime(
     owned.released = true
     if (adapter === owned.adapter)
       adapter = null
+    if (ownedAdapter === owned)
+      ownedAdapter = null
   }
 
-  const openOwned = async (signal: AbortSignal): Promise<void> => {
+  const openOwned = async (
+    signal: AbortSignal,
+    initialPosition: ReaderPosition | null | undefined = lastPosition,
+  ): Promise<void> => {
     emit({ type: 'begin' })
     try {
+      const openingPageMode = pageMode
       const owned = (await adapterResources.acquire({
-        acquire: async (): Promise<OwnedAdapter> => ({
-          adapter: await openAdapter(
+        acquire: async (): Promise<OwnedAdapter> => {
+          const openedAdapter = await openAdapter(
             options.source,
             options.initialPresentationMode,
-            options.initialPosition,
+            openingPageMode,
+            initialPosition,
             options.ocrProvider,
             {
               onAnnotationActivate: ({ annotationId }) => emit({ annotationId, type: 'annotation-activate' }),
@@ -216,17 +257,21 @@ export function createReaderSessionRuntime(
               onOcrStatusChange: status => emit({ status, type: 'ocr-status' }),
               onRegionSelectionModeChange: enabled => emit({ enabled, type: 'region-selection' }),
               onSelectionChange: selection => emit({ selection, type: 'selection' }),
-              onStateChange: state => emit({ state, type: 'state' }),
+              onStateChange: (state) => {
+                lastPosition = state.position
+                emit({ state, type: 'state' })
+              },
               regionAnnotationLabel: options.regionAnnotationLabel,
             },
             signal,
-          ),
-          released: false,
-        }),
+          )
+          return { adapter: openedAdapter, pageMode: openingPageMode, released: false }
+        },
         close: destroyOwned,
         name: 'reader adapter',
       })).resource
       adapter = owned.adapter
+      ownedAdapter = owned
       if (!active)
         return
 
@@ -294,6 +339,22 @@ export function createReaderSessionRuntime(
       annotations = nextAnnotations
       if (active)
         adapter?.setAnnotations(nextAnnotations)
+    },
+    setPageMode: (nextPageMode) => {
+      if (!active || nextPageMode === pageMode)
+        return
+      pageMode = nextPageMode
+      const result = commands.run(async (signal) => {
+        const current = ownedAdapter
+        if (!current || current.pageMode === pageMode)
+          return
+        const position = lastPosition
+        await destroyOwned(current)
+        if (!active)
+          return
+        await openOwned(signal, position)
+      })
+      void result.then(() => undefined, reportError)
     },
     setRegionSelectionEnabled: (enabled) => {
       run((current) => {

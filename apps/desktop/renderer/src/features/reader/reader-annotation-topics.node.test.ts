@@ -5,12 +5,12 @@ import { createReaderAnnotationTopic } from './reader-annotation-topics'
 
 const input: ReaderAnnotationTopicCreateInput = {
   annotation: {
-    anchor: {
+    anchors: [{
       end: 20,
       format: 'txt',
       start: 10,
       type: 'region',
-    },
+    }],
     color: 'yellow',
     createdAt: 1,
     id: 'annotation-1',

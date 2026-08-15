@@ -29,13 +29,13 @@ describe('reader annotation Topic bindings', () => {
     if (!bookTopic || bookTopic.kind !== 'topic' || bookTopic.topicType !== 'book')
       throw new Error('Expected the initial BookTopic')
     note.getBookTopic(bookTopic.id).setAnnotations([{
-      anchor: {
+      anchors: [{
         end: 13,
         format: 'txt',
         quote: { exact: 'Selected text' },
         start: 0,
         type: 'text',
-      },
+      }],
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-1',
@@ -54,13 +54,13 @@ describe('reader annotation Topic bindings', () => {
     })
     note.setTopicReaderReference(annotationTopicId, null)
     const annotation: ReaderAnnotation = {
-      anchor: {
+      anchors: [{
         end: 13,
         format: 'txt',
         quote: { exact: 'Selected text' },
         start: 0,
         type: 'text',
-      },
+      }],
       annotationTopicId,
       color: 'yellow',
       createdAt: 1,
@@ -82,7 +82,7 @@ describe('reader annotation Topic bindings', () => {
     if (!bookTopicEntry || bookTopicEntry.kind !== 'topic' || bookTopicEntry.topicType !== 'book')
       throw new Error('Expected the initial BookTopic')
     const annotation: ReaderAnnotation = {
-      anchor: { end: 20, format: 'txt', start: 10, type: 'region' },
+      anchors: [{ end: 20, format: 'txt', start: 10, type: 'region' }],
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-region',

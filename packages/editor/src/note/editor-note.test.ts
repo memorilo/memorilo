@@ -66,7 +66,7 @@ describe('editor note topic creation', () => {
     if (!bookTopic || bookTopic.kind !== 'topic')
       throw new Error('Expected the initial BookTopic')
     note.getBookTopic(bookTopic.id).setAnnotations([{
-      anchor: { format: 'epub', locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' }, quote: { exact: 'There was a wall.' }, type: 'text' },
+      anchors: [{ format: 'epub', locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' }, quote: { exact: 'There was a wall.' }, type: 'text' }],
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-1',
@@ -147,6 +147,55 @@ describe('editor note topic creation', () => {
     expect(restored.getBookTopic(entry.id).getReadingState()).toEqual({ annotations: [], position: null })
   })
 
+  it('restores fixed-page progress and one cross-page annotation from a snapshot', () => {
+    const pdfBook: BookFileBinding = {
+      ...book,
+      file: { ...book.file, format: 'pdf', originalName: 'the-dispossessed.pdf' },
+    }
+    const note = createEditorNote({
+      id: 'continuous-reading-note',
+      initialBookTopic: { book: pdfBook, mode: EditorMode.Document, title: 'An Ambiguous Utopia' },
+    })
+    const [entry] = note.getEntries()
+    if (!entry || entry.kind !== 'topic' || entry.topicType !== 'book')
+      throw new Error('Expected the initial BookTopic')
+    const annotation: ReadingAnnotation = {
+      anchors: [
+        {
+          format: 'pdf',
+          pageNumber: 4,
+          quote: { exact: 'end of four' },
+          rects: [{ height: 0.04, width: 0.4, x: 0.5, y: 0.9 }],
+          source: 'embedded',
+          type: 'text',
+        },
+        {
+          format: 'pdf',
+          pageNumber: 5,
+          quote: { exact: 'start of five' },
+          rects: [{ height: 0.04, width: 0.4, x: 0.1, y: 0.08 }],
+          source: 'embedded',
+          type: 'text',
+        },
+      ],
+      color: 'yellow',
+      createdAt: 1,
+      id: 'cross-page',
+      style: 'highlight',
+      updatedAt: 1,
+    }
+    const topic = note.getBookTopic(entry.id)
+    topic.setPosition({ format: 'pdf', pageNumber: 4, pageProgress: 0.625 })
+    topic.setAnnotations([annotation])
+
+    const restored = createEditorNote({ id: note.id, snapshot: note.exportSnapshot() })
+
+    expect(restored.getBookTopic(entry.id).getReadingState()).toEqual({
+      annotations: [annotation],
+      position: { format: 'pdf', pageNumber: 4, pageProgress: 0.625 },
+    })
+  })
+
   it('rejects corrupt restored metadata and Topic ownership before returning a Note', () => {
     const wrongId = createEditorNote({ id: 'stored-note' })
     const [wrongIdTopic] = wrongId.getEntries()
@@ -180,12 +229,12 @@ describe('editor note topic creation', () => {
 
   it('rejects corrupt restored Reader annotation Topic bindings', () => {
     const annotation: ReadingAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' },
         quote: { exact: 'There was a wall.' },
         type: 'text',
-      },
+      }],
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-1',
@@ -349,12 +398,12 @@ describe('editor note topic creation', () => {
     if (!sourceTopic || sourceTopic.kind !== 'topic' || sourceTopic.topicType !== 'book')
       throw new Error('Expected the source BookTopic')
     const annotation: ReadingAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' },
         targets: [{ rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.4 }, selector: '#region' }],
         type: 'region',
-      },
+      }],
       color: 'blue',
       createdAt: 1,
       id: 'reader-region',
@@ -383,7 +432,7 @@ describe('editor note topic creation', () => {
     })
 
     expect(capturedSources).toEqual([{
-      anchor: annotation.anchor,
+      anchor: annotation.anchors[0],
       annotationId: annotation.id,
       kind: 'reader-region',
       topicId: sourceTopic.id,
@@ -445,12 +494,12 @@ describe('editor note topic creation', () => {
     if (!sourceTopic || sourceTopic.kind !== 'topic' || sourceTopic.topicType !== 'book')
       throw new Error('Expected the source BookTopic')
     const annotation: ReadingAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' },
         targets: [{ rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.4 }, selector: '#region' }],
         type: 'region',
-      },
+      }],
       color: 'blue',
       createdAt: 1,
       id: 'reader-region',
@@ -464,12 +513,12 @@ describe('editor note topic creation', () => {
       snapshot: async () => {
         bookTopic.setAnnotations([{
           ...annotation,
-          anchor: {
+          anchors: [{
             format: 'epub',
             locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' },
             targets: [{ rect: { height: 0.2, width: 0.3, x: 0.2, y: 0.4 }, selector: '#region' }],
             type: 'region',
-          },
+          }],
         }])
         return { height: 480, src: 'memorilo-asset:///snapshot.png', width: 640 }
       },
@@ -492,12 +541,12 @@ describe('editor note topic creation', () => {
     if (!sourceTopic || sourceTopic.kind !== 'topic' || sourceTopic.topicType !== 'book')
       throw new Error('Expected the source BookTopic')
     const first: ReadingAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: { href: 'chapter.xhtml', type: 'application/xhtml+xml' },
         targets: [{ rect: { height: 0.2, width: 0.3, x: 0.1, y: 0.4 }, selector: '#region' }],
         type: 'region',
-      },
+      }],
       color: 'blue',
       createdAt: 1,
       id: 'first-region',
@@ -594,12 +643,12 @@ describe('editor note topic creation', () => {
       throw new Error('Expected the initial BookTopic')
     const document = note.getBookTopic(entry.id)
     const annotation: ReadingAnnotation = {
-      anchor: {
+      anchors: [{
         format: 'epub',
         locator: { href: 'chapter-1.xhtml', type: 'application/xhtml+xml' },
         quote: { exact: 'There was a wall.' },
         type: 'text',
-      },
+      }],
       color: 'yellow',
       createdAt: 1,
       id: 'annotation-1',
@@ -620,7 +669,7 @@ describe('editor note topic creation', () => {
       },
     })
 
-    expect(() => document.setPosition({ format: 'pdf', pageNumber: 1 })).toThrow()
+    expect(() => document.setPosition({ format: 'pdf', pageNumber: 1, pageProgress: 0 })).toThrow()
     expect(() => document.setAnnotations([annotation, annotation])).toThrow('Duplicate BookTopic annotation id')
     expect(document.getReadingState().annotations).toEqual([annotation])
 

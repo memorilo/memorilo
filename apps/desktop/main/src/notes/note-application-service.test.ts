@@ -272,7 +272,7 @@ describe('application service for MCP Notes', () => {
     const { note: storedNote, topicId: bookTopicId } = created.context
     const renderer = createEditorNote({ id: storedNote.id, snapshot: storedNote.snapshot })
     const annotation: ReadingAnnotation = {
-      anchor: { end: 20, format: 'txt', start: 10, type: 'region' },
+      anchors: [{ end: 20, format: 'txt', start: 10, type: 'region' }],
       color: 'yellow',
       createdAt: 1,
       id: 'reader-review-region',

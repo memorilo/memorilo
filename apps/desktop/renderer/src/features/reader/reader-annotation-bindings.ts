@@ -6,7 +6,7 @@ export function readerAnnotationDependents(
   bookTopicId: string,
   annotation: ReaderAnnotation,
 ): ReaderAnnotationDependents {
-  const imageOcclusionTopic = annotation.anchor.type === 'region'
+  const imageOcclusionTopic = annotation.anchors[0].type === 'region'
     ? note.findImageOcclusionTopic({
         annotationId: annotation.id,
         kind: 'reader-region',

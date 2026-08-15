@@ -6,6 +6,7 @@ import type {
   ReaderImageOcclusionOverlay,
   ReaderNormalizedRect,
 } from './types'
+import { readingAnnotationFirstAnchor, readingAnnotationText } from '@memorilo/reading-model'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpenText, ScanLine, StickyNote } from 'lucide-react'
 import { useMemo } from 'react'
@@ -39,9 +40,7 @@ interface ReaderSidebarProps {
 }
 
 function annotationQuote(annotation: ReaderAnnotation): string | null {
-  if (annotation.anchor.type !== 'text')
-    return null
-  return annotation.anchor.quote.exact
+  return readingAnnotationText(annotation)
 }
 
 function colorStyle(color: ReaderAnnotation['color']) {
@@ -64,7 +63,7 @@ const txtRegionPreviewRect: ReaderNormalizedRect = {
 }
 
 function annotationRegionPreviewRect(annotation: ReaderAnnotation): ReaderNormalizedRect {
-  const anchor = annotation.anchor
+  const anchor = readingAnnotationFirstAnchor(annotation)
   if (anchor.type !== 'region')
     throw new TypeError(`Reader annotation ${annotation.id} is not a region`)
   if ('rect' in anchor)
@@ -284,7 +283,7 @@ export function ReaderSidebar({
                           {quote
                             ? <blockquote {...stylex.props(readerStyles.annotationQuote)}>{quote}</blockquote>
                             : null}
-                          {annotation.anchor.type === 'region'
+                          {annotation.anchors[0].type === 'region'
                             ? (
                                 <RegionAnnotationPreview
                                   annotation={annotation}

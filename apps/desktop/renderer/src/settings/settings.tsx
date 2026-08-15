@@ -77,6 +77,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('readerAnnotationCopyFormat')
     case 'readerEpubPresentationMode':
       return t('readerEpubPresentationMode')
+    case 'readerPageMode':
+      return t('readerPageMode')
     case 'tiffConversionFormat':
       return t('tiffConversionFormat')
     case 'mcp.enabled':
@@ -134,6 +136,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('readerAnnotationCopyFormatDescription')
     case 'readerEpubPresentationMode':
       return t('readerEpubPresentationModeDescription')
+    case 'readerPageMode':
+      return t('readerPageModeDescription')
     case 'tiffConversionFormat':
       return t('tiffConversionFormatDescription')
     case 'mcp.enabled':
@@ -175,6 +179,10 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('readerEpubPresentationPublisher')
     case 'reader':
       return t('readerEpubPresentationReader')
+    case 'continuous':
+      return t('readerPageModeContinuous')
+    case 'single-page':
+      return t('readerPageModeSinglePage')
     case 'text':
       return t('readerCopyTextOnly')
     case 'text-book':

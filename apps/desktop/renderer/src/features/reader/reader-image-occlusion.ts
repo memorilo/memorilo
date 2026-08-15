@@ -48,7 +48,7 @@ export async function openReaderRegionImageOcclusion({
   title,
   viewport,
 }: OpenReaderRegionImageOcclusionOptions): Promise<string> {
-  if (input.annotation.anchor.type !== 'region')
+  if (input.annotation.anchors[0].type !== 'region')
     throw new TypeError(`Reader annotation ${input.annotation.id} is not a region`)
   const source = {
     annotationId: input.annotation.id,
