@@ -8,6 +8,7 @@ export type {
   DesktopFlashcardConfiguration,
   DesktopGoalConfiguration,
   DesktopLanguage,
+  DesktopLearningConfiguration,
   DesktopMcpConfiguration,
   DesktopNetworkImagePasteBehavior,
   DesktopOutdentBehavior,
@@ -45,6 +46,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
     host: Schema.NonEmptyString.check(Schema.isPattern(/^[^\s/?#]+$/u)),
     port: Schema.Int.check(Schema.isBetween({ maximum: 65535, minimum: 1 })),
   }),
+  defaultNoteLearningEnabled: Schema.Boolean,
   flashcards: Schema.Struct({
     buryInterdayLearningSiblings: Schema.Boolean,
     buryNewSiblings: Schema.Boolean,
@@ -59,6 +61,9 @@ export const DesktopConfigurationSchema = Schema.Struct({
   goals: Schema.Struct({
     dailyLearningGoalCards: Schema.Int.check(Schema.isBetween({ maximum: 100_000, minimum: 1 })),
     dailyLearningGoalMode: Schema.Literals(['all-due', 'fixed', 'spread-week']),
+  }),
+  learning: Schema.Struct({
+    enabled: Schema.Boolean,
   }),
   language: Schema.Literals(['system', 'en', 'zh-CN']),
   mcp: Schema.Struct({
@@ -87,8 +92,12 @@ export const desktopConfigurationDefinition = defineConfiguration({
       host: '127.0.0.1',
       port: 8765,
     },
+    defaultNoteLearningEnabled: true,
     flashcards: defaultFlashcardConfiguration,
     goals: defaultGoalConfiguration,
+    learning: {
+      enabled: true,
+    },
     language: 'system' as const,
     mcp: {
       accessToken: '',
@@ -134,9 +143,23 @@ export const desktopConfigurationDefinition = defineConfiguration({
         label: 'Reduce motion',
         path: 'reduceMotion',
       },
+      {
+        control: 'toggle',
+        label: 'Enable learning for new Notes',
+        path: 'defaultNoteLearningEnabled',
+      },
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Enable flashcards, cloze authoring, FSRS scheduling, learning pages, and image occlusion.',
+      label: 'Enable learning features',
+      path: 'learning.enabled',
+    }],
+    id: 'learning',
+    label: 'Learning',
   }, {
     fields: [{
       control: 'toggle',
@@ -378,12 +401,20 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && anki.port <= 65535
     ? anki.port
     : 8765
+  const defaultNoteLearningEnabled = current.defaultNoteLearningEnabled === undefined
+    ? true
+    : current.defaultNoteLearningEnabled
   const hasFlashcards = typeof current.flashcards === 'object'
     && current.flashcards !== null
     && !Array.isArray(current.flashcards)
   const hasGoals = typeof current.goals === 'object'
     && current.goals !== null
     && !Array.isArray(current.goals)
+  const hasLearning = typeof current.learning === 'object'
+    && current.learning !== null
+    && !Array.isArray(current.learning)
+  const learning = hasLearning ? current.learning as Record<string, unknown> : {}
+  const learningEnabled = learning.enabled === undefined ? true : learning.enabled
   const hasMcp = typeof current.mcp === 'object' && current.mcp !== null && !Array.isArray(current.mcp)
   const mcp = hasMcp ? current.mcp as Record<string, unknown> : {}
   const accessToken = typeof mcp.accessToken === 'string' ? mcp.accessToken : ''
@@ -416,13 +447,16 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && hasMcp
     && hasFlashcards
     && hasGoals
+    && hasLearning
     && anki.apiKey === ankiApiKey
     && anki.enabled === ankiEnabled
     && anki.host === ankiHost
     && anki.port === ankiPort
+    && current.defaultNoteLearningEnabled !== undefined
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
+    && learning.enabled === learningEnabled
     && current.networkImagePasteBehavior !== undefined
     && current.outdentBehavior !== undefined
     && current.readerArrowKeyPageTurning !== undefined
@@ -441,8 +475,10 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
       host: ankiHost,
       port: ankiPort,
     },
+    defaultNoteLearningEnabled,
     flashcards: hasFlashcards ? current.flashcards : defaultFlashcardConfiguration,
     goals: hasGoals ? current.goals : defaultGoalConfiguration,
+    learning: { enabled: learningEnabled },
     mcp: {
       accessToken,
       enabled,

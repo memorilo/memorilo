@@ -141,8 +141,10 @@ describe('desktop preload API', () => {
     const services = serviceStub()
     const configuration: DesktopConfiguration = {
       anki: desktopConfigurationDefinition.defaults.anki,
+      defaultNoteLearningEnabled: true,
       flashcards: desktopConfigurationDefinition.defaults.flashcards,
       goals: desktopConfigurationDefinition.defaults.goals,
+      learning: desktopConfigurationDefinition.defaults.learning,
       language: 'system',
       mcp: { accessToken: '0123456789abcdef0123456789abcdef', enabled: true, port: 8765 },
       networkImagePasteBehavior: 'download',

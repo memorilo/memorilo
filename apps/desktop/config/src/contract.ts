@@ -34,6 +34,10 @@ export interface DesktopGoalConfiguration {
   dailyLearningGoalMode: DesktopDailyGoalMode
 }
 
+export interface DesktopLearningConfiguration {
+  enabled: boolean
+}
+
 export interface DesktopMcpConfiguration {
   accessToken: string
   enabled: boolean
@@ -42,8 +46,10 @@ export interface DesktopMcpConfiguration {
 
 export interface DesktopConfiguration {
   anki: DesktopAnkiConfiguration
+  defaultNoteLearningEnabled: boolean
   flashcards: DesktopFlashcardConfiguration
   goals: DesktopGoalConfiguration
+  learning: DesktopLearningConfiguration
   language: DesktopLanguage
   mcp: DesktopMcpConfiguration
   networkImagePasteBehavior: DesktopNetworkImagePasteBehavior
