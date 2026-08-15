@@ -17,6 +17,12 @@ export interface DesktopAnkiConfiguration {
   port: number
 }
 
+export interface DesktopBackupConfiguration {
+  enabled: boolean
+  intervalMinutes: number
+  retentionCount: number
+}
+
 export interface DesktopFlashcardConfiguration {
   buryInterdayLearningSiblings: boolean
   buryNewSiblings: boolean
@@ -46,6 +52,7 @@ export interface DesktopMcpConfiguration {
 
 export interface DesktopConfiguration {
   anki: DesktopAnkiConfiguration
+  backup: DesktopBackupConfiguration
   defaultNoteLearningEnabled: boolean
   flashcards: DesktopFlashcardConfiguration
   goals: DesktopGoalConfiguration

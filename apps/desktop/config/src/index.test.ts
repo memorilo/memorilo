@@ -12,6 +12,7 @@ const token = '0123456789abcdef0123456789abcdef'
 function configuration(mcp: { accessToken: string, enabled: boolean, port: number }) {
   return {
     anki: desktopConfigurationDefinition.defaults.anki,
+    backup: desktopConfigurationDefinition.defaults.backup,
     defaultNoteLearningEnabled: true,
     flashcards: desktopConfigurationDefinition.defaults.flashcards,
     goals: desktopConfigurationDefinition.defaults.goals,
@@ -65,6 +66,7 @@ describe('desktop MCP configuration', () => {
   it('migrates legacy, partial, and unsafe configurations without enabling MCP', () => {
     expect(migrateDesktopConfiguration({ language: 'en', reduceMotion: true })).toEqual({
       anki: desktopConfigurationDefinition.defaults.anki,
+      backup: desktopConfigurationDefinition.defaults.backup,
       defaultNoteLearningEnabled: true,
       flashcards: desktopConfigurationDefinition.defaults.flashcards,
       goals: desktopConfigurationDefinition.defaults.goals,
@@ -90,6 +92,7 @@ describe('desktop MCP configuration', () => {
       weekStart: 'sunday',
     })).toEqual({
       anki: desktopConfigurationDefinition.defaults.anki,
+      backup: desktopConfigurationDefinition.defaults.backup,
       defaultNoteLearningEnabled: true,
       flashcards: desktopConfigurationDefinition.defaults.flashcards,
       goals: desktopConfigurationDefinition.defaults.goals,

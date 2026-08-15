@@ -1,5 +1,19 @@
 {
   "title": "Settings",
+  "backupSection": "Backup",
+  "backupDescription": "Create automatic database snapshots and export the full database workspace.",
+  "backupEnabled": "Enable automatic backups",
+  "backupEnabledDescription": "Periodically save a SQLite snapshot beside the main database while Memorilo is running.",
+  "backupInterval": "Backup interval",
+  "backupIntervalDescription": "Create a new snapshot after this many minutes.",
+  "backupRetention": "Backups to keep",
+  "backupRetentionDescription": "Remove older automatic snapshots after this limit is reached.",
+  "exportDatabase": "Export database",
+  "restoreDatabase": "Restore database",
+  "databaseExportCancelled": "Database export cancelled.",
+  "databaseExported": "Database exported to {{path}}.",
+  "databaseRestoreCancelled": "Database restore cancelled.",
+  "databaseRestoreRestarting": "Database prepared. Memorilo will restart to finish restoring it.",
   "categories": "Settings categories",
   "ankiDescription": "Connect to AnkiConnect and show Anki decks in Learning.",
   "generalDescription": "Language, calendar, and accessibility preferences.",
@@ -122,5 +136,6 @@
   "fixedDailyLimit": "Set a daily limit",
   "cards": "cards",
   "minutes": "minutes",
+  "backups": "backups",
   "hour": "hour"
 }
