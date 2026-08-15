@@ -3,6 +3,7 @@ import * as Schema from 'effect/Schema'
 
 export type {
   DesktopAnkiConfiguration,
+  DesktopBackupConfiguration,
   DesktopConfiguration,
   DesktopDailyGoalMode,
   DesktopFlashcardConfiguration,
@@ -45,6 +46,11 @@ export const DesktopConfigurationSchema = Schema.Struct({
     host: Schema.NonEmptyString.check(Schema.isPattern(/^[^\s/?#]+$/u)),
     port: Schema.Int.check(Schema.isBetween({ maximum: 65535, minimum: 1 })),
   }),
+  backup: Schema.Struct({
+    enabled: Schema.Boolean,
+    intervalMinutes: Schema.Int.check(Schema.isBetween({ maximum: 10_080, minimum: 1 })),
+    retentionCount: Schema.Int.check(Schema.isBetween({ maximum: 100, minimum: 1 })),
+  }),
   flashcards: Schema.Struct({
     buryInterdayLearningSiblings: Schema.Boolean,
     buryNewSiblings: Schema.Boolean,
@@ -86,6 +92,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
       enabled: false,
       host: '127.0.0.1',
       port: 8765,
+    },
+    backup: {
+      enabled: false,
+      intervalMinutes: 1_440,
+      retentionCount: 7,
     },
     flashcards: defaultFlashcardConfiguration,
     goals: defaultGoalConfiguration,
@@ -137,6 +148,33 @@ export const desktopConfigurationDefinition = defineConfiguration({
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Periodically create a SQLite snapshot beside the main database.',
+      label: 'Enable automatic backups',
+      path: 'backup.enabled',
+    }, {
+      control: 'number',
+      description: 'Create a new snapshot after this many minutes while Memorilo is running.',
+      label: 'Backup interval',
+      max: 10_080,
+      min: 1,
+      path: 'backup.intervalMinutes',
+      step: 1,
+      unit: 'minutes',
+    }, {
+      control: 'number',
+      description: 'Older automatic snapshots are removed after this limit is reached.',
+      label: 'Backups to keep',
+      max: 100,
+      min: 1,
+      path: 'backup.retentionCount',
+      step: 1,
+      unit: 'backups',
+    }],
+    id: 'backup',
+    label: 'Backup',
   }, {
     fields: [{
       control: 'toggle',
@@ -385,6 +423,23 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && current.goals !== null
     && !Array.isArray(current.goals)
   const hasMcp = typeof current.mcp === 'object' && current.mcp !== null && !Array.isArray(current.mcp)
+  const hasBackup = typeof current.backup === 'object'
+    && current.backup !== null
+    && !Array.isArray(current.backup)
+  const backup = hasBackup ? current.backup as Record<string, unknown> : {}
+  const backupEnabled = backup.enabled === true
+  const backupIntervalMinutes = typeof backup.intervalMinutes === 'number'
+    && Number.isSafeInteger(backup.intervalMinutes)
+    && backup.intervalMinutes >= 1
+    && backup.intervalMinutes <= 10_080
+    ? backup.intervalMinutes
+    : 1_440
+  const backupRetentionCount = typeof backup.retentionCount === 'number'
+    && Number.isSafeInteger(backup.retentionCount)
+    && backup.retentionCount >= 1
+    && backup.retentionCount <= 100
+    ? backup.retentionCount
+    : 7
   const mcp = hasMcp ? current.mcp as Record<string, unknown> : {}
   const accessToken = typeof mcp.accessToken === 'string' ? mcp.accessToken : ''
   const port = typeof mcp.port === 'number'
@@ -413,6 +468,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     ? 'webp'
     : current.tiffConversionFormat
   if (hasAnki
+    && hasBackup
     && hasMcp
     && hasFlashcards
     && hasGoals
@@ -420,6 +476,9 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && anki.enabled === ankiEnabled
     && anki.host === ankiHost
     && anki.port === ankiPort
+    && backup.enabled === backupEnabled
+    && backup.intervalMinutes === backupIntervalMinutes
+    && backup.retentionCount === backupRetentionCount
     && mcp.accessToken === accessToken
     && mcp.enabled === enabled
     && mcp.port === port
@@ -440,6 +499,11 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
       enabled: ankiEnabled,
       host: ankiHost,
       port: ankiPort,
+    },
+    backup: {
+      enabled: backupEnabled,
+      intervalMinutes: backupIntervalMinutes,
+      retentionCount: backupRetentionCount,
     },
     flashcards: hasFlashcards ? current.flashcards : defaultFlashcardConfiguration,
     goals: hasGoals ? current.goals : defaultGoalConfiguration,

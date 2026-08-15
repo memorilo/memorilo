@@ -1,5 +1,19 @@
 {
   "title": "设置",
+  "backupSection": "备份",
+  "backupDescription": "创建数据库自动快照，或导出包含资源和书籍的完整数据库工作区。",
+  "backupEnabled": "启用自动备份",
+  "backupEnabledDescription": "Memorilo 运行期间，定期在主数据库旁保存 SQLite 快照。",
+  "backupInterval": "备份间隔",
+  "backupIntervalDescription": "每隔指定分钟创建一个快照。",
+  "backupRetention": "保留备份数量",
+  "backupRetentionDescription": "超过数量限制后删除较旧的自动快照。",
+  "exportDatabase": "导出数据库",
+  "restoreDatabase": "恢复数据库",
+  "databaseExportCancelled": "已取消导出数据库。",
+  "databaseExported": "数据库已导出到 {{path}}。",
+  "databaseRestoreCancelled": "已取消恢复数据库。",
+  "databaseRestoreRestarting": "数据库已准备好，Memorilo 将重启以完成恢复。",
   "categories": "设置类别",
   "ankiDescription": "连接 AnkiConnect，并在学习页显示 Anki 牌组。",
   "generalDescription": "语言、日历和辅助功能偏好设置。",
@@ -116,5 +130,6 @@
   "fixedDailyLimit": "设置每日目标数量",
   "cards": "张",
   "minutes": "分钟",
+  "backups": "份",
   "hour": "时"
 }

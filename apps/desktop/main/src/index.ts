@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 
 import { assetProtocol } from './asset-protocol'
+import { applyPendingRestore } from './backup/restore-state'
 import { createDesktopRuntime } from './desktop-runtime'
 import { flushRendererNotes } from './lifecycle/note-save-handshake'
 import { createShutdownStateMachine } from './lifecycle/shutdown-state-machine'
@@ -16,6 +17,7 @@ import {
   rendererProtocol,
 } from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
+import { mainDatabasePath } from './storage/workspace-paths'
 
 let desktopRuntime: DesktopRuntime | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
@@ -116,11 +118,26 @@ function createWindow() {
 }
 
 async function startApplication(): Promise<void> {
-  desktopRuntime = await createDesktopRuntime({
-    allowTestClock: process.env.MEMORILO_E2E_NOW_MS !== undefined,
-    createWindow,
-    mainDirectory,
-  })
+  const database = mainDatabasePath(app.getPath('userData'))
+  const restore = await applyPendingRestore(database)
+  try {
+    desktopRuntime = await createDesktopRuntime({
+      allowTestClock: process.env.MEMORILO_E2E_NOW_MS !== undefined,
+      createWindow,
+      flushRenderer: () => requestRendererSave(),
+      mainDirectory,
+      requestRestart: () => {
+        app.relaunch()
+        app.quit()
+      },
+    })
+    await restore?.commit()
+  }
+  catch (error) {
+    if (restore)
+      await restore.rollback()
+    throw error
+  }
 }
 
 void app.whenReady()

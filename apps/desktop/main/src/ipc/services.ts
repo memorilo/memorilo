@@ -3,6 +3,7 @@ import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage, LearningStorage } from '@memorilo/editor-storage'
 import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
+import type { DatabaseBackupApplication } from '../backup/backup-application'
 import type { NoteApplicationService } from '../notes/note-application-service'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import type { WhiteboardLibraryApplication } from '../whiteboard/whiteboard-library-application'
@@ -14,6 +15,7 @@ import { createLearningReviewApplication } from '../learning/learning-review-app
 
 import { createAppHandlers } from './app-service'
 import { createAssetHandlers } from './asset-service'
+import { createBackupHandlers } from './backup-service'
 import { BookReadingApplication } from './book-reading-application'
 import { createBookHandlers } from './book-service'
 import { createConfigurationHandlers } from './configuration-service'
@@ -31,6 +33,7 @@ const maximumConcurrentShelfAssetRequests = 3
 export async function createDesktopServices(
   notes: NoteApplicationService,
   storage: EditorStorage,
+  backup: DatabaseBackupApplication,
   shelfStorage: ShelfStorage,
   shelfImageCache: ShelfImageCache,
   shelfReadingFiles: ShelfReadingFileStore,
@@ -53,6 +56,7 @@ export async function createDesktopServices(
       acquire: () => createIpcHandlerRegistry({
         app: createAppHandlers(),
         assets: createAssetHandlers(assetDirectory, storage, configuration, serializeAssetOperation),
+        backup: createBackupHandlers(backup),
         books: createBookHandlers(new BookReadingApplication({
           activeReadings,
           notes,

@@ -45,6 +45,11 @@ export class BetterSqliteDatabase implements EditorStorageDatabase {
     return this.#database.prepare(sql).all(...parameters(values)) as Row[]
   }
 
+  async backup(destinationPath: string): Promise<void> {
+    this.#assertOpen()
+    await this.#database.backup(destinationPath)
+  }
+
   async batch(commands: readonly DatabaseCommand[]): Promise<void> {
     this.#assertOpen()
     const execute = this.#database.transaction(() => {

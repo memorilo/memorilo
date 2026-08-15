@@ -70,6 +70,7 @@ describe('settings renderer', () => {
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         anki: desktopConfigurationDefinition.defaults.anki,
+        backup: desktopConfigurationDefinition.defaults.backup,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
         language: 'zh-CN',
@@ -91,6 +92,7 @@ describe('settings renderer', () => {
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         anki: desktopConfigurationDefinition.defaults.anki,
+        backup: desktopConfigurationDefinition.defaults.backup,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
         language: 'zh-CN',
