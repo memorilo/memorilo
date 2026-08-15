@@ -70,6 +70,7 @@ describe('settings renderer', () => {
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         anki: desktopConfigurationDefinition.defaults.anki,
+        backup: desktopConfigurationDefinition.defaults.backup,
         defaultNoteLearningEnabled: true,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
@@ -93,6 +94,7 @@ describe('settings renderer', () => {
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         anki: desktopConfigurationDefinition.defaults.anki,
+        backup: desktopConfigurationDefinition.defaults.backup,
         defaultNoteLearningEnabled: true,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,

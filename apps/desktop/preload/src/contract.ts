@@ -89,6 +89,14 @@ export interface DesktopAssetCheckResult {
   referencedAssetCount: number
 }
 
+export interface DesktopExportDatabaseResult {
+  path: string
+}
+
+export type DesktopRestoreDatabaseResult
+  = | { status: 'cancelled' }
+    | { status: 'restarting' }
+
 export interface ReclaimDesktopAssetsInput {
   fileNames: readonly string[]
   mode: 'permanent' | 'trash'
@@ -446,6 +454,7 @@ export interface DesktopApi {
   createBookContext: (input: { noteTitle: string, readingId: string, topicTitle: string }) => Promise<CreateDesktopBookContextResult>
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
   deleteShelfReading: (readingId: string) => Promise<boolean>
+  exportDatabase: () => Promise<DesktopExportDatabaseResult | { status: 'cancelled' }>
   getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
   getConfiguration: () => Promise<DesktopConfiguration>
   getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
@@ -476,6 +485,7 @@ export interface DesktopApi {
   refreshShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
   removeShelfSource: (sourceId: string) => Promise<void>
   renameNote: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
+  restoreDatabase: () => Promise<DesktopRestoreDatabaseResult>
   saveImage: (input: SaveDesktopImageInput) => Promise<SaveDesktopImageResult>
   saveNoteUpdates: (input: SaveDesktopNoteUpdatesInput) => Promise<DesktopNoteWriteReceipt>
   saveWhiteboardLibrary: (data: DesktopWhiteboardLibraryData) => Promise<void>
