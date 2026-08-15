@@ -1,80 +1,62 @@
 # Memorilo
 
-Memorilo is an AGPL-licensed Electron desktop application organized as a pnpm and Turbo monorepo.
+Memorilo is an open-source desktop application for reading, note-taking, and
+spaced-repetition learning. It keeps notes, books, annotations, and flashcards
+in one local workspace.
 
-## Prerequisites
+## Features
+
+- Write in Document or Outline mode with rich text, math, tables, images, and
+  task lists.
+- Keep daily journals and quickly find recent or favorite notes.
+- Read and annotate EPUB, PDF, TXT, CBZ, and CBR files from OPDS book sources.
+- Use an incremental reading workflow to turn annotations into notes and
+  learning cards.
+- Create flashcards, cloze cards, and image occlusions, then review them with
+  FSRS scheduling.
+- Work with whiteboards and spreadsheets alongside regular text topics.
+- Search notes locally and optionally connect Anki or MCP-compatible AI tools.
+
+Memorilo is under active development, and its interfaces and storage formats
+may change.
+
+## Development
+
+Requirements:
 
 - Node.js 22.12.0 or newer
-- Corepack, enabled with `corepack enable`
-- pnpm 10.12.4, activated with `corepack prepare pnpm@10.12.4 --activate`
-
-Install workspace dependencies from the repository root:
+- Corepack
+- pnpm 10.12.4
 
 ```sh
+corepack enable
+corepack prepare pnpm@10.12.4 --activate
 pnpm install
+pnpm dev
 ```
 
-## Commands
+Common commands:
 
 ```sh
-pnpm dev         # Start the Electron development process
-pnpm lint        # Lint every workspace package
-pnpm typecheck   # Type-check every workspace package
+pnpm build       # Build all packages
+pnpm lint        # Lint the workspace
+pnpm typecheck   # Type-check the workspace
 pnpm test        # Run unit and component tests
-pnpm build       # Build all packages in dependency order
-pnpm test:e2e    # Build the desktop app and run Electron end-to-end tests
+MEMORILO_E2E_HIDE_WINDOW=1 pnpm test:e2e  # Run Electron end-to-end tests
 ```
 
-Turbo filters can limit a command to a package and its dependencies. For example, use
-`pnpm turbo run test --filter=@memorilo/editor` or
-`pnpm turbo run build --filter=@memorilo/desktop...`.
+## Project structure
 
-## Package Boundaries
-
-- `apps/desktop` owns the coordinated electron-vite development and production builds.
-- `apps/desktop/main` owns Electron main-process startup, IPC services, and persistence.
-- `apps/desktop/preload` owns the context-isolated renderer bridge.
-- `apps/desktop/renderer` owns the React application and browser-facing state.
-- `packages/editor` owns the reusable editor UI and editor integrations.
-- `packages/e2e` owns Playwright Electron end-to-end tests.
-
-Import package public entry points instead of reaching into another package's source tree.
-
-## Styling
-
-Renderer and editor styles use StyleX. Keep component-level styles in `*.stylex.ts` modules
-and reserve plain CSS for global resets, font faces, and third-party content styles. The
-electron-vite build extracts StyleX output into the packaged renderer CSS bundle.
-
-Renderer notifications use the globally mounted React-Toastify container. See
-[`docs/renderer-toasts.md`](docs/renderer-toasts.md) for severity guidance, actions,
-loading states, progress, dismissal, and accessibility usage.
-
-## Native Dependencies
-
-`better-sqlite3` ships a Node-API binary for supported Windows architectures, so the default
-install does not compile it locally. After changing Electron versions or native modules, an
-explicit native rebuild is available for machines with Python and Visual Studio C++ tools:
-
-```sh
-pnpm --filter @memorilo/desktop rebuild:native
-```
-
-The packaged application smoke test verifies that the shipped binary loads inside Electron.
-
-## Database Schema
-
-Run Drizzle Kit through the main-process package:
-
-```sh
-pnpm --filter @memorilo/desktop-main db:generate
-pnpm --filter @memorilo/desktop-main db:migrate
-pnpm --filter @memorilo/desktop-main db:studio
-```
-
-Generated migrations belong to the main-process package and should be reviewed before they
-are applied.
+- `apps/desktop` contains the Electron application.
+- `packages/editor` contains the editor and note model.
+- `packages/editor-storage` contains SQLite persistence and search.
+- `packages/reader`, `packages/shelf`, and `packages/reading-model` contain the
+  reading experience.
+- `packages/srs`, `packages/spreadsheet`, and `packages/anki-connect` contain
+  major feature modules.
+- `packages/e2e` contains Electron end-to-end tests.
 
 ## License
 
-Memorilo is licensed under the GNU Affero General Public License v3.0 only. See `LICENSE`.
+Memorilo is licensed under the GNU Affero General Public License v3.0 only. See
+[`LICENSE`](LICENSE).
