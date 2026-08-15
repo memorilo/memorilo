@@ -107,6 +107,7 @@
       "areaInSection": "{{section}} 中的区域",
       "areaNearCharacter": "字符 {{position}} 附近的区域",
       "areaOnPage": "第 {{page}} 页的区域",
+      "imageOcclusion": "图片遮罩",
       "page": "第 {{page}} 页",
       "textNearCharacter": "字符 {{position}} 附近的文字"
     }

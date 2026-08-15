@@ -1,8 +1,14 @@
 import type { ReactNode, UIEvent } from 'react'
 import type { ReaderAdapter, ReaderAdapterState } from './internal/reader-adapter'
-import type { ReaderAnnotation, ReaderAuxiliarySidebar } from './types'
+import type {
+  ReaderAnnotation,
+  ReaderAuxiliarySidebar,
+  ReaderImageOcclusionOverlay,
+  ReaderNormalizedRect,
+} from './types'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpenText, StickyNote } from 'lucide-react'
+import { BookOpenText, ScanLine, StickyNote } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { readerAnnotationLabel } from './internal/annotation-label'
 import { ReaderOutline } from './reader-outline'
@@ -20,6 +26,7 @@ interface ReaderSidebarProps {
   annotations: readonly ReaderAnnotation[]
   auxiliarySidebar?: ReaderAuxiliarySidebar
   auxiliarySidebarActive: boolean
+  imageOcclusionOverlays: readonly ReaderImageOcclusionOverlay[]
   onActivateAnnotation: (annotationId: string) => void
   onAuxiliarySidebarSelect: () => void
   onLoadMoreAnnotations: (event: UIEvent<HTMLDivElement>) => void
@@ -49,6 +56,69 @@ function colorStyle(color: ReaderAnnotation['color']) {
   return readerSharedStyles.colorYellow
 }
 
+const txtRegionPreviewRect: ReaderNormalizedRect = {
+  height: 0.18,
+  width: 0.64,
+  x: 0.18,
+  y: 0.41,
+}
+
+function annotationRegionPreviewRect(annotation: ReaderAnnotation): ReaderNormalizedRect {
+  const anchor = annotation.anchor
+  if (anchor.type !== 'region')
+    throw new TypeError(`Reader annotation ${annotation.id} is not a region`)
+  if ('rect' in anchor)
+    return anchor.rect
+  if (anchor.format === 'txt')
+    return txtRegionPreviewRect
+  if (anchor.targets.length === 0)
+    throw new Error(`Reader EPUB region annotation ${annotation.id} has no targets`)
+  const left = Math.min(...anchor.targets.map(target => target.rect.x))
+  const top = Math.min(...anchor.targets.map(target => target.rect.y))
+  const right = Math.max(...anchor.targets.map(target => target.rect.x + target.rect.width))
+  const bottom = Math.max(...anchor.targets.map(target => target.rect.y + target.rect.height))
+  return { height: bottom - top, width: right - left, x: left, y: top }
+}
+
+function RegionAnnotationPreview({
+  annotation,
+  imageOcclusion,
+  label,
+}: {
+  annotation: ReaderAnnotation
+  imageOcclusion: ReaderImageOcclusionOverlay | undefined
+  label: string
+}) {
+  const rect = annotationRegionPreviewRect(annotation)
+  return (
+    <div {...stylex.props(readerStyles.regionPreview)} aria-label={label} role="img">
+      {imageOcclusion
+        ? (
+            <img
+              {...stylex.props(readerStyles.regionPreviewImage)}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              src={imageOcclusion.image.src}
+            />
+          )
+        : (
+            <div {...stylex.props(readerStyles.regionPreviewPage)}>
+              <span
+                {...stylex.props(readerStyles.regionPreviewSelection, colorStyle(annotation.color))}
+                style={{
+                  height: `${rect.height * 100}%`,
+                  left: `${rect.x * 100}%`,
+                  top: `${rect.y * 100}%`,
+                  width: `${rect.width * 100}%`,
+                }}
+              />
+            </div>
+          )}
+    </div>
+  )
+}
+
 export function ReaderSidebar({
   activeAnnotationId,
   adapterState,
@@ -58,6 +128,7 @@ export function ReaderSidebar({
   annotations,
   auxiliarySidebar,
   auxiliarySidebarActive,
+  imageOcclusionOverlays,
   onActivateAnnotation,
   onAuxiliarySidebarSelect,
   onLoadMoreAnnotations,
@@ -69,8 +140,19 @@ export function ReaderSidebar({
   sidebarTab,
 }: ReaderSidebarProps) {
   const { t } = useTranslation('common')
-  if (annotations.length > 0 && renderAnnotationEditor === undefined)
+  const imageOcclusionByAnnotationId = useMemo(() => {
+    const byAnnotationId = new Map<string, ReaderImageOcclusionOverlay>()
+    for (const overlay of imageOcclusionOverlays) {
+      if (byAnnotationId.has(overlay.annotationId))
+        throw new Error(`Reader annotation ${overlay.annotationId} has multiple image occlusion overlays`)
+      byAnnotationId.set(overlay.annotationId, overlay)
+    }
+    return byAnnotationId
+  }, [imageOcclusionOverlays])
+  if (annotations.some(annotation => annotation.annotationTopicId !== undefined)
+    && renderAnnotationEditor === undefined) {
     throw new Error('Reader annotation Topics require an Editor renderer')
+  }
 
   return (
     <aside
@@ -176,6 +258,8 @@ export function ReaderSidebar({
                   : annotations.slice(0, annotationRenderLimit).map((annotation) => {
                       const quote = annotationQuote(annotation)
                       const active = activeAnnotationId === annotation.id
+                      const label = readerAnnotationLabel(annotation, t)
+                      const imageOcclusion = imageOcclusionByAnnotationId.get(annotation.id)
                       return (
                         <article
                           key={annotation.id}
@@ -184,24 +268,49 @@ export function ReaderSidebar({
                             readerStyles.annotationItem,
                             active && readerStyles.annotationItemActive,
                           )}
+                          aria-label={label}
+                          onClick={() => onSelectAnnotation(annotation.id)}
                           onPointerDown={() => onActivateAnnotation(annotation.id)}
                         >
                           <button
                             {...stylex.props(readerStyles.annotationTarget)}
                             type="button"
-                            onClick={() => onSelectAnnotation(annotation.id)}
                           >
                             <span {...stylex.props(readerStyles.annotationDot, colorStyle(annotation.color))} />
                             <span {...stylex.props(readerStyles.annotationMeta)}>
-                              {readerAnnotationLabel(annotation, t)}
+                              {label}
                             </span>
                           </button>
                           {quote
                             ? <blockquote {...stylex.props(readerStyles.annotationQuote)}>{quote}</blockquote>
                             : null}
-                          <div {...stylex.props(readerStyles.annotationEditor)}>
-                            {renderAnnotationEditor?.(annotation, !active)}
-                          </div>
+                          {annotation.anchor.type === 'region'
+                            ? (
+                                <RegionAnnotationPreview
+                                  annotation={annotation}
+                                  imageOcclusion={imageOcclusion}
+                                  label={label}
+                                />
+                              )
+                            : null}
+                          {imageOcclusion
+                            ? (
+                                <div {...stylex.props(readerStyles.annotationStatus)}>
+                                  <ScanLine aria-hidden="true" size={12} strokeWidth={1.8} />
+                                  {t('reader.annotation.imageOcclusion')}
+                                </div>
+                              )
+                            : null}
+                          {annotation.annotationTopicId !== undefined
+                            ? (
+                                <div
+                                  {...stylex.props(readerStyles.annotationEditor)}
+                                  onClick={event => event.stopPropagation()}
+                                >
+                                  {renderAnnotationEditor?.(annotation, !active)}
+                                </div>
+                              )
+                            : null}
                         </article>
                       )
                     })}

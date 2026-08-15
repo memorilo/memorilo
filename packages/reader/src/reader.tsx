@@ -504,7 +504,7 @@ function ReaderSession({
     >
       <ReaderToolbar
         adapterState={adapterState}
-        annotationCount={linkedAnnotations.length}
+        annotationCount={annotationWorkflow.annotations.length}
         annotationEditingEnabled={annotationEditingEnabled}
         annotationPanelOpen={annotationWorkflow.annotationPanelOpen}
         chrome={chrome}
@@ -542,7 +542,8 @@ function ReaderSession({
           annotationEditingEnabled={annotationEditingEnabled}
           annotationPanelOpen={annotationWorkflow.annotationPanelOpen || auxiliarySidebarActive}
           annotationRenderLimit={annotationWorkflow.annotationRenderLimit}
-          annotations={linkedAnnotations}
+          annotations={annotationWorkflow.annotations}
+          imageOcclusionOverlays={imageOcclusionOverlays}
           renderAnnotationEditor={renderAnnotationEditor === undefined
             ? undefined
             : (annotation, readOnly) => renderAnnotationEditor({ annotation, readOnly })}
