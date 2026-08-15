@@ -22,6 +22,7 @@ export interface EditorSessionOptions {
   cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
   imageOcclusion?: EditorImageOcclusionIntegration
+  learningEnabled: boolean
   onDocumentChange: (document: NodeJSON) => void
   outline?: OutlineOptions
   readOnly: boolean
@@ -40,10 +41,10 @@ export function createEditorSession(options: EditorSessionOptions) {
     focusBlockId: defaultFocus ? resolveOutlineFocusTarget(defaultContent, defaultFocus) : null,
     outdentBehavior: options.outline?.defaultOutdentBehavior,
   })
-  const cardReviewRuntime = options.cardReview
+  const cardReviewRuntime = options.learningEnabled && options.cardReview
     ? new CardReviewRuntime(options.cardReview)
     : undefined
-  const cardSync = options.cards
+  const cardSync = options.learningEnabled && options.cards
     ? createEditorCardSync({
         ...options.cards,
         noteId: options.topicDocument.noteId,
@@ -63,7 +64,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     outlineRuntime.reconcileDocument(document)
     options.onDocumentChange(document)
     scheduleCardSync(document)
-  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion)
+  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled)
   const resources = createResourceScope('Editor session')
   resources.own({
     close: () => configured.networkImagePasteRuntime.close(),
@@ -96,6 +97,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     close: resources.close,
     configured,
     editor,
+    learningEnabled: options.learningEnabled,
     outlineRuntime,
     store,
     topic,

@@ -57,6 +57,7 @@ export type { CardDelimiterSurface } from './card-delimiter-ui'
 export type CreateCardId = () => string
 
 export interface CardExtensionOptions {
+  authoringEnabled?: boolean
   createId?: CreateCardId
 }
 
@@ -224,23 +225,31 @@ function defineCardInputRules(createId: CreateCardId): Extension {
   )
 }
 
-function defineCardCommands(createId: CreateCardId): CardCommandsExtension {
+function disabledCardCommand(): Command {
+  return () => false
+}
+
+function defineCardCommands(createId: CreateCardId, authoringEnabled: boolean): CardCommandsExtension {
   return defineCommands({
     addCloze: ({ anchorKind, identity }: AddClozeInput) => {
       validateAnchorKind(anchorKind)
-      return addClozeMark(createId, { anchorKind, identity })
+      return authoringEnabled ? addClozeMark(createId, { anchorKind, identity }) : disabledCardCommand()
     },
-    addBlockToCardBack: () => addBlockToCardBackCommand(),
+    addBlockToCardBack: () => authoringEnabled ? addBlockToCardBackCommand() : disabledCardCommand(),
     insertBasicCard: ({ direction }: InsertBasicCardInput) => {
       validateDirection(direction)
-      return insertCardDelimiter(createId, direction)
+      return authoringEnabled ? insertCardDelimiter(createId, direction) : disabledCardCommand()
     },
     removeBlockHighlight: () => updateClosestListAttrs(() => ({ blockHighlight: null })),
-    removeCloze: () => removeMark({ type: 'cloze' }),
-    removeBlockFromCardBack: () => removeBlockFromCardBackCommand(),
+    removeCloze: () => authoringEnabled ? removeMark({ type: 'cloze' }) : disabledCardCommand(),
+    removeBlockFromCardBack: () => authoringEnabled ? removeBlockFromCardBackCommand() : disabledCardCommand(),
     removeInlineHighlight: () => removeMark({ type: 'inlineHighlight' }),
-    setCardDirection: (input: SetCardDirectionInput) => setCardDirection(createId, input),
-    setCardPresentation: (input: SetCardPresentationInput) => setCardPresentationCommand(input.presentation),
+    setCardDirection: (input: SetCardDirectionInput) => authoringEnabled
+      ? setCardDirection(createId, input)
+      : disabledCardCommand(),
+    setCardPresentation: (input: SetCardPresentationInput) => authoringEnabled
+      ? setCardPresentationCommand(input.presentation)
+      : disabledCardCommand(),
     setBlockHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
       return updateClosestListAttrs(() => ({ blockHighlight: color }))
@@ -259,13 +268,16 @@ export type CardExtension = Union<[
 
 export function defineCardExtension(options: CardExtensionOptions = {}): CardExtension {
   const createId = options.createId ?? defaultCreateId
+  const authoringEnabled = options.authoringEnabled ?? true
   return union(
     defineCardSchema(),
-    defineCardDelimiterNodeView(),
-    definePrioritizedCardDelimiterUi(),
-    defineCardCommands(createId),
-    defineCardInputRules(createId),
-    defineCardMembershipReconciler(),
-    withPriority(defineKeymap({ Backspace: backspaceCardCommand(), Enter: enterCardCommand() }), Priority.highest),
+    ...(authoringEnabled ? [defineCardDelimiterNodeView()] : []),
+    ...(authoringEnabled ? [definePrioritizedCardDelimiterUi()] : []),
+    defineCardCommands(createId, authoringEnabled),
+    ...(authoringEnabled ? [defineCardInputRules(createId)] : []),
+    ...(authoringEnabled ? [defineCardMembershipReconciler()] : []),
+    ...(authoringEnabled
+      ? [withPriority(defineKeymap({ Backspace: backspaceCardCommand(), Enter: enterCardCommand() }), Priority.highest)]
+      : []),
   )
 }

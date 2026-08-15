@@ -60,11 +60,26 @@ function getCardSelectionState(editor: Editor<InlineMenuExtension>) {
   }
 }
 
-export default function InlineMenu() {
+function getLearningDisabledSelectionState(editor: Editor<InlineMenuExtension>) {
+  const highlight = editor.marks.inlineHighlight.isActive()
+  return {
+    cardUiSelected: false,
+    canCloze: false,
+    canHighlight: highlight || editor.commands.setInlineHighlight.canExec({ color: 'yellow' }),
+    cloze: false,
+    clozeAnchorKind: 'rich-content' as const,
+    highlight,
+    mathSourceSelection: false,
+  }
+}
+
+export default function InlineMenu({ learningEnabled = true }: { learningEnabled?: boolean }) {
   const editor = useEditor<InlineMenuExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
   const link = useEditorDerivedValue(getLinkState)
-  const cardSelection = useEditorDerivedValue(getCardSelectionState)
+  const cardSelection = useEditorDerivedValue(
+    learningEnabled ? getCardSelectionState : getLearningDisabledSelectionState,
+  )
   const { t } = useTranslation('editor')
 
   const [linkMenuOpen, setLinkMenuOpen] = useState(false)
@@ -144,19 +159,23 @@ export default function InlineMenu() {
             >
               <Code2 size={16} />
             </Button>
-            <Button
-              pressed={cardSelection.cloze}
-              disabled={!cardSelection.canCloze}
-              onClick={() => {
-                if (cardSelection.cloze)
-                  editor.commands.removeCloze()
-                else
-                  editor.commands.addCloze({ anchorKind: cardSelection.clozeAnchorKind })
-              }}
-              tooltip={cardSelection.cloze ? t('ui.removeCloze') : t('ui.cloze')}
-            >
-              <Brackets size={16} />
-            </Button>
+            {learningEnabled
+              ? (
+                  <Button
+                    pressed={cardSelection.cloze}
+                    disabled={!cardSelection.canCloze}
+                    onClick={() => {
+                      if (cardSelection.cloze)
+                        editor.commands.removeCloze()
+                      else
+                        editor.commands.addCloze({ anchorKind: cardSelection.clozeAnchorKind })
+                    }}
+                    tooltip={cardSelection.cloze ? t('ui.removeCloze') : t('ui.cloze')}
+                  >
+                    <Brackets size={16} />
+                  </Button>
+                )
+              : null}
             <Button
               pressed={cardSelection.highlight}
               disabled={!cardSelection.canHighlight}

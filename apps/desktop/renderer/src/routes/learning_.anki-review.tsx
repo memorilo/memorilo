@@ -1,6 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { lazy, Suspense, useEffect } from 'react'
 
-import { AnkiReviewPage } from '../features/learning/anki-review/anki-review-page'
+import { useDesktopConfiguration } from '../shared/configuration'
+
+const AnkiReviewPage = lazy(async () => {
+  const module = await import('../features/learning/anki-review/anki-review-page')
+  return { default: module.AnkiReviewPage }
+})
 
 interface AnkiReviewSearch {
   deckId: number
@@ -21,13 +27,22 @@ export const Route = createFileRoute('/learning_/anki-review')({
 })
 
 function AnkiReviewRoute() {
+  const configuration = useDesktopConfiguration()
   const deck = Route.useSearch()
   const navigate = Route.useNavigate()
+  useEffect(() => {
+    if (!configuration.learning.enabled)
+      void navigate({ replace: true, to: '/journals' })
+  }, [configuration.learning.enabled, navigate])
+  if (!configuration.learning.enabled)
+    return null
   return (
-    <AnkiReviewPage
-      key={deck.deckId}
-      deck={{ id: deck.deckId, name: deck.deckName }}
-      onClose={() => navigate({ search: {}, to: '/learning' })}
-    />
+    <Suspense fallback={null}>
+      <AnkiReviewPage
+        key={deck.deckId}
+        deck={{ id: deck.deckId, name: deck.deckName }}
+        onClose={() => navigate({ search: {}, to: '/learning' })}
+      />
+    </Suspense>
   )
 }

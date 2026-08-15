@@ -143,6 +143,7 @@ describe('desktop preload API', () => {
       anki: desktopConfigurationDefinition.defaults.anki,
       flashcards: desktopConfigurationDefinition.defaults.flashcards,
       goals: desktopConfigurationDefinition.defaults.goals,
+      learning: desktopConfigurationDefinition.defaults.learning,
       language: 'system',
       mcp: { accessToken: '0123456789abcdef0123456789abcdef', enabled: true, port: 8765 },
       networkImagePasteBehavior: 'download',

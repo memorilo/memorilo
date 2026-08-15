@@ -34,6 +34,7 @@ interface EditorBaseProps {
   cards?: EditorCardIntegration
   focus?: EditorFocusTarget
   imageOcclusion?: EditorImageOcclusionIntegration
+  learningEnabled?: boolean
   mode?: EditorModeValue
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
@@ -57,6 +58,7 @@ export function Editor(props: EditorProps) {
   const onDocumentChangeRef = useRef(props.onDocumentChange)
   const onCardSyncErrorRef = useRef(props.cards?.onSyncError)
   const imageOcclusionRef = useRef(props.imageOcclusion)
+  const learningEnabled = props.learningEnabled ?? true
   const controlledFocusProvided = Boolean(props.outline && Object.prototype.hasOwnProperty.call(props.outline, 'focus'))
   const controlledFocus = props.outline?.focus
   const controlledOutdentBehaviorProvided = Boolean(
@@ -124,6 +126,7 @@ export function Editor(props: EditorProps) {
     cardReview: initialCardReviewRef.current,
     cards: cardIntegration,
     imageOcclusion,
+    learningEnabled,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
     readOnly: props.readOnly === true,
@@ -131,7 +134,7 @@ export function Editor(props: EditorProps) {
     // The underlying Note topic is stable by ID; ignore wrapper-object changes
     // caused by persistence receipts so asynchronous uploads retain their view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [props.adapters, cardIntegration, imageOcclusion, props.readOnly, props.topic.documentId, props.topic.noteId])
+  }), [props.adapters, cardIntegration, imageOcclusion, learningEnabled, props.readOnly, props.topic.documentId, props.topic.noteId])
 
   useEffect(() => {
     return () => {
@@ -150,7 +153,7 @@ export function Editor(props: EditorProps) {
   }, [controlledFocus, controlledFocusProvided, session])
 
   useLayoutEffect(() => {
-    if (!props.cardReview)
+    if (!props.cardReview || !session.learningEnabled)
       return
     if (!session.cardReviewRuntime)
       throw new Error('Controlled Card review requires a Card review Editor session')
@@ -175,6 +178,7 @@ export function Editor(props: EditorProps) {
         ref={rootRef}
         {...stylex.props(editorShellStyles.root, embedded && editorShellStyles.rootEmbedded)}
         data-editor-layout={layout}
+        data-editor-learning-disabled={!session.learningEnabled ? '' : undefined}
         data-editor-mode={editorModeName(mode)}
         data-editor-readonly={props.readOnly ? '' : undefined}
       >

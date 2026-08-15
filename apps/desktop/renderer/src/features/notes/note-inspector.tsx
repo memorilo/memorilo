@@ -33,6 +33,7 @@ export function NoteInspector({
   contextMenu,
   currentTopicId,
   entries,
+  learningEnabled = true,
   noteId,
   onToggleEntry,
   open,
@@ -44,6 +45,7 @@ export function NoteInspector({
   }
   currentTopicId: string
   entries: readonly NoteEntrySnapshot[]
+  learningEnabled?: boolean
   noteId: string
   onToggleEntry: (entryId: string) => void
   open: boolean
@@ -76,6 +78,7 @@ export function NoteInspector({
                 contextMenu={contextMenu}
                 currentTopicId={currentTopicId}
                 entries={entries}
+                learningEnabled={learningEnabled}
                 noteId={noteId}
                 onToggleEntry={onToggleEntry}
               />
@@ -91,6 +94,7 @@ export function NoteInspectorContent({
   contextMenu,
   currentTopicId,
   entries,
+  learningEnabled = true,
   noteId,
   onToggleEntry,
   showTitle = true,
@@ -102,6 +106,7 @@ export function NoteInspectorContent({
   }
   currentTopicId: string
   entries: readonly NoteEntrySnapshot[]
+  learningEnabled?: boolean
   noteId: string
   onToggleEntry: (entryId: string) => void
   showTitle?: boolean
@@ -109,12 +114,13 @@ export function NoteInspectorContent({
   const { t } = useTranslation('editor')
   const shouldReduceMotion = useReducedMotion()
   const visibleEntries = useMemo(
-    () => projectVisibleNoteEntries(entries, collapsedEntryIds),
-    [collapsedEntryIds, entries],
+    () => projectVisibleNoteEntries(entries, collapsedEntryIds)
+      .filter(({ entry }) => learningEnabled || entry.kind !== 'topic' || entry.topicType !== 'image-occlusion'),
+    [collapsedEntryIds, entries, learningEnabled],
   )
   const topicCount = useMemo(
-    () => entries.reduce((count, entry) => count + (entry.kind === 'topic' ? 1 : 0), 0),
-    [entries],
+    () => entries.reduce((count, entry) => count + (entry.kind === 'topic' && (learningEnabled || entry.topicType !== 'image-occlusion') ? 1 : 0), 0),
+    [entries, learningEnabled],
   )
   const entryTransition = shouldReduceMotion ? { duration: 0.12 } : entrySpring
 
