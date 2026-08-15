@@ -40,6 +40,9 @@ describe('reader annotation Topic creation', () => {
     })
 
     await vi.waitFor(() => expect(captureReaderRegion).toHaveBeenCalledOnce())
+    expect(captureReaderRegion).toHaveBeenCalledWith(
+      { height: 60, width: 120, x: 40, y: 30 },
+    )
     controller.abort(cancellation)
     capture.resolve(new Uint8Array([137, 80, 78, 71]))
 

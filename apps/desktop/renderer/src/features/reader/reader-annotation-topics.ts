@@ -4,15 +4,16 @@ import type {
   ReaderAnnotationTopicCreateInput,
   ReaderClientRect,
 } from '@memorilo/editor/reader'
+import type { ReaderCaptureRegion } from './reader-capture'
 
-interface ReaderViewport {
+export interface ReaderViewport {
   height: number
   width: number
 }
 
 interface CreateReaderAnnotationTopicOptions {
   bookTopicId: string
-  captureReaderRegion: DesktopApi['captureReaderRegion']
+  captureReaderRegion: (region: ReaderCaptureRegion) => Promise<Uint8Array>
   createTopic: (input: CreateTopicInput) => string
   input: ReaderAnnotationTopicCreateInput
   saveImage: DesktopApi['saveImage']
@@ -27,7 +28,7 @@ function annotationTopicTitle(input: ReaderAnnotationTopicCreateInput): string {
   return text.length > 80 ? `${text.slice(0, 77)}...` : text
 }
 
-function captureRegion(input: ReaderClientRect, viewport: ReaderViewport) {
+export function readerCaptureRegion(input: ReaderClientRect, viewport: ReaderViewport) {
   const x = Math.max(0, Math.floor(input.left))
   const y = Math.max(0, Math.floor(input.top))
   const right = Math.min(viewport.width, Math.ceil(input.left + input.width))
@@ -60,7 +61,7 @@ export async function createReaderAnnotationTopic({
     }
   }
   else {
-    const png = await captureReaderRegion(captureRegion(input.clientRect, viewport))
+    const png = await captureReaderRegion(readerCaptureRegion(input.clientRect, viewport))
     signal.throwIfAborted()
     const saved = await saveImage({
       data: png,

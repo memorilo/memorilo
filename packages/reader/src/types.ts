@@ -81,6 +81,38 @@ export interface ReaderClientRect {
   width: number
 }
 
+interface ReaderImageOcclusionShapeBase {
+  groupId: string
+  id: string
+}
+
+export interface ReaderImageOcclusionBoundsShape extends ReaderImageOcclusionShapeBase {
+  height: number
+  kind: 'ellipse' | 'rectangle'
+  width: number
+  x: number
+  y: number
+}
+
+export interface ReaderImageOcclusionBrushShape extends ReaderImageOcclusionShapeBase {
+  kind: 'brush'
+  points: readonly number[]
+  strokeWidth: number
+}
+
+export type ReaderImageOcclusionShape
+  = | ReaderImageOcclusionBoundsShape
+    | ReaderImageOcclusionBrushShape
+
+export interface ReaderImageOcclusionOverlay {
+  annotationId: string
+  image: {
+    height: number
+    width: number
+  }
+  shapes: readonly ReaderImageOcclusionShape[]
+}
+
 export interface ReaderOutlineItem {
   children: readonly ReaderOutlineItem[]
   href?: string
@@ -131,6 +163,11 @@ export interface ReaderAnnotationTopicCreateInput {
   annotation: ReaderAnnotation
   clientRect: ReaderClientRect
   location: string
+}
+
+export interface ReaderAnnotationDependents {
+  annotationTopicId?: string
+  imageOcclusionTopicIds: readonly string[]
 }
 
 export interface ReaderOcrTextItem {
@@ -191,13 +228,20 @@ export interface ReaderProps {
   initialPosition?: ReaderPosition | null
   initialPresentationMode?: ReaderPresentationMode
   initialAnnotationId?: string
+  imageOcclusionOverlays?: readonly ReaderImageOcclusionOverlay[]
   ocrProvider?: ReaderOcrProvider
   onAnnotationsChange?: (annotations: readonly ReaderAnnotation[]) => void
   onCreateAnnotationTopic?: (input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => Promise<string>
+  onPrepareAnnotationDeletion?: (annotation: ReaderAnnotation) => Promise<void>
   onDetachAnnotationTopic?: (topicId: string) => Promise<void>
   onError?: (error: Error) => void
   onLocationChange?: (location: ReaderLocation) => void
   onOcrStatusChange?: (status: ReaderOcrStatus) => void
+  onGetAnnotationDependents?: (annotation: ReaderAnnotation) => ReaderAnnotationDependents
+  onOpenReaderRegionImageOcclusion?: (
+    input: ReaderAnnotationTopicCreateInput,
+    signal: AbortSignal,
+  ) => Promise<void>
   onPositionChange?: (position: ReaderPosition) => void
   onSelectionChange?: (selection: ReaderSelection | null) => void
   renderAnnotationEditor?: (input: ReaderAnnotationEditorRenderInput) => ReactNode

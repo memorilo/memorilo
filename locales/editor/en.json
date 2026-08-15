@@ -64,6 +64,7 @@
   "create": "Create",
   "imageOcclusion": {
     "defaultTitle": "Image Occlusion",
+    "readerRegionSource": "Reader region snapshot",
     "title": "Image occlusion topic title",
     "tools": "Occlusion tools",
     "tool": {

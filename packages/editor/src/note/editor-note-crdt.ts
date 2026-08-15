@@ -6,7 +6,7 @@ import { normalizeTopicReaderReference } from './topic-reader-reference'
 
 export const NOTE_META_KEY = 'noteMeta'
 export const NOTE_ENTRIES_KEY = 'entries'
-export const NOTE_SCHEMA_VERSION = 5
+export const NOTE_SCHEMA_VERSION = 6
 export const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
 export const ENTRY_ID_KEY = 'entryId'
 export const ENTRY_KIND_KEY = 'kind'

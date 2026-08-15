@@ -121,7 +121,7 @@ export function ReaderAnnotationConnectors({
   return paths.length === 0
     ? null
     : (
-        <svg {...stylex.props(styles.overlay)} aria-hidden="true">
+        <svg {...stylex.props(styles.overlay)} aria-hidden="true" data-reader-capture-overlay="true">
           {paths.map(path => (
             <g key={path.annotationId}>
               <path {...stylex.props(styles.path, path.active && styles.pathActive)} d={path.d} />
