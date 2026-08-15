@@ -164,11 +164,6 @@ export class PdfReaderSurface {
     this.#viewport?.positionAtEdge(edge)
   }
 
-  scrollPageIntoView(): void {
-    if (!this.#closed)
-      this.pageSurface.scrollIntoView({ block: 'center', inline: 'center' })
-  }
-
   setRegionSelectionEnabled(enabled: boolean): void {
     this.#regionSelection?.setEnabled(enabled)
   }

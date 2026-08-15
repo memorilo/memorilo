@@ -1,4 +1,6 @@
 {
+  "openReaderSource": "Open source in Reader",
+  "removeReaderSource": "Remove Reader source",
   "noteTitle": "Note",
   "loadingEditor": "Loading editor…",
   "openingNote": "Opening Note…",
@@ -89,6 +91,7 @@
   "create": "Create",
   "imageOcclusion": {
     "defaultTitle": "Image Occlusion",
+    "readerRegionSource": "Reader region snapshot",
     "title": "Image occlusion topic title",
     "tools": "Occlusion tools",
     "tool": {

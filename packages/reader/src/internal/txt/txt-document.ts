@@ -4,10 +4,13 @@ import type {
   ReaderTxtTextAnchor,
 } from '../../types'
 
-type TxtTextAnnotation = ReaderAnnotation & { anchor: ReaderTxtTextAnchor }
+interface TxtTextAnnotationFragment {
+  anchor: ReaderTxtTextAnchor
+  annotation: ReaderAnnotation
+}
 
 export interface TxtAnnotationRun {
-  annotation: TxtTextAnnotation | null
+  annotation: ReaderAnnotation | null
   end: number
   start: number
   text: string
@@ -17,7 +20,7 @@ export interface TxtDocument {
   readonly length: number
   readonly text: string
   annotationRuns: (annotations: readonly ReaderAnnotation[]) => readonly TxtAnnotationRun[]
-  requireRegionRange: (annotation: ReaderAnnotation & { anchor: ReaderTxtRegionAnchor }) => { end: number, start: number }
+  requireRegionRange: (annotation: ReaderAnnotation, anchor: ReaderTxtRegionAnchor) => { end: number, start: number }
   textAnchor: (start: number, end: number) => ReaderTxtTextAnchor
 }
 
@@ -78,15 +81,17 @@ export function decodeTxtDocument(bytes: Uint8Array): TxtDocument {
   const length = text.length
 
   const annotationRuns = (annotations: readonly ReaderAnnotation[]): readonly TxtAnnotationRun[] => {
-    const textAnnotations = annotations.filter((annotation): annotation is TxtTextAnnotation => (
-      annotation.anchor.format === 'txt'
-      && annotation.anchor.type === 'text'
-      && validRange(length, annotation.anchor.start, annotation.anchor.end)
+    const textAnnotations = annotations.flatMap((annotation): TxtTextAnnotationFragment[] => (
+      annotation.anchors.flatMap(anchor => anchor.format === 'txt'
+        && anchor.type === 'text'
+        && validRange(length, anchor.start, anchor.end)
+        ? [{ anchor, annotation }]
+        : [])
     ))
     const boundaries = [...new Set([
       0,
       length,
-      ...textAnnotations.flatMap(annotation => [annotation.anchor.start, annotation.anchor.end]),
+      ...textAnnotations.flatMap(fragment => [fragment.anchor.start, fragment.anchor.end]),
     ])].sort((left, right) => left - right)
 
     const runs: TxtAnnotationRun[] = []
@@ -97,16 +102,18 @@ export function decodeTxtDocument(bytes: Uint8Array): TxtDocument {
         continue
       const annotation = textAnnotations
         .filter(candidate => candidate.anchor.start <= start && candidate.anchor.end >= end)
-        .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+        .sort((left, right) => right.annotation.updatedAt - left.annotation.updatedAt)[0]
+        ?.annotation ?? null
       runs.push({ annotation, end, start, text: text.slice(start, end) })
     }
     return runs
   }
 
   const requireRegionRange = (
-    annotation: ReaderAnnotation & { anchor: ReaderTxtRegionAnchor },
+    annotation: ReaderAnnotation,
+    anchor: ReaderTxtRegionAnchor,
   ): { end: number, start: number } => {
-    const { end, start } = annotation.anchor
+    const { end, start } = anchor
     requireRange(length, start, end, `Annotation ${annotation.id} contains invalid TXT region offsets`)
     return { end, start }
   }

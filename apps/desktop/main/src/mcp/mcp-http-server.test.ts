@@ -537,7 +537,17 @@ describe('streamable HTTP server for MCP', () => {
     await connected
     await new Promise(resolve => setImmediate(resolve))
 
-    await stops[stops.length - 1]!()
+    let stopped = false
+    const stopping = stops[stops.length - 1]!().then(() => {
+      stopped = true
+    })
+    try {
+      await vi.waitFor(() => expect(stopped).toBe(true), { timeout: 2_000 })
+    }
+    finally {
+      request.destroy()
+    }
+    await stopping
     await settled
   })
 })

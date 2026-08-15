@@ -1,5 +1,6 @@
 import type {
   ReaderAnnotation,
+  ReaderPageMode,
   ReaderPosition,
   ReaderPresentationMode,
 } from '../../types'
@@ -19,18 +20,20 @@ import {
 } from '@memorilo/effect-lifecycle'
 import { Locator } from '@readium/shared'
 import { assertReaderPositionFormat, runSingleMount } from '../reader-adapter'
+import { EpubContinuousReaderMount } from './epub-continuous-reader-mount'
 import { parseEpub } from './epub-parser'
 import { EpubReaderMount } from './epub-reader-mount'
 import './epub-layer.css'
 
 type EpubSource = ResolvedReaderSource & { format: 'epub' }
+type EpubMount = EpubContinuousReaderMount | EpubReaderMount
 
 class EpubAdapter implements ReaderAdapter {
   private annotations: readonly ReaderAnnotation[] = []
   private destroyed = false
   private readonly finalizer = createResourceScope('EPUB reader', { closeMode: 'dependent' })
   private readonly initialLocator: Locator
-  private mounted: EpubReaderMount | null = null
+  private mounted: EpubMount | null = null
   private readonly operations = createOperationSupervisor('EPUB reader', { shutdown: 'interrupt' })
   private readonly presentationMode: ReaderPresentationMode
   readonly setScale?: (scale: number) => Promise<void>
@@ -39,6 +42,7 @@ class EpubAdapter implements ReaderAdapter {
     private readonly source: EpubSource,
     private readonly parsed: ParsedEpub,
     initialPresentationMode: ReaderPresentationMode,
+    private readonly pageMode: ReaderPageMode,
     initialPosition: ReaderPosition | null | undefined,
     private readonly callbacks: ReaderAdapterCallbacks,
   ) {
@@ -109,10 +113,12 @@ class EpubAdapter implements ReaderAdapter {
     )
   }
 
-  moveViewport(_direction: ReaderScrollDirection): ReaderScrollResult {
+  moveViewport(direction: ReaderScrollDirection): ReaderScrollResult {
     if (this.destroyed)
       throw new Error('EPUB reader is not available')
-    return 'at-boundary'
+    return this.pageMode === 'continuous'
+      ? (this.mounted as EpubContinuousReaderMount | null)?.moveViewport(direction) ?? 'at-boundary'
+      : 'at-boundary'
   }
 
   setAnnotations(annotations: readonly ReaderAnnotation[]): void {
@@ -128,16 +134,20 @@ class EpubAdapter implements ReaderAdapter {
   }
 
   private async mountReader(container: HTMLElement, signal: AbortSignal): Promise<void> {
-    const mounted = new EpubReaderMount({
+    const options = {
       annotations: this.annotations,
       callbacks: this.callbacks,
       container,
       initialLocator: this.initialLocator,
       parsed: this.parsed,
       presentationMode: this.presentationMode,
+      pageMode: this.pageMode,
       signal,
       sourceName: this.source.name,
-    })
+    }
+    const mounted: EpubMount = this.pageMode === 'continuous'
+      ? EpubContinuousReaderMount.open(options)
+      : new EpubReaderMount(options)
     this.mounted = mounted
     try {
       await mounted.ready
@@ -179,7 +189,7 @@ class EpubAdapter implements ReaderAdapter {
     })
   }
 
-  private requireMount(): EpubReaderMount {
+  private requireMount(): EpubMount {
     if (!this.mounted || this.destroyed)
       throw new Error('EPUB reader is not available')
     return this.mounted
@@ -189,6 +199,7 @@ class EpubAdapter implements ReaderAdapter {
 export async function openEpubAdapter(
   source: EpubSource,
   initialPresentationMode: ReaderPresentationMode,
+  pageMode: ReaderPageMode,
   initialPosition: ReaderPosition | null | undefined,
   callbacks: ReaderAdapterCallbacks,
   signal?: AbortSignal,
@@ -196,7 +207,7 @@ export async function openEpubAdapter(
   const parsed = await parseEpub(source, signal)
   try {
     signal?.throwIfAborted()
-    return new EpubAdapter(source, parsed, initialPresentationMode, initialPosition, callbacks)
+    return new EpubAdapter(source, parsed, initialPresentationMode, pageMode, initialPosition, callbacks)
   }
   catch (error) {
     try {

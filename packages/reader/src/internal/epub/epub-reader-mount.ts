@@ -1,7 +1,7 @@
-import type { Decoration, DecorationObserver } from '@readium/navigator'
+import type { DecorationObserver } from '@readium/navigator'
 import type { BasicTextSelection } from '@readium/navigator-html-injectables'
 import type { Link } from '@readium/shared'
-import type { ReaderAnnotation, ReaderPresentationMode } from '../../types'
+import type { ReaderAnnotation, ReaderPageMode, ReaderPresentationMode } from '../../types'
 import type { ReaderAdapterCallbacks, ReaderAdapterState } from '../reader-adapter'
 import type { ReaderOutlineProjection } from '../reader-outline'
 import type { RegionSelectionResult } from '../region-selection'
@@ -14,7 +14,7 @@ import { clampReaderScale, toReaderError } from '../reader-adapter'
 import {
   epubOutline,
   projectEpubTextSelection,
-  readiumDecoration,
+  readiumDecorations,
 } from './epub-content-projection'
 import { EpubFrameKeyboardOwner } from './epub-frame-keyboard'
 import { projectEpubReaderState } from './epub-reader-state'
@@ -23,7 +23,7 @@ import { projectEpubRegionMarkers, projectEpubRegionSelection } from './epub-reg
 
 const annotationGroup = 'memorilo-annotations'
 
-function preferences(mode: ReaderPresentationMode, scale: number): EpubPreferences {
+function preferences(mode: ReaderPresentationMode, pageMode: ReaderPageMode, scale: number): EpubPreferences {
   if (mode === 'reader') {
     return new EpubPreferences({
       fontSize: scale,
@@ -31,6 +31,7 @@ function preferences(mode: ReaderPresentationMode, scale: number): EpubPreferenc
       lineHeight: 1.5,
       optimalLineLength: 65,
       paragraphSpacing: 1,
+      scroll: pageMode === 'continuous',
       textNormalization: true,
     })
   }
@@ -41,6 +42,7 @@ function preferences(mode: ReaderPresentationMode, scale: number): EpubPreferenc
     optimalLineLength: null,
     paragraphSpacing: null,
     textNormalization: null,
+    scroll: pageMode === 'continuous',
   })
 }
 
@@ -50,6 +52,7 @@ interface EpubReaderMountOptions {
   container: HTMLElement
   initialLocator: Locator
   parsed: ParsedEpub
+  pageMode: ReaderPageMode
   presentationMode: ReaderPresentationMode
   signal: AbortSignal
   sourceName: string
@@ -123,9 +126,10 @@ export class EpubReaderMount {
 
   async goToAnnotation(annotationId: string, signal: AbortSignal): Promise<void> {
     const annotation = this.#annotations.find(item => item.id === annotationId)
-    if (!annotation || annotation.anchor.format !== 'epub')
+    const anchor = annotation?.anchors[0]
+    if (!annotation || !anchor || anchor.format !== 'epub')
       throw new Error(`EPUB annotation ${annotationId} does not exist`)
-    const locator = Locator.deserialize(annotation.anchor.locator)
+    const locator = Locator.deserialize(anchor.locator)
     if (!locator)
       throw new Error(`EPUB annotation ${annotationId} contains an invalid locator`)
     const navigator = this.requireNavigator()
@@ -180,7 +184,7 @@ export class EpubReaderMount {
     this.clearSelection()
     const navigator = this.requireNavigator()
     await interruptPromise(
-      navigator.submitPreferences(preferences(this.options.presentationMode, nextScale)),
+      navigator.submitPreferences(preferences(this.options.presentationMode, this.options.pageMode, nextScale)),
       signal,
     )
     if (this.#scope.isClosed() || this.#navigator !== navigator)
@@ -192,11 +196,18 @@ export class EpubReaderMount {
 
   private applyAnnotations(): void {
     const navigator = this.requireNavigator()
-    const decorations = this.#annotations
-      .map(readiumDecoration)
-      .filter((decoration): decoration is Decoration => decoration !== null)
+    const decorations = this.#annotations.flatMap(readiumDecorations)
     navigator.applyDecorations(decorations, annotationGroup)
     this.renderRegionAnnotations()
+  }
+
+  private annotationIdForDecoration(decorationId: string): string {
+    const annotation = this.#annotations.find(candidate => (
+      decorationId === candidate.id || decorationId.startsWith(`${candidate.id}:`)
+    ))
+    if (!annotation)
+      throw new Error(`EPUB decoration ${decorationId} does not belong to a reader annotation`)
+    return annotation.id
   }
 
   private commitLocator(locator: Locator, publish = true): void {
@@ -299,7 +310,7 @@ export class EpubReaderMount {
           {
             defaults: {},
             injectables: { allowedDomains: [], rules: [] },
-            preferences: preferences(this.options.presentationMode, this.#scale),
+            preferences: preferences(this.options.presentationMode, this.options.pageMode, this.#scale),
           },
         ),
         close: async (owned) => {
@@ -315,7 +326,8 @@ export class EpubReaderMount {
         acquire: () => {
           const observer: DecorationObserver = {
             onDecorationActivated: ({ decoration }) => {
-              this.observe(() => callbacks.onAnnotationActivate({ annotationId: decoration.id }))
+              const annotationId = this.annotationIdForDecoration(decoration.id)
+              this.observe(() => callbacks.onAnnotationActivate({ annotationId }))
               return true
             },
           }
@@ -340,6 +352,7 @@ export class EpubReaderMount {
       locator,
       navigator: this.requireNavigator(),
       outline: this.#outline,
+      pageMode: this.options.pageMode,
       parsed: this.options.parsed,
       presentationMode: this.options.presentationMode,
       scale: this.#scale,
@@ -360,7 +373,7 @@ export class EpubReaderMount {
     )
     this.options.callbacks.onSelectionChange({
       clientRect: projected.clientRect,
-      selection: { anchor: projected.anchor, type: 'region' },
+      selection: { anchors: [projected.anchor], type: 'region' },
     })
   }
 

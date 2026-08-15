@@ -45,6 +45,7 @@ export type DesktopIpcHandlers = Omit<PlainDesktopIpcHandlers, 'assets' | 'books
     readonly selectContext: ContextualHandlerFor<DesktopIpcClient['books']['selectContext']>
   }
   readonly window: {
+    readonly captureReaderRegion: ContextualHandlerFor<DesktopIpcClient['window']['captureReaderRegion']>
     readonly showColumnVisibilityMenu: ContextualHandlerFor<DesktopIpcClient['window']['showColumnVisibilityMenu']>
   }
 }

@@ -51,7 +51,7 @@ export function projectPdfTextSelection({
   return {
     selection: {
       clientRect: boundingReaderClientRect(domRects),
-      selection: { anchor, text: exact, type: 'text' },
+      selection: { anchors: [anchor], text: exact, type: 'text' },
     },
     status: 'owned',
   }

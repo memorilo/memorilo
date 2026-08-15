@@ -1,5 +1,6 @@
 import type { DesktopMcpConfiguration } from '@memorilo/desktop-config'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { Socket } from 'node:net'
 import type { NoteApplicationService } from '../notes/note-application-service'
 import { Buffer } from 'node:buffer'
 import { timingSafeEqual } from 'node:crypto'
@@ -122,11 +123,16 @@ export async function startMcpHttpServer(
 
   const activeConnections = new Set<OwnedMcpProtocolConnection>()
   const activeBodyRequestAborts = new Set<() => void>()
+  const unownedHttpSockets = new Set<Socket>()
   const requestOperations = createOperationSupervisor('MCP HTTP server', {
     concurrency: 'unbounded',
   })
   let stopping = false
-  const handleRequest = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+  const handleRequest = async (
+    request: IncomingMessage,
+    response: ServerResponse,
+    releaseBodyRequestAbort: () => void,
+  ): Promise<void> => {
     try {
       if (stopping) {
         response.writeHead(503).end()
@@ -149,14 +155,12 @@ export async function startMcpHttpServer(
         return
       }
 
-      const abortBodyRead = () => request.destroy()
-      activeBodyRequestAborts.add(abortBodyRead)
       let body: unknown
       try {
         body = await readJson(request)
       }
       finally {
-        activeBodyRequestAborts.delete(abortBodyRead)
+        releaseBodyRequestAbort()
       }
       // Body parsing yields to the event loop; shutdown may have started while
       // the request was being read. Do not acquire a protocol transport after
@@ -224,12 +228,27 @@ export async function startMcpHttpServer(
     }
   }
   const httpServer = createServer((request, response) => {
-    void requestOperations.run(() => handleRequest(request, response)).catch((error) => {
+    const socket = request.socket
+    unownedHttpSockets.delete(socket)
+    response.once('finish', () => {
+      if (!stopping && !socket.destroyed)
+        unownedHttpSockets.add(socket)
+    })
+    const abortBodyRequest = () => request.destroy()
+    const releaseBodyRequestAbort = () => activeBodyRequestAborts.delete(abortBodyRequest)
+    activeBodyRequestAborts.add(abortBodyRequest)
+    void requestOperations.run(() => (
+      handleRequest(request, response, releaseBodyRequestAbort)
+    )).catch((error) => {
       if (!stopping)
         console.error('Failed to admit MCP request', error)
       if (!response.headersSent)
         response.writeHead(stopping ? 503 : 500).end()
-    })
+    }).finally(releaseBodyRequestAbort)
+  })
+  httpServer.on('connection', (socket) => {
+    unownedHttpSockets.add(socket)
+    socket.once('close', () => unownedHttpSockets.delete(socket))
   })
   httpServer.requestTimeout = 30_000
   httpServer.headersTimeout = 15_000
@@ -321,6 +340,8 @@ export async function startMcpHttpServer(
   resources.commit()
   return () => {
     stopping = true
+    for (const socket of unownedHttpSockets)
+      socket.destroy()
     for (const abortRequest of activeBodyRequestAborts)
       abortRequest()
     return resources.close()

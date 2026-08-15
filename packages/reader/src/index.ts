@@ -1,11 +1,19 @@
+export { readerAnnotationLabel } from './internal/annotation-label'
 export { Reader, WindowReader } from './reader'
+export { prepareReaderAnnotationDeletion } from './reader-annotation-deletion'
 export type {
   ReaderAnchor,
   ReaderAnnotation,
   ReaderAnnotationColor,
+  ReaderAnnotationCopyFormat,
+  ReaderAnnotationDependents,
+  ReaderAnnotationEditorRenderInput,
+  ReaderAnnotationStyle,
+  ReaderAnnotationTopicCreateInput,
   ReaderAuxiliarySidebar,
   ReaderAuxiliarySidebarController,
   ReaderCapabilities,
+  ReaderClientRect,
   ReaderComicRegionAnchor,
   ReaderDataSource,
   ReaderEpubLocator,
@@ -13,6 +21,10 @@ export type {
   ReaderEpubTextAnchor,
   ReaderFormat,
   ReaderHighlight,
+  ReaderImageOcclusionBoundsShape,
+  ReaderImageOcclusionBrushShape,
+  ReaderImageOcclusionOverlay,
+  ReaderImageOcclusionShape,
   ReaderLocation,
   ReaderNormalizedRect,
   ReaderNote,

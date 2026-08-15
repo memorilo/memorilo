@@ -17,17 +17,25 @@ import type { EditorModeValue } from '../common/editor-mode'
 import type {
   ImageOcclusionSnapshot,
   ImageOcclusionSource,
+  ImageOcclusionSourceReference,
   ImageOcclusionState,
 } from '../image-occlusion/image-occlusion-model'
 import type { LoroTopic } from '../schema/topic-schema'
 import type { TopicBlockEdit } from './editor-note-block-edits'
 import type { TopicContentProjection } from './topic-projection'
+import type { TopicReaderReference } from './topic-reader-reference'
 import { createEditorNoteCollaborationRuntime } from './editor-note-collaboration-runtime'
 import { createEditorNoteEntryRepository } from './editor-note-entry-repository'
 import { EditorNoteRuntime } from './editor-note-runtime'
 import { EditorNoteTopics } from './editor-note-topic-documents'
 
 export { resolveEditorTopicBinding } from './editor-note-topic-documents'
+export type {
+  TopicReaderReference,
+  TopicReaderRegionSource,
+  TopicReaderSource,
+  TopicReaderTextSource,
+} from './topic-reader-reference'
 
 export type NoteEntryKind = 'folder' | 'topic'
 
@@ -50,6 +58,7 @@ interface TopicSnapshotBase extends NoteEntryBase {
 
 export interface RegularTopicSnapshot extends TopicSnapshotBase {
   mode: EditorModeValue
+  readerReference?: TopicReaderReference
   topicType: 'regular'
 }
 
@@ -121,6 +130,8 @@ export interface CreateTopicInput {
   mode: EditorModeValue
   /** The containing Topic or Folder, or `null`/omitted for a root Topic. */
   parentId?: string | null
+  /** A system-managed source shown above the Topic Editor. */
+  readerReference?: TopicReaderReference
   /** An explicit title. Use an empty string to derive the effective title from the first content line. */
   title: string
 }
@@ -142,8 +153,7 @@ export interface CreateImageOcclusionTopicInput {
   /** The zero-based position among the source Topic's children. Appends when omitted. */
   index?: number
   snapshot: (source: ImageOcclusionSource) => Promise<ImageOcclusionSnapshot>
-  sourceImageId: string
-  sourceTopicId: string
+  source: ImageOcclusionSourceReference
   title: string
 }
 
@@ -306,7 +316,7 @@ export interface EditorNote {
   createFolder: (input: CreateFolderInput) => string
   /** Atomically creates a BookTopic with editable content and initialized reading state. */
   createBookTopic: (input: CreateBookTopicInput) => string
-  /** Creates the only ImageOcclusionTopic associated with one RegularTopic image. */
+  /** Creates the only ImageOcclusionTopic associated with one Topic image or BookTopic Reader region. */
   createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => Promise<string>
   /** Atomically creates a whiteboard Topic with an empty scene. */
   createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
@@ -331,14 +341,16 @@ export interface EditorNote {
   getBookTopic: (topicId: string) => EditorBookTopicDocument
   /** Returns the specialized state handle for an existing ImageOcclusionTopic. */
   getImageOcclusionTopic: (topicId: string) => EditorImageOcclusionTopicDocument
-  /** Finds the unique ImageOcclusionTopic associated with a RegularTopic image. */
-  findImageOcclusionTopic: (sourceTopicId: string, sourceImageId: string) => EditorImageOcclusionTopicDocument | null
+  /** Finds the unique ImageOcclusionTopic associated with one source image or Reader region. */
+  findImageOcclusionTopic: (source: ImageOcclusionSourceReference) => EditorImageOcclusionTopicDocument | null
   /** Returns the scene and Embedded Editor handle for an existing WhiteboardTopic. */
   getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the cell-native Workbook handle for an existing SpreadsheetTopic. */
   getSpreadsheetTopic: (topicId: string) => EditorSpreadsheetTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
   getTopicContent: (topicId: string) => TopicContentProjection
+  /** Returns the system-managed Reader source for a regular Topic, when present. */
+  getTopicReaderReference: (topicId: string) => TopicReaderReference | null
   /** Returns the exact plain JavaScript object passed to Topic validation. */
   getTopicValidationInput: (topicId: string) => TopicValidationInput
   /** Validates a Topic's Loro entry and referenced content tree as one complete object. */
@@ -357,6 +369,8 @@ export interface EditorNote {
   moveEntry: (input: MoveNoteEntryInput) => void
   /** Renames an entry. Topic labels may be empty; Folder names must remain non-empty. */
   renameEntry: (entryId: string, label: string) => void
+  /** Replaces, detaches, or removes the system-managed Reader source for a regular Topic. */
+  setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
   /** Replaces the non-empty Note title. */
   renameNote: (title: string) => void
   /** Subscribes to locally generated Loro updates that callers should persist or transmit. */
@@ -414,7 +428,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     getTopic: topicId => topics.get(topicId),
     getBookTopic: topicId => topics.getBook(topicId),
     getImageOcclusionTopic: topicId => topics.getImageOcclusion(topicId),
-    findImageOcclusionTopic: (sourceTopicId, sourceImageId) => topics.findImageOcclusion(sourceTopicId, sourceImageId),
+    findImageOcclusionTopic: source => topics.findImageOcclusion(source),
     getWhiteboardTopic: topicId => topics.getWhiteboard(topicId),
     getSpreadsheetTopic: topicId => topics.getSpreadsheet(topicId),
     checkout: collaboration.checkout,
@@ -430,6 +444,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     exportUpdates: collaboration.exportUpdates,
     getEntries: entryRepository.getEntries,
     getTopicContent: topicId => topics.content(topicId),
+    getTopicReaderReference: entryRepository.getTopicReaderReference,
     getTitle: () => runtime.getTitle(),
     getTopicValidationInput: topicId => topics.validationInput(topicId),
     validateTopic: topicId => topics.validate(topicId),
@@ -440,6 +455,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     moveEntry: entryRepository.moveEntry,
     renameEntry: entryRepository.renameEntry,
     renameNote: title => runtime.rename(title),
+    setTopicReaderReference: entryRepository.setTopicReaderReference,
     subscribe: collaboration.subscribe,
   }
   return note

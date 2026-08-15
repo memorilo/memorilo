@@ -2,9 +2,10 @@ import type { ReaderSidebarTab } from './reader-sidebar'
 import type {
   ReaderAnnotation,
   ReaderAnnotationColor,
-  ReaderNote,
+  ReaderAnnotationStyle,
   ReaderSelection,
 } from './types'
+import { isReadingRegionAnnotation } from '@memorilo/reading-model'
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 
 const initialAnnotationRenderLimit = 40
@@ -14,30 +15,21 @@ export interface ReaderAnnotationWorkflowState {
   annotationPanelOpen: boolean
   annotationRenderLimit: number
   colorPaletteOpen: boolean
-  editingAnnotationId: string | null
-  editingDraft: string
   localAnnotations: readonly ReaderAnnotation[]
-  noteComposerOpen: boolean
-  noteDraft: string
   selectedColor: ReaderAnnotationColor
   sidebarTab: ReaderSidebarTab
 }
 
 export type ReaderAnnotationWorkflowEvent
-  = | { annotationId: string, type: 'activate' }
-    | { annotation: ReaderNote, type: 'begin-edit' }
-    | { type: 'cancel-edit' }
-    | { type: 'created-note' }
+  = | { annotationId: string, openPanel: boolean, type: 'activate' }
+    | { annotationId: string, type: 'attached-topic' }
+    | { type: 'dismiss-annotation' }
     | { annotationCount: number, type: 'load-more' }
     | { annotations: readonly ReaderAnnotation[], type: 'local-annotations' }
     | { annotationId: string, type: 'removed' }
     | { annotations: readonly ReaderAnnotation[], type: 'reconcile' }
-    | { type: 'saved-edit' }
     | { type: 'selection-changed' }
     | { open: boolean, type: 'set-color-palette' }
-    | { draft: string, type: 'set-editing-draft' }
-    | { open: boolean, type: 'set-note-composer' }
-    | { draft: string, type: 'set-note-draft' }
     | { color: ReaderAnnotationColor, type: 'set-selected-color' }
     | { tab: ReaderSidebarTab, type: 'set-sidebar-tab' }
     | { type: 'toggle-panel' }
@@ -50,11 +42,7 @@ export function createReaderAnnotationWorkflowState(
     annotationPanelOpen: false,
     annotationRenderLimit: initialAnnotationRenderLimit,
     colorPaletteOpen: false,
-    editingAnnotationId: null,
-    editingDraft: '',
     localAnnotations: defaultAnnotations,
-    noteComposerOpen: false,
-    noteDraft: '',
     selectedColor: 'yellow',
     sidebarTab: 'contents',
   }
@@ -64,20 +52,13 @@ function reconcileAnnotationIdentity(
   state: ReaderAnnotationWorkflowState,
   annotations: readonly ReaderAnnotation[],
 ): ReaderAnnotationWorkflowState {
-  const containsAnnotation = (annotationId: string | null): boolean => annotationId !== null
-    && annotations.some(annotation => annotation.id === annotationId)
-  const containsNote = (annotationId: string | null): boolean => annotationId !== null
-    && annotations.some(annotation => annotation.id === annotationId && annotation.kind === 'annotation')
-  const activeAnnotationId = containsAnnotation(state.activeAnnotationId) ? state.activeAnnotationId : null
-  const editingAnnotationId = containsNote(state.editingAnnotationId) ? state.editingAnnotationId : null
-  if (activeAnnotationId === state.activeAnnotationId && editingAnnotationId === state.editingAnnotationId)
-    return state
-  return {
-    ...state,
-    activeAnnotationId,
-    editingAnnotationId,
-    editingDraft: editingAnnotationId === null ? '' : state.editingDraft,
-  }
+  const activeAnnotationId = state.activeAnnotationId !== null
+    && annotations.some(annotation => annotation.id === state.activeAnnotationId)
+    ? state.activeAnnotationId
+    : null
+  return activeAnnotationId === state.activeAnnotationId
+    ? state
+    : { ...state, activeAnnotationId, colorPaletteOpen: false }
 }
 
 export function readerAnnotationWorkflowReducer(
@@ -88,29 +69,22 @@ export function readerAnnotationWorkflowReducer(
     return {
       ...state,
       activeAnnotationId: event.annotationId,
-      annotationPanelOpen: true,
-      sidebarTab: 'annotations',
+      annotationPanelOpen: event.openPanel ? true : state.annotationPanelOpen,
+      colorPaletteOpen: false,
+      sidebarTab: event.openPanel ? 'annotations' : state.sidebarTab,
     }
   }
-  if (event.type === 'begin-edit') {
+  if (event.type === 'attached-topic') {
     return {
       ...state,
-      editingAnnotationId: event.annotation.id,
-      editingDraft: event.annotation.body,
-    }
-  }
-  if (event.type === 'cancel-edit' || event.type === 'saved-edit')
-    return { ...state, editingAnnotationId: null, editingDraft: '' }
-  if (event.type === 'created-note') {
-    return {
-      ...state,
+      activeAnnotationId: event.annotationId,
       annotationPanelOpen: true,
       colorPaletteOpen: false,
-      noteComposerOpen: false,
-      noteDraft: '',
       sidebarTab: 'annotations',
     }
   }
+  if (event.type === 'dismiss-annotation')
+    return { ...state, activeAnnotationId: null, colorPaletteOpen: false }
   if (event.type === 'load-more') {
     return {
       ...state,
@@ -129,29 +103,19 @@ export function readerAnnotationWorkflowReducer(
   if (event.type === 'reconcile')
     return reconcileAnnotationIdentity(state, event.annotations)
   if (event.type === 'removed') {
-    return {
-      ...state,
-      activeAnnotationId: state.activeAnnotationId === event.annotationId ? null : state.activeAnnotationId,
-      editingAnnotationId: state.editingAnnotationId === event.annotationId ? null : state.editingAnnotationId,
-      editingDraft: state.editingAnnotationId === event.annotationId ? '' : state.editingDraft,
-    }
+    return state.activeAnnotationId === event.annotationId
+      ? { ...state, activeAnnotationId: null, colorPaletteOpen: false }
+      : state
   }
   if (event.type === 'selection-changed') {
     return {
       ...state,
+      activeAnnotationId: null,
       colorPaletteOpen: false,
-      noteComposerOpen: false,
-      noteDraft: '',
     }
   }
   if (event.type === 'set-color-palette')
     return { ...state, colorPaletteOpen: event.open }
-  if (event.type === 'set-editing-draft')
-    return { ...state, editingDraft: event.draft }
-  if (event.type === 'set-note-composer')
-    return { ...state, noteComposerOpen: event.open }
-  if (event.type === 'set-note-draft')
-    return { ...state, noteDraft: event.draft }
   if (event.type === 'set-selected-color')
     return { ...state, selectedColor: event.color }
   if (event.type === 'set-sidebar-tab')
@@ -164,58 +128,89 @@ interface AnnotationIdentity {
   timestamp: number
 }
 
+function requireAnnotation(
+  annotations: readonly ReaderAnnotation[],
+  annotationId: string,
+): ReaderAnnotation {
+  const annotation = annotations.find(candidate => candidate.id === annotationId)
+  if (!annotation)
+    throw new Error(`Reader annotation ${annotationId} does not exist`)
+  return annotation
+}
+
 export function appendReaderHighlight(
   annotations: readonly ReaderAnnotation[],
   selection: ReaderSelection,
   color: ReaderAnnotationColor,
   identity: AnnotationIdentity,
 ): readonly ReaderAnnotation[] {
-  return [...annotations, {
-    anchor: selection.anchor,
+  const base = {
     color,
     createdAt: identity.timestamp,
     id: identity.id,
-    kind: 'highlight',
+    style: 'highlight' as const,
     updatedAt: identity.timestamp,
-  }]
+  }
+  const annotation: ReaderAnnotation = selection.type === 'text'
+    ? { ...base, anchors: selection.anchors }
+    : { ...base, anchors: selection.anchors }
+  return [...annotations, annotation]
 }
 
-export function appendReaderNote(
-  annotations: readonly ReaderAnnotation[],
-  selection: ReaderSelection,
-  color: ReaderAnnotationColor,
-  body: string,
-  identity: AnnotationIdentity,
-): readonly ReaderAnnotation[] {
-  const normalizedBody = body.trim()
-  if (!normalizedBody)
-    throw new TypeError('Reader annotation body must not be empty')
-  return [...annotations, {
-    anchor: selection.anchor,
-    body: normalizedBody,
-    color,
-    createdAt: identity.timestamp,
-    id: identity.id,
-    kind: 'annotation',
-    updatedAt: identity.timestamp,
-  }]
-}
-
-export function reviseReaderNote(
+export function reviseReaderAnnotation(
   annotations: readonly ReaderAnnotation[],
   annotationId: string,
-  body: string,
+  patch: { color?: ReaderAnnotationColor, style?: ReaderAnnotationStyle },
   updatedAt: number,
 ): readonly ReaderAnnotation[] {
-  const normalizedBody = body.trim()
-  if (!normalizedBody)
-    throw new TypeError('Reader annotation body must not be empty')
+  const current = requireAnnotation(annotations, annotationId)
+  const style = patch.style ?? current.style
+  if (isReadingRegionAnnotation(current) && style !== 'highlight')
+    throw new TypeError(`Region annotation ${annotationId} cannot use ${style} style`)
+  if (patch.color === undefined && patch.style === undefined)
+    throw new TypeError('Reader annotation revision must change color or style')
+  return annotations.map((annotation): ReaderAnnotation => {
+    if (annotation.id !== annotationId)
+      return annotation
+    if (isReadingRegionAnnotation(annotation))
+      return { ...annotation, color: patch.color ?? annotation.color, style: 'highlight', updatedAt }
+    return { ...annotation, ...patch, style, updatedAt }
+  })
+}
+
+export function attachReaderAnnotationTopic(
+  annotations: readonly ReaderAnnotation[],
+  annotationId: string,
+  topicId: string,
+  updatedAt: number,
+): readonly ReaderAnnotation[] {
+  const normalizedTopicId = topicId.trim()
+  if (!normalizedTopicId)
+    throw new TypeError('Reader annotation Topic id must be a non-empty string')
+  const current = requireAnnotation(annotations, annotationId)
+  if (current.annotationTopicId !== undefined) {
+    throw new Error(
+      `Reader annotation ${annotationId} already has annotation Topic ${current.annotationTopicId}`,
+    )
+  }
+  return annotations.map(annotation => annotation.id === annotationId
+    ? { ...annotation, annotationTopicId: normalizedTopicId, updatedAt }
+    : annotation)
+}
+
+export function detachReaderAnnotationTopic(
+  annotations: readonly ReaderAnnotation[],
+  annotationId: string,
+  updatedAt: number,
+): readonly ReaderAnnotation[] {
+  const current = requireAnnotation(annotations, annotationId)
+  if (current.annotationTopicId === undefined)
+    return annotations
   return annotations.map((annotation) => {
     if (annotation.id !== annotationId)
       return annotation
-    if (annotation.kind !== 'annotation')
-      throw new Error(`Cannot edit highlight ${annotation.id} as a text annotation`)
-    return { ...annotation, body: normalizedBody, updatedAt }
+    const { annotationTopicId: _annotationTopicId, ...detached } = annotation
+    return { ...detached, updatedAt }
   })
 }
 
@@ -276,15 +271,26 @@ export function useReaderAnnotationWorkflow({
     annotationRenderLimit: state.annotationRenderLimit,
     annotations: visibleAnnotations,
     colorPaletteOpen: state.colorPaletteOpen,
-    editingAnnotationId: state.editingAnnotationId,
-    editingDraft: state.editingDraft,
-    noteComposerOpen: state.noteComposerOpen,
-    noteDraft: state.noteDraft,
     selectedColor: state.selectedColor,
     sidebarTab: state.sidebarTab,
-    activateAnnotation: (annotationId: string) => dispatch({ annotationId, type: 'activate' }),
-    beginEditAnnotation: (annotation: ReaderNote) => dispatch({ annotation, type: 'begin-edit' }),
-    cancelEditAnnotation: () => dispatch({ type: 'cancel-edit' }),
+    activateAnnotation: (annotationId: string) => {
+      const annotation = requireAnnotation(annotationsRef.current, annotationId)
+      dispatch({
+        annotationId,
+        openPanel: annotation.annotationTopicId !== undefined,
+        type: 'activate',
+      })
+    },
+    attachAnnotationTopic: (annotationId: string, topicId: string) => {
+      assertEditingEnabled()
+      commitAnnotations(attachReaderAnnotationTopic(
+        annotationsRef.current,
+        annotationId,
+        topicId,
+        Date.now(),
+      ))
+      dispatch({ annotationId, type: 'attached-topic' })
+    },
     createHighlight: (selection: ReaderSelection | undefined): boolean => {
       assertEditingEnabled()
       if (!selection)
@@ -298,46 +304,32 @@ export function useReaderAnnotationWorkflow({
       dispatch({ type: 'selection-changed' })
       return true
     },
-    createNote: (selection: ReaderSelection | undefined): boolean => {
-      assertEditingEnabled()
-      if (!selection || !state.noteDraft.trim())
-        return false
-      commitAnnotations(appendReaderNote(
-        annotationsRef.current,
-        selection,
-        state.selectedColor,
-        state.noteDraft,
-        { id: crypto.randomUUID(), timestamp: Date.now() },
-      ))
-      dispatch({ type: 'created-note' })
-      return true
-    },
+    dismissAnnotation: () => dispatch({ type: 'dismiss-annotation' }),
     loadMoreAnnotations: () => dispatch({ annotationCount: visibleAnnotations.length, type: 'load-more' }),
     removeAnnotation: (annotationId: string) => {
       assertEditingEnabled()
+      requireAnnotation(annotationsRef.current, annotationId)
       commitAnnotations(annotationsRef.current.filter(annotation => annotation.id !== annotationId))
       dispatch({ annotationId, type: 'removed' })
     },
-    saveEditedAnnotation: () => {
+    reviseAnnotation: (
+      annotationId: string,
+      patch: { color?: ReaderAnnotationColor, style?: ReaderAnnotationStyle },
+    ) => {
       assertEditingEnabled()
-      if (!state.editingAnnotationId || !state.editingDraft.trim())
-        return
-      commitAnnotations(reviseReaderNote(
+      commitAnnotations(reviseReaderAnnotation(
         annotationsRef.current,
-        state.editingAnnotationId,
-        state.editingDraft,
+        annotationId,
+        patch,
         Date.now(),
       ))
-      dispatch({ type: 'saved-edit' })
+      dispatch({ open: false, type: 'set-color-palette' })
     },
     selectionChanged: (selection: ReaderSelection | null) => {
       dispatch({ type: 'selection-changed' })
       onSelectionChangeRef.current?.(selection)
     },
     setColorPaletteOpen: (open: boolean) => dispatch({ open, type: 'set-color-palette' }),
-    setEditingDraft: (draft: string) => dispatch({ draft, type: 'set-editing-draft' }),
-    setNoteComposerOpen: (open: boolean) => dispatch({ open, type: 'set-note-composer' }),
-    setNoteDraft: (draft: string) => dispatch({ draft, type: 'set-note-draft' }),
     setSelectedColor: (color: ReaderAnnotationColor) => dispatch({ color, type: 'set-selected-color' }),
     setSidebarTab: (tab: ReaderSidebarTab) => dispatch({ tab, type: 'set-sidebar-tab' }),
     toggleAnnotationPanel: () => dispatch({ type: 'toggle-panel' }),

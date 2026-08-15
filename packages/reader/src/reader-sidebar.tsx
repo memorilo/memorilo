@@ -1,8 +1,15 @@
-import type { UIEvent } from 'react'
+import type { ReactNode, UIEvent } from 'react'
 import type { ReaderAdapter, ReaderAdapterState } from './internal/reader-adapter'
-import type { ReaderAnnotation, ReaderAuxiliarySidebar, ReaderNote } from './types'
+import type {
+  ReaderAnnotation,
+  ReaderAuxiliarySidebar,
+  ReaderImageOcclusionOverlay,
+  ReaderNormalizedRect,
+} from './types'
+import { readingAnnotationFirstAnchor, readingAnnotationText } from '@memorilo/reading-model'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpenText, Check, Pencil, StickyNote, Trash2 } from 'lucide-react'
+import { BookOpenText, ScanLine, StickyNote } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { readerAnnotationLabel } from './internal/annotation-label'
 import { ReaderOutline } from './reader-outline'
@@ -20,25 +27,20 @@ interface ReaderSidebarProps {
   annotations: readonly ReaderAnnotation[]
   auxiliarySidebar?: ReaderAuxiliarySidebar
   auxiliarySidebarActive: boolean
-  editingAnnotationId: string | null
-  editingDraft: string
-  onBeginEdit: (annotation: ReaderNote) => void
+  imageOcclusionOverlays: readonly ReaderImageOcclusionOverlay[]
+  onActivateAnnotation: (annotationId: string) => void
   onAuxiliarySidebarSelect: () => void
-  onCancelEdit: () => void
-  onEditingDraftChange: (draft: string) => void
   onLoadMoreAnnotations: (event: UIEvent<HTMLDivElement>) => void
-  onRemoveAnnotation: (annotationId: string) => void
-  onSaveEditedAnnotation: () => void
   onSelectAnnotation: (annotationId: string) => void
   onTabChange: (tab: ReaderSidebarTab) => void
+  registerAnnotationCard: (annotationId: string, element: HTMLElement | null) => void
+  renderAnnotationEditor?: (annotation: ReaderAnnotation, readOnly: boolean) => ReactNode
   run: (operation: (adapter: ReaderAdapter) => Promise<void>) => void
   sidebarTab: ReaderSidebarTab
 }
 
 function annotationQuote(annotation: ReaderAnnotation): string | null {
-  if (annotation.anchor.type !== 'text')
-    return null
-  return annotation.anchor.quote.exact
+  return readingAnnotationText(annotation)
 }
 
 function colorStyle(color: ReaderAnnotation['color']) {
@@ -53,6 +55,69 @@ function colorStyle(color: ReaderAnnotation['color']) {
   return readerSharedStyles.colorYellow
 }
 
+const txtRegionPreviewRect: ReaderNormalizedRect = {
+  height: 0.18,
+  width: 0.64,
+  x: 0.18,
+  y: 0.41,
+}
+
+function annotationRegionPreviewRect(annotation: ReaderAnnotation): ReaderNormalizedRect {
+  const anchor = readingAnnotationFirstAnchor(annotation)
+  if (anchor.type !== 'region')
+    throw new TypeError(`Reader annotation ${annotation.id} is not a region`)
+  if ('rect' in anchor)
+    return anchor.rect
+  if (anchor.format === 'txt')
+    return txtRegionPreviewRect
+  if (anchor.targets.length === 0)
+    throw new Error(`Reader EPUB region annotation ${annotation.id} has no targets`)
+  const left = Math.min(...anchor.targets.map(target => target.rect.x))
+  const top = Math.min(...anchor.targets.map(target => target.rect.y))
+  const right = Math.max(...anchor.targets.map(target => target.rect.x + target.rect.width))
+  const bottom = Math.max(...anchor.targets.map(target => target.rect.y + target.rect.height))
+  return { height: bottom - top, width: right - left, x: left, y: top }
+}
+
+function RegionAnnotationPreview({
+  annotation,
+  imageOcclusion,
+  label,
+}: {
+  annotation: ReaderAnnotation
+  imageOcclusion: ReaderImageOcclusionOverlay | undefined
+  label: string
+}) {
+  const rect = annotationRegionPreviewRect(annotation)
+  return (
+    <div {...stylex.props(readerStyles.regionPreview)} aria-label={label} role="img">
+      {imageOcclusion
+        ? (
+            <img
+              {...stylex.props(readerStyles.regionPreviewImage)}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              src={imageOcclusion.image.src}
+            />
+          )
+        : (
+            <div {...stylex.props(readerStyles.regionPreviewPage)}>
+              <span
+                {...stylex.props(readerStyles.regionPreviewSelection, colorStyle(annotation.color))}
+                style={{
+                  height: `${rect.height * 100}%`,
+                  left: `${rect.x * 100}%`,
+                  top: `${rect.y * 100}%`,
+                  width: `${rect.width * 100}%`,
+                }}
+              />
+            </div>
+          )}
+    </div>
+  )
+}
+
 export function ReaderSidebar({
   activeAnnotationId,
   adapterState,
@@ -62,21 +127,31 @@ export function ReaderSidebar({
   annotations,
   auxiliarySidebar,
   auxiliarySidebarActive,
-  editingAnnotationId,
-  editingDraft,
-  onBeginEdit,
+  imageOcclusionOverlays,
+  onActivateAnnotation,
   onAuxiliarySidebarSelect,
-  onCancelEdit,
-  onEditingDraftChange,
   onLoadMoreAnnotations,
-  onRemoveAnnotation,
-  onSaveEditedAnnotation,
   onSelectAnnotation,
   onTabChange,
+  registerAnnotationCard,
+  renderAnnotationEditor,
   run,
   sidebarTab,
 }: ReaderSidebarProps) {
   const { t } = useTranslation('common')
+  const imageOcclusionByAnnotationId = useMemo(() => {
+    const byAnnotationId = new Map<string, ReaderImageOcclusionOverlay>()
+    for (const overlay of imageOcclusionOverlays) {
+      if (byAnnotationId.has(overlay.annotationId))
+        throw new Error(`Reader annotation ${overlay.annotationId} has multiple image occlusion overlays`)
+      byAnnotationId.set(overlay.annotationId, overlay)
+    }
+    return byAnnotationId
+  }, [imageOcclusionOverlays])
+  if (annotations.some(annotation => annotation.annotationTopicId !== undefined)
+    && renderAnnotationEditor === undefined) {
+    throw new Error('Reader annotation Topics require an Editor renderer')
+  }
 
   return (
     <aside
@@ -181,86 +256,57 @@ export function ReaderSidebar({
                   ? <div {...stylex.props(readerStyles.emptyAnnotations)}>{t('reader.noAnnotations')}</div>
                   : annotations.slice(0, annotationRenderLimit).map((annotation) => {
                       const quote = annotationQuote(annotation)
-                      const editing = editingAnnotationId === annotation.id
+                      const active = activeAnnotationId === annotation.id
+                      const label = readerAnnotationLabel(annotation, t)
+                      const imageOcclusion = imageOcclusionByAnnotationId.get(annotation.id)
                       return (
                         <article
                           key={annotation.id}
+                          ref={element => registerAnnotationCard(annotation.id, element)}
                           {...stylex.props(
                             readerStyles.annotationItem,
-                            activeAnnotationId === annotation.id && readerStyles.annotationItemActive,
+                            active && readerStyles.annotationItemActive,
                           )}
+                          aria-label={label}
+                          onClick={() => onSelectAnnotation(annotation.id)}
+                          onPointerDown={() => onActivateAnnotation(annotation.id)}
                         >
                           <button
                             {...stylex.props(readerStyles.annotationTarget)}
                             type="button"
-                            onClick={() => onSelectAnnotation(annotation.id)}
                           >
                             <span {...stylex.props(readerStyles.annotationDot, colorStyle(annotation.color))} />
                             <span {...stylex.props(readerStyles.annotationMeta)}>
-                              {annotation.kind === 'annotation' ? t('reader.annotationLabel') : t('reader.highlightLabel')}
-                              {' · '}
-                              {readerAnnotationLabel(annotation, t)}
+                              {label}
                             </span>
                           </button>
                           {quote
                             ? <blockquote {...stylex.props(readerStyles.annotationQuote)}>{quote}</blockquote>
                             : null}
-                          {annotation.kind === 'annotation'
-                            ? editing
-                              ? (
-                                  <div {...stylex.props(readerStyles.panelEditor)}>
-                                    <textarea
-                                      {...stylex.props(readerStyles.panelTextarea)}
-                                      aria-label={t('reader.editAnnotation')}
-                                      rows={4}
-                                      value={editingDraft}
-                                      onChange={event => onEditingDraftChange(event.target.value)}
-                                    />
-                                    <div {...stylex.props(readerStyles.panelEditorActions)}>
-                                      <button
-                                        {...stylex.props(readerStyles.textButton)}
-                                        type="button"
-                                        onClick={onCancelEdit}
-                                      >
-                                        {t('reader.cancel')}
-                                      </button>
-                                      <button
-                                        {...stylex.props(readerSharedStyles.primaryTextButton)}
-                                        disabled={!editingDraft.trim()}
-                                        type="button"
-                                        onClick={onSaveEditedAnnotation}
-                                      >
-                                        <Check aria-hidden="true" size={13} />
-                                        {t('reader.save')}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              : <p {...stylex.props(readerStyles.annotationBody)}>{annotation.body}</p>
-                            : null}
-                          {!editing
+                          {annotation.anchors[0].type === 'region'
                             ? (
-                                <div {...stylex.props(readerStyles.annotationActions)}>
-                                  {annotation.kind === 'annotation'
-                                    ? (
-                                        <button
-                                          {...stylex.props(readerStyles.itemButton)}
-                                          aria-label={t('reader.editAnnotation')}
-                                          type="button"
-                                          onClick={() => onBeginEdit(annotation)}
-                                        >
-                                          <Pencil aria-hidden="true" size={13} />
-                                        </button>
-                                      )
-                                    : null}
-                                  <button
-                                    {...stylex.props(readerStyles.itemButton, readerStyles.deleteButton)}
-                                    aria-label={t('reader.deleteAnnotation')}
-                                    type="button"
-                                    onClick={() => onRemoveAnnotation(annotation.id)}
-                                  >
-                                    <Trash2 aria-hidden="true" size={13} />
-                                  </button>
+                                <RegionAnnotationPreview
+                                  annotation={annotation}
+                                  imageOcclusion={imageOcclusion}
+                                  label={label}
+                                />
+                              )
+                            : null}
+                          {imageOcclusion
+                            ? (
+                                <div {...stylex.props(readerStyles.annotationStatus)}>
+                                  <ScanLine aria-hidden="true" size={12} strokeWidth={1.8} />
+                                  {t('reader.annotation.imageOcclusion')}
+                                </div>
+                              )
+                            : null}
+                          {annotation.annotationTopicId !== undefined
+                            ? (
+                                <div
+                                  {...stylex.props(readerStyles.annotationEditor)}
+                                  onClick={event => event.stopPropagation()}
+                                >
+                                  {renderAnnotationEditor?.(annotation, !active)}
                                 </div>
                               )
                             : null}

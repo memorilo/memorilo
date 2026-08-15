@@ -56,6 +56,7 @@ export function createDesktopApi(
 ): DesktopApi {
   return {
     addShelfSource: input => services.shelf.addSource(input),
+    captureReaderRegion: input => services.window.captureReaderRegion(input),
     checkAssets: () => services.assets.check(),
     closeBookReadingSession: sessionId => services.books.closeReadingSession(sessionId),
     createBookContext: input => services.books.createContext(input),

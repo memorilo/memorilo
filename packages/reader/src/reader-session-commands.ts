@@ -7,7 +7,6 @@ interface ReaderSessionCommandsOptions {
   clearSelection: () => void
   handleReaderKeyboardEvent: (event: ReaderAdapterKeyboardEvent) => boolean
   onCreateHighlight: (selection: ReaderSelection | undefined) => boolean
-  onCreateNote: (selection: ReaderSelection | undefined) => boolean
   regionSelectionActive: boolean
   reportError: (error: unknown) => void
   selection: ReaderAdapterSelection | null
@@ -26,7 +25,6 @@ export function useReaderSessionCommands({
   clearSelection,
   handleReaderKeyboardEvent,
   onCreateHighlight,
-  onCreateNote,
   regionSelectionActive,
   reportError,
   selection,
@@ -46,11 +44,6 @@ export function useReaderSessionCommands({
     if (onCreateHighlight(selection?.selection))
       dismissSelection()
   }, [dismissSelection, onCreateHighlight, selection])
-
-  const createNote = useCallback(() => {
-    if (onCreateNote(selection?.selection))
-      dismissSelection()
-  }, [dismissSelection, onCreateNote, selection])
 
   const toggleRegionSelection = useCallback(() => {
     if (!annotationEditingEnabled)
@@ -95,7 +88,6 @@ export function useReaderSessionCommands({
   return {
     copySelection,
     createHighlight,
-    createNote,
     dismissSelection,
     toggleRegionSelection,
   }

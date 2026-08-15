@@ -1,8 +1,9 @@
 import type { TFunction } from 'i18next'
 import type { ReaderAnnotation } from '../types'
+import { readingAnnotationFirstAnchor } from '@memorilo/reading-model'
 
 export function readerAnnotationLabel(annotation: ReaderAnnotation, t: TFunction<'common'>): string {
-  const anchor = annotation.anchor
+  const anchor = readingAnnotationFirstAnchor(annotation)
   if (anchor.format === 'pdf') {
     return anchor.type === 'region'
       ? t('reader.annotation.areaOnPage', { page: anchor.pageNumber })

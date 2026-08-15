@@ -25,7 +25,7 @@ A Topic bound to one concrete BookFile. It keeps normal editable Topic content w
 _Avoid_: ReadingTopic, book registry entry
 
 **ImageOcclusionTopic**:
-A Topic created from one image in a RegularTopic. It owns an immutable image snapshot and the occlusion definitions used to generate Cards.
+A Topic created from either one image in a RegularTopic or one region annotation in a BookTopic. It is a direct child of that source Topic and owns an immutable image snapshot plus the occlusion definitions used to generate Cards.
 _Avoid_: Image card, masked RegularTopic
 
 **OcclusionShape**:

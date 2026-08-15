@@ -1,3 +1,4 @@
+import type { DesktopApi } from '@memorilo/desktop-preload'
 import { Buffer } from 'node:buffer'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -64,7 +65,8 @@ test('arrow keys scroll before turning PDF pages at viewport boundaries', async 
       mimeType: 'application/pdf',
       name: 'keyboard-navigation.pdf',
     })
-    await expect(window.getByLabel('Page 1 of 2')).toBeVisible()
+    await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
+    await expect(window.locator('.reader-pdf-page-slot')).toHaveCount(2)
 
     const scroller = window.locator('.reader-pdf-scroller')
     await expect.poll(() => scroller.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true)
@@ -77,48 +79,69 @@ test('arrow keys scroll before turning PDF pages at viewport boundaries', async 
     await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
 
     await window.keyboard.down('ArrowDown')
-    for (let index = 0; index < 40; index += 1)
+    for (let index = 0; index < 60; index += 1)
       await window.keyboard.down('ArrowDown')
     await expect.poll(() => scroller.evaluate(element => Math.abs(
       element.scrollHeight - element.clientHeight - element.scrollTop,
     ))).toBeLessThanOrEqual(1)
-    await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
     await window.keyboard.up('ArrowDown')
 
     await window.keyboard.press('ArrowDown')
-    await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
-    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0)
-
-    await window.keyboard.press('ArrowDown')
-    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+    await expect.poll(() => scroller.evaluate(element => Math.abs(
+      element.scrollHeight - element.clientHeight - element.scrollTop,
+    ))).toBeLessThanOrEqual(1)
 
     await window.keyboard.down('ArrowUp')
-    for (let index = 0; index < 40; index += 1)
+    for (let index = 0; index < 60; index += 1)
       await window.keyboard.down('ArrowUp')
     await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0)
-    await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
+    await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
     await window.keyboard.up('ArrowUp')
 
     await window.keyboard.press('ArrowUp')
     await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
-    await expect.poll(() => scroller.evaluate(element => Math.abs(
-      element.scrollHeight - element.clientHeight - element.scrollTop,
-    ))).toBeLessThanOrEqual(1)
 
     await window.keyboard.press('ArrowRight')
     await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
-    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0)
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 
     await window.keyboard.press('ArrowLeft')
     await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
-    await expect.poll(() => scroller.evaluate(element => Math.abs(
-      element.scrollHeight - element.clientHeight - element.scrollTop,
-    ))).toBeLessThanOrEqual(1)
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 
+    await window.keyboard.down('ArrowUp')
+    for (let index = 0; index < 60; index += 1)
+      await window.keyboard.down('ArrowUp')
+    await window.keyboard.up('ArrowUp')
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0)
+
+    const beforePageDown = await scroller.evaluate(element => element.scrollTop)
     await window.keyboard.press('PageDown')
-    await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
+    await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(beforePageDown)
+    const afterPageDown = await scroller.evaluate(element => element.scrollTop)
     await window.keyboard.press('PageUp')
     await expect(window.getByText('1 of 2', { exact: true })).toBeVisible()
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeLessThan(afterPageDown)
+
+    await window.keyboard.press('ArrowRight')
+    await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
+    await window.keyboard.press('ArrowDown')
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+
+    await window.evaluate(async () => {
+      const desktop = (globalThis as typeof globalThis & { desktop: DesktopApi }).desktop
+      await desktop.setConfigurationValue('readerPageMode', 'single-page')
+    })
+    await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
+    await expect.poll(() => window.locator('.reader-pdf-page-slot').count()).toBe(0)
+
+    await window.evaluate(async () => {
+      const desktop = (globalThis as typeof globalThis & { desktop: DesktopApi }).desktop
+      await desktop.setConfigurationValue('readerPageMode', 'continuous')
+    })
+    await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
+    await expect.poll(() => window.locator('.reader-pdf-page-slot').count()).toBe(2)
   }
   finally {
     await electronApplication.close()

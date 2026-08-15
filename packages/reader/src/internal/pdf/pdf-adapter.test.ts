@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import type { ReaderAnnotation } from '../../types'
 import type { ReaderAdapterCallbacks } from '../reader-adapter'
 import type { PdfDocumentSession } from './pdf-document-session'
 import type { PdfPageRenderInput } from './pdf-page-view'
@@ -12,10 +13,28 @@ interface FakePdfPageView {
   captureTextSelection: ReturnType<typeof vi.fn>
   close: ReturnType<typeof vi.fn>
   render: ReturnType<typeof vi.fn<(input: PdfPageRenderInput) => Promise<boolean>>>
+  scrollAnnotationIntoView: ReturnType<typeof vi.fn>
   setAnnotations: ReturnType<typeof vi.fn>
 }
 
 const harness = vi.hoisted(() => ({
+  continuousMount: undefined as unknown as {
+    close: ReturnType<typeof vi.fn>
+    initialPageNumber: number
+    moveViewport: ReturnType<typeof vi.fn>
+    numPages: number
+    outlineItems: readonly never[]
+    pageNumberForOutline: ReturnType<typeof vi.fn>
+    positionAt: ReturnType<typeof vi.fn>
+    positionAtEdge: ReturnType<typeof vi.fn>
+    render: ReturnType<typeof vi.fn>
+    renderCurrentLayout: ReturnType<typeof vi.fn>
+    scrollAnnotationIntoView: ReturnType<typeof vi.fn>
+    setAnnotations: ReturnType<typeof vi.fn>
+    setRegionSelectionEnabled: ReturnType<typeof vi.fn>
+    textLayerKindAt: ReturnType<typeof vi.fn>
+  },
+  continuousOpen: vi.fn(),
   openDocumentSession: vi.fn(),
   pageView: undefined as unknown as FakePdfPageView,
 }))
@@ -28,6 +47,11 @@ vi.mock('./pdf-page-view', () => ({
     constructor() {
       return harness.pageView
     }
+  },
+}))
+vi.mock('./pdf-continuous-reader-mount', () => ({
+  PdfContinuousReaderMount: {
+    open: harness.continuousOpen,
   },
 }))
 vi.mock('../region-selection.stylex', () => ({
@@ -114,7 +138,43 @@ function pageView(
     captureTextSelection: vi.fn(),
     close: vi.fn(async () => undefined),
     render,
+    scrollAnnotationIntoView: vi.fn(),
     setAnnotations: vi.fn(),
+  }
+}
+
+function continuousMount() {
+  return {
+    close: vi.fn(async () => undefined),
+    initialPageNumber: 8,
+    moveViewport: vi.fn(() => 'at-boundary'),
+    numPages: 12,
+    outlineItems: [],
+    pageNumberForOutline: vi.fn(async () => 1),
+    positionAt: vi.fn(),
+    positionAtEdge: vi.fn(),
+    render: vi.fn(async () => true),
+    renderCurrentLayout: vi.fn(async () => true),
+    scrollAnnotationIntoView: vi.fn(),
+    setAnnotations: vi.fn(),
+    setRegionSelectionEnabled: vi.fn(),
+    textLayerKindAt: vi.fn(() => 'embedded'),
+  }
+}
+
+function annotation(): ReaderAnnotation {
+  return {
+    anchors: [{
+      format: 'pdf',
+      pageNumber: 1,
+      rect: { height: 0.1, width: 0.2, x: 0.1, y: 0.1 },
+      type: 'region',
+    }],
+    color: 'yellow',
+    createdAt: 1,
+    id: 'annotation',
+    style: 'highlight',
+    updatedAt: 1,
   }
 }
 
@@ -140,6 +200,9 @@ beforeEach(() => {
   harness.openDocumentSession.mockReset()
   harness.openDocumentSession.mockResolvedValue(documentSession())
   harness.pageView = pageView()
+  harness.continuousMount = continuousMount()
+  harness.continuousOpen.mockReset()
+  harness.continuousOpen.mockResolvedValue(harness.continuousMount)
   vi.stubGlobal('document', {
     createElement: vi.fn(() => fakeElement()),
     getSelection: vi.fn(() => null),
@@ -152,11 +215,25 @@ afterEach(() => {
 })
 
 describe('pdf adapter layout ownership', () => {
+  it('uses the continuous mount and restores its logical page position', async () => {
+    const initialPosition = { format: 'pdf' as const, pageNumber: 8, pageProgress: 0.42 }
+    const adapter = openPdfAdapter(source(), 'continuous', initialPosition, undefined, callbacks())
+
+    await adapter.mount(fakeElement())
+
+    expect(harness.continuousOpen).toHaveBeenCalledWith(expect.objectContaining({
+      initialPosition,
+    }))
+    expect(harness.continuousMount.positionAt).toHaveBeenCalledWith(8, 0.42)
+    expect(harness.pageView.render).not.toHaveBeenCalled()
+    await adapter.destroy()
+  })
+
   it('rejects an overlapping mount before the first document acquisition settles', async () => {
     const opening = deferred<PdfDocumentSession>()
     const session = documentSession()
     harness.openDocumentSession.mockReturnValue(opening.promise)
-    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
     const mounting = adapter.mount(fakeElement())
 
     await expect(adapter.mount(fakeElement())).rejects.toThrow('PDF reader is already mounted')
@@ -168,7 +245,7 @@ describe('pdf adapter layout ownership', () => {
   it('completes the initial render before observing layout changes', async () => {
     const initialRender = deferred<boolean>()
     harness.pageView = pageView(vi.fn(async () => initialRender.promise))
-    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
     const mounting = adapter.mount(fakeElement())
 
     await vi.waitFor(() => expect(harness.pageView.render).toHaveBeenCalledOnce())
@@ -189,7 +266,7 @@ describe('pdf adapter layout ownership', () => {
   })
 
   it('coalesces repeated observations of the same available width', async () => {
-    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
     await adapter.mount(fakeElement())
     const observer = FakeResizeObserver.instances[0]!
 
@@ -214,6 +291,17 @@ describe('pdf adapter layout ownership', () => {
     observer.trigger()
     await adapter.setScale!(1)
     expect(harness.pageView.render).toHaveBeenCalledTimes(2)
+    await adapter.destroy()
+  })
+
+  it('scrolls the exact annotation marker into view', async () => {
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
+    await adapter.mount(fakeElement())
+    adapter.setAnnotations([annotation()])
+
+    await adapter.goToAnnotation('annotation')
+
+    expect(harness.pageView.scrollAnnotationIntoView).toHaveBeenCalledExactlyOnceWith('annotation')
     await adapter.destroy()
   })
 
@@ -259,7 +347,7 @@ describe('pdf adapter layout ownership', () => {
       .mockResolvedValueOnce(failedSession)
       .mockResolvedValueOnce(retrySession)
     harness.pageView = failedPageView
-    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
 
     await expect(adapter.mount(fakeElement())).rejects.toBe(renderFailure)
 
@@ -283,7 +371,7 @@ describe('pdf adapter layout ownership', () => {
       .mockImplementationOnce(async () => pendingRender.promise)
     harness.pageView = pageView(render)
     const readerCallbacks = callbacks()
-    const adapter = openPdfAdapter(source(), null, undefined, readerCallbacks)
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, readerCallbacks)
     await adapter.mount(fakeElement())
 
     const scaling = adapter.setScale!(1.2)
@@ -306,7 +394,7 @@ describe('pdf adapter layout ownership', () => {
     harness.pageView.close
       .mockRejectedValueOnce(failure)
       .mockResolvedValueOnce(undefined)
-    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
     await adapter.mount(fakeElement())
 
     const firstClose = adapter.destroy()
@@ -329,7 +417,7 @@ describe('pdf adapter layout ownership', () => {
     const failure = new Error('page surface is still attached')
     const session = documentSession()
     harness.openDocumentSession.mockResolvedValue(session)
-    const adapter = openPdfAdapter(source(), null, undefined, callbacks())
+    const adapter = openPdfAdapter(source(), 'single-page', null, undefined, callbacks())
     await adapter.mount(fakeElement())
     const remove = vi.mocked(scroller().remove)
     remove.mockImplementationOnce(() => {
