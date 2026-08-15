@@ -30,6 +30,8 @@
   "english": "English",
   "chinese": "简体中文",
   "reduceMotion": "Reduce motion",
+  "defaultNoteLearningEnabled": "Enable learning for new Notes",
+  "defaultNoteLearningEnabledDescription": "Choose whether newly created Notes participate in Learning by default.",
   "weekStart": "First day of week",
   "weekStartDescription": "Choose the first day shown in calendars.",
   "sunday": "Sunday",

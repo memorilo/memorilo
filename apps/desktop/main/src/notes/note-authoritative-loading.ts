@@ -9,6 +9,7 @@ import { projectNoteLearningCards, repairNoteLearningCards } from './note-learni
 
 interface NoteAuthoritativeLoadingDependencies {
   cache: NoteAuthoritativeCache
+  defaultNoteLearningEnabled: () => boolean
   storage: EditorStorage
 }
 
@@ -23,7 +24,7 @@ export interface NoteAuthoritativeLoading {
   openJournal: (journalDate: JournalDate) => Promise<{ created: boolean, current: AuthoritativeNote }>
 }
 
-export function createNoteAuthoritativeLoading({ cache, storage }: NoteAuthoritativeLoadingDependencies): NoteAuthoritativeLoading {
+export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabled, storage }: NoteAuthoritativeLoadingDependencies): NoteAuthoritativeLoading {
   const restore = async (
     stored: StoredNote,
     initialTopicHeading?: string,
@@ -32,6 +33,7 @@ export function createNoteAuthoritativeLoading({ cache, storage }: NoteAuthorita
     const note = createEditorNote({
       id: stored.id,
       ...(initialTopicHeading === undefined ? {} : { initialTopicHeading }),
+      learningEnabled: defaultNoteLearningEnabled(),
       snapshot: stored.snapshot,
       title: stored.title,
       updates: stored.updates.map(update => update.update),
@@ -114,7 +116,11 @@ export function createNoteAuthoritativeLoading({ cache, storage }: NoteAuthorita
     created: boolean
     current: AuthoritativeNote
   }> => {
-    const note = createEditorNote({ id: randomUUID(), title: journalDate })
+    const note = createEditorNote({
+      id: randomUUID(),
+      learningEnabled: defaultNoteLearningEnabled(),
+      title: journalDate,
+    })
     const entries = note.getEntries()
     const stored = await storage.journals.getOrCreate({
       entries: entries.map(entry => structuredClone(entry)),
