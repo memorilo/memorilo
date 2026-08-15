@@ -10,7 +10,7 @@ function document(text: string): NodeJSON {
     type: 'doc',
     content: [{
       type: 'list',
-      attrs: { blockHighlight: null, blockId: `block-${text}` },
+      attrs: { blockHighlight: null, blockHighlightId: null, blockId: `block-${text}` },
       content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
     }],
   }

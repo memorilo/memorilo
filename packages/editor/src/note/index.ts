@@ -1,7 +1,12 @@
+export { cardTopicTitle, projectCardTopicCards, projectCardTopicDefinitions } from './card-topic-projection'
 export type {
   ApplyTopicBlockEditsInput,
   BookTopicSnapshot,
   BookTopicValidationInput,
+  CardTopicKind,
+  CardTopicReconciliationResult,
+  CardTopicSource,
+  CardTopicSyncStatus,
   CreateBookTopicInput,
   CreateEditorNoteOptions,
   CreateEmbeddedEditorInput,

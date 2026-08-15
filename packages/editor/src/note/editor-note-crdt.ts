@@ -1,5 +1,6 @@
 import type { BookFileBinding } from '@memorilo/reading-model'
 import type { LoroDoc, LoroMap } from 'loro-crdt'
+import type { CardTopicSource } from './editor-note'
 import type { TopicReaderReference } from './topic-reader-reference'
 import { assertBookFileBinding } from '@memorilo/reading-model'
 import { normalizeTopicReaderReference } from './topic-reader-reference'
@@ -16,6 +17,7 @@ export const TOPIC_EDITOR_MODE_KEY = 'editorMode'
 export const TOPIC_BLOCK_TREE_KEY = 'blockTreeKey'
 export const TOPIC_READER_REFERENCE_KEY = 'readerReference'
 export const TOPIC_TYPE_KEY = 'topicType'
+export const TOPIC_CARD_SOURCE_KEY = 'cardSource'
 export const IMAGE_OCCLUSION_STATE_KEY = 'imageOcclusion'
 export const BOOK_BINDING_KEY = 'book'
 export const BOOK_READING_STATE_KEY = 'readingStateKey'
@@ -54,6 +56,29 @@ export function readTopicType(map: LoroMap, description: string): 'book' | 'imag
   if (value !== 'book' && value !== 'image-occlusion' && value !== 'regular' && value !== 'spreadsheet' && value !== 'whiteboard')
     throw new Error(`${description} must be "book", "image-occlusion", "regular", "spreadsheet", or "whiteboard"`)
   return value
+}
+
+export function readCardTopicSource(map: LoroMap, description: string): CardTopicSource | null {
+  const value = map.get(TOPIC_CARD_SOURCE_KEY)
+  if (value === undefined)
+    return null
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    throw new TypeError(`${description} must be an object or undefined`)
+  const source = value as Record<string, unknown>
+  if (source.kind !== 'basic' && source.kind !== 'cloze' && source.kind !== 'highlight' && source.kind !== 'list' && source.kind !== 'set')
+    throw new TypeError(`${description} kind is unsupported`)
+  if (typeof source.sourceId !== 'string' || source.sourceId.length === 0)
+    throw new TypeError(`${description} sourceId must be a non-empty string`)
+  if (typeof source.sourceTopicId !== 'string' || source.sourceTopicId.length === 0)
+    throw new TypeError(`${description} sourceTopicId must be a non-empty string`)
+  if (source.syncStatus !== 'synced' && source.syncStatus !== 'detached')
+    throw new TypeError(`${description} syncStatus is unsupported`)
+  return {
+    kind: source.kind,
+    sourceId: source.sourceId,
+    sourceTopicId: source.sourceTopicId,
+    syncStatus: source.syncStatus,
+  }
 }
 
 export function validateBookBindingValue(value: unknown, description: string): BookFileBinding {

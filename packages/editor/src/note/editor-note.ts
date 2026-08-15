@@ -24,6 +24,7 @@ import type { LoroTopic } from '../schema/topic-schema'
 import type { TopicBlockEdit } from './editor-note-block-edits'
 import type { TopicContentProjection } from './topic-projection'
 import type { TopicReaderReference } from './topic-reader-reference'
+import { EditorNoteCardTopics } from './editor-note-card-topics'
 import { createEditorNoteCollaborationRuntime } from './editor-note-collaboration-runtime'
 import { createEditorNoteEntryRepository } from './editor-note-entry-repository'
 import { EditorNoteRuntime } from './editor-note-runtime'
@@ -56,7 +57,18 @@ interface TopicSnapshotBase extends NoteEntryBase {
   title: string
 }
 
+export type CardTopicKind = 'basic' | 'cloze' | 'highlight' | 'list' | 'set'
+export type CardTopicSyncStatus = 'detached' | 'synced'
+
+export interface CardTopicSource {
+  kind: CardTopicKind
+  sourceId: string
+  sourceTopicId: string
+  syncStatus: CardTopicSyncStatus
+}
+
 export interface RegularTopicSnapshot extends TopicSnapshotBase {
+  cardSource?: CardTopicSource
   mode: EditorModeValue
   readerReference?: TopicReaderReference
   topicType: 'regular'
@@ -371,10 +383,16 @@ export interface EditorNote {
   renameEntry: (entryId: string, label: string) => void
   /** Replaces, detaches, or removes the system-managed Reader source for a regular Topic. */
   setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
+  reconcileCardTopics: (input: { document: NodeJSON, topicId: string }) => CardTopicReconciliationResult
+  resyncCardTopic: (topicId: string) => void
   /** Replaces the non-empty Note title. */
   renameNote: (title: string) => void
   /** Subscribes to locally generated Loro updates that callers should persist or transmit. */
   subscribe: (listener: (change: EditorNoteChange) => void) => () => void
+}
+
+export interface CardTopicReconciliationResult {
+  detachedTopicId: string | null
 }
 
 export interface CreateEditorNoteOptions {
@@ -417,6 +435,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     runtime,
   })
   const topics = new EditorNoteTopics(runtime)
+  const cardTopics = new EditorNoteCardTopics(runtime)
   const collaboration = createEditorNoteCollaborationRuntime({
     doc,
     noteId: id,
@@ -424,7 +443,12 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   })
   const note: EditorNote = {
     id,
-    applyTopicBlockEdits: input => topics.applyBlockEdits(input),
+    applyTopicBlockEdits: (input) => {
+      topics.applyBlockEdits(input)
+      const validation = topics.validationInput(input.topicId)
+      if ('document' in validation)
+        cardTopics.reconcile({ document: validation.document, topicId: input.topicId })
+    },
     getTopic: topicId => topics.get(topicId),
     getBookTopic: topicId => topics.getBook(topicId),
     getImageOcclusionTopic: topicId => topics.getImageOcclusion(topicId),
@@ -456,6 +480,8 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     renameEntry: entryRepository.renameEntry,
     renameNote: title => runtime.rename(title),
     setTopicReaderReference: entryRepository.setTopicReaderReference,
+    reconcileCardTopics: input => cardTopics.reconcile(input),
+    resyncCardTopic: topicId => cardTopics.resync(topicId),
     subscribe: collaboration.subscribe,
   }
   return note

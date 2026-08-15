@@ -235,7 +235,7 @@ function defineCardCommands(createId: CreateCardId): CardCommandsExtension {
       validateDirection(direction)
       return insertCardDelimiter(createId, direction)
     },
-    removeBlockHighlight: () => updateClosestListAttrs(() => ({ blockHighlight: null })),
+    removeBlockHighlight: () => updateClosestListAttrs(() => ({ blockHighlight: null, blockHighlightId: null })),
     removeCloze: () => removeMark({ type: 'cloze' }),
     removeBlockFromCardBack: () => removeBlockFromCardBackCommand(),
     removeInlineHighlight: () => removeMark({ type: 'inlineHighlight' }),
@@ -243,11 +243,11 @@ function defineCardCommands(createId: CreateCardId): CardCommandsExtension {
     setCardPresentation: (input: SetCardPresentationInput) => setCardPresentationCommand(input.presentation),
     setBlockHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
-      return updateClosestListAttrs(() => ({ blockHighlight: color }))
+      return updateClosestListAttrs(() => ({ blockHighlight: color, blockHighlightId: crypto.randomUUID() }))
     },
     setInlineHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
-      return addMark({ type: 'inlineHighlight', attrs: { color } satisfies InlineHighlightMarkAttrs })
+      return addMark({ type: 'inlineHighlight', attrs: { color, id: crypto.randomUUID() } satisfies InlineHighlightMarkAttrs })
     },
   })
 }

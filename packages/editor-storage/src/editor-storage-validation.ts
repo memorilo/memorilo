@@ -128,6 +128,21 @@ export function validateProjectionPatch(
         && entry.topicType !== 'whiteboard') {
         throw new TypeError(`Topic ${entryId} has an unknown subtype`)
       }
+      if (entry.topicType === 'regular' && entry.cardSource !== undefined) {
+        if (entry.cardSource.kind !== 'basic'
+          && entry.cardSource.kind !== 'cloze'
+          && entry.cardSource.kind !== 'highlight'
+          && entry.cardSource.kind !== 'list'
+          && entry.cardSource.kind !== 'set') {
+          throw new TypeError(`Card Topic ${entryId} has an unsupported card kind`)
+        }
+        assertNonEmpty(entry.cardSource.sourceId, `Card Topic ${entryId} source id`)
+        assertNonEmpty(entry.cardSource.sourceTopicId, `Card Topic ${entryId} source Topic id`)
+        if (entry.cardSource.syncStatus !== 'synced' && entry.cardSource.syncStatus !== 'detached')
+          throw new TypeError(`Card Topic ${entryId} has an unsupported sync status`)
+        if (entry.parentId !== entry.cardSource.sourceTopicId)
+          throw new TypeError(`Card Topic ${entryId} must remain under its source Topic`)
+      }
       topicEntries.set(entryId, entry)
     }
     else {

@@ -164,7 +164,7 @@ export function createLearningReviewRatingModel(
       forgottenItemBlockIds: new Set(options.forgottenItemBlockIds),
       item,
       listRatings,
-      revealed: options.revealed === true,
+      revealed: options.revealed === true || item.card.kind === 'highlight',
       shownAt: now(),
       sourceVisible: false,
       status: 'active',

@@ -77,15 +77,17 @@ function planNoteProjection(
         entry.id,
         entry.topicType,
         entry.topicType === 'book' || entry.topicType === 'regular' ? entry.mode : null,
+        entry.topicType === 'regular' && entry.cardSource !== undefined ? JSON.stringify(entry.cardSource) : null,
         entry.title,
       ],
       sql: `
-        INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, title)
-        VALUES (${noteRowSql}, ?, ?, ?, ?)
+        INSERT INTO topics (note_row_id, topic_id, topic_type, editor_mode, card_source_json, title)
+        VALUES (${noteRowSql}, ?, ?, ?, ?, ?)
         ${mode === 'upsert'
           ? `ON CONFLICT(note_row_id, topic_id) DO UPDATE SET
               topic_type = excluded.topic_type,
               editor_mode = excluded.editor_mode,
+              card_source_json = excluded.card_source_json,
               title = excluded.title`
           : ''}
       `,

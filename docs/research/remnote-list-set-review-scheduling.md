@@ -1,6 +1,6 @@
 # RemNote List / Set 复习交互与调度语义调研
 
-调研日期：2026-08-06
+调研日期：2026-08-06；实现状态更新：2026-08-16
 观察的 RemNote Web 版本：1.27.19
 
 ## 范围与证据等级
@@ -24,7 +24,7 @@
 | Partial 评分 | 只更新对应 sub-card，不更新 main Card | 只更新对应 item Target | 基本一致 |
 | Sibling bury | 未找到 List/Set 使用 Anki 式 sibling bury 的官方或生产证据 | 使用项目已选择的 Anki 式 bury 策略 | 不能声称一致 |
 
-因此，准确答案是：**Memorilo 已按 RemNote 1.27.19 可观察到的行为实现 main Card 与 item/sub-card 并存的两层调度。** 两者的用户可见交互和调度选择语义一致；持久化模型仍不同：RemNote 在 main repetition 中保存 `subCardScores`，Memorilo 将 main 与 item 表示为独立但同属一个 Card 的 Review Targets，并用原子事务提交完整复习。
+因此，准确答案是：**Memorilo 已按 RemNote 1.27.19 可观察到的行为，为 CardTopic 所拥有的 List/Set Card 实现 main 与 item/sub-card 并存的两层调度。** 两者的用户可见交互和调度选择语义一致；持久化模型仍不同：RemNote 在 main repetition 中保存 `subCardScores`，Memorilo 将 main 与 item 表示为独立但同属一个 Card 的 Review Targets，并用原子事务提交完整复习。
 
 ## 1. 官方文档中的交互
 
@@ -128,7 +128,7 @@ RemNote 的 Partial 选择还可以表示困难项集合，而不必等同于“
 
 ## 4. Memorilo 当前实现
 
-Memorilo 为 forward List/Set 建立一个 whole main Target 和多个稳定的 item Targets：
+Memorilo 从 List/Set CardTopic 投影其 owned Card，并为 forward Card 建立一个 whole main Target 和多个稳定的 item Targets：
 
 1. 完整 List 按顺序收集每个 item 的 Rating，最后依据 RemNote 1.27.19 的聚合规则生成 main Rating；所有 item events 与 main event 在一个数据库事务中提交。
 2. 完整 Set 为被标记遗忘的 items 写 Again，为其余 items 写最后选择的批量 Rating，并用该批量 Rating 更新 main Target；这次完整复习同样原子提交。
@@ -148,7 +148,7 @@ Memorilo 为 forward List/Set 建立一个 whole main Target 和多个稳定的 
 - bury review siblings；
 - bury interday learning siblings；
 
-应视为项目选择采用的 Anki 队列策略，不能标注为严格复刻 RemNote。
+应视为项目选择采用的 Anki 队列策略，不能标注为严格复刻 RemNote。Memorilo 的 sibling group 是同一 Note 内共享 `sourceBlockId` 的 Cards，并包括兄弟 CardTopics 与嵌套 CardTopic 投影。
 
 ## 6. 生产代码证据定位
 

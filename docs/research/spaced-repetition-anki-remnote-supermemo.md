@@ -1,8 +1,8 @@
 # Anki、RemNote 与 SuperMemo 学习系统调研
 
-调研日期：2026-07-30；实现状态更新：2026-08-06
+调研日期：2026-07-30；实现状态更新：2026-08-16
 
-本文保留当时用于选择产品路线的外部调研与阶段计划。Memorilo 后续已经选择原生 FSRS，并完成 Card 投影、学习存储、队列、Optimizer 和正式 Review UI；当前实现合同以 [FSRS Learning System Design](../fsrs-learning-system.md) 为准。
+本文保留当时用于选择产品路线的外部调研与阶段计划。Memorilo 后续已经选择原生 FSRS，并完成 CardTopic ownership、学习存储、队列、Optimizer 和正式 Review UI；当前实现合同以 [FSRS Learning System Design](../fsrs-learning-system.md) 与 [ADR 0006](../adr/0006-card-topics-own-learning-cards.md) 为准。
 
 ## 范围与资料边界
 
@@ -289,25 +289,27 @@ API request 由 `action`、`version`、`params` 和可选 `key` 构成，respons
 - 每个 Topic 的内容是具有稳定 Block identity 的 LoroTree；ProseMirror 是它的可编辑 projection。[ADR 0002](../adr/0002-topic-blocks-as-loro-tree.md)
 - `packages/editor` 已能把 Topic 投影为带稳定 `blockId`、parent、ordinal、kind、text 和 attributes 的 Block 列表。
 - `packages/editor-storage` 已把 Block projection 写入 SQLite，并提供 lexical、semantic 和 hybrid search；这使未来从 Card 返回来源 Block、查找相关上下文和构建学习 scope 都有现成落点。
+- `packages/editor` 已实现 CardTopic lifecycle：每个 Basic/List/Set Definition、ClozeGroup、连续 inline Highlight 和 block Highlight 生成 child Topic，并支持 synced、detached、resync 与嵌套。
 - 桌面端已经具有 Learning Notes、Optimizer 设置和独立 Review 路由；Electron IPC/preload 公开学习契约，`packages/editor-storage` 保存 Review Events 与 Learning States，`packages/srs` 负责 FSRS、队列政策和 List/Set 两层调度。
 
 ### 5.2 必须保持的边界
 
 1. Memorilo 已经把 `Note` 定义为协作聚合、把 `Topic` 定义为可编辑内容节点。因此不应照搬 Anki 的 Note 术语或 SuperMemo 的 Topic 术语，否则会产生同名异义。
 2. Card 内容定义应随 Note 协作、移动和 time travel；个人 review history、due state 和 scheduler parameters 不应直接写入 Note LoroDoc。否则每次评分都会制造内容协作更新，并把个人学习状态混入共享知识。
-3. Topic 的 `due`、`learned` 等状态只能是其后代 Cards 的聚合 projection，不能成为持久化真源。一个 Topic 可同时包含 new、due、suspended 和无 Card 的 Blocks。
+3. Regular Topic 本身不进入队列。其 `due`、`learned` 等状态只能是 child CardTopics 所拥有 Cards 的聚合 projection，不能成为持久化真源。
 4. 当前 Block `contentHash` 只覆盖纯文本。Cloze anchor、方向、答案边界、ListCard membership 与 Highlight 等语义变化需要独立的内容语义 projection/hash，不能依赖现有搜索索引判断 Card 是否变化。
 5. Card identity 不能由当前 ordinal 或 cloze 的临时位置推导。移动 Block、改写文字或在前面插入另一个 cloze 时，已有 review history 必须仍关联到原 Card。
 
 ## 6. Memorilo 当前领域模型
 
 ```text
-Note / Topic / Source Block（Loro，协作内容真源）
-  -> Card Definition（如何从内容出题）
-     -> Card（一个可独立调度的提问实例）
-        -> Review Events（个人、追加式历史）
-           -> Memory State（可重建的调度状态）
-              -> Review Queue（按当前 scope 动态查询）
+Regular Topic / Source Block（Loro，authoring 真源）
+  -> Card Definition / Highlight source
+     -> CardTopic child（synced 或 detached 的学习内容 owner）
+        -> Card（一个可独立调度的提问实例）
+           -> Review Events（个人、追加式历史）
+              -> Memory State（可重建的调度状态）
+                 -> Review Queue（按当前 scope 动态查询）
 ```
 
 当前实现采用以下术语；Reading Item 仍是未来边界：
@@ -316,8 +318,9 @@ Note / Topic / Source Block（Loro，协作内容真源）
 | --- | --- | --- |
 | Source Block | 承载知识内容的稳定 Block | Note LoroDoc |
 | Card Definition | Basic、Reverse、Bidirectional、RichContentCloze、MathSourceCloze、ListCard 等出题规则 | Note LoroDoc 的语义节点、属性或 mark |
-| Card | 一个方向、一个 cloze group 或一个遮挡区产生的独立复习单位 | 从 Card Definition 投影；具有显式稳定 ID |
-| Sibling Group | 来自同一 Definition、可能互相泄露答案的一组 Cards | Card projection |
+| CardTopic | 从一个 Definition、ClozeGroup 或 Highlight 区域创建的 child RegularTopic；是 Preview 与 Learning 的内容 owner | Note LoroDoc；`cardSource` 记录来源和 sync status |
+| Card | CardTopic 拥有的一个方向、一个 cloze group、一个 Highlight 或一个遮挡区产生的独立复习单位 | 从 CardTopic 文档投影；具有显式稳定 ID |
+| Sibling Group | 同一 Note 中共享 `sourceBlockId`、可能互相泄露答案的一组 Cards，包括嵌套 CardTopics | Card projection |
 | Review Event | 某 profile 在某时刻以某 rating 回答 Card 的事实 | SQLite 中的追加式历史与本地 sync outbox；远端同步尚未实现 |
 | Memory State | New/Learning/Review/Relearning、stability、difficulty、due 等 | Review Events 的可重建 SQLite 物化结果 |
 | Review Queue | due/new/relearning Cards 在某一 scope 下的排序结果 | 动态计算，不作为内容实体持久化 |
@@ -326,7 +329,7 @@ Note / Topic / Source Block（Loro，协作内容真源）
 关键不变量：
 
 - 普通内容编辑默认保留 Card ID 和 review history；用户明确选择“重置学习”时才清空或重建 Memory State。
-- 删除 Card Definition 时将 Card 归档或停用，而不是级联删除 review history；这样 Undo、time travel、恢复和审计不会失去依据。
+- 删除来源 Card Definition 时保留并 detached 对应 CardTopic，因此 Card 继续 active；只有 CardTopic 自身被删除或 owned identity 消失时才停用 Card，且不级联删除 review history。
 - 历史 checkout 状态下不允许提交 review，避免用旧内容推进当前 scheduler。
 - 同一 Card 在任一时刻只有一个 scheduling owner：Anki 或 Memorilo，不能双方分别计算 due date。
 - Rating 的语义属于 scheduler 契约。UI 文案、键盘快捷键和导入映射必须固定且可解释。
@@ -335,10 +338,10 @@ Note / Topic / Source Block（Loro，协作内容真源）
 
 | 模块 | 职责 |
 | --- | --- |
-| `packages/editor` | Card Definition 的编辑语义、稳定 ID、两类 Cloze anchor、ListCard reveal projection、inline/whole-block Highlight，以及从 Topic 文档投影 Cards |
+| `packages/editor` | Card Definition 的编辑语义、稳定 ID、CardTopic lifecycle、两类 Cloze anchor、ListCard reveal projection、inline/whole-block Highlight，以及 owned Card projection |
 | `packages/srs` | Rating、FSRS state transition、Optimizer、queue policy、sibling policy 与 multi-line 调度；不依赖 Electron 或 SQLite |
 | `packages/editor-storage` | Card projections、review events、materialized memory state、动态队列查询、Optimizer、事务、本地 sync outbox 与数据库维护 |
-| `apps/desktop/main` | 组合 Note 内容加载、editor-storage、当前配置 provider 与 learning application，暴露 IPC service |
+| `apps/desktop/main` | 组合 Note/CardTopic reconciliation、editor-storage、当前配置 provider 与 learning application，暴露 IPC service |
 | `apps/desktop/preload` | context-isolated queue、review preparation/rating、Undo/Reset、Optimizer 与维护 contracts |
 | `apps/desktop/renderer` | Learning Notes、Optimizer 和 Review routes，CardSurface 展示、session 状态与路由恢复 |
 
@@ -362,12 +365,12 @@ Issue [#29](https://github.com/memorilo/memorilo/issues/29) 曾提议先通过 A
 
 ## 9. 分阶段实施记录
 
-截至 2026-08-06，阶段 0、1A、1B 与原生复习闭环的核心部分已经完成；阶段 3 的独立 Learning/Review UI、只读 Editor CardSurface、四级评分、interval preview 和 Undo 已完成。AnkiConnect 路线未采用，远端个人学习同步、完整 source navigation/suspend 操作和渐进阅读仍属于后续工作。以下条目保留原始实施拆分，并在已过时处标注当前结果。
+截至 2026-08-16，阶段 0、1A、1B 与原生复习闭环的核心部分已经完成；CardTopic ownership、半同步/解除同步、嵌套、Highlight Card、独立 Learning/Review UI、四级评分、interval preview 和 Undo 已完成。AnkiConnect 路线未采用，远端个人学习同步、完整 source navigation/suspend 操作和渐进阅读仍属于后续工作。以下条目保留原始实施拆分，并在已过时处标注当前结果。
 
 ### 阶段 0：冻结领域决策
 
 - 该历史阶段只修改 `packages/editor`，不触碰 Desktop、SQLite、IPC 或正式 scheduler；后续已经选择原生 FSRS，并进入持久化与桌面集成。
-- 首期 Card authoring 包含 Basic、Reverse、Bidirectional、RichContentCloze、MathSourceCloze 与 ListCard；Highlight 同时支持 inline 与 whole-block，但不是 Card 类型。
+- 首期 Card authoring 包含 Basic、Reverse、Bidirectional、RichContentCloze、MathSourceCloze 与 ListCard。该阶段曾把 Highlight 视为纯格式；当前设计已由 ADR 0006 改为每个 Highlight 来源生成无背面的 CardTopic/Card。
 - 确定普通内容编辑、实质性改写、删除、Undo 和“重置学习”对 Card identity/history 的语义。
 - 记录 ADR：协作 Card Definition 与个人 Review State 分离。
 
@@ -377,20 +380,20 @@ Issue [#29](https://github.com/memorilo/memorilo/issues/29) 曾提议先通过 A
 - 加入语义化的 Basic、Reverse、Bidirectional、RichContentCloze、MathSourceCloze 与 ListCard 表达；快捷语法只负责创建语义结构，不把原始分隔符当作长期数据模型。
 - 为每个 Card 和 sibling group 写入显式稳定 ID。
 - 自动验证 Editor authoring、Preview Front 与 Preview Back；ListCard Preview 按顺序逐项揭示，session 内只保存 reveal index。
-- 同时实现 inline Highlight 与 whole-block Highlight，并在 Card Preview 中保留。
+- 同时实现 inline Highlight 与 whole-block Highlight，并在 authoring editor 中保留样式；后续 CardTopic 模型让它们各自生成无背面的 Highlight Card。
 - RichContentCloze 允许选区包含完整 inline 元素或整个公式；MathSourceCloze 只处理 LaTeX source 内部局部内容。
 - 同一 ClozeGroup 可以混合 RichContentAnchor 与 MathSourceAnchor；Preview 将两类片段作为同一张 Card 同步隐藏和揭示。
 - 第一阶段不加入 Image Occlusion；它依赖 issue [#28](https://github.com/memorilo/memorilo/issues/28) 的 PDF/asset annotation、稳定区域坐标和 provenance 模型。
 
-阶段完成标志：六类 Card authoring/Preview 与两类 Highlight 都能在 editor-only 环境交互验证；移动或编辑 Source Block 不会意外生成新 Card；Desktop、SQLite 和正式 scheduler 未被修改。
+当时的阶段完成标志是六类 Card authoring/Preview 与两类 Highlight 都能在 editor-only 环境交互验证，且移动或编辑 Source Block 不会意外生成新 Card。此后 Desktop、SQLite 和正式 scheduler 已接入 CardTopic-owned projection；Editor-only 边界只用于说明该历史里程碑。
 
 > **已完成（2026-08-06）**：List/Set 已具有稳定 main/item Targets、逐项评分历史、Partial Review 和正式 FSRS 调度；完整 multi-line 评分以原子事务提交。
 
 ### 阶段 1B：持久化投影
 
-- 从 Topic 文档投影 Card front/back、source Block、context、类型和 active state。
-- 在 SQLite 保存可重建的 Card projection，并能从 Card 返回 Note/Topic/Block 来源。
-- 开发阶段旧数据库已明确删除；当前 List/Set 两层 Target 模型直接作为新数据库基线，不增加旧调度状态迁移。
+- 从 CardTopic 文档投影 Card front/back、source Block、context、类型和 active state；无 `cardSource` 的 regular Topic 不再直接投影学习 Card。
+- 在 SQLite 保存可重建的 Card projection，并以 CardTopic `topicId` 返回 Note/Topic/Block 内容来源。
+- main database generation 保持 `1`；CardTopic ownership 与 List/Set 两层 Target 模型在该 generation 内运行。
 
 ### 阶段 2A：原生复习闭环（已采用）
 
@@ -415,7 +418,7 @@ Issue [#29](https://github.com/memorilo/memorilo/issues/29) 曾提议先通过 A
 ### 阶段 3：Learn UI 与聚合状态（部分完成）
 
 - 已实现独立 Learning/Review route 和 session，而不是把完整复习流程塞进 Note inspector。
-- 已实现只读 CardSurface、answer reveal、四级 Rating、interval preview、Undo、键盘评分、route restoration，以及 List/Set/Cloze 的正式 Review 交互。
+- 已实现只读 CardSurface、answer reveal、四级 Rating、interval preview、Undo、键盘评分、route restoration，以及 Basic/List/Set/Cloze/Highlight CardTopic 的正式 Review 交互。Highlight 无背面并直接评分。
 - 当前 queue scope 支持全局和当前 Note；当前 CardID 进入 route search 以恢复进度。Topic/tag scope 尚未开放。
 - 稳定 Source Block 跳转、edit source、手动 bury/suspend/reset 控件，以及完整 inspector 聚合状态仍未实现。
 
@@ -444,9 +447,9 @@ Review Card
 
 ## 10. 当前状态与后续边界
 
-当前已经形成“制卡 -> 动态队列 -> 正式复习 -> FSRS 状态持久化”的闭环：Editor 支持 Basic/Reverse/Bidirectional、两条 Cloze 路径、List/Set 与稳定 Card identity；Desktop 支持全局/Note Review、四级评分、main/item 两层调度、Sibling Bury、每日新卡额度、Daily Goal、Optimizer assignment/optimization 和跨重启恢复。
+当前已经形成“regular Topic authoring -> child CardTopic -> 动态队列 -> 正式复习 -> FSRS 状态持久化”的闭环：Editor 支持 Basic/Reverse/Bidirectional、两条 Cloze 路径、List/Set、inline/block Highlight、稳定 Card identity、synced/detached 与嵌套；Desktop 支持 CardTopic Preview、全局/Note Review、四级评分、main/item 两层调度、Sibling Bury、每日新卡额度、Daily Goal、Optimizer assignment/optimization 和跨重启恢复。
 
-已确认的数据库策略是开发阶段删除旧数据库，以当前 learning schema 和 List/Set 两层 Target 模型作为基线，不编写旧调度数据兼容迁移。未来若出现上线后的破坏性 schema 或同步协议变化，需要重新明确兼容范围，不能沿用这次开发期决定。
+main database generation 保持 `1`；当前 CardTopic、learning schema 和 List/Set 两层 Target 模型都在该 generation 内运行。
 
 仍未完成的主要边界是远端个人学习同步、完整的 source navigation 与 suspend 等 Review 操作、版本化导入导出，以及 SuperMemo 式渐进阅读；这些不影响当前原生 FSRS 闭环。
 

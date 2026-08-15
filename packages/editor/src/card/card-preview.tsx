@@ -146,6 +146,12 @@ function ClozePreview({ card, mode }: {
   )
 }
 
+function HighlightPreview({ card }: {
+  card: Extract<EditorCardProjection, { kind: 'highlight' }>
+}) {
+  return <CardRichContent nodes={card.content} />
+}
+
 function MultiLinePreview({ card, itemSelection, mode, revealedItemBlockIds }: {
   card: Extract<EditorCardProjection, { kind: 'list' | 'set' }>
   itemSelection?: CardPreviewItemSelection
@@ -231,13 +237,14 @@ function CardPreviewSession({
         blockHighlightStyle(card.blockHighlight),
       )}
       data-block-highlight={card.blockHighlight ?? undefined}
-      data-card-direction={card.kind === 'cloze' ? undefined : card.direction}
+      data-card-direction={card.kind === 'basic' || card.kind === 'list' || card.kind === 'set' ? card.direction : undefined}
       data-card-id={card.id}
       data-card-kind={card.kind}
       data-testid="card-preview-surface"
     >
       {card.kind === 'basic' ? <BasicPreview card={card} mode={mode} /> : null}
       {card.kind === 'cloze' ? <ClozePreview card={card} mode={mode} /> : null}
+      {card.kind === 'highlight' ? <HighlightPreview card={card} /> : null}
       {card.kind === 'list' || card.kind === 'set'
         ? (
             <MultiLinePreview

@@ -64,16 +64,11 @@ The packaged application smoke test verifies that the shipped binary loads insid
 
 ## Database Schema
 
-Run Drizzle Kit through the main-process package:
-
-```sh
-pnpm --filter @memorilo/desktop-main db:generate
-pnpm --filter @memorilo/desktop-main db:migrate
-pnpm --filter @memorilo/desktop-main db:studio
-```
-
-Generated migrations belong to the main-process package and should be reviewed before they
-are applied.
+The main process owns the SQLite database through `packages/editor-storage` and the native
+Better SQLite adapter. The current main database schema generation is `1`. See
+[`docs/adr/0006-card-topics-own-learning-cards.md`](docs/adr/0006-card-topics-own-learning-cards.md)
+and [`docs/fsrs-learning-system.md`](docs/fsrs-learning-system.md) for the ownership and
+maintenance contract.
 
 ## License
 

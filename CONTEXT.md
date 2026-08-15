@@ -20,6 +20,10 @@ _Avoid_: Empty Topic
 A NoteEntry with editable content that may also organize child entries.
 _Avoid_: Page, editor document
 
+**RegularTopic**:
+A Topic whose primary content is one rich-text editor. It may be an ordinary authoring Topic or a CardTopic.
+_Avoid_: Normal Topic, plain Topic
+
 **BookTopic**:
 A Topic bound to one concrete BookFile. It keeps normal editable Topic content while owning that file's reading position and annotations.
 _Avoid_: ReadingTopic, book registry entry
@@ -84,8 +88,20 @@ _Avoid_: Reader ID, reading session
 A content node inside a Topic.
 _Avoid_: NoteEntry, Topic node
 
+**CardTopic**:
+A RegularTopic created from one Card authoring source and placed directly below its source Topic. It owns the learnable Card projection and may either remain linked to its source or become independently editable.
+_Avoid_: Card, hidden Card, Card Definition
+
+**Synced CardTopic**:
+A CardTopic whose selected content and automatic title still follow its source.
+_Avoid_: Mirrored Card, read-only CardTopic
+
+**Detached CardTopic**:
+A CardTopic that retains its own editable content and no longer follows later source changes.
+_Avoid_: Deleted CardTopic, inactive Card
+
 **Card**:
-An independently identifiable learning item generated from Block content. Multiple Cards may share one source Block, and each Card keeps a stable CardID across ordinary content edits.
+A learnable item owned by a CardTopic and identified independently from its source Block. Multiple Cards may share one source Block, and each Card keeps a stable CardID across ordinary content edits.
 _Avoid_: Block, ClozeGroup
 
 **ClozeGroup**:
@@ -113,8 +129,8 @@ All Cards projected from the same Source Block. Siblings remain independently sc
 _Avoid_: Note, Card Definition, shared Learning State
 
 **Highlight**:
-Memorization emphasis applied either to inline content or to an entire Block. A Highlight does not create a Card.
-_Avoid_: Highlight Card, review hint
+Memorization emphasis applied either to one continuous inline range or to an entire Block. Each Highlight creates a CardTopic whose Card has no hidden answer.
+_Avoid_: review hint, text color
 
 **Journal**:
 The chronological workspace that starts with today's Journal Note and continues into earlier non-empty Journal Notes.

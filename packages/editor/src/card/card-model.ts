@@ -27,6 +27,14 @@ export interface ClozeEditorCardProjection {
   sourceBlockId: string
 }
 
+export interface HighlightEditorCardProjection {
+  blockHighlight: HighlightColor | null
+  content: readonly NodeJSON[]
+  id: string
+  kind: 'highlight'
+  sourceBlockId: string
+}
+
 export interface MultiLineCardItemProjection {
   blockId: string
   content: readonly NodeJSON[]
@@ -43,7 +51,7 @@ export interface MultiLineEditorCardProjection {
   sourceBlockId: string
 }
 
-export type EditorCardProjection = BasicEditorCardProjection | ClozeEditorCardProjection | MultiLineEditorCardProjection
+export type EditorCardProjection = BasicEditorCardProjection | ClozeEditorCardProjection | HighlightEditorCardProjection | MultiLineEditorCardProjection
 export type ReviewCardProjection = EditorCardProjection | ImageOcclusionCardProjection
 
 export interface CardDelimiterAttrs {
@@ -68,10 +76,12 @@ export interface ClozeMarkAttrs {
 
 export interface InlineHighlightMarkAttrs {
   color: HighlightColor
+  id: string
 }
 
 export interface CardBlockAttrs {
   blockHighlight: HighlightColor | null
+  blockHighlightId: string | null
   cardItemDefinitionId: string | null
 }
 
@@ -164,6 +174,71 @@ function readBlockHighlight(node: NodeJSON): HighlightColor | null {
   if (color !== 'yellow' && color !== 'green' && color !== 'blue' && color !== 'pink' && color !== 'orange' && color !== 'purple')
     throw new TypeError(`Unsupported block Highlight color: ${String(color)}`)
   return color
+}
+
+function readBlockHighlightId(node: NodeJSON): string | null {
+  const value = node.attrs?.blockHighlightId
+  return value === null ? null : readNonEmptyString(value, 'Block Highlight ID')
+}
+
+function readInlineHighlightId(mark: NonNullable<NodeJSON['marks']>[number]): string {
+  const value = mark.attrs?.id
+  return readNonEmptyString(value, 'Inline Highlight ID')
+}
+
+function projectHighlightCards(block: NodeJSON): HighlightEditorCardProjection[] {
+  const ownContent = block.content?.filter(child => child.type !== 'list') ?? []
+  const ids = new Set<string>()
+  const visit = (node: NodeJSON): void => {
+    node.marks?.forEach((mark) => {
+      if (mark.type !== 'inlineHighlight')
+        return
+      ids.add(readInlineHighlightId(mark))
+    })
+    node.content?.forEach(visit)
+  }
+  ownContent.forEach(visit)
+  const hasBlockHighlight = block.attrs?.blockHighlight !== undefined && block.attrs.blockHighlight !== null
+  const hasBlockHighlightId = block.attrs?.blockHighlightId !== undefined && block.attrs.blockHighlightId !== null
+  const blockHighlight = hasBlockHighlight ? readBlockHighlight(block) : null
+  const blockHighlightId = hasBlockHighlightId ? readBlockHighlightId(block) : null
+  if ((blockHighlight === null) !== (blockHighlightId === null))
+    throw new TypeError('Block Highlight color and ID must be provided together')
+  if (blockHighlightId)
+    ids.add(blockHighlightId)
+  const sourceBlockId = readBlockId(block)
+  return [...ids].map((id) => {
+    const content = id === blockHighlightId
+      ? structuredClone(ownContent)
+      : ownContent
+          .map(node => selectInlineHighlightContent(node, id))
+          .filter((node): node is NodeJSON => node !== null)
+    return {
+      blockHighlight,
+      content,
+      id,
+      kind: 'highlight',
+      sourceBlockId,
+    }
+  })
+}
+
+function selectInlineHighlightContent(node: NodeJSON, sourceId: string): NodeJSON | null {
+  const selected = node.marks?.some(mark => (
+    mark.type === 'inlineHighlight' && mark.attrs?.id === sourceId
+  )) ?? false
+  if (selected)
+    return structuredClone(node)
+  if (!node.content)
+    return null
+  const content = node.content
+    .map(child => selectInlineHighlightContent(child, sourceId))
+    .filter((child): child is NodeJSON => child !== null)
+  if (content.length === 0)
+    return null
+  const rebuilt = structuredClone(node)
+  rebuilt.content = content
+  return rebuilt
 }
 
 function requireCardId(value: string | null, direction: BasicCardDirection, definitionId: string): string {
@@ -333,7 +408,7 @@ export function projectEditorCards(document: NodeJSON): readonly EditorCardProje
   const visit = (block: NodeJSON): void => {
     if (block.type !== 'list')
       throw new TypeError(`Expected a normalized list block, received ${block.type}`)
-    cards.push(...projectDefinitionCards(block), ...projectClozeCards(block, clozeDefinitions))
+    cards.push(...projectDefinitionCards(block), ...projectClozeCards(block, clozeDefinitions), ...projectHighlightCards(block))
     block.content?.filter(child => child.type === 'list').forEach(visit)
   }
   document.content?.forEach(visit)

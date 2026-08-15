@@ -273,8 +273,16 @@ const TopicReaderReferenceSchema = Schema.Union([
   Schema.Struct({ source: TopicReaderSourceSchema }),
 ])
 
+const CardTopicSourceSchema = Schema.Struct({
+  kind: Schema.Literals(['basic', 'cloze', 'highlight', 'list', 'set']),
+  sourceId: Schema.NonEmptyString,
+  sourceTopicId: Schema.NonEmptyString,
+  syncStatus: Schema.Literals(['detached', 'synced']),
+})
+
 export const LoroRegularTopicEntrySchema = Schema.Struct({
   ...LoroTopicEntryBaseFields,
+  cardSource: Schema.optionalKey(CardTopicSourceSchema),
   readerReference: Schema.optionalKey(TopicReaderReferenceSchema),
   topicType: Schema.Literal('regular'),
 })

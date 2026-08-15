@@ -23,6 +23,7 @@ export type {
   ClozeMarkAttrs,
   EditorCardProjection,
   HighlightColor,
+  HighlightEditorCardProjection,
   InlineHighlightMarkAttrs,
   MultiLineCardItemProjection,
   MultiLineEditorCardProjection,
@@ -88,9 +89,14 @@ export {
 } from './image-occlusion/image-occlusion-model'
 export { JournalEditor } from './journal-editor'
 export type { JournalEditorProps } from './journal-editor'
+export { cardTopicTitle, projectCardTopicCards, projectCardTopicDefinitions } from './note/card-topic-projection'
 export type {
   BookTopicSnapshot,
   BookTopicValidationInput,
+  CardTopicKind,
+  CardTopicReconciliationResult,
+  CardTopicSource,
+  CardTopicSyncStatus,
   CreateBookTopicInput,
   CreateEditorNoteOptions,
   CreateEmbeddedEditorInput,

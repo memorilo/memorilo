@@ -49,7 +49,7 @@ function ownDescendants(
   })
 }
 
-function delimiterForCard(source: LocatedNode, card: Exclude<EditorCardProjection, { kind: 'cloze' }>): LocatedNode {
+function delimiterForCard(source: LocatedNode, card: Extract<EditorCardProjection, { kind: 'basic' | 'list' | 'set' }>): LocatedNode {
   let result: LocatedNode | null = null
   ownDescendants(source.node, source.position, (node, position) => {
     if (node.type.name !== 'cardDelimiter' || node.attrs.definitionId !== card.definitionId)
@@ -261,6 +261,8 @@ function decorateCardMembers(
   decorations: Decoration[],
 ): void {
   const card = options.card
+  if (card.kind === 'highlight')
+    return
   const itemIds = card.kind === 'list' || card.kind === 'set'
     ? new Set(card.items.map(item => item.blockId))
     : new Set<string>()
@@ -342,18 +344,19 @@ export function createCardReviewDecorations(
     'data-card-review-card-kind': card.kind,
     'data-card-review-source': card.sourceBlockId,
   }
-  if (card.kind !== 'cloze')
+  if (card.kind === 'basic' || card.kind === 'list' || card.kind === 'set')
     sourceAttrs['data-card-review-card-direction'] = card.direction
   const decorations: Decoration[] = [
     Decoration.node(source.position, source.position + source.node.nodeSize, sourceAttrs),
   ]
 
-  decorateCardMembers(source, options, decorations)
+  if (card.kind !== 'highlight')
+    decorateCardMembers(source, options, decorations)
   if (options.side === 'question') {
     if (card.kind === 'cloze') {
       decorateClozeQuestion(source, card.id, decorations)
     }
-    else {
+    else if (card.kind !== 'highlight') {
       const delimiter = delimiterForCard(source, card)
       if (card.kind === 'basic' || card.direction === 'backward')
         decorateHiddenSide(source, delimiter, card.direction === 'backward' ? 'before' : 'after', decorations)

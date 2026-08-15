@@ -452,7 +452,7 @@ describe('editor storage with an in-memory SQLite database', () => {
     })
   })
 
-  it('migrates legacy Journal identity while preserving a regular Note with the same title', async () => {
+  it('rejects a legacy Journal schema without migrating it', async () => {
     const database = new SqliteTestDatabase()
     databases.push(database)
     await database.exec(`
@@ -480,25 +480,12 @@ describe('editor storage with an in-memory SQLite database', () => {
       SELECT row_id, '2026-08-05', 0 FROM notes WHERE id = 'legacy-journal';
     `)
 
-    const storage = await SqliteEditorStorage.open({
+    await expect(SqliteEditorStorage.open({
       database,
       databaseOwnership: 'borrowed',
       embeddingModel,
-    })
-    const journal = await storage.journals.getOrCreate({
-      entries: [],
-      id: 'unused-journal-id',
-      journalDate: '2026-08-05',
-      snapshot: Uint8Array.from([1]),
-      topics: [],
-    })
-
-    expect(journal).toMatchObject({ note: { id: 'legacy-journal' }, status: 'existing' })
-    await expect(storage.notes.listNotes({ today: '2026-08-05' })).resolves.toMatchObject({ totalItems: 2 })
-    await expect(
-      storage.notes.createNote({ title: '2026-08-05' }),
-    ).rejects.toBeInstanceOf(DuplicateNoteTitleError)
-    await storage.close()
+    })).rejects.toThrow('Unsupported notes schema: kind is required; delete the existing database before starting Memorilo')
+    await expect(database.all<{ name: string }>('PRAGMA table_info(notes)')).resolves.not.toContainEqual({ name: 'kind' })
   })
 
   it('resolves concurrent Journal creation to one durable winner', async () => {

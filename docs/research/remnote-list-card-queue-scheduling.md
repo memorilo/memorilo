@@ -1,6 +1,6 @@
 # RemNote List Card 与复习队列调度调研
 
-调研日期：2026-08-01；实现状态更新：2026-08-06
+调研日期：2026-08-01；实现状态更新：2026-08-16
 
 本文保留只依赖 RemNote 官方文档和公开接口时能够得到的证据边界。后续对 RemNote 1.27.19 生产 bundle 的补充分析与 Memorilo 当前 main/item 两层实现见 [RemNote List/Set 两层复习调度](./remnote-list-set-review-scheduling.md)；当前实现合同以 [FSRS Learning System Design](../fsrs-learning-system.md) 为准。
 
@@ -151,7 +151,7 @@ RemNote 的 Card Cluster 是作者显式建立的关联组。当组内某张卡�
 - List 的 Partial Cards 是否被视为普通 sibling；
 - 到期时间、priority、stale、learning steps 与 clustering 的最终排序比较器。
 
-因此 RemNote 资料不能替 Memorilo 决定“同 Note 卡处理”，也不能把关联卡聚类误写成 Anki 式 sibling burying。Memorilo 后续明确采用 Anki 分类的三个开关，并把同一 Note 内相同 `sourceBlockId` 定义为 sibling group；这是项目自己的队列政策。
+因此 RemNote 资料不能替 Memorilo 决定“同 Note 卡处理”，也不能把关联卡聚类误写成 Anki 式 sibling burying。Memorilo 后续明确采用 Anki 分类的三个开关，并把同一 Note 内相同 `sourceBlockId` 的 Cards 定义为 sibling group，包括兄弟 CardTopics 与嵌套 CardTopic 投影；这是项目自己的队列政策。
 
 ## 3. 返回上一张卡与撤销评分
 
@@ -181,7 +181,7 @@ Reset Scheduling 的官方行为也不是删除历史：系统追加一条 `Rese
 
 1. List review session 必须保留逐项评分，不能只把整张 ListCard 压成一个总 Rating；Memorilo 同时从逐项结果聚合 main Rating，用于完整卡长期调度。
 2. 完整列表与困难单项需要两种复习形态；困难项补救完成前可暂缓完整列表。
-3. item-level rating target、嵌套正式 Card 与完整 List Card 是三个可重叠但不能合并的概念。
+3. item-level rating target、嵌套 CardTopic 所拥有的正式 Card 与完整 List Card 是三个可重叠但不能合并的概念。
 4. FSRS 的长期 due 之外还需要独立队列政策。Memorilo 当前已实现 learning/relearning steps、new-card introduction、顺序政策和 Sibling Bury；Skip deferral、stale withholding 与 Document Priority 尚未实现。
 5. 关联卡片的“同时提供上下文”“软聚类排序”“独立 due”可以并存，Card Cluster 不需要共享一个 scheduler state。
 6. Reset 和普通 review history 应保持可审计；当前 materialized scheduling state 不能成为唯一事实来源。
@@ -200,15 +200,16 @@ Reset Scheduling 的官方行为也不是删除历史：系统追加一条 `Rese
 Memorilo 没有假设 RemNote 的内部表结构，而是明确采用以下领域边界：
 
 ```text
-List/Set Card Definition
-  -> whole main Target
-       -> main rating history / FSRS state
-  -> stable item Targets by itemBlockId
-       -> item rating history / FSRS state
-       -> derived Partial eligibility
+List/Set CardTopic
+  -> owned List/Set Card
+       -> whole main Target
+            -> main rating history / FSRS state
+       -> stable item Targets by itemBlockId
+            -> item rating history / FSRS state
+            -> derived Partial eligibility
 ```
 
-Forward List/Set 从首次投影起就建立一个 whole main Target 和全部稳定 item Targets。完整 List 逐项评分并聚合 main Rating；完整 Set 区分遗忘项后使用整体 Rating 更新 main；所有 item events 与 main event 在一个事务中提交。Partial Review 只更新对应 item，最近两次 canonical Ratings 中含 Again 或 Hard 的 item 保持困难状态。
+Forward List/Set CardTopic 拥有对应 List/Set Card；该 Card 从首次投影起就建立一个 whole main Target 和全部稳定 item Targets。完整 List 逐项评分并聚合 main Rating；完整 Set 区分遗忘项后使用整体 Rating 更新 main；所有 item events 与 main event 在一个事务中提交。Partial Review 只更新对应 item，最近两次 canonical Ratings 中含 Again 或 Hard 的 item 保持困难状态。
 
 Undo 已定义为追加 Undo Event，并从剩余 canonical history 重算 materialized state、Partial 缓存、Sibling Bury 与每日计数。这些都是 Memorilo 的产品合同，不是本文声称的 RemNote 行为。
 

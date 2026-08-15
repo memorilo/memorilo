@@ -44,7 +44,7 @@ function cardDocument(): NodeJSON {
           },
           {
             type: 'text',
-            marks: [{ type: 'inlineHighlight', attrs: { color: 'yellow' } }],
+            marks: [{ type: 'inlineHighlight', attrs: { color: 'yellow', id: 'highlight-typescript-answer' } }],
             text: 'A typed language for the web',
           },
         ],
