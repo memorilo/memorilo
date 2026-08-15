@@ -6,8 +6,9 @@ import { normalizeTopicReaderReference } from './topic-reader-reference'
 
 export const NOTE_META_KEY = 'noteMeta'
 export const NOTE_ENTRIES_KEY = 'entries'
-export const NOTE_SCHEMA_VERSION = 6
+export const NOTE_SCHEMA_VERSION = 1
 export const NOTE_UNDO_BOUNDARY_KEY = 'undoBoundary'
+export const NOTE_LEARNING_ENABLED_KEY = 'learningEnabled'
 export const ENTRY_ID_KEY = 'entryId'
 export const ENTRY_KIND_KEY = 'kind'
 export const FOLDER_NAME_KEY = 'name'
@@ -39,6 +40,13 @@ export function readString(map: LoroMap, key: string, description: string): stri
   const value = map.get(key)
   if (typeof value !== 'string' || value.length === 0)
     throw new Error(`${description} must be a non-empty string`)
+  return value
+}
+
+export function readBoolean(map: LoroMap, key: string, description: string): boolean {
+  const value = map.get(key)
+  if (typeof value !== 'boolean')
+    throw new Error(`${description} must be a boolean`)
   return value
 }
 

@@ -357,6 +357,8 @@ export interface EditorNote {
   validateTopic: (topicId: string) => Effect.Effect<LoroTopic, Error>
   /** Returns the Note title stored in the LoroDoc. */
   getTitle: () => string
+  /** Returns whether this Note participates in learning. */
+  getLearningEnabled: () => boolean
   /** Returns the current Loro version vector in a serializable form. */
   getVersion: () => readonly EditorNoteVersion[]
   /** Reports whether this aggregate contains semantic content beyond its initial unnamed root Topic. */
@@ -373,6 +375,8 @@ export interface EditorNote {
   setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
   /** Replaces the non-empty Note title. */
   renameNote: (title: string) => void
+  /** Enables or disables learning for this Note. */
+  setLearningEnabled: (enabled: boolean) => void
   /** Subscribes to locally generated Loro updates that callers should persist or transmit. */
   subscribe: (listener: (change: EditorNoteChange) => void) => () => void
 }
@@ -390,6 +394,8 @@ export interface CreateEditorNoteOptions {
   snapshot?: Uint8Array | null
   /** The title for a new Note. Defaults to `Untitled` and is ignored when restoring. */
   title?: string
+  /** Whether a new Note participates in learning. Defaults to enabled. */
+  learningEnabled?: boolean
   /** Updates to import after the snapshot, or the complete history when no snapshot is supplied. */
   updates?: readonly Uint8Array[]
 }
@@ -446,6 +452,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     getTopicContent: topicId => topics.content(topicId),
     getTopicReaderReference: entryRepository.getTopicReaderReference,
     getTitle: () => runtime.getTitle(),
+    getLearningEnabled: () => runtime.getLearningEnabled(),
     getTopicValidationInput: topicId => topics.validationInput(topicId),
     validateTopic: topicId => topics.validate(topicId),
     getVersion: collaboration.getVersion,
@@ -455,6 +462,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     moveEntry: entryRepository.moveEntry,
     renameEntry: entryRepository.renameEntry,
     renameNote: title => runtime.rename(title),
+    setLearningEnabled: enabled => runtime.setLearningEnabled(enabled),
     setTopicReaderReference: entryRepository.setTopicReaderReference,
     subscribe: collaboration.subscribe,
   }

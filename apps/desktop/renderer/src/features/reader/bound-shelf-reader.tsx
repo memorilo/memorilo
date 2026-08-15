@@ -212,6 +212,7 @@ export function BoundShelfReader({
             currentTopicId={context.topicId}
             entries={entries}
             learningEnabled={configuration.learning.enabled}
+            note={note}
             noteId={note.id}
             onToggleEntry={toggleEntry}
             showTitle={false}
