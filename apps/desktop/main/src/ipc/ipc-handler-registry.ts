@@ -31,9 +31,13 @@ type PlainDesktopIpcHandlers = {
   }
 }
 
-export type DesktopIpcHandlers = Omit<PlainDesktopIpcHandlers, 'assets' | 'books' | 'window'> & {
+export type DesktopIpcHandlers = Omit<PlainDesktopIpcHandlers, 'assets' | 'backup' | 'books' | 'window'> & {
   readonly assets: Omit<PlainDesktopIpcHandlers['assets'], 'reclaim'> & {
     readonly reclaim: ContextualHandlerFor<DesktopIpcClient['assets']['reclaim']>
+  }
+  readonly backup: {
+    readonly exportDatabase: ContextualHandlerFor<DesktopIpcClient['backup']['exportDatabase']>
+    readonly restoreDatabase: ContextualHandlerFor<DesktopIpcClient['backup']['restoreDatabase']>
   }
   readonly books: Omit<
     PlainDesktopIpcHandlers['books'],

@@ -8,6 +8,7 @@ import type {
   DesktopBookTopicContextSummary,
   DesktopColumnVisibilityMenuSelection,
   DesktopConfiguration,
+  DesktopExportDatabaseResult,
   DesktopFavoriteNoteItem,
   DesktopJournalNote,
   DesktopJournalPage,
@@ -18,6 +19,7 @@ import type {
   DesktopNoteSearchHit,
   DesktopNoteWriteReceipt,
   DesktopRecentNoteItem,
+  DesktopRestoreDatabaseResult,
   DesktopStoredTopicBlock,
   DesktopTopicBlockSearchHit,
   DesktopTopicBlockSearchMode,
@@ -58,6 +60,10 @@ import type {
 
 export interface DesktopIpcClient {
   app: { getRuntimeInfo: () => Promise<RuntimeInfo> }
+  backup: {
+    exportDatabase: () => Promise<DesktopExportDatabaseResult | { status: 'cancelled' }>
+    restoreDatabase: () => Promise<DesktopRestoreDatabaseResult>
+  }
   assets: {
     check: () => Promise<DesktopAssetCheckResult>
     importNetworkImage: (input: ImportDesktopNetworkImageInput) => Promise<SaveDesktopImageResult>
@@ -132,6 +138,10 @@ type DesktopIpcChannels = {
 export const desktopIpcChannels = {
   app: {
     getRuntimeInfo: 'memorilo:invoke:app:getRuntimeInfo',
+  },
+  backup: {
+    exportDatabase: 'memorilo:invoke:backup:exportDatabase',
+    restoreDatabase: 'memorilo:invoke:backup:restoreDatabase',
   },
   assets: {
     check: 'memorilo:invoke:assets:check',

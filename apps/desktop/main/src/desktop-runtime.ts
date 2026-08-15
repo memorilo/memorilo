@@ -4,7 +4,7 @@ import type { LearningPracticeConfiguration } from '@memorilo/editor-storage'
 import type { MessageBoxOptions } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import process from 'node:process'
 
 import { createConfigurationStore } from '@memorilo/config'
@@ -23,6 +23,7 @@ import { app, BrowserWindow, dialog } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
 import { registerAssetProtocol } from './asset-protocol'
+import { createDatabaseBackupApplication } from './backup/backup-application'
 import { createDesktopConfigurationAdapter } from './configuration/desktop-configuration-adapter'
 import { createDesktopServices } from './ipc/services'
 import { installJournalRollover } from './lifecycle/journal-rollover'
@@ -33,6 +34,11 @@ import { registerRendererProtocol } from './renderer-protocol'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { openCurrentMainDatabase } from './storage/main-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
+import {
+  assetDirectory,
+  mainDatabasePath,
+  shelfLibraryDirectory,
+} from './storage/workspace-paths'
 import { WhiteboardLibraryApplication } from './whiteboard/whiteboard-library-application'
 import { createSettingsWindowController } from './windows/settings-window'
 
@@ -43,23 +49,9 @@ export interface DesktopRuntime {
 interface DesktopRuntimeOptions {
   allowTestClock: boolean
   createWindow: () => void
+  flushRenderer: () => Promise<boolean>
   mainDirectory: string
-}
-
-function databasePath(userDataPath: string): string {
-  const configured = process.env.MEMORILO_DATABASE_PATH
-  if (configured === undefined)
-    return join(userDataPath, 'memorilo.sqlite')
-  if (configured.length === 0)
-    throw new TypeError('MEMORILO_DATABASE_PATH must not be empty')
-  return configured
-}
-
-function assetDirectory(database: string): string | null {
-  if (database === ':memory:')
-    return null
-  const absoluteDatabase = isAbsolute(database) ? database : resolve(database)
-  return join(dirname(absoluteDatabase), 'assets')
+  requestRestart: () => void
 }
 
 function embeddingModelCacheDirectory(mainDirectory: string): string {
@@ -161,12 +153,6 @@ function shelfBookCacheDirectory(userDataPath: string): string {
       : join(process.env.XDG_CACHE_HOME || join(homePath, '.cache'), 'memorilo', 'shelf-books')
 }
 
-function shelfLibraryDirectory(databaseFilePath: string, userDataPath: string): string {
-  if (databaseFilePath === ':memory:')
-    return join(userDataPath, 'shelf')
-  return join(dirname(resolve(databaseFilePath)), 'shelf')
-}
-
 function learningNow(allowTestClock: boolean): () => number {
   const configured = process.env.MEMORILO_E2E_NOW_MS
   if (configured === undefined)
@@ -185,7 +171,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   const scope = createResourceScope('Application', { closeMode: 'dependent' })
   try {
     const userDataPath = app.getPath('userData')
-    const database = databasePath(userDataPath)
+    const database = mainDatabasePath(userDataPath)
     const assets = assetDirectory(database)
     await scope.acquire({
       acquire: () => registerAssetProtocol(assets),
@@ -301,10 +287,24 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'MCP server',
     })).resource
     await mcpServer.update(snapshot.mcp)
+    const backup = (await scope.acquire({
+      acquire: () => createDatabaseBackupApplication({
+        assetDirectory: assets,
+        configuration: configurationStore,
+        database: mainDatabase,
+        databasePath: database,
+        flushRenderer: options.flushRenderer,
+        requestRestart: options.requestRestart,
+        shelfDirectory: shelfLibraryDirectory(database, userDataPath),
+      }),
+      close: application => application.close(),
+      name: 'database backup',
+    })).resource
     await scope.acquire({
       acquire: () => createDesktopServices(
         notes,
         editorStorage,
+        backup,
         shelfStorage,
         shelfImageCache,
         shelfReadingFiles,

@@ -4,16 +4,18 @@ import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, GalleryVerticalEnd, Globe2, Image, Settings2, Target, Waypoints } from 'lucide-react'
+import { BookOpen, DatabaseBackup, GalleryVerticalEnd, Globe2, Image, Settings2, Target, Waypoints } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AssetSettings } from './asset-settings'
+import { DatabaseSettings } from './database-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
 const sectionIcons = {
   anki: Waypoints,
+  backup: DatabaseBackup,
   editor: BookOpen,
   flashcards: GalleryVerticalEnd,
   general: Settings2,
@@ -30,6 +32,8 @@ function sectionIcon(sectionId: string) {
 
 function translateSectionLabel(sectionId: string, t: TFunction): string {
   switch (sectionId) {
+    case 'backup':
+      return t('backupSection')
     case 'anki':
       return t('ankiSection')
     case 'general':
@@ -53,6 +57,12 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
 
 function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
   switch (field.path) {
+    case 'backup.enabled':
+      return t('backupEnabled')
+    case 'backup.intervalMinutes':
+      return t('backupInterval')
+    case 'backup.retentionCount':
+      return t('backupRetention')
     case 'anki.enabled':
       return t('ankiEnabled')
     case 'anki.host':
@@ -116,6 +126,12 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
 
 function translateFieldDescription(field: ConfigurationField, t: TFunction): string | undefined {
   switch (field.path) {
+    case 'backup.enabled':
+      return t('backupEnabledDescription')
+    case 'backup.intervalMinutes':
+      return t('backupIntervalDescription')
+    case 'backup.retentionCount':
+      return t('backupRetentionDescription')
     case 'anki.enabled':
       return t('ankiEnabledDescription')
     case 'anki.host':
@@ -228,6 +244,8 @@ function translateUnit(unit: string | undefined, t: TFunction): string | undefin
       return t('cards')
     case 'minutes':
       return t('minutes')
+    case 'backups':
+      return t('backups')
     case 'hour':
       return t('hour')
     default:
@@ -237,6 +255,8 @@ function translateUnit(unit: string | undefined, t: TFunction): string | undefin
 
 function translateSectionDescription(sectionId: string, t: TFunction): string {
   switch (sectionId) {
+    case 'backup':
+      return t('backupDescription')
     case 'anki':
       return t('ankiDescription')
     case 'general':
@@ -342,6 +362,7 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
                   <ConfigurationFields fields={activeSection.fields} store={store} />
                 </div>
                 {activeSection.id === 'images' ? <AssetSettings /> : null}
+                {activeSection.id === 'backup' ? <DatabaseSettings /> : null}
               </motion.div>
             </AnimatePresence>
           </div>

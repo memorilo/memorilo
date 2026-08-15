@@ -17,6 +17,7 @@ export function createDesktopIpcClient(renderer: Pick<IpcRenderer, 'invoke'>): D
   const invoke: Invoke = (channel, ...args) => renderer.invoke(channel, ...args)
   return {
     app: createGroupClient(desktopIpcChannels.app, invoke),
+    backup: createGroupClient(desktopIpcChannels.backup, invoke),
     assets: createGroupClient(desktopIpcChannels.assets, invoke),
     books: createGroupClient(desktopIpcChannels.books, invoke),
     configuration: createGroupClient(desktopIpcChannels.configuration, invoke),

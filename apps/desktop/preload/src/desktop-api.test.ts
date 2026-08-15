@@ -7,6 +7,7 @@ import { createDesktopApi } from './desktop-api'
 function serviceStub(): DesktopIpcClient {
   return {
     app: { getRuntimeInfo: vi.fn() },
+    backup: { exportDatabase: vi.fn(), restoreDatabase: vi.fn() },
     assets: {
       check: vi.fn(),
       importNetworkImage: vi.fn(),
@@ -141,6 +142,7 @@ describe('desktop preload API', () => {
     const services = serviceStub()
     const configuration: DesktopConfiguration = {
       anki: desktopConfigurationDefinition.defaults.anki,
+      backup: desktopConfigurationDefinition.defaults.backup,
       flashcards: desktopConfigurationDefinition.defaults.flashcards,
       goals: desktopConfigurationDefinition.defaults.goals,
       language: 'system',
