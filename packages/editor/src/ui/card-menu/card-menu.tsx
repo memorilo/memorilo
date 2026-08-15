@@ -55,7 +55,9 @@ function getSelectedCard(editor: Editor<CardExtension>): SelectedCard | null {
   const surface = getSelectedCardDelimiterSurface(editor.state)
   if (!surface)
     throw new Error('Selected Card is missing its UI surface')
-  const cards = projectEditorCards(editor.state.doc.toJSON()).filter(card => card.definitionId === definitionId)
+  const cards = projectEditorCards(editor.state.doc.toJSON()).filter(card => (
+    card.kind !== 'highlight' && card.definitionId === definitionId
+  ))
   if (cards.length === 0)
     throw new Error(`Selected Card ${definitionId} has no preview projection`)
 
@@ -126,7 +128,10 @@ function preferredPreviewCard(selected: SelectedCard): EditorCardProjection {
     return card
   }
   const preferredDirection = selected.delimiter.attrs.direction === 'backward' ? 'backward' : 'forward'
-  const card = selected.cards.find(candidate => candidate.kind !== 'cloze' && candidate.direction === preferredDirection)
+  const card = selected.cards.find(candidate => (
+    (candidate.kind === 'basic' || candidate.kind === 'list' || candidate.kind === 'set')
+    && candidate.direction === preferredDirection
+  ))
   if (!card)
     throw new Error(`Card ${selected.definitionId} has no ${preferredDirection} preview projection`)
   return card
@@ -279,7 +284,9 @@ export default function CardMenu({ adapters, topic }: {
     const card = selected.cards.find(candidate => candidate.id === previewCardId)
     if (!card)
       throw new Error(`Preview CardID ${previewCardId} is missing from definition ${selected.definitionId}`)
-    const directionalCards = selected.cards.filter((candidate): candidate is Exclude<EditorCardProjection, { kind: 'cloze' }> => candidate.kind !== 'cloze')
+    const directionalCards = selected.cards.filter((candidate): candidate is Extract<EditorCardProjection, { kind: 'basic' | 'list' | 'set' }> => (
+      candidate.kind === 'basic' || candidate.kind === 'list' || candidate.kind === 'set'
+    ))
     const activePreview = previewState?.definitionId === selected.definitionId && previewState.cardId === card.id
       ? previewState
       : {

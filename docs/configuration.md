@@ -191,7 +191,7 @@ MCP HTTP 运行时仅监听 loopback 地址。启用 MCP 的初始配置属于�
 3. 如设置影响全局行为，在 `DesktopConfigurationEnvironment` 中消费配置并处理系统辅助功能偏好。
 4. 浏览器设置测试 `apps/desktop/renderer/src/settings/settings.test.tsx`。
 
-`migrateDesktopConfiguration` 为缺少 Flashcards、Goals、MCP 或 `outdentBehavior` 的开发期旧配置补齐整组默认值，并规范 MCP 的端口、token 与 enabled 状态；迁移后的完整结果仍必须通过 Effect Schema，非法的现有字段不会静默回退。配置文件随后由 JSON adapter 原子写回。
+`migrateDesktopConfiguration` 为缺少 Flashcards、Goals、MCP 或 `outdentBehavior` 的较早配置文件补齐整组默认值，并规范 MCP 的端口、token 与 enabled 状态；迁移后的完整结果仍必须通过 Effect Schema，非法的现有字段不会静默回退。配置文件随后由 JSON adapter 原子写回。
 
 ## 测试命令
 

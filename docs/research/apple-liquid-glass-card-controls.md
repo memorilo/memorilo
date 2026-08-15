@@ -1,10 +1,10 @@
 # Card hover 与 Liquid Glass 控件设计基线
 
-调研日期：2026-07-31
+调研日期：2026-07-31；实现状态更新：2026-08-16
 
 ## 结论
 
-Card 的正文属于内容层。Card hover 可以出现一层克制、向正文外扩展的范围材质，但不能把正文直接染成高饱和渐变玻璃板。Preview 与 Options 是 Card 的功能控件，应在 Card 右上角组成一个独立的 Liquid Glass 控件组，并与 Card 范围材质同时 materialize。
+Card 的正文属于内容层。RegularTopic 中的 Card authoring hover 可以出现一层克制、向正文外扩展的范围材质，但不能把正文直接染成高饱和渐变玻璃板。Options 属于 authoring Card；Preview 属于 child CardTopic，并作为 editor 上方的 Topic-level toolbar action 呈现，二者不再组成同一个 Card hover 控件组。
 
 Options 中的 Direction 与 Set/List 是持久状态。当前选项必须使用明确的 tint、内描边、文字对比与轻微抬升感；未选项保持透明。不能只依赖难以察觉的阴影差异。
 
@@ -18,22 +18,24 @@ Options 中的 Direction 与 Set/List 是持久状态。当前选项必须使用
 - tint 应服务于明确的功能或状态。Apple 在 macOS toolbar 中把 prominent tint 用于显示状态或强调重要动作；同时警告不要给所有元素着色。[Build an AppKit app with the new design, 3:30](https://developer.apple.com/videos/play/wwdc2025/310/?time=210)；[Meet Liquid Glass, 16:00](https://developer.apple.com/videos/play/wwdc2025/219/?time=960)
 - Reduce Transparency、Increase Contrast 和 Reduce Motion 会改变材质及动画表现，自定义实现需要提供对应适配。[Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass)
 
-## 在 Memorilo Card 中的落地
+## 在 Memorilo Card authoring 与 CardTopic 中的落地
 
 ### Card 范围
 
-- 一个 Card 只有一个范围材质，多行 Question/Answer 仍共享同一个外轮廓。
+- RegularTopic 中一个 authoring Card 只有一个范围材质，多行 Question/Answer 仍共享同一个外轮廓。
 - 材质通过不参与排版的伪元素向外扩展，正文的坐标、padding 和缩进不发生变化。
 - 默认状态不持续显示大面积面板；hover、focus-within 或 popup 打开时才显示。
 - 使用低色度半透明 fill、backdrop blur、顶部高光和克制阴影表达 Clear/Regular-like material，不使用装饰性的蓝色径向渐变。
+- CardTopic child editor 隐藏 delimiter、Cloze/Highlight authoring 外观、Card hover 范围和 Card controls，只保留来源片段的其他内容样式。
 
 ### Card 控件
 
-- Preview 与 Options 位于整个 Card 的右上角，而不是 delimiter 箭头附近。
-- 两个按钮共享一个 glass control group；按钮本身使用 fill、transparency 与 vibrancy 表达 hover/press，避免 glass on glass。
+- RegularTopic 保留 Card authoring scope 与 Options；regular Topic 不提供 Preview。
+- CardTopic Preview 位于 editor 上方的 Topic toolbar，不随正文 Card hover materialize；当一个 CardTopic 投影多个方向时，Preview dialog 内提供方向选择。
+- CardTopic child editor 不显示 delimiter、Options 或 Preview 等 Card controls，避免把学习内容 owner 再呈现成一层 authoring Card。
 - 箭头只表达 Basic、Reverse 或 Bidirectional 方向，不承担点击发现性。
-- Preview 直接打开预览；Options 打开 Direction 与 Set/List 设置。
-- 控件和 Card 范围材质在同一次 hover 中出现，使用短促的 opacity、scale 与 blur 变化；press 立即缩放反馈。
+- Options 打开 Direction 与 Set/List 设置；CardTopic toolbar 的 Preview 直接打开该 child 所拥有 Card 的预览。
+- authoring Options 与 Card 范围材质在同一次 hover 中出现，使用短促的 opacity、scale 与 blur 变化；Topic-level Preview 遵循所在 toolbar 的反馈节奏。
 
 ### Options 选中态
 

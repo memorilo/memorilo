@@ -2,6 +2,7 @@ import type { BookFileBinding } from '@memorilo/reading-model'
 import type { LoroDoc } from 'loro-crdt'
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorModeValue } from '../common/editor-mode'
+import type { CardTopicSource } from './editor-note'
 import type { TopicReaderReference } from './topic-reader-reference'
 import { initializeLoroTreeFromJson } from '@memorilo/loro-prosemirror-tree/document'
 import { Effect } from 'effect'
@@ -16,6 +17,7 @@ import {
   ENTRY_KIND_KEY,
   noteTree,
   TOPIC_BLOCK_TREE_KEY,
+  TOPIC_CARD_SOURCE_KEY,
   TOPIC_EDITOR_MODE_KEY,
   TOPIC_READER_REFERENCE_KEY,
   TOPIC_TITLE_KEY,
@@ -30,6 +32,7 @@ import {
 import { normalizeTopicReaderReference } from './topic-reader-reference'
 
 interface TopicNodeInput {
+  cardSource?: CardTopicSource
   index?: number
   initialContent?: NodeJSON
   mode: EditorModeValue
@@ -40,6 +43,7 @@ interface TopicNodeInput {
 interface PreparedTopicNode {
   annotationsKey?: string
   blockTreeKey: string
+  cardSource?: CardTopicSource
   book?: BookFileBinding
   document: NodeJSON
   entryId: string
@@ -83,6 +87,7 @@ function prepareTopicNode(input: TopicNodeInput, bookValue?: BookFileBinding): P
       document,
       entry: {
         blockTreeKey,
+        ...(input.cardSource === undefined ? {} : { cardSource: input.cardSource }),
         editorMode: mode,
         entryId,
         kind: 'topic',
@@ -91,7 +96,7 @@ function prepareTopicNode(input: TopicNodeInput, bookValue?: BookFileBinding): P
         topicType,
       },
     }))
-    return { blockTreeKey, document, entryId, mode, readerReference, title, topicType }
+    return { blockTreeKey, cardSource: input.cardSource, document, entryId, mode, readerReference, title, topicType }
   }
 
   if (input.readerReference !== undefined)
@@ -143,6 +148,8 @@ export function createTopicNode(
   node.data.set(TOPIC_TYPE_KEY, prepared.topicType)
   node.data.set(TOPIC_TITLE_KEY, prepared.title)
   node.data.set(TOPIC_EDITOR_MODE_KEY, prepared.mode)
+  if (prepared.cardSource !== undefined)
+    node.data.set(TOPIC_CARD_SOURCE_KEY, prepared.cardSource)
   if (prepared.readerReference !== undefined)
     node.data.set(TOPIC_READER_REFERENCE_KEY, prepared.readerReference)
   const blockTree = doc.getTree(prepared.blockTreeKey)

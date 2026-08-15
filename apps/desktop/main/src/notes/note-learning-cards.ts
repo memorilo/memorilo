@@ -6,6 +6,7 @@ import type {
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { EditorNote } from '@memorilo/editor/note'
 import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
+import { projectCardTopicCards } from '@memorilo/editor/note'
 
 type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
 
@@ -21,11 +22,11 @@ function topicDocuments(note: EditorNote, topicId: string): readonly TopicDocume
 function toLearningCard(card: ReviewCardProjection): LearningCardProjection {
   return {
     cardId: card.id,
-    direction: card.kind === 'cloze' ? 'forward' : card.direction,
+    direction: card.kind === 'cloze' || card.kind === 'highlight' ? 'forward' : card.direction,
     itemBlockIds: (card.kind === 'list' || card.kind === 'set') && card.direction === 'forward'
       ? card.items.map(item => item.blockId)
       : [],
-    kind: card.kind === 'image-occlusion' ? 'basic' : card.kind,
+    kind: card.kind === 'image-occlusion' || card.kind === 'highlight' ? 'basic' : card.kind,
     sourceBlockId: card.sourceBlockId,
   }
 }
@@ -47,7 +48,14 @@ export function projectNoteLearningCards(
           ? []
           : entry.topicType === 'image-occlusion'
             ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
-            : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
+            : entry.topicType === 'regular'
+              ? entry.cardSource === undefined
+                ? []
+                : (() => {
+                    const source = entry.cardSource
+                    return topicDocuments(note, topicId).flatMap(document => projectCardTopicCards(document, source).map(toLearningCard))
+                  })()
+              : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
         : [],
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,

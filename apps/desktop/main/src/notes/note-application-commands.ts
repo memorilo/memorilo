@@ -49,7 +49,7 @@ export function createNoteApplicationCommands({ runtime, storage, today }: NoteA
         yield* current.note.validateTopic(input.topicId)
         return yield* Effect.tryPromise({
           catch: error => error,
-          try: () => runtime.persistLocalMutation(current, version, { broadcast: true, topicIds: [input.topicId] }),
+          try: () => runtime.persistLocalMutation(current, version, { broadcast: true, entries: true, topicIds: [input.topicId] }),
         })
       }).pipe(Effect.catchEager((error) => {
         runtime.invalidate(input.noteId)

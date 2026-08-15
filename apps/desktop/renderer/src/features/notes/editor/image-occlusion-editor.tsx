@@ -89,21 +89,28 @@ function shapeWithOffset(shape: OcclusionShape, offset: number): OcclusionShape 
 }
 
 function useElementSize(ref: RefObject<HTMLElement | null>) {
-  const [size, setSize] = useState({ height: 1, width: 1 })
-  useEffect(() => {
+  const snapshot = useRef({ height: 1, width: 1 })
+  const getSnapshot = useCallback(() => {
     const element = ref.current
     if (!element)
-      return
-    const update = () => {
-      const bounds = element.getBoundingClientRect()
-      setSize({ height: Math.max(1, bounds.height), width: Math.max(1, bounds.width) })
+      return snapshot.current
+    const bounds = element.getBoundingClientRect()
+    const next = { height: Math.max(1, bounds.height), width: Math.max(1, bounds.width) }
+    if (next.height !== snapshot.current.height || next.width !== snapshot.current.width) {
+      snapshot.current = next
     }
-    update()
-    const observer = new ResizeObserver(update)
+    return snapshot.current
+  }, [ref])
+  const subscribe = useCallback((listener: () => void) => {
+    const element = ref.current
+    if (!element)
+      return () => undefined
+    const observer = new ResizeObserver(listener)
     observer.observe(element)
+    listener()
     return () => observer.disconnect()
   }, [ref])
-  return size
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
 function useImageOcclusionState(topic: EditorImageOcclusionTopicDocument): ImageOcclusionState {
@@ -120,21 +127,22 @@ function useImageOcclusionState(topic: EditorImageOcclusionTopicDocument): Image
 }
 
 function useImage(source: string) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
-  const [error, setError] = useState(false)
+  const [loaded, setLoaded] = useState<{
+    error: boolean
+    image: HTMLImageElement | null
+    source: string
+  } | null>(null)
   useEffect(() => {
     const next = new window.Image()
     let active = true
     next.onload = () => {
       if (active)
-        setImage(next)
+        setLoaded({ error: false, image: next, source })
     }
     next.onerror = () => {
       if (active)
-        setError(true)
+        setLoaded({ error: true, image: null, source })
     }
-    setImage(null)
-    setError(false)
     next.src = source
     return () => {
       active = false
@@ -142,7 +150,10 @@ function useImage(source: string) {
       next.onerror = null
     }
   }, [source])
-  return { error, image }
+  const current = loaded?.source === source ? loaded : null
+  return current === null
+    ? { error: false, image: null }
+    : { error: current.error, image: current.image }
 }
 
 function viewportFor(width: number, height: number, imageWidth: number, imageHeight: number): Viewport {
@@ -167,22 +178,18 @@ function useOcclusionHistory(topic: EditorImageOcclusionTopicDocument, state: Im
   const future = useRef<ImageOcclusionState[]>([])
   const expectedSignature = useRef<string | null>(null)
   const previousSignature = useRef(imageOcclusionStateSignature(state))
-  const [, renderHistory] = useState(0)
-
-  useEffect(() => {
-    const signature = imageOcclusionStateSignature(state)
-    if (signature === previousSignature.current)
-      return
+  const signature = imageOcclusionStateSignature(state)
+  if (signature !== previousSignature.current) {
     if (signature === expectedSignature.current) {
       expectedSignature.current = null
     }
     else {
       past.current = []
       future.current = []
-      renderHistory(value => value + 1)
+      expectedSignature.current = null
     }
     previousSignature.current = signature
-  }, [state])
+  }
 
   const write = useCallback((next: ImageOcclusionState) => {
     if (imageOcclusionStateSignature(next) === imageOcclusionStateSignature(state))
@@ -191,7 +198,6 @@ function useOcclusionHistory(topic: EditorImageOcclusionTopicDocument, state: Im
     future.current = []
     expectedSignature.current = imageOcclusionStateSignature(next)
     topic.setState(next)
-    renderHistory(value => value + 1)
   }, [state, topic])
 
   const undo = useCallback(() => {
@@ -201,7 +207,6 @@ function useOcclusionHistory(topic: EditorImageOcclusionTopicDocument, state: Im
     future.current.push(structuredClone(state))
     expectedSignature.current = imageOcclusionStateSignature(previous)
     topic.setState(previous)
-    renderHistory(value => value + 1)
   }, [state, topic])
 
   const redo = useCallback(() => {
@@ -211,7 +216,6 @@ function useOcclusionHistory(topic: EditorImageOcclusionTopicDocument, state: Im
     past.current.push(structuredClone(state))
     expectedSignature.current = imageOcclusionStateSignature(next)
     topic.setState(next)
-    renderHistory(value => value + 1)
   }, [state, topic])
 
   return {
@@ -309,7 +313,11 @@ export function ImageOcclusionEditor({
   const [tool, setTool] = useState<Tool>('select')
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([])
   const [draft, setDraft] = useState<OcclusionShape | null>(null)
-  const [titleDraft, setTitleDraft] = useState(title)
+  const [titleDraftState, setTitleDraftState] = useState(() => ({ source: title, value: title }))
+  const titleDraft = titleDraftState.source === title ? titleDraftState.value : title
+  const setTitleDraft = useCallback((value: string) => {
+    setTitleDraftState({ source: title, value })
+  }, [title])
   const shellRef = useRef<HTMLDivElement>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const shapeRefs = useRef(new Map<string, Konva.Node>())
@@ -320,23 +328,22 @@ export function ImageOcclusionEditor({
     () => viewportFor(size.width, size.height, state.image.width, state.image.height),
     [size.height, size.width, state.image.height, state.image.width],
   )
-
-  useEffect(() => setTitleDraft(title), [title])
-  useEffect(() => {
-    const shapeIds = new Set(state.shapes.map(shape => shape.id))
-    setSelectedIds(current => current.filter(id => shapeIds.has(id)))
-  }, [state.shapes])
+  const shapeIds = useMemo(() => new Set(state.shapes.map(shape => shape.id)), [state.shapes])
+  const selectedShapeIds = useMemo(
+    () => selectedIds.filter(id => shapeIds.has(id)),
+    [selectedIds, shapeIds],
+  )
   useEffect(() => {
     const transformer = transformerRef.current
     if (!transformer)
       return
-    const transformableIds = selectedIds.length === 1 ? selectedIds : []
+    const transformableIds = selectedShapeIds.length === 1 ? selectedShapeIds : []
     transformer.nodes(transformableIds.flatMap((id) => {
       const node = shapeRefs.current.get(id)
       return node ? [node] : []
     }))
     transformer.getLayer()?.batchDraw()
-  }, [selectedIds, state.shapes, viewport])
+  }, [selectedShapeIds, state.shapes, viewport])
 
   const replaceShape = useCallback((shapeId: string, next: OcclusionShape) => {
     history.write({
@@ -350,10 +357,13 @@ export function ImageOcclusionEditor({
     if (tool !== 'select')
       return
     const additive = 'evt' in event && 'shiftKey' in event.evt && event.evt.shiftKey === true
-    setSelectedIds(current => additive
-      ? current.includes(shapeId) ? current.filter(id => id !== shapeId) : [...current, shapeId]
-      : [shapeId])
-  }, [tool])
+    setSelectedIds((current) => {
+      const validCurrent = current.filter(id => shapeIds.has(id))
+      return additive
+        ? validCurrent.includes(shapeId) ? validCurrent.filter(id => id !== shapeId) : [...validCurrent, shapeId]
+        : [shapeId]
+    })
+  }, [shapeIds, tool])
 
   const handleDragEnd = useCallback((shape: OcclusionShape, event: KonvaEventObject<DragEvent>) => {
     const node = event.target
@@ -476,13 +486,13 @@ export function ImageOcclusionEditor({
   }, [draft, history, state])
 
   const deleteSelection = useCallback(() => {
-    const selected = new Set(selectedIds)
+    const selected = new Set(selectedShapeIds)
     history.write({ ...state, shapes: state.shapes.filter(shape => !selected.has(shape.id)) })
     setSelectedIds([])
-  }, [history, selectedIds, state])
+  }, [history, selectedShapeIds, state])
 
   const copySelection = useCallback(() => {
-    const selected = new Set(selectedIds)
+    const selected = new Set(selectedShapeIds)
     const groupIds = new Map<string, string>()
     const copies = state.shapes.flatMap((shape) => {
       if (!selected.has(shape.id))
@@ -495,32 +505,32 @@ export function ImageOcclusionEditor({
       return
     history.write({ ...state, shapes: [...state.shapes, ...copies] })
     setSelectedIds(copies.map(shape => shape.id))
-  }, [history, selectedIds, state])
+  }, [history, selectedShapeIds, state])
 
   const groupSelection = useCallback(() => {
-    if (!shouldRegroupImageOcclusionShapes(state.shapes, selectedIds))
+    if (!shouldRegroupImageOcclusionShapes(state.shapes, selectedShapeIds))
       return
-    const selected = new Set(selectedIds)
+    const selected = new Set(selectedShapeIds)
     const groupId = crypto.randomUUID()
     history.write({
       ...state,
       shapes: state.shapes.map(shape => selected.has(shape.id) ? { ...shape, groupId } : shape),
     })
-  }, [history, selectedIds, state])
+  }, [history, selectedShapeIds, state])
 
   const ungroupSelection = useCallback(() => {
-    const selected = new Set(selectedIds)
+    const selected = new Set(selectedShapeIds)
     history.write({
       ...state,
       shapes: state.shapes.map(shape => selected.has(shape.id)
         ? { ...shape, groupId: crypto.randomUUID() }
         : shape),
     })
-  }, [history, selectedIds, state])
+  }, [history, selectedShapeIds, state])
 
-  const selectedGroupIds = new Set(state.shapes.filter(shape => selectedIds.includes(shape.id)).map(shape => shape.groupId))
-  const canGroup = shouldRegroupImageOcclusionShapes(state.shapes, selectedIds)
-  const canUngroup = selectedIds.length > 0 && [...selectedGroupIds].some(groupId => (
+  const selectedGroupIds = new Set(state.shapes.filter(shape => selectedShapeIds.includes(shape.id)).map(shape => shape.groupId))
+  const canGroup = shouldRegroupImageOcclusionShapes(state.shapes, selectedShapeIds)
+  const canUngroup = selectedShapeIds.length > 0 && [...selectedGroupIds].some(groupId => (
     state.shapes.filter(shape => shape.groupId === groupId).length > 1
   ))
   const displayedShapes = draft ? [...state.shapes, draft] : state.shapes
@@ -578,7 +588,7 @@ export function ImageOcclusionEditor({
         </div>
         <span {...stylex.props(styles.separator)} />
         <div {...stylex.props(styles.controlGroup)} role="toolbar" aria-label={t('imageOcclusion.editSelection')}>
-          <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.copy')} disabled={selectedIds.length === 0} title={t('imageOcclusion.copy')} type="button" onClick={copySelection}>
+          <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.copy')} disabled={selectedShapeIds.length === 0} title={t('imageOcclusion.copy')} type="button" onClick={copySelection}>
             <Copy aria-hidden="true" size={15} strokeWidth={1.8} />
           </button>
           <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.group')} disabled={!canGroup} title={t('imageOcclusion.group')} type="button" onClick={groupSelection}>
@@ -587,7 +597,7 @@ export function ImageOcclusionEditor({
           <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.ungroup')} disabled={!canUngroup} title={t('imageOcclusion.ungroup')} type="button" onClick={ungroupSelection}>
             <Unlink aria-hidden="true" size={15} strokeWidth={1.8} />
           </button>
-          <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.delete')} disabled={selectedIds.length === 0} title={t('imageOcclusion.delete')} type="button" onClick={deleteSelection}>
+          <button {...stylex.props(styles.iconButton)} aria-label={t('imageOcclusion.delete')} disabled={selectedShapeIds.length === 0} title={t('imageOcclusion.delete')} type="button" onClick={deleteSelection}>
             <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />
           </button>
         </div>
@@ -626,7 +636,7 @@ export function ImageOcclusionEditor({
                   {displayedShapes.map(shape => shapeNodes(
                     shape,
                     viewport,
-                    selectedIds.includes(shape.id),
+                    selectedShapeIds.includes(shape.id),
                     tool === 'select' && draft === null,
                     node => node ? shapeRefs.current.set(shape.id, node) : shapeRefs.current.delete(shape.id),
                     event => handleSelect(shape.id, event),
