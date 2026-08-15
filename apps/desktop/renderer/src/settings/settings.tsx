@@ -65,6 +65,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('language')
     case 'reduceMotion':
       return t('reduceMotion')
+    case 'defaultNoteLearningEnabled':
+      return t('defaultNoteLearningEnabled')
     case 'weekStart':
       return t('weekStart')
     case 'outdentBehavior':
@@ -126,6 +128,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('ankiApiKeyDescription')
     case 'outdentBehavior':
       return t('outdentBehaviorDescription')
+    case 'defaultNoteLearningEnabled':
+      return t('defaultNoteLearningEnabledDescription')
     case 'weekStart':
       return t('weekStartDescription')
     case 'networkImagePasteBehavior':

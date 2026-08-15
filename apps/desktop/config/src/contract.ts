@@ -42,6 +42,7 @@ export interface DesktopMcpConfiguration {
 
 export interface DesktopConfiguration {
   anki: DesktopAnkiConfiguration
+  defaultNoteLearningEnabled: boolean
   flashcards: DesktopFlashcardConfiguration
   goals: DesktopGoalConfiguration
   language: DesktopLanguage

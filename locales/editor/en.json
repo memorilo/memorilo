@@ -9,6 +9,8 @@
   "untitledTopic": "Untitled Topic",
   "noteInspector": "Note inspector",
   "noteStructure": "Note Structure",
+  "learningEnabled": "Learning",
+  "toggleLearning": "Toggle learning for this Note",
   "topics": "Topics",
   "structure": "Structure",
   "collapsedExpand": "{{action}} {{label}}",

@@ -285,7 +285,9 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       acquire: () => createNoteApplicationService(editorStorage, ({ noteId, update, updatedAt }) => {
         for (const window of BrowserWindow.getAllWindows())
           window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
-      }, {}, activeReadings),
+      }, {
+        defaultNoteLearningEnabled: () => configurationStore.getSnapshot().defaultNoteLearningEnabled,
+      }, activeReadings),
       close: noteApplication => noteApplication.close(),
       name: 'Note application',
     })).resource

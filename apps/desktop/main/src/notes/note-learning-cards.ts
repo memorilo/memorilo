@@ -34,6 +34,7 @@ export function projectNoteLearningCards(
   note: EditorNote,
   topicIds?: Iterable<string>,
 ): readonly LearningTopicCardProjection[] {
+  const learningEnabled = note.getLearningEnabled()
   const entries = note.getEntries()
   const selectedTopicIds = topicIds === undefined
     ? entries.filter(entry => entry.kind === 'topic').map(entry => entry.id)
@@ -41,14 +42,15 @@ export function projectNoteLearningCards(
   return selectedTopicIds.map((topicId) => {
     const topicOrder = entries.findIndex(candidate => candidate.id === topicId)
     const entry = topicOrder === -1 ? undefined : entries[topicOrder]
+    let cards: readonly LearningCardProjection[]
+    if (entry?.kind !== 'topic' || !learningEnabled || entry.topicType === 'spreadsheet')
+      cards = []
+    else if (entry.topicType === 'image-occlusion')
+      cards = projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
+    else
+      cards = topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
     return {
-      cards: entry?.kind === 'topic'
-        ? entry.topicType === 'spreadsheet'
-          ? []
-          : entry.topicType === 'image-occlusion'
-            ? projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
-            : topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
-        : [],
+      cards,
       topicId,
       topicOrder: topicOrder === -1 ? 0 : topicOrder,
     }
