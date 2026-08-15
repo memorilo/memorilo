@@ -70,6 +70,7 @@ interface PersistLocalMutationOptions {
 
 interface CreateNoteAuthoritativeRuntimeOptions {
   activeReadings?: ActiveReadingRegistry
+  defaultNoteLearningEnabled: () => boolean
   onExternalUpdate?: (update: { noteId: string, update: Uint8Array, updatedAt: number }) => void
   storage: EditorStorage
   today: () => JournalDate
@@ -85,7 +86,7 @@ async function indexNote(storage: EditorStorage, noteId: string): Promise<void> 
 export function createNoteAuthoritativeRuntime(
   options: CreateNoteAuthoritativeRuntimeOptions,
 ): NoteAuthoritativeRuntime {
-  const { activeReadings, onExternalUpdate, storage, today } = options
+  const { activeReadings, defaultNoteLearningEnabled, onExternalUpdate, storage, today } = options
   const cache = createNoteAuthoritativeCache({
     capacity: noteCacheCapacity,
     checkpointInterval,
@@ -106,7 +107,7 @@ export function createNoteAuthoritativeRuntime(
       .catch(error => console.error(`Failed to index Note ${noteId}`, error))
   }
 
-  const loading = createNoteAuthoritativeLoading({ cache, storage })
+  const loading = createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabled, storage })
   const { commit, load, open, openJournal } = loading
 
   const persistLocalMutation = async (

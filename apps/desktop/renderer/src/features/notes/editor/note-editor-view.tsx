@@ -447,6 +447,7 @@ export function NoteEditorView({
         }}
         currentTopicId={opened.topic.topicId}
         entries={opened.entries}
+        note={opened.note}
         noteId={opened.note.id}
         onToggleEntry={onToggleEntry}
         open={inspectorVisible}

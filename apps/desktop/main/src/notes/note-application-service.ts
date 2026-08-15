@@ -55,11 +55,18 @@ export function createNoteApplicationService(
   activeReadings?: ActiveReadingRegistry,
 ) {
   const today = (): JournalDate => localJournalDate(options.now?.() ?? new Date())
-  const runtime = createNoteAuthoritativeRuntime({ activeReadings, onExternalUpdate, storage, today })
+  const defaultNoteLearningEnabled = options.defaultNoteLearningEnabled ?? (() => true)
+  const runtime = createNoteAuthoritativeRuntime({
+    activeReadings,
+    defaultNoteLearningEnabled,
+    onExternalUpdate,
+    storage,
+    today,
+  })
   return {
     close: runtime.close,
     ...createNoteApplicationQueries({ runtime, storage, today }),
-    ...createNoteApplicationCommands({ runtime, storage, today }),
+    ...createNoteApplicationCommands({ defaultNoteLearningEnabled, runtime, storage, today }),
   }
 }
 

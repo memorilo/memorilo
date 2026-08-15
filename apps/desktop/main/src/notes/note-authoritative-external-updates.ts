@@ -80,7 +80,7 @@ export function createNoteAuthoritativeExternalUpdates({
             assetReferences: projectNoteAssetReferences(current.note),
             entries,
             journalTopic,
-            learningCards: entries === undefined
+            learningCards: entries === undefined && !changed.metadataChanged
               ? projectNoteLearningCards(current.note, changed.topicIds)
               : projectNoteLearningCards(current.note),
             spreadsheets: toStoredSpreadsheets(current.note, spreadsheetTopicIds),

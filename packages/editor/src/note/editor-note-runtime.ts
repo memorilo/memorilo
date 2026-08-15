@@ -7,9 +7,11 @@ import type {
 import { LoroDoc, UndoManager } from 'loro-crdt'
 import { importEditorNoteHistory } from './editor-note-collaboration-runtime'
 import {
+  NOTE_LEARNING_ENABLED_KEY,
   NOTE_META_KEY,
   NOTE_SCHEMA_VERSION,
   NOTE_UNDO_BOUNDARY_KEY,
+  readBoolean,
   readString,
 } from './editor-note-crdt'
 import { projectEditorNote } from './editor-note-projection'
@@ -30,6 +32,7 @@ function readNoteTitle(doc: LoroDoc): string {
 function initializeNote(
   doc: LoroDoc,
   id: string,
+  learningEnabled: boolean,
   title: string,
   initialTopicHeading?: string,
   initialTopic?: Omit<CreateTopicInput, 'index' | 'parentId'>,
@@ -38,6 +41,7 @@ function initializeNote(
   const meta = doc.getMap(NOTE_META_KEY)
   meta.set('id', id)
   meta.set('schemaVersion', NOTE_SCHEMA_VERSION)
+  meta.set(NOTE_LEARNING_ENABLED_KEY, learningEnabled)
   meta.set('title', title)
   if (initialBookTopic !== undefined)
     createTopicNode(doc, initialBookTopic, undefined, initialBookTopic.book)
@@ -57,6 +61,7 @@ function validateRestoredNote(doc: LoroDoc, expectedId: string): void {
   if (schemaVersion !== NOTE_SCHEMA_VERSION)
     throw new Error(`Unsupported Note schema version: ${String(schemaVersion)}`)
   readNoteTitle(doc)
+  readBoolean(meta, NOTE_LEARNING_ENABLED_KEY, 'Note learning enabled')
 
   const document: EditorNoteDocument = { doc, noteId: expectedId }
   for (const entry of projectEditorNote(doc).entries) {
@@ -114,6 +119,7 @@ export class EditorNoteRuntime implements EditorNoteDocument {
       initializeNote(
         doc,
         noteId,
+        options.learningEnabled ?? true,
         normalizeNonEmptyString(options.title ?? 'Untitled', 'Note title'),
         options.initialTopicHeading,
         options.initialTopic,
@@ -125,6 +131,21 @@ export class EditorNoteRuntime implements EditorNoteDocument {
 
   getTitle(): string {
     return readNoteTitle(this.doc)
+  }
+
+  getLearningEnabled(): boolean {
+    return readBoolean(this.doc.getMap(NOTE_META_KEY), NOTE_LEARNING_ENABLED_KEY, 'Note learning enabled')
+  }
+
+  setLearningEnabled(enabled: boolean): void {
+    if (typeof enabled !== 'boolean')
+      throw new TypeError('Note learning enabled must be a boolean')
+    if (enabled === this.getLearningEnabled())
+      return
+    this.runMutation(() => {
+      this.doc.getMap(NOTE_META_KEY).set(NOTE_LEARNING_ENABLED_KEY, enabled)
+      this.doc.commit({ origin: 'note:learning' })
+    })
   }
 
   rename(title: string): void {

@@ -210,6 +210,7 @@ export function BoundShelfReader({
             collapsedEntryIds={collapsedEntryIds}
             currentTopicId={context.topicId}
             entries={entries}
+            note={note}
             noteId={note.id}
             onToggleEntry={toggleEntry}
             showTitle={false}

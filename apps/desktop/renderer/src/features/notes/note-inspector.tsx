@@ -1,4 +1,4 @@
-import type { BookTopicSnapshot, NoteEntrySnapshot } from '@memorilo/editor'
+import type { BookTopicSnapshot, EditorNote, NoteEntrySnapshot } from '@memorilo/editor'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
@@ -33,6 +33,7 @@ export function NoteInspector({
   contextMenu,
   currentTopicId,
   entries,
+  note,
   noteId,
   onToggleEntry,
   open,
@@ -44,6 +45,7 @@ export function NoteInspector({
   }
   currentTopicId: string
   entries: readonly NoteEntrySnapshot[]
+  note: Pick<EditorNote, 'getLearningEnabled' | 'setLearningEnabled'>
   noteId: string
   onToggleEntry: (entryId: string) => void
   open: boolean
@@ -76,6 +78,7 @@ export function NoteInspector({
                 contextMenu={contextMenu}
                 currentTopicId={currentTopicId}
                 entries={entries}
+                note={note}
                 noteId={noteId}
                 onToggleEntry={onToggleEntry}
               />
@@ -91,6 +94,7 @@ export function NoteInspectorContent({
   contextMenu,
   currentTopicId,
   entries,
+  note,
   noteId,
   onToggleEntry,
   showTitle = true,
@@ -102,6 +106,7 @@ export function NoteInspectorContent({
   }
   currentTopicId: string
   entries: readonly NoteEntrySnapshot[]
+  note: Pick<EditorNote, 'getLearningEnabled' | 'setLearningEnabled'>
   noteId: string
   onToggleEntry: (entryId: string) => void
   showTitle?: boolean
@@ -117,6 +122,7 @@ export function NoteInspectorContent({
     [entries],
   )
   const entryTransition = shouldReduceMotion ? { duration: 0.12 } : entrySpring
+  const learningEnabled = note.getLearningEnabled()
 
   return (
     <>
@@ -135,6 +141,28 @@ export function NoteInspectorContent({
             </header>
           )
         : null}
+      <div {...stylex.props(noteInspectorStyles.learningRow)}>
+        <span {...stylex.props(noteInspectorStyles.learningLabel)}>{t('learningEnabled')}</span>
+        <button
+          {...stylex.props(
+            noteInspectorStyles.learningSwitch,
+            learningEnabled && noteInspectorStyles.learningSwitchOn,
+          )}
+          aria-checked={learningEnabled}
+          aria-label={t('toggleLearning')}
+          role="switch"
+          title={t('toggleLearning')}
+          type="button"
+          onClick={() => note.setLearningEnabled(!learningEnabled)}
+        >
+          <span
+            {...stylex.props(
+              noteInspectorStyles.learningSwitchThumb,
+              learningEnabled && noteInspectorStyles.learningSwitchThumbOn,
+            )}
+          />
+        </button>
+      </div>
       <div {...stylex.props(noteInspectorStyles.inspectorContent)}>
         <section {...stylex.props(noteInspectorStyles.inspectorSection)} aria-label={t('noteStructure')}>
           <div {...stylex.props(noteInspectorStyles.topicTree)} role="list">

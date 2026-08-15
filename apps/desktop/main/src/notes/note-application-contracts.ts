@@ -41,6 +41,7 @@ export interface ListJournalDatesInput {
 }
 
 export interface NoteApplicationServiceOptions {
+  defaultNoteLearningEnabled?: () => boolean
   now?: () => Date
 }
 
