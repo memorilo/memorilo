@@ -49,10 +49,35 @@ function getCardActions(editor: Editor<SlashMenuExtension>) {
   }
 }
 
-export default function SlashMenu() {
+function getLearningDisabledCardActions(editor: Editor<SlashMenuExtension>) {
+  const { $from } = editor.state.selection
+  let blockHighlight: unknown = null
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth)
+    if (node.type.name !== 'list')
+      continue
+    blockHighlight = node.attrs.blockHighlight
+    break
+  }
+  return {
+    addToBack: false,
+    blockHighlighted: blockHighlight !== null && blockHighlight !== undefined,
+    cardMember: false,
+    canInsert: {
+      backward: false,
+      both: false,
+      forward: false,
+    },
+    canSetPresentation: false,
+  }
+}
+
+export default function SlashMenu({ learningEnabled = true }: { learningEnabled?: boolean }) {
   const editor = useEditor<SlashMenuExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
-  const cardActions = useEditorDerivedValue(getCardActions)
+  const cardActions = useEditorDerivedValue(
+    learningEnabled ? getCardActions : getLearningDisabledCardActions,
+  )
   const { t } = useTranslation('editor')
 
   return (

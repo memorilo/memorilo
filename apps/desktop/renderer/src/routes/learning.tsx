@@ -1,7 +1,13 @@
 import type { LearningSearch } from '../features/learning/learning-page'
 import { createFileRoute } from '@tanstack/react-router'
+import { lazy, Suspense, useEffect } from 'react'
 
-import { LearningPage } from '../features/learning/learning-page'
+import { useDesktopConfiguration } from '../shared/configuration'
+
+const LearningPage = lazy(async () => {
+  const module = await import('../features/learning/learning-page')
+  return { default: module.LearningPage }
+})
 
 function validateLearningSearch(search: Record<string, unknown>): LearningSearch {
   if (search.view === undefined)
@@ -17,19 +23,28 @@ export const Route = createFileRoute('/learning')({
 })
 
 function LearningRoute() {
+  const configuration = useDesktopConfiguration()
   const { view } = Route.useSearch()
   const navigate = Route.useNavigate()
+  useEffect(() => {
+    if (!configuration.learning.enabled)
+      void navigate({ replace: true, to: '/journals' })
+  }, [configuration.learning.enabled, navigate])
+  if (!configuration.learning.enabled)
+    return null
   return (
-    <LearningPage
-      view={view}
-      onOpenOptimizer={optimizerId => navigate({
-        params: { optimizerId },
-        to: '/learning/optimizer/$optimizerId',
-      })}
-      onViewChange={nextView => navigate({
-        replace: true,
-        search: nextView === 'notes' ? {} : { view: nextView },
-      })}
-    />
+    <Suspense fallback={null}>
+      <LearningPage
+        view={view}
+        onOpenOptimizer={optimizerId => navigate({
+          params: { optimizerId },
+          to: '/learning/optimizer/$optimizerId',
+        })}
+        onViewChange={nextView => navigate({
+          replace: true,
+          search: nextView === 'notes' ? {} : { view: nextView },
+        })}
+      />
+    </Suspense>
   )
 }

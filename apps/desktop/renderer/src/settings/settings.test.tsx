@@ -70,8 +70,10 @@ describe('settings renderer', () => {
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         anki: desktopConfigurationDefinition.defaults.anki,
+        defaultNoteLearningEnabled: true,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
+        learning: desktopConfigurationDefinition.defaults.learning,
         language: 'zh-CN',
         mcp: { accessToken: token, enabled: true, port: 8765 },
         networkImagePasteBehavior: 'download',
@@ -87,12 +89,14 @@ describe('settings renderer', () => {
       expect(document.documentElement.lang).toBe('zh-CN')
     })
 
-    fireEvent.click(rendered.getByRole('switch'))
+    fireEvent.click(rendered.getByRole('switch', { name: 'Reduce motion' }))
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
         anki: desktopConfigurationDefinition.defaults.anki,
+        defaultNoteLearningEnabled: true,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
         goals: desktopConfigurationDefinition.defaults.goals,
+        learning: desktopConfigurationDefinition.defaults.learning,
         language: 'zh-CN',
         mcp: { accessToken: token, enabled: true, port: 8765 },
         networkImagePasteBehavior: 'download',

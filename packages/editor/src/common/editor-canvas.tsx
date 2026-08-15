@@ -6,20 +6,28 @@ import i18next from 'i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { TextSelection } from 'prosekit/pm/state'
 import { ProseKit } from 'prosekit/react'
-import { useEffect, useLayoutEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 import { BlockHandle } from '../ui/block-handle'
-import { CardMenu } from '../ui/card-menu'
 import { ContextMenu } from '../ui/context-menu'
 import { DropIndicator } from '../ui/drop-indicator'
 import { InlineMenu } from '../ui/inline-menu'
-import { MathClozeMenu } from '../ui/math-cloze-menu'
 import { SlashMenu } from '../ui/slash-menu'
 import { TableHandle } from '../ui/table-handle'
 import { TagMenu } from '../ui/tag-menu'
 import { editorCanvasStyles } from './editor-canvas.stylex'
+
+const CardMenu = lazy(async () => {
+  const module = await import('../ui/card-menu')
+  return { default: module.CardMenu }
+})
+
+const MathClozeMenu = lazy(async () => {
+  const module = await import('../ui/math-cloze-menu')
+  return { default: module.MathClozeMenu }
+})
 
 function selectionBlockId(selection: TextSelection): string | null {
   for (let depth = selection.$from.depth; depth >= 0; depth -= 1) {
@@ -138,10 +146,16 @@ export function EditorCanvas({
               : (
                   <>
                     <ContextMenu outlineRuntime={session.outlineRuntime} uploader={configured.uploader} />
-                    <InlineMenu />
-                    <MathClozeMenu />
-                    <CardMenu adapters={session.adapters} topic={session.topicDocument} />
-                    <SlashMenu />
+                    <InlineMenu learningEnabled={session.learningEnabled} />
+                    {session.learningEnabled
+                      ? (
+                          <Suspense fallback={null}>
+                            <MathClozeMenu />
+                            <CardMenu adapters={session.adapters} topic={session.topicDocument} />
+                          </Suspense>
+                        )
+                      : null}
+                    <SlashMenu learningEnabled={session.learningEnabled} />
                     <TagMenu runtime={configured.tagRuntime} />
                     <BlockHandle mode={mode} session={session} />
                     <TableHandle />

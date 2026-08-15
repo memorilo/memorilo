@@ -25,12 +25,13 @@ import {
 import { noteRevision } from './note-authoritative-projection'
 
 interface NoteApplicationCommandsDependencies {
+  defaultNoteLearningEnabled: () => boolean
   runtime: Pick<NoteAuthoritativeRuntime, 'applyExternalUpdates' | 'commit' | 'invalidate' | 'open' | 'openJournal' | 'persistLocalMutation' | 'prunePastEmptyJournals' | 'run' | 'runEffect'>
   storage: EditorStorage
   today: () => JournalDate
 }
 
-export function createNoteApplicationCommands({ runtime, storage, today }: NoteApplicationCommandsDependencies) {
+export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runtime, storage, today }: NoteApplicationCommandsDependencies) {
   const serialize = <Result>(operation: () => Promise<Result>): Promise<Result> => runtime.run(operation)
   const serializeEffect = <Result, Failure>(operation: Effect.Effect<Result, Failure>): Promise<Result> => runtime.runEffect(operation)
   const assertRevision = (current: Awaited<ReturnType<NoteAuthoritativeRuntime['open']>>, expectedRevision: string): void => {
@@ -61,6 +62,7 @@ export function createNoteApplicationCommands({ runtime, storage, today }: NoteA
       const note = createEditorNote({
         id,
         initialBookTopic: { book: input.book, mode: 0, title: input.topicTitle },
+        learningEnabled: defaultNoteLearningEnabled(),
         title: input.noteTitle,
       })
       try {
@@ -83,6 +85,7 @@ export function createNoteApplicationCommands({ runtime, storage, today }: NoteA
       const note = createEditorNote({
         id: randomUUID(),
         ...(input?.initialHeading === undefined ? {} : { initialTopicHeading: input.initialHeading }),
+        learningEnabled: defaultNoteLearningEnabled(),
         ...(input?.title === undefined ? {} : { title: input.title }),
       })
       return projectApplicationNote(storage, await runtime.commit(note), false)

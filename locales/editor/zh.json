@@ -9,6 +9,8 @@
   "untitledTopic": "未命名主题",
   "noteInspector": "笔记检查器",
   "noteStructure": "笔记结构",
+  "learningEnabled": "学习",
+  "toggleLearning": "切换此 Note 的学习状态",
   "topics": "主题",
   "structure": "结构",
   "collapsedExpand": "{{action}}{{label}}",

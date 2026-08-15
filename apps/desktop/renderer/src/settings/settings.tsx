@@ -4,11 +4,12 @@ import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, GalleryVerticalEnd, Globe2, Image, Settings2, Target, Waypoints } from 'lucide-react'
+import { BookOpen, GalleryVerticalEnd, Globe2, GraduationCap, Image, Settings2, Target, Waypoints } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useDesktopConfiguration } from '../shared/configuration'
 import { AssetSettings } from './asset-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
@@ -19,6 +20,7 @@ const sectionIcons = {
   general: Settings2,
   goals: Target,
   images: Image,
+  learning: GraduationCap,
   reading: BookOpen,
 } as const
 
@@ -40,6 +42,8 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('flashcardsSection')
     case 'goals':
       return t('goalsSection')
+    case 'learning':
+      return t('learningSection')
     case 'images':
       return t('imagesSection')
     case 'reading':
@@ -65,6 +69,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('language')
     case 'reduceMotion':
       return t('reduceMotion')
+    case 'defaultNoteLearningEnabled':
+      return t('defaultNoteLearningEnabled')
     case 'weekStart':
       return t('weekStart')
     case 'outdentBehavior':
@@ -83,6 +89,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('tiffConversionFormat')
     case 'mcp.enabled':
       return t('mcpEnabled')
+    case 'learning.enabled':
+      return t('learningEnabled')
     case 'mcp.port':
       return t('mcpPort')
     case 'mcp.accessToken':
@@ -126,6 +134,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('ankiApiKeyDescription')
     case 'outdentBehavior':
       return t('outdentBehaviorDescription')
+    case 'defaultNoteLearningEnabled':
+      return t('defaultNoteLearningEnabledDescription')
     case 'weekStart':
       return t('weekStartDescription')
     case 'networkImagePasteBehavior':
@@ -142,6 +152,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('tiffConversionFormatDescription')
     case 'mcp.enabled':
       return t('mcpEnabledDescription')
+    case 'learning.enabled':
+      return t('learningEnabledDescription')
     case 'mcp.port':
       return t('mcpPortDescription')
     case 'mcp.accessToken':
@@ -253,6 +265,8 @@ function translateSectionDescription(sectionId: string, t: TFunction): string {
       return t('readingDescription')
     case 'mcp':
       return t('mcpDescription')
+    case 'learning':
+      return t('learningDescription')
     default:
       return ''
   }
@@ -286,10 +300,13 @@ function localizeSection(section: ConfigurationSection, t: TFunction): Configura
 
 export function Settings({ store }: { store: ConfigurationStore<DesktopConfiguration> }) {
   const { t } = useTranslation('settings')
-  const sections = desktopConfigurationDefinition.sections.map(section => localizeSection(section, t))
+  const configuration = useDesktopConfiguration()
+  const sections = desktopConfigurationDefinition.sections
+    .filter(section => configuration.learning.enabled || !['anki', 'flashcards', 'goals'].includes(section.id))
+    .map(section => localizeSection(section, t))
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id)
   const shouldReduceMotion = useReducedMotion()
-  const activeSection = sections.find(section => section.id === activeSectionId)
+  const activeSection = sections.find(section => section.id === activeSectionId) ?? sections[0]
 
   if (!activeSection)
     throw new Error('Settings has no active section')

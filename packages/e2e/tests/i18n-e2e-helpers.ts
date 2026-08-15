@@ -33,6 +33,7 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
       host: '127.0.0.1',
       port: 8765,
     },
+    defaultNoteLearningEnabled: true,
     language: configuration.language,
     mcp: {
       accessToken: '',
