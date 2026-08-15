@@ -61,11 +61,14 @@ export type {
   ImageOcclusionMode,
   ImageOcclusionSnapshot,
   ImageOcclusionSource,
+  ImageOcclusionSourceReference,
   ImageOcclusionState,
   OcclusionBoundsShape,
   OcclusionBrushShape,
   OcclusionShape,
   OpenImageOcclusionInput,
+  ReaderRegionImageOcclusionSourceReference,
+  TopicImageOcclusionSourceReference,
 } from './image-occlusion/image-occlusion-model'
 export {
   containOcclusionBoundsShape,
@@ -73,6 +76,8 @@ export {
   imageOcclusionBrushStrokeWidth,
   imageOcclusionColor,
   imageOcclusionPreviewColor,
+  imageOcclusionSourceKey,
+  imageOcclusionSourceObjectId,
   imageOcclusionStateSignature,
   minimumOcclusionShapeSize,
   projectImageOcclusionCards,

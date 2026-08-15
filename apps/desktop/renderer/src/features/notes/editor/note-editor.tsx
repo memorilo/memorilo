@@ -118,15 +118,19 @@ export function NoteEditor({
     if (!opened)
       throw new Error('The Note is no longer open')
     const sourceTopicId = opened.topic.topicId
-    const existing = opened.note.findImageOcclusionTopic(sourceTopicId, imageId)
+    const source = { imageId, kind: 'topic-image' as const, topicId: sourceTopicId }
+    const existing = opened.note.findImageOcclusionTopic(source)
     if (existing) {
       await onOpenTopic(existing.topicId)
       return
     }
     const topicId = await opened.note.createImageOcclusionTopic({
-      snapshot: source => snapshotImage({ ...image, src: source.src }),
-      sourceImageId: imageId,
-      sourceTopicId,
+      snapshot: async (resolved) => {
+        if (resolved.kind !== 'topic-image')
+          throw new TypeError('Expected a Topic image source')
+        return snapshotImage({ ...image, src: resolved.src })
+      },
+      source,
       title: t('imageOcclusion.defaultTitle', { ns: 'editor' }),
     })
     await onOpenTopic(topicId)

@@ -2,9 +2,11 @@ import type { DesktopBookTopicReadingContext } from '@memorilo/desktop-preload'
 import type {
   ReaderAnnotation,
   ReaderAnnotationTopicCreateInput,
+  ReaderImageOcclusionOverlay,
   ReaderPosition,
   ReaderSource,
 } from '@memorilo/editor/reader'
+import type { ReaderCaptureRegion } from './reader-capture'
 import { createEditorNote, Editor } from '@memorilo/editor'
 import { WindowReader } from '@memorilo/editor/reader'
 import { PanelRight } from 'lucide-react'
@@ -19,18 +21,29 @@ import { NoteInspectorActions } from '../notes/note-inspector-actions'
 import { useNoteInspectorEntries } from '../notes/note-inspector-state'
 import { useNotePersistence } from '../notes/persistence/note-persistence-hooks'
 import { boundReaderPresentation } from './bound-reader-presentation'
-import { reconciledReaderAnnotations } from './reader-annotation-bindings'
+import {
+  prepareReaderAnnotationTopicsForDeletion,
+  readerAnnotationDependents,
+  reconciledReaderAnnotations,
+} from './reader-annotation-bindings'
 import { createReaderAnnotationTopic } from './reader-annotation-topics'
+import { captureReaderAnnotationRegion } from './reader-capture'
+import {
+  openReaderRegionImageOcclusion,
+  readReaderImageSize,
+} from './reader-image-occlusion'
 
 export function BoundShelfReader({
   context,
   initialAnnotationId,
   initialPosition,
+  onOpenTopic,
   source,
 }: {
   context: DesktopBookTopicReadingContext
   initialAnnotationId?: string
   initialPosition: ReaderPosition | null
+  onOpenTopic: (topicId: string) => Promise<void>
   source: ReaderSource
 }) {
   const configuration = useDesktopConfiguration()
@@ -80,6 +93,25 @@ export function BoundShelfReader({
     if (nextAnnotations !== next.annotations)
       bookTopic.setAnnotations(nextAnnotations)
   }, [bookTopic, context.topicId, note])
+  const imageOcclusionOverlays = useMemo<readonly ReaderImageOcclusionOverlay[]>(() => {
+    return annotations.flatMap((annotation) => {
+      if (annotation.anchor.type !== 'region')
+        return []
+      const topic = note.findImageOcclusionTopic({
+        annotationId: annotation.id,
+        kind: 'reader-region',
+        topicId: context.topicId,
+      })
+      if (!topic)
+        return []
+      const state = topic.getState()
+      return [{
+        annotationId: annotation.id,
+        image: state.image,
+        shapes: state.shapes,
+      }]
+    })
+  }, [annotations, context.topicId, note])
   const handleNoteChange = useCallback((change: { noteId: string, update: Uint8Array }) => {
     enqueue(change)
     syncNoteProjection()
@@ -124,23 +156,46 @@ export function BoundShelfReader({
       return
     bookTopic.setAnnotations(nextAnnotations)
   }, [bookTopic])
+  const captureAnnotationRegion = useCallback((region: ReaderCaptureRegion) => captureReaderAnnotationRegion({
+    captureReaderRegion: window.desktop.captureReaderRegion,
+    region,
+  }), [])
   const createAnnotationTopic = useCallback((input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => {
     return createReaderAnnotationTopic({
       bookTopicId: context.topicId,
-      captureReaderRegion: window.desktop.captureReaderRegion,
+      captureReaderRegion: captureAnnotationRegion,
       createTopic: note.createTopic,
       input,
       saveImage: window.desktop.saveImage,
       signal,
       viewport: { height: window.innerHeight, width: window.innerWidth },
     })
+  }, [captureAnnotationRegion, context.topicId, note])
+  const getAnnotationDependents = useCallback(
+    (annotation: ReaderAnnotation) => readerAnnotationDependents(note, context.topicId, annotation),
+    [context.topicId, note],
+  )
+  const prepareAnnotationDeletion = useCallback(async (annotation: ReaderAnnotation) => {
+    prepareReaderAnnotationTopicsForDeletion(note, context.topicId, annotation)
   }, [context.topicId, note])
-  const detachAnnotationTopic = useCallback(async (topicId: string) => {
-    const reference = note.getTopicReaderReference(topicId)
-    if (!reference)
-      throw new Error(`Annotation Topic ${topicId} has no Reader source`)
-    note.setTopicReaderReference(topicId, { source: reference.source })
-  }, [note])
+  const openImageOcclusion = useCallback(async (
+    input: ReaderAnnotationTopicCreateInput,
+    signal: AbortSignal,
+  ) => {
+    const topicId = await openReaderRegionImageOcclusion({
+      bookTopicId: context.topicId,
+      captureReaderRegion: captureAnnotationRegion,
+      input,
+      note,
+      readImageSize: readReaderImageSize,
+      saveImage: window.desktop.saveImage,
+      signal,
+      title: t('imageOcclusion.defaultTitle'),
+      viewport: { height: window.innerHeight, width: window.innerWidth },
+    })
+    signal.throwIfAborted()
+    await onOpenTopic(topicId)
+  }, [captureAnnotationRegion, context.topicId, note, onOpenTopic, t])
   return (
     <WindowReader
       annotationCopyBookTitle={presentation.annotationCopyBookTitle}
@@ -148,6 +203,7 @@ export function BoundShelfReader({
       annotationEditingEnabled
       annotations={annotations}
       arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
+      imageOcclusionOverlays={imageOcclusionOverlays}
       auxiliarySidebar={{
         content: (
           <NoteInspectorContent
@@ -166,7 +222,9 @@ export function BoundShelfReader({
       initialPresentationMode={configuration.readerEpubPresentationMode}
       initialAnnotationId={initialAnnotationId}
       onCreateAnnotationTopic={createAnnotationTopic}
-      onDetachAnnotationTopic={detachAnnotationTopic}
+      onPrepareAnnotationDeletion={prepareAnnotationDeletion}
+      onGetAnnotationDependents={getAnnotationDependents}
+      onOpenReaderRegionImageOcclusion={openImageOcclusion}
       renderAnnotationEditor={({ annotation, readOnly }) => {
         if (!annotation.annotationTopicId)
           throw new Error(`Reader annotation ${annotation.id} has no Topic Editor binding`)

@@ -11,6 +11,7 @@ import type { EditorModeValue } from '../common/editor-mode'
 import type {
   ImageOcclusionSnapshot,
   ImageOcclusionSource,
+  ImageOcclusionSourceReference,
   ImageOcclusionState,
 } from '../image-occlusion/image-occlusion-model'
 import type { LoroTopic } from '../schema/topic-schema'
@@ -141,8 +142,7 @@ export interface CreateImageOcclusionTopicInput {
   /** The zero-based position among the source Topic's children. Appends when omitted. */
   index?: number
   snapshot: (source: ImageOcclusionSource) => Promise<ImageOcclusionSnapshot>
-  sourceImageId: string
-  sourceTopicId: string
+  source: ImageOcclusionSourceReference
   title: string
 }
 
@@ -282,7 +282,7 @@ export interface EditorNote {
   createFolder: (input: CreateFolderInput) => string
   /** Atomically creates a BookTopic with editable content and initialized reading state. */
   createBookTopic: (input: CreateBookTopicInput) => string
-  /** Creates the only ImageOcclusionTopic associated with one RegularTopic image. */
+  /** Creates the only ImageOcclusionTopic associated with one Topic image or BookTopic Reader region. */
   createImageOcclusionTopic: (input: CreateImageOcclusionTopicInput) => Promise<string>
   /** Atomically creates a whiteboard Topic with an empty scene. */
   createWhiteboardTopic: (input: CreateWhiteboardTopicInput) => string
@@ -305,8 +305,8 @@ export interface EditorNote {
   getBookTopic: (topicId: string) => EditorBookTopicDocument
   /** Returns the specialized state handle for an existing ImageOcclusionTopic. */
   getImageOcclusionTopic: (topicId: string) => EditorImageOcclusionTopicDocument
-  /** Finds the unique ImageOcclusionTopic associated with a RegularTopic image. */
-  findImageOcclusionTopic: (sourceTopicId: string, sourceImageId: string) => EditorImageOcclusionTopicDocument | null
+  /** Finds the unique ImageOcclusionTopic associated with one source image or Reader region. */
+  findImageOcclusionTopic: (source: ImageOcclusionSourceReference) => EditorImageOcclusionTopicDocument | null
   /** Returns the scene and Embedded Editor handle for an existing WhiteboardTopic. */
   getWhiteboardTopic: (topicId: string) => EditorWhiteboardTopicDocument
   /** Returns the current block projection and effective title for an existing Topic. */
@@ -390,7 +390,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     getTopic: topicId => topics.get(topicId),
     getBookTopic: topicId => topics.getBook(topicId),
     getImageOcclusionTopic: topicId => topics.getImageOcclusion(topicId),
-    findImageOcclusionTopic: (sourceTopicId, sourceImageId) => topics.findImageOcclusion(sourceTopicId, sourceImageId),
+    findImageOcclusionTopic: source => topics.findImageOcclusion(source),
     getWhiteboardTopic: topicId => topics.getWhiteboard(topicId),
     checkout: collaboration.checkout,
     checkoutLatest: collaboration.checkoutLatest,

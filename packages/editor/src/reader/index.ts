@@ -1,9 +1,10 @@
-export { Reader, WindowReader } from '@memorilo/reader'
+export { Reader, readerAnnotationLabel, WindowReader } from '@memorilo/reader'
 export type {
   ReaderAnchor,
   ReaderAnnotation,
   ReaderAnnotationColor,
   ReaderAnnotationCopyFormat,
+  ReaderAnnotationDependents,
   ReaderAnnotationEditorRenderInput,
   ReaderAnnotationStyle,
   ReaderAnnotationTopicCreateInput,
@@ -18,6 +19,10 @@ export type {
   ReaderEpubTextAnchor,
   ReaderFormat,
   ReaderHighlight,
+  ReaderImageOcclusionBoundsShape,
+  ReaderImageOcclusionBrushShape,
+  ReaderImageOcclusionOverlay,
+  ReaderImageOcclusionShape,
   ReaderLocation,
   ReaderNormalizedRect,
   ReaderNote,

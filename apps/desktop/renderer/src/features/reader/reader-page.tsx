@@ -4,7 +4,7 @@ import type { BookTitleDraft } from './reader-context-dialogs'
 import { WindowReader } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, BookOpen, LoaderCircle, Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -49,6 +49,7 @@ function ShelfReaderSession({
   const configuration = useDesktopConfiguration()
   const { t } = useTranslation('common')
   const flush = useFlushNotePersistence()
+  const navigate = useNavigate()
   const [context, setContext] = useState<DesktopBookTopicReadingContext | null>(null)
   const [contextInitialPosition, setContextInitialPosition] = useState<ReaderPosition | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -101,6 +102,16 @@ function ShelfReaderSession({
   const contextChooserOpen = requestedContext === null
     && (contextsQuery.data?.length ?? 0) > 0
     && !contextChoiceResolved
+  const openContextTopic = useCallback(async (topicId: string) => {
+    if (!context)
+      throw new Error('Cannot open a Topic without a bound Reader context')
+    await flush()
+    await navigate({
+      params: { noteId: context.note.id, topicId },
+      search: {},
+      to: '/note/$noteId/$topicId',
+    })
+  }, [context, flush, navigate])
 
   const openCreateForm = useCallback(() => {
     const title = documentQuery.data?.book.book.title ?? documentQuery.data?.name ?? ''
@@ -305,6 +316,7 @@ function ShelfReaderSession({
                           context={context}
                           initialAnnotationId={requestedContext?.annotationId}
                           initialPosition={contextInitialPosition}
+                          onOpenTopic={openContextTopic}
                           source={source}
                         />
                       )

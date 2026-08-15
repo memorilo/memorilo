@@ -24,6 +24,12 @@ export type TopicReaderReference
     source: TopicReaderSource
   }
 
+export function isLinkedTopicReaderReference(
+  reference: TopicReaderReference,
+): reference is Extract<TopicReaderReference, { annotationId: string, bookTopicId: string }> {
+  return reference.annotationId !== undefined
+}
+
 function nonEmptyString(value: unknown, description: string): string {
   if (typeof value !== 'string' || value.trim().length === 0)
     throw new TypeError(`${description} must be a non-empty string`)

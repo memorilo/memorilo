@@ -5,9 +5,11 @@ import type { TopicContentProjection } from './topic-projection'
 import { createNodeJsonFromLoroTree } from '@memorilo/loro-prosemirror-tree/document'
 import { bookFileIdentityKey } from '@memorilo/reading-model'
 import { assertEditorMode } from '../common/editor-mode'
+import { imageOcclusionSourceKey } from '../image-occlusion/image-occlusion-model'
 import {
   ENTRY_ID_KEY,
   ENTRY_KIND_KEY,
+  findNoteEntry,
   FOLDER_NAME_KEY,
   NOTE_META_KEY,
   noteTree,
@@ -20,8 +22,13 @@ import {
   TOPIC_EDITOR_MODE_KEY,
 } from './editor-note-crdt'
 import { getImageOcclusionState, projectImageOcclusionContent } from './editor-note-image-occlusion'
+import {
+  assertLinkedReaderAnnotationExists,
+  readerAnnotationBindingKey,
+} from './editor-note-reader-bindings'
 import { projectWhiteboardContent } from './editor-note-whiteboard'
 import { projectTopicContent } from './topic-projection'
+import { isLinkedTopicReaderReference } from './topic-reader-reference'
 
 export interface EditorNoteProjection {
   entries: readonly NoteEntrySnapshot[]
@@ -46,6 +53,7 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
   const seenEntryIds = new Set<string>()
   const bookTopicIdsByFile = new Map<string, string>()
   const imageOcclusionTopicIdsBySource = new Map<string, string>()
+  const readerTopicIdsByAnnotation = new Map<string, string>()
   const runtime = { doc, noteId: readString(doc.getMap(NOTE_META_KEY), 'id', 'Note id') }
 
   const visit = (
@@ -91,12 +99,20 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
               )
         if (topicType === 'image-occlusion') {
           const state = getImageOcclusionState(runtime, id)
-          if (parentId !== state.sourceTopicId)
-            throw new Error(`ImageOcclusionTopic ${id} must be a child of source Topic ${state.sourceTopicId}`)
-          const sourceKey = `${state.sourceTopicId}\0${state.sourceImageId}`
+          if (parentId !== state.source.topicId)
+            throw new Error(`ImageOcclusionTopic ${id} must be a child of source Topic ${state.source.topicId}`)
+          const sourceNode = findNoteEntry(doc, state.source.topicId)
+          const sourceTopicType = readTopicType(sourceNode.data, `Topic ${state.source.topicId} type`)
+          const expectedSourceTopicType = state.source.kind === 'reader-region' ? 'book' : 'regular'
+          if (sourceTopicType !== expectedSourceTopicType) {
+            throw new Error(
+              `ImageOcclusionTopic ${id} ${state.source.kind} source must use a ${expectedSourceTopicType} Topic`,
+            )
+          }
+          const sourceKey = imageOcclusionSourceKey(state.source)
           const existingTopicId = imageOcclusionTopicIdsBySource.get(sourceKey)
           if (existingTopicId)
-            throw new Error(`ImageOcclusionTopics ${existingTopicId} and ${id} use the same source image`)
+            throw new Error(`ImageOcclusionTopics ${existingTopicId} and ${id} use the same source`)
           imageOcclusionTopicIdsBySource.set(sourceKey, id)
           entries.push({ id, kind, ordinal, parentId, title: content.title, topicType })
         }
@@ -119,6 +135,22 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
         }
         else if (topicType === 'regular') {
           const readerReference = readTopicReaderReference(node.meta)
+          if (readerReference !== null && isLinkedTopicReaderReference(readerReference)) {
+            if (parentId !== readerReference.bookTopicId) {
+              throw new Error(
+                `Reader-bound Topic ${id} must be a direct child of BookTopic ${readerReference.bookTopicId}`,
+              )
+            }
+            assertLinkedReaderAnnotationExists(runtime, id, readerReference)
+            const sourceKey = readerAnnotationBindingKey(readerReference)
+            const existingTopicId = readerTopicIdsByAnnotation.get(sourceKey)
+            if (existingTopicId) {
+              throw new Error(
+                `Topics ${existingTopicId} and ${id} both bind Reader annotation ${readerReference.annotationId}`,
+              )
+            }
+            readerTopicIdsByAnnotation.set(sourceKey, id)
+          }
           entries.push({
             id,
             kind,

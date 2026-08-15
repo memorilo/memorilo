@@ -94,6 +94,7 @@ export function ReaderSelectionPopover({
         popoverBelow ? readerStyles.popoverBelow : readerStyles.popoverAbove,
       )}
       aria-label={t('reader.selectionActions')}
+      data-reader-capture-overlay="true"
       role="toolbar"
       style={layout.style}
     >

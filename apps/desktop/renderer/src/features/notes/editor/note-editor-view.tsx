@@ -4,10 +4,12 @@ import type {
   EditorNote,
   EditorOpenedTopic,
   OpenImageOcclusionInput,
+  TopicReaderSource,
 } from '@memorilo/editor'
 import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
 import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
+import { readerAnnotationLabel } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
 import { AlignLeft, Copy, ListTree, X } from 'lucide-react'
@@ -40,6 +42,76 @@ function isImageOcclusionTopic(
   topic: EditorOpenedTopic,
 ): topic is EditorImageOcclusionTopicDocument {
   return 'getState' in topic
+}
+
+interface ReaderSourceNavigation {
+  annotationId: string
+  bookTopicId: string
+  readingId: string
+}
+
+function ReaderSourceHeader({
+  navigation,
+  noteId,
+  onRemove,
+  source,
+}: {
+  navigation: ReaderSourceNavigation | null
+  noteId: string
+  onRemove?: () => void
+  source: TopicReaderSource
+}) {
+  const { t } = useTranslation('editor')
+  const content = (
+    <>
+      {source.kind === 'text'
+        ? <blockquote {...stylex.props(noteEditorStyles.readerSourceText)}>{source.text}</blockquote>
+        : (
+            <img
+              {...stylex.props(noteEditorStyles.readerSourceImage)}
+              alt={source.location}
+              src={source.imageSrc}
+            />
+          )}
+      <span {...stylex.props(noteEditorStyles.readerSourceLocation)}>{source.location}</span>
+    </>
+  )
+
+  return (
+    <div {...stylex.props(noteEditorStyles.readerSourceHeader)}>
+      {navigation === null
+        ? <div {...stylex.props(noteEditorStyles.readerSourceSnapshot)}>{content}</div>
+        : (
+            <Link
+              {...stylex.props(noteEditorStyles.readerSourceLink)}
+              aria-label={t('openReaderSource')}
+              params={{ readingId: navigation.readingId }}
+              search={{
+                annotationId: navigation.annotationId,
+                noteId,
+                topicId: navigation.bookTopicId,
+              }}
+              title={t('openReaderSource')}
+              to="/reader/$readingId"
+            >
+              {content}
+            </Link>
+          )}
+      {onRemove
+        ? (
+            <button
+              {...stylex.props(noteEditorStyles.readerSourceRemove)}
+              aria-label={t('removeReaderSource')}
+              title={t('removeReaderSource')}
+              type="button"
+              onClick={onRemove}
+            >
+              <X aria-hidden="true" size={16} strokeWidth={1.9} />
+            </button>
+          )
+        : null}
+    </div>
+  )
 }
 
 export interface NoteEditorViewProps {
@@ -78,6 +150,7 @@ export function NoteEditorView({
   validationError,
 }: NoteEditorViewProps) {
   const { t } = useTranslation('editor')
+  const { t: tCommon } = useTranslation('common')
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
   const [inspectorVisible, setInspectorVisible] = useNoteInspectorVisibility()
   const configuration = useDesktopConfiguration()
@@ -109,6 +182,52 @@ export function NoteEditorView({
   const sourceReadingId = sourceBookTopic?.kind === 'topic' && sourceBookTopic.topicType === 'book'
     ? sourceBookTopic.book.retrievalHints[0]?.readingId
     : undefined
+  const readerSourceNavigation = readerReference?.annotationId !== undefined && sourceReadingId !== undefined
+    ? {
+        annotationId: readerReference.annotationId,
+        bookTopicId: readerReference.bookTopicId,
+        readingId: sourceReadingId,
+      }
+    : null
+  const imageOcclusionState = imageOcclusionTopic?.getState() ?? null
+  const imageOcclusionReaderSource = imageOcclusionState?.source.kind === 'reader-region'
+    ? imageOcclusionState.source
+    : null
+  const imageOcclusionSourceBookTopic = imageOcclusionReaderSource === null
+    ? null
+    : opened.entries.find(entry => entry.kind === 'topic'
+      && entry.topicType === 'book'
+      && entry.id === imageOcclusionReaderSource.topicId) ?? null
+  const imageOcclusionSourceAnnotation = imageOcclusionReaderSource === null
+    || imageOcclusionSourceBookTopic?.kind !== 'topic'
+    || imageOcclusionSourceBookTopic.topicType !== 'book'
+    ? null
+    : opened.note.getBookTopic(imageOcclusionSourceBookTopic.id).getReadingState().annotations.find(
+      annotation => annotation.id === imageOcclusionReaderSource.annotationId,
+    ) ?? null
+  const imageOcclusionSourceReadingId = imageOcclusionSourceAnnotation === null
+    || imageOcclusionSourceBookTopic?.kind !== 'topic'
+    || imageOcclusionSourceBookTopic.topicType !== 'book'
+    ? undefined
+    : imageOcclusionSourceBookTopic.book.retrievalHints[0]?.readingId
+  const imageOcclusionSource = imageOcclusionState === null || imageOcclusionReaderSource === null
+    ? null
+    : {
+        imageSrc: imageOcclusionState.image.src,
+        kind: 'region' as const,
+        location: imageOcclusionSourceAnnotation === null
+          ? t('imageOcclusion.readerRegionSource')
+          : readerAnnotationLabel(imageOcclusionSourceAnnotation, tCommon),
+      }
+  const imageOcclusionSourceNavigation = imageOcclusionSourceAnnotation === null
+    || imageOcclusionSourceReadingId === undefined
+    || imageOcclusionReaderSource === null
+    ? null
+    : {
+        annotationId: imageOcclusionSourceAnnotation.id,
+        bookTopicId: imageOcclusionReaderSource.topicId,
+        readingId: imageOcclusionSourceReadingId,
+      }
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
   const entryContextMenu = useNoteEntryContextMenu({
     onAddBook,
@@ -152,7 +271,11 @@ export function NoteEditorView({
     const sourceTopicId = editorTopic.topicId
     return {
       getState: (imageId) => {
-        const topic = opened.note.findImageOcclusionTopic(sourceTopicId, imageId)
+        const topic = opened.note.findImageOcclusionTopic({
+          imageId,
+          kind: 'topic-image',
+          topicId: sourceTopicId,
+        })
         return topic ? topic.getState() : null
       },
       open: onOpenImageOcclusion,
@@ -254,59 +377,22 @@ export function NoteEditorView({
           : null}
         {readerReference
           ? (
-              <div {...stylex.props(noteEditorStyles.readerSourceHeader)}>
-                {readerReference.annotationId !== undefined && sourceReadingId !== undefined
-                  ? (
-                      <Link
-                        {...stylex.props(noteEditorStyles.readerSourceLink)}
-                        aria-label={t('openReaderSource')}
-                        params={{ readingId: sourceReadingId }}
-                        search={{
-                          annotationId: readerReference.annotationId,
-                          noteId: opened.note.id,
-                          topicId: readerReference.bookTopicId,
-                        }}
-                        title={t('openReaderSource')}
-                        to="/reader/$readingId"
-                      >
-                        {readerReference.source.kind === 'text'
-                          ? <blockquote {...stylex.props(noteEditorStyles.readerSourceText)}>{readerReference.source.text}</blockquote>
-                          : (
-                              <img
-                                {...stylex.props(noteEditorStyles.readerSourceImage)}
-                                alt={readerReference.source.location}
-                                src={readerReference.source.imageSrc}
-                              />
-                            )}
-                        <span {...stylex.props(noteEditorStyles.readerSourceLocation)}>{readerReference.source.location}</span>
-                      </Link>
-                    )
-                  : (
-                      <div {...stylex.props(noteEditorStyles.readerSourceSnapshot)}>
-                        {readerReference.source.kind === 'text'
-                          ? <blockquote {...stylex.props(noteEditorStyles.readerSourceText)}>{readerReference.source.text}</blockquote>
-                          : (
-                              <img
-                                {...stylex.props(noteEditorStyles.readerSourceImage)}
-                                alt={readerReference.source.location}
-                                src={readerReference.source.imageSrc}
-                              />
-                            )}
-                        <span {...stylex.props(noteEditorStyles.readerSourceLocation)}>{readerReference.source.location}</span>
-                      </div>
-                    )}
-                <button
-                  {...stylex.props(noteEditorStyles.readerSourceRemove)}
-                  aria-label={t('removeReaderSource')}
-                  title={t('removeReaderSource')}
-                  type="button"
-                  onClick={() => opened.note.setTopicReaderReference(opened.topic.topicId, null)}
-                >
-                  <X aria-hidden="true" size={16} strokeWidth={1.9} />
-                </button>
-              </div>
+              <ReaderSourceHeader
+                navigation={readerSourceNavigation}
+                noteId={opened.note.id}
+                source={readerReference.source}
+                onRemove={() => opened.note.setTopicReaderReference(opened.topic.topicId, null)}
+              />
             )
-          : null}
+          : imageOcclusionSource === null
+            ? null
+            : (
+                <ReaderSourceHeader
+                  navigation={imageOcclusionSourceNavigation}
+                  noteId={opened.note.id}
+                  source={imageOcclusionSource}
+                />
+              )}
         {imageOcclusionTopic !== null
           ? (
               <Suspense fallback={<div {...stylex.props(noteEditorStyles.topicLoading)} role="status">{t('loadingEditor')}</div>}>

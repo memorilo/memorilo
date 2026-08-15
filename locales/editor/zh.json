@@ -64,6 +64,7 @@
   "create": "创建",
   "imageOcclusion": {
     "defaultTitle": "图片遮挡题",
+    "readerRegionSource": "阅读器区域快照",
     "title": "图片遮挡题标题",
     "tools": "遮挡工具",
     "tool": {

@@ -5,7 +5,7 @@ import type {
   ReaderAnnotationStyle,
 } from './types'
 import * as stylex from '@stylexjs/stylex'
-import { Copy, Highlighter, StickyNote, Trash2, Underline, X } from 'lucide-react'
+import { Copy, EyeOff, Highlighter, StickyNote, Trash2, Underline, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { readerAnnotationPopoverStyles as styles } from './reader-annotation-popover.stylex'
 import { readerSharedStyles } from './reader-theme.stylex'
@@ -54,7 +54,9 @@ export function ReaderAnnotationPopover({
   onCopy,
   onDelete,
   onDismiss,
+  onOpenImageOcclusion,
   onStyleChange,
+  openingImageOcclusion,
 }: {
   annotation: ReaderAnnotation
   anchorRect: { height: number, left: number, top: number, width: number }
@@ -66,7 +68,9 @@ export function ReaderAnnotationPopover({
   onCopy: () => void
   onDelete: () => void
   onDismiss: () => void
+  onOpenImageOcclusion?: () => void
   onStyleChange: (style: ReaderAnnotationStyle) => void
+  openingImageOcclusion: boolean
 }) {
   const { t } = useTranslation('common')
   const position = popoverPosition(anchorRect)
@@ -74,6 +78,7 @@ export function ReaderAnnotationPopover({
     <div
       {...stylex.props(styles.popover, position.below && styles.below)}
       aria-label={t('reader.annotationActions')}
+      data-reader-capture-overlay="true"
       role="toolbar"
       style={position.style}
     >
@@ -139,6 +144,20 @@ export function ReaderAnnotationPopover({
                         <Underline aria-hidden="true" size={17} strokeWidth={1.9} />
                       </button>
                     </>
+                  )
+                : null}
+              {annotation.anchor.type === 'region' && onOpenImageOcclusion !== undefined
+                ? (
+                    <button
+                      {...stylex.props(styles.tool)}
+                      aria-label={t('reader.openImageOcclusion')}
+                      disabled={openingImageOcclusion}
+                      title={t('reader.openImageOcclusion')}
+                      type="button"
+                      onClick={onOpenImageOcclusion}
+                    >
+                      <EyeOff aria-hidden="true" size={17} strokeWidth={1.9} />
+                    </button>
                   )
                 : null}
               {annotation.annotationTopicId === undefined

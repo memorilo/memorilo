@@ -1,4 +1,5 @@
 import type { EmbeddingModel } from '@memorilo/editor-storage'
+import type { BookFileBinding, ReadingAnnotation } from '@memorilo/reading-model'
 import { SqliteEditorStorage } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -144,9 +145,12 @@ describe('application service for MCP Notes', () => {
       topicId: fixture.topic.id,
     })
     const occlusionTopicId = await renderer.createImageOcclusionTopic({
-      snapshot: async source => ({ ...image, src: source.src }),
-      sourceImageId,
-      sourceTopicId: fixture.topic.id,
+      snapshot: async (source) => {
+        if (source.kind !== 'topic-image')
+          throw new TypeError('Expected a Topic image source')
+        return { ...image, src: source.src }
+      },
+      source: { imageId: sourceImageId, kind: 'topic-image', topicId: fixture.topic.id },
       title: 'Image Occlusion',
     })
     const occlusionTopic = renderer.getImageOcclusionTopic(occlusionTopicId)
@@ -239,6 +243,150 @@ describe('application service for MCP Notes', () => {
       topicId: occlusionTopicId,
     })).resolves.toMatchObject({
       card: { id: cardId, kind: 'image-occlusion' },
+      mainTargetId: newItem.mainTargetId,
+    })
+  })
+
+  it('reloads a Reader region ImageOcclusionTopic, rates its Card, and schedules review', async () => {
+    const database = new BetterSqliteDatabase(':memory:')
+    databases.push(database)
+    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    const notes = createNoteApplicationService(storage)
+    const book: BookFileBinding = {
+      book: { authors: ['Author'], title: 'Reader publication' },
+      file: {
+        byteLength: 42,
+        format: 'txt',
+        originalName: 'reader-publication.txt',
+        sha256: 'a'.repeat(64),
+      },
+      retrievalHints: [{ kind: 'local', readingId: 'reader-review-reading' }],
+    }
+    const created = await notes.createBookNote({
+      book,
+      noteTitle: 'Reader region review Note',
+      topicTitle: 'Reader publication',
+    })
+    if (created.status !== 'created')
+      throw new Error('Expected the Reader Book Note to be created')
+    const { note: storedNote, topicId: bookTopicId } = created.context
+    const renderer = createEditorNote({ id: storedNote.id, snapshot: storedNote.snapshot })
+    const annotation: ReadingAnnotation = {
+      anchor: { end: 20, format: 'txt', start: 10, type: 'region' },
+      color: 'yellow',
+      createdAt: 1,
+      id: 'reader-review-region',
+      style: 'highlight',
+      updatedAt: 1,
+    }
+    const version = renderer.getVersion()
+    renderer.getBookTopic(bookTopicId).setAnnotations([annotation])
+    const cardId = 'reader-occlusion-group'
+    const occlusionTopicId = await renderer.createImageOcclusionTopic({
+      snapshot: async source => ({
+        height: 300,
+        src: `memorilo-asset:///${source.kind}-${annotation.id}.png`,
+        width: 400,
+      }),
+      source: {
+        annotationId: annotation.id,
+        kind: 'reader-region',
+        topicId: bookTopicId,
+      },
+      title: 'Reader region image occlusion',
+    })
+    const occlusionTopic = renderer.getImageOcclusionTopic(occlusionTopicId)
+    occlusionTopic.setState({
+      ...occlusionTopic.getState(),
+      shapes: [{
+        groupId: cardId,
+        height: 0.25,
+        id: 'reader-occlusion-shape',
+        kind: 'rectangle',
+        width: 0.25,
+        x: 0.25,
+        y: 0.25,
+      }],
+    })
+    await notes.saveNoteUpdates({
+      noteId: storedNote.id,
+      updates: [renderer.exportUpdates(version)],
+    })
+
+    const restoredNotes = createNoteApplicationService(storage)
+    const restoredTree = await restoredNotes.getNoteTree({ noteId: storedNote.id })
+    expect(restoredTree.entries.find(entry => entry.id === occlusionTopicId)).toMatchObject({
+      parentId: bookTopicId,
+      topicType: 'image-occlusion',
+    })
+
+    const reviewedAt = Date.now() + 1_000
+    const reviews = createLearningReviewApplication(restoredNotes, storage.learning, () => reviewedAt)
+    const newItem = await reviews.getNextNewItem({
+      noteId: storedNote.id,
+      now: reviewedAt,
+      topicId: occlusionTopicId,
+    })
+    expect(newItem).toMatchObject({
+      card: {
+        id: cardId,
+        kind: 'image-occlusion',
+        sourceBlockId: annotation.id,
+        targetGroupId: cardId,
+      },
+      queue: {
+        cardId,
+        phase: 'new',
+        topicId: occlusionTopicId,
+      },
+    })
+    if (!newItem)
+      throw new Error('Expected the Reader region ImageOcclusionTopic Card in the new queue')
+
+    const prepared = await storage.learning.reviews.prepare({
+      reviewedAt,
+      targetId: newItem.mainTargetId,
+    })
+    const { outcomes, ...preparation } = prepared
+    const rated = await storage.learning.reviews.rateTarget({
+      ...preparation,
+      rating: 'easy',
+    })
+
+    expect(rated).toEqual({
+      eventId: preparation.eventId,
+      state: outcomes.easy.state,
+    })
+    expect(rated.state).toMatchObject({
+      phase: 'review',
+      reps: 1,
+      targetId: newItem.mainTargetId,
+    })
+    expect(rated.state.dueAt).toBeGreaterThan(reviewedAt)
+    expect(await storage.learning.queue.list({
+      mode: 'review',
+      noteId: storedNote.id,
+      now: rated.state.dueAt,
+      topicId: occlusionTopicId,
+    })).toEqual([
+      expect.objectContaining({
+        cardId,
+        dueAt: rated.state.dueAt,
+        phase: 'review',
+        targetIds: [newItem.mainTargetId],
+        topicId: occlusionTopicId,
+      }),
+    ])
+    await expect(reviews.getNextReviewItem({
+      noteId: storedNote.id,
+      now: rated.state.dueAt,
+      topicId: occlusionTopicId,
+    })).resolves.toMatchObject({
+      card: {
+        id: cardId,
+        kind: 'image-occlusion',
+        sourceBlockId: annotation.id,
+      },
       mainTargetId: newItem.mainTargetId,
     })
   })

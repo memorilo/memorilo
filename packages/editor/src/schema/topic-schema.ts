@@ -185,6 +185,18 @@ const OcclusionShapeSchema = Schema.Union([
   OcclusionBoundsShapeSchema,
   OcclusionBrushShapeSchema,
 ])
+const ImageOcclusionSourceReferenceSchema = Schema.Union([
+  Schema.Struct({
+    imageId: Schema.NonEmptyString,
+    kind: Schema.Literal('topic-image'),
+    topicId: Schema.NonEmptyString,
+  }),
+  Schema.Struct({
+    annotationId: Schema.NonEmptyString,
+    kind: Schema.Literal('reader-region'),
+    topicId: Schema.NonEmptyString,
+  }),
+])
 const ImageOcclusionStateSchema = Schema.Struct({
   image: Schema.Struct({
     height: PositiveIntegerSchema,
@@ -193,8 +205,7 @@ const ImageOcclusionStateSchema = Schema.Struct({
   }),
   mode: Schema.Literals(['hide-all', 'hide-one']),
   shapes: Schema.Array(OcclusionShapeSchema),
-  sourceImageId: Schema.NonEmptyString,
-  sourceTopicId: Schema.NonEmptyString,
+  source: ImageOcclusionSourceReferenceSchema,
 }).check(Schema.makeFilter((state) => {
   const shapeIds = new Set<string>()
   for (const [index, shape] of state.shapes.entries()) {
@@ -331,10 +342,10 @@ export const LoroTopicSchema = Schema.Union([
         path: ['state'],
       }
     }
-    return topic.state.sourceTopicId === id
+    return topic.state.source.topicId === id
       ? {
           message: 'expected an ImageOcclusionTopic to reference a different source Topic',
-          path: ['state', 'sourceTopicId'],
+          path: ['state', 'source', 'topicId'],
         }
       : undefined
   }

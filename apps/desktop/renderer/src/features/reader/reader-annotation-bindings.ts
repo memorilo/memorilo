@@ -1,5 +1,40 @@
 import type { EditorNote } from '@memorilo/editor/note'
-import type { ReaderAnnotation } from '@memorilo/editor/reader'
+import type { ReaderAnnotation, ReaderAnnotationDependents } from '@memorilo/editor/reader'
+
+export function readerAnnotationDependents(
+  note: EditorNote,
+  bookTopicId: string,
+  annotation: ReaderAnnotation,
+): ReaderAnnotationDependents {
+  const imageOcclusionTopic = annotation.anchor.type === 'region'
+    ? note.findImageOcclusionTopic({
+        annotationId: annotation.id,
+        kind: 'reader-region',
+        topicId: bookTopicId,
+      })
+    : null
+  const imageOcclusionTopicIds = imageOcclusionTopic === null
+    ? []
+    : [imageOcclusionTopic.topicId]
+  return {
+    ...(annotation.annotationTopicId === undefined ? {} : { annotationTopicId: annotation.annotationTopicId }),
+    imageOcclusionTopicIds,
+  }
+}
+
+export function prepareReaderAnnotationTopicsForDeletion(
+  note: EditorNote,
+  bookTopicId: string,
+  annotation: ReaderAnnotation,
+): void {
+  const dependents = readerAnnotationDependents(note, bookTopicId, annotation)
+  if (dependents.annotationTopicId === undefined)
+    return
+  const reference = note.getTopicReaderReference(dependents.annotationTopicId)
+  if (!reference)
+    throw new Error(`Annotation Topic ${dependents.annotationTopicId} has no Reader source`)
+  note.setTopicReaderReference(dependents.annotationTopicId, { source: reference.source })
+}
 
 export function reconciledReaderAnnotations(
   note: EditorNote,

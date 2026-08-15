@@ -1,4 +1,5 @@
-import type { ElectronApplication } from '@playwright/test'
+import type { ElectronApplication, Page } from '@playwright/test'
+import type Database from 'better-sqlite3'
 import { Buffer } from 'node:buffer'
 import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -9,6 +10,7 @@ import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { _electron as electron, expect, test } from '@playwright/test'
+import BetterSqlite3 from 'better-sqlite3'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const desktopDirectory = resolve(repositoryRoot, 'apps/desktop')
@@ -44,6 +46,34 @@ function onePagePdf(): Buffer {
   return Buffer.from(body, 'ascii')
 }
 
+function readReaderRegionImageOcclusionParents(databasePath: string): readonly {
+  childType: string
+  parentType: string
+}[] {
+  const database: Database.Database = new BetterSqlite3(databasePath, { readonly: true })
+  try {
+    return database.prepare(`
+      SELECT
+        child_topic.topic_type AS childType,
+        parent_topic.topic_type AS parentType
+      FROM note_entries AS child_entry
+      JOIN topics AS child_topic
+        ON child_topic.note_row_id = child_entry.note_row_id
+        AND child_topic.topic_id = child_entry.entry_id
+      JOIN note_entries AS parent_entry
+        ON parent_entry.note_row_id = child_entry.note_row_id
+        AND parent_entry.entry_id = child_entry.parent_entry_id
+      JOIN topics AS parent_topic
+        ON parent_topic.note_row_id = parent_entry.note_row_id
+        AND parent_topic.topic_id = parent_entry.entry_id
+      WHERE child_topic.topic_type = 'image-occlusion'
+    `).all() as { childType: string, parentType: string }[]
+  }
+  finally {
+    database.close()
+  }
+}
+
 const publicationFeed = `<?xml version="1.0" encoding="UTF-8"?>
   <feed xmlns="http://www.w3.org/2005/Atom">
     <title>BookTopic Test Books</title>
@@ -70,7 +100,52 @@ function launchApplication(databasePath: string, userDataDirectory: string): Pro
   })
 }
 
-test('persists and reloads a BookTopic annotation in its bound Reader context', async () => {
+async function readAssetPixel(
+  application: ElectronApplication,
+  page: Page,
+  source: string,
+  x: number,
+  y: number,
+): Promise<number[]> {
+  const bytes = await application.evaluate(async ({ net }, assetSource) => {
+    const response = await net.fetch(assetSource)
+    if (!response.ok)
+      throw new Error(`Reader source snapshot request failed with status ${response.status}`)
+    return Array.from(new Uint8Array(await response.arrayBuffer()))
+  }, source)
+  return page.evaluate(async ({ bytes, x, y }) => {
+    const blob = new Blob([Uint8Array.from(bytes)], { type: 'image/png' })
+    const sourceUrl = URL.createObjectURL(blob)
+    const image = new Image()
+    image.src = sourceUrl
+    try {
+      await image.decode()
+      if (x >= image.naturalWidth || y >= image.naturalHeight)
+        throw new RangeError(`Reader source snapshot pixel ${x},${y} is outside the image`)
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const context = canvas.getContext('2d')
+      if (!context)
+        throw new Error('Could not inspect Reader source snapshot pixels')
+      context.drawImage(image, 0, 0)
+      return [...context.getImageData(x, y, 1, 1).data]
+    }
+    finally {
+      URL.revokeObjectURL(sourceUrl)
+    }
+  }, { bytes, x, y })
+}
+
+function expectCleanSourcePixel(pixel: readonly number[]): void {
+  expect(pixel).toHaveLength(4)
+  expect(pixel[0]).toBeGreaterThanOrEqual(245)
+  expect(pixel[1]).toBeGreaterThanOrEqual(245)
+  expect(pixel[2]).toBeGreaterThanOrEqual(245)
+  expect(pixel[3]).toBe(255)
+}
+
+test('persists and reloads a BookTopic annotation and region occlusion', async () => {
   test.setTimeout(120_000)
   const pdf = onePagePdf()
   const server = createServer((request, response) => {
@@ -164,6 +239,7 @@ test('persists and reloads a BookTopic annotation in its bound Reader context', 
         throw new Error('Reader route is missing its BookTopic context')
       return { noteId, topicId }
     })
+    const readerHash = await window.evaluate(() => globalThis.location.hash)
     await window.getByRole('button', { name: 'Select an area to annotate' }).click()
     const page = window.locator('.reader-pdf-page')
     const pageBox = await page.boundingBox()
@@ -182,7 +258,23 @@ test('persists and reloads a BookTopic annotation in its bound Reader context', 
     await expect(highlightActions).toBeVisible()
     await highlightActions.getByRole('button', { name: 'Choose annotation color' }).click()
     await highlightActions.getByRole('button', { name: 'blue annotation' }).click()
-    await highlightActions.getByRole('button', { name: 'Add annotation' }).click()
+
+    await highlightActions.getByRole('button', { name: 'Create or open image occlusion' }).click()
+    await expect(window.locator('[data-topic-type="image-occlusion"]')).toBeVisible()
+    await expect.poll(() => readReaderRegionImageOcclusionParents(databasePath)).toEqual([{
+      childType: 'image-occlusion',
+      parentType: 'book',
+    }])
+
+    await window.evaluate((hash) => {
+      globalThis.location.hash = hash
+    }, readerHash)
+    const restoredArea = window.getByRole('button', { name: 'Open area annotation' })
+    await expect(restoredArea).toBeVisible({ timeout: 30_000 })
+    await restoredArea.click()
+    const restoredActions = window.getByRole('toolbar', { name: 'Highlight actions' })
+    await expect(restoredActions).toBeVisible()
+    await restoredActions.getByRole('button', { name: 'Add annotation' }).click()
 
     const annotationEditor = window.getByRole('textbox', { name: 'Editor content' }).last()
     await expect(annotationEditor).toBeVisible()
@@ -209,6 +301,44 @@ test('persists and reloads a BookTopic annotation in its bound Reader context', 
       globalThis.location.hash = `/note/${encodeURIComponent(noteId)}/${encodeURIComponent(topicId)}`
     }, contextIds)
     const structureAfterAnnotation = window.getByLabel('Structure')
+    const persistedImageOcclusionTopic = structureAfterAnnotation.getByRole('link', {
+      exact: true,
+      name: 'Image Occlusion',
+    })
+    await expect(persistedImageOcclusionTopic).toBeVisible()
+    await persistedImageOcclusionTopic.click()
+    await expect(window.locator('[data-topic-type="image-occlusion"]')).toBeVisible()
+    const imageOcclusionSource = window.getByRole('link', { name: 'Open source in Reader' })
+    await expect(imageOcclusionSource).toBeVisible()
+    const imageOcclusionSourceImage = imageOcclusionSource.getByRole('img')
+    await expect(imageOcclusionSourceImage).toBeVisible()
+    const imageOcclusionSourceUrl = await imageOcclusionSourceImage.getAttribute('src')
+    if (!imageOcclusionSourceUrl)
+      throw new Error('Reader image occlusion source did not expose an asset URL')
+    expectCleanSourcePixel(await readAssetPixel(electronApplication, window, imageOcclusionSourceUrl, 2, 2))
+    await imageOcclusionSource.click()
+    await expect.poll(() => window.evaluate(() => {
+      const [, searchText = ''] = globalThis.location.hash.slice(1).split('?')
+      const search = new URLSearchParams(searchText)
+      return {
+        annotationId: search.get('annotationId'),
+        noteId: search.get('noteId'),
+        topicId: search.get('topicId'),
+      }
+    })).toEqual({
+      annotationId: expect.stringMatching(/\S/u),
+      noteId: contextIds.noteId,
+      topicId: contextIds.topicId,
+    })
+
+    await window.evaluate(({ noteId, topicId }) => {
+      globalThis.location.hash = `/note/${encodeURIComponent(noteId)}/${encodeURIComponent(topicId)}`
+    }, contextIds)
+    await expect.poll(() => readReaderRegionImageOcclusionParents(databasePath)).toEqual([{
+      childType: 'image-occlusion',
+      parentType: 'book',
+    }])
+
     const annotationTopic = structureAfterAnnotation.getByRole('link', {
       exact: true,
       name: 'Area on page 1',
@@ -216,7 +346,12 @@ test('persists and reloads a BookTopic annotation in its bound Reader context', 
     await expect(annotationTopic).toBeVisible()
     await annotationTopic.click()
     await expect(window.getByRole('link', { name: 'Open source in Reader' })).toBeVisible()
-    await expect(window.getByRole('img', { name: 'Area on page 1' })).toBeVisible()
+    const annotationSourceImage = window.getByRole('img', { name: 'Area on page 1' })
+    await expect(annotationSourceImage).toBeVisible()
+    const annotationSourceUrl = await annotationSourceImage.getAttribute('src')
+    if (!annotationSourceUrl)
+      throw new Error('Reader source snapshot did not expose an asset URL')
+    expectCleanSourcePixel(await readAssetPixel(electronApplication, window, annotationSourceUrl, 2, 2))
     await expect(window.getByText('Margin annotation')).toBeVisible()
 
     await window.getByRole('link', { name: 'Open source in Reader' }).click()
@@ -247,9 +382,27 @@ test('persists and reloads a BookTopic annotation in its bound Reader context', 
     await restoredHighlightActions
       .getByRole('button', { name: 'Delete highlight' })
       .click()
-    await expect(window.getByRole('button', { name: 'Delete highlight and Topic' })).toHaveCount(0)
-    const deleteHighlight = window.getByRole('dialog').getByRole('button', { name: 'Delete highlight' })
+    const deleteDialog = window.getByRole('dialog')
+    await expect(deleteDialog.getByRole('button')).toHaveCount(2)
+    const cancelDelete = deleteDialog.getByRole('button', { name: 'Cancel' })
+    const deleteHighlight = deleteDialog.getByRole('button', { name: 'Delete highlight' })
+    await expect(cancelDelete).toBeFocused()
+    await window.keyboard.press('Tab')
     await expect(deleteHighlight).toBeFocused()
+    await window.keyboard.press('Tab')
+    await expect(cancelDelete).toBeFocused()
+    await window.keyboard.press('Enter')
+    await expect(deleteDialog).toHaveCount(0)
+    await expect(window.getByRole('button', { name: 'Open area annotation' })).toBeVisible()
+
+    await restoredHighlightActions.getByRole('button', { name: 'Delete highlight' }).click()
+    await expect(deleteDialog).toBeVisible()
+    await window.keyboard.press('Escape')
+    await expect(deleteDialog).toHaveCount(0)
+    await expect(window.getByRole('button', { name: 'Open area annotation' })).toBeVisible()
+
+    await restoredHighlightActions.getByRole('button', { name: 'Delete highlight' }).click()
+    await expect(window.getByRole('dialog')).toBeVisible()
     await deleteHighlight.click()
     await expect(window.getByRole('button', { name: 'Open area annotation' })).toHaveCount(0)
 
@@ -265,6 +418,14 @@ test('persists and reloads a BookTopic annotation in its bound Reader context', 
     await expect(window.getByRole('link', { name: 'Open source in Reader' })).toHaveCount(0)
     await expect(window.getByRole('img', { name: 'Area on page 1' })).toBeVisible()
     await expect(window.getByText('Margin annotation')).toBeVisible()
+    await expect(window.getByLabel('Structure').getByRole('link', {
+      exact: true,
+      name: 'Image Occlusion',
+    })).toBeVisible()
+    await expect.poll(() => readReaderRegionImageOcclusionParents(databasePath)).toEqual([{
+      childType: 'image-occlusion',
+      parentType: 'book',
+    }])
   }
   finally {
     await electronApplication?.close()
