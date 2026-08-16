@@ -7,19 +7,21 @@ import type {
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
   SetDesktopNoteFavoriteInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { SortingState } from '@tanstack/react-table'
-import type { Cause } from 'effect'
 import type { InfiniteData } from 'effect-query'
 import type { TFunction } from 'i18next'
-import { Effect, Layer } from 'effect'
-import { createEffectQuery } from 'effect-query'
+import type { DesktopClientError } from '../../../shared/effect-query'
+import { desktopRequests } from '../../../shared/desktop-requests'
+import {
+  desktopEffect,
+  desktopEffectQuery,
+} from '../../../shared/effect-query'
 import { noteQueryKeys } from '../query-keys'
 
 export const noteLibraryPageSize = 100
 export const noteLibraryColumnIds = ['title', 'createdAt', 'updatedAt'] as const
 export type NoteLibraryColumnId = typeof noteLibraryColumnIds[number]
-const effectQuery = createEffectQuery(Layer.empty)
 
 export function noteLibraryColumnLabel(
   columnId: NoteLibraryColumnId,
@@ -56,9 +58,9 @@ export function noteLibraryQueryOptions(
   sortBy: DesktopNoteSortField,
   sortDirection: DesktopNoteSortDirection,
 ) {
-  return effectQuery.infiniteQueryOptions<
+  return desktopEffectQuery.infiniteQueryOptions<
     DesktopNotePage,
-    Cause.UnknownError,
+    DesktopClientError,
     never,
     InfiniteData<DesktopNotePage>,
     number
@@ -67,7 +69,7 @@ export function noteLibraryQueryOptions(
       ? lastPage.page + 1
       : undefined,
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => Effect.tryPromise(() => window.desktop.listNotes({
+    queryFn: ({ pageParam }) => desktopEffect('notes.list', () => desktopRequests.listNotes({
       page: pageParam,
       pageSize: noteLibraryPageSize,
       sortBy,
@@ -78,24 +80,24 @@ export function noteLibraryQueryOptions(
 }
 
 export function setNoteFavoriteMutationOptions() {
-  return effectQuery.mutationOptions<
+  return desktopEffectQuery.mutationOptions<
     DesktopNoteFavoriteState,
-    Cause.UnknownError,
+    DesktopClientError,
     never,
     SetDesktopNoteFavoriteInput
   >({
-    mutationFn: input => Effect.tryPromise(() => window.desktop.setNoteFavorite(input)),
+    mutationFn: input => desktopEffect('notes.set-favorite', () => desktopRequests.setNoteFavorite(input)),
   })
 }
 
 export function renameNoteMutationOptions() {
-  return effectQuery.mutationOptions<
+  return desktopEffectQuery.mutationOptions<
     RenameDesktopNoteResult,
-    Cause.UnknownError,
+    DesktopClientError,
     never,
     RenameDesktopNoteInput
   >({
-    mutationFn: input => Effect.tryPromise(() => window.desktop.renameNote(input)),
+    mutationFn: input => desktopEffect('notes.rename', () => desktopRequests.renameNote(input)),
   })
 }
 

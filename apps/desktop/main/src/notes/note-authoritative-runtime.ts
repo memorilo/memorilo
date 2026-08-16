@@ -40,7 +40,7 @@ export class NoteApplicationServiceClosedError extends Error {
 }
 
 export interface NoteAuthoritativeRuntime {
-  applyExternalUpdates: (input: SaveNoteUpdatesInput) => Effect.Effect<{ updatedAt: number }, unknown>
+  applyExternalUpdates: (input: SaveNoteUpdatesInput) => Effect.Effect<{ updatedAt: number }, Error>
   close: () => Promise<void>
   commit: (note: EditorNote) => Promise<AuthoritativeNote>
   invalidate: (noteId: string) => void

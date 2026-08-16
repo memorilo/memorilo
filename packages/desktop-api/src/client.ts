@@ -1,0 +1,203 @@
+import type { Schema as EffectSchema } from 'effect'
+import type { DesktopApi, DesktopLearningApi } from './contract'
+import type {
+  DesktopOperationArguments,
+  DesktopOperationGroup,
+  DesktopOperationMethod,
+  DesktopOperationResult,
+} from './operations'
+import type { DesktopHonoApp } from './server'
+import type { DesktopFetchTransport } from './transport'
+import { DesktopConfigurationSchema } from '@memorilo/desktop-config'
+import { hc } from 'hono/client'
+import { RuntimeInfoSchema } from './app-routes'
+import { desktopOperationSchemas } from './operations'
+import { createDesktopTransportFetch, memoriloApiOrigin } from './transport'
+import {
+  decodeDesktopHonoResponse,
+  encodeDesktopHonoValue,
+} from './wire'
+
+export function createDesktopHonoClient(fetchImplementation: typeof globalThis.fetch = globalThis.fetch) {
+  if (typeof fetchImplementation !== 'function')
+    throw new TypeError('Desktop Hono client requires a Fetch implementation')
+  return hc<DesktopHonoApp>(memoriloApiOrigin, { fetch: fetchImplementation })
+}
+
+export type DesktopHonoClient = ReturnType<typeof createDesktopHonoClient>
+
+export interface CreateDesktopApiClientOptions {
+  contextualTransport: DesktopFetchTransport
+  fetch?: typeof globalThis.fetch
+}
+
+export function createDesktopApiClient(options: CreateDesktopApiClientOptions): DesktopApi {
+  const portableClient = options.fetch === undefined
+    ? createDesktopHonoClient()
+    : createDesktopHonoClient(options.fetch)
+  const contextualClient = createDesktopHonoClient(createDesktopTransportFetch(options.contextualTransport))
+
+  const rpc = async <
+    Group extends DesktopOperationGroup,
+    Method extends DesktopOperationMethod<Group>,
+  >(
+    group: Group,
+    method: Method,
+    ...args: DesktopOperationArguments<Group, Method>
+  ): Promise<DesktopOperationResult<Group, Method>> => {
+    type RuntimeSchema = EffectSchema.Top & {
+      readonly DecodingServices: never
+      readonly EncodingServices: never
+    }
+    const groupSchemas = desktopOperationSchemas[group] as unknown as Record<PropertyKey, {
+      readonly arguments: RuntimeSchema
+      readonly contextual: boolean
+      readonly result: RuntimeSchema
+    }>
+    const definition = groupSchemas[method]
+    if (definition === undefined)
+      throw new Error(`Unknown desktop request operation: ${String(group)}.${String(method)}`)
+    const operation = `${String(group)}.${String(method)}`
+    const encodedArguments = encodeDesktopHonoValue(operation, definition.arguments, args)
+    const client = definition.contextual ? contextualClient : portableClient
+    const response = await client.rpc[':group'][':method'].$post({
+      json: { args: encodedArguments },
+      param: { group: String(group), method: String(method) },
+    })
+    return decodeDesktopHonoResponse(operation, response, definition.result) as DesktopOperationResult<Group, Method>
+  }
+
+  const learning: DesktopLearningApi = {
+    answerAnkiReviewCard: input => rpc('learning', 'answerAnkiReviewCard', input),
+    archiveOptimizer: async (optimizerId) => { await rpc('learning', 'archiveOptimizer', optimizerId) },
+    assignNoteOptimizer: async (input) => { await rpc('learning', 'assignNoteOptimizer', input) },
+    createOptimizer: input => rpc('learning', 'createOptimizer', input),
+    endAnkiReview: async () => { await rpc('learning', 'endAnkiReview') },
+    getActivitySummary: input => input === undefined
+      ? rpc('learning', 'getActivitySummary')
+      : rpc('learning', 'getActivitySummary', input),
+    getCurrentAnkiReviewCard: () => rpc('learning', 'getCurrentAnkiReviewCard'),
+    getDailyProgress: now => now === undefined
+      ? rpc('learning', 'getDailyProgress')
+      : rpc('learning', 'getDailyProgress', now),
+    getLearningState: targetId => rpc('learning', 'getLearningState', targetId),
+    getMaintenanceEstimate: () => rpc('learning', 'getMaintenanceEstimate'),
+    getNextItem: input => input === undefined
+      ? rpc('learning', 'getNextItem')
+      : rpc('learning', 'getNextItem', input),
+    getNextNewItem: input => input === undefined
+      ? rpc('learning', 'getNextNewItem')
+      : rpc('learning', 'getNextNewItem', input),
+    getNextReviewItem: input => input === undefined
+      ? rpc('learning', 'getNextReviewItem')
+      : rpc('learning', 'getNextReviewItem', input),
+    getNoteOptimizer: noteId => rpc('learning', 'getNoteOptimizer', noteId),
+    getOptimizer: optimizerId => rpc('learning', 'getOptimizer', optimizerId),
+    getOptimizerNoteCount: optimizerId => rpc('learning', 'getOptimizerNoteCount', optimizerId),
+    listAnkiDecks: () => rpc('learning', 'listAnkiDecks'),
+    listNotesWithCards: () => rpc('learning', 'listNotesWithCards'),
+    listOptimizers: () => rpc('learning', 'listOptimizers'),
+    listQueue: input => input === undefined
+      ? rpc('learning', 'listQueue')
+      : rpc('learning', 'listQueue', input),
+    listTargets: cardId => rpc('learning', 'listTargets', cardId),
+    maintainDatabase: () => rpc('learning', 'maintainDatabase'),
+    optimizeOptimizer: input => rpc('learning', 'optimizeOptimizer', input),
+    playAnkiReviewAudio: async (input) => { await rpc('learning', 'playAnkiReviewAudio', input) },
+    prepareReview: input => rpc('learning', 'prepareReview', input),
+    rateMultiLineCard: input => rpc('learning', 'rateMultiLineCard', input),
+    rateTarget: input => rpc('learning', 'rateTarget', input),
+    resetOptimizerDefaults: (optimizerId, rescheduleNow) => rescheduleNow === undefined
+      ? rpc('learning', 'resetOptimizerDefaults', optimizerId)
+      : rpc('learning', 'resetOptimizerDefaults', optimizerId, rescheduleNow),
+    resetTarget: input => rpc('learning', 'resetTarget', input),
+    restoreReviewItem: input => rpc('learning', 'restoreReviewItem', input),
+    retrieveAnkiMediaFile: filename => rpc('learning', 'retrieveAnkiMediaFile', filename),
+    saveOptimizer: input => rpc('learning', 'saveOptimizer', input),
+    showAnkiReviewAnswer: input => rpc('learning', 'showAnkiReviewAnswer', input),
+    startAnkiDeckReview: deck => rpc('learning', 'startAnkiDeckReview', deck),
+    undoLastReview: input => rpc('learning', 'undoLastReview', input),
+    undoReviews: input => rpc('learning', 'undoReviews', input),
+  }
+
+  return {
+    addShelfSource: input => rpc('shelf', 'addSource', input),
+    captureReaderRegion: input => rpc('window', 'captureReaderRegion', input),
+    checkAssets: () => rpc('assets', 'check'),
+    closeBookReadingSession: sessionId => rpc('books', 'closeReadingSession', sessionId),
+    createBookContext: input => rpc('books', 'createContext', input),
+    createNote: input => input === undefined
+      ? rpc('notes', 'createNote')
+      : rpc('notes', 'createNote', input),
+    deleteShelfReading: readingId => rpc('shelf', 'deleteReading', readingId),
+    exportDatabase: () => rpc('backup', 'exportDatabase'),
+    getCachedShelfView: input => rpc('shelf', 'getCachedView', input),
+    getConfiguration: async () => decodeDesktopHonoResponse(
+      'configuration.get',
+      await portableClient.configuration.$get(),
+      DesktopConfigurationSchema,
+    ),
+    getNote: input => rpc('notes', 'getNote', input),
+    getRuntimeInfo: async () => decodeDesktopHonoResponse(
+      'app.getRuntimeInfo',
+      await portableClient.app.runtime.$get(),
+      RuntimeInfoSchema,
+    ),
+    getShelfAsset: input => rpc('shelf', 'getAsset', input),
+    getShelfPublicationDetails: input => rpc('shelf', 'getPublicationDetails', input),
+    getTopicBlock: input => rpc('notes', 'getTopicBlock', input),
+    importNetworkImage: input => rpc('assets', 'importNetworkImage', input),
+    isBookReadingAvailable: readingId => rpc('books', 'isReadingAvailable', readingId),
+    listBookContexts: readingId => rpc('books', 'listContexts', readingId),
+    listFavoriteNotes: input => input === undefined
+      ? rpc('notes', 'listFavoriteNotes')
+      : rpc('notes', 'listFavoriteNotes', input),
+    listJournalDates: input => rpc('journals', 'listJournalDates', input),
+    listNotes: input => input === undefined
+      ? rpc('notes', 'listNotes')
+      : rpc('notes', 'listNotes', input),
+    listPastJournals: input => input === undefined
+      ? rpc('journals', 'listPastJournals')
+      : rpc('journals', 'listPastJournals', input),
+    listRecentNotes: input => input === undefined
+      ? rpc('notes', 'listRecentNotes')
+      : rpc('notes', 'listRecentNotes', input),
+    learning,
+    listShelfSources: () => rpc('shelf', 'listSources'),
+    openJournal: input => input === undefined
+      ? rpc('journals', 'openJournal')
+      : rpc('journals', 'openJournal', input),
+    openMostRecentNote: () => rpc('notes', 'openMostRecentNote'),
+    openShelfReading: input => rpc('shelf', 'openReading', input),
+    prepareShelfReading: input => rpc('shelf', 'prepareReading', input),
+    prunePastEmptyJournals: () => rpc('journals', 'prunePastEmptyJournals'),
+    readShelfReadingRange: input => rpc('shelf', 'readReadingRange', input),
+    reclaimAssets: input => rpc('assets', 'reclaim', input),
+    rebindBookContext: input => rpc('books', 'rebindContext', input),
+    recordNoteOpened: async (input) => { await rpc('notes', 'recordNoteOpened', input) },
+    refreshShelfView: input => rpc('shelf', 'refreshView', input),
+    removeShelfSource: async (sourceId) => { await rpc('shelf', 'removeSource', sourceId) },
+    renameNote: input => rpc('notes', 'renameNote', input),
+    restoreDatabase: () => rpc('backup', 'restoreDatabase'),
+    saveImage: input => rpc('assets', 'saveImage', input),
+    saveNoteUpdates: input => rpc('notes', 'saveNoteUpdates', input),
+    searchNotes: input => rpc('notes', 'searchNotes', input),
+    searchTopicBlocks: input => rpc('notes', 'searchTopicBlocks', input),
+    setConfiguration: async configuration => decodeDesktopHonoResponse(
+      'configuration.set',
+      await portableClient.configuration.$put({
+        json: encodeDesktopHonoValue('configuration.set', DesktopConfigurationSchema, configuration),
+      }),
+      DesktopConfigurationSchema,
+    ),
+    setConfigurationValue: async (path, value) => decodeDesktopHonoResponse(
+      'configuration.setValue',
+      await portableClient.configuration.value.$patch({ json: { path, value } }),
+      DesktopConfigurationSchema,
+    ),
+    setNoteFavorite: input => rpc('notes', 'setNoteFavorite', input),
+    selectBookContext: input => rpc('books', 'selectContext', input),
+    showColumnVisibilityMenu: input => rpc('window', 'showColumnVisibilityMenu', input),
+    updateShelfSource: input => rpc('shelf', 'updateSource', input),
+  }
+}

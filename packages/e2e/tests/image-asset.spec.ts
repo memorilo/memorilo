@@ -123,7 +123,7 @@ test('persists an uploaded image beside the database and renders it after restar
     await imageDialog.getByRole('button', { name: 'Upload Image' }).click()
 
     const image = editor.getByRole('img', { name: 'upload preview' })
-    await expect(image).toHaveAttribute('src', /^memorilo-asset:\/\/\/[0-9a-f-]+\.png$/)
+    await expect(image).toHaveAttribute('src', /^memorilo:\/\/asset\/[0-9a-f-]+\.png$/)
     const assetUrl = await image.getAttribute('src')
     if (!assetUrl)
       throw new Error('Uploaded image did not receive an asset URL')

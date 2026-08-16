@@ -1,7 +1,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import { BrowserWindow, Menu } from 'electron'
-import { withIpcContext } from './ipc-handler-registry'
+import { withDesktopRequestContext } from '../desktop-request-handlers'
 
 export interface ColumnVisibilityMenuItem {
   canToggle: boolean
@@ -61,9 +61,9 @@ function validateAnchor(anchor: ShowColumnVisibilityMenuInput['anchor']): void {
     throw new TypeError('Column visibility menu anchor coordinates must be integers')
 }
 
-export function createWindowHandlers(): DesktopIpcHandlers['window'] {
+export function createWindowHandlers(): DesktopRequestHandlers['window'] {
   return {
-    captureReaderRegion: withIpcContext(async (context, input: CaptureReaderRegionInput) => {
+    captureReaderRegion: withDesktopRequestContext(async (context, input: CaptureReaderRegionInput) => {
       validateCaptureRegion(input)
       const image = await context.sender.capturePage(input)
       const png = image.toPNG()
@@ -71,7 +71,7 @@ export function createWindowHandlers(): DesktopIpcHandlers['window'] {
         throw new Error('Reader region capture produced an empty PNG')
       return Uint8Array.from(png)
     }),
-    showColumnVisibilityMenu: withIpcContext((context, input: ShowColumnVisibilityMenuInput) => {
+    showColumnVisibilityMenu: withDesktopRequestContext((context, input: ShowColumnVisibilityMenuInput) => {
       validateAnchor(input.anchor)
       validateColumns(input.columns)
       const browserWindow = BrowserWindow.fromWebContents(context.sender)

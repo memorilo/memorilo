@@ -6,6 +6,7 @@ import type {
   FetchShelfPageInput,
   FetchShelfPageResult,
   ShelfPage,
+  ShelfRequestError,
   ShelfStorage,
   StoredShelfSource,
 } from '@memorilo/shelf'
@@ -66,7 +67,7 @@ function createShelfModules({
   deleteSource = async () => undefined,
   deleteSourceImages = async () => undefined,
   encrypt = password => new TextEncoder().encode(password),
-  fetchAsset = (_request: FetchShelfAssetInput) => Effect.fail(new Error('unused asset fetch')),
+  fetchAsset = (_request: FetchShelfAssetInput) => Effect.fail(new ShelfNetworkError({ message: 'unused asset fetch' })),
   fetchPage = (_request: FetchShelfPageInput) => Effect.succeed<FetchShelfPageResult>({
     etag: 'etag-2',
     fetchedAt: 2,
@@ -82,8 +83,8 @@ function createShelfModules({
   deleteSource?: (sourceId: string) => Promise<void>
   deleteSourceImages?: (sourceId: string) => Promise<void>
   encrypt?: (password: string) => Uint8Array
-  fetchAsset?: (request: FetchShelfAssetInput) => Effect.Effect<FetchShelfAssetResult, unknown>
-  fetchPage?: (request: FetchShelfPageInput) => Effect.Effect<FetchShelfPageResult, unknown>
+  fetchAsset?: (request: FetchShelfAssetInput) => Effect.Effect<FetchShelfAssetResult, ShelfRequestError>
+  fetchPage?: (request: FetchShelfPageInput) => Effect.Effect<FetchShelfPageResult, ShelfRequestError>
   savePage?: (value: CachedShelfPage) => Promise<void>
   saveAsset?: (value: CachedShelfAsset) => Promise<void>
 } = {}) {
@@ -172,7 +173,7 @@ describe('shelf source and catalog applications', () => {
     const savePage = vi.fn(async (_value: CachedShelfPage) => undefined)
     const result = await createShelfModules({
       cached,
-      fetchPage: () => Effect.fail(new Error('offline')),
+      fetchPage: () => Effect.fail(new ShelfNetworkError({ message: 'offline' })),
       savePage,
     }).catalog.refreshView({ sourceId: source.id })
 

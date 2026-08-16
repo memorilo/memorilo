@@ -1,9 +1,9 @@
 import type { ConfigurationStore } from '@memorilo/config'
-import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type {
   DesktopExportDatabaseResult,
   DesktopRestoreDatabaseResult,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
+import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { BrowserWindow } from 'electron'
 import type { BetterSqliteDatabase } from '../storage/better-sqlite-database'
 import { mkdir } from 'node:fs/promises'

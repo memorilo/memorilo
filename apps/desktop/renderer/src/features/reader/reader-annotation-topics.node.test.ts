@@ -28,7 +28,7 @@ describe('reader annotation Topic creation', () => {
     const cancellation = new Error('Highlight deleted while creating its Topic')
     const createTopic = vi.fn(() => 'topic-1')
     const captureReaderRegion = vi.fn(async () => capture.promise)
-    const saveImage = vi.fn(async () => ({ src: 'memorilo-asset:///annotation.png' }))
+    const saveImage = vi.fn(async () => ({ src: 'memorilo://asset/annotation.png' }))
     const creation = createReaderAnnotationTopic({
       bookTopicId: 'book-topic-1',
       captureReaderRegion,

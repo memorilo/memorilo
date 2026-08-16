@@ -4,6 +4,7 @@ import type {
   FetchShelfPageResult,
   ShelfImageCache,
   ShelfRequestCredentials,
+  ShelfRequestError,
   ShelfSource,
   ShelfStorage,
   StoredShelfSource,
@@ -12,12 +13,13 @@ import type {
 import type { Effect as EffectType } from 'effect'
 import type { ShelfOperationRuntime } from './shelf-operation-runtime'
 import type { ShelfCredentialAccess } from './shelf-source-model'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { normalizeShelfSourceUrl, toPublicShelfSource } from './shelf-source-model'
 
 interface ShelfSourceApplicationDependencies {
   credentials: ShelfCredentialAccess
-  fetchPage: (input: FetchShelfPageInput) => EffectType.Effect<FetchShelfPageResult, unknown>
+  fetchPage: (input: FetchShelfPageInput) => EffectType.Effect<FetchShelfPageResult, ShelfRequestError>
   imageCache: Pick<ShelfImageCache, 'deleteSource'>
   now: () => number
   operations: ShelfOperationRuntime
@@ -46,26 +48,41 @@ export class ShelfSourceApplication {
 
   add(input: AddShelfSourceInput): Promise<ShelfSource> {
     return this.dependencies.operations.run(() => Effect.gen({ self: this }, function* () {
-      const url = normalizeShelfSourceUrl(input.url)
-      const credentials = credentialsFromInput(input)
-      const encryptedPassword = credentials
-        ? this.dependencies.credentials.encrypt(credentials.password)
-        : null
+      const { credentials, encryptedPassword, url } = yield* Effect.try({
+        catch: toError,
+        try: () => {
+          const url = normalizeShelfSourceUrl(input.url)
+          const credentials = credentialsFromInput(input)
+          return {
+            credentials,
+            encryptedPassword: credentials
+              ? this.dependencies.credentials.encrypt(credentials.password)
+              : null,
+            url,
+          }
+        },
+      })
       const result = yield* this.dependencies.fetchPage({
         ...(credentials ? { credentials } : {}),
         url,
       })
       if (result.status === 'not-modified')
-        throw new Error('A new Shelf source cannot return not-modified')
-      const now = this.dependencies.now()
-      const id = this.dependencies.randomId()
+        return yield* Effect.fail(new Error('A new Shelf source cannot return not-modified'))
+      const { id, name, now } = yield* Effect.try({
+        catch: toError,
+        try: () => ({
+          id: this.dependencies.randomId(),
+          name: normalizedOptionalInput(input.name) ?? result.page.title,
+          now: this.dependencies.now(),
+        }),
+      })
       const source: ShelfSource = {
         addedAt: now,
         auth: credentials ? 'basic' : 'none',
         enabled: true,
         id,
         kind: 'opds',
-        name: normalizedOptionalInput(input.name) ?? result.page.title,
+        name,
         orderKey: `${now.toString().padStart(13, '0')}:${id}`,
         updatedAt: now,
         url,
@@ -117,40 +134,49 @@ export class ShelfSourceApplication {
       input.id,
       Effect.gen({ self: this }, function* () {
         const current = yield* this.#requireSource(input.id)
-        const url = normalizeShelfSourceUrl(input.url)
-        const name = normalizedOptionalInput(input.name)
-        if (name === undefined)
-          throw new TypeError('Book source name is required')
+        const normalized = yield* Effect.try({
+          catch: toError,
+          try: () => {
+            const url = normalizeShelfSourceUrl(input.url)
+            const name = normalizedOptionalInput(input.name)
+            if (name === undefined)
+              throw new TypeError('Book source name is required')
 
-        const requestedUsername = normalizedOptionalInput(input.username)
-        const requestedPassword = normalizedOptionalInput(input.password)
-        const preservedCredentials = input.clearCredentials ? undefined : this.dependencies.credentials.read(current)
-        const username = input.clearCredentials ? undefined : requestedUsername ?? preservedCredentials?.username
-        const password = input.clearCredentials ? undefined : requestedPassword ?? preservedCredentials?.password
-        if ((username === undefined) !== (password === undefined))
-          throw new TypeError('Username and password must be provided together')
-        const credentials = username === undefined || password === undefined ? undefined : { password, username }
+            const requestedUsername = normalizedOptionalInput(input.username)
+            const requestedPassword = normalizedOptionalInput(input.password)
+            const preservedCredentials = input.clearCredentials ? undefined : this.dependencies.credentials.read(current)
+            const username = input.clearCredentials ? undefined : requestedUsername ?? preservedCredentials?.username
+            const password = input.clearCredentials ? undefined : requestedPassword ?? preservedCredentials?.password
+            if ((username === undefined) !== (password === undefined))
+              throw new TypeError('Username and password must be provided together')
+            const credentials = username === undefined || password === undefined ? undefined : { password, username }
+            const encryptedPassword = credentials
+              ? requestedPassword === undefined
+                ? current.encryptedPassword
+                : this.dependencies.credentials.encrypt(requestedPassword)
+              : null
+            return { credentials, encryptedPassword, name, url }
+          },
+        })
+        const { credentials, encryptedPassword, name, url } = normalized
         const result = yield* this.dependencies.fetchPage({
           ...(credentials ? { credentials } : {}),
           url,
         })
         if (result.status === 'not-modified')
-          throw new Error('An updated Shelf source cannot return not-modified')
+          return yield* Effect.fail(new Error('An updated Shelf source cannot return not-modified'))
 
+        const updatedAt = yield* Effect.try({ catch: toError, try: this.dependencies.now })
         const source: ShelfSource = {
           ...toPublicShelfSource(current),
           auth: credentials ? 'basic' : 'none',
           name,
-          updatedAt: this.dependencies.now(),
+          updatedAt,
           url,
           username: credentials?.username ?? null,
         }
         yield* this.#promise(() => this.dependencies.storage.sources.saveWithPage({
-          encryptedPassword: credentials
-            ? requestedPassword === undefined
-              ? current.encryptedPassword
-              : this.dependencies.credentials.encrypt(requestedPassword)
-            : null,
+          encryptedPassword,
           page: {
             etag: result.etag,
             fetchedAt: result.fetchedAt,
@@ -166,11 +192,11 @@ export class ShelfSourceApplication {
     ))
   }
 
-  #promise<Result>(operation: () => Promise<Result>): EffectType.Effect<Result, unknown> {
-    return Effect.tryPromise({ catch: error => error, try: operation })
+  #promise<Result>(operation: () => Promise<Result>): EffectType.Effect<Result, Error> {
+    return Effect.tryPromise({ catch: toError, try: operation })
   }
 
-  #requireSource(sourceId: string): EffectType.Effect<StoredShelfSource, unknown> {
+  #requireSource(sourceId: string): EffectType.Effect<StoredShelfSource, Error> {
     return Effect.gen({ self: this }, function* () {
       const source = yield* this.#promise(() => this.dependencies.storage.sources.get(sourceId))
       if (!source)

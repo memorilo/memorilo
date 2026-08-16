@@ -20,6 +20,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
 import { learningQueryKeys } from '../query-keys'
 import {
@@ -206,7 +207,10 @@ function LearningOptimizerPanelSession({
 }) {
   const { t } = useTranslation('learning')
   const queryClient = useQueryClient()
-  const query = useQuery({ queryFn: workflow.load, queryKey: learningQueryKeys.optimizers })
+  const query = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.list-optimizers', workflow.load),
+    queryKey: learningQueryKeys.optimizers,
+  }))
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   if (query.isPending) {

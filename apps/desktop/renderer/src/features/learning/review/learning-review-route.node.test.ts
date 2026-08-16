@@ -1,4 +1,4 @@
-import type { DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopReviewItem } from '@memorilo/desktop-api'
 import { describe, expect, it } from 'vitest'
 import { learningReviewRoute } from './learning-review-route'
 

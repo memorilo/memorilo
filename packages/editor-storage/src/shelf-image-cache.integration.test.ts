@@ -111,18 +111,4 @@ describe('sqlite shelf image cache', () => {
     await expect(read).resolves.not.toBeNull()
     await expect(closing).resolves.toBeUndefined()
   })
-
-  it('removes invalid legacy rows before exposing the cache', async () => {
-    const { cache, database } = await openCache()
-    await cache.close()
-    await database.run(`
-      INSERT INTO shelf_assets (source_id, url, bytes, mime_type, etag, last_modified, fetched_at)
-      VALUES (?, ?, ?, ?, NULL, NULL, ?)
-    `, ['source-1', 'https://example.test/invalid.bin', new Uint8Array(), 'application/octet-stream', -1])
-
-    const reopened = await SqliteShelfImageCache.open({ database })
-    caches.push(reopened)
-
-    await expect(reopened.get('source-1', 'https://example.test/invalid.bin')).resolves.toBeNull()
-  })
 })

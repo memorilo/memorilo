@@ -9,6 +9,7 @@ import { LoaderCircle, Sparkles, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { learningQueryKeys } from '../query-keys'
@@ -55,7 +56,10 @@ function LearningOptimizerDetailSession({
 }) {
   const { t } = useTranslation('learning')
   const queryClient = useQueryClient()
-  const query = useQuery({ queryFn: workflow.load, queryKey: learningQueryKeys.optimizers })
+  const query = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.list-optimizers', workflow.load),
+    queryKey: learningQueryKeys.optimizers,
+  }))
   const [drafts, setDrafts] = useState<Record<string, OptimizerDraft>>({})
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [operation, setOperation] = useState<OperationKind | null>(null)

@@ -16,12 +16,14 @@
   },
   "dependencies": {
     "@memorilo/anki-connect": "workspace:*",
+    "@memorilo/desktop-api": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
     "@memorilo/effect-lifecycle": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
-    "@memorilo/shelf": "workspace:*"
+    "@memorilo/shelf": "workspace:*",
+    "effect": "4.0.0-beta.23"
   },
   "devDependencies": {
     "electron": "43.2.0"

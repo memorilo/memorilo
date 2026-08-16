@@ -15,6 +15,7 @@ import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { NoteRevisionConflictError } from './note-application-contracts'
 import {
@@ -42,14 +43,14 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
 
   return {
     applyTopicEdits: (input: ApplyTopicEditsInput) => serializeEffect(Effect.gen(function* () {
-      const current = yield* Effect.tryPromise({ catch: error => error, try: () => runtime.open(input.noteId) })
-      yield* Effect.try({ catch: error => error, try: () => assertRevision(current, input.expectedRevision) })
+      const current = yield* Effect.tryPromise({ catch: toError, try: () => runtime.open(input.noteId) })
+      yield* Effect.try({ catch: toError, try: () => assertRevision(current, input.expectedRevision) })
       const version = current.note.getVersion()
       return yield* Effect.gen(function* () {
-        yield* Effect.try({ catch: error => error, try: () => current.note.applyTopicBlockEdits({ edits: input.edits, topicId: input.topicId }) })
+        yield* Effect.try({ catch: toError, try: () => current.note.applyTopicBlockEdits({ edits: input.edits, topicId: input.topicId }) })
         yield* current.note.validateTopic(input.topicId)
         return yield* Effect.tryPromise({
-          catch: error => error,
+          catch: toError,
           try: () => runtime.persistLocalMutation(current, version, { broadcast: true, entries: true, topicIds: [input.topicId] }),
         })
       }).pipe(Effect.catchEager((error) => {

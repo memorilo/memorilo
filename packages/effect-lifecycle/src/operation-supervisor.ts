@@ -1,6 +1,6 @@
 import type { Effect as EffectType } from 'effect'
 import { Effect, Exit, FiberSet, Scope, Semaphore } from 'effect'
-import { createRetryableClose } from './errors'
+import { createRetryableClose, toError } from './errors'
 
 export type SingleFlightResult<Result>
   = | { status: 'accepted', value: Result }
@@ -60,12 +60,13 @@ export function createOperationSupervisor(
   const runEffect = <Result, Failure>(effect: Effect.Effect<Result, Failure>): Promise<Result> => {
     if (closed)
       return Promise.reject(closedError())
-    return runOwnedEffect(concurrency === 'serial' ? semaphore.withPermit(effect) : effect)
+    const normalized = effect.pipe(Effect.mapError(toError))
+    return runOwnedEffect(concurrency === 'serial' ? semaphore.withPermit(normalized) : normalized)
   }
 
   const run = <Result>(operation: (signal: AbortSignal) => Promise<Result>): Promise<Result> => {
     return runOwned(Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: () => {
         controller.signal.throwIfAborted()
         return operation(controller.signal)
@@ -82,7 +83,7 @@ export function createOperationSupervisor(
       return Promise.resolve({ status: 'busy' })
     singleFlightBusy = true
     return runOwned(Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: () => {
         controller.signal.throwIfAborted()
         return operation(controller.signal)

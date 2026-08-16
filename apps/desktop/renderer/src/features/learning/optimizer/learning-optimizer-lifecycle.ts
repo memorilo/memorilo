@@ -1,3 +1,4 @@
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
 
 import { LearningOptimizerWorkflow } from './learning-optimizer-workflow'
@@ -9,7 +10,7 @@ export function optimizerErrorMessage(error: unknown): string {
 export function useLearningOptimizerWorkflow(): LearningOptimizerWorkflow | null {
   return useOwnedResource(
     'Learning optimizer workflow',
-    window.desktop.learning,
+    desktopRequests.learning,
     learning => new LearningOptimizerWorkflow(learning),
   )
 }

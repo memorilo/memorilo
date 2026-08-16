@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { AlertCircle, LoaderCircle } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../shared/desktop-requests'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { formatShelfPublicationAuthors } from './publication/shelf-publication-collection'
 import { ShelfBookCover } from './shelf-book-cover'
@@ -29,7 +30,7 @@ export function ShelfBookPage({
   const bookDetailsTitle = t('shelfBookDetails')
   const titlebar = useMemo(() => ({ title: bookDetailsTitle }), [bookDetailsTitle])
   const detailsQuery = useQuery(shelfEffectQuery.queryOptions({
-    queryFn: () => desktopEffect(() => window.desktop.getShelfPublicationDetails({
+    queryFn: () => desktopEffect('shelf.get-publication-details', () => desktopRequests.getShelfPublicationDetails({
       publicationId: search.publication,
       sourceId: search.source,
     })),

@@ -1,9 +1,9 @@
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import type { NoteApplicationService } from '../notes/note-application-service'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
 export function createNoteHandlers(
   application: NoteApplicationService,
-): DesktopIpcHandlers['notes'] {
+): DesktopRequestHandlers['notes'] {
   return {
     createNote(input?: Parameters<NoteApplicationService['createNote']>[0]) {
       return application.createNote(input)
@@ -39,7 +39,7 @@ export function createNoteHandlers(
       return application.searchTopicBlocks(input)
     },
     recordNoteOpened(input: Parameters<NoteApplicationService['recordNoteOpened']>[0]) {
-      return application.recordNoteOpened(input)
+      return application.recordNoteOpened(input).then(() => null)
     },
     setNoteFavorite(input: Parameters<NoteApplicationService['setNoteFavorite']>[0]) {
       return application.setNoteFavorite(input)

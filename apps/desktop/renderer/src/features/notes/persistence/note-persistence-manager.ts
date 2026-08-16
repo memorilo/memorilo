@@ -1,6 +1,6 @@
-import type { DesktopNoteWriteReceipt, SaveDesktopNoteUpdatesInput } from '@memorilo/desktop-preload'
+import type { DesktopNoteWriteReceipt, SaveDesktopNoteUpdatesInput } from '@memorilo/desktop-api'
 import type { EditorNoteChange } from '@memorilo/editor'
-import { createResourceScope } from '@memorilo/effect-lifecycle'
+import { createResourceScope, toError } from '@memorilo/effect-lifecycle'
 import { Effect, Exit, FiberHandle, Scope } from 'effect'
 
 export interface NotePersistenceAdapter {
@@ -25,7 +25,7 @@ export class NotePersistenceManager {
   readonly #debounceScope: Scope.Closeable
   readonly #listeners = new Set<() => void>()
   readonly #onListenerError: ((error: unknown) => void) | undefined
-  readonly #errors = new Map<string, unknown>()
+  readonly #errors = new Map<string, Error>()
   readonly #queues = new Map<string, EditorNoteChange[]>()
   readonly #receiptListeners = new Set<(noteId: string, receipt: DesktopNoteWriteReceipt) => void>()
   readonly #replacementGenerations = new Map<string, number>()
@@ -98,7 +98,7 @@ export class NotePersistenceManager {
     return this.#resources.isClosed() ? this.close() : this.#startFlush(true)
   }
 
-  readonly getError = (noteId: string): unknown | null => {
+  readonly getError = (noteId: string): Error | null => {
     return this.#errors.get(noteId) ?? null
   }
 
@@ -129,7 +129,7 @@ export class NotePersistenceManager {
       throw new Error('Note persistence manager is closed')
   }
 
-  #drain(): Effect.Effect<void, unknown> {
+  #drain(): Effect.Effect<void, Error> {
     return Effect.gen({ self: this }, function* () {
       this.#saving = true
       this.#notify()
@@ -150,7 +150,7 @@ export class NotePersistenceManager {
         this.#queues.delete(noteId)
 
         const receipt = yield* Effect.tryPromise({
-          catch: cause => cause,
+          catch: toError,
           try: () => this.#adapter.saveNoteUpdates({
             noteId,
             updates: queued.map(change => change.update),

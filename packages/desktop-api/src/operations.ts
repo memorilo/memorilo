@@ -1,0 +1,408 @@
+import type { Schema as EffectSchema } from 'effect'
+import type {
+  CaptureDesktopReaderRegionInput,
+  CreateDesktopBookContextResult,
+  DesktopApi,
+  DesktopAssetCheckResult,
+  DesktopBookTopicContextSummary,
+  DesktopColumnVisibilityMenuSelection,
+  DesktopExportDatabaseResult,
+  DesktopRestoreDatabaseResult,
+  OpenDesktopBookContextResult,
+  ReclaimDesktopAssetsInput,
+  ReclaimDesktopAssetsResult,
+  SaveDesktopImageInput,
+  SaveDesktopImageResult,
+  ShowDesktopColumnVisibilityMenuInput,
+} from './contract'
+import { Schema } from 'effect'
+import {
+  BookFileBindingSchema,
+  BookReadingStateSchema,
+  EmptyArgumentsSchema,
+  nullable,
+  NullResultSchema,
+  optionalArgument,
+  PositiveIntegerSchema,
+  StringArgumentSchema,
+} from './schemas/common'
+import {
+  AnkiDeckOutputSchema,
+  AnkiReviewCardOutputSchema,
+  AnkiReviewerCardOutputSchema,
+  DesktopReviewItemSchema,
+  FsrsOptimizerSchema,
+  LearningActivitySummarySchema,
+  LearningDailyProgressSchema,
+  LearningMaintenanceEstimateSchema,
+  LearningMaintenanceResultSchema,
+  LearningNoteSummarySchema,
+  LearningQueueItemSchema,
+  LearningSchemaArguments,
+  LearningStateSchema,
+  LearningTargetSchema,
+  MultiLineReviewResultSchema,
+  PreparedLearningReviewSchema,
+  ReviewResultSchema,
+} from './schemas/learning'
+import {
+  DesktopFavoriteNotesSchema,
+  DesktopJournalNoteSchema,
+  DesktopJournalPageSchema,
+  DesktopNoteFavoriteStateSchema,
+  DesktopNotePageSchema,
+  DesktopNoteSchema,
+  DesktopNoteSearchHitsSchema,
+  DesktopNoteWriteReceiptSchema,
+  DesktopRecentNotesSchema,
+  DesktopStoredTopicBlockSchema,
+  DesktopTopicBlockSearchHitsSchema,
+  JournalDateSchema,
+  PruneDesktopPastEmptyJournalsResultSchema,
+  RenameDesktopNoteResultSchema,
+} from './schemas/notes'
+import {
+  AddShelfSourceInputSchema,
+  BrowseShelfInputSchema,
+  OpenShelfReadingInputSchema,
+  PreparedShelfReadingSchema,
+  PrepareShelfReadingInputSchema,
+  ShelfAssetInputSchema,
+  ShelfAssetResultSchema,
+  ShelfBrowseResultSchema,
+  ShelfPublicationDetailsInputSchema,
+  ShelfPublicationDetailsSchema,
+  ShelfReadingDocumentSchema,
+  ShelfReadingRangeInputSchema,
+  ShelfSourceSchema,
+  UpdateShelfSourceInputSchema,
+} from './schemas/shelf'
+
+interface OperationDefinition<
+  Arguments extends EffectSchema.Top,
+  Result extends EffectSchema.Top,
+  Contextual extends boolean,
+> {
+  readonly arguments: Arguments
+  readonly contextual: Contextual
+  readonly result: Result
+}
+
+function operation<Arguments extends EffectSchema.Top, Result extends EffectSchema.Top>(
+  argumentsSchema: Arguments,
+  result: Result,
+): OperationDefinition<Arguments, Result, false> {
+  return { arguments: argumentsSchema, contextual: false, result }
+}
+
+function contextualOperation<Arguments extends EffectSchema.Top, Result extends EffectSchema.Top>(
+  argumentsSchema: Arguments,
+  result: Result,
+): OperationDefinition<Arguments, Result, true> {
+  return { arguments: argumentsSchema, contextual: true, result }
+}
+
+const AssetCheckResultSchema: EffectSchema.Codec<DesktopAssetCheckResult> = Schema.Struct({
+  candidates: Schema.Array(Schema.Struct({
+    byteSize: PositiveIntegerSchema,
+    fileName: Schema.NonEmptyString,
+    originalFileName: Schema.String,
+  })),
+  managedAssetCount: Schema.Int,
+  missingAssets: Schema.Array(Schema.Struct({
+    fileName: Schema.NonEmptyString,
+    originalFileName: Schema.String,
+    referenceCount: Schema.Int,
+  })),
+  referencedAssetCount: Schema.Int,
+})
+
+const SaveImageInputSchema: EffectSchema.Codec<SaveDesktopImageInput, unknown> = Schema.Struct({
+  data: Schema.Uint8ArrayFromBase64,
+  fileName: Schema.NonEmptyString,
+  mimeType: Schema.String,
+})
+const SaveImageResultSchema: EffectSchema.Codec<SaveDesktopImageResult> = Schema.Struct({
+  src: Schema.NonEmptyString,
+})
+const ReclaimAssetsInputSchema: EffectSchema.Codec<ReclaimDesktopAssetsInput> = Schema.Struct({
+  fileNames: Schema.Array(Schema.NonEmptyString),
+  mode: Schema.Literals(['permanent', 'trash']),
+})
+const ReclaimAssetsResultSchema: EffectSchema.Codec<ReclaimDesktopAssetsResult> = Schema.Struct({
+  cancelled: Schema.Boolean,
+  failedFileNames: Schema.Array(Schema.NonEmptyString),
+  reclaimedFileNames: Schema.Array(Schema.NonEmptyString),
+})
+
+const BackupExportResultSchema: EffectSchema.Codec<DesktopExportDatabaseResult | { status: 'cancelled' }> = Schema.Union([
+  Schema.Struct({ path: Schema.NonEmptyString }),
+  Schema.Struct({ status: Schema.Literal('cancelled') }),
+])
+const BackupRestoreResultSchema: EffectSchema.Codec<DesktopRestoreDatabaseResult> = Schema.Union([
+  Schema.Struct({ status: Schema.Literal('cancelled') }),
+  Schema.Struct({ status: Schema.Literal('restarting') }),
+])
+
+const BookContextSummarySchema: EffectSchema.Codec<DesktopBookTopicContextSummary> = Schema.Struct({
+  book: BookFileBindingSchema,
+  noteId: Schema.NonEmptyString,
+  noteTitle: Schema.String,
+  topicId: Schema.NonEmptyString,
+  topicTitle: Schema.String,
+})
+const BookReadingContextSchema = Schema.Struct({
+  book: BookFileBindingSchema,
+  note: DesktopNoteSchema,
+  readingState: BookReadingStateSchema,
+  topicId: Schema.NonEmptyString,
+  topicTitle: Schema.String,
+})
+const CreateBookContextResultSchema: EffectSchema.Codec<CreateDesktopBookContextResult, unknown> = Schema.Union([
+  Schema.Struct({
+    context: BookReadingContextSchema,
+    sessionId: Schema.NonEmptyString,
+    status: Schema.Literal('created'),
+  }),
+  Schema.Struct({ status: Schema.Literal('duplicate-title') }),
+])
+const OpenBookContextResultSchema: EffectSchema.Codec<OpenDesktopBookContextResult, unknown> = Schema.Struct({
+  context: BookReadingContextSchema,
+  sessionId: Schema.NonEmptyString,
+})
+
+const CaptureReaderRegionInputSchema: EffectSchema.Codec<CaptureDesktopReaderRegionInput> = Schema.Struct({
+  height: PositiveIntegerSchema,
+  width: PositiveIntegerSchema,
+  x: Schema.Int,
+  y: Schema.Int,
+})
+const ShowColumnVisibilityMenuInputSchema: EffectSchema.Codec<ShowDesktopColumnVisibilityMenuInput> = Schema.Struct({
+  anchor: Schema.Struct({ x: Schema.Int, y: Schema.Int }),
+  columns: Schema.NonEmptyArray(Schema.Struct({
+    canToggle: Schema.Boolean,
+    id: Schema.NonEmptyString,
+    label: Schema.NonEmptyString,
+    visible: Schema.Boolean,
+  })),
+})
+const ColumnVisibilityMenuResultSchema: EffectSchema.Codec<DesktopColumnVisibilityMenuSelection | null> = nullable(
+  Schema.Struct({ columnId: Schema.NonEmptyString }),
+)
+
+export const desktopOperationSchemas = {
+  assets: {
+    check: operation(EmptyArgumentsSchema, AssetCheckResultSchema),
+    importNetworkImage: operation(
+      Schema.Tuple([Schema.Struct({ source: Schema.NonEmptyString })]),
+      SaveImageResultSchema,
+    ),
+    reclaim: contextualOperation(Schema.Tuple([ReclaimAssetsInputSchema]), ReclaimAssetsResultSchema),
+    saveImage: operation(Schema.Tuple([SaveImageInputSchema]), SaveImageResultSchema),
+  },
+  backup: {
+    exportDatabase: contextualOperation(EmptyArgumentsSchema, BackupExportResultSchema),
+    restoreDatabase: contextualOperation(EmptyArgumentsSchema, BackupRestoreResultSchema),
+  },
+  books: {
+    closeReadingSession: contextualOperation(StringArgumentSchema, Schema.Boolean),
+    createContext: contextualOperation(Schema.Tuple([Schema.Struct({
+      noteTitle: Schema.String,
+      readingId: Schema.NonEmptyString,
+      topicTitle: Schema.String,
+    })]), CreateBookContextResultSchema),
+    isReadingAvailable: operation(StringArgumentSchema, Schema.Boolean),
+    listContexts: operation(StringArgumentSchema, Schema.Array(BookContextSummarySchema)),
+    rebindContext: contextualOperation(Schema.Tuple([Schema.Struct({
+      noteId: Schema.NonEmptyString,
+      readingId: Schema.NonEmptyString,
+      sessionId: Schema.optionalKey(Schema.NonEmptyString),
+      topicId: Schema.NonEmptyString,
+    })]), OpenBookContextResultSchema),
+    selectContext: contextualOperation(Schema.Tuple([Schema.Struct({
+      noteId: Schema.NonEmptyString,
+      readingId: Schema.NonEmptyString,
+      topicId: Schema.NonEmptyString,
+    })]), OpenBookContextResultSchema),
+  },
+  journals: {
+    listJournalDates: operation(Schema.Tuple([Schema.Struct({
+      from: JournalDateSchema,
+      through: JournalDateSchema,
+    })]), Schema.Array(JournalDateSchema)),
+    listPastJournals: operation(optionalArgument(Schema.Struct({
+      before: Schema.optionalKey(JournalDateSchema),
+      limit: Schema.optionalKey(PositiveIntegerSchema),
+    })), DesktopJournalPageSchema),
+    openJournal: operation(optionalArgument(Schema.Struct({
+      journalDate: Schema.optionalKey(JournalDateSchema),
+    })), DesktopJournalNoteSchema),
+    prunePastEmptyJournals: operation(EmptyArgumentsSchema, PruneDesktopPastEmptyJournalsResultSchema),
+  },
+  learning: {
+    answerAnkiReviewCard: operation(LearningSchemaArguments.answerAnkiReviewCard, AnkiReviewerCardOutputSchema),
+    archiveOptimizer: operation(LearningSchemaArguments.archiveOptimizer, NullResultSchema),
+    assignNoteOptimizer: operation(LearningSchemaArguments.assignNoteOptimizer, NullResultSchema),
+    createOptimizer: operation(LearningSchemaArguments.createOptimizer, FsrsOptimizerSchema),
+    endAnkiReview: operation(LearningSchemaArguments.endAnkiReview, NullResultSchema),
+    getActivitySummary: operation(LearningSchemaArguments.getActivitySummary, LearningActivitySummarySchema),
+    getCurrentAnkiReviewCard: operation(LearningSchemaArguments.getCurrentAnkiReviewCard, AnkiReviewerCardOutputSchema),
+    getDailyProgress: operation(LearningSchemaArguments.getDailyProgress, LearningDailyProgressSchema),
+    getLearningState: operation(LearningSchemaArguments.getLearningState, LearningStateSchema),
+    getMaintenanceEstimate: operation(LearningSchemaArguments.getMaintenanceEstimate, LearningMaintenanceEstimateSchema),
+    getNextItem: operation(LearningSchemaArguments.getNextItem, DesktopReviewItemSchema),
+    getNextNewItem: operation(LearningSchemaArguments.getNextNewItem, DesktopReviewItemSchema),
+    getNextReviewItem: operation(LearningSchemaArguments.getNextReviewItem, DesktopReviewItemSchema),
+    getNoteOptimizer: operation(LearningSchemaArguments.getNoteOptimizer, FsrsOptimizerSchema),
+    getOptimizer: operation(LearningSchemaArguments.getOptimizer, FsrsOptimizerSchema),
+    getOptimizerNoteCount: operation(LearningSchemaArguments.getOptimizerNoteCount, Schema.Int),
+    listAnkiDecks: operation(LearningSchemaArguments.listAnkiDecks, AnkiDeckOutputSchema),
+    listNotesWithCards: operation(LearningSchemaArguments.listNotesWithCards, Schema.Array(LearningNoteSummarySchema)),
+    listOptimizers: operation(LearningSchemaArguments.listOptimizers, Schema.Array(FsrsOptimizerSchema)),
+    listQueue: operation(LearningSchemaArguments.listQueue, Schema.Array(LearningQueueItemSchema)),
+    listTargets: operation(LearningSchemaArguments.listTargets, Schema.Array(LearningTargetSchema)),
+    maintainDatabase: operation(LearningSchemaArguments.maintainDatabase, LearningMaintenanceResultSchema),
+    optimizeOptimizer: operation(LearningSchemaArguments.optimizeOptimizer, FsrsOptimizerSchema),
+    playAnkiReviewAudio: operation(LearningSchemaArguments.playAnkiReviewAudio, NullResultSchema),
+    prepareReview: operation(LearningSchemaArguments.prepareReview, PreparedLearningReviewSchema),
+    rateMultiLineCard: operation(LearningSchemaArguments.rateMultiLineCard, MultiLineReviewResultSchema),
+    rateTarget: operation(LearningSchemaArguments.rateTarget, ReviewResultSchema),
+    resetOptimizerDefaults: operation(LearningSchemaArguments.resetOptimizerDefaults, FsrsOptimizerSchema),
+    resetTarget: operation(LearningSchemaArguments.resetTarget, LearningStateSchema),
+    restoreReviewItem: operation(LearningSchemaArguments.restoreReviewItem, DesktopReviewItemSchema),
+    retrieveAnkiMediaFile: operation(LearningSchemaArguments.retrieveAnkiMediaFile, nullable(Schema.String)),
+    saveOptimizer: operation(LearningSchemaArguments.saveOptimizer, FsrsOptimizerSchema),
+    showAnkiReviewAnswer: operation(LearningSchemaArguments.showAnkiReviewAnswer, AnkiReviewCardOutputSchema),
+    startAnkiDeckReview: operation(LearningSchemaArguments.startAnkiDeckReview, AnkiReviewerCardOutputSchema),
+    undoLastReview: operation(LearningSchemaArguments.undoLastReview, LearningStateSchema),
+    undoReviews: operation(LearningSchemaArguments.undoReviews, Schema.Array(LearningStateSchema)),
+  },
+  notes: {
+    createNote: operation(optionalArgument(Schema.Struct({
+      initialHeading: Schema.optionalKey(Schema.String),
+      title: Schema.optionalKey(Schema.String),
+    })), DesktopNoteSchema),
+    getNote: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DesktopNoteSchema),
+    getTopicBlock: operation(Schema.Tuple([Schema.Struct({
+      blockId: Schema.NonEmptyString,
+      noteId: Schema.NonEmptyString,
+      topicId: Schema.NonEmptyString,
+    })]), DesktopStoredTopicBlockSchema),
+    listFavoriteNotes: operation(optionalArgument(Schema.Struct({
+      limit: Schema.optionalKey(PositiveIntegerSchema),
+    })), DesktopFavoriteNotesSchema),
+    listNotes: operation(optionalArgument(Schema.Struct({
+      page: Schema.optionalKey(PositiveIntegerSchema),
+      pageSize: Schema.optionalKey(PositiveIntegerSchema),
+      sortBy: Schema.optionalKey(Schema.Literals(['createdAt', 'title', 'updatedAt'])),
+      sortDirection: Schema.optionalKey(Schema.Literals(['asc', 'desc'])),
+    })), DesktopNotePageSchema),
+    listRecentNotes: operation(optionalArgument(Schema.Struct({
+      limit: Schema.optionalKey(PositiveIntegerSchema),
+    })), DesktopRecentNotesSchema),
+    openMostRecentNote: operation(EmptyArgumentsSchema, DesktopNoteSchema),
+    recordNoteOpened: operation(Schema.Tuple([Schema.Struct({
+      noteId: Schema.NonEmptyString,
+      topicId: Schema.NonEmptyString,
+    })]), NullResultSchema),
+    renameNote: operation(Schema.Tuple([Schema.Struct({
+      noteId: Schema.NonEmptyString,
+      title: Schema.String,
+    })]), RenameDesktopNoteResultSchema),
+    saveNoteUpdates: operation(Schema.Tuple([Schema.Struct({
+      noteId: Schema.NonEmptyString,
+      updates: Schema.Array(Schema.Uint8ArrayFromBase64),
+    })]), DesktopNoteWriteReceiptSchema),
+    searchNotes: operation(Schema.Tuple([Schema.Struct({
+      limit: Schema.optionalKey(PositiveIntegerSchema),
+      query: Schema.String,
+    })]), DesktopNoteSearchHitsSchema),
+    searchTopicBlocks: operation(Schema.Tuple([Schema.Struct({
+      limit: Schema.optionalKey(PositiveIntegerSchema),
+      mode: Schema.optionalKey(Schema.Literals(['hybrid', 'lexical', 'semantic'])),
+      noteId: Schema.optionalKey(Schema.NonEmptyString),
+      query: Schema.String,
+    })]), DesktopTopicBlockSearchHitsSchema),
+    setNoteFavorite: operation(Schema.Tuple([Schema.Struct({
+      favorite: Schema.Boolean,
+      noteId: Schema.NonEmptyString,
+    })]), DesktopNoteFavoriteStateSchema),
+  },
+  shelf: {
+    addSource: operation(Schema.Tuple([AddShelfSourceInputSchema]), ShelfSourceSchema),
+    deleteReading: contextualOperation(StringArgumentSchema, Schema.Boolean),
+    getAsset: operation(Schema.Tuple([ShelfAssetInputSchema]), ShelfAssetResultSchema),
+    getCachedView: operation(Schema.Tuple([BrowseShelfInputSchema]), ShelfBrowseResultSchema),
+    getPublicationDetails: operation(Schema.Tuple([ShelfPublicationDetailsInputSchema]), ShelfPublicationDetailsSchema),
+    listSources: operation(EmptyArgumentsSchema, Schema.Array(ShelfSourceSchema)),
+    openReading: operation(Schema.Tuple([OpenShelfReadingInputSchema]), ShelfReadingDocumentSchema),
+    prepareReading: operation(Schema.Tuple([PrepareShelfReadingInputSchema]), PreparedShelfReadingSchema),
+    readReadingRange: operation(Schema.Tuple([ShelfReadingRangeInputSchema]), Schema.Uint8ArrayFromBase64),
+    refreshView: operation(Schema.Tuple([BrowseShelfInputSchema]), ShelfBrowseResultSchema),
+    removeSource: operation(StringArgumentSchema, NullResultSchema),
+    updateSource: operation(Schema.Tuple([UpdateShelfSourceInputSchema]), ShelfSourceSchema),
+  },
+  window: {
+    captureReaderRegion: contextualOperation(Schema.Tuple([CaptureReaderRegionInputSchema]), Schema.Uint8ArrayFromBase64),
+    showColumnVisibilityMenu: contextualOperation(
+      Schema.Tuple([ShowColumnVisibilityMenuInputSchema]),
+      ColumnVisibilityMenuResultSchema,
+    ),
+  },
+} as const
+
+export type DesktopOperationSchemas = typeof desktopOperationSchemas
+export type DesktopOperationGroup = keyof DesktopOperationSchemas
+export type DesktopOperationMethod<Group extends DesktopOperationGroup> = keyof DesktopOperationSchemas[Group]
+export type DesktopOperationArguments<
+  Group extends DesktopOperationGroup,
+  Method extends DesktopOperationMethod<Group>,
+> = DesktopOperationSchemas[Group][Method] extends OperationDefinition<infer Arguments, infer _Result, infer _Contextual>
+  ? Arguments['Type'] extends readonly unknown[] ? Arguments['Type'] : never
+  : never
+export type DesktopOperationResult<
+  Group extends DesktopOperationGroup,
+  Method extends DesktopOperationMethod<Group>,
+> = DesktopOperationSchemas[Group][Method] extends OperationDefinition<infer _Arguments, infer Result, infer _Contextual>
+  ? Result['Type']
+  : never
+
+type Awaitable<Value> = Promise<Value> | Value
+type HandlerArguments<Arguments extends EffectSchema.Top> = Arguments['Type'] extends readonly unknown[]
+  ? [...Arguments['Type']]
+  : never
+type HandlerFor<Definition, RequestContext> = Definition extends OperationDefinition<
+  infer Arguments,
+  infer Result,
+  infer Contextual
+> ? Contextual extends true
+    ? { invoke: (context: RequestContext, ...args: HandlerArguments<Arguments>) => Awaitable<Result['Type']> }
+    : (...args: HandlerArguments<Arguments>) => Awaitable<Result['Type']>
+  : never
+
+export type DesktopOperationHandlers<RequestContext = unknown> = {
+  readonly [Group in DesktopOperationGroup]: {
+    readonly [Method in DesktopOperationMethod<Group>]: HandlerFor<DesktopOperationSchemas[Group][Method], RequestContext>
+  }
+}
+
+export interface DesktopHonoRequestContextHandler<Arguments extends readonly unknown[], Result, RequestContext> {
+  invoke: (context: RequestContext, ...args: Arguments) => Awaitable<Result>
+}
+
+export function withDesktopHonoRequestContext<Arguments extends readonly unknown[], Result, RequestContext>(
+  invoke: (context: RequestContext, ...args: Arguments) => Awaitable<Result>,
+): DesktopHonoRequestContextHandler<Arguments, Result, RequestContext> {
+  return { invoke }
+}
+
+export type PortableDesktopApi = Omit<DesktopApi, | 'captureReaderRegion'
+  | 'closeBookReadingSession'
+  | 'createBookContext'
+  | 'deleteShelfReading'
+  | 'exportDatabase'
+  | 'rebindBookContext'
+  | 'reclaimAssets'
+  | 'restoreDatabase'
+  | 'selectBookContext'
+  | 'showColumnVisibilityMenu'>

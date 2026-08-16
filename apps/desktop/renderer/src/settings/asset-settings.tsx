@@ -1,9 +1,10 @@
-import type { DesktopAssetCandidate, DesktopAssetCheckResult } from '@memorilo/desktop-preload'
+import type { DesktopAssetCandidate, DesktopAssetCheckResult } from '@memorilo/desktop-api'
 import * as stylex from '@stylexjs/stylex'
 import { Check, LoaderCircle, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopRequests } from '../shared/desktop-requests'
 import { assetSettingsStyles as settingsStyles } from './asset-settings.stylex'
 import { settingsShellStyles } from './settings-shell.stylex'
 
@@ -21,7 +22,7 @@ function selectedAssets(candidates: readonly DesktopAssetCandidate[], selection:
 
 export function AssetSettings() {
   const { t } = useTranslation('settings')
-  const desktop = typeof window.desktop === 'undefined' ? null : window.desktop
+  const desktopAvailable = typeof window.desktop !== 'undefined'
   const [result, setResult] = useState<DesktopAssetCheckResult | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set())
@@ -29,7 +30,7 @@ export function AssetSettings() {
   const [pending, setPending] = useState<'check' | 'permanent' | 'trash' | null>(null)
 
   const checkAssets = async () => {
-    if (!desktop)
+    if (!desktopAvailable)
       return
     setPending('check')
     setStatus(null)
@@ -37,7 +38,7 @@ export function AssetSettings() {
     setSelected(new Set())
     setFailed(new Set())
     try {
-      const next = await desktop.checkAssets()
+      const next = await desktopRequests.checkAssets()
       setResult(next)
       setSelected(new Set(next.candidates.map(candidate => candidate.fileName)))
     }
@@ -50,7 +51,7 @@ export function AssetSettings() {
   }
 
   const reclaim = async (mode: 'permanent' | 'trash') => {
-    if (!desktop || !result)
+    if (!desktopAvailable || !result)
       return
     const fileNames = mode === 'permanent' ? [...failed] : [...selected]
     if (fileNames.length === 0)
@@ -58,7 +59,7 @@ export function AssetSettings() {
     setPending(mode)
     setStatus(null)
     try {
-      const reclaimed = await desktop.reclaimAssets({ fileNames, mode })
+      const reclaimed = await desktopRequests.reclaimAssets({ fileNames, mode })
       if (reclaimed.cancelled)
         return
       const removed = new Set(reclaimed.reclaimedFileNames)
@@ -79,7 +80,7 @@ export function AssetSettings() {
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       try {
-        const next = await desktop.checkAssets()
+        const next = await desktopRequests.checkAssets()
         setResult(next)
         setSelected(new Set(next.candidates.map(candidate => candidate.fileName)))
         setFailed(new Set())
@@ -111,7 +112,7 @@ export function AssetSettings() {
           </div>
           <button
             {...stylex.props(settingsStyles.secondaryButton)}
-            disabled={!desktop || pending !== null}
+            disabled={!desktopAvailable || pending !== null}
             type="button"
             onClick={() => void checkAssets()}
           >

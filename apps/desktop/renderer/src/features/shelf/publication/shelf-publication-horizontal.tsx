@@ -6,6 +6,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { AlertCircle, BookOpen, LoaderCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
+import { desktopEffect, shelfEffectQuery } from '../shelf-query'
 import { shelfSharedStyles } from '../shelf-shared.stylex'
 import { ShelfPublicationItem } from './shelf-publication-card'
 import {
@@ -83,18 +85,22 @@ export function HorizontalPublicationShelf({
     pageParams: [initialPageUrl],
     pages: [{ groups: [initialGroup], refreshedAt: null } satisfies ShelfBrowseResult],
   }), [initialGroup, initialPageUrl])
-  const pagesQuery = useInfiniteQuery({
+  const pagesQuery = useInfiniteQuery(shelfEffectQuery.infiniteQueryOptions({
     enabled: isVisible,
     getNextPageParam: (_lastPage, allPages, _lastPageParam, allPageParams) => (
       nextShelfCatalogUrl(allPages, allPageParams, sourceId, includeNavigation)
     ),
     initialData,
     initialPageParam: initialPageUrl,
-    queryFn: async ({ pageParam }) => window.desktop.refreshShelfView({ pageUrl: pageParam, sourceId }),
+    queryFn: ({ pageParam }) => desktopEffect('shelf.refresh-horizontal-page', () => (
+      desktopRequests.refreshShelfView({ pageUrl: pageParam, sourceId })
+    )),
     queryKey: ['shelf-view', 'horizontal', sourceId, initialPageUrl, includeNavigation],
     retry: false,
     staleTime: 60_000,
-  })
+  }))
+  if (!pagesQuery.data)
+    throw new Error('Shelf publication row query did not retain its initial page')
   const results = pagesQuery.data.pages
   const {
     fetchNextPage,

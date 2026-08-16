@@ -63,60 +63,8 @@ describe('desktop MCP configuration', () => {
     expect(() => decode(configuration({ accessToken: token, enabled: true, port: 8765.5 }))).toThrow()
   })
 
-  it('migrates legacy, partial, and unsafe configurations without enabling MCP', () => {
-    expect(migrateDesktopConfiguration({ language: 'en', reduceMotion: true })).toEqual({
-      anki: desktopConfigurationDefinition.defaults.anki,
-      backup: desktopConfigurationDefinition.defaults.backup,
-      defaultNoteLearningEnabled: true,
-      flashcards: desktopConfigurationDefinition.defaults.flashcards,
-      goals: desktopConfigurationDefinition.defaults.goals,
-      learning: desktopConfigurationDefinition.defaults.learning,
-      language: 'en',
-      mcp: { accessToken: '', enabled: false, port: 8765 },
-      networkImagePasteBehavior: 'download',
-      outdentBehavior: 'logical',
-      readerArrowKeyPageTurning: true,
-      readerAnnotationCopyFormat: 'text',
-      readerEpubPresentationMode: 'publisher',
-      readerPageMode: 'continuous',
-      reduceMotion: true,
-      tiffConversionFormat: 'webp',
-      weekStart: 'sunday',
-    })
-    expect(migrateDesktopConfiguration({
-      language: 'en',
-      mcp: { accessToken: token },
-      outdentBehavior: 'traditional',
-      readerArrowKeyPageTurning: true,
-      reduceMotion: true,
-      weekStart: 'sunday',
-    })).toEqual({
-      anki: desktopConfigurationDefinition.defaults.anki,
-      backup: desktopConfigurationDefinition.defaults.backup,
-      defaultNoteLearningEnabled: true,
-      flashcards: desktopConfigurationDefinition.defaults.flashcards,
-      goals: desktopConfigurationDefinition.defaults.goals,
-      learning: desktopConfigurationDefinition.defaults.learning,
-      language: 'en',
-      mcp: { accessToken: token, enabled: false, port: 8765 },
-      networkImagePasteBehavior: 'download',
-      outdentBehavior: 'traditional',
-      readerArrowKeyPageTurning: true,
-      readerAnnotationCopyFormat: 'text',
-      readerEpubPresentationMode: 'publisher',
-      readerPageMode: 'continuous',
-      reduceMotion: true,
-      tiffConversionFormat: 'webp',
-      weekStart: 'sunday',
-    })
-    expect(migrateDesktopConfiguration(configuration({ accessToken: 'short', enabled: true, port: 80 }))).toEqual(
-      configuration({ accessToken: 'short', enabled: false, port: 8765 }),
-    )
-  })
-
-  it('is idempotent for complete configurations', () => {
+  it('does not change configurations when no migration steps are defined', () => {
     const current = configuration({ accessToken: token, enabled: true, port: 9000 })
     expect(migrateDesktopConfiguration(current)).toBe(current)
-    expect(migrateDesktopConfiguration(migrateDesktopConfiguration(current))).toEqual(current)
   })
 })

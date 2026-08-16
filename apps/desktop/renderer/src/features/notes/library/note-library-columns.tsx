@@ -4,7 +4,7 @@ import type {
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
   SetDesktopNoteFavoriteInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
 import { Pencil, Star } from 'lucide-react'

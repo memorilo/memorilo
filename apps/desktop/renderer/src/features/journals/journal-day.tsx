@@ -2,7 +2,7 @@ import type {
   DesktopJournalNote,
   DesktopJournalSummary,
   JournalDate,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { EditorNote, EditorTopicDocument } from '@memorilo/editor'
 import type { EditorNoteSessionCache } from '../notes/note-runtime'
 import { JournalEditor, resolveJournalTopic } from '@memorilo/editor'
@@ -11,6 +11,7 @@ import { LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
+import { desktopRequests } from '../../shared/desktop-requests'
 import {
   desktopEditorAdapters,
   useEditorNoteSession,
@@ -49,7 +50,7 @@ export function JournalDay({
   const { t } = useTranslation(['app', 'editor'])
   const configuration = useDesktopConfiguration()
   const loadNote = useCallback(async () => {
-    const note = await window.desktop.openJournal({ journalDate: summary.journalDate })
+    const note = await desktopRequests.openJournal({ journalDate: summary.journalDate })
     if (note.id !== summary.noteId)
       throw new Error(`Journal ${summary.journalDate} changed its Note identity`)
     if (note.topicId !== summary.topicId)

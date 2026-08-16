@@ -1,4 +1,4 @@
-import type { DesktopRegularNote, JournalDate } from '@memorilo/desktop-preload'
+import type { DesktopRegularNote, JournalDate } from '@memorilo/desktop-api'
 import type { ImageOcclusionSnapshot, OpenImageOcclusionInput } from '@memorilo/editor'
 import type { ShelfReadingFormat } from '@memorilo/shelf'
 import type { BookPickerTarget, EntryCreationTarget, ShelfBookOption } from './note-editor-dialogs'
@@ -7,8 +7,9 @@ import * as stylex from '@stylexjs/stylex'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
 import { toast } from 'react-toastify/unstyled'
+
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { noteQueryKeys } from '../query-keys'
 import { BookTopicPickerDialog, EntryCreationDialog } from './note-editor-dialogs'
 import { useEditorNoteSession } from './note-editor-session'
@@ -22,7 +23,7 @@ async function snapshotImage(image: ImageOcclusionSnapshot): Promise<ImageOcclus
     throw new Error('The image is still uploading')
   if (source.protocol !== 'http:' && source.protocol !== 'https:')
     return image
-  const imported = await window.desktop.importNetworkImage({ source: source.toString() })
+  const imported = await desktopRequests.importNetworkImage({ source: source.toString() })
   return { ...image, src: imported.src }
 }
 
@@ -48,7 +49,7 @@ export function NoteEditor({
   const [bookPickerTarget, setBookPickerTarget] = useState<BookPickerTarget | undefined>(undefined)
   const [entryCreationTarget, setEntryCreationTarget] = useState<EntryCreationTarget | undefined>(undefined)
   const loadNote = useCallback(async (): Promise<DesktopRegularNote> => {
-    const stored = await window.desktop.getNote({ noteId })
+    const stored = await desktopRequests.getNote({ noteId })
     if (stored.kind === 'journal') {
       await onOpenJournal(stored.journalDate)
       throw new Error(`Journal ${stored.journalDate} must open in the Journal feed`)
@@ -72,7 +73,7 @@ export function NoteEditor({
   useEffect(() => {
     if (!openedNoteId || !openedTopicId)
       return
-    const recording = window.desktop.recordNoteOpened({
+    const recording = desktopRequests.recordNoteOpened({
       noteId: openedNoteId,
       topicId: openedTopicId,
     }).then(() => queryClient.invalidateQueries({ queryKey: noteQueryKeys.recent }))
@@ -86,7 +87,7 @@ export function NoteEditor({
   ) => {
     if (!opened)
       throw new Error('The Note is no longer open')
-    const prepared = await window.desktop.prepareShelfReading({
+    const prepared = await desktopRequests.prepareShelfReading({
       format,
       publicationId: option.publication.id,
       retention: 'library',
@@ -149,7 +150,7 @@ export function NoteEditor({
     const currentBook = bookTopic.getBook()
     if (format !== currentBook.file.format)
       throw new Error(`BookTopic format must remain ${currentBook.file.format}`)
-    const prepared = await window.desktop.prepareShelfReading({
+    const prepared = await desktopRequests.prepareShelfReading({
       format,
       publicationId: option.publication.id,
       retention: 'library',

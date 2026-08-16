@@ -1,4 +1,4 @@
-import type { DesktopApi } from '@memorilo/desktop-preload'
+import type { DesktopApi } from '@memorilo/desktop-api'
 import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
@@ -79,15 +79,30 @@ test('packaged desktop executes offline embedding search', async () => {
       await window.keyboard.press('Enter')
       await window.keyboard.insertText('红熊猫生活在高山森林中')
       const noteId = await window.evaluate(async () => {
-        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
-        const note = await desktop.openMostRecentNote()
+        const response = await fetch('memorilo://api/rpc/notes/openMostRecentNote', {
+          body: JSON.stringify({ args: [] }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        })
+        if (!response.ok)
+          throw new Error(`Desktop request failed with status ${response.status}`)
+        const note = await response.json() as Awaited<ReturnType<DesktopApi['openMostRecentNote']>>
         return note.id
       })
 
       await expect.poll(() => window.evaluate(async ({ noteId }) => {
-        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
-        const database = await desktop.searchTopicBlocks({ mode: 'lexical', noteId, query: '数据库索引' })
-        const animal = await desktop.searchTopicBlocks({ mode: 'lexical', noteId, query: '红熊猫' })
+        const search = async (query: string) => {
+          const response = await fetch('memorilo://api/rpc/notes/searchTopicBlocks', {
+            body: JSON.stringify({ args: [{ mode: 'lexical', noteId, query }] }),
+            headers: { 'content-type': 'application/json' },
+            method: 'POST',
+          })
+          if (!response.ok)
+            throw new Error(`Desktop request failed with status ${response.status}`)
+          return response.json() as Promise<Awaited<ReturnType<DesktopApi['searchTopicBlocks']>>>
+        }
+        const database = await search('数据库索引')
+        const animal = await search('红熊猫')
         return [...database, ...animal].map(hit => hit.text)
       }, { noteId }), { timeout: 10_000 }).toEqual([
         '数据库索引可以显著提升查询速度',
@@ -95,15 +110,21 @@ test('packaged desktop executes offline embedding search', async () => {
       ])
 
       const result = await window.evaluate(async ({ noteId }) => {
-        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
         const deadline = Date.now() + 60_000
         while (Date.now() < deadline) {
-          const hits = await desktop.searchTopicBlocks({
-            limit: 2,
-            mode: 'semantic',
-            noteId,
-            query: '如何提升数据库查询性能',
+          const response = await fetch('memorilo://api/rpc/notes/searchTopicBlocks', {
+            body: JSON.stringify({ args: [{
+              limit: 2,
+              mode: 'semantic',
+              noteId,
+              query: '如何提升数据库查询性能',
+            }] }),
+            headers: { 'content-type': 'application/json' },
+            method: 'POST',
           })
+          if (!response.ok)
+            throw new Error(`Desktop request failed with status ${response.status}`)
+          const hits = await response.json() as Awaited<ReturnType<DesktopApi['searchTopicBlocks']>>
           if (hits.length === 2)
             return hits.map(hit => hit.text)
           await new Promise(resolve => setTimeout(resolve, 100))

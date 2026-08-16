@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useReducedMotion } from 'motion/react'
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, shelfEffectQuery, shelfErrorMessage } from '../shelf-query'
 import { SourceManagerSheet } from './shelf-source-manager-sheet'
 import { RemoveSourceSheet } from './shelf-source-remove-sheet'
@@ -38,7 +39,7 @@ export function ShelfSourceManagement({
   const [managerInitialMode, setManagerInitialMode] = useState<'add' | 'list'>('list')
   const [removingSource, setRemovingSource] = useState<ShelfSource | null>(null)
   const addMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (input: AddShelfSourceInput) => desktopEffect(() => window.desktop.addShelfSource(input)),
+    mutationFn: (input: AddShelfSourceInput) => desktopEffect('shelf.add-source', () => desktopRequests.addShelfSource(input)),
     mutationKey: ['shelf-add-source'],
     onSuccess: async (source) => {
       await queryClient.invalidateQueries({ queryKey: ['shelf-sources'] })
@@ -47,7 +48,7 @@ export function ShelfSourceManagement({
     },
   }))
   const updateMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (input: UpdateShelfSourceInput) => desktopEffect(() => window.desktop.updateShelfSource(input)),
+    mutationFn: (input: UpdateShelfSourceInput) => desktopEffect('shelf.update-source', () => desktopRequests.updateShelfSource(input)),
     mutationKey: ['shelf-update-source'],
     onSuccess: async () => {
       await replaceSearch({ ...routeSearch, page: undefined })
@@ -56,7 +57,7 @@ export function ShelfSourceManagement({
     },
   }))
   const removeMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (sourceId: string) => desktopEffect(() => window.desktop.removeShelfSource(sourceId)),
+    mutationFn: (sourceId: string) => desktopEffect('shelf.remove-source', () => desktopRequests.removeShelfSource(sourceId)),
     mutationKey: ['shelf-remove-source'],
     onSuccess: async (_, sourceId) => {
       if (selectedSourceId === sourceId)

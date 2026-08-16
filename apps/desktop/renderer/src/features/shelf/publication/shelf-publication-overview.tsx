@@ -4,6 +4,7 @@ import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, Globe2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, shelfEffectQuery } from '../shelf-query'
 import {
   HorizontalPublicationShelf,
@@ -15,10 +16,10 @@ import { shelfPublicationStyles } from './shelf-publication.stylex'
 function useShelfPreview(sourceId: string, pageUrl: string | null, enabled: boolean) {
   return useQuery(shelfEffectQuery.queryOptions({
     enabled: enabled && pageUrl !== null,
-    queryFn: () => desktopEffect(() => {
+    queryFn: () => desktopEffect('shelf.refresh-preview', () => {
       if (pageUrl === null)
         throw new Error('Shelf preview page URL is missing')
-      return window.desktop.refreshShelfView({ pageUrl, sourceId })
+      return desktopRequests.refreshShelfView({ pageUrl, sourceId })
     }),
     queryKey: ['shelf-view', 'preview', sourceId, pageUrl],
     retry: false,

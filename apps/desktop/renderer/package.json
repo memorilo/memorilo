@@ -13,6 +13,7 @@
     "@excalidraw/excalidraw": "workspace:*",
     "@memorilo/anki-connect": "workspace:*",
     "@memorilo/config": "workspace:*",
+    "@memorilo/desktop-api": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/desktop-preload": "workspace:*",
     "@memorilo/editor": "workspace:*",

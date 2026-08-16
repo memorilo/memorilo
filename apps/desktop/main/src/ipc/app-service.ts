@@ -1,14 +1,9 @@
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
+import type { AppRouteHandlers } from '@memorilo/desktop-api'
 import process from 'node:process'
 
-export interface RuntimeInfo {
-  platform: NodeJS.Platform
-  version: string
-}
-
-export function createAppHandlers(): DesktopIpcHandlers['app'] {
+export function createAppHandlers(): AppRouteHandlers {
   return {
-    getRuntimeInfo(): RuntimeInfo {
+    getRuntimeInfo() {
       return {
         platform: process.platform,
         version: process.versions.electron,
