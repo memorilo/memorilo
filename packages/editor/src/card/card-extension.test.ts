@@ -490,7 +490,7 @@ describe('card authoring extension', () => {
 
     expect(editor.getDocJSON().content?.[0]?.content?.[1]).toEqual({
       type: 'text',
-      marks: [{ type: 'inlineHighlight', attrs: { color: 'yellow' } }],
+      marks: [{ type: 'inlineHighlight', attrs: { color: 'yellow', id: expect.any(String) } }],
       text: 'this phrase',
     })
 

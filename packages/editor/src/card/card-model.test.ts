@@ -15,6 +15,7 @@ function block(id: string, content: readonly NodeJSON[], attrs: Record<string, u
     attrs: {
       blockId: id,
       blockHighlight: null,
+      blockHighlightId: null,
       checked: false,
       collapsed: false,
       kind: 'outline',
@@ -38,6 +39,22 @@ function delimiter(
 }
 
 describe('projectEditorCards', () => {
+  it('ignores a non-Card Block without regular Editor Highlight attributes', () => {
+    const document: NodeJSON = {
+      type: 'doc',
+      content: [{
+        type: 'list',
+        attrs: { blockId: 'reader-block' },
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Reader content' }],
+        }],
+      }],
+    }
+
+    expect(projectEditorCards(document)).toEqual([])
+  })
+
   it('projects a forward Basic Card from a stable inline delimiter', () => {
     const document: NodeJSON = {
       type: 'doc',
@@ -386,6 +403,7 @@ describe('projectEditorCards', () => {
         }),
       ], {
         blockHighlight: 'blue',
+        blockHighlightId: 'highlight-planets',
       })],
     }
 
@@ -402,11 +420,16 @@ describe('projectEditorCards', () => {
         id: 'card-planets-backward',
         kind: 'list',
       }),
+      expect.objectContaining({
+        blockHighlight: 'blue',
+        id: 'highlight-planets',
+        kind: 'highlight',
+      }),
     ])
   })
 
   it('projects a SetCard while retaining inline Highlights in its items', () => {
-    const highlighted = { type: 'inlineHighlight', attrs: { color: 'yellow' } }
+    const highlighted = { type: 'inlineHighlight', attrs: { color: 'yellow', id: 'highlight-red' } }
     const document: NodeJSON = {
       type: 'doc',
       content: [block('block-colors', [
@@ -424,22 +447,34 @@ describe('projectEditorCards', () => {
       ])],
     }
 
-    expect(projectEditorCards(document)).toEqual([{
-      blockHighlight: null,
-      definitionId: 'definition-colors',
-      direction: 'forward',
-      id: 'card-colors-forward',
-      items: [{
-        blockId: 'item-red',
-        content: [{
-          type: 'paragraph',
-          content: [{ type: 'text', marks: [highlighted], text: 'Red' }],
+    expect(projectEditorCards(document)).toEqual([
+      {
+        blockHighlight: null,
+        definitionId: 'definition-colors',
+        direction: 'forward',
+        id: 'card-colors-forward',
+        items: [{
+          blockId: 'item-red',
+          content: [{
+            type: 'paragraph',
+            content: [{ type: 'text', marks: [highlighted], text: 'Red' }],
+          }],
         }],
-      }],
-      kind: 'set',
-      prompt: [{ type: 'paragraph', content: [{ type: 'text', text: 'Primary colors' }] }],
-      sourceBlockId: 'block-colors',
-    }])
+        kind: 'set',
+        prompt: [{ type: 'paragraph', content: [{ type: 'text', text: 'Primary colors' }] }],
+        sourceBlockId: 'block-colors',
+      },
+      {
+        blockHighlight: null,
+        content: [{
+          content: [{ marks: [highlighted], text: 'Red', type: 'text' }],
+          type: 'paragraph',
+        }],
+        id: 'highlight-red',
+        kind: 'highlight',
+        sourceBlockId: 'item-red',
+      },
+    ])
   })
 
   it('does not infer Card membership from indentation or numbered-list presentation', () => {
@@ -483,6 +518,34 @@ describe('projectEditorCards', () => {
     }
 
     expect(projectEditorCards(document)).toEqual([])
+  })
+
+  it('rejects an inline Highlight without a stable source ID', () => {
+    const document: NodeJSON = {
+      type: 'doc',
+      content: [block('missing-inline-highlight-id', [{
+        type: 'paragraph',
+        content: [{
+          marks: [{ attrs: { color: 'yellow' }, type: 'inlineHighlight' }],
+          text: 'Highlighted source',
+          type: 'text',
+        }],
+      }])],
+    }
+
+    expect(() => projectEditorCards(document)).toThrow('Inline Highlight ID must be a non-empty string')
+  })
+
+  it('rejects a Block Highlight without a stable source ID', () => {
+    const document: NodeJSON = {
+      type: 'doc',
+      content: [block('missing-block-highlight-id', [{
+        type: 'paragraph',
+        content: [{ text: 'Highlighted source', type: 'text' }],
+      }], { blockHighlight: 'blue' })],
+    }
+
+    expect(() => projectEditorCards(document)).toThrow('Block Highlight color and ID must be provided together')
   })
 
   it('rejects mixed Set and List presentation among explicit Card members', () => {

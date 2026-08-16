@@ -1,8 +1,8 @@
-import type { BookTopicSnapshot, EditorNote, NoteEntrySnapshot } from '@memorilo/editor'
+import type { BookTopicSnapshot, CardTopicSource, EditorNote, NoteEntrySnapshot } from '@memorilo/editor'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
-import { BookOpen, ChevronRight, FileText, Folder, FolderOpen, PenLine, ScanLine, Table2 } from 'lucide-react'
+import { BookOpen, Brackets, ChevronRight, CreditCard, FileText, Folder, FolderOpen, Highlighter, Link2, ListChecks, ListOrdered, PenLine, ScanLine, Table2, Unlink } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,6 +26,34 @@ function bookTopicReadingId(topic: BookTopicSnapshot): string {
   if (!hint)
     throw new Error(`BookTopic ${topic.id} is missing its reading locator`)
   return hint.readingId
+}
+
+function CardTopicIcon({
+  source,
+}: {
+  source: CardTopicSource
+}) {
+  const Icon = source.kind === 'cloze'
+    ? Brackets
+    : source.kind === 'highlight'
+      ? Highlighter
+      : source.kind === 'list'
+        ? ListOrdered
+        : source.kind === 'set'
+          ? ListChecks
+          : CreditCard
+  const SyncIcon = source.syncStatus === 'synced' ? Link2 : Unlink
+  return (
+    <span
+      {...stylex.props(noteInspectorStyles.cardTopicIcon)}
+      aria-hidden="true"
+      data-card-topic-kind={source.kind}
+      data-card-topic-sync={source.syncStatus}
+    >
+      <Icon {...stylex.props(noteInspectorStyles.topicIconGlyph)} size={14} strokeWidth={1.7} />
+      <SyncIcon {...stylex.props(noteInspectorStyles.cardTopicSyncIcon)} size={8} strokeWidth={2.1} />
+    </span>
+  )
 }
 
 export function NoteInspector({
@@ -181,6 +209,9 @@ export function NoteInspectorContent({
                 const collapsed = collapsedEntryIds.has(entry.id)
                 const label = entry.kind === 'folder' ? entry.name : entry.title || t('untitledTopic')
                 const current = entry.kind === 'topic' && entry.id === currentTopicId
+                const cardSource = entry.kind === 'topic' && entry.topicType === 'regular'
+                  ? entry.cardSource
+                  : undefined
                 const topicContextMenu = contextMenu !== undefined && entry.kind === 'topic'
                   ? entry.topicType === 'book'
                     ? (event: ReactMouseEvent) => contextMenu.onOpenBook(
@@ -254,21 +285,11 @@ export function NoteInspectorContent({
                                   </button>
                                 )
                               : <span {...stylex.props(noteInspectorStyles.entryDisclosurePlaceholder)} />}
-                            {entry.topicType === 'book'
-                              ? (
-                                  <BookOpen
-                                    {...stylex.props(
-                                      noteInspectorStyles.topicIcon,
-                                      current && noteInspectorStyles.topicIconCurrent,
-                                    )}
-                                    aria-hidden="true"
-                                    size={14}
-                                    strokeWidth={1.7}
-                                  />
-                                )
-                              : entry.topicType === 'image-occlusion'
+                            {cardSource
+                              ? <CardTopicIcon source={cardSource} />
+                              : entry.topicType === 'book'
                                 ? (
-                                    <ScanLine
+                                    <BookOpen
                                       {...stylex.props(
                                         noteInspectorStyles.topicIcon,
                                         current && noteInspectorStyles.topicIconCurrent,
@@ -278,9 +299,9 @@ export function NoteInspectorContent({
                                       strokeWidth={1.7}
                                     />
                                   )
-                                : entry.topicType === 'spreadsheet'
+                                : entry.topicType === 'image-occlusion'
                                   ? (
-                                      <Table2
+                                      <ScanLine
                                         {...stylex.props(
                                           noteInspectorStyles.topicIcon,
                                           current && noteInspectorStyles.topicIconCurrent,
@@ -290,9 +311,9 @@ export function NoteInspectorContent({
                                         strokeWidth={1.7}
                                       />
                                     )
-                                  : entry.topicType === 'whiteboard'
+                                  : entry.topicType === 'spreadsheet'
                                     ? (
-                                        <PenLine
+                                        <Table2
                                           {...stylex.props(
                                             noteInspectorStyles.topicIcon,
                                             current && noteInspectorStyles.topicIconCurrent,
@@ -302,17 +323,29 @@ export function NoteInspectorContent({
                                           strokeWidth={1.7}
                                         />
                                       )
-                                    : (
-                                        <FileText
-                                          {...stylex.props(
-                                            noteInspectorStyles.topicIcon,
-                                            current && noteInspectorStyles.topicIconCurrent,
-                                          )}
-                                          aria-hidden="true"
-                                          size={14}
-                                          strokeWidth={1.7}
-                                        />
-                                      )}
+                                    : entry.topicType === 'whiteboard'
+                                      ? (
+                                          <PenLine
+                                            {...stylex.props(
+                                              noteInspectorStyles.topicIcon,
+                                              current && noteInspectorStyles.topicIconCurrent,
+                                            )}
+                                            aria-hidden="true"
+                                            size={14}
+                                            strokeWidth={1.7}
+                                          />
+                                        )
+                                      : (
+                                          <FileText
+                                            {...stylex.props(
+                                              noteInspectorStyles.topicIcon,
+                                              current && noteInspectorStyles.topicIconCurrent,
+                                            )}
+                                            aria-hidden="true"
+                                            size={14}
+                                            strokeWidth={1.7}
+                                          />
+                                        )}
                             {entry.topicType === 'book'
                               ? (
                                   <Link

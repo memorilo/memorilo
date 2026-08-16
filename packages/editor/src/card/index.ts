@@ -35,6 +35,7 @@ export type {
   ClozeMarkAttrs,
   EditorCardProjection,
   HighlightColor,
+  HighlightEditorCardProjection,
   InlineHighlightMarkAttrs,
   MultiLineCardItemProjection,
   MultiLineEditorCardProjection,

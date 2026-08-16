@@ -1,6 +1,6 @@
 # RemNote 每日新卡、复习目标与队列限制调研
 
-调研日期：2026-08-05
+调研日期：2026-08-05；实现状态更新：2026-08-16
 
 ## 范围与证据等级
 
@@ -183,6 +183,8 @@ Document Priority 明确影响 Global Queue 的先后顺序；例如 Currently S
 ## 8. Memorilo 当前实现决策
 
 以下是项目在上述证据边界内采用的明确合同，不是 RemNote 内部实现声明：
+
+这里的 queue、introduction 和 Daily Goal 都只统计 CardTopic 所拥有的 Cards；regular Topic 的 authoring content 不进入学习队列，也不提供 Preview。
 
 1. `daily new-card admission cap`、`daily completion goal` 与 `due review eligibility` 分开建模。Daily Goal 是软目标，不截断 due review queue。
 2. `New cards per day` 在所有 Global/Note/Topic scopes 间共享，按 distinct Card 计数；List/Set 的 main 与 item Targets 共用一次 Card introduction。`0` 表示当天不引入新 Card。

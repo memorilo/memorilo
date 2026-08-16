@@ -6,6 +6,7 @@ import type {
 } from './note-application-contracts'
 import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
+import { projectCardTopicCards } from '@memorilo/editor/note'
 import { NoteCardProjectionNotFoundError } from './note-application-contracts'
 import {
   projectApplicationNote,
@@ -49,7 +50,14 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
         ? []
         : entry.topicType === 'image-occlusion'
           ? projectImageOcclusionCards(current.note.getImageOcclusionTopic(entry.id).getState())
-          : topicDocuments(current.note, input.topicId).flatMap(document => projectEditorCards(document))
+          : entry.topicType === 'regular'
+            ? entry.cardSource === undefined
+              ? []
+              : (() => {
+                  const source = entry.cardSource
+                  return topicDocuments(current.note, input.topicId).flatMap(document => projectCardTopicCards(document, source))
+                })()
+            : topicDocuments(current.note, input.topicId).flatMap(document => projectEditorCards(document))
       const card = cards
         .find(candidate => candidate.id === input.cardId)
       if (!card)

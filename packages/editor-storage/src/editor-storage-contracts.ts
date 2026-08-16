@@ -18,6 +18,13 @@ export interface FolderProjection {
 
 export type TopicEditorMode = 0 | 1
 
+export interface CardTopicSourceProjection {
+  kind: 'basic' | 'cloze' | 'highlight' | 'list' | 'set'
+  sourceId: string
+  sourceTopicId: string
+  syncStatus: 'detached' | 'synced'
+}
+
 interface TopicProjectionBase {
   id: string
   kind: 'topic'
@@ -27,6 +34,7 @@ interface TopicProjectionBase {
 }
 
 export interface RegularTopicProjection extends TopicProjectionBase {
+  cardSource?: CardTopicSourceProjection
   mode: TopicEditorMode
   topicType: 'regular'
 }

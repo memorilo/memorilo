@@ -288,6 +288,26 @@ export const noteInspectorStyles = stylex.create({
   topicIconCurrent: {
     color: noteTheme.chromeTextQuiet,
   },
+  cardTopicIcon: {
+    position: 'relative',
+    display: 'grid',
+    width: 17,
+    height: 18,
+    alignItems: 'center',
+    justifyItems: 'center',
+    color: noteTheme.chromeTextQuiet,
+  },
+  topicIconGlyph: {
+    gridArea: '1 / 1',
+  },
+  cardTopicSyncIcon: {
+    position: 'absolute',
+    right: -1,
+    bottom: 1,
+    padding: 1,
+    backgroundColor: 'rgb(248, 249, 251)',
+    color: noteTheme.chromeTextQuiet,
+  },
   topicLink: {
     display: 'flex',
     height: '100%',

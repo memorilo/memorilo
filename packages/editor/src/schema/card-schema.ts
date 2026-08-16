@@ -162,20 +162,26 @@ function defineInlineHighlightSpec(): InlineHighlightSpecExtension {
     name: 'inlineHighlight',
     attrs: {
       color: { validate: validateHighlightColor },
+      id: { validate: validateRequiredId },
     },
     parseDOM: [{
       tag: 'mark[data-inline-highlight]',
       getAttrs: (dom) => {
         const color = dom.getAttribute('data-inline-highlight')
-        if (!color)
+        const id = dom.getAttribute('data-inline-highlight-id')
+        if (!color || !id)
           return false
         validateHighlightColor(color)
-        return { color }
+        validateRequiredId(id)
+        return { color, id }
       },
     }],
     toDOM(mark) {
       const attrs = mark.attrs as InlineHighlightMarkAttrs
-      return ['mark', { 'data-inline-highlight': attrs.color }, 0]
+      return ['mark', {
+        'data-inline-highlight': attrs.color,
+        'data-inline-highlight-id': attrs.id,
+      }, 0]
     },
   })
 }
@@ -196,6 +202,15 @@ function defineCardBlockAttrs(): CardBlockAttrsExtension {
         validateHighlightColor(color)
         return color as HighlightColor
       },
+    }),
+    defineNodeAttr<'list', 'blockHighlightId', string | null>({
+      type: 'list',
+      attr: 'blockHighlightId',
+      default: null,
+      splittable: false,
+      validate: validateOptionalId,
+      toDOM: value => value ? ['data-block-highlight-id', value] : null,
+      parseDOM: element => element.getAttribute('data-block-highlight-id'),
     }),
     defineNodeAttr<'list', 'cardItemDefinitionId', string | null>({
       type: 'list',
