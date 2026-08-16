@@ -199,6 +199,23 @@ export const settingsShellStyles = stylex.create({
     letterSpacing: 0,
     lineHeight: '19px',
   },
+  sectionTitle: {
+    marginTop: 24,
+    marginRight: 0,
+    marginBottom: 10,
+    marginLeft: 0,
+    color: {
+      'default': colors.text,
+      '@media (prefers-color-scheme: dark)': 'rgba(249, 250, 252, 0.94)',
+    },
+    fontSize: 13,
+    fontWeight: 650,
+    letterSpacing: 0,
+    lineHeight: '18px',
+  },
+  sectionTitleFirst: {
+    marginTop: 0,
+  },
   settingsGroup: {
     overflow: 'hidden',
     borderColor: {

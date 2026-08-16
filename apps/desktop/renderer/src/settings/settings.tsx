@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, GalleryVerticalEnd, Globe2, Image, Settings2, Target, Waypoints } from 'lucide-react'
+import { BookOpen, GraduationCap, HardDrive, NotebookPen, Plug, Settings2 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -12,20 +12,65 @@ import { useTranslation } from 'react-i18next'
 import { AssetSettings } from './asset-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
-const sectionIcons = {
-  anki: Waypoints,
-  editor: BookOpen,
-  flashcards: GalleryVerticalEnd,
+type SettingsCategoryId = 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading'
+type SourceSectionId = 'anki' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'mcp' | 'reading'
+
+interface SettingsCategoryDefinition {
+  readonly id: SettingsCategoryId
+  readonly sectionIds: readonly SourceSectionId[]
+  readonly showSectionHeadings?: boolean
+}
+
+const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
+  { id: 'general', sectionIds: ['general'] },
+  { id: 'editor', sectionIds: ['editor'] },
+  { id: 'reading', sectionIds: ['reading'] },
+  { id: 'learning', sectionIds: ['goals', 'flashcards', 'anki'], showSectionHeadings: true },
+  { id: 'media', sectionIds: ['images'], showSectionHeadings: true },
+  { id: 'mcp', sectionIds: ['mcp'] },
+]
+
+const categoryIcons = {
+  editor: NotebookPen,
   general: Settings2,
-  goals: Target,
-  images: Image,
+  learning: GraduationCap,
+  mcp: Plug,
+  media: HardDrive,
   reading: BookOpen,
 } as const
 
-function sectionIcon(sectionId: string) {
-  return sectionId in sectionIcons
-    ? sectionIcons[sectionId as keyof typeof sectionIcons]
-    : Globe2
+function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): string {
+  switch (categoryId) {
+    case 'general':
+      return t('generalSection')
+    case 'editor':
+      return t('editorSection')
+    case 'reading':
+      return t('readingSection')
+    case 'learning':
+      return t('learningSection')
+    case 'media':
+      return t('mediaSection')
+    case 'mcp':
+      return t('mcpSection')
+  }
+}
+
+function translateCategoryDescription(categoryId: SettingsCategoryId, t: TFunction): string {
+  switch (categoryId) {
+    case 'general':
+      return t('generalDescription')
+    case 'editor':
+      return t('editorDescription')
+    case 'reading':
+      return t('readingDescription')
+    case 'learning':
+      return t('learningDescription')
+    case 'media':
+      return t('mediaDescription')
+    case 'mcp':
+      return t('mcpDescription')
+  }
 }
 
 function translateSectionLabel(sectionId: string, t: TFunction): string {
@@ -235,29 +280,6 @@ function translateUnit(unit: string | undefined, t: TFunction): string | undefin
   }
 }
 
-function translateSectionDescription(sectionId: string, t: TFunction): string {
-  switch (sectionId) {
-    case 'anki':
-      return t('ankiDescription')
-    case 'general':
-      return t('generalDescription')
-    case 'editor':
-      return t('editorDescription')
-    case 'flashcards':
-      return t('flashcardsDescription')
-    case 'goals':
-      return t('goalsDescription')
-    case 'images':
-      return t('imagesDescription')
-    case 'reading':
-      return t('readingDescription')
-    case 'mcp':
-      return t('mcpDescription')
-    default:
-      return ''
-  }
-}
-
 function localizeSection(section: ConfigurationSection, t: TFunction): ConfigurationSection {
   return {
     ...section,
@@ -284,15 +306,77 @@ function localizeSection(section: ConfigurationSection, t: TFunction): Configura
   }
 }
 
+interface SettingsCategory {
+  readonly description: string
+  readonly id: SettingsCategoryId
+  readonly label: string
+  readonly sections: readonly ConfigurationSection[]
+  readonly showSectionHeadings: boolean
+}
+
+function buildSettingsCategories(sections: readonly ConfigurationSection[], t: TFunction): readonly SettingsCategory[] {
+  const sectionsById = new Map(sections.map(section => [section.id, section]))
+  return settingsCategoryDefinitions.map((definition) => {
+    const categorySections = definition.sectionIds.map((sectionId) => {
+      const section = sectionsById.get(sectionId)
+      if (!section)
+        throw new Error(`Settings category ${definition.id} references missing section ${sectionId}`)
+      return section
+    })
+    return {
+      description: translateCategoryDescription(definition.id, t),
+      id: definition.id,
+      label: translateCategoryLabel(definition.id, t),
+      sections: categorySections,
+      showSectionHeadings: definition.showSectionHeadings === true,
+    }
+  })
+}
+
+function SettingsFieldsGroup({
+  first,
+  section,
+  showHeading,
+  store,
+}: {
+  first: boolean
+  section: ConfigurationSection
+  showHeading: boolean
+  store: ConfigurationStore<DesktopConfiguration>
+}) {
+  const fields = (
+    <div {...stylex.props(settingsStyles.settingsGroup)} data-window-no-drag="">
+      <ConfigurationFields fields={section.fields} store={store} />
+    </div>
+  )
+
+  if (!showHeading)
+    return fields
+
+  const headingId = `${section.id}-settings-heading`
+  return (
+    <section aria-labelledby={headingId}>
+      <h2
+        id={headingId}
+        {...stylex.props(settingsStyles.sectionTitle, first && settingsStyles.sectionTitleFirst)}
+      >
+        {section.label}
+      </h2>
+      {fields}
+    </section>
+  )
+}
+
 export function Settings({ store }: { store: ConfigurationStore<DesktopConfiguration> }) {
   const { t } = useTranslation('settings')
-  const sections = desktopConfigurationDefinition.sections.map(section => localizeSection(section, t))
-  const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id)
+  const localizedSections = desktopConfigurationDefinition.sections.map(section => localizeSection(section, t))
+  const categories = buildSettingsCategories(localizedSections, t)
+  const [activeCategoryId, setActiveCategoryId] = useState<SettingsCategoryId>('general')
   const shouldReduceMotion = useReducedMotion()
-  const activeSection = sections.find(section => section.id === activeSectionId)
+  const activeCategory = categories.find(category => category.id === activeCategoryId)
 
-  if (!activeSection)
-    throw new Error('Settings has no active section')
+  if (!activeCategory)
+    throw new Error(`Settings has no active category matching ${activeCategoryId}`)
 
   return (
     <main {...stylex.props(settingsStyles.window)}>
@@ -303,19 +387,19 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
             <span {...stylex.props(settingsStyles.sidebarTitle)}>{t('title')}</span>
           </div>
           <nav {...stylex.props(settingsStyles.navigation)} aria-label={t('categories')}>
-            {sections.map((section) => {
-              const Icon = sectionIcon(section.id)
-              const selected = section.id === activeSection.id
+            {categories.map((category) => {
+              const Icon = categoryIcons[category.id]
+              const selected = category.id === activeCategory.id
               return (
                 <button
-                  key={section.id}
+                  key={category.id}
                   {...stylex.props(settingsStyles.navigationItem, selected && settingsStyles.navigationItemSelected)}
                   aria-current={selected ? 'page' : undefined}
                   type="button"
-                  onClick={() => setActiveSectionId(section.id)}
+                  onClick={() => setActiveCategoryId(category.id)}
                 >
                   <Icon {...stylex.props(settingsStyles.navigationIcon, selected && settingsStyles.navigationIconSelected)} aria-hidden="true" size={16} strokeWidth={2} />
-                  <span>{section.label}</span>
+                  <span>{category.label}</span>
                 </button>
               )
             })}
@@ -326,22 +410,28 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
           <div {...stylex.props(settingsStyles.contentScroll)}>
             <AnimatePresence initial={false} mode="wait">
               <motion.div
-                key={activeSection.id}
+                key={activeCategory.id}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -5 }}
                 initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
                 transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
               >
                 <header {...stylex.props(settingsStyles.contentHeader)}>
-                  <h1 id="active-settings-heading" {...stylex.props(settingsStyles.pageTitle)}>{activeSection.label}</h1>
+                  <h1 id="active-settings-heading" {...stylex.props(settingsStyles.pageTitle)}>{activeCategory.label}</h1>
                   <p {...stylex.props(settingsStyles.pageDescription)}>
-                    {translateSectionDescription(activeSection.id, t)}
+                    {activeCategory.description}
                   </p>
                 </header>
-                <div {...stylex.props(settingsStyles.settingsGroup)} data-window-no-drag="">
-                  <ConfigurationFields fields={activeSection.fields} store={store} />
-                </div>
-                {activeSection.id === 'images' ? <AssetSettings /> : null}
+                {activeCategory.sections.map((section, index) => (
+                  <SettingsFieldsGroup
+                    key={section.id}
+                    first={index === 0}
+                    section={section}
+                    showHeading={activeCategory.showSectionHeadings}
+                    store={store}
+                  />
+                ))}
+                {activeCategory.id === 'media' ? <AssetSettings /> : null}
               </motion.div>
             </AnimatePresence>
           </div>
