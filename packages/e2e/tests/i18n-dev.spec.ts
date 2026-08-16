@@ -36,15 +36,6 @@ test.describe('localization in the renderer dev server', () => {
       rendererUrl: devServer.url,
     })
     const window = await context.electronApplication.firstWindow()
-    window.on('console', message => console.error('[DEBUG-memorilo-hono-dev] console', message.type(), message.text()))
-    window.on('pageerror', error => console.error('[DEBUG-memorilo-hono-dev] pageerror', error))
-    window.on('requestfailed', request => console.error(
-      '[DEBUG-memorilo-hono-dev] requestfailed',
-      request.method(),
-      request.url(),
-      request.failure()?.errorText,
-    ))
-
     // First boot from the Vite dev server transforms and serves many modules, so give
     // the renderer generous time to become ready.
     await expect(window.getByRole('link', { name: '日志' })).toBeVisible({ timeout: 30_000 })
