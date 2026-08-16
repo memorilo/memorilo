@@ -102,7 +102,7 @@ export function AssetSettings() {
 
   return (
     <section aria-labelledby="assets-settings-heading">
-      <h2 id="assets-settings-heading" {...stylex.props(settingsStyles.sectionTitle)}>{t('storage')}</h2>
+      <h2 id="assets-settings-heading" {...stylex.props(settingsShellStyles.sectionTitle)}>{t('storage')}</h2>
       <div {...stylex.props(settingsShellStyles.settingsGroup)} data-window-no-drag="">
         <div {...stylex.props(settingsStyles.assetActionRow, settingsStyles.compactAssetActionRow)}>
           <div {...stylex.props(settingsStyles.assetCopy)}>
