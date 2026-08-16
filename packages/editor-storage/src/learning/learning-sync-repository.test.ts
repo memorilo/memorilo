@@ -9,7 +9,7 @@ async function createRepository() {
   database = new SqliteTestDatabase()
   await database.exec(learningSchema)
   await database.run(
-    'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, 3)',
+    'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, 1)',
     ['device'],
   )
   return new LearningSyncRepository({
