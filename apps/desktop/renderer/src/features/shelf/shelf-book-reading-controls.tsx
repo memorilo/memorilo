@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, ChevronDown, Info, LoaderCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../shared/desktop-requests'
 import { shelfBookReadingStyles as styles } from './shelf-book-reading-controls.stylex'
 import { shelfBookShellStyles } from './shelf-book-shell.stylex'
 import { desktopEffect, shelfEffectQuery, shelfPublicationQueryKey } from './shelf-query'
@@ -30,7 +31,7 @@ export function ShelfBookReadingControls({
   const queryClient = useQueryClient()
   const detailsQueryKey = shelfPublicationQueryKey(sourceId, publicationId)
   const prepareReadingMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (format: ShelfReadingFormat) => desktopEffect('shelf.prepare-reading', () => window.desktop.prepareShelfReading({
+    mutationFn: (format: ShelfReadingFormat) => desktopEffect('shelf.prepare-reading', () => desktopRequests.prepareShelfReading({
       format,
       publicationId,
       retention: onlineReading ? 'cache' : 'library',
@@ -44,7 +45,7 @@ export function ShelfBookReadingControls({
     },
   }))
   const deleteReadingMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (readingId: string) => desktopEffect('shelf.delete-reading', () => window.desktop.deleteShelfReading(readingId)),
+    mutationFn: (readingId: string) => desktopEffect('shelf.delete-reading', () => desktopRequests.deleteShelfReading(readingId)),
     mutationKey: ['shelf-delete-reading', sourceId, publicationId],
     onSuccess: async (deleted) => {
       if (deleted)

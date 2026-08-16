@@ -1,4 +1,4 @@
-import type { DesktopJournalSummary, JournalDate } from '@memorilo/desktop-preload'
+import type { DesktopJournalSummary, JournalDate } from '@memorilo/desktop-api'
 import type { Ref } from 'react'
 import type { EditorNoteSessionCache } from '../notes/note-runtime'
 import * as stylex from '@stylexjs/stylex'

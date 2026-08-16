@@ -1,4 +1,8 @@
-export const assetProtocol = 'memorilo-asset'
+import {
+  memoriloAssetHost,
+  memoriloAssetOrigin,
+  memoriloProtocol,
+} from '@memorilo/desktop-api/transport'
 
 export const assetFileNamePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.[a-z0-9]+$/
 
@@ -10,14 +14,21 @@ export function parseAssetFileName(source: string): string | null {
   catch {
     return null
   }
-  if (url.protocol !== `${assetProtocol}:` || url.username || url.password || url.port || url.search || url.hash)
+  if (
+    url.protocol !== `${memoriloProtocol}:`
+    || url.host !== memoriloAssetHost
+    || url.username
+    || url.password
+    || url.port
+    || url.search
+    || url.hash
+  ) {
     return null
+  }
 
-  const encodedFileName = url.host.length > 0 && url.pathname === '/'
-    ? url.host
-    : url.host.length === 0 && url.pathname.startsWith('/') && !url.pathname.slice(1).includes('/')
-      ? url.pathname.slice(1)
-      : ''
+  const encodedFileName = url.pathname.startsWith('/') && !url.pathname.slice(1).includes('/')
+    ? url.pathname.slice(1)
+    : ''
   let fileName: string
   try {
     fileName = decodeURIComponent(encodedFileName)
@@ -31,5 +42,5 @@ export function parseAssetFileName(source: string): string | null {
 export function assetSource(fileName: string): string {
   if (!assetFileNamePattern.test(fileName))
     throw new TypeError(`Invalid asset file name: ${fileName}`)
-  return `${assetProtocol}:///${fileName}`
+  return `${memoriloAssetOrigin}/${fileName}`
 }

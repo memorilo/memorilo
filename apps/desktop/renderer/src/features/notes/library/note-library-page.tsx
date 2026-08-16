@@ -5,10 +5,11 @@ import type {
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
   SetDesktopNoteFavoriteInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { InfiniteData } from 'effect-query'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
+import { desktopRequests } from '../../../shared/desktop-requests'
 
 import { noteQueryKeys } from '../query-keys'
 import {
@@ -24,7 +25,7 @@ async function openStoredNote(
   onOpenJournal: (journalDate: JournalDate) => Promise<void>,
   onOpenNote: (noteId: string, topicId: string) => Promise<void>,
 ): Promise<void> {
-  const stored = await window.desktop.getNote({ noteId })
+  const stored = await desktopRequests.getNote({ noteId })
   if (stored.kind === 'journal') {
     await onOpenJournal(stored.journalDate)
     return

@@ -1,4 +1,4 @@
-import type { DesktopLearningApi } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi } from '@memorilo/desktop-api'
 import type { SingleFlightResult } from '@memorilo/effect-lifecycle'
 import {
   combineLifecycleFailures,

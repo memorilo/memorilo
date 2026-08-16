@@ -6,6 +6,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { AlertCircle, BookOpen, LoaderCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, shelfEffectQuery } from '../shelf-query'
 import { shelfSharedStyles } from '../shelf-shared.stylex'
 import { ShelfPublicationItem } from './shelf-publication-card'
@@ -92,7 +93,7 @@ export function HorizontalPublicationShelf({
     initialData,
     initialPageParam: initialPageUrl,
     queryFn: ({ pageParam }) => desktopEffect('shelf.refresh-horizontal-page', () => (
-      window.desktop.refreshShelfView({ pageUrl: pageParam, sourceId })
+      desktopRequests.refreshShelfView({ pageUrl: pageParam, sourceId })
     )),
     queryKey: ['shelf-view', 'horizontal', sourceId, initialPageUrl, includeNavigation],
     retry: false,

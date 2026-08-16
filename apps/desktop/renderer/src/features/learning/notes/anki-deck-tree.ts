@@ -1,4 +1,4 @@
-import type { DesktopAnkiDeck } from '@memorilo/desktop-preload'
+import type { DesktopAnkiDeck } from '@memorilo/desktop-api'
 
 export interface AnkiDeckTreeNode {
   readonly children: readonly AnkiDeckTreeNode[]

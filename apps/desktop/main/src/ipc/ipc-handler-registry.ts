@@ -21,40 +21,17 @@ interface ContextualIpcHandler<Arguments extends readonly unknown[], Result> {
   ) => Promise<Result> | Result
 }
 
-type PlainIpcHandler<Method> = Method extends (...args: infer Arguments) => Promise<infer Result>
-  ? (...args: Arguments) => Promise<Result> | Result
-  : never
-
 type ContextualHandlerFor<Method> = Method extends (...args: infer Arguments) => Promise<infer Result>
   ? ContextualIpcHandler<Arguments, Result>
   : never
 
-type PlainDesktopIpcHandlers = {
-  readonly [Group in keyof DesktopIpcClient]: {
-    readonly [Method in keyof DesktopIpcClient[Group]]: PlainIpcHandler<DesktopIpcClient[Group][Method]>
+export interface DesktopIpcHandlers {
+  readonly transport: {
+    readonly fetch: ContextualHandlerFor<DesktopIpcClient['transport']['fetch']>
   }
-}
-
-export type DesktopIpcHandlers = Omit<PlainDesktopIpcHandlers, 'assets' | 'backup' | 'books' | 'window'> & {
-  readonly assets: Omit<PlainDesktopIpcHandlers['assets'], 'reclaim'> & {
-    readonly reclaim: ContextualHandlerFor<DesktopIpcClient['assets']['reclaim']>
-  }
-  readonly backup: {
-    readonly exportDatabase: ContextualHandlerFor<DesktopIpcClient['backup']['exportDatabase']>
-    readonly restoreDatabase: ContextualHandlerFor<DesktopIpcClient['backup']['restoreDatabase']>
-  }
-  readonly books: Omit<
-    PlainDesktopIpcHandlers['books'],
-    'closeReadingSession' | 'createContext' | 'rebindContext' | 'selectContext'
-  > & {
-    readonly closeReadingSession: ContextualHandlerFor<DesktopIpcClient['books']['closeReadingSession']>
-    readonly createContext: ContextualHandlerFor<DesktopIpcClient['books']['createContext']>
-    readonly rebindContext: ContextualHandlerFor<DesktopIpcClient['books']['rebindContext']>
-    readonly selectContext: ContextualHandlerFor<DesktopIpcClient['books']['selectContext']>
-  }
-  readonly window: {
-    readonly captureReaderRegion: ContextualHandlerFor<DesktopIpcClient['window']['captureReaderRegion']>
-    readonly showColumnVisibilityMenu: ContextualHandlerFor<DesktopIpcClient['window']['showColumnVisibilityMenu']>
+  readonly whiteboardLibrary: {
+    readonly load: DesktopIpcClient['whiteboardLibrary']['load']
+    readonly save: DesktopIpcClient['whiteboardLibrary']['save']
   }
 }
 

@@ -1,4 +1,4 @@
-import type { DesktopNote } from '@memorilo/desktop-preload'
+import type { DesktopNote } from '@memorilo/desktop-api'
 import type { EditorNote } from '@memorilo/editor'
 import type { EditorNoteSessionCache } from '../note-runtime'
 import type {
@@ -12,6 +12,7 @@ import { demoEditorAdapters } from '@memorilo/editor'
 import { createLatestOperationSupervisor } from '@memorilo/effect-lifecycle'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
 import { useNotePersistence } from '../persistence/note-persistence-hooks'
 import { EditorNoteSessionRuntime, toEditorNoteError } from './note-editor-session-runtime'
@@ -63,12 +64,12 @@ function errorMessage(error: unknown | null): string | null {
 export function desktopEditorAdapters(networkImagePasteBehavior: 'download' | 'url') {
   return {
     ...demoEditorAdapters,
-    importNetworkImage: async (source: string) => (await window.desktop.importNetworkImage({ source })).src,
+    importNetworkImage: async (source: string) => (await desktopRequests.importNetworkImage({ source })).src,
     networkImagePasteBehavior,
     uploadImage: async ({ file, onProgress }: Parameters<typeof demoEditorAdapters.uploadImage>[0]) => {
       const total = Math.max(file.size, 1)
       onProgress({ loaded: 0, total })
-      const result = await window.desktop.saveImage({
+      const result = await desktopRequests.saveImage({
         data: new Uint8Array(await file.arrayBuffer()),
         fileName: file.name,
         mimeType: file.type,

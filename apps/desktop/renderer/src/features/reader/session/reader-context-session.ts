@@ -4,7 +4,7 @@ import type {
   DesktopBookTopicContextSummary,
   DesktopBookTopicReadingContext,
   OpenDesktopBookContextResult,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import { sameBookFile } from '@memorilo/reading-model'
 import { createReaderSessionOwner } from './reader-session-owner'
 

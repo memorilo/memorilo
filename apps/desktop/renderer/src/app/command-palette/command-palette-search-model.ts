@@ -1,4 +1,4 @@
-import type { DesktopNoteSearchHit } from '@memorilo/desktop-preload'
+import type { DesktopNoteSearchHit } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { LucideIcon } from 'lucide-react'
 import type { PaletteCommand, ResultAccent } from '../../shared/command-palette'

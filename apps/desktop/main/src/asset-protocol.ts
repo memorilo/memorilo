@@ -1,9 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { assetProtocol, parseAssetFileName } from './assets/asset-uri'
-import { registerProtocol } from './protocol-registration'
-
-export { assetProtocol } from './assets/asset-uri'
+import { parseAssetFileName } from './assets/asset-uri'
 
 const contentTypes: Readonly<Record<string, string>> = {
   '.avif': 'image/avif',
@@ -16,8 +13,8 @@ const contentTypes: Readonly<Record<string, string>> = {
   '.webp': 'image/webp',
 }
 
-export function registerAssetProtocol(assetDirectory: string | null) {
-  return registerProtocol(assetProtocol, async (request) => {
+export function createAssetProtocolHandler(assetDirectory: string | null) {
+  return async (request: Request): Promise<Response> => {
     if (request.method !== 'GET')
       return new Response(null, { status: 405 })
     if (assetDirectory === null)
@@ -47,5 +44,5 @@ export function registerAssetProtocol(assetDirectory: string | null) {
         return new Response(null, { status: 404 })
       throw error
     }
-  })
+  }
 }

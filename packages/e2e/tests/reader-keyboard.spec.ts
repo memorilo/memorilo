@@ -1,4 +1,3 @@
-import type { DesktopApi } from '@memorilo/desktop-preload'
 import { Buffer } from 'node:buffer'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -130,15 +129,25 @@ test('arrow keys scroll before turning PDF pages at viewport boundaries', async 
     await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 
     await window.evaluate(async () => {
-      const desktop = (globalThis as typeof globalThis & { desktop: DesktopApi }).desktop
-      await desktop.setConfigurationValue('readerPageMode', 'single-page')
+      const response = await fetch('memorilo://api/configuration/value', {
+        body: JSON.stringify({ path: 'readerPageMode', value: 'single-page' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      })
+      if (!response.ok)
+        throw new Error(`Failed to update reader page mode: ${response.status}`)
     })
     await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
     await expect.poll(() => window.locator('.reader-pdf-page-slot').count()).toBe(0)
 
     await window.evaluate(async () => {
-      const desktop = (globalThis as typeof globalThis & { desktop: DesktopApi }).desktop
-      await desktop.setConfigurationValue('readerPageMode', 'continuous')
+      const response = await fetch('memorilo://api/configuration/value', {
+        body: JSON.stringify({ path: 'readerPageMode', value: 'continuous' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      })
+      if (!response.ok)
+        throw new Error(`Failed to update reader page mode: ${response.status}`)
     })
     await expect(window.getByText('2 of 2', { exact: true })).toBeVisible()
     await expect.poll(() => window.locator('.reader-pdf-page-slot').count()).toBe(2)

@@ -1,4 +1,5 @@
-import type { DesktopApi, DesktopRegularNote } from '@memorilo/desktop-preload'
+import type { DesktopRegularNote } from '@memorilo/desktop-api'
+import type { DesktopApi } from '@memorilo/desktop-preload'
 import { createEditorNote } from '@memorilo/editor'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { fireEvent, render, waitFor } from '@testing-library/react'

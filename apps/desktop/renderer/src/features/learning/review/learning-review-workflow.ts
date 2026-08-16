@@ -1,4 +1,4 @@
-import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-api'
 import type {
   ActiveReview,
   PreparedReview,

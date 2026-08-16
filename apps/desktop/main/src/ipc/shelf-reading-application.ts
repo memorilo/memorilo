@@ -42,14 +42,14 @@ interface ShelfReadingApplicationDependencies {
 export class ShelfReadingApplication {
   constructor(private readonly dependencies: ShelfReadingApplicationDependencies) {}
 
-  delete(readingId: string): Promise<boolean> {
+  delete(readingId: string, confirmDeletion = this.dependencies.confirmDeletion): Promise<boolean> {
     return this.dependencies.operations.run(scope => scope.reading(
       readingId,
       Effect.gen({ self: this }, function* () {
         yield* this.#requireInactive(readingId)
         if ((yield* this.#promise(() => this.dependencies.readingFiles.find(readingId)))?.location !== 'library')
           return false
-        if (!(yield* this.#promise(this.dependencies.confirmDeletion)))
+        if (!(yield* this.#promise(confirmDeletion)))
           return false
         yield* this.#requireInactive(readingId)
         if ((yield* this.#promise(() => this.dependencies.readingFiles.find(readingId)))?.location !== 'library')

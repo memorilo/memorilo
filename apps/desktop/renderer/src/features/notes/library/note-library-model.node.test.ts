@@ -1,4 +1,4 @@
-import type { DesktopNotePage, DesktopNoteSummary } from '@memorilo/desktop-preload'
+import type { DesktopNotePage, DesktopNoteSummary } from '@memorilo/desktop-api'
 import type { InfiniteData } from 'effect-query'
 import { describe, expect, it } from 'vitest'
 import {

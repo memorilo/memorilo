@@ -3,7 +3,7 @@ import type {
   DesktopJournalPage,
   DesktopJournalSummary,
   JournalDate,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import dayjs from 'dayjs'
 
 const journalDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u

@@ -1,4 +1,4 @@
-import type { DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopReviewItem } from '@memorilo/desktop-api'
 import type { EditorStorage, ReviewRating } from '@memorilo/editor-storage'
 import type { EditorNote } from '@memorilo/editor/note'
 import { SqliteEditorStorage } from '@memorilo/editor-storage'

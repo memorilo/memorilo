@@ -1,4 +1,4 @@
-import type { DesktopRegularNote } from '@memorilo/desktop-preload'
+import type { DesktopRegularNote } from '@memorilo/desktop-api'
 import type { EditorNoteChange } from '@memorilo/editor/note'
 import type { EditorNoteSessionCache } from '../note-runtime'
 import { createEditorNote } from '@memorilo/editor/note'

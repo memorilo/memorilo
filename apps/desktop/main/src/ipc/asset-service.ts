@@ -1,7 +1,7 @@
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration, DesktopTiffConversionFormat } from '@memorilo/desktop-config'
 import type { EditorStorage } from '@memorilo/editor-storage'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import { randomUUID } from 'node:crypto'
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -11,7 +11,7 @@ import sharp from 'sharp'
 
 import { checkManagedAssets } from '../assets/asset-maintenance'
 import { assetSource } from '../assets/asset-uri'
-import { withIpcContext } from './ipc-handler-registry'
+import { withDesktopRequestContext } from '../desktop-request-handlers'
 
 interface SaveImageInput {
   data: Uint8Array
@@ -162,7 +162,7 @@ export function createAssetHandlers(
   storage: EditorStorage,
   configuration: ConfigurationStore<DesktopConfiguration>,
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
-): DesktopIpcHandlers['assets'] {
+): DesktopRequestHandlers['assets'] {
   const persistImage = async (input: SaveImageInput): Promise<SaveImageResult> => {
     if (assetDirectory === null)
       throw new Error('Images cannot be stored when using an in-memory database')
@@ -246,7 +246,7 @@ export function createAssetHandlers(
         }
       })
     },
-    reclaim: withIpcContext((context, input: ReclaimAssetsInput): Promise<ReclaimAssetsResult> => {
+    reclaim: withDesktopRequestContext((context, input: ReclaimAssetsInput): Promise<ReclaimAssetsResult> => {
       return serializeAssetOperation(async () => {
         if (assetDirectory === null)
           throw new Error('Assets cannot be reclaimed when using an in-memory database')

@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@memorilo/desktop-preload": "workspace:*",
+    "@memorilo/desktop-api": "workspace:*",
     "@playwright/test": "1.61.1",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "13.0.1",

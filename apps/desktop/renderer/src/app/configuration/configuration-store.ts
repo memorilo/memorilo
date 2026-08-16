@@ -2,6 +2,7 @@ import type { ConfigurationAdapter, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import { createConfigurationStore } from '@memorilo/config'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
+import { desktopRequests } from '../../shared/desktop-requests'
 
 class BrowserPreviewConfigurationAdapter implements ConfigurationAdapter {
   private value: DesktopConfiguration = desktopConfigurationDefinition.defaults
@@ -18,11 +19,11 @@ class BrowserPreviewConfigurationAdapter implements ConfigurationAdapter {
 function desktopConfigurationAdapter(): ConfigurationAdapter {
   const desktop = window.desktop
   return {
-    read: () => desktop.getConfiguration(),
-    setValue: (path, value) => desktop.setConfigurationValue(path, value),
+    read: () => desktopRequests.getConfiguration(),
+    setValue: (path, value) => desktopRequests.setConfigurationValue(path, value),
     subscribe: listener => desktop.subscribeConfiguration(() => listener({ type: 'changed' })),
     write: async (configuration) => {
-      await desktop.setConfiguration(configuration as DesktopConfiguration)
+      await desktopRequests.setConfiguration(configuration as DesktopConfiguration)
     },
   }
 }

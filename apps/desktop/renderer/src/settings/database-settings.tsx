@@ -3,21 +3,22 @@ import { DatabaseBackup, FileOutput, LoaderCircle, RotateCcw } from 'lucide-reac
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopRequests } from '../shared/desktop-requests'
 import { databaseSettingsStyles as styles } from './database-settings.stylex'
 
 export function DatabaseSettings() {
   const { t } = useTranslation('settings')
-  const desktop = typeof window.desktop === 'undefined' ? null : window.desktop
+  const desktopAvailable = typeof window.desktop !== 'undefined'
   const [pending, setPending] = useState<'export' | 'restore' | null>(null)
   const [status, setStatus] = useState<string | null>(null)
 
   const exportDatabase = async () => {
-    if (!desktop)
+    if (!desktopAvailable)
       return
     setPending('export')
     setStatus(null)
     try {
-      const result = await desktop.exportDatabase()
+      const result = await desktopRequests.exportDatabase()
       if ('status' in result) {
         setStatus(t('databaseExportCancelled'))
         return
@@ -33,12 +34,12 @@ export function DatabaseSettings() {
   }
 
   const restoreDatabase = async () => {
-    if (!desktop)
+    if (!desktopAvailable)
       return
     setPending('restore')
     setStatus(null)
     try {
-      const result = await desktop.restoreDatabase()
+      const result = await desktopRequests.restoreDatabase()
       setStatus(result.status === 'cancelled' ? t('databaseRestoreCancelled') : t('databaseRestoreRestarting'))
     }
     catch (error) {
@@ -54,7 +55,7 @@ export function DatabaseSettings() {
       <div {...stylex.props(styles.actions)}>
         <button
           {...stylex.props(styles.button)}
-          disabled={pending !== null || desktop === null}
+          disabled={pending !== null || !desktopAvailable}
           type="button"
           onClick={() => void exportDatabase()}
         >
@@ -65,7 +66,7 @@ export function DatabaseSettings() {
         </button>
         <button
           {...stylex.props(styles.button)}
-          disabled={pending !== null || desktop === null}
+          disabled={pending !== null || !desktopAvailable}
           type="button"
           onClick={() => void restoreDatabase()}
         >

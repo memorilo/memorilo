@@ -1,0 +1,29 @@
+{
+  "name": "@memorilo/desktop-api",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./server": "./src/server.ts",
+    "./transport": "./src/transport.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@memorilo/anki-connect": "workspace:*",
+    "@memorilo/desktop-config": "workspace:*",
+    "@memorilo/editor": "workspace:*",
+    "@memorilo/editor-storage": "workspace:*",
+    "@memorilo/effect-lifecycle": "workspace:*",
+    "@memorilo/reading-model": "workspace:*",
+    "@memorilo/shelf": "workspace:*",
+    "effect": "4.0.0-beta.23",
+    "hono": "4.13.2"
+  }
+}

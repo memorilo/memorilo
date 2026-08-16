@@ -1,4 +1,4 @@
-import type { JournalDate } from '@memorilo/desktop-preload'
+import type { JournalDate } from '@memorilo/desktop-api'
 import * as stylex from '@stylexjs/stylex'
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'

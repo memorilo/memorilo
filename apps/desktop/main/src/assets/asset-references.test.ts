@@ -15,7 +15,7 @@ describe('note asset references', () => {
       parentId: root.id,
       readerReference: {
         source: {
-          imageSrc: `memorilo-asset:///${fileName}`,
+          imageSrc: `memorilo://asset/${fileName}`,
           kind: 'region',
           location: 'Page 2',
         },
@@ -57,7 +57,7 @@ describe('note asset references', () => {
     await note.createImageOcclusionTopic({
       snapshot: async () => ({
         height: 300,
-        src: `memorilo-asset:///${fileName}`,
+        src: `memorilo://asset/${fileName}`,
         width: 400,
       }),
       source: {

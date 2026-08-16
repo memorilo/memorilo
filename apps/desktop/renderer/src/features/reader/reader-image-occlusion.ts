@@ -1,4 +1,4 @@
-import type { DesktopApi } from '@memorilo/desktop-preload'
+import type { DesktopApi } from '@memorilo/desktop-api'
 import type { EditorNote, ImageOcclusionSnapshot } from '@memorilo/editor'
 import type { ReaderAnnotationTopicCreateInput } from '@memorilo/editor/reader'
 import type { ReaderViewport } from './reader-annotation-topics'

@@ -35,23 +35,26 @@ beforeEach(() => {
 })
 
 describe('preload IPC bridge', () => {
-  it('invokes stable application-owned channels with the original arguments', async () => {
+  it('invokes the stable application-owned Fetch channel with the original request', async () => {
+    const request = {
+      body: '{"args":[]}',
+      headers: [['content-type', 'application/json']] as const,
+      method: 'POST',
+      url: 'memorilo://api/rpc/notes/openMostRecentNote',
+    }
     mocks.ipcInvoke.mockResolvedValueOnce({
       status: 'success',
-      value: { platform: 'win32', version: '43.2.0' },
+      value: { body: '{}', headers: [], status: 200, statusText: 'OK' },
     })
-    await expect(exposedApi().getRuntimeInfo()).resolves.toEqual({
-      platform: 'win32',
-      version: '43.2.0',
+    await expect(exposedApi().request(request)).resolves.toEqual({
+      body: '{}',
+      headers: [],
+      status: 200,
+      statusText: 'OK',
     })
-    expect(mocks.ipcInvoke).toHaveBeenCalledWith('memorilo:invoke:app:getRuntimeInfo')
-
-    mocks.ipcInvoke.mockResolvedValueOnce({ status: 'success', value: { reduceMotion: true } })
-    await exposedApi().setConfigurationValue('reduceMotion', true)
-    expect(mocks.ipcInvoke).toHaveBeenLastCalledWith(
-      'memorilo:invoke:configuration:setValue',
-      'reduceMotion',
-      true,
+    expect(mocks.ipcInvoke).toHaveBeenCalledWith(
+      'memorilo:invoke:transport:fetch',
+      request,
     )
   })
 

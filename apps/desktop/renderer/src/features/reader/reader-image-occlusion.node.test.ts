@@ -40,7 +40,7 @@ describe('reader region image occlusion', () => {
     }
     const captureReaderRegion = vi.fn(async () => Uint8Array.from([137, 80, 78, 71]))
     const saveImage = vi.fn(async () => ({
-      src: 'memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png',
+      src: 'memorilo://asset/123e4567-e89b-42d3-a456-426614174000.png',
     }))
     const readImageSize = vi.fn(async () => ({ height: 160, width: 240 }))
     const options = {
@@ -64,7 +64,7 @@ describe('reader region image occlusion', () => {
       { height: 80, width: 120, x: 20, y: 30 },
     )
     expect(saveImage).toHaveBeenCalledTimes(1)
-    expect(readImageSize).toHaveBeenCalledWith('memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png')
+    expect(readImageSize).toHaveBeenCalledWith('memorilo://asset/123e4567-e89b-42d3-a456-426614174000.png')
     expect(note.getEntries().find(entry => entry.id === createdId)).toMatchObject({
       parentId: bookTopicEntry.id,
       topicType: 'image-occlusion',
@@ -72,7 +72,7 @@ describe('reader region image occlusion', () => {
     expect(note.getImageOcclusionTopic(createdId).getState()).toMatchObject({
       image: {
         height: 160,
-        src: 'memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png',
+        src: 'memorilo://asset/123e4567-e89b-42d3-a456-426614174000.png',
         width: 240,
       },
       source: {

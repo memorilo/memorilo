@@ -1,9 +1,9 @@
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import type { NoteApplicationService } from '../notes/note-application-service'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
 export function createJournalHandlers(
   application: NoteApplicationService,
-): DesktopIpcHandlers['journals'] {
+): DesktopRequestHandlers['journals'] {
   return {
     listJournalDates(input: Parameters<NoteApplicationService['listJournalDates']>[0]) {
       return application.listJournalDates(input)

@@ -1,4 +1,4 @@
-import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-api'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { describe, expect, it, vi } from 'vitest'
 import { createLearningReviewWorkflow } from './learning-review-workflow'

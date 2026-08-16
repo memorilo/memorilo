@@ -1,10 +1,10 @@
 import type { ConfigurationStore } from '@memorilo/config'
+import type { ConfigurationRouteHandlers } from '@memorilo/desktop-api'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
 export function createConfigurationHandlers(
   store: ConfigurationStore<DesktopConfiguration>,
-): DesktopIpcHandlers['configuration'] {
+): ConfigurationRouteHandlers {
   return {
     get(): DesktopConfiguration {
       return store.getSnapshot()

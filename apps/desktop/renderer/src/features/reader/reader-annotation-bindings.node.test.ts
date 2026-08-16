@@ -97,7 +97,7 @@ describe('reader annotation Topic bindings', () => {
         annotationId: annotation.id,
         bookTopicId: bookTopicEntry.id,
         source: {
-          imageSrc: 'memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png',
+          imageSrc: 'memorilo://asset/123e4567-e89b-42d3-a456-426614174000.png',
           kind: 'region',
           location: 'Selection 10-20',
         },
@@ -108,7 +108,7 @@ describe('reader annotation Topic bindings', () => {
     const imageOcclusionTopicId = await note.createImageOcclusionTopic({
       snapshot: async () => ({
         height: 300,
-        src: 'memorilo-asset:///223e4567-e89b-42d3-a456-426614174000.png',
+        src: 'memorilo://asset/223e4567-e89b-42d3-a456-426614174000.png',
         width: 400,
       }),
       source: {
@@ -127,7 +127,7 @@ describe('reader annotation Topic bindings', () => {
     prepareReaderAnnotationTopicsForDeletion(note, bookTopicEntry.id, linkedAnnotation)
     expect(note.getTopicReaderReference(annotationTopicId)).toEqual({
       source: {
-        imageSrc: 'memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png',
+        imageSrc: 'memorilo://asset/123e4567-e89b-42d3-a456-426614174000.png',
         kind: 'region',
         location: 'Selection 10-20',
       },

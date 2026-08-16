@@ -1,4 +1,4 @@
-import type { DesktopFavoriteNoteItem, DesktopRecentNoteItem } from '@memorilo/desktop-preload'
+import type { DesktopFavoriteNoteItem, DesktopRecentNoteItem } from '@memorilo/desktop-api'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { DesktopClientError } from '../../shared/effect-query'
@@ -19,10 +19,11 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
 import { formatJournalHeading } from '../../features/journals/journal-model'
+
 import { noteQueryKeys } from '../../features/notes/query-keys'
 import { useDesktopConfiguration } from '../../shared/configuration'
+import { desktopRequests } from '../../shared/desktop-requests'
 import {
   desktopEffect,
   desktopEffectQuery,
@@ -78,14 +79,14 @@ const sourceRowHeight = 33
 const sourceListMaxHeight = sourceRowHeight * 6
 function favoriteNotesQueryOptions() {
   return desktopEffectQuery.queryOptions<readonly DesktopFavoriteNoteItem[], DesktopClientError, never>({
-    queryFn: () => desktopEffect('notes.list-favorites', () => window.desktop.listFavoriteNotes({ limit: 6 })),
+    queryFn: () => desktopEffect('notes.list-favorites', () => desktopRequests.listFavoriteNotes({ limit: 6 })),
     queryKey: noteQueryKeys.favorites,
   })
 }
 
 function recentNotesQueryOptions() {
   return desktopEffectQuery.queryOptions<readonly DesktopRecentNoteItem[], DesktopClientError, never>({
-    queryFn: () => desktopEffect('notes.list-recent', () => window.desktop.listRecentNotes({ limit: 6 })),
+    queryFn: () => desktopEffect('notes.list-recent', () => desktopRequests.listRecentNotes({ limit: 6 })),
     queryKey: noteQueryKeys.recent,
   })
 }

@@ -1,7 +1,7 @@
 import type {
   DesktopReviewItem,
   RestoreDesktopReviewItemInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { ReviewRating } from './learning-review-rating-model'
 
 export type LearningReviewScope = 'global' | 'note'
