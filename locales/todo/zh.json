@@ -1,0 +1,75 @@
+{
+  "title": "Todo",
+  "listView": "列表",
+  "boardView": "看板",
+  "timelineView": "时间线",
+  "calendarView": "日历",
+  "quadrantView": "四象限",
+  "viewLabel": "Todo 视图",
+  "switchToBoard": "切换到看板视图",
+  "switchToList": "切换到列表视图",
+  "switchToTimeline": "切换到时间线视图",
+  "switchToCalendar": "切换到日历视图",
+  "switchToQuadrant": "切换到四象限视图",
+  "filterLabel": "任务状态",
+  "filterAll": "全部",
+  "statusTodo": "待办",
+  "statusDoing": "进行中",
+  "statusDone": "已完成",
+  "taskCount_one": "已加载 {{count}} 个任务",
+  "taskCount_other": "已加载 {{count}} 个任务",
+  "loading": "正在加载任务",
+  "loadingMore": "正在加载更多任务…",
+  "couldNotLoad": "无法加载任务",
+  "noTasks": "当前视图中没有任务",
+  "noTasksInColumn": "暂无任务",
+  "tryAgain": "重试",
+  "openTask": "在 {{note}} 中打开 {{task}}",
+  "source": "{{note}} · {{topic}}",
+  "elapsed": "已用时 {{duration}}",
+  "timelineSubtitle": "按日期查看任务",
+  "calendarSubtitle": "按日期查看任务",
+  "quadrantSubtitle": "按重要性和紧急性聚焦",
+  "quadrantRule": "重要：收藏笔记 · 紧急：今天或已过期",
+  "previousMonth": "上个月",
+  "nextMonth": "下个月",
+  "today": "今天",
+  "unscheduled": "未安排日期",
+  "noTasksInPeriod": "这段时间没有任务",
+  "selectedDay": "选中的日期",
+  "noTasksOnDay": "这一天没有任务",
+  "calendarDay_one": "{{date}}，{{count}} 个任务",
+  "calendarDay_other": "{{date}}，{{count}} 个任务",
+  "moreTasks": "还有 {{count}} 个",
+  "quadrantImportantUrgent": "重要且紧急",
+  "quadrantImportantNotUrgent": "重要但不紧急",
+  "quadrantNotImportantUrgent": "不重要但紧急",
+  "quadrantNotImportantNotUrgent": "不重要且不紧急",
+  "noTasksInQuadrant": "暂无任务"
+  ,"taskActions": "任务操作"
+  ,"repeatSettings": "重复设置"
+  ,"repeatEvery": "每隔"
+  ,"repeatUnit": "单位"
+  ,"repeatDay": "天"
+  ,"repeatWeek": "周"
+  ,"repeatMonth": "月"
+  ,"repeatYear": "年"
+  ,"repeatHoliday": "法定节假日"
+  ,"repeatMode": "重复时机"
+  ,"repeatDue": "到期重复"
+  ,"repeatCompletion": "完成重复"
+  ,"holidayPolicy": "节假日策略"
+  ,"holidayAllow": "照常"
+  ,"holidaySkip": "跳过节假日"
+  ,"holidayNextWorkday": "顺延到工作日"
+  ,"repeatStartDate": "开始日期"
+  ,"saveRepeat": "保存重复"
+  ,"repeatIntervalError": "重复间隔必须是 1 到 999 的整数"
+  ,"skipThis": "跳过本次"
+  ,"onlyThis": "仅修改本次"
+  ,"onlyThisText": "本次文本"
+  ,"completeAndRepeat": "完成并安排下一次"
+  ,"calendarSubscriptions": "日历订阅"
+  ,"calendarItemCount_one": "{{count}} 项"
+  ,"calendarItemCount_other": "{{count}} 项"
+}

@@ -9,6 +9,7 @@ export interface PageTitlebarOptions {
   title?: string
   titleVisibility?: 'always' | 'hidden' | 'wide'
   trailing?: ReactNode
+  trailingAppearance?: 'group' | 'plain'
 }
 
 export const PageTitlebarContext = createContext<Dispatch<SetStateAction<PageTitlebarOptions | null>> | null>(null)

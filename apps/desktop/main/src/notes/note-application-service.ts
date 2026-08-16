@@ -33,6 +33,7 @@ export type {
   RenameTopicInput,
   SaveNoteUpdatesInput,
   SetTopicModeInput,
+  UpdateTodoTaskInput,
 } from './note-application-contracts'
 export { ActiveReadingDeletionError } from './note-entry-protection'
 

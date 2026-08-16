@@ -1,4 +1,5 @@
 import type { EditorStorage, JournalDate } from '@memorilo/editor-storage'
+import type { TopicBlockEdit } from '@memorilo/editor/note'
 import type {
   ApplyTopicEditsInput,
   CreateBookNoteInput,
@@ -10,6 +11,7 @@ import type {
   RenameTopicInput,
   SaveNoteUpdatesInput,
   SetTopicModeInput,
+  UpdateTodoTaskInput,
 } from './note-application-contracts'
 import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
@@ -24,6 +26,13 @@ import {
   projectBookTopicReadingContext,
 } from './note-application-projection'
 import { noteRevision } from './note-authoritative-projection'
+
+interface NodeJSON {
+  attrs?: Record<string, unknown>
+  content?: NodeJSON[]
+  text?: string
+  type: string
+}
 
 interface NoteApplicationCommandsDependencies {
   defaultNoteLearningEnabled: () => boolean
@@ -40,6 +49,102 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
     if (revision !== expectedRevision)
       throw new NoteRevisionConflictError(revision)
   }
+
+  const findTaskNode = (document: NodeJSON, blockId: string): NodeJSON => {
+    const visit = (nodes: readonly NodeJSON[]): NodeJSON | undefined => {
+      for (const node of nodes) {
+        if (node.type === 'list' && node.attrs?.blockId === blockId)
+          return node
+        const found = visit(node.content ?? [])
+        if (found)
+          return found
+      }
+    }
+    const found = visit(document.content ?? [])
+    if (!found || found.type !== 'list')
+      throw new Error(`Todo task ${blockId} was not found in Topic`)
+    return found
+  }
+
+  const paragraph = (text: string): NodeJSON => ({
+    content: text.length === 0 ? [] : [{ text, type: 'text' }],
+    type: 'paragraph',
+  })
+
+  const updateTodoTask = (input: UpdateTodoTaskInput) => serialize(async () => {
+    const current = await runtime.open(input.noteId)
+    const validation = current.note.getTopicValidationInput(input.topicId)
+    if (!('document' in validation))
+      throw new TypeError(`Topic ${input.topicId} does not have an editable document`)
+    const source = findTaskNode(validation.document, input.blockId)
+    if (source.attrs?.kind !== 'task')
+      throw new TypeError(`Block ${input.blockId} is not a Todo task`)
+    const sourceAttrs = source.attrs ?? {}
+    const sourceBlock = current.note.getTopicContent(input.topicId).blocks.find(block => block.id === input.blockId)
+    if (!sourceBlock)
+      throw new Error(`Todo task ${input.blockId} disappeared from Topic projection`)
+    const nextAttrs = {
+      ...sourceAttrs,
+      ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
+      ...(input.repeatRule === undefined ? {} : { repeatRule: input.repeatRule }),
+      ...(input.status === undefined
+        ? {}
+        : {
+            checked: input.status === 'done',
+            elapsedMs: input.status === 'todo' ? 0 : sourceAttrs.elapsedMs,
+            startedAt: input.status === 'doing' ? sourceAttrs.startedAt ?? Date.now() : null,
+            status: input.status,
+          }),
+    }
+    if (!input.onlyThis
+      && input.status === 'done'
+      && input.nextDueDate !== undefined
+      && sourceAttrs.repeatRule !== null
+      && typeof sourceAttrs.repeatRule === 'object') {
+      const repeatRule = sourceAttrs.repeatRule as { mode?: unknown }
+      if (repeatRule.mode === 'due' || repeatRule.mode === 'completion') {
+        nextAttrs.status = 'todo'
+        nextAttrs.checked = false
+        nextAttrs.dueDate = input.nextDueDate
+        nextAttrs.elapsedMs = 0
+        nextAttrs.startedAt = null
+      }
+    }
+    const edits: TopicBlockEdit[] = []
+    if (input.onlyThis) {
+      if (input.text === undefined)
+        throw new TypeError('Only-this Todo edits require replacement text')
+      if (input.nextDueDate === undefined)
+        throw new TypeError('Only-this Todo edits require the next series due date')
+      edits.push({
+        attributes: { ...nextAttrs, dueDate: input.nextDueDate, status: 'todo', checked: false, elapsedMs: 0, startedAt: null },
+        blockId: input.blockId,
+        operation: 'update-block-attributes',
+      })
+      edits.push({
+        attributes: { ...sourceAttrs, checked: false, dueDate: input.dueDate ?? null, elapsedMs: 0, repeatRule: null, startedAt: null, status: 'todo' },
+        content: [paragraph(input.text)],
+        kind: 'task',
+        operation: 'insert-block',
+        parentId: sourceBlock.parentId,
+      })
+    }
+    else {
+      if (input.text !== undefined)
+        edits.push({ blockId: input.blockId, content: [paragraph(input.text)], operation: 'update-block-content' })
+      edits.push({ attributes: nextAttrs, blockId: input.blockId, operation: 'update-block-attributes' })
+    }
+    const version = current.note.getVersion()
+    try {
+      current.note.applyTopicBlockEdits({ edits, topicId: input.topicId })
+      await current.note.validateTopic(input.topicId)
+      await runtime.persistLocalMutation(current, version, { broadcast: true, topicIds: [input.topicId] })
+    }
+    catch (error) {
+      runtime.invalidate(input.noteId)
+      throw error
+    }
+  })
 
   return {
     applyTopicEdits: (input: ApplyTopicEditsInput) => serializeEffect(Effect.gen(function* () {
@@ -167,6 +272,7 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
         throw error
       }
     }),
+    updateTodoTask,
   }
 }
 

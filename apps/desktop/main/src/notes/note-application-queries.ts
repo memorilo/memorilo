@@ -120,6 +120,9 @@ export function createNoteApplicationQueries({ runtime, storage, today }: NoteAp
     listRecentNotes: (input: Parameters<EditorStorage['notes']['listRecentNotes']>[0] = {}) => serialize(async () => (
       (await storage.notes.listRecentNotes({ ...input, today: today() })).map(projectNoteActivity)
     )),
+    listTodoTasks: (input: Parameters<EditorStorage['tasks']['list']>[0] = {}) => serialize(() => (
+      storage.tasks.list(input)
+    )),
     openMostRecentNote: () => serialize(async () => {
       const stored = await storage.notes.openMostRecentNote({ today: today() })
       const journal = await storage.journals.getMetadata({ noteId: stored.id })

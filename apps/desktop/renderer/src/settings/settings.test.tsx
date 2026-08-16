@@ -85,6 +85,7 @@ describe('settings renderer', () => {
         readerPageMode: 'single-page',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
+        todo: desktopConfigurationDefinition.defaults.todo,
         weekStart: 'monday',
       })
       expect(document.documentElement.lang).toBe('zh-CN')
@@ -109,6 +110,7 @@ describe('settings renderer', () => {
         readerPageMode: 'single-page',
         reduceMotion: true,
         tiffConversionFormat: 'webp',
+        todo: desktopConfigurationDefinition.defaults.todo,
         weekStart: 'monday',
       })
       expect(document.documentElement).toHaveAttribute('data-reduce-motion', 'true')

@@ -71,6 +71,9 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
     readerPageMode: 'continuous',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
+    todo: {
+      enabled: true,
+    },
     weekStart: 'sunday',
   }
 }

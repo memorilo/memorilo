@@ -1,4 +1,4 @@
-import type { JournalDate } from '@memorilo/editor-storage'
+import type { JournalDate, TodoRepeatRule, TodoTaskStatus } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { TopicBlockEdit } from '@memorilo/editor/note'
 import type { BookFileBinding } from '@memorilo/reading-model'
@@ -81,6 +81,18 @@ export interface NoteExternalUpdate {
 export interface SaveNoteUpdatesInput {
   noteId: string
   updates: readonly Uint8Array[]
+}
+
+export interface UpdateTodoTaskInput {
+  blockId: string
+  dueDate?: JournalDate | null
+  nextDueDate?: JournalDate | null
+  noteId: string
+  onlyThis?: boolean
+  repeatRule?: TodoRepeatRule | null
+  status?: TodoTaskStatus
+  text?: string
+  topicId: string
 }
 
 export interface GetNoteCardProjectionInput {

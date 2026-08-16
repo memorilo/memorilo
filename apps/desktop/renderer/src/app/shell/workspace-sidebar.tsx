@@ -14,6 +14,7 @@ import {
   Clock3,
   Files,
   GraduationCap,
+  ListTodo,
   PanelLeft,
   Star,
 } from 'lucide-react'
@@ -53,7 +54,7 @@ interface SourceItemProps {
     topicId: string
   } | {
     kind: 'route'
-    to: '/journals' | '/learning' | '/pages' | '/shelf'
+    to: '/journals' | '/learning' | '/pages' | '/shelf' | '/todo'
   }
   icon: LucideIcon
   label: string
@@ -65,12 +66,18 @@ interface SourceItemContentProps {
   selected: boolean
 }
 
-function navigationItems(t: (key: string) => string, learningEnabled: boolean): readonly SourceItemProps[] {
+function navigationItems(
+  t: (key: string) => string,
+  todoEnabled: boolean,
+  learningEnabled: boolean,
+): readonly SourceItemProps[] {
   const items: SourceItemProps[] = [
     { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
     { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
     { destination: { kind: 'route', to: '/shelf' }, icon: BookOpen, label: t('shelf') },
   ]
+  if (todoEnabled)
+    items.push({ destination: { kind: 'route', to: '/todo' }, icon: ListTodo, label: t('todo') })
   if (learningEnabled)
     items.push({ destination: { kind: 'route', to: '/learning' }, icon: GraduationCap, label: t('learning') })
   return items
@@ -359,7 +366,7 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
             <h2>{t('navigation')}</h2>
           </Sidebar.Header>
           <div {...stylex.props(workspaceSidebarStyles.sourceList)}>
-            {navigationItems(t, configuration.learning.enabled).map(item => <SourceItem key={item.label} {...item} />)}
+            {navigationItems(t, configuration.todo.enabled, configuration.learning.enabled).map(item => <SourceItem key={item.label} {...item} />)}
           </div>
         </Sidebar.Group>
         <SourceGroup

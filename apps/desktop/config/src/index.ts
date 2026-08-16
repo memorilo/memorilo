@@ -17,6 +17,7 @@ export type {
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
   DesktopTiffConversionFormat,
+  DesktopTodoConfiguration,
   DesktopWeekStart,
 } from './contract'
 export { desktopConfigurationChangedChannel } from './contract'
@@ -85,6 +86,9 @@ export const DesktopConfigurationSchema = Schema.Struct({
   readerPageMode: Schema.Literals(['continuous', 'single-page']),
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
+  todo: Schema.Struct({
+    enabled: Schema.Boolean,
+  }),
   weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
@@ -123,6 +127,9 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerPageMode: 'continuous' as const,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
+    todo: {
+      enabled: true,
+    },
     weekStart: 'sunday' as const,
   },
   id: 'memorilo-desktop',
@@ -158,6 +165,12 @@ export const desktopConfigurationDefinition = defineConfiguration({
         control: 'toggle',
         label: 'Enable learning for new Notes',
         path: 'defaultNoteLearningEnabled',
+      },
+      {
+        control: 'toggle',
+        description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
+        label: 'Enable Todo workspace',
+        path: 'todo.enabled',
       },
     ],
     id: 'general',
@@ -421,5 +434,14 @@ export const desktopConfigurationDefinition = defineConfiguration({
 })
 
 export function migrateDesktopConfiguration(configuration: unknown): unknown {
+  if (typeof configuration === 'object'
+    && configuration !== null
+    && !Array.isArray(configuration)
+    && !Object.hasOwn(configuration, 'todo')) {
+    return {
+      ...configuration,
+      todo: { enabled: true },
+    }
+  }
   return configuration
 }
