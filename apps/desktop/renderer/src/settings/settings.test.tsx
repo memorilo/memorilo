@@ -30,12 +30,12 @@ describe('settings renderer', () => {
     fireEvent.click(rendered.getByRole('radio', { name: 'Monday' }))
     await waitFor(() => expect(store.getSnapshot().weekStart).toBe('monday'))
 
-    fireEvent.click(rendered.getByRole('button', { name: 'Editor' }))
-    expect(await rendered.findByRole('heading', { name: 'Editor' })).toBeInTheDocument()
+    fireEvent.click(rendered.getByRole('button', { name: 'Notes & Editor' }))
+    expect(await rendered.findByRole('heading', { name: 'Notes & Editor' })).toBeInTheDocument()
     expect(rendered.getByRole('combobox', { name: 'Pasted network images' })).toHaveValue('download')
 
-    fireEvent.click(rendered.getByRole('button', { name: 'Images' }))
-    expect(await rendered.findByRole('heading', { name: 'Images' })).toBeInTheDocument()
+    fireEvent.click(rendered.getByRole('button', { name: 'Media & Storage' }))
+    expect(await rendered.findByRole('heading', { name: 'Media & Storage' })).toBeInTheDocument()
     expect(rendered.getByRole('combobox', { name: 'TIFF conversion format' })).toHaveValue('webp')
 
     fireEvent.click(rendered.getByRole('button', { name: 'Reading' }))
