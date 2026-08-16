@@ -2,6 +2,7 @@ export {
   combineLifecycleFailures,
   runLifecycleOperations,
   runSyncLifecycleOperations,
+  toError,
 } from './errors'
 export type { LifecycleOperation, SyncLifecycleOperation } from './errors'
 export type {

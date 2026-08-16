@@ -10,41 +10,38 @@ import type {
   ShelfBrowseIssue,
   ShelfBrowseResult,
   ShelfImageCache,
+  ShelfRequestError,
   ShelfStorage,
   StoredShelfSource,
 } from '@memorilo/shelf'
 import type { Effect as EffectType } from 'effect'
 import type { ShelfOperationRuntime } from './shelf-operation-runtime'
 import type { ShelfCredentialAccess } from './shelf-source-model'
-import {
-  ShelfAuthenticationError,
-  ShelfNetworkError,
-  ShelfParseError,
-  ShelfResponseError,
-} from '@memorilo/shelf'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { normalizeShelfSourceUrl, toPublicShelfSource } from './shelf-source-model'
 
 interface ShelfCatalogBrowserDependencies {
   credentials: Pick<ShelfCredentialAccess, 'read'>
-  fetchAsset: (input: FetchShelfAssetInput) => EffectType.Effect<FetchShelfAssetResult, unknown>
-  fetchPage: (input: FetchShelfPageInput) => EffectType.Effect<FetchShelfPageResult, unknown>
+  fetchAsset: (input: FetchShelfAssetInput) => EffectType.Effect<FetchShelfAssetResult, ShelfRequestError>
+  fetchPage: (input: FetchShelfPageInput) => EffectType.Effect<FetchShelfPageResult, ShelfRequestError>
   imageCache: Pick<ShelfImageCache, 'get' | 'save'>
   now: () => number
   operations: ShelfOperationRuntime
   storage: Pick<ShelfStorage, 'pages' | 'sources'>
 }
 
-function requestIssue(error: unknown): ShelfBrowseIssue {
-  if (error instanceof ShelfAuthenticationError)
-    return { kind: 'authentication' }
-  if (error instanceof ShelfParseError)
-    return { kind: 'parse' }
-  if (error instanceof ShelfResponseError)
-    return { kind: 'response', status: error.status }
-  if (error instanceof ShelfNetworkError)
-    return { kind: 'network' }
-  return { kind: 'network' }
+function requestIssue(error: ShelfRequestError): ShelfBrowseIssue {
+  switch (error._tag) {
+    case 'ShelfAuthenticationError':
+      return { kind: 'authentication' }
+    case 'ShelfParseError':
+      return { kind: 'parse' }
+    case 'ShelfResponseError':
+      return { kind: 'response', status: error.status }
+    case 'ShelfNetworkError':
+      return { kind: 'network' }
+  }
 }
 
 /** Owns source selection, conditional refresh, and publication asset caching. */
@@ -53,10 +50,8 @@ export class ShelfCatalogBrowser {
 
   cachedView(input: BrowseShelfInput): Promise<ShelfBrowseResult> {
     return this.dependencies.operations.run(scope => Effect.gen({ self: this }, function* () {
-      const sources = this.#selectSources(
-        yield* this.#promise(() => this.dependencies.storage.sources.list()),
-        input.sourceId,
-      )
+      const storedSources = yield* this.#promise(() => this.dependencies.storage.sources.list())
+      const sources = yield* this.#selectSources(storedSources, input.sourceId)
       return {
         groups: yield* scope.all(sources.map(source => scope.source(
           source.id,
@@ -72,17 +67,20 @@ export class ShelfCatalogBrowser {
       input.sourceId,
       scope.asset(Effect.gen({ self: this }, function* () {
         const source = yield* this.#requireSource(input.sourceId)
-        const url = normalizeShelfSourceUrl(input.url)
+        const url = yield* Effect.try({ catch: toError, try: () => normalizeShelfSourceUrl(input.url) })
         const cached = yield* this.#promise(() => this.dependencies.imageCache.get(source.id, url))
         if (cached)
           return { bytes: cached.bytes, mimeType: cached.mimeType }
-        const credentials = this.dependencies.credentials.read(source)
+        const credentials = yield* Effect.try({
+          catch: toError,
+          try: () => this.dependencies.credentials.read(source),
+        })
         const result = yield* this.dependencies.fetchAsset({
           ...(credentials ? { credentials } : {}),
           url,
         })
         if (result.status === 'not-modified')
-          throw new Error(`Shelf asset ${url} returned not-modified without cached bytes`)
+          return yield* Effect.fail(new Error(`Shelf asset ${url} returned not-modified without cached bytes`))
         yield* this.#promise(() => this.dependencies.imageCache.save({
           bytes: result.bytes,
           etag: result.etag,
@@ -99,10 +97,8 @@ export class ShelfCatalogBrowser {
 
   refreshView(input: BrowseShelfInput): Promise<ShelfBrowseResult> {
     return this.dependencies.operations.run(scope => Effect.gen({ self: this }, function* () {
-      const sources = this.#selectSources(
-        yield* this.#promise(() => this.dependencies.storage.sources.list()),
-        input.sourceId,
-      )
+      const storedSources = yield* this.#promise(() => this.dependencies.storage.sources.list())
+      const sources = yield* this.#selectSources(storedSources, input.sourceId)
       const groups = yield* scope.all(sources.map(source => scope.source(
         source.id,
         this.#refreshGroup(source, input),
@@ -118,28 +114,32 @@ export class ShelfCatalogBrowser {
     source: StoredShelfSource,
     input: BrowseShelfInput,
     issue: ShelfBrowseIssue | null = null,
-  ): EffectType.Effect<ShelfBrowseGroup, unknown> {
+  ): EffectType.Effect<ShelfBrowseGroup, Error> {
     return Effect.gen({ self: this }, function* () {
+      const url = yield* this.#sourcePageUrl(source, input)
       const cached = yield* this.#promise(() => this.dependencies.storage.pages.get(
         source.id,
-        this.#sourcePageUrl(source, input),
+        url,
       ))
       return { issue, page: cached?.page ?? null, source: toPublicShelfSource(source) }
     })
   }
 
-  #promise<Result>(operation: () => Promise<Result>): EffectType.Effect<Result, unknown> {
-    return Effect.tryPromise({ catch: error => error, try: operation })
+  #promise<Result>(operation: () => Promise<Result>): EffectType.Effect<Result, Error> {
+    return Effect.tryPromise({ catch: toError, try: operation })
   }
 
   #refreshGroup(
     source: StoredShelfSource,
     input: BrowseShelfInput,
-  ): EffectType.Effect<ShelfBrowseGroup, unknown> {
+  ): EffectType.Effect<ShelfBrowseGroup, Error> {
     return Effect.gen({ self: this }, function* () {
-      const url = this.#sourcePageUrl(source, input)
+      const url = yield* this.#sourcePageUrl(source, input)
       const cached = yield* this.#promise(() => this.dependencies.storage.pages.get(source.id, url))
-      const credentials = this.dependencies.credentials.read(source)
+      const credentials = yield* Effect.try({
+        catch: toError,
+        try: () => this.dependencies.credentials.read(source),
+      })
       const outcome = yield* this.dependencies.fetchPage({
         ...(cached?.etag ? { etag: cached.etag } : {}),
         ...(cached?.lastModified ? { lastModified: cached.lastModified } : {}),
@@ -173,7 +173,7 @@ export class ShelfCatalogBrowser {
     })
   }
 
-  #requireSource(sourceId: string): EffectType.Effect<StoredShelfSource, unknown> {
+  #requireSource(sourceId: string): EffectType.Effect<StoredShelfSource, Error> {
     return Effect.gen({ self: this }, function* () {
       const source = yield* this.#promise(() => this.dependencies.storage.sources.get(sourceId))
       if (!source)
@@ -185,20 +185,30 @@ export class ShelfCatalogBrowser {
   #selectSources(
     sources: readonly StoredShelfSource[],
     sourceId: string | undefined,
-  ): readonly StoredShelfSource[] {
-    if (sourceId === undefined)
-      return sources.filter(source => source.enabled)
-    const selected = sources.find(source => source.id === sourceId)
-    if (!selected)
-      throw new Error(`Unknown Shelf source: ${sourceId}`)
-    return [selected]
+  ): EffectType.Effect<readonly StoredShelfSource[], Error> {
+    return Effect.try({
+      catch: toError,
+      try: () => {
+        if (sourceId === undefined)
+          return sources.filter(source => source.enabled)
+        const selected = sources.find(source => source.id === sourceId)
+        if (!selected)
+          throw new Error(`Unknown Shelf source: ${sourceId}`)
+        return [selected]
+      },
+    })
   }
 
-  #sourcePageUrl(source: StoredShelfSource, input: BrowseShelfInput): string {
-    if (input.pageUrl === undefined)
-      return source.url
-    if (input.sourceId !== source.id)
-      throw new TypeError('A Shelf page URL can only be used with one selected source')
-    return normalizeShelfSourceUrl(input.pageUrl)
+  #sourcePageUrl(source: StoredShelfSource, input: BrowseShelfInput): EffectType.Effect<string, Error> {
+    return Effect.try({
+      catch: toError,
+      try: () => {
+        if (input.pageUrl === undefined)
+          return source.url
+        if (input.sourceId !== source.id)
+          throw new TypeError('A Shelf page URL can only be used with one selected source')
+        return normalizeShelfSourceUrl(input.pageUrl)
+      },
+    })
   }
 }

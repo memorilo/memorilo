@@ -2,7 +2,7 @@ import type {
   DesktopReviewItem,
   GetNextDesktopReviewItemInput,
   RestoreDesktopReviewItemInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { LearningQueueItem, LearningStorage, LearningTarget } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { NoteApplicationService, NoteCardProjection } from '../notes/note-application-service'

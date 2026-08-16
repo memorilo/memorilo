@@ -1,16 +1,16 @@
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import type { BookReadingApplication } from './book-reading-application'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
-import { withIpcContext } from './ipc-handler-registry'
+import { withDesktopRequestContext } from '../desktop-request-handlers'
 
-export function createBookHandlers(application: BookReadingApplication): DesktopIpcHandlers['books'] {
+export function createBookHandlers(application: BookReadingApplication): DesktopRequestHandlers['books'] {
   return {
-    closeReadingSession: withIpcContext((context, sessionId: string) => (
+    closeReadingSession: withDesktopRequestContext((context, sessionId: string) => (
       application.closeSession(sessionId, context.sender)
     )),
-    createContext: withIpcContext((context, input) => application.createContext(input, context.sender)),
+    createContext: withDesktopRequestContext((context, input) => application.createContext(input, context.sender)),
     isReadingAvailable: readingId => application.isReadingAvailable(readingId),
     listContexts: readingId => application.listContexts(readingId),
-    rebindContext: withIpcContext((context, input) => application.rebindContext(input, context.sender)),
-    selectContext: withIpcContext((context, input) => application.selectContext(input, context.sender)),
+    rebindContext: withDesktopRequestContext((context, input) => application.rebindContext(input, context.sender)),
+    selectContext: withDesktopRequestContext((context, input) => application.selectContext(input, context.sender)),
   }
 }

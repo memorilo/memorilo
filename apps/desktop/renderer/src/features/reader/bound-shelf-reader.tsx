@@ -1,4 +1,4 @@
-import type { DesktopBookTopicReadingContext } from '@memorilo/desktop-preload'
+import type { DesktopBookTopicReadingContext } from '@memorilo/desktop-api'
 import type {
   ReaderAnnotation,
   ReaderAnnotationTopicCreateInput,
@@ -12,8 +12,9 @@ import { WindowReader } from '@memorilo/editor/reader'
 import { PanelRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
 import { useDesktopConfiguration } from '../../shared/configuration'
+
+import { desktopRequests } from '../../shared/desktop-requests'
 import { desktopEditorAdapters } from '../notes/editor/note-editor-session'
 import { useNoteFavorite } from '../notes/note-favorite'
 import { NoteInspectorContent } from '../notes/note-inspector'
@@ -155,7 +156,7 @@ export function BoundShelfReader({
     bookTopic.setAnnotations(nextAnnotations)
   }, [bookTopic])
   const captureAnnotationRegion = useCallback((region: ReaderCaptureRegion) => captureReaderAnnotationRegion({
-    captureReaderRegion: window.desktop.captureReaderRegion,
+    captureReaderRegion: desktopRequests.captureReaderRegion,
     region,
   }), [])
   const createAnnotationTopic = useCallback((input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => {
@@ -164,7 +165,7 @@ export function BoundShelfReader({
       captureReaderRegion: captureAnnotationRegion,
       createTopic: note.createTopic,
       input,
-      saveImage: window.desktop.saveImage,
+      saveImage: desktopRequests.saveImage,
       signal,
       viewport: { height: window.innerHeight, width: window.innerWidth },
     })
@@ -189,7 +190,7 @@ export function BoundShelfReader({
       input,
       note,
       readImageSize: readReaderImageSize,
-      saveImage: window.desktop.saveImage,
+      saveImage: desktopRequests.saveImage,
       signal,
       title: t('imageOcclusion.defaultTitle'),
       viewport: { height: window.innerHeight, width: window.innerWidth },

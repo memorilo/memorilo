@@ -30,9 +30,21 @@ export const mixedSemanticListCases = [
 ] as const
 
 export function documentBlock(id: string, body: NodeJSON, kind = 'outline', children: NodeJSON[] = []): NodeJSON {
+  const attrs = kind === 'task'
+    ? {
+        blockId: id,
+        checked: false,
+        collapsed: false,
+        elapsedMs: 0,
+        kind,
+        order: null,
+        startedAt: null,
+        status: 'todo',
+      }
+    : { blockId: id, checked: false, collapsed: false, kind, order: null }
   return {
     type: 'list',
-    attrs: { blockId: id, checked: false, collapsed: false, kind, order: null },
+    attrs,
     content: [body, ...children],
   }
 }

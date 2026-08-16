@@ -71,7 +71,7 @@ test('persists an edit across route navigation before the debounce expires', asy
 })
 
 test('persists an edit made immediately before application quit', async () => {
-  const environment = await createPagesTestEnvironment('memorilo-app-quit-save-', [])
+  const environment = await createPagesTestEnvironment('memorilo-quit-save-', [])
   try {
     const application = await launchPagesTestApplication(environment)
     const window = await application.firstWindow()

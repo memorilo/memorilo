@@ -1,4 +1,4 @@
-import type { DesktopNote, DesktopNoteExternalUpdate } from '@memorilo/desktop-preload'
+import type { DesktopNote, DesktopNoteExternalUpdate } from '@memorilo/desktop-api'
 import type { EditorNote, NoteEntrySnapshot } from '@memorilo/editor/note'
 import { createEditorNote } from '@memorilo/editor/note'
 import { Effect } from 'effect'

@@ -2,6 +2,7 @@ import type { BrowseShelfInput, ShelfBrowseGroup, ShelfBrowseIssue, ShelfSource 
 import type { ShelfSearch } from './shelf-page'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { desktopRequests } from '../../shared/desktop-requests'
 import { matchingShelfPublications } from './publication/shelf-publication-collection'
 import { desktopEffect, shelfEffectQuery } from './shelf-query'
 
@@ -25,7 +26,7 @@ export function useShelfCatalog(routeSearch: ShelfSearch, query: string) {
   const selectedSourceId = routeSearch.source ?? null
   const pageUrl = routeSearch.page ?? null
   const sourcesQuery = useQuery(shelfEffectQuery.queryOptions({
-    queryFn: () => desktopEffect(() => window.desktop.listShelfSources()),
+    queryFn: () => desktopEffect('shelf.list-sources', () => desktopRequests.listShelfSources()),
     queryKey: ['shelf-sources'],
     staleTime: Infinity,
   }))
@@ -40,13 +41,13 @@ export function useShelfCatalog(routeSearch: ShelfSearch, query: string) {
   const browseEnabled = sourcesQuery.isSuccess && sources.length > 0
   const cachedViewQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: browseEnabled,
-    queryFn: () => desktopEffect(() => window.desktop.getCachedShelfView(browseInput)),
+    queryFn: () => desktopEffect('shelf.get-cached-view', () => desktopRequests.getCachedShelfView(browseInput)),
     queryKey: ['shelf-view', 'cached', activeSourceId ?? allSourcesId, pageUrl],
     staleTime: Infinity,
   }))
   const refreshedViewQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: browseEnabled,
-    queryFn: () => desktopEffect(() => window.desktop.refreshShelfView(browseInput)),
+    queryFn: () => desktopEffect('shelf.refresh-view', () => desktopRequests.refreshShelfView(browseInput)),
     queryKey: ['shelf-view', 'refresh', activeSourceId ?? allSourcesId, pageUrl],
     retry: false,
     staleTime: 60_000,
@@ -56,7 +57,7 @@ export function useShelfCatalog(routeSearch: ShelfSearch, query: string) {
   const paginationUrls = activeSourceId ? paginationByContext[paginationContext] ?? [] : []
   const paginationQueries = useQueries({
     queries: paginationUrls.map(url => shelfEffectQuery.queryOptions({
-      queryFn: () => desktopEffect(() => window.desktop.refreshShelfView({
+      queryFn: () => desktopEffect('shelf.refresh-page', () => desktopRequests.refreshShelfView({
         pageUrl: url,
         ...(activeSourceId ? { sourceId: activeSourceId } : {}),
       })),

@@ -1,4 +1,4 @@
-import type { DesktopLearningApi } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi } from '@memorilo/desktop-api'
 import type { ReactNode } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
@@ -6,7 +6,9 @@ import { CheckCircle2, Clock3, Flame, RefreshCw, ShieldCheck } from 'lucide-reac
 import { motion, useReducedMotion } from 'motion/react'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../../shared/desktop-requests'
 
+import { desktopEffect, desktopEffectQuery } from '../../../../shared/effect-query'
 import { learningQueryKeys } from '../../query-keys'
 import { learningActivityStyles as styles } from './learning-activity.stylex'
 
@@ -271,11 +273,13 @@ function LearningActivityContent({
 
 export function LearningActivity() {
   const { t } = useTranslation('learning')
-  const activityQuery = useQuery({
-    queryFn: () => window.desktop.learning.getActivitySummary({ days: activityPeriodDays }),
+  const activityQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.get-activity-summary', () => (
+      desktopRequests.learning.getActivitySummary({ days: activityPeriodDays })
+    )),
     queryKey: learningQueryKeys.activitySummary,
     refetchOnMount: 'always',
-  })
+  }))
 
   if (activityQuery.isPending) {
     return (

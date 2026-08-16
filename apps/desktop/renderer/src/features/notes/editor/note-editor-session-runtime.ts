@@ -2,7 +2,7 @@ import type {
   DesktopNote,
   DesktopNoteExternalUpdate,
   DesktopNoteWriteReceipt,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type {
   EditorNote,
   EditorNoteChange,

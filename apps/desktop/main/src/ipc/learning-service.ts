@@ -1,29 +1,29 @@
 import type { LearningStorage } from '@memorilo/editor-storage'
 import type { DesktopAnkiService } from '../anki/desktop-anki-service'
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import type { LearningReviewApplication } from '../learning/learning-review-application'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
 
 export function createLearningHandlers(
   learning: LearningStorage,
   reviews: LearningReviewApplication,
   anki: DesktopAnkiService,
   now: () => number = Date.now,
-): DesktopIpcHandlers['learning'] {
+): DesktopRequestHandlers['learning'] {
   return {
     answerAnkiReviewCard(input) {
       return anki.answerReviewCard(input)
     },
     archiveOptimizer(optimizerId: string) {
-      return learning.optimizers.archive(optimizerId)
+      return learning.optimizers.archive(optimizerId).then(() => null)
     },
     assignNoteOptimizer(input: Parameters<LearningStorage['optimizers']['assignToNote']>[0]) {
-      return learning.optimizers.assignToNote(input)
+      return learning.optimizers.assignToNote(input).then(() => null)
     },
     createOptimizer(input: Parameters<LearningStorage['optimizers']['create']>[0]) {
       return learning.optimizers.create(input)
     },
     endAnkiReview() {
-      return anki.endReview()
+      return anki.endReview().then(() => null)
     },
     getCurrentAnkiReviewCard() {
       return anki.currentReviewCard()
@@ -86,7 +86,7 @@ export function createLearningHandlers(
       })
     },
     playAnkiReviewAudio(input) {
-      return anki.playReviewAudio(input)
+      return anki.playReviewAudio(input).then(() => null)
     },
     rateMultiLineCard(input: Parameters<LearningStorage['reviews']['rateMultiLineCard']>[0]) {
       return learning.reviews.rateMultiLineCard(input)

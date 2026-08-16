@@ -1,4 +1,4 @@
-import type { DesktopBookTopicContextSummary, DesktopBookTopicReadingContext } from '@memorilo/desktop-preload'
+import type { DesktopBookTopicContextSummary, DesktopBookTopicReadingContext } from '@memorilo/desktop-api'
 import type { ReaderPosition, ReaderSource } from '@memorilo/editor/reader'
 import type { BookTitleDraft } from './reader-context-dialogs'
 import { WindowReader } from '@memorilo/editor/reader'
@@ -9,8 +9,9 @@ import { AlertCircle, BookOpen, LoaderCircle, Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
-
 import { useDesktopConfiguration } from '../../shared/configuration'
+
+import { desktopRequests } from '../../shared/desktop-requests'
 import { useOwnedResource } from '../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { useFlushNotePersistence } from '../notes/persistence/note-persistence-hooks'
@@ -65,7 +66,7 @@ function ShelfReaderSession({
 
   const documentQuery = useQuery(shelfEffectQuery.queryOptions({
     gcTime: 0,
-    queryFn: () => desktopEffect(() => window.desktop.openShelfReading({ readingId })),
+    queryFn: () => desktopEffect('shelf.open-reading', () => desktopRequests.openShelfReading({ readingId })),
     queryKey: ['shelf-reading', readingId],
     retry: false,
     staleTime: Infinity,
@@ -73,7 +74,7 @@ function ShelfReaderSession({
   const contextsQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: documentQuery.data !== undefined,
     gcTime: 0,
-    queryFn: () => desktopEffect(() => window.desktop.listBookContexts(readingId)),
+    queryFn: () => desktopEffect('books.list-contexts', () => desktopRequests.listBookContexts(readingId)),
     queryKey: ['shelf-reading-contexts', readingId],
     retry: false,
     staleTime: Infinity,
@@ -83,11 +84,11 @@ function ShelfReaderSession({
         byteLength: documentQuery.data.byteLength,
         format: documentQuery.data.format,
         name: documentQuery.data.name,
-        read: (offset, length) => window.desktop.readShelfReadingRange({ length, offset, readingId }),
+        read: (offset, length) => desktopRequests.readShelfReadingRange({ length, offset, readingId }),
       }
     : null, [documentQuery.data, readingId])
   const contextSessionKey = useMemo(() => documentQuery.data
-    ? { currentFile: documentQuery.data.book.file, flush, readingId, transport: window.desktop }
+    ? { currentFile: documentQuery.data.book.file, flush, readingId, transport: desktopRequests }
     : null, [documentQuery.data, flush, readingId])
   const contextSession = useOwnedResource(
     'Reader context session',

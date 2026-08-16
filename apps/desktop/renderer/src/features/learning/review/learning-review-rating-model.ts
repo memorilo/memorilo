@@ -1,4 +1,4 @@
-import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-api'
 
 export type ReviewRating = 'again' | 'easy' | 'good' | 'hard'
 

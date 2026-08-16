@@ -1,11 +1,13 @@
-import type { DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopReviewItem } from '@memorilo/desktop-api'
 import type { CardSurfaceItemSelection, CardSurfaceSide } from '@memorilo/editor'
 import { CardSurface, createEditorNote, demoEditorAdapters, projectEditorCards } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { learningReviewSourceStyles as styles } from './learning-review-source.stylex'
 
 const ImageOcclusionReview = lazy(async () => {
@@ -64,10 +66,12 @@ function EditorLearningReviewSource({
   if (item.card.kind === 'image-occlusion')
     throw new TypeError('Image occlusion Cards require the image occlusion review surface')
   const card = item.card
-  const sourceQuery = useQuery({
-    queryFn: () => window.desktop.getNote({ noteId: item.queue.noteId }),
+  const sourceQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('notes.get-review-source', () => (
+      desktopRequests.getNote({ noteId: item.queue.noteId })
+    )),
     queryKey: ['learning', 'review-source', item.queue.noteId, item.updatedAt],
-  })
+  }))
   const source = useMemo(() => {
     if (!sourceQuery.data)
       return null

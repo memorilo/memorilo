@@ -13,6 +13,7 @@ import {
 import { router } from './app/router'
 import { NotePersistenceManager } from './features/notes/persistence/note-persistence-manager'
 import { NotePersistenceProvider } from './features/notes/persistence/note-persistence-provider'
+import { desktopRequests } from './shared/desktop-requests'
 import './styles/renderer-global.css'
 
 const rootElement = document.querySelector('#root')
@@ -34,7 +35,7 @@ const root = createRoot(rootElement)
 
 void bootstrapRenderer(
   async (store) => {
-    const notePersistenceManager = new NotePersistenceManager({ adapter: window.desktop })
+    const notePersistenceManager = new NotePersistenceManager({ adapter: desktopRequests })
     const dispose = () => runLifecycleOperations([
       () => root.unmount(),
       () => notePersistenceManager.close(),

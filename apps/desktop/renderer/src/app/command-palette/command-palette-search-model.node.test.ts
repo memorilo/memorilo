@@ -1,4 +1,4 @@
-import type { DesktopNoteSearchHit } from '@memorilo/desktop-preload'
+import type { DesktopNoteSearchHit } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { PaletteCommand } from '../../shared/command-palette'
 import type { CommandPaletteNavigation } from './command-palette-search-model'

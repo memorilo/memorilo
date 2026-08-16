@@ -12,8 +12,6 @@ export interface SqliteShelfImageCacheOptions {
   maximumBytes?: number
 }
 
-export interface CreateShelfImageCacheOptions extends SqliteShelfImageCacheOptions {}
-
 interface ShelfImageRow {
   bytes: Uint8Array
   etag: string | null
@@ -102,27 +100,7 @@ export class SqliteShelfImageCache implements ShelfImageCache {
     if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1)
       throw new RangeError('Shelf image cache maximum size must be a positive safe integer')
     await options.database.exec(imageCacheSchema)
-    await options.database.batch([
-      {
-        sql: `
-          DELETE FROM shelf_assets
-          WHERE length(bytes) <= 0
-            OR mime_type NOT LIKE 'image/%'
-            OR fetched_at < 0
-        `,
-      },
-      {
-        sql: `
-          INSERT INTO shelf_image_cache_entries (source_id, url, byte_size, last_accessed_at)
-          SELECT source_id, url, length(bytes), fetched_at
-          FROM shelf_assets
-          WHERE true
-          ON CONFLICT(source_id, url) DO UPDATE SET
-            byte_size = excluded.byte_size
-        `,
-      },
-      ...pruningCommands(maximumBytes),
-    ])
+    await options.database.batch(pruningCommands(maximumBytes))
     return new SqliteShelfImageCache(options.database, maximumBytes)
   }
 
@@ -237,9 +215,4 @@ export class SqliteShelfImageCache implements ShelfImageCache {
       ...pruningCommands(this.#maximumBytes),
     ]))
   }
-}
-
-/** @deprecated Prefer `SqliteShelfImageCache.open`. */
-export function createShelfImageCache(options: CreateShelfImageCacheOptions): Promise<SqliteShelfImageCache> {
-  return SqliteShelfImageCache.open(options)
 }

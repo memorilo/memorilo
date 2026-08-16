@@ -36,7 +36,6 @@ test.describe('localization in the renderer dev server', () => {
       rendererUrl: devServer.url,
     })
     const window = await context.electronApplication.firstWindow()
-
     // First boot from the Vite dev server transforms and serves many modules, so give
     // the renderer generous time to become ready.
     await expect(window.getByRole('link', { name: '日志' })).toBeVisible({ timeout: 30_000 })

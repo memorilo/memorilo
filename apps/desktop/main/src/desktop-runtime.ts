@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 
 import { createConfigurationStore } from '@memorilo/config'
+import { memoriloAppOrigin } from '@memorilo/desktop-api/transport'
 import {
   desktopConfigurationChangedChannel,
   desktopConfigurationDefinition,
@@ -22,7 +23,6 @@ import { ShelfReadingFileStore } from '@memorilo/shelf/node'
 import { app, BrowserWindow, dialog } from 'electron'
 
 import { installApplicationMenu } from './application-menu'
-import { registerAssetProtocol } from './asset-protocol'
 import { createDatabaseBackupApplication } from './backup/backup-application'
 import { createDesktopConfigurationAdapter } from './configuration/desktop-configuration-adapter'
 import { createDesktopServices } from './ipc/services'
@@ -30,7 +30,6 @@ import { installJournalRollover } from './lifecycle/journal-rollover'
 import { createMcpServerController } from './mcp/mcp-server-controller'
 import { createNoteApplicationService } from './notes/note-application-service'
 import { createActiveReadingRegistry } from './reading/active-reading-registry'
-import { registerRendererProtocol } from './renderer-protocol'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { openCurrentMainDatabase } from './storage/main-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
@@ -173,16 +172,6 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     const userDataPath = app.getPath('userData')
     const database = mainDatabasePath(userDataPath)
     const assets = assetDirectory(database)
-    await scope.acquire({
-      acquire: () => registerAssetProtocol(assets),
-      close: registration => registration.close(),
-      name: 'asset protocol',
-    })
-    await scope.acquire({
-      acquire: () => registerRendererProtocol(join(options.mainDirectory, '../renderer')),
-      close: registration => registration.close(),
-      name: 'renderer protocol',
-    })
     const configuration = await scope.acquire({
       acquire: () => createDesktopConfigurationStore(userDataPath),
       close: store => store.close(),
@@ -317,9 +306,18 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         editorStorage.learning,
         whiteboardLibrary,
         learningNow(options.allowTestClock),
+        {
+          allowedOrigins: new Set([
+            memoriloAppOrigin,
+            ...(process.env.ELECTRON_RENDERER_URL === undefined
+              ? []
+              : [new URL(process.env.ELECTRON_RENDERER_URL).origin]),
+          ]),
+          rendererDirectory: join(options.mainDirectory, '../renderer'),
+        },
       ),
       close: handle => handle.close(),
-      name: 'desktop IPC services',
+      name: 'desktop services',
     })
     await scope.acquire({
       acquire: () => configurationStore.subscribe(() => {

@@ -1,24 +1,25 @@
-import type { DesktopRegularNote } from '@memorilo/desktop-preload'
+import type { DesktopRegularNote } from '@memorilo/desktop-api'
 import type { EditorNote } from '@memorilo/editor'
-import type { Cause } from 'effect'
+import type { DesktopClientError } from '../../../shared/effect-query'
 import type { EditorNoteSessionOpened, EditorStoredNotePatch } from './note-editor-session'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Effect, Layer } from 'effect'
-import { createEffectQuery } from 'effect-query'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
+import {
+  desktopEffect,
+  desktopEffectQuery,
+} from '../../../shared/effect-query'
 import { noteQueryKeys } from '../query-keys'
 
-const effectQuery = createEffectQuery(Layer.empty)
-
 function setNoteFavoriteMutationOptions() {
-  return effectQuery.mutationOptions<
+  return desktopEffectQuery.mutationOptions<
     { favorite: boolean, noteId: string },
-    Cause.UnknownError,
+    DesktopClientError,
     never,
     { favorite: boolean, note: EditorNote, noteId: string }
   >({
-    mutationFn: input => Effect.tryPromise(() => window.desktop.setNoteFavorite({
+    mutationFn: input => desktopEffect('notes.set-favorite', () => desktopRequests.setNoteFavorite({
       favorite: input.favorite,
       noteId: input.noteId,
     })),
@@ -44,7 +45,7 @@ export function useNoteMetadata(
   })
 
   const renameNote = useCallback(async (note: EditorNote, title: string) => {
-    const result = await window.desktop.renameNote({ noteId: note.id, title })
+    const result = await desktopRequests.renameNote({ noteId: note.id, title })
     if (result.status === 'duplicate-title')
       return { error: t('duplicateTitle') }
     if (result.status === 'journal-title-immutable')

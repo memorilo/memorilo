@@ -1,4 +1,4 @@
-import type { DesktopLearningApi } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi } from '@memorilo/desktop-api'
 import type { FsrsOptimizer } from './learning-optimizer-workflow'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { describe, expect, it, vi } from 'vitest'

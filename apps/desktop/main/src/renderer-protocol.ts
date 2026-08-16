@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import { extname, isAbsolute, relative, resolve, sep } from 'node:path'
-import { registerProtocol } from './protocol-registration'
+import {
+  memoriloAppHost,
+  memoriloAppOrigin,
+  memoriloProtocol,
+} from '@memorilo/desktop-api/transport'
 
-export const rendererProtocol = 'memorilo-app'
-const rendererHost = 'renderer'
-export const rendererIndexUrl = `${rendererProtocol}://${rendererHost}/index.html`
+export const rendererIndexUrl = `${memoriloAppOrigin}/index.html`
 
 const contentTypes: Readonly<Record<string, string>> = {
   '.css': 'text/css; charset=utf-8',
@@ -19,8 +21,8 @@ const contentTypes: Readonly<Record<string, string>> = {
 export function isRendererUrl(source: string): boolean {
   try {
     const url = new URL(source)
-    return url.protocol === `${rendererProtocol}:`
-      && url.host === rendererHost
+    return url.protocol === `${memoriloProtocol}:`
+      && url.host === memoriloAppHost
       && !url.username
       && !url.password
       && !url.port
@@ -30,9 +32,9 @@ export function isRendererUrl(source: string): boolean {
   }
 }
 
-export function registerRendererProtocol(rendererDirectory: string) {
+export function createRendererProtocolHandler(rendererDirectory: string) {
   const root = resolve(rendererDirectory)
-  return registerProtocol(rendererProtocol, async (request) => {
+  return async (request: Request): Promise<Response> => {
     if (request.method !== 'GET')
       return new Response(null, { status: 405 })
 
@@ -80,5 +82,5 @@ export function registerRendererProtocol(rendererDirectory: string) {
         return new Response(null, { status: 404 })
       throw error
     }
-  })
+  }
 }

@@ -1,7 +1,7 @@
 import type {
   DesktopJournalNote,
   DesktopJournalSummary,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import { describe, expect, it } from 'vitest'
 import {
   buildJournalFeed,

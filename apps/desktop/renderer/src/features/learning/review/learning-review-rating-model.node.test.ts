@@ -1,4 +1,4 @@
-import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi, DesktopReviewItem } from '@memorilo/desktop-api'
 import type { PreparedReview, ReviewRating } from './learning-review-rating-model'
 import { describe, expect, it, vi } from 'vitest'
 import { createLearningReviewRatingModel } from './learning-review-rating-model'

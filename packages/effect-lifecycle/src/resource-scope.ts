@@ -1,5 +1,5 @@
 import { Cause, Effect, Exit, FiberSet, Scope } from 'effect'
-import { combineLifecycleFailures, createRetryableClose } from './errors'
+import { combineLifecycleFailures, createRetryableClose, toError } from './errors'
 
 export interface ScopedResource<Resource> {
   acquire: () => Promise<Resource> | Resource
@@ -93,7 +93,7 @@ export function createResourceScope(
     if (state !== 'acquiring')
       return Promise.reject(sealedScopeError(name, state))
     return runAcquisition(Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: () => Promise.resolve(resource.acquire()),
     }).pipe(Effect.map((acquired) => {
       const finalizer: Finalizer = {
@@ -165,6 +165,7 @@ export function createResourceScope(
   }
 
   const rollback = async (startupError: unknown): Promise<never> => {
+    const normalizedStartupError = toError(startupError)
     try {
       // Startup rollback has no live dependents to preserve. Always attempt
       // every acquired finalizer so a failure cannot leak earlier resources.
@@ -173,11 +174,11 @@ export function createResourceScope(
     }
     catch (cleanupError) {
       throw combineLifecycleFailures(
-        [startupError, cleanupError],
+        [normalizedStartupError, cleanupError],
         `${name} startup and resource rollback failed`,
       )
     }
-    throw startupError
+    throw normalizedStartupError
   }
 
   return { acquire, close, commit, isClosed: () => state === 'closing', own, rollback }

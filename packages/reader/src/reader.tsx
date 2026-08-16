@@ -12,13 +12,10 @@ import { findAnnotationClientRect } from './internal/annotation-geometry'
 import { readerAnnotationLabel } from './internal/annotation-label'
 import { useReaderSessionEngine } from './internal/reader-session-engine'
 import { ReaderAnnotationConnectors } from './reader-annotation-connectors'
-import {
-  requestReaderAnnotationDeletion,
-  startReaderAnnotationDeletionPreparation,
-} from './reader-annotation-deletion'
 import { ReaderAnnotationPopover } from './reader-annotation-popover'
 import { useReaderAnnotationWorkflow } from './reader-annotation-workflow'
 import { ReaderImageOcclusionOverlays } from './reader-image-occlusion-overlays'
+import { useReaderLinkedAnnotationWorkflow } from './reader-linked-annotation-workflow'
 import { ReaderSelectionPopover } from './reader-selection-popover'
 import { useReaderSessionCommands } from './reader-session-commands'
 import { readerShellStyles as readerStyles } from './reader-shell.stylex'
@@ -234,14 +231,18 @@ function ReaderSession({
   })
   const viewportRef = useRef<HTMLDivElement>(null)
   const annotationCardsRef = useRef(new Map<string, HTMLElement>())
-  const annotationTopicCreationControllersRef = useRef(new Map<string, AbortController>())
-  const imageOcclusionControllersRef = useRef(new Map<string, AbortController>())
-  const mountedRef = useRef(true)
   const initialNavigationRef = useRef<string | null>(null)
-  const [creatingTopicIds, setCreatingTopicIds] = useState<ReadonlySet<string>>(() => new Set())
-  const [openingImageOcclusionIds, setOpeningImageOcclusionIds] = useState<ReadonlySet<string>>(() => new Set())
-  const [deletingAnnotationId, setDeletingAnnotationId] = useState<string | null>(null)
-  const [deletePending, setDeletePending] = useState(false)
+  const linkedAnnotationWorkflow = useReaderLinkedAnnotationWorkflow({
+    annotationWorkflow,
+    engineRef,
+    onCreateAnnotationTopic,
+    onDetachAnnotationTopic,
+    onGetAnnotationDependents,
+    onOpenReaderRegionImageOcclusion,
+    onPrepareAnnotationDeletion,
+    reportError,
+    t,
+  })
 
   const commands = useReaderSessionCommands({
     annotationEditingEnabled,
@@ -300,23 +301,6 @@ function ReaderSession({
   const bookTitle = annotationCopyBookTitle?.trim() || source.name?.trim() || undefined
 
   useEffect(() => {
-    const controllers = annotationTopicCreationControllersRef.current
-    const imageOcclusionControllers = imageOcclusionControllersRef.current
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-      for (const [annotationId, controller] of controllers) {
-        controller.abort(new Error(`Reader closed while creating annotation Topic for ${annotationId}`))
-      }
-      controllers.clear()
-      for (const [annotationId, controller] of imageOcclusionControllers) {
-        controller.abort(new Error(`Reader closed while opening image occlusion for ${annotationId}`))
-      }
-      imageOcclusionControllers.clear()
-    }
-  }, [])
-
-  useEffect(() => {
     if (status !== 'ready'
       || initialAnnotationId === undefined
       || initialNavigationRef.current === initialAnnotationId
@@ -333,170 +317,6 @@ function ReaderSession({
     const text = annotationCopyText(annotation, annotationCopyFormat, bookTitle, location)
     void navigator.clipboard.writeText(text).catch(reportError)
   }, [annotationCopyFormat, bookTitle, reportError, t])
-
-  const addAnnotationTopic = useCallback((annotation: ReaderAnnotation) => {
-    if (!onCreateAnnotationTopic) {
-      reportError(new Error('Reader annotation Topic creation is unavailable'))
-      return
-    }
-    const engine = engineRef.current
-    if (!engine) {
-      reportError(new Error('Reader annotation surface is unavailable'))
-      return
-    }
-    const clientRect = findAnnotationClientRect(engine, annotation.id)
-    if (!clientRect) {
-      reportError(new Error(`Reader annotation ${annotation.id} is not visible`))
-      return
-    }
-    const controllers = annotationTopicCreationControllersRef.current
-    if (controllers.has(annotation.id))
-      return
-    const controller = new AbortController()
-    controllers.set(annotation.id, controller)
-    setCreatingTopicIds((current) => {
-      const next = new Set(current)
-      next.add(annotation.id)
-      return next
-    })
-    void onCreateAnnotationTopic({
-      annotation,
-      clientRect,
-      location: readerAnnotationLabel(annotation, t),
-    }, controller.signal)
-      .then((topicId) => {
-        controller.signal.throwIfAborted()
-        annotationWorkflow.attachAnnotationTopic(annotation.id, topicId)
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          reportError(error)
-      })
-      .finally(() => {
-        if (controllers.get(annotation.id) === controller)
-          controllers.delete(annotation.id)
-        if (!mountedRef.current)
-          return
-        setCreatingTopicIds((current) => {
-          if (!current.has(annotation.id))
-            return current
-          const next = new Set(current)
-          next.delete(annotation.id)
-          return next
-        })
-      })
-  }, [annotationWorkflow, engineRef, onCreateAnnotationTopic, reportError, t])
-
-  const openReaderRegionImageOcclusion = useCallback((annotation: ReaderAnnotation) => {
-    if (annotation.anchors[0].type !== 'region')
-      throw new TypeError(`Reader annotation ${annotation.id} is not a region`)
-    if (!onOpenReaderRegionImageOcclusion) {
-      reportError(new Error('Reader region image occlusion is unavailable'))
-      return
-    }
-    const engine = engineRef.current
-    if (!engine) {
-      reportError(new Error('Reader annotation surface is unavailable'))
-      return
-    }
-    const clientRect = findAnnotationClientRect(engine, annotation.id)
-    if (!clientRect) {
-      reportError(new Error(`Reader annotation ${annotation.id} is not visible`))
-      return
-    }
-    const controllers = imageOcclusionControllersRef.current
-    if (controllers.has(annotation.id))
-      return
-    const controller = new AbortController()
-    controllers.set(annotation.id, controller)
-    setOpeningImageOcclusionIds((current) => {
-      const next = new Set(current)
-      next.add(annotation.id)
-      return next
-    })
-    void onOpenReaderRegionImageOcclusion({
-      annotation,
-      clientRect,
-      location: readerAnnotationLabel(annotation, t),
-    }, controller.signal)
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          reportError(error)
-      })
-      .finally(() => {
-        if (controllers.get(annotation.id) === controller)
-          controllers.delete(annotation.id)
-        if (!mountedRef.current)
-          return
-        setOpeningImageOcclusionIds((current) => {
-          if (!current.has(annotation.id))
-            return current
-          const next = new Set(current)
-          next.delete(annotation.id)
-          return next
-        })
-      })
-  }, [engineRef, onOpenReaderRegionImageOcclusion, reportError, t])
-
-  const requestDeleteAnnotation = useCallback((annotation: ReaderAnnotation) => {
-    const dependents = onGetAnnotationDependents?.(annotation) ?? {
-      ...(annotation.annotationTopicId === undefined ? {} : { annotationTopicId: annotation.annotationTopicId }),
-      imageOcclusionTopicIds: [],
-    }
-    requestReaderAnnotationDeletion(dependents, {
-      hasPendingWork: annotationTopicCreationControllersRef.current.has(annotation.id)
-        || imageOcclusionControllersRef.current.has(annotation.id),
-      abortInProgress: () => {
-        annotationTopicCreationControllersRef.current.get(annotation.id)?.abort(
-          new Error(`Reader annotation ${annotation.id} was deleted while its Topic was being created`),
-        )
-        imageOcclusionControllersRef.current.get(annotation.id)?.abort(
-          new Error(`Reader annotation ${annotation.id} was deleted while its image occlusion was opening`),
-        )
-      },
-      removeAnnotation: () => annotationWorkflow.removeAnnotation(annotation.id),
-      requestConfirmation: () => setDeletingAnnotationId(annotation.id),
-    })
-  }, [annotationWorkflow, onGetAnnotationDependents])
-
-  const finishLinkedDeletion = useCallback(() => {
-    if (deletingAnnotationId === null)
-      throw new Error('No linked Reader annotation is pending deletion')
-    const annotation = annotationWorkflow.annotations.find(candidate => candidate.id === deletingAnnotationId)
-    if (!annotation)
-      throw new Error(`Reader annotation ${deletingAnnotationId} does not exist`)
-    setDeletePending(true)
-    let prepareDeletion: Promise<void>
-    try {
-      prepareDeletion = startReaderAnnotationDeletionPreparation(
-        annotation,
-        {
-          onDetachAnnotationTopic,
-          onPrepareAnnotationDeletion,
-        },
-        () => {
-          annotationTopicCreationControllersRef.current.get(annotation.id)?.abort(
-            new Error(`Reader annotation ${annotation.id} was deleted while its Topic was being created`),
-          )
-          imageOcclusionControllersRef.current.get(annotation.id)?.abort(
-            new Error(`Reader annotation ${annotation.id} was deleted while its image occlusion was opening`),
-          )
-        },
-      )
-    }
-    catch (error) {
-      reportError(error)
-      setDeletePending(false)
-      return
-    }
-    void prepareDeletion
-      .then(() => {
-        annotationWorkflow.removeAnnotation(annotation.id)
-        setDeletingAnnotationId(null)
-      })
-      .catch(reportError)
-      .finally(() => setDeletePending(false))
-  }, [annotationWorkflow, deletingAnnotationId, onDetachAnnotationTopic, onPrepareAnnotationDeletion, reportError])
 
   return (
     <div
@@ -614,29 +434,29 @@ function ReaderSession({
               anchorRect={activeRect}
               annotation={activeAnnotation}
               colorPaletteOpen={annotationWorkflow.colorPaletteOpen}
-              creatingTopic={creatingTopicIds.has(activeAnnotation.id)}
-              onAddAnnotation={() => addAnnotationTopic(activeAnnotation)}
+              creatingTopic={linkedAnnotationWorkflow.creatingTopicIds.has(activeAnnotation.id)}
+              onAddAnnotation={() => linkedAnnotationWorkflow.addAnnotationTopic(activeAnnotation)}
               onColorChange={color => annotationWorkflow.reviseAnnotation(activeAnnotation.id, { color })}
               onColorPaletteOpenChange={annotationWorkflow.setColorPaletteOpen}
               onCopy={() => copyAnnotation(activeAnnotation)}
-              onDelete={() => requestDeleteAnnotation(activeAnnotation)}
+              onDelete={() => linkedAnnotationWorkflow.requestDeleteAnnotation(activeAnnotation)}
               onDismiss={annotationWorkflow.dismissAnnotation}
               onOpenImageOcclusion={onOpenReaderRegionImageOcclusion === undefined
                 ? undefined
-                : () => openReaderRegionImageOcclusion(activeAnnotation)}
+                : () => linkedAnnotationWorkflow.openReaderRegionImageOcclusion(activeAnnotation)}
               onStyleChange={style => annotationWorkflow.reviseAnnotation(activeAnnotation.id, { style })}
-              openingImageOcclusion={openingImageOcclusionIds.has(activeAnnotation.id)}
+              openingImageOcclusion={linkedAnnotationWorkflow.openingImageOcclusionIds.has(activeAnnotation.id)}
             />
           )
         : null}
 
-      {deletingAnnotationId === null
+      {linkedAnnotationWorkflow.deletingAnnotationId === null
         ? null
         : (
             <ReaderDeleteAnnotationDialog
-              pending={deletePending}
-              onCancel={() => setDeletingAnnotationId(null)}
-              onConfirm={finishLinkedDeletion}
+              pending={linkedAnnotationWorkflow.deletePending}
+              onCancel={linkedAnnotationWorkflow.cancelDeletion}
+              onConfirm={linkedAnnotationWorkflow.finishLinkedDeletion}
             />
           )}
 

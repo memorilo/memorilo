@@ -8,6 +8,7 @@ import type {
   ActiveReadingRegistry,
 } from '../reading/active-reading-registry'
 import type { ShelfOperationRuntime } from './shelf-operation-runtime'
+import { toError } from '@memorilo/effect-lifecycle'
 import { sameBookFile } from '@memorilo/reading-model'
 import { Effect } from 'effect'
 
@@ -132,16 +133,16 @@ export class BookReadingApplication {
     owner: ActiveReadingOwner,
   ) {
     return Effect.try({
-      catch: error => error,
+      catch: toError,
       try: () => this.dependencies.activeReadings.begin(input, owner),
     })
   }
 
-  #promise<Result>(operation: () => Promise<Result>): EffectType.Effect<Result, unknown> {
-    return Effect.tryPromise({ catch: error => error, try: operation })
+  #promise<Result>(operation: () => Promise<Result>): EffectType.Effect<Result, Error> {
+    return Effect.tryPromise({ catch: toError, try: operation })
   }
 
-  #requireReading(readingId: string): EffectType.Effect<ShelfReadingDocument, unknown> {
+  #requireReading(readingId: string): EffectType.Effect<ShelfReadingDocument, Error> {
     return Effect.gen({ self: this }, function* () {
       const file = yield* this.#promise(() => this.dependencies.readingFiles.find(readingId))
       if (!file)
@@ -152,7 +153,7 @@ export class BookReadingApplication {
 
   #withRetainedReading<Result>(
     readingId: string,
-    operation: (document: ShelfReadingDocument) => EffectType.Effect<Result, unknown>,
+    operation: (document: ShelfReadingDocument) => EffectType.Effect<Result, Error>,
   ): Promise<Result> {
     return this.dependencies.operations.run(scope => scope.reading(
       readingId,

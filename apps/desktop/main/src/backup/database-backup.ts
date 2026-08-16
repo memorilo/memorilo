@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 
+import { combineLifecycleFailures, toError } from '@memorilo/effect-lifecycle'
 import BetterSqlite3 from 'better-sqlite3'
 
 const automaticBackupPattern = /^memorilo-\d{8}T\d{6}Z-[0-9a-f-]+\.sqlite$/u
@@ -19,6 +20,7 @@ function automaticBackupTimestamp(now: Date): string {
 
 export function inspectDatabase(path: string): DatabaseInspection {
   const database = new BetterSqlite3(path, { fileMustExist: true, readonly: true })
+  let inspection: DatabaseInspection
   try {
     const integrity = database.prepare('PRAGMA integrity_check').all() as Array<Record<string, unknown>>
     const messages = integrity.flatMap(row => Object.values(row))
@@ -27,11 +29,23 @@ export function inspectDatabase(path: string): DatabaseInspection {
     const userVersion = database.pragma('user_version', { simple: true })
     if (!Number.isSafeInteger(userVersion) || (userVersion as number) < 0)
       throw new Error('SQLite database has an invalid schema generation')
-    return { userVersion: userVersion as number }
+    inspection = { userVersion: userVersion as number }
   }
-  finally {
-    database.close()
+  catch (error) {
+    const inspectionError = toError(error)
+    try {
+      database.close()
+    }
+    catch (closeError) {
+      throw combineLifecycleFailures(
+        [inspectionError, closeError],
+        `Database inspection and close failed for ${path}`,
+      )
+    }
+    throw inspectionError
   }
+  database.close()
+  return inspection
 }
 
 export async function createDatabaseSnapshot(
@@ -43,17 +57,24 @@ export async function createDatabaseSnapshot(
     dirname(destinationPath),
     `.${basename(destinationPath)}.${randomUUID()}.tmp`,
   )
-  let published = false
   try {
     await database.backup(temporaryPath)
     const inspection = inspectDatabase(temporaryPath)
     await rename(temporaryPath, destinationPath)
-    published = true
     return inspection
   }
-  finally {
-    if (!published)
+  catch (error) {
+    const snapshotError = toError(error)
+    try {
       await rm(temporaryPath, { force: true })
+    }
+    catch (cleanupError) {
+      throw combineLifecycleFailures(
+        [snapshotError, cleanupError],
+        `Database snapshot and temporary-file cleanup failed for ${destinationPath}`,
+      )
+    }
+    throw snapshotError
   }
 }
 

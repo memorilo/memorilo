@@ -3,6 +3,7 @@ import * as stylex from '@stylexjs/stylex'
 import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, PenLine, Plus, RefreshCw, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
 import { noteEntryContextMenuStyles } from './note-entry-context-menu.stylex'
 
@@ -90,7 +91,7 @@ export function useNoteEntryContextMenu({
     })
     void availability.run(
       'availability',
-      () => window.desktop.isBookReadingAvailable(readingId),
+      () => desktopRequests.isBookReadingAvailable(readingId),
     ).then(
       (result) => {
         if (result.status === 'superseded')

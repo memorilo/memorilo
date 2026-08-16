@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { copyFile, mkdir, open, readdir, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
+import { combineLifecycleFailures, toError } from '@memorilo/effect-lifecycle'
 import { assertBookFileBinding, readingFormatFromFileName } from '@memorilo/reading-model'
 import { Effect } from 'effect'
 
@@ -388,11 +388,11 @@ export function readStoredReadingRange(
 ): Promise<Uint8Array> {
   return Effect.runPromise(Effect.acquireUseRelease(
     Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: () => open(document.path, 'r'),
     }),
     handle => Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: async () => {
         const byteLength = (await handle.stat()).size
         if (!Number.isSafeInteger(byteLength) || byteLength < 0)
@@ -416,7 +416,7 @@ export function readStoredReadingRange(
       },
     }),
     handle => Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: () => handle.close(),
     }),
   ))
