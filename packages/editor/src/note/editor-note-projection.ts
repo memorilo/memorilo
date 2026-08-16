@@ -14,6 +14,7 @@ import {
   NOTE_META_KEY,
   noteTree,
   readBookBinding,
+  readCardTopicSource,
   readString,
   readTopicReaderReference,
   readTopicTitle,
@@ -138,6 +139,9 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
         }
         else if (topicType === 'regular') {
           const readerReference = readTopicReaderReference(node.meta)
+          const cardSource = readCardTopicSource(node.meta, `Topic ${id} card source`)
+          if (cardSource !== null && parentId !== cardSource.sourceTopicId)
+            throw new Error(`Card Topic ${id} must be a child of source Topic ${cardSource.sourceTopicId}`)
           if (readerReference !== null && isLinkedTopicReaderReference(readerReference)) {
             if (parentId !== readerReference.bookTopicId) {
               throw new Error(
@@ -161,6 +165,7 @@ export function projectEditorNote(doc: LoroDoc, includeTopics = true): EditorNot
             ordinal,
             parentId,
             ...(readerReference === null ? {} : { readerReference }),
+            ...(cardSource === null ? {} : { cardSource }),
             title: content.title,
             topicType,
           })

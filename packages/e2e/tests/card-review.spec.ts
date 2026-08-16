@@ -89,12 +89,25 @@ async function visibleText(root: Locator): Promise<string> {
   })
 }
 
-async function openPreview(source: Locator): Promise<Locator> {
-  await source.hover()
-  const button = source.getByRole('button', { name: 'Preview card' })
+async function openCardTopicPreview(window: Page, kind: string, titlePrefix: string): Promise<Locator> {
+  const inspector = window.getByRole('complementary', { name: 'Note inspector' })
+  if (!await inspector.isVisible())
+    await window.getByRole('button', { name: 'Show Note Inspector' }).click()
+  await expect(inspector).toBeVisible()
+
+  const topic = inspector
+    .locator(`[data-card-topic-kind="${kind}"]`)
+    .locator('xpath=..')
+    .getByRole('link')
+    .filter({ hasText: titlePrefix })
+    .first()
+  await expect(topic).toBeVisible()
+  await topic.click()
+
+  const button = window.getByRole('button', { name: 'Card preview' })
   await expect(button).toBeVisible()
   await button.click()
-  const preview = source.page().getByRole('dialog', { name: 'Card preview' })
+  const preview = window.getByRole('dialog', { name: 'Card preview' })
   await expect(preview).toBeVisible()
   return preview
 }
@@ -325,7 +338,7 @@ async function createTwoClozeCards(window: Page, editor: Locator): Promise<reado
   return [firstCardId, secondCardId]
 }
 
-test('previews multi-line Basic Cards with forward, reverse, and bidirectional Editor delimiters', async () => {
+test('previews multi-line Basic Cards with forward, reverse, and bidirectional Card Topics', async () => {
   await withCardApplication('memorilo-card-directions-', async (window) => {
     const editor = await createNoteEditor(window, 'Card direction coverage')
 
@@ -340,44 +353,39 @@ test('previews multi-line Basic Cards with forward, reverse, and bidirectional E
     await window.keyboard.type('Bidirectional prompt:<> Bidirectional answer')
     await expect(editor.locator('[data-card-delimiter]')).toHaveCount(3)
 
-    const forwardPreview = await openPreview(sourceBlock(editor, 'Forward question line one'))
+    const forwardPreview = await openCardTopicPreview(window, 'basic', 'Forward question')
     const forwardSurface = forwardPreview.getByTestId('card-preview-surface')
-    await expectDelimiter(forwardSurface, 'forward', '→')
-    await markEditorMount(forwardSurface, 'forward-preview')
     expect(await visibleText(forwardSurface)).toContain('Forward question line one')
     expect(await visibleText(forwardSurface)).toContain('Forward question line two')
     expect(await visibleText(forwardSurface)).not.toContain('Forward answer line one')
     const questionBreakVisibility = await forwardSurface.locator('br:not(.ProseMirror-trailingBreak)').evaluateAll(elements => (
       elements.map(element => getComputedStyle(element).display !== 'none')
     ))
-    expect(questionBreakVisibility).toEqual([true, false])
+    expect(questionBreakVisibility).toEqual([true])
     await forwardPreview.getByRole('button', { name: 'Show answer' }).click()
-    await expect(forwardSurface).toHaveAttribute('data-card-side', 'answer')
     expect(await visibleText(forwardSurface)).toContain('Forward answer line one')
     expect(await visibleText(forwardSurface)).toContain('Forward answer line two')
-    await expectEditorMount(forwardSurface, 'forward-preview')
-    await expectDelimiter(forwardSurface, 'forward', '→')
+    const revealedBreakVisibility = await forwardSurface.locator('br:not(.ProseMirror-trailingBreak)').evaluateAll(elements => (
+      elements.map(element => getComputedStyle(element).display !== 'none')
+    ))
+    expect(revealedBreakVisibility).toEqual([true, true])
     await forwardPreview.getByRole('button', { name: 'Close preview' }).click()
 
-    const reversePreview = await openPreview(sourceBlock(editor, 'Reverse prompt'))
+    const reversePreview = await openCardTopicPreview(window, 'basic', 'Reverse prompt')
     const reverseSurface = reversePreview.getByTestId('card-preview-surface')
-    await expectDelimiter(reverseSurface, 'backward', '←')
     expect(await visibleText(reverseSurface)).toContain('Reverse answer')
     expect(await visibleText(reverseSurface)).not.toContain('Reverse prompt')
     await reversePreview.getByRole('button', { name: 'Show answer' }).click()
     expect(await visibleText(reverseSurface)).toContain('Reverse prompt')
-    await expectDelimiter(reverseSurface, 'backward', '←')
     await reversePreview.getByRole('button', { name: 'Close preview' }).click()
 
-    const bidirectionalPreview = await openPreview(sourceBlock(editor, 'Bidirectional prompt'))
+    const bidirectionalPreview = await openCardTopicPreview(window, 'basic', 'Bidirectional prompt')
     const bidirectionalSurface = bidirectionalPreview.getByTestId('card-preview-surface')
-    await expectDelimiter(bidirectionalSurface, 'both', '↔')
     expect(await visibleText(bidirectionalSurface)).toContain('Bidirectional prompt')
     expect(await visibleText(bidirectionalSurface)).not.toContain('Bidirectional answer')
-    await bidirectionalPreview.getByRole('button', { name: 'Preview reverse Card' }).click()
+    await bidirectionalPreview.getByRole('button', { name: 'Answer → Question' }).click()
     expect(await visibleText(bidirectionalSurface)).toContain('Bidirectional answer')
     expect(await visibleText(bidirectionalSurface)).not.toContain('Bidirectional prompt')
-    await expectDelimiter(bidirectionalSurface, 'both', '↔')
     await bidirectionalPreview.getByRole('button', { name: 'Show answer' }).click()
     expect(await visibleText(bidirectionalSurface)).toContain('Bidirectional prompt')
   })
@@ -386,7 +394,7 @@ test('previews multi-line Basic Cards with forward, reverse, and bidirectional E
 test('previews a ListCard by revealing ordered items one at a time', async () => {
   await withCardApplication('memorilo-list-card-preview-', async (window) => {
     const editor = await createNoteEditor(window, 'ListCard coverage')
-    const source = await convertToMultiLineCard(
+    await convertToMultiLineCard(
       window,
       editor,
       'List answer',
@@ -395,10 +403,8 @@ test('previews a ListCard by revealing ordered items one at a time', async () =>
       'Venus',
     )
 
-    const preview = await openPreview(source)
+    const preview = await openCardTopicPreview(window, 'list', 'First two planets')
     const surface = preview.getByTestId('card-preview-surface')
-    await expectDelimiter(surface, 'forward', '→', true)
-    await markEditorMount(surface, 'list-preview')
     expect(await visibleText(surface)).toContain('First two planets')
     expect(await visibleText(surface)).not.toContain('Mercury')
     expect(await visibleText(surface)).not.toContain('Venus')
@@ -409,15 +415,13 @@ test('previews a ListCard by revealing ordered items one at a time', async () =>
     await preview.getByRole('button', { name: 'Show next item (2 of 2)' }).click()
     const revealedText = await visibleText(surface)
     expect(revealedText.indexOf('Mercury')).toBeLessThan(revealedText.indexOf('Venus'))
-    await expectEditorMount(surface, 'list-preview')
-    await expectDelimiter(surface, 'forward', '→', true)
   })
 })
 
 test('previews a SetCard by revealing all unordered items together', async () => {
   await withCardApplication('memorilo-set-card-preview-', async (window) => {
     const editor = await createNoteEditor(window, 'SetCard coverage')
-    const source = await convertToMultiLineCard(
+    await convertToMultiLineCard(
       window,
       editor,
       'Set answer',
@@ -426,10 +430,8 @@ test('previews a SetCard by revealing all unordered items together', async () =>
       'Blue',
     )
 
-    const preview = await openPreview(source)
+    const preview = await openCardTopicPreview(window, 'set', 'Primary colors')
     const surface = preview.getByTestId('card-preview-surface')
-    await expectDelimiter(surface, 'forward', '→', true)
-    await markEditorMount(surface, 'set-preview')
     expect(await visibleText(surface)).toContain('Primary colors')
     expect(await visibleText(surface)).not.toContain('Red')
     expect(await visibleText(surface)).not.toContain('Blue')
@@ -437,8 +439,6 @@ test('previews a SetCard by revealing all unordered items together', async () =>
     await preview.getByRole('button', { name: 'Show answer' }).click()
     expect(await visibleText(surface)).toContain('Red')
     expect(await visibleText(surface)).toContain('Blue')
-    await expectEditorMount(surface, 'set-preview')
-    await expectDelimiter(surface, 'forward', '→', true)
   })
 })
 
@@ -455,9 +455,8 @@ test('previews and reveals a Cloze Card through the real Editor workflow', async
 
     const source = sourceBlock(editor, 'The closest planet')
     await expect(source.locator('[data-cloze-group-id]')).toHaveText('Mercury')
-    const preview = await openPreview(source)
+    const preview = await openCardTopicPreview(window, 'cloze', 'Mercury')
     const surface = preview.getByTestId('card-preview-surface')
-    await markEditorMount(surface, 'cloze-preview')
     await expect(surface.getByLabel('Hidden cloze')).toBeVisible()
     expect(await visibleText(surface)).not.toContain('Mercury')
     await expect(surface.locator('[data-card-delimiter]')).toHaveCount(0)
@@ -465,7 +464,6 @@ test('previews and reveals a Cloze Card through the real Editor workflow', async
     await preview.getByRole('button', { name: 'Show answer' }).click()
     await expect(surface.getByLabel('Hidden cloze')).toHaveCount(0)
     expect(await visibleText(surface)).toContain('Mercury')
-    await expectEditorMount(surface, 'cloze-preview')
   })
 })
 

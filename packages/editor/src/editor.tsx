@@ -30,6 +30,8 @@ const DocumentEditor = lazy(async () => {
 
 interface EditorBaseProps {
   adapters: EditorAdapters
+  cardPreviewDisabled?: boolean
+  cardTopic?: boolean
   cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
   focus?: EditorFocusTarget
@@ -181,6 +183,8 @@ export function Editor(props: EditorProps) {
         data-editor-learning-disabled={!session.learningEnabled ? '' : undefined}
         data-editor-mode={editorModeName(mode)}
         data-editor-readonly={props.readOnly ? '' : undefined}
+        data-editor-card-preview-disabled={props.cardPreviewDisabled ? '' : undefined}
+        data-editor-card-topic={props.cardTopic ? '' : undefined}
       >
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingEditorMode')}</div>}>
           <DocumentEditor

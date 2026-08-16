@@ -1,4 +1,5 @@
 import type {
+  EditorCardProjection,
   EditorImageOcclusionIntegration,
   EditorImageOcclusionTopicDocument,
   EditorNote,
@@ -6,15 +7,17 @@ import type {
   OpenImageOcclusionInput,
   TopicReaderSource,
 } from '@memorilo/editor'
+import type { ComponentProps } from 'react'
 import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
-import { Editor, EditorMode, useEditorTopicMode } from '@memorilo/editor'
+import { CardPreview, Editor, EditorMode, projectCardTopicCards, useEditorTopicMode } from '@memorilo/editor'
 import { readerAnnotationLabel } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
-import { AlignLeft, Copy, ListTree, X } from 'lucide-react'
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { AlignLeft, Copy, Eye, ListTree, X } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'react-toastify/unstyled'
 import { useCommandPaletteCommands } from '../../../shared/command-palette'
 import { useDesktopConfiguration } from '../../../shared/configuration'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
@@ -49,6 +52,106 @@ interface ReaderSourceNavigation {
   annotationId: string
   bookTopicId: string
   readingId: string
+}
+
+function CardTopicPreview({ cards }: { cards: readonly EditorCardProjection[] }) {
+  const { t } = useTranslation('editor')
+  const [open, setOpen] = useState(false)
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(cards[0]?.id ?? null)
+
+  useEffect(() => {
+    if (!open)
+      return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape')
+        return
+      event.preventDefault()
+      setOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [open])
+
+  if (cards.length === 0)
+    return null
+  const selectedCard = cards.find(card => card.id === selectedCardId) ?? cards[0]
+  if (!selectedCard)
+    throw new Error('Card Topic preview requires a Card')
+
+  return (
+    <>
+      <div {...stylex.props(noteEditorStyles.cardTopicToolbar)}>
+        <button
+          {...stylex.props(noteEditorStyles.cardTopicPreviewTrigger)}
+          aria-label={t('ui.cardPreview')}
+          title={t('ui.cardPreview')}
+          type="button"
+          onClick={() => setOpen(true)}
+        >
+          <Eye aria-hidden="true" size={16} strokeWidth={1.8} />
+        </button>
+      </div>
+      {open
+        ? (
+            <div
+              {...stylex.props(noteEditorStyles.cardTopicPreviewOverlay)}
+              onMouseDown={(event) => {
+                if (event.currentTarget === event.target)
+                  setOpen(false)
+              }}
+            >
+              <section
+                {...stylex.props(noteEditorStyles.cardTopicPreviewDialog)}
+                aria-label={t('ui.cardPreview')}
+                aria-modal="true"
+                role="dialog"
+              >
+                <header {...stylex.props(noteEditorStyles.cardTopicPreviewHeader)}>
+                  <span {...stylex.props(noteEditorStyles.cardTopicPreviewTitle)}>
+                    <Eye aria-hidden="true" size={15} strokeWidth={1.8} />
+                    {t('ui.preview')}
+                  </span>
+                  <button
+                    {...stylex.props(noteEditorStyles.cardTopicPreviewClose)}
+                    aria-label={t('ui.closePreview')}
+                    title={t('ui.closePreview')}
+                    type="button"
+                    onClick={() => setOpen(false)}
+                  >
+                    <X aria-hidden="true" size={16} strokeWidth={1.8} />
+                  </button>
+                </header>
+                {cards.length > 1
+                  ? (
+                      <div {...stylex.props(noteEditorStyles.cardTopicPreviewSelector)} role="group">
+                        {cards.map((card, index) => (
+                          <button
+                            key={card.id}
+                            {...stylex.props(
+                              noteEditorStyles.cardTopicPreviewOption,
+                              card.id === selectedCard.id && noteEditorStyles.cardTopicPreviewOptionSelected,
+                            )}
+                            aria-pressed={card.id === selectedCard.id}
+                            type="button"
+                            onClick={() => setSelectedCardId(card.id)}
+                          >
+                            {card.kind === 'basic' || card.kind === 'list' || card.kind === 'set'
+                              ? card.direction === 'forward' ? t('ui.questionToAnswer') : t('ui.answerToQuestion')
+                              : String(index + 1)}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  : null}
+                <div {...stylex.props(noteEditorStyles.cardTopicPreviewBody)}>
+                  <CardPreview key={selectedCard.id} card={selectedCard} />
+                </div>
+              </section>
+            </div>
+          )
+        : null}
+    </>
+  )
 }
 
 function ReaderSourceHeader({
@@ -177,6 +280,15 @@ export function NoteEditorView({
     throw new Error(`Topic ${currentEntry.id} document does not match type ${currentEntry.topicType}`)
 
   const mode = useEditorTopicMode(editorTopic)
+  const cardSource = currentEntry.topicType === 'regular' ? currentEntry.cardSource : undefined
+  const cardTopicCards = useMemo(() => {
+    if (cardSource === undefined)
+      return []
+    const validation = opened.note.getTopicValidationInput(currentEntry.id)
+    if (!('document' in validation))
+      throw new Error(`Card Topic ${currentEntry.id} does not contain one editable document`)
+    return projectCardTopicCards(validation.document, cardSource)
+  }, [cardSource, currentEntry.id, opened.note])
   const readerReference = currentEntry.topicType === 'regular'
     ? currentEntry.readerReference ?? null
     : null
@@ -290,6 +402,35 @@ export function NoteEditorView({
     }
   }, [configuration.learning.enabled, currentEntry.topicType, editorTopic, onOpenImageOcclusion, opened.note])
   const renameNote = useCallback((title: string) => onRenameNote(opened.note, title), [onRenameNote, opened.note])
+  const reconcileCardTopics = useCallback((document: Parameters<NonNullable<ComponentProps<typeof Editor>['onDocumentChange']>>[0]) => {
+    const result = opened.note.reconcileCardTopics({ document, topicId: opened.topic.topicId })
+    if (result.detachedTopicId === null)
+      return
+    const detachedTopicId = result.detachedTopicId
+    const toastId = toast.warning(
+      <span>
+        {t('cardTopicDetached')}
+        {' '}
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              opened.note.resyncCardTopic(detachedTopicId)
+              toast.dismiss(toastId)
+            }
+            catch (error) {
+              toast.error(t('cardTopicResyncFailed', {
+                message: error instanceof Error ? error.message : String(error),
+              }))
+            }
+          }}
+        >
+          {t('undoCardTopicDetach')}
+        </button>
+      </span>,
+      { autoClose: 8_000 },
+    )
+  }, [opened.note, opened.topic.topicId, t])
   const renameImageOcclusionTopic = useCallback(
     (title: string) => opened.note.renameEntry(opened.topic.topicId, title),
     [opened.note, opened.topic.topicId],
@@ -421,14 +562,22 @@ export function NoteEditorView({
               )
             : editorTopic !== null
               ? (
-                  <Editor
-                    adapters={editorAdapters}
-                    focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
-                    imageOcclusion={regularTopicImageOcclusion}
-                    learningEnabled={configuration.learning.enabled}
-                    outline={{ outdentBehavior: configuration.outdentBehavior }}
-                    topic={editorTopic}
-                  />
+                  <>
+                    {configuration.learning.enabled && cardSource !== undefined
+                      ? <CardTopicPreview cards={cardTopicCards} />
+                      : null}
+                    <Editor
+                      adapters={editorAdapters}
+                      cardPreviewDisabled={currentEntry.topicType === 'regular'}
+                      cardTopic={cardSource !== undefined}
+                      focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
+                      imageOcclusion={regularTopicImageOcclusion}
+                      learningEnabled={configuration.learning.enabled}
+                      onDocumentChange={reconcileCardTopics}
+                      outline={{ outdentBehavior: configuration.outdentBehavior }}
+                      topic={editorTopic}
+                    />
+                  </>
                 )
               : whiteboardTopic !== null
                 ? (

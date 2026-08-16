@@ -70,8 +70,18 @@ Changing system timezone does not rewrite existing Journal Dates. A Journal Note
 A Journal Note remains one Loro-backed Note aggregate as required by ADR 0001. Journal metadata is a persistence subtype projection:
 
 ```sql
-ALTER TABLE notes ADD COLUMN kind TEXT NOT NULL DEFAULT 'regular'
-  CHECK (kind IN ('regular', 'journal'));
+CREATE TABLE notes (
+  row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'regular'
+    CHECK (kind IN ('regular', 'journal')),
+  checkpoint_snapshot BLOB,
+  checkpoint_sequence INTEGER NOT NULL DEFAULT 0,
+  latest_sequence INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 
 CREATE TABLE journals (
   note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
@@ -89,7 +99,7 @@ CREATE UNIQUE INDEX notes_regular_title_unique
 
 The `journals` table remains the authoritative subtype projection. The non-null `notes.kind` column is only an integrity discriminator: it lets SQLite enforce regular-Note title uniqueness and validate Journal identity without copying `journal_date` or `has_user_content` onto every Note.
 
-- Existing Notes are additively backfilled as regular or Journal Notes from the `journals` relation.
+- `notes.kind` is part of the current schema baseline.
 - The database enforces one Journal Note per Journal Date under concurrent calls.
 - A partial unique index enforces case-insensitive regular-Note titles across independent storage owners while still allowing a regular Note whose title equals a Journal Date.
 - Triggers require Journal rows to reference a `kind = 'journal'` Note with the exact canonical date title and prevent later title/kind drift.
@@ -211,7 +221,7 @@ Date rollover captures the first visible Journal Note ID and its viewport offset
 
 ## Embedded editor mode
 
-The current `EditorCanvas` owns an internal `overflowY: auto` viewport and `minHeight: 100%`, which is correct for the standalone Note route but incompatible with a measured Journal row.
+The current `EditorCanvas` owns an internal `overflowY: auto` viewport and `minHeight: 100%`, which is correct for the standalone Note route but does not fit a measured Journal row.
 
 `packages/editor` provides an explicit `layout="standalone" | "embedded"` mode:
 
@@ -255,7 +265,7 @@ This preserves one canonical navigation experience and prevents a second route f
 ### `packages/editor-storage`
 
 - Added the `journals` subtype table and JournalDate validation.
-- Added the Note-kind integrity discriminator, regular-title partial unique index, and Journal identity triggers with an additive existing-database migration.
+- Added the Note-kind integrity discriminator, regular-title partial unique index, and Journal identity triggers as part of the current schema baseline.
 - Added atomic get-or-create, cursor list, content projection update, date-marker list, and prune operations.
 - Added Note deletion cleanup for non-foreign-key vector rows.
 
@@ -277,7 +287,7 @@ This preserves one canonical navigation experience and prevents a second route f
 
 ## Resolved decisions
 
-1. **Existing databases**: preserve them with additive `journals` and `notes.kind` migrations; startup rejects pre-existing duplicate regular titles instead of silently choosing a winner.
+1. **Database generation**: main database schema generation remains `1`; Journal and CardTopic projections use the current schema baseline.
 2. **Deletion timing**: use the safe collection points above; a just-cleared past row can remain physically stored while being hidden immediately.
 3. **Generic consumers**: keep Journal Notes in Pages, Search, Recent, Favorites, and structured Note reads, with navigation redirected to `/journals?date=...`.
 4. **Empty structure**: meaningful non-text nodes count as user content; extra Topics, named Topics, and Folders violate the one-Topic Journal invariant and are rejected.

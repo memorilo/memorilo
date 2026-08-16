@@ -11,6 +11,7 @@ function document(text: string): NodeJSON {
       type: 'list',
       attrs: {
         blockHighlight: null,
+        blockHighlightId: null,
         blockId: `block-${text}`,
       },
       content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],

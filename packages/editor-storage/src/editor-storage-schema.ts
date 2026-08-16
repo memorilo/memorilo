@@ -6,16 +6,8 @@ interface EmbeddingConfigurationRow {
   model_id: string
 }
 
-interface TableColumnRow {
-  name: string
-}
-
 interface SchemaSqlRow {
   sql: string | null
-}
-
-interface DuplicateRegularNoteTitleRow {
-  title: string
 }
 
 const schema = `
@@ -142,6 +134,7 @@ const schema = `
     topic_id TEXT NOT NULL,
     topic_type TEXT NOT NULL CHECK (topic_type IN ('regular', 'book', 'image-occlusion', 'spreadsheet', 'whiteboard')),
     editor_mode INTEGER CHECK (editor_mode IN (0, 1)),
+    card_source_json TEXT,
     title TEXT NOT NULL,
     UNIQUE (note_row_id, topic_id)
   );
@@ -406,53 +399,15 @@ export async function initializeEditorStorageSchema(
   }
   await database.exec(schema)
 
-  const noteColumns = await database.all<TableColumnRow>('PRAGMA table_info(notes)')
+  const noteColumns = await database.all<{ name: string }>('PRAGMA table_info(notes)')
   if (!noteColumns.some(column => column.name === 'created_at')) {
     throw new Error(
       'Unsupported notes schema: created_at is required; delete the existing database before starting Memorilo',
     )
   }
   if (!noteColumns.some(column => column.name === 'kind')) {
-    await database.batch([
-      {
-        sql: `
-          ALTER TABLE notes
-          ADD COLUMN kind TEXT NOT NULL DEFAULT 'regular'
-            CHECK (kind IN ('regular', 'journal'))
-        `,
-      },
-      {
-        sql: `
-          UPDATE notes
-          SET kind = 'journal'
-          WHERE EXISTS (
-            SELECT 1 FROM journals WHERE journals.note_row_id = notes.row_id
-          )
-        `,
-      },
-    ])
-  }
-  else {
-    await database.run(`
-      UPDATE notes
-      SET kind = 'journal'
-      WHERE EXISTS (
-        SELECT 1 FROM journals WHERE journals.note_row_id = notes.row_id
-      )
-    `)
-  }
-
-  const duplicateRegularTitle = await database.get<DuplicateRegularNoteTitleRow>(`
-    SELECT title
-    FROM notes
-    WHERE kind = 'regular'
-    GROUP BY title COLLATE NOCASE
-    HAVING COUNT(*) > 1
-    LIMIT 1
-  `)
-  if (duplicateRegularTitle) {
     throw new Error(
-      `Unsupported notes schema: duplicate regular Note title "${duplicateRegularTitle.title}" must be resolved before starting Memorilo`,
+      'Unsupported notes schema: kind is required; delete the existing database before starting Memorilo',
     )
   }
   await database.exec(noteKindConstraints)

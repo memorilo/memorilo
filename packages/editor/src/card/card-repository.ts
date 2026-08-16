@@ -49,6 +49,9 @@ function cardSearchText(card: EditorCardProjection): string {
   else if (card.kind === 'cloze') {
     card.content.forEach(node => appendNodeText(node, output))
   }
+  else if (card.kind === 'highlight') {
+    card.content.forEach(node => appendNodeText(node, output))
+  }
   else {
     card.prompt.forEach(node => appendNodeText(node, output))
     card.items.forEach(item => item.content.forEach(node => appendNodeText(node, output)))

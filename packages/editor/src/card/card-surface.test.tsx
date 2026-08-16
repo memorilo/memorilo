@@ -25,6 +25,7 @@ function block(id: string, content: readonly NodeJSON[], attrs: Record<string, u
     type: 'list',
     attrs: {
       blockHighlight: null,
+      blockHighlightId: null,
       blockId: id,
       cardItemDefinitionId: null,
       checked: false,

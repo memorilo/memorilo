@@ -17,9 +17,11 @@ import {
   findNoteEntry,
   FOLDER_NAME_KEY,
   noteTree,
+  readCardTopicSource,
   readString,
   readTopicReaderReference,
   readTopicType,
+  TOPIC_CARD_SOURCE_KEY,
   TOPIC_READER_REFERENCE_KEY,
   TOPIC_TITLE_KEY,
   validateBookBindingValue,
@@ -121,6 +123,24 @@ export function createEditorNoteEntryRepository(
       )
     }
   }
+  const assertCardTopicParent = (
+    topicId: string,
+    parent: ReturnType<typeof entryNode> | undefined,
+  ): void => {
+    const node = entryNode(topicId)
+    if (node.data.get(ENTRY_KIND_KEY) !== 'topic'
+      || readTopicType(node.data, `Topic ${topicId} type`) !== 'regular') {
+      return
+    }
+    const source = readCardTopicSource(node.data, `Topic ${topicId} card source`)
+    if (source === null)
+      return
+    const parentId = parent?.data.get(ENTRY_KIND_KEY) === 'topic'
+      ? readString(parent.data, ENTRY_ID_KEY, `Parent of Card Topic ${topicId}`)
+      : null
+    if (parentId !== source.sourceTopicId)
+      throw new TypeError(`Card Topic ${topicId} must remain a child of source Topic ${source.sourceTopicId}`)
+  }
 
   return {
     createBookTopic: input => runMutation(() => {
@@ -196,6 +216,15 @@ export function createEditorNoteEntryRepository(
 
       if (input.strategy === 'promote-children') {
         const children = node.children() ?? []
+        const cardTopic = children.find(child => (
+          child.data.get(ENTRY_KIND_KEY) === 'topic'
+          && readTopicType(child.data, 'Child Topic type') === 'regular'
+          && readCardTopicSource(child.data, 'Child Card Topic source') !== null
+        ))
+        if (cardTopic) {
+          const childId = readString(cardTopic.data, ENTRY_ID_KEY, 'Card Topic id')
+          throw new TypeError(`Topic ${input.entryId} cannot promote bound Card Topic ${childId}`)
+        }
         const boundReaderTopic = children.find((child) => {
           if (child.data.get(ENTRY_KIND_KEY) !== 'topic'
             || readTopicType(child.data, 'Child Topic type') !== 'regular') {
@@ -278,6 +307,7 @@ export function createEditorNoteEntryRepository(
       }
       if (node.data.get(ENTRY_KIND_KEY) === 'topic'
         && readTopicType(node.data, `Topic ${input.entryId} type`) === 'regular') {
+        assertCardTopicParent(input.entryId, parent)
         assertReaderBoundTopicParent(input.entryId, readTopicReaderReference(node.data), parent)
       }
       noteTree(doc).move(node.id, parent?.id, resolveNoteEntryIndex(input.index))
@@ -290,6 +320,11 @@ export function createEditorNoteEntryRepository(
         node.data.set(FOLDER_NAME_KEY, normalizeNonEmptyString(label, 'Folder name'))
       }
       else if (kind === 'topic') {
+        if (readTopicType(node.data, `Topic ${entryId} type`) === 'regular') {
+          const cardSource = readCardTopicSource(node.data, `Topic ${entryId} card source`)
+          if (cardSource?.syncStatus === 'synced')
+            node.data.set(TOPIC_CARD_SOURCE_KEY, { ...cardSource, syncStatus: 'detached' as const })
+        }
         node.data.set(TOPIC_TITLE_KEY, readTopicType(node.data, `Topic ${entryId} type`) === 'book'
           ? normalizeNonEmptyString(label, 'BookTopic title')
           : normalizeTopicTitle(label))

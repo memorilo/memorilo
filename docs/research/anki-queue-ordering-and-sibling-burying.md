@@ -1,6 +1,6 @@
 # Anki 队列排序与 sibling bury 调研
 
-调研日期：2026-08-01；实现状态更新：2026-08-06
+调研日期：2026-08-01；实现状态更新：2026-08-16
 
 本文记录 Anki 官方手册对队列政策的公开契约，以及 Memorilo 后续采用的实现边界。资料固定在 Anki 手册提交 [`d2484ca416682d9a7c39fdca1d8fd34ab75bf22b`](https://github.com/ankitects/anki-manual/tree/d2484ca416682d9a7c39fdca1d8fd34ab75bf22b)。
 
@@ -46,5 +46,5 @@ Anki 的 `Next day starts at` 以当前时区定义学习日边界，默认凌�
 
 1. Optimizer 与全局 Queue Policy 分开保存；前者按 Note assignment 解析，后者从下一次动态选卡起全局生效。
 2. `Bury` 是由 Rating Event 派生的当前学习日过滤，不是第五种 Rating，也不修改 due 或 Learning State。
-3. Sibling group 定义为同一 Note 内具有相同 `sourceBlockId` 的 Cards。Bidirectional、同源 Cloze 和同一 Source Block 中的其他 Definitions 因而属于同组；Memorilo Note 本身不会整体成为一个 sibling group。
+3. Sibling group 定义为同一 Note 内具有相同 `sourceBlockId` 的 Cards，包括同一来源下的兄弟 CardTopics 和嵌套 CardTopic 投影。Bidirectional、同源 Cloze、Highlight 及同一 Source Block 中的其他 Definitions 因而属于同组；Memorilo Note 本身不会整体成为一个 sibling group。
 4. Review Sort Order 当前支持 `due-random` 与 FSRS retrievability；随机 key 按 Study Day 和 CardID 确定性生成。三个 Bury 分类和 Anki 的队列收集先后顺序均已实现。

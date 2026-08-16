@@ -240,7 +240,7 @@ function defineCardCommands(createId: CreateCardId, authoringEnabled: boolean): 
       validateDirection(direction)
       return authoringEnabled ? insertCardDelimiter(createId, direction) : disabledCardCommand()
     },
-    removeBlockHighlight: () => updateClosestListAttrs(() => ({ blockHighlight: null })),
+    removeBlockHighlight: () => updateClosestListAttrs(() => ({ blockHighlight: null, blockHighlightId: null })),
     removeCloze: () => authoringEnabled ? removeMark({ type: 'cloze' }) : disabledCardCommand(),
     removeBlockFromCardBack: () => authoringEnabled ? removeBlockFromCardBackCommand() : disabledCardCommand(),
     removeInlineHighlight: () => removeMark({ type: 'inlineHighlight' }),
@@ -252,11 +252,11 @@ function defineCardCommands(createId: CreateCardId, authoringEnabled: boolean): 
       : disabledCardCommand(),
     setBlockHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
-      return updateClosestListAttrs(() => ({ blockHighlight: color }))
+      return updateClosestListAttrs(() => ({ blockHighlight: color, blockHighlightId: crypto.randomUUID() }))
     },
     setInlineHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
-      return addMark({ type: 'inlineHighlight', attrs: { color } satisfies InlineHighlightMarkAttrs })
+      return addMark({ type: 'inlineHighlight', attrs: { color, id: crypto.randomUUID() } satisfies InlineHighlightMarkAttrs })
     },
   })
 }

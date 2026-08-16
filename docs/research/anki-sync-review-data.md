@@ -1,6 +1,6 @@
 # Anki 复习数据同步机制调研
 
-调研日期：2026-08-01；实现状态更新：2026-08-06
+调研日期：2026-08-01；实现状态更新：2026-08-16
 
 Memorilo 当前已实现本地 Review Events、canonical replay、device sequence、sync outbox、server-sequence acknowledgement 和 purge tombstones，但尚未实现远端 transport、入站 merge、时钟握手、full-sync recovery 或多设备 prune watermark。本文件中的远端流程仍是已采用的协议设计，不是当前可用功能。
 
@@ -28,7 +28,7 @@ Anki 的同步单位是一个 profile 对应一个 AnkiWeb account；同一个�
 
 - Learning State、Review Event、Optimizer 和 Note-to-Optimizer assignment 应属于**个人账户学习域**，在该用户的设备间同步；
 - 它们不应进入协作 Note 的共享 CRDT，也不应让 Note 协作者看到或共同修改；
-- Note/Topic/Block 只提供内容身份，个人学习域通过稳定 ID 引用内容。
+- CardTopic 是 Card 内容 owner；个人学习域通过稳定的 `cardId`、CardTopic `topicId`、`sourceBlockId` 和 Target ID 引用协作内容，但不拥有或改写这些内容。
 
 这比把学习状态共享给协作者更接近 Anki 的用户模型，也避免一个人的 Rating 改变另一个人的 due date。
 
@@ -120,9 +120,9 @@ Memorilo 本地已实现不可变 Optimizer revisions、Note assignment 和 outb
 
 Anki 对 Card、Note 和 Deck 的删除写入 `graves`。同步先交换 graves，再删除对应本地对象并保存 grave，避免另一设备的旧对象复活。[`collection/start.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/start.rs#L18-L73) [`collection/graves.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/collection/graves.rs#L16-L61)
 
-Memorilo 的语义不同：内容消失时 Card 先变成 Inactive Card，仍保留历史、Learning State 并参与 Optimizer 训练。当前本地实现分为两层：
+Memorilo 的语义不同：来源 Definition、ClozeGroup 或 Highlight 消失时，对应 child CardTopic 自动 detached，保留自身内容、Card identity、Learning State 和历史；Card 仍然 active。只有 CardTopic 或其 owned Card identity 被删除时，Card 才进入 inactive 状态。当前本地实现分为两层：
 
-1. `inactive` 是 Card projection 上的持久状态，本地变更写入 sync outbox；同一 CardID 再次从内容投影出现时恢复 active，不重置进度。
+1. `inactive` 是 Card projection 上的持久状态，本地变更写入 sync outbox；来源 authoring projection 消失本身不会触发该状态。相同 CardID 再次出现时恢复 active，不重置进度。
 2. `maintainDatabase` 才产生 scoped purge tombstone，并删除 inactive Card/Target、关联 Review Events/Learning States 与 archived Optimizer。本地维护和 VACUUM 已实现；先同步 tombstone、等待全设备水位再做账户级垃圾回收仍是远端协议要求。
 
 仅在本机 `VACUUM` 后忘记 tombstone 会让离线旧设备重新上传已永久清理的数据。当前 integration tests 覆盖本地 purge、rollback、outbox 与 reopen；“设备 A 清理、设备 B 长期离线后重连”必须等远端同步实现后测试。
@@ -153,9 +153,7 @@ Full upload 读取并发送完整 collection SQLite 文件，服务端校验后�
 
 对 Memorilo：
 
-- 首版新数据库可以直接以新的 learning schema 作为基线，符合“不迁移旧库”的当前决定；
-- 从产品上线开始仍需保存 `syncProtocolVersion` 与 `learningSchemaVersion`；
-- 向后兼容的字段新增可继续增量同步；无法被旧客户端安全忽略的语义变化必须阻止旧客户端写入，并要求升级或 full snapshot；
+- 学习同步消息需要携带明确的 `syncProtocolVersion` 与 `learningSchemaVersion`，使握手、校验与恢复路径可以确定性选择；
 - full snapshot 是灾难恢复和协议升级路径，不应成为普通多设备冲突的解决办法。
 
 ## 9. 时钟偏差
@@ -175,7 +173,7 @@ Anki 官方手册明确：collection 的单向 full sync 不影响 media，media
 
 源码中 MediaSyncer 有独立的 media database、`last_sync_usn`、pending uploads、分批下载/上传与 finalize 流程。[`media/syncer.rs`](https://github.com/ankitects/anki/blob/dc2998fbc1079e392c30b9103c8cc862a4f7c35d/rslib/src/sync/media/syncer.rs#L40-L140)
 
-Memorilo Learning sync 不应传 Note 正文或媒体 blob。Review Event 保存 `noteId/cardId/targetId` 等稳定引用，Topic 和 Source Block 通过 Card projection 解析；只读 Editor 展示时再由内容同步层和 Note LRU pool 加载当前内容。这样未来的 learning full sync 不会覆盖协作内容，内容/媒体同步失败也不会破坏复习历史。
+Memorilo Learning sync 不应传 Note 正文或媒体 blob。Review Event 保存 `noteId/cardId/targetId` 等稳定引用，Card projection 再通过 CardTopic `topicId` 和 `sourceBlockId` 定位内容；只读 Editor 展示时由内容同步层和 Note LRU pool 加载当前 CardTopic。这样未来的 learning full sync 不会覆盖协作内容，内容/媒体同步失败也不会破坏复习历史。
 
 ## 11. 当前不变量与远端待办
 

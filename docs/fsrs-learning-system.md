@@ -1,6 +1,6 @@
 # FSRS Learning System Design
 
-本文记录 Memorilo 原生 FSRS 学习系统的已确认设计及当前实现合同。当前实现覆盖本地 schema、FSRS 调度与优化、Card reconciliation、队列、Undo/Reset、维护、同步 outbox、Electron IPC，以及基于只读 CardSurface 的 Learning 评分 UI；远端同步服务仍不在当前实现范围。
+本文记录 Memorilo 原生 FSRS 学习系统的已确认设计及当前实现合同。当前实现覆盖 Card Topic ownership 与 reconciliation、本地 schema、FSRS 调度与优化、队列、Undo/Reset、维护、同步 outbox、Electron IPC，以及基于只读 CardSurface 的 Learning 评分 UI；远端同步服务仍不在当前实现范围。
 
 相关调研：
 
@@ -13,20 +13,21 @@
 
 ## 1. 核心不变量
 
-1. Card 内容属于 Note/Loro，学习数据库不复制题面或答案。
+1. CardTopic 所拥有的 Card 内容属于 Note/Loro，学习数据库不复制题面或答案。
 2. CardID 是 Card 学习进度的稳定身份；普通内容编辑不重置进度。
-3. Review Event graph 是历史真源，Learning State 和 due 是 canonical scheduling lineage 的可重建投影。
-4. 每个 Note 只有一个 effective Optimizer；多个 Note 可以共享同一个 Optimizer。
-5. 没有显式 assignment 的 Note 使用 Global Optimizer。
-6. Global Optimizer 不可删除、不可改名，但可编辑参数、优化参数和恢复默认设置。
-7. Inactive Card 不进入任何普通 Learning UI，但历史在永久清理前继续参与训练。
-8. Note 内容同步与个人学习同步是两个边界；协作者不共享个人学习进度。
-9. Optimizer 只拥有 FSRS 调度参数；全局 Flashcards 设置拥有队列政策，Goals & Streaks 设置拥有每日目标。
-10. 每日目标是完成进度而不是 due review 的硬上限；新卡和到期复习使用独立入口。
+3. Regular Topic 只保存 authoring 内容，不进入 queue，也不提供 Preview；只有其 child CardTopic 的 Card 进入 queue、Preview、Review 和 Rating。
+4. Review Event graph 是历史真源，Learning State 和 due 是 canonical scheduling lineage 的可重建投影。
+5. 每个 Note 只有一个 effective Optimizer；多个 Note 可以共享同一个 Optimizer。
+6. 没有显式 assignment 的 Note 使用 Global Optimizer。
+7. Global Optimizer 不可删除、不可改名，但可编辑参数、优化参数和恢复默认设置。
+8. Inactive Card 不进入任何普通 Learning UI，但历史在永久清理前继续参与训练；Detached CardTopic 的 Card 不是 inactive，仍可学习。
+9. Note 内容同步与个人学习同步是两个边界；协作者不共享个人学习进度。
+10. Optimizer 只拥有 FSRS 调度参数；全局 Flashcards 设置拥有队列政策，Goals & Streaks 设置拥有每日目标。
+11. 每日目标是完成进度而不是 due review 的硬上限；新卡和到期复习使用独立入口。
 
 ## 2. 模块与所有权
 
-packages/editor 继续拥有 Card Definition、CardID、投影和只读 editor surface。packages/editor-storage 拥有学习 schema、事务、历史重放、队列查询和同步持久化。Electron main process 组合 SQLite driver、FSRS engine、当前 Desktop Configuration 和 IPC；renderer 只消费公开 learning service，不直接执行 SQL 或 FSRS。
+packages/editor 继续拥有 Card Definition、CardTopic projection、CardID、投影和只读 editor surface。packages/editor-storage 拥有学习 schema、事务、历史重放、队列查询和同步持久化。Electron main process 组合 Note reconciliation、SQLite driver、FSRS engine、当前 Desktop Configuration 和 IPC；renderer 只消费公开 learning service，不直接执行 SQL 或 FSRS。
 
 学习配置按 RemNote 的产品边界分成三个模块：
 
@@ -36,20 +37,22 @@ packages/editor 继续拥有 Card Definition、CardID、投影和只读 editor s
 
 editor-storage 接收一个只读配置 provider，每次计算进度或选择下一张 Card 时读取最新 snapshot。Editor 与 Learning facets 共享同一个 operation admission 和数据库生命周期；关闭 EditorStorage 会先拒绝新操作并排空两侧已接受的工作，再关闭数据库。保存设置不创建或持久化完整队列；已经展示的当前 Card 保持稳定，下一次选择立即使用新设置。
 
-## 3. Card 内容与只读显示
+## 3. Card Topic、Card 内容与只读显示
 
-Learning 数据只保存 cardId、noteId、topicId、sourceBlockId 和可选 itemBlockId。显示时加载当前 Note，通过只读 editor projection 定位 Card：
+Card Topic 是一个带 `cardSource` 的 Regular Topic child。其 Loro 文档保存来源片段的副本和继续 authoring 所需的节点/marks；`cardSource.syncStatus` 是 `synced` 或 `detached`。synced child 随来源片段和标题更新，编辑 child 或删除来源定义会保留 child 并解除同步；resync 才会再次覆盖 child 内容。
 
-    CardSurface({
-      topic,
-      focus: { cardId, itemBlockId },
-      side: "question" | "answer",
-      appearance: "preview" | "review",
-    })
+Learning 数据只保存 cardId、noteId、CardTopic `topicId`、sourceBlockId 和可选 itemBlockId。显示时加载当前 Note，从 CardTopic 投影 Card；Preview 与正式 Review 分别进入自己的 UI：
 
-Editor Preview 使用当前 Topic 的 live adapter；Learning 使用 stored Note adapter。Note runtime pool 采用 LRU，最多保留 64 份 Note。同步、历史重放和参数优化直接查询 SQLite，不加载该缓存。
+    const cards = projectCardTopicCards(document, cardSource)
 
-Editor 卡片菜单的 Preview 与正式 Learning Review 现在都使用 CardSurface，共享 editor 的只读、聚焦视觉投影。旧 CardPreview 仅保留为公开兼容导出和隔离测试夹具，不再被生产界面使用。Rating、reveal、计时、Undo 和队列状态仍属于 CardSurface 外部。
+    CardPreview({ card: cards[0] })
+    CardSurface({ topic, card: cards[0], side: "question" | "answer" })
+
+CardTopic Preview 使用当前 child Topic 的 live adapter 和 `CardPreview`；regular Topic 没有 Preview。Learning 使用 stored Note adapter 和 `CardSurface`，两者都从当前 CardTopic 的 `projectCardTopicCards()` 结果读取内容。Note runtime pool 采用 LRU，最多保留 64 份 Note。同步、历史重放和参数优化直接查询 SQLite，不加载该缓存。
+
+正式 Learning Review 使用 CardSurface，共享 editor 的只读、聚焦视觉投影。CardTopic 的编辑器 Preview 使用 CardPreview；它只负责显示和临时 reveal，不提交 rating，也不计算下一次复习时间。Rating、reveal、计时、Undo 和队列状态属于 Learning workflow。
+
+CardTopic child editor 隐藏 Card delimiter、Cloze/Highlight authoring 外观和 Card hover controls，但保留其他文本 marks、公式、图片、列表和 Block 样式。Highlight Card 没有背面或 reveal：打开 Review 后直接显示片段并使用 Again、Hard、Good、Easy 评分。
 
 Inactive Card 或 Inactive Target 在解析内容前就从查询结果过滤，不能因缓存命中而出现在 Learning 页面。
 
@@ -57,7 +60,7 @@ Inactive Card 或 Inactive Target 在解析内容前就从查询结果过滤，�
 
 ### 4.1 普通 Card
 
-BasicCard、Cloze Card 和 Backward List/Set 各有一个 whole-card Review Target；一次 Review 产生一个 Again、Hard、Good 或 Easy。
+CardTopic 中的 BasicCard、Cloze Card、Highlight Card 和 Backward List/Set 各有一个 whole-card Review Target；一次 Review 产生一个 Again、Hard、Good 或 Easy。Highlight 不提供 answer side，rating workflow 对它自动视为已揭示。
 
 ### 4.2 Forward List/Set
 
@@ -74,13 +77,13 @@ Partial Card 只是单一 item Target 的复习展示，不是新的 Card Defini
 
 ### 4.3 Sibling Group
 
-所有 sourceBlockId 相同的 Card 属于同一个 Sibling Group，包括 Bidirectional 产生的两个 Card。Bury 只改变当前 Study Day 的 queue eligibility，不修改 due、Learning State 或 Review Event。
+同一 Note 中所有 sourceBlockId 相同的 Card 属于同一个 Sibling Group，包括 Bidirectional 产生的两个 Card、兄弟 CardTopics 和嵌套 CardTopic 投影。Bury 只改变当前 Study Day 的 queue eligibility，不修改 due、Learning State 或 Review Event。
 
 短时 learning/relearning 和 Partial steps 对时间敏感，按 Anki 队列优先级先收集；较晚收集的 sibling 不反向 bury 已进入的短时学习 Target。
 
 ## 5. 逻辑数据库模型
 
-所有学习数据与现有 Note 数据存放在同一个 SQLite 数据库，由 packages/editor-storage 管理。当前 schema 初始化使用幂等 `CREATE TABLE IF NOT EXISTS`；启动时会从现有 Review Events 重算 Card introduction，并有限回填当前学习日的 Sibling Bury 派生索引。开发阶段旧数据库直接删除并重建，项目尚未建立通用的版本化 schema migration 框架。
+所有学习数据与现有 Note 数据存放在同一个 SQLite 数据库，由 packages/editor-storage 管理。当前 schema 初始化使用幂等 `CREATE TABLE IF NOT EXISTS`；启动时会从现有 Review Events 重算 Card introduction，并有限回填当前学习日的 Sibling Bury 派生索引。main database schema generation 为 `1`。
 
 ### 5.1 learning_optimizers
 
@@ -124,7 +127,7 @@ Review Event 不以外键绑定历史 revision。参数变化后的重放必须�
 | 字段 | 约束/含义 |
 | --- | --- |
 | card_id | 来自 editor projection 的稳定 CardID |
-| note_id / topic_id | 内容定位与训练分组 |
+| note_id / topic_id | 内容定位与训练分组；`topic_id` 必须是 CardTopic，regular source Topic 不写入学习队列 |
 | source_block_id | Sibling Group identity |
 | topic_order / source_order | 不含内容的投影顺序，用于 New gather |
 | kind / direction | 不含内容的投影类型元数据 |
@@ -132,7 +135,7 @@ Review Event 不以外键绑定历史 revision。参数变化后的重放必须�
 | first_seen_at / last_seen_at / inactive_at | reconciliation 审计 |
 | sync_sequence | 预留的实体同步序号 |
 
-删除内容只把 active 设为 false。禁止以 replaceTopicCards 的“集合中不存在”为理由级联删除历史。
+删除 CardTopic 才把其 Card 的 `active` 设为 false；来源定义删除只让 child CardTopic 自动 `detached`，其 Card 继续 active、可 Preview、入队和评分。禁止以 regular source Topic 的 authoring projection 不存在或“集合中不存在”为理由级联删除历史。
 
 ### 5.5 learning_targets
 
@@ -224,19 +227,19 @@ Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实
 
 ### 6.1 Card reconciliation
 
-Note 创建或更新时，main process 在提交前从当前 Topic 投影 Card identities。editor-storage 在同一个 operation admission 中规划 Note projection 与 Card reconciliation 命令，并把它们交给同一个原子 SQLite batch：
+Note 创建或更新时，main process 先在 Note Loro 中运行 CardTopic reconciliation，再从当前所有 CardTopic 投影 owned Card identities。editor-storage 在同一个 operation admission 中规划 Note projection 与 Card reconciliation 命令，并把它们交给同一个原子 SQLite batch：
 
-1. upsert 当前 Card 和 Target identity；
+1. upsert 当前 CardTopic 的 Card 和 Target identity；
 2. 将相同 CardID/Target 重新设为 active；
-3. 将本次 scope 中消失的 identity 标为 inactive；
-4. 不删除 Review Event 或 Learning State；
+3. 将被明确删除的 CardTopic 或其 owned identity 标为 inactive；
+4. 保留 detached CardTopic 的 Card、Review Event 和 Learning State；
 5. 不加载其他 Note。
 
-因此 Card 规划、ownership 校验或 batch 中任一命令失败时，Note update、title、topic/block projection、asset references 与 Learning Card 都不会部分提交。Card 跨 Topic 移动按完整投影处理，旧 Topic 的清理不会在同一批次中把已移动 Card 再次停用。内容编辑、移动和改写不重置进度。只有稳定 identity 真正变化时才形成新的学习对象。
+因此 CardTopic 规划、ownership 校验或 batch 中任一命令失败时，Note update、title、topic/block projection、asset references 与 Learning Card 都不会部分提交。Card 跨 Topic 移动按完整投影处理，旧 Topic 的清理不会在同一批次中把已移动 Card 再次停用。来源内容编辑、CardTopic detach、移动和改写不重置进度。只有稳定 identity 真正变化时才形成新的学习对象。
 
 ### 6.2 Rating
 
-普通 Card、Backward List/Set、Cloze 和 Partial item 使用单 Target 事务：
+普通 Basic/Cloze/Highlight Card、Backward List/Set 和 Partial item 使用单 Target 事务：
 
 1. 校验 Target active，并核对 prepare 阶段返回的 eventId、winning event、state hash 和 Optimizer revision；
 2. 读取 Note 当前 effective Optimizer revision，以当前 winning_event_id 作为 base_event_id 重放并生成 Rating Event 与 result state；
@@ -335,7 +338,7 @@ Flashcards 设置保存后不生成持久队列 snapshot。`getNextNewItem` 与 
 
 ### 8.4 Anki 式 Sibling Bury
 
-Sibling 的范围固定为同一 Note 内相同的 `sourceBlockId`，不扩大到整个 Memorilo Note。队列构建严格使用 Anki 的收集顺序：intraday learning、interday learning、review、new。前面收集到的 Card 只能 bury 同类或后续队列中的 sibling；intraday learning Card 自身不会被 bury，但会参与 seen-sibling 判定并可 bury 后续队列。
+Sibling 的范围固定为同一 Note 内相同的 `sourceBlockId`，包括同一 source 下的兄弟 CardTopic，以及嵌套 CardTopic 投影出的 Card；不扩大到整个 Memorilo Note。队列构建严格使用 Anki 的收集顺序：intraday learning、interday learning、review、new。前面收集到的 Card 只能 bury 同类或后续队列中的 sibling；intraday learning Card 自身不会被 bury，但会参与 seen-sibling 判定并可 bury 后续队列。
 
 三个开关按目标 Card 当前所属队列生效：`Bury new siblings` 控制 new，`Bury review siblings` 控制 review，`Bury interday learning siblings` 控制 interday learning。开关保存后，下一次动态选卡立即按新值重新计算。队列收集阶段只保留每组中首个未被 bury 的 Card；评分后则在当前 Study Day 内保留 source Card 的原队列类别，使后续重建队列仍能执行同一顺序规则。
 
@@ -354,7 +357,7 @@ RemNote 当前公开资料没有证明它会自动执行相同的 sibling bury�
 3. Review Event 按 eventId 做集合合并；
 4. 同一 base 的两个离线 Rating 都保留为分支，当前 state 沿最近回答分支的 canonical lineage 重放；
 5. Optimizer current revision 和 assignment 的并发编辑按 server sequence last-write-wins，旧 revision 保留；
-6. schema/sanity 不兼容时要求 full sync；
+6. schema/sanity 校验失败时要求 full sync；
 7. Note 内容和媒体保持独立同步。
 
 远端同步接入后，客户端应在同步前比较设备与服务器时钟，偏差超过 5 分钟时停止，避免“最近回答”被错误时钟破坏。eventId 是相同 occurred_at 的稳定 tie-break；server sequence 只作为同步水位，不把较早但晚上传的离线评分变成最新评分。
@@ -370,7 +373,7 @@ Anki 本地删除 revlog 的 Undo 无法同步；Memorilo 使用 append-only Und
 1. 删除 inactive Card、其 Target，以及 active List/Set 中单独 inactive 的 item Target；
 2. 删除这些 Target 的 Review Event、Learning State 和 queue exclusions；
 3. 删除 archived Optimizer 及不再被 current pointer 使用的 revision；
-4. 写入 purge tombstone/generation，为未来同步防止旧设备复活数据；
+4. 写入 scoped purge tombstone，为未来同步防止旧设备复活数据；不修改 main database schema generation；
 5. 检查外键和 sanity counts；
 6. 执行 VACUUM。
 
@@ -387,8 +390,8 @@ Active Card 的 Review Event 不能因为其历史 Optimizer 已归档而删除�
 1. 已完成 editor-storage schema、repository、Card projection reconciliation、Review Event 和 materialized state。
 2. 已完成 FSRS engine、Rating/Replay/Undo/Reset、Optimizer revision/assignment/optimization 与可选立即重调度。
 3. 已完成全局练习政策、动态选卡、Daily Goal、两层 List/Set、派生 Partial 状态和 Sibling Bury。
-4. 已完成 Preview/Review 共用 CardSurface，以及 main process 的 64-Note LRU。
+4. 已完成 CardTopic Preview 使用 `CardPreview`、正式 Learning Review 使用 `CardSurface`；两者读取同一个 `projectCardTopicCards()` 投影，并共用 main process 的 64-Note LRU。
 5. 已完成本地同步 outbox、server-sequence acknowledgement 和 purge tombstone；远端 transport、入站 merge 与 full-sync recovery 尚未实现。
 6. 已完成底层数据库维护、IPC 和 integration tests；Settings 入口与远端 prune-watermark 协调尚未实现。
 
-开发阶段的旧数据库直接删除并按当前 schema 重建；当前 List/Set 两层 Target 模型不提供旧学习 schema 的迁移或兼容路径。未来若上线后出现破坏性 schema 或配置格式变更，必须重新确认兼容范围。
+main database schema generation 保持为 `1`；CardTopic ownership 不改变这一 generation。数据库维护只处理当前 schema 的派生数据、索引和 tombstone。
