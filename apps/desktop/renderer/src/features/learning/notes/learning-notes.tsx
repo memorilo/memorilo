@@ -1,4 +1,4 @@
-import type { DesktopAnkiDeck, DesktopLearningApi } from '@memorilo/desktop-preload'
+import type { DesktopAnkiDeck, DesktopLearningApi } from '@memorilo/desktop-api'
 import type { ChangeEvent } from 'react'
 import type { AnkiDeckTreeNode } from './anki-deck-tree'
 import * as stylex from '@stylexjs/stylex'
@@ -8,8 +8,9 @@ import { ChevronDown, ChevronRight, FileText, LoaderCircle, Play, SlidersHorizon
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
 import { useDesktopConfiguration } from '../../../shared/configuration'
+
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import * as LearningActivity from '../components/learning-activity'
 import { learningQueryKeys } from '../query-keys'
@@ -195,7 +196,7 @@ function LearningNoteRow({
   }).format(note.updatedAt), [i18n.language, note.updatedAt])
   const assignment = useMutation(desktopEffectQuery.mutationOptions({
     mutationFn: (optimizer: LearningOptimizer) => desktopEffect('learning.assign-note-optimizer', () => (
-      window.desktop.learning.assignNoteOptimizer({
+      desktopRequests.learning.assignNoteOptimizer({
         noteId: note.noteId,
         optimizerId: optimizer.id,
       })
@@ -306,14 +307,14 @@ export function LearningNotesPanel() {
   const configuration = useDesktopConfiguration()
   const notesQuery = useQuery(desktopEffectQuery.queryOptions({
     queryFn: () => desktopEffect('learning.list-notes-with-cards', () => (
-      window.desktop.learning.listNotesWithCards()
+      desktopRequests.learning.listNotesWithCards()
     )),
     queryKey: learningQueryKeys.notesWithCards,
     refetchOnMount: 'always',
   }))
   const optimizersQuery = useQuery(desktopEffectQuery.queryOptions({
     queryFn: () => desktopEffect('learning.list-active-optimizers', async () => (
-      (await window.desktop.learning.listOptimizers())
+      (await desktopRequests.learning.listOptimizers())
         .filter(optimizer => optimizer.status === 'active')
     )),
     queryKey: learningQueryKeys.optimizerOptions,
@@ -322,7 +323,7 @@ export function LearningNotesPanel() {
   const ankiRevision = useAnkiConnectionRevision(configuration.anki)
   const ankiDecksQuery = useQuery(desktopEffectQuery.queryOptions({
     enabled: configuration.anki.enabled,
-    queryFn: () => desktopEffect('learning.list-anki-decks', () => window.desktop.learning.listAnkiDecks()),
+    queryFn: () => desktopEffect('learning.list-anki-decks', () => desktopRequests.learning.listAnkiDecks()),
     queryKey: learningQueryKeys.ankiDecks(ankiRevision),
     refetchOnMount: 'always',
     staleTime: 30_000,

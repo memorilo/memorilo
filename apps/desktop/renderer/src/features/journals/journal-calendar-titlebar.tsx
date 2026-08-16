@@ -1,8 +1,9 @@
-import type { JournalDate } from '@memorilo/desktop-preload'
+import type { JournalDate } from '@memorilo/desktop-api'
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
+import { desktopRequests } from '../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { JournalCalendarControl } from './journal-calendar-control'
@@ -34,7 +35,7 @@ export function useJournalCalendarTitlebar({
   const monthBounds = useMemo(() => journalMonthBounds(activeMonth), [activeMonth])
   const datesQuery = useQuery(desktopEffectQuery.queryOptions({
     enabled: calendarOpen && today !== undefined,
-    queryFn: () => desktopEffect('journals.list-dates', () => window.desktop.listJournalDates(monthBounds)),
+    queryFn: () => desktopEffect('journals.list-dates', () => desktopRequests.listJournalDates(monthBounds)),
     queryKey: journalQueryKeys.dates(monthBounds.from, monthBounds.through),
   }))
   const knownDates = useMemo(() => {

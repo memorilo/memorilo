@@ -12,13 +12,14 @@ import type {
   UpdateShelfSourceInput,
 } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
 import type { ShelfOperationRuntime } from './shelf-operation-runtime'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { fetchShelfAsset, fetchShelfPage, fetchShelfPublication } from '@memorilo/shelf'
 import { BrowserWindow, dialog, safeStorage } from 'electron'
+import { withDesktopRequestContext } from '../desktop-request-handlers'
 import { ShelfCatalogBrowser } from './shelf-catalog-browser'
 import { ShelfReadingApplication } from './shelf-reading-application'
 import { ShelfSourceApplication } from './shelf-source-application'
@@ -42,8 +43,7 @@ function encryptPassword(password: string): Uint8Array {
   return new Uint8Array(safeStorage.encryptString(password))
 }
 
-async function confirmReadingDeletion(): Promise<boolean> {
-  const focusedWindow = BrowserWindow.getFocusedWindow()
+async function confirmReadingDeletion(owner: BrowserWindow | null = BrowserWindow.getFocusedWindow()): Promise<boolean> {
   const options = {
     buttons: ['Cancel', 'Delete'],
     cancelId: 0,
@@ -54,8 +54,8 @@ async function confirmReadingDeletion(): Promise<boolean> {
     title: 'Delete Local File',
     type: 'warning' as const,
   }
-  const confirmation = focusedWindow
-    ? await dialog.showMessageBox(focusedWindow, options)
+  const confirmation = owner
+    ? await dialog.showMessageBox(owner, options)
     : await dialog.showMessageBox(options)
   return confirmation.response === 1
 }
@@ -67,7 +67,7 @@ export function createShelfHandlers(
   readingFiles: ShelfReadingFileStore,
   activeReadings: ActiveReadingRegistry,
   operations: ShelfOperationRuntime,
-): DesktopIpcHandlers['shelf'] {
+): DesktopRequestHandlers['shelf'] {
   const credentials = { encrypt: encryptPassword, read: credentialsForSource }
   const sources = new ShelfSourceApplication({
     credentials,
@@ -101,9 +101,9 @@ export function createShelfHandlers(
     addSource(input: AddShelfSourceInput) {
       return sources.add(input)
     },
-    deleteReading(readingId: string) {
-      return readings.delete(readingId)
-    },
+    deleteReading: withDesktopRequestContext((context, readingId: string) => (
+      readings.delete(readingId, () => confirmReadingDeletion(BrowserWindow.fromWebContents(context.sender)))
+    )),
     getAsset(input: ShelfAssetInput) {
       return catalog.getAsset(input)
     },
@@ -129,7 +129,7 @@ export function createShelfHandlers(
       return catalog.refreshView(input)
     },
     removeSource(sourceId: string) {
-      return sources.remove(sourceId)
+      return sources.remove(sourceId).then(() => null)
     },
     updateSource(input: UpdateShelfSourceInput) {
       return sources.update(input)

@@ -4,6 +4,7 @@ import type { NoteLibraryColumnId } from './note-library-model'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronDown, Ellipsis } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { noteLibraryColumnIds, noteLibraryColumnLabel } from './note-library-model'
 import { noteLibraryViewMenuStyles as pagesRouteStyles } from './note-library-view-menu.stylex'
 
@@ -29,7 +30,7 @@ export function NoteLibraryViewMenu({
     const bounds = trigger.getBoundingClientRect()
     setOpen(true)
     try {
-      const selection = await window.desktop.showColumnVisibilityMenu({
+      const selection = await desktopRequests.showColumnVisibilityMenu({
         anchor: {
           x: Math.round(bounds.left),
           y: Math.round(bounds.bottom + 4),

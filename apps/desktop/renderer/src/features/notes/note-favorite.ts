@@ -1,6 +1,7 @@
-import type { DesktopNote } from '@memorilo/desktop-preload'
+import type { DesktopNote } from '@memorilo/desktop-api'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
+import { desktopRequests } from '../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { noteQueryKeys } from './query-keys'
 
@@ -9,7 +10,7 @@ export function useNoteFavorite(note: Pick<DesktopNote, 'favorite' | 'id'>) {
   const [favorite, setFavorite] = useState(note.favorite)
   const { isPending, mutate } = useMutation(desktopEffectQuery.mutationOptions({
     mutationFn: (nextFavorite: boolean) => desktopEffect('notes.set-favorite', () => (
-      window.desktop.setNoteFavorite({
+      desktopRequests.setNoteFavorite({
         favorite: nextFavorite,
         noteId: note.id,
       })

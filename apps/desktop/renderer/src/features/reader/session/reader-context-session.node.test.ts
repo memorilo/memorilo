@@ -2,7 +2,7 @@ import type {
   CreateDesktopBookContextResult,
   DesktopBookTopicContextSummary,
   DesktopBookTopicReadingContext,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { ReaderContextSession } from './reader-context-session'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'

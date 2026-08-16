@@ -44,7 +44,7 @@ afterEach(async () => {
 
 describe('asset maintenance', () => {
   it('reconciles a stable snapshot of every note when list ordering changes during a scan', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'memorilo-assets-'))
+    const directory = await mkdtemp(join(tmpdir(), 'memorilo-managed-assets-'))
     temporaryDirectories.push(directory)
     const initial = Array.from({ length: 201 }, (_, index) => note(`note-${String(index + 1).padStart(3, '0')}`))
     let ordered = initial

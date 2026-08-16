@@ -1,8 +1,16 @@
-import type { DesktopApi, DesktopAssetCheckResult } from '@memorilo/desktop-preload'
+import type { DesktopAssetCheckResult } from '@memorilo/desktop-api'
+import type { DesktopApi } from '@memorilo/desktop-preload'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AssetSettings } from './asset-settings'
+
+const requests = vi.hoisted(() => ({
+  checkAssets: vi.fn(),
+  reclaimAssets: vi.fn(),
+}))
+
+vi.mock('../shared/desktop-requests', () => ({ desktopRequests: requests }))
 
 const checkedAssets: DesktopAssetCheckResult = {
   candidates: [{
@@ -17,16 +25,17 @@ const checkedAssets: DesktopAssetCheckResult = {
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'desktop')
+  vi.clearAllMocks()
 })
 
 describe('asset settings', () => {
   it('clears stale reclaim candidates when a new asset check fails', async () => {
-    const checkAssets = vi.fn()
+    requests.checkAssets
       .mockResolvedValueOnce(checkedAssets)
       .mockRejectedValueOnce(new Error('Asset check failed'))
     Object.defineProperty(window, 'desktop', {
       configurable: true,
-      value: { checkAssets } as unknown as DesktopApi,
+      value: {} as DesktopApi,
     })
     const rendered = render(<AssetSettings />)
 
@@ -49,13 +58,13 @@ describe('asset settings', () => {
       missingAssets: [],
       referencedAssetCount: 0,
     }
-    const checkAssets = vi.fn()
+    requests.checkAssets
       .mockResolvedValueOnce(checkedAssets)
       .mockResolvedValueOnce(afterRecovery)
-    const reclaimAssets = vi.fn().mockRejectedValue(new Error('Failed to complete asset deletion'))
+    requests.reclaimAssets.mockRejectedValue(new Error('Failed to complete asset deletion'))
     Object.defineProperty(window, 'desktop', {
       configurable: true,
-      value: { checkAssets, reclaimAssets } as unknown as DesktopApi,
+      value: {} as DesktopApi,
     })
     const rendered = render(<AssetSettings />)
 
@@ -63,7 +72,7 @@ describe('asset settings', () => {
     fireEvent.click(await rendered.findByRole('button', { name: 'Move to Trash' }))
     await waitFor(() => {
       expect(rendered.getByRole('status')).toHaveTextContent('Failed to complete asset deletion')
-      expect(checkAssets).toHaveBeenCalledTimes(2)
+      expect(requests.checkAssets).toHaveBeenCalledTimes(2)
     })
 
     expect(rendered.queryByRole('button', { name: 'Move to Trash' })).not.toBeInTheDocument()

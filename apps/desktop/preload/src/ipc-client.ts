@@ -26,16 +26,7 @@ export function createDesktopIpcClient(renderer: Pick<IpcRenderer, 'invoke'>): D
     return envelope.value as Result
   }
   return {
-    app: createGroupClient('app', invoke),
-    backup: createGroupClient('backup', invoke),
-    assets: createGroupClient('assets', invoke),
-    books: createGroupClient('books', invoke),
-    configuration: createGroupClient('configuration', invoke),
-    journals: createGroupClient('journals', invoke),
-    learning: createGroupClient('learning', invoke),
-    notes: createGroupClient('notes', invoke),
+    transport: createGroupClient('transport', invoke),
     whiteboardLibrary: createGroupClient('whiteboardLibrary', invoke),
-    shelf: createGroupClient('shelf', invoke),
-    window: createGroupClient('window', invoke),
   }
 }

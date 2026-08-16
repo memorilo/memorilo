@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@memorilo/anki-connect": "workspace:*",
+    "@memorilo/desktop-api": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",

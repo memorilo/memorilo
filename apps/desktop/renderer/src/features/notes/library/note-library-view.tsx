@@ -4,7 +4,7 @@ import type {
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
   SetDesktopNoteFavoriteInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
 import type { TFunction } from 'i18next'
 import type { NoteLibraryColumnId } from './note-library-model'

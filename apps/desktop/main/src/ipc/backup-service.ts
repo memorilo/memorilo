@@ -1,16 +1,16 @@
 import type { DatabaseBackupApplication } from '../backup/backup-application'
-import type { DesktopIpcHandlers } from './ipc-handler-registry'
+import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import { BrowserWindow } from 'electron'
-import { withIpcContext } from './ipc-handler-registry'
+import { withDesktopRequestContext } from '../desktop-request-handlers'
 
 export function createBackupHandlers(
   application: DatabaseBackupApplication,
-): DesktopIpcHandlers['backup'] {
+): DesktopRequestHandlers['backup'] {
   return {
-    exportDatabase: withIpcContext(context => (
+    exportDatabase: withDesktopRequestContext(context => (
       application.exportDatabase(BrowserWindow.fromWebContents(context.sender))
     )),
-    restoreDatabase: withIpcContext(context => (
+    restoreDatabase: withDesktopRequestContext(context => (
       application.restoreDatabase(BrowserWindow.fromWebContents(context.sender))
     )),
   }

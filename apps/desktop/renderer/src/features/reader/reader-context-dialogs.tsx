@@ -1,4 +1,4 @@
-import type { DesktopBookTopicContextSummary } from '@memorilo/desktop-preload'
+import type { DesktopBookTopicContextSummary } from '@memorilo/desktop-api'
 import * as stylex from '@stylexjs/stylex'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'

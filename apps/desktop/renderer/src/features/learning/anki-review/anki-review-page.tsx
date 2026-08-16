@@ -1,5 +1,5 @@
 import type { AnkiReviewRating } from '@memorilo/anki-connect'
-import type { DesktopAnkiDeck, DesktopAnkiReviewerCard } from '@memorilo/desktop-preload'
+import type { DesktopAnkiDeck, DesktopAnkiReviewerCard } from '@memorilo/desktop-api'
 import { AnkiConnectInputError, AnkiConnectNetworkError, resolveAnkiCardMedia } from '@memorilo/anki-connect'
 import { AnkiNoteRenderer } from '@memorilo/anki-connect/renderer'
 import * as stylex from '@stylexjs/stylex'
@@ -10,6 +10,7 @@ import { Check, LoaderCircle, Volume2, X } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
@@ -50,7 +51,7 @@ export function AnkiReviewPage({
   const reviewKey = learningQueryKeys.ankiReview(deck.id)
   const reviewQuery = useQuery(desktopEffectQuery.queryOptions({
     queryFn: () => desktopEffect('learning.start-anki-review', () => (
-      window.desktop.learning.startAnkiDeckReview(deck)
+      desktopRequests.learning.startAnkiDeckReview(deck)
     )),
     queryKey: reviewKey,
     refetchOnMount: 'always',
@@ -60,7 +61,7 @@ export function AnkiReviewPage({
   const revealed = card !== null && revealedCardId === card.cardId
   const mediaClient = useMemo(() => ({
     retrieveMediaFile: (filename: string) => Effect.tryPromise({
-      try: () => window.desktop.learning.retrieveAnkiMediaFile(filename),
+      try: () => desktopRequests.learning.retrieveAnkiMediaFile(filename),
       catch: cause => new AnkiConnectNetworkError('Failed to retrieve Anki media through the desktop bridge', {
         action: 'retrieveMediaFile',
         cause,
@@ -79,14 +80,14 @@ export function AnkiReviewPage({
   }))
   const showAnswer = useMutation(desktopEffectQuery.mutationOptions({
     mutationFn: (current: DesktopAnkiReviewerCard) => desktopEffect('learning.show-anki-answer', () => (
-      window.desktop.learning.showAnkiReviewAnswer({ cardId: current.cardId })
+      desktopRequests.learning.showAnkiReviewAnswer({ cardId: current.cardId })
     )),
     onSuccess: current => setRevealedCardId(current.cardId),
   }))
   const rate = useMutation(desktopEffectQuery.mutationOptions({
     mutationFn: ({ current, rating }: { current: DesktopAnkiReviewerCard, rating: AnkiReviewRating }) => (
       desktopEffect('learning.answer-anki-card', () => (
-        window.desktop.learning.answerAnkiReviewCard({ cardId: current.cardId, rating })
+        desktopRequests.learning.answerAnkiReviewCard({ cardId: current.cardId, rating })
       ))
     ),
     onSuccess: (next) => {
@@ -97,11 +98,11 @@ export function AnkiReviewPage({
   }))
   const playAudio = useMutation(desktopEffectQuery.mutationOptions({
     mutationFn: (current: DesktopAnkiReviewerCard) => desktopEffect('learning.play-anki-audio', () => (
-      window.desktop.learning.playAnkiReviewAudio({ cardId: current.cardId })
+      desktopRequests.learning.playAnkiReviewAudio({ cardId: current.cardId })
     )),
   }))
   const closeReview = useMutation(desktopEffectQuery.mutationOptions({
-    mutationFn: () => desktopEffect('learning.end-anki-review', () => window.desktop.learning.endAnkiReview()),
+    mutationFn: () => desktopEffect('learning.end-anki-review', () => desktopRequests.learning.endAnkiReview()),
     onSuccess: () => onClose(),
   }))
   const actionPending = showAnswer.isPending || rate.isPending
@@ -115,7 +116,7 @@ export function AnkiReviewPage({
     return () => {
       pendingReviewClose = setTimeout(() => {
         pendingReviewClose = null
-        void window.desktop.learning.endAnkiReview().catch(error => console.error('Failed to close Anki review', error))
+        void desktopRequests.learning.endAnkiReview().catch(error => console.error('Failed to close Anki review', error))
       }, 0)
     }
   }, [])

@@ -1,4 +1,4 @@
-import type { DesktopLearningApi } from '@memorilo/desktop-preload'
+import type { DesktopLearningApi } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { ActiveReview, ReviewProjection } from './learning-review-rating-model'
 import type { LearningReviewRoute } from './learning-review-route'

@@ -364,7 +364,7 @@ describe('editor note topic creation', () => {
       topicId: sourceTopic.id,
     })
     const capturedSources: unknown[] = []
-    const storedSnapshot = { height: 600, src: 'memorilo-asset:/snapshot.png', width: 800 }
+    const storedSnapshot = { height: 600, src: 'memorilo://asset/snapshot.png', width: 800 }
 
     const topicId = await note.createImageOcclusionTopic({
       snapshot: async (source) => {
@@ -413,7 +413,7 @@ describe('editor note topic creation', () => {
     note.getBookTopic(sourceTopic.id).setAnnotations([annotation])
     const snapshot = {
       height: 480,
-      src: 'memorilo-asset:///123e4567-e89b-42d3-a456-426614174000.png',
+      src: 'memorilo://asset/123e4567-e89b-42d3-a456-426614174000.png',
       width: 640,
     }
     const capturedSources: unknown[] = []
@@ -520,7 +520,7 @@ describe('editor note topic creation', () => {
             type: 'region',
           }],
         }])
-        return { height: 480, src: 'memorilo-asset:///snapshot.png', width: 640 }
+        return { height: 480, src: 'memorilo://asset/snapshot.png', width: 640 }
       },
       source: {
         annotationId: annotation.id,
@@ -568,7 +568,7 @@ describe('editor note topic creation', () => {
       snapshot: async (resolved) => {
         expect(resolved).toMatchObject({ annotationId: first.id })
         source.annotationId = second.id
-        return { height: 480, src: 'memorilo-asset:///snapshot.png', width: 640 }
+        return { height: 480, src: 'memorilo://asset/snapshot.png', width: 640 }
       },
       source,
       title: 'Reader region occlusion',
@@ -605,7 +605,7 @@ describe('editor note topic creation', () => {
     })
 
     await expect(note.createImageOcclusionTopic({
-      snapshot: async () => ({ height: 0.5, src: 'memorilo-asset:/wrong.png', width: 1 }),
+      snapshot: async () => ({ height: 0.5, src: 'memorilo://asset/wrong.png', width: 1 }),
       source: {
         imageId: 'source-image',
         kind: 'topic-image',

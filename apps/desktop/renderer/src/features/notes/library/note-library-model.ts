@@ -7,11 +7,12 @@ import type {
   RenameDesktopNoteInput,
   RenameDesktopNoteResult,
   SetDesktopNoteFavoriteInput,
-} from '@memorilo/desktop-preload'
+} from '@memorilo/desktop-api'
 import type { SortingState } from '@tanstack/react-table'
 import type { InfiniteData } from 'effect-query'
 import type { TFunction } from 'i18next'
 import type { DesktopClientError } from '../../../shared/effect-query'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import {
   desktopEffect,
   desktopEffectQuery,
@@ -68,7 +69,7 @@ export function noteLibraryQueryOptions(
       ? lastPage.page + 1
       : undefined,
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => desktopEffect('notes.list', () => window.desktop.listNotes({
+    queryFn: ({ pageParam }) => desktopEffect('notes.list', () => desktopRequests.listNotes({
       page: pageParam,
       pageSize: noteLibraryPageSize,
       sortBy,
@@ -85,7 +86,7 @@ export function setNoteFavoriteMutationOptions() {
     never,
     SetDesktopNoteFavoriteInput
   >({
-    mutationFn: input => desktopEffect('notes.set-favorite', () => window.desktop.setNoteFavorite(input)),
+    mutationFn: input => desktopEffect('notes.set-favorite', () => desktopRequests.setNoteFavorite(input)),
   })
 }
 
@@ -96,7 +97,7 @@ export function renameNoteMutationOptions() {
     never,
     RenameDesktopNoteInput
   >({
-    mutationFn: input => desktopEffect('notes.rename', () => window.desktop.renameNote(input)),
+    mutationFn: input => desktopEffect('notes.rename', () => desktopRequests.renameNote(input)),
   })
 }
 

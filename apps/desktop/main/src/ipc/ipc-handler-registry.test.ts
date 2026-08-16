@@ -37,26 +37,26 @@ describe('ipc handler registry', () => {
   it('registers stable channels and passes sender context explicitly', async () => {
     const host = fakeHost()
     const baseHandlers = handlerStub()
-    const closeReadingSession = vi.fn((_sessionId: string) => true)
+    const fetch = vi.fn((_request: unknown) => ({ body: '{}', headers: [], status: 200, statusText: 'OK' }))
     const handlers: DesktopIpcHandlers = {
       ...baseHandlers,
-      books: {
-        ...baseHandlers.books,
-        closeReadingSession: withIpcContext((context, sessionId: string) => {
+      transport: {
+        fetch: withIpcContext((context, request) => {
           expect(context.sender).toBe(sender)
-          return closeReadingSession(sessionId)
+          return fetch(request)
         }),
       },
     }
     const registry = await createIpcHandlerRegistry(handlers, { host })
 
-    const channel = desktopIpcChannels.books.closeReadingSession
-    await expect(host.handlers.get(channel)?.({ sender }, 'session-1')).resolves.toEqual({
+    const channel = desktopIpcChannels.transport.fetch
+    const request = { body: null, headers: [], method: 'GET', url: 'memorilo://api/app/runtime' }
+    await expect(host.handlers.get(channel)?.({ sender }, request)).resolves.toEqual({
       status: 'success',
-      value: true,
+      value: { body: '{}', headers: [], status: 200, statusText: 'OK' },
     })
-    expect(channel).toBe('memorilo:invoke:books:closeReadingSession')
-    expect(closeReadingSession).toHaveBeenCalledWith('session-1')
+    expect(channel).toBe('memorilo:invoke:transport:fetch')
+    expect(fetch).toHaveBeenCalledWith(request)
     await registry.close()
   })
 
@@ -82,17 +82,22 @@ describe('ipc handler registry', () => {
     const baseHandlers = handlerStub()
     const handlers: DesktopIpcHandlers = {
       ...baseHandlers,
-      app: {
-        getRuntimeInfo: async () => {
+      transport: {
+        fetch: withIpcContext(async () => {
           await released
-          return { platform: 'win32', version: 'test' }
-        },
+          return { body: '{}', headers: [], status: 200, statusText: 'OK' }
+        }),
       },
     }
     const registry = await createIpcHandlerRegistry(handlers, { host })
-    const channel = desktopIpcChannels.app.getRuntimeInfo
+    const channel = desktopIpcChannels.transport.fetch
     const handler = host.handlers.get(channel)!
-    const request = handler({ sender }) as Promise<unknown>
+    const request = handler({ sender }, {
+      body: null,
+      headers: [],
+      method: 'GET',
+      url: 'memorilo://api/app/runtime',
+    }) as Promise<unknown>
     const close = registry.close()
 
     let closed = false
@@ -102,7 +107,12 @@ describe('ipc handler registry', () => {
     await Promise.resolve()
     expect(host.handlers.has(channel)).toBe(true)
     expect(closed).toBe(false)
-    await expect(handler({ sender })).resolves.toEqual({
+    await expect(handler({ sender }, {
+      body: null,
+      headers: [],
+      method: 'GET',
+      url: 'memorilo://api/app/runtime',
+    })).resolves.toEqual({
       error: {
         code: 'Error',
         details: {},
@@ -115,7 +125,7 @@ describe('ipc handler registry', () => {
     release()
     await expect(request).resolves.toEqual({
       status: 'success',
-      value: { platform: 'win32', version: 'test' },
+      value: { body: '{}', headers: [], status: 200, statusText: 'OK' },
     })
     await close
     expect(host.handlers.has(channel)).toBe(false)
@@ -125,7 +135,7 @@ describe('ipc handler registry', () => {
   it('retains failed removals for a later shutdown retry', async () => {
     const host = fakeHost()
     const removeHandler = host.removeHandler
-    const failedChannel = desktopIpcChannels.app.getRuntimeInfo
+    const failedChannel = desktopIpcChannels.whiteboardLibrary.load
     let failedAttempts = 0
     vi.spyOn(host, 'removeHandler').mockImplementation((channel) => {
       if (channel === failedChannel && failedAttempts++ === 0)

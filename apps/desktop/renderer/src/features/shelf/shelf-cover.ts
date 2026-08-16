@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
+import { desktopRequests } from '../../shared/desktop-requests'
 
 import { desktopEffect, shelfEffectQuery } from './shelf-query'
 
@@ -23,7 +24,7 @@ export function useShelfCover(sourceId: string, coverUrl: string | null, enabled
     queryFn: () => desktopEffect('shelf.get-asset', () => {
       if (coverUrl === null)
         throw new Error('Shelf cover URL is missing')
-      return window.desktop.getShelfAsset({ sourceId, url: coverUrl })
+      return desktopRequests.getShelfAsset({ sourceId, url: coverUrl })
     }),
     queryKey: ['shelf-asset', sourceId, coverUrl],
     retry: 1,

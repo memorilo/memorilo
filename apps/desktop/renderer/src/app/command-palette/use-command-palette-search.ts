@@ -1,4 +1,4 @@
-import type { CreateDesktopNoteInput, DesktopNote, DesktopNoteSearchHit } from '@memorilo/desktop-preload'
+import type { CreateDesktopNoteInput, DesktopNote, DesktopNoteSearchHit } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { PaletteCommand } from '../../shared/command-palette'
 import type { DesktopClientError } from '../../shared/effect-query'
@@ -9,6 +9,7 @@ import type {
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useCallback, useDeferredValue, useMemo, useRef } from 'react'
 import { defaultTopicId } from '../../features/notes/note-runtime'
+import { desktopRequests } from '../../shared/desktop-requests'
 import {
   desktopEffect,
   desktopEffectQuery,
@@ -21,7 +22,7 @@ const searchLimit = 20
 function noteSearchQueryOptions(query: string, enabled: boolean) {
   return desktopEffectQuery.queryOptions<readonly DesktopNoteSearchHit[], DesktopClientError, never>({
     enabled,
-    queryFn: () => desktopEffect('notes.search', () => window.desktop.searchNotes({ limit: searchLimit, query })),
+    queryFn: () => desktopEffect('notes.search', () => desktopRequests.searchNotes({ limit: searchLimit, query })),
     queryKey: ['memorilo-search', query] as const,
     staleTime: 15_000,
   })
@@ -29,7 +30,7 @@ function noteSearchQueryOptions(query: string, enabled: boolean) {
 
 function createNoteMutationOptions() {
   return desktopEffectQuery.mutationOptions<DesktopNote, DesktopClientError, never, CreateDesktopNoteInput>({
-    mutationFn: input => desktopEffect('notes.create', () => window.desktop.createNote(input)),
+    mutationFn: input => desktopEffect('notes.create', () => desktopRequests.createNote(input)),
   })
 }
 
@@ -79,7 +80,7 @@ export function useCommandPaletteSearch({
   } = useMutation(createNoteMutationOptions())
   const navigation = useMemo<CommandPaletteNavigation>(() => ({
     openJournal: date => router.navigate({ search: { date }, to: '/journals' }),
-    openNote: async (noteId: string) => openStoredNote(await window.desktop.getNote({ noteId })),
+    openNote: async (noteId: string) => openStoredNote(await desktopRequests.getNote({ noteId })),
     openTopic: ({ blockId, noteId, topicId }: {
       blockId: string | null
       noteId: string

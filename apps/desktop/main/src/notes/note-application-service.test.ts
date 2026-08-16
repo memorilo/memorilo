@@ -285,7 +285,7 @@ describe('application service for MCP Notes', () => {
     const occlusionTopicId = await renderer.createImageOcclusionTopic({
       snapshot: async source => ({
         height: 300,
-        src: `memorilo-asset:///${source.kind}-${annotation.id}.png`,
+        src: `memorilo://asset/${source.kind}-${annotation.id}.png`,
         width: 400,
       }),
       source: {

@@ -1,4 +1,4 @@
-import type { DesktopNoteWriteReceipt, SaveDesktopNoteUpdatesInput } from '@memorilo/desktop-preload'
+import type { DesktopNoteWriteReceipt, SaveDesktopNoteUpdatesInput } from '@memorilo/desktop-api'
 import type { EditorNoteChange } from '@memorilo/editor'
 import { createResourceScope, toError } from '@memorilo/effect-lifecycle'
 import { Effect, Exit, FiberHandle, Scope } from 'effect'

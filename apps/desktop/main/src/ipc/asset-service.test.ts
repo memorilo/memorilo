@@ -166,7 +166,7 @@ describe('asset service', () => {
     expect(registerAsset).not.toHaveBeenCalled()
 
     release()
-    await expect(saved).resolves.toMatchObject({ src: expect.stringMatching(/^memorilo-asset:\/\/\/.+\.png$/) })
+    await expect(saved).resolves.toMatchObject({ src: expect.stringMatching(/^memorilo:\/\/asset\/.+\.png$/) })
     expect(registerAsset).toHaveBeenCalledOnce()
   })
 
@@ -214,7 +214,7 @@ describe('asset service', () => {
       fileName: 'scan.tiff',
       mimeType: 'image/tiff',
     })
-    expect(saved.src).toMatch(new RegExp(`^memorilo-asset:\\/\\/.+\\${extension}$`))
+    expect(saved.src).toMatch(new RegExp(`^memorilo:\\/\\/asset\\/.+\\${extension}$`))
     const fileName = new URL(saved.src).pathname.slice(1)
     const output = await readFile(join(directory, fileName))
     const metadata = await sharp(output).metadata()

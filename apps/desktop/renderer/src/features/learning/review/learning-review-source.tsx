@@ -1,10 +1,11 @@
-import type { DesktopReviewItem } from '@memorilo/desktop-preload'
+import type { DesktopReviewItem } from '@memorilo/desktop-api'
 import type { CardSurfaceItemSelection, CardSurfaceSide } from '@memorilo/editor'
 import { CardSurface, createEditorNote, demoEditorAdapters, projectEditorCards } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { learningReviewSourceStyles as styles } from './learning-review-source.stylex'
@@ -67,7 +68,7 @@ function EditorLearningReviewSource({
   const card = item.card
   const sourceQuery = useQuery(desktopEffectQuery.queryOptions({
     queryFn: () => desktopEffect('notes.get-review-source', () => (
-      window.desktop.getNote({ noteId: item.queue.noteId })
+      desktopRequests.getNote({ noteId: item.queue.noteId })
     )),
     queryKey: ['learning', 'review-source', item.queue.noteId, item.updatedAt],
   }))

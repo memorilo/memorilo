@@ -1,4 +1,4 @@
-import type { DesktopApi } from '@memorilo/desktop-preload'
+import type { DesktopApi } from '@memorilo/desktop-api'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
@@ -156,13 +156,22 @@ interface ObservedLearningState {
 
 async function learningStates(window: Page, cardIds: readonly string[]): Promise<readonly ObservedLearningState[]> {
   return window.evaluate(async (requestedCardIds) => {
-    const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
+    const request = async <Result>(method: string, args: readonly unknown[]): Promise<Result> => {
+      const response = await fetch(`memorilo://api/rpc/learning/${method}`, {
+        body: JSON.stringify({ args }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      })
+      if (!response.ok)
+        throw new Error(`Desktop request failed with status ${response.status}`)
+      return response.json() as Promise<Result>
+    }
     const byCard = await Promise.all(requestedCardIds.map(async (cardId) => {
-      const targets = await desktop.learning.listTargets(cardId)
+      const targets = await request<Awaited<ReturnType<DesktopApi['learning']['listTargets']>>>('listTargets', [cardId])
       return Promise.all(targets.map(async target => ({
         cardId,
         itemBlockId: target.itemBlockId,
-        state: await desktop.learning.getLearningState(target.targetId),
+        state: await request<Awaited<ReturnType<DesktopApi['learning']['getLearningState']>>>('getLearningState', [target.targetId]),
         targetId: target.targetId,
       })))
     }))
@@ -697,8 +706,14 @@ test('learns List, Set, and sibling Cloze Cards across Study Days, then reviews 
       })
 
       const initialQueue = await window.evaluate(async (now) => {
-        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
-        return desktop.learning.listQueue({ limit: 100, now })
+        const response = await fetch('memorilo://api/rpc/learning/listQueue', {
+          body: JSON.stringify({ args: [{ limit: 100, now }] }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        })
+        if (!response.ok)
+          throw new Error(`Desktop request failed with status ${response.status}`)
+        return response.json() as Promise<Awaited<ReturnType<DesktopApi['learning']['listQueue']>>>
       }, initialReviewAt)
       const initiallyQueuedCards = new Set(initialQueue.map(item => item.cardId))
       expect(initiallyQueuedCards.has(listCardId)).toBe(true)
@@ -805,22 +820,31 @@ test('learns List, Set, and sibling Cloze Cards across Study Days, then reviews 
       }
 
       const optimization = await window.evaluate(async ({ at, cardIds, noteTitle }) => {
-        const desktop = (window as typeof window & { desktop: DesktopApi }).desktop
-        const note = (await desktop.learning.listNotesWithCards())
+        const request = async <Result>(method: string, args: readonly unknown[]): Promise<Result> => {
+          const response = await fetch(`memorilo://api/rpc/learning/${method}`, {
+            body: JSON.stringify({ args }),
+            headers: { 'content-type': 'application/json' },
+            method: 'POST',
+          })
+          if (!response.ok)
+            throw new Error(`Desktop request failed with status ${response.status}`)
+          return response.json() as Promise<Result>
+        }
+        const note = (await request<Awaited<ReturnType<DesktopApi['learning']['listNotesWithCards']>>>('listNotesWithCards', []))
           .find(candidate => candidate.noteTitle === noteTitle)
         if (!note)
           throw new Error(`Could not find Learning Note ${noteTitle}`)
-        const before = await desktop.learning.getNoteOptimizer(note.noteId)
-        const optimized = await desktop.learning.optimizeOptimizer({
+        const before = await request<Awaited<ReturnType<DesktopApi['learning']['getNoteOptimizer']>>>('getNoteOptimizer', [note.noteId])
+        const optimized = await request<Awaited<ReturnType<DesktopApi['learning']['optimizeOptimizer']>>>('optimizeOptimizer', [{
           optimizerId: before.id,
           rescheduleNow: true,
           timeoutMilliseconds: 10_000,
-        })
+        }])
         const states = (await Promise.all(cardIds.map(async (cardId) => {
-          const targets = await desktop.learning.listTargets(cardId)
-          return Promise.all(targets.map(target => desktop.learning.getLearningState(target.targetId)))
+          const targets = await request<Awaited<ReturnType<DesktopApi['learning']['listTargets']>>>('listTargets', [cardId])
+          return Promise.all(targets.map(target => request<Awaited<ReturnType<DesktopApi['learning']['getLearningState']>>>('getLearningState', [target.targetId])))
         }))).flat()
-        const queue = await desktop.learning.listQueue({ now: at })
+        const queue = await request<Awaited<ReturnType<DesktopApi['learning']['listQueue']>>>('listQueue', [{ now: at }])
         return {
           beforeRevisionId: before.revisionId,
           optimized,

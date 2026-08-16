@@ -1,4 +1,4 @@
-import type { DesktopApi } from '@memorilo/desktop-preload'
+import type { DesktopApi } from '@memorilo/desktop-api'
 import type { CreateTopicInput } from '@memorilo/editor/note'
 import type {
   ReaderAnnotationTopicCreateInput,

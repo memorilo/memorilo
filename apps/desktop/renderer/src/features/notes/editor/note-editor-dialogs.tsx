@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { noteEditorDialogStyles } from './note-editor-dialogs.stylex'
 
@@ -25,14 +26,14 @@ export type BookPickerTarget
     | { format: ShelfReadingFormat, kind: 'rebind', topicId: string }
 
 async function loadReadableShelfBooks(): Promise<readonly ShelfBookOption[]> {
-  const sources = await window.desktop.listShelfSources()
+  const sources = await desktopRequests.listShelfSources()
   const books: ShelfBookOption[] = []
   const seen = new Set<string>()
   for (const source of sources.filter(source => source.enabled)) {
     let pageUrl: string | undefined
     const visitedUrls = new Set<string>()
     while (true) {
-      const result = await window.desktop.refreshShelfView({
+      const result = await desktopRequests.refreshShelfView({
         ...(pageUrl === undefined ? {} : { pageUrl }),
         sourceId: source.id,
       })

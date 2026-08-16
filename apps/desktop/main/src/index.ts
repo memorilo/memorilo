@@ -4,9 +4,9 @@ import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { memoriloProtocol } from '@memorilo/desktop-api/transport'
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 
-import { assetProtocol } from './asset-protocol'
 import { applyPendingRestore } from './backup/restore-state'
 import { createDesktopRuntime } from './desktop-runtime'
 import { flushRendererNotes } from './lifecycle/note-save-handshake'
@@ -14,7 +14,6 @@ import { createShutdownStateMachine } from './lifecycle/shutdown-state-machine'
 import {
   isRendererUrl,
   rendererIndexUrl,
-  rendererProtocol,
 } from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
 import { mainDatabasePath } from './storage/workspace-paths'
@@ -32,14 +31,7 @@ if (isPrimaryInstance) {
   })
 }
 protocol.registerSchemesAsPrivileged([{
-  scheme: assetProtocol,
-  privileges: {
-    secure: true,
-    standard: true,
-    supportFetchAPI: true,
-  },
-}, {
-  scheme: rendererProtocol,
+  scheme: memoriloProtocol,
   privileges: {
     corsEnabled: true,
     secure: true,
