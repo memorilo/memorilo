@@ -29,7 +29,7 @@ export function ShelfBookPage({
   const bookDetailsTitle = t('shelfBookDetails')
   const titlebar = useMemo(() => ({ title: bookDetailsTitle }), [bookDetailsTitle])
   const detailsQuery = useQuery(shelfEffectQuery.queryOptions({
-    queryFn: () => desktopEffect(() => window.desktop.getShelfPublicationDetails({
+    queryFn: () => desktopEffect('shelf.get-publication-details', () => window.desktop.getShelfPublicationDetails({
       publicationId: search.publication,
       sourceId: search.source,
     })),

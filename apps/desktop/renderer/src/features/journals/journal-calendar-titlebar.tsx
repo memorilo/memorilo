@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
+import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { JournalCalendarControl } from './journal-calendar-control'
 import {
@@ -31,11 +32,11 @@ export function useJournalCalendarTitlebar({
   const [activeMonth, setActiveMonth] = useState(() => startOfJournalMonth(new Date()))
   const effectiveSelectedDate = selectedDate ?? today
   const monthBounds = useMemo(() => journalMonthBounds(activeMonth), [activeMonth])
-  const datesQuery = useQuery({
+  const datesQuery = useQuery(desktopEffectQuery.queryOptions({
     enabled: calendarOpen && today !== undefined,
-    queryFn: () => window.desktop.listJournalDates(monthBounds),
+    queryFn: () => desktopEffect('journals.list-dates', () => window.desktop.listJournalDates(monthBounds)),
     queryKey: journalQueryKeys.dates(monthBounds.from, monthBounds.through),
-  })
+  }))
   const knownDates = useMemo(() => {
     const dates = new Set<JournalDate>(datesQuery.data ?? [])
     if (today)

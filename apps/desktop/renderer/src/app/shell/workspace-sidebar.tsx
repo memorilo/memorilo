@@ -1,13 +1,11 @@
 import type { DesktopFavoriteNoteItem, DesktopRecentNoteItem } from '@memorilo/desktop-preload'
-import type { Cause } from 'effect'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { DesktopClientError } from '../../shared/effect-query'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Effect, Layer } from 'effect'
-import { createEffectQuery } from 'effect-query'
 import {
   BookOpen,
   CalendarDays,
@@ -25,6 +23,10 @@ import { useTranslation } from 'react-i18next'
 import { formatJournalHeading } from '../../features/journals/journal-model'
 import { noteQueryKeys } from '../../features/notes/query-keys'
 import { useDesktopConfiguration } from '../../shared/configuration'
+import {
+  desktopEffect,
+  desktopEffectQuery,
+} from '../../shared/effect-query'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
 
 const sidebarSpring = {
@@ -74,18 +76,16 @@ function navigationItems(t: (key: string) => string, learningEnabled: boolean): 
 
 const sourceRowHeight = 33
 const sourceListMaxHeight = sourceRowHeight * 6
-const effectQuery = createEffectQuery(Layer.empty)
-
 function favoriteNotesQueryOptions() {
-  return effectQuery.queryOptions<readonly DesktopFavoriteNoteItem[], Cause.UnknownError, never>({
-    queryFn: () => Effect.tryPromise(() => window.desktop.listFavoriteNotes({ limit: 6 })),
+  return desktopEffectQuery.queryOptions<readonly DesktopFavoriteNoteItem[], DesktopClientError, never>({
+    queryFn: () => desktopEffect('notes.list-favorites', () => window.desktop.listFavoriteNotes({ limit: 6 })),
     queryKey: noteQueryKeys.favorites,
   })
 }
 
 function recentNotesQueryOptions() {
-  return effectQuery.queryOptions<readonly DesktopRecentNoteItem[], Cause.UnknownError, never>({
-    queryFn: () => Effect.tryPromise(() => window.desktop.listRecentNotes({ limit: 6 })),
+  return desktopEffectQuery.queryOptions<readonly DesktopRecentNoteItem[], DesktopClientError, never>({
+    queryFn: () => desktopEffect('notes.list-recent', () => window.desktop.listRecentNotes({ limit: 6 })),
     queryKey: noteQueryKeys.recent,
   })
 }

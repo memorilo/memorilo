@@ -1,6 +1,10 @@
 import type { DesktopIpcClient } from '@memorilo/desktop-preload/ipc'
 import type { WebContents } from 'electron'
-import { desktopIpcChannels } from '@memorilo/desktop-preload/ipc'
+import {
+  desktopIpcChannels,
+  desktopIpcFailure,
+  desktopIpcSuccess,
+} from '@memorilo/desktop-preload/ipc'
 import {
   createOperationSupervisor,
   createResourceScope,
@@ -109,9 +113,17 @@ export async function createIpcHandlerRegistry(
         const handler = groupHandlers[methodName]
         if (handler === undefined)
           throw new Error(`Missing IPC handler for ${groupName}.${methodName}`)
-        options.host.handle(channel, (event, ...args) => (
-          admission.run(() => Promise.resolve(invokeHandler(handler, { sender: event.sender }, args)))
-        ))
+        options.host.handle(channel, async (event, ...args) => {
+          try {
+            const result = await admission.run(() => Promise.resolve(
+              invokeHandler(handler, { sender: event.sender }, args),
+            ))
+            return desktopIpcSuccess(result)
+          }
+          catch (error) {
+            return desktopIpcFailure(error)
+          }
+        })
         resources.own({
           close: () => options.host.removeHandler(channel),
           name: `IPC handler ${channel}`,

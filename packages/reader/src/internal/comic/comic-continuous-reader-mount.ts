@@ -9,12 +9,16 @@ import type {
 } from '../reader-adapter'
 import type { RegionSelectionResult } from '../region-selection'
 import type { ComicArchive } from './comic-archive'
+import type { ComicContinuousPage } from './comic-continuous-page'
 import type { ComicFormat } from './comic-page-surface'
 import { combineLifecycleFailures, createResourceScope } from '@memorilo/effect-lifecycle'
 import { AnnotationActivationOwner, annotationOverlayTint } from '../annotations'
 import { interruptPromise } from '../interrupt-promise'
 import { toReaderError } from '../reader-adapter'
-import { RegionSelectionController } from '../region-selection'
+import {
+  configureComicContinuousImage,
+  createComicContinuousPage,
+} from './comic-continuous-page'
 
 interface OpenComicContinuousReaderMountOptions {
   annotations: readonly ReaderAnnotation[]
@@ -26,17 +30,6 @@ interface OpenComicContinuousReaderMountOptions {
   onRegionSelection: (pageNumber: number, selection: RegionSelectionResult | null) => void
   scale: number
   signal: AbortSignal
-}
-
-interface ComicContinuousPage {
-  annotationLayer: HTMLDivElement
-  close: () => void
-  imageNaturalHeight: number
-  imageNaturalWidth: number
-  pageNumber: number
-  regionSelection: RegionSelectionController
-  slot: HTMLDivElement
-  surface: HTMLDivElement
 }
 
 const estimatedPageHeight = 1000
@@ -57,18 +50,6 @@ function createSlot(pageNumber: number): HTMLDivElement {
     width: '100%',
   })
   return slot
-}
-
-function configureImage(image: HTMLImageElement, pageNumber: number, pageCount: number): void {
-  image.alt = ''
-  image.decoding = 'async'
-  image.setAttribute('aria-label', `Page ${pageNumber} of ${pageCount}`)
-  Object.assign(image.style, {
-    display: 'block',
-    height: '100%',
-    userSelect: 'none',
-    width: '100%',
-  })
 }
 
 export class ComicContinuousReaderMount {
@@ -303,14 +284,25 @@ export class ComicContinuousReaderMount {
     let stagedPage: ComicContinuousPage | undefined
     try {
       const image = new Image()
-      configureImage(image, pageNumber, this.#slots.length)
+      configureComicContinuousImage(image, pageNumber, this.#slots.length)
       image.src = objectUrl
       await interruptPromise(image.decode(), combinedSignal)
       if (this.#closed || !this.#wantedPages.has(pageNumber)) {
         URL.revokeObjectURL(objectUrl)
         return false
       }
-      stagedPage = this.#createPage(pageNumber, image, objectUrl)
+      const slot = this.#slots[pageNumber - 1]
+      if (!slot)
+        throw new RangeError(`Comic page ${pageNumber} is outside the archive`)
+      stagedPage = createComicContinuousPage({
+        image,
+        objectUrl,
+        onRegionSelection: selection => this.#onRegionSelection(pageNumber, selection),
+        onRegionSelectionEnabledChange: enabled => this.#syncRegionSelection(enabled),
+        pageNumber,
+        regionSelectionEnabled: this.#regionSelectionEnabled,
+        slot,
+      })
       this.#pages.set(pageNumber, stagedPage)
       this.#renderAnnotations(stagedPage)
       this.#layoutPage(stagedPage)
@@ -330,66 +322,6 @@ export class ComicContinuousReaderMount {
         throw combineLifecycleFailures(
           [error, cleanupError],
           `Failed to stage and close continuous comic page ${pageNumber}`,
-        )
-      }
-      throw error
-    }
-  }
-
-  #createPage(
-    pageNumber: number,
-    image: HTMLImageElement,
-    objectUrl: string,
-  ): ComicContinuousPage {
-    const slot = this.#slots[pageNumber - 1]
-    if (!slot)
-      throw new RangeError(`Comic page ${pageNumber} is outside the archive`)
-    const surface = document.createElement('div')
-    Object.assign(surface.style, {
-      flex: '0 0 auto',
-      position: 'relative',
-    })
-    const annotationLayer = document.createElement('div')
-    Object.assign(annotationLayer.style, {
-      inset: '0',
-      pointerEvents: 'none',
-      position: 'absolute',
-    })
-    const regionCapture = document.createElement('div')
-    regionCapture.setAttribute('aria-hidden', 'true')
-    surface.append(image, annotationLayer, regionCapture)
-    slot.replaceChildren(surface)
-    const regionSelection = new RegionSelectionController({
-      onEnabledChange: enabled => this.#syncRegionSelection(enabled),
-      onSelection: selection => this.#onRegionSelection(pageNumber, selection),
-    })
-    try {
-      regionSelection.mount(surface, regionCapture)
-      regionSelection.setEnabled(this.#regionSelectionEnabled)
-      return {
-        annotationLayer,
-        close: () => {
-          regionSelection.destroy()
-          surface.remove()
-          URL.revokeObjectURL(objectUrl)
-        },
-        imageNaturalHeight: image.naturalHeight,
-        imageNaturalWidth: image.naturalWidth,
-        pageNumber,
-        regionSelection,
-        slot,
-        surface,
-      }
-    }
-    catch (error) {
-      try {
-        regionSelection.destroy()
-        surface.remove()
-      }
-      catch (cleanupError) {
-        throw combineLifecycleFailures(
-          [error, cleanupError],
-          `Failed to create and close continuous comic page ${pageNumber}`,
         )
       }
       throw error

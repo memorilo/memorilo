@@ -38,7 +38,7 @@ export function ShelfSourceManagement({
   const [managerInitialMode, setManagerInitialMode] = useState<'add' | 'list'>('list')
   const [removingSource, setRemovingSource] = useState<ShelfSource | null>(null)
   const addMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (input: AddShelfSourceInput) => desktopEffect(() => window.desktop.addShelfSource(input)),
+    mutationFn: (input: AddShelfSourceInput) => desktopEffect('shelf.add-source', () => window.desktop.addShelfSource(input)),
     mutationKey: ['shelf-add-source'],
     onSuccess: async (source) => {
       await queryClient.invalidateQueries({ queryKey: ['shelf-sources'] })
@@ -47,7 +47,7 @@ export function ShelfSourceManagement({
     },
   }))
   const updateMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (input: UpdateShelfSourceInput) => desktopEffect(() => window.desktop.updateShelfSource(input)),
+    mutationFn: (input: UpdateShelfSourceInput) => desktopEffect('shelf.update-source', () => window.desktop.updateShelfSource(input)),
     mutationKey: ['shelf-update-source'],
     onSuccess: async () => {
       await replaceSearch({ ...routeSearch, page: undefined })
@@ -56,7 +56,7 @@ export function ShelfSourceManagement({
     },
   }))
   const removeMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (sourceId: string) => desktopEffect(() => window.desktop.removeShelfSource(sourceId)),
+    mutationFn: (sourceId: string) => desktopEffect('shelf.remove-source', () => window.desktop.removeShelfSource(sourceId)),
     mutationKey: ['shelf-remove-source'],
     onSuccess: async (_, sourceId) => {
       if (selectedSourceId === sourceId)

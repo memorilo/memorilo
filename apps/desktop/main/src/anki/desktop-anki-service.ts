@@ -11,6 +11,7 @@ import type {
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import { AnkiConnect } from '@memorilo/anki-connect/client'
+import { combineLifecycleFailures, toError } from '@memorilo/effect-lifecycle'
 import { Effect, Semaphore } from 'effect'
 
 export interface DesktopAnkiService {
@@ -26,7 +27,7 @@ export interface DesktopAnkiService {
 }
 
 interface ConfiguredClient {
-  client: Promise<AnkiConnectClient>
+  client: AnkiConnectClient
   signature: string
 }
 
@@ -52,87 +53,109 @@ export function createDesktopAnkiService(
     return anki
   }
 
-  const currentClient = (): Promise<AnkiConnectClient> => {
-    const anki = ankiConfiguration()
+  const readAnkiConfiguration = () => Effect.try({
+    catch: toError,
+    try: ankiConfiguration,
+  })
+
+  const currentClient = () => Effect.gen(function* () {
+    const anki = yield* readAnkiConfiguration()
     const signature = JSON.stringify([anki.host, anki.port, anki.apiKey])
     if (configuredClient?.signature === signature)
       return configuredClient.client
-    const client = Effect.runPromise(AnkiConnect.make({
+    const client = yield* AnkiConnect.make({
       ...(anki.apiKey.length === 0 ? {} : { apiKey: anki.apiKey }),
       endpoint: endpoint(anki),
-    }))
+    })
     configuredClient = { client, signature }
     return client
-  }
+  })
 
-  const activeReviewClient = (): AnkiConnectClient => {
-    ankiConfiguration()
+  const activeReviewClient = () => Effect.gen(function* () {
+    yield* readAnkiConfiguration()
     if (!reviewClient)
-      throw new Error('Anki review is not active')
+      return yield* Effect.fail(new Error('Anki review is not active'))
     return reviewClient
-  }
+  })
 
-  const runReviewOperation = <Result>(operation: () => Promise<Result>): Promise<Result> => (
-    Effect.runPromise(reviewOperations.withPermit(Effect.promise(operation)))
+  const runOperation = <Result, Failure>(operation: Effect.Effect<Result, Failure>): Promise<Result> => (
+    Effect.runPromise(operation)
   )
 
-  const endActiveReview = async (): Promise<void> => {
+  const runReviewOperation = <Result, Failure>(operation: Effect.Effect<Result, Failure>): Promise<Result> => (
+    runOperation(reviewOperations.withPermit(operation))
+  )
+
+  const endActiveReview = () => Effect.gen(function* () {
     if (!reviewClient)
       return
     const client = reviewClient
-    await Effect.runPromise(client.endReview())
+    yield* client.endReview()
     reviewClient = null
     reviewDeckId = null
-  }
+  })
 
   return {
-    answerReviewCard: input => runReviewOperation(async () => {
-      const client = activeReviewClient()
-      const next = await Effect.runPromise(client.answerReviewCard(input))
+    answerReviewCard: input => runReviewOperation(Effect.gen(function* () {
+      const client = yield* activeReviewClient()
+      const next = yield* client.answerReviewCard(input)
       if (next)
-        await Effect.runPromise(client.startReviewCardTimer({ cardId: next.cardId }))
+        yield* client.startReviewCardTimer({ cardId: next.cardId })
       return next
-    }),
-    currentReviewCard: () => runReviewOperation(() => Effect.runPromise(activeReviewClient().currentReviewCard())),
-    deckSnapshot: async deck => Effect.runPromise((await currentClient()).deckSnapshot(deck)),
-    decks: async () => configuration.getSnapshot().anki.enabled
-      ? Effect.runPromise((await currentClient()).decks())
-      : [],
-    endReview: () => runReviewOperation(async () => {
+    })),
+    currentReviewCard: () => runReviewOperation(Effect.flatMap(
+      activeReviewClient(),
+      client => client.currentReviewCard(),
+    )),
+    deckSnapshot: deck => runOperation(Effect.flatMap(
+      currentClient(),
+      client => client.deckSnapshot(deck),
+    )),
+    decks: () => runOperation(configuration.getSnapshot().anki.enabled
+      ? Effect.flatMap(currentClient(), client => client.decks())
+      : Effect.succeed([])),
+    endReview: () => runReviewOperation(Effect.suspend(() => {
       if (!configuration.getSnapshot().anki.enabled) {
         reviewClient = null
         reviewDeckId = null
-        return
+        return Effect.void
       }
-      await endActiveReview()
-    }),
-    playReviewAudio: input => runReviewOperation(() => Effect.runPromise(activeReviewClient().playReviewAudio(input))),
-    retrieveMediaFile: async filename => Effect.runPromise(activeReviewClient().retrieveMediaFile(filename)),
-    showReviewAnswer: input => runReviewOperation(() => Effect.runPromise(activeReviewClient().showReviewAnswer(input))),
-    startReview: deck => runReviewOperation(async () => {
+      return endActiveReview()
+    })),
+    playReviewAudio: input => runReviewOperation(Effect.flatMap(
+      activeReviewClient(),
+      client => client.playReviewAudio(input),
+    )),
+    retrieveMediaFile: filename => runOperation(Effect.flatMap(
+      activeReviewClient(),
+      client => client.retrieveMediaFile(filename),
+    )),
+    showReviewAnswer: input => runReviewOperation(Effect.flatMap(
+      activeReviewClient(),
+      client => client.showReviewAnswer(input),
+    )),
+    startReview: deck => runReviewOperation(Effect.gen(function* () {
       if (reviewClient) {
         if (reviewDeckId === deck.id)
-          return Effect.runPromise(reviewClient.currentReviewCard())
-        await endActiveReview()
+          return yield* reviewClient.currentReviewCard()
+        yield* endActiveReview()
       }
-      const client = await currentClient()
-      try {
-        const card = await Effect.runPromise(client.startReview(deck))
-        if (card)
-          await Effect.runPromise(client.startReviewCardTimer({ cardId: card.cardId }))
-        reviewClient = client
-        reviewDeckId = deck.id
-        return card
-      }
-      catch (error) {
-        try {
-          await Effect.runPromise(client.endReview())
-        }
-        catch (cleanupError) {
-          console.error('Failed to leave Anki review after its startup failed', cleanupError)
-        }
-        throw error
-      }
-    }),
+      const client = yield* currentClient()
+      const card = yield* Effect.gen(function* () {
+        const started = yield* client.startReview(deck)
+        if (started)
+          yield* client.startReviewCardTimer({ cardId: started.cardId })
+        return started
+      }).pipe(Effect.catchEager(startupError => client.endReview().pipe(
+        Effect.catchEager(cleanupError => Effect.fail(combineLifecycleFailures(
+          [startupError, cleanupError],
+          `Failed to start and leave Anki review for Deck ${deck.id}`,
+        ))),
+        Effect.andThen(Effect.fail(startupError)),
+      )))
+      reviewClient = client
+      reviewDeckId = deck.id
+      return card
+    })),
   }
 }

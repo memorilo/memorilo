@@ -25,7 +25,7 @@ export function useShelfCatalog(routeSearch: ShelfSearch, query: string) {
   const selectedSourceId = routeSearch.source ?? null
   const pageUrl = routeSearch.page ?? null
   const sourcesQuery = useQuery(shelfEffectQuery.queryOptions({
-    queryFn: () => desktopEffect(() => window.desktop.listShelfSources()),
+    queryFn: () => desktopEffect('shelf.list-sources', () => window.desktop.listShelfSources()),
     queryKey: ['shelf-sources'],
     staleTime: Infinity,
   }))
@@ -40,13 +40,13 @@ export function useShelfCatalog(routeSearch: ShelfSearch, query: string) {
   const browseEnabled = sourcesQuery.isSuccess && sources.length > 0
   const cachedViewQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: browseEnabled,
-    queryFn: () => desktopEffect(() => window.desktop.getCachedShelfView(browseInput)),
+    queryFn: () => desktopEffect('shelf.get-cached-view', () => window.desktop.getCachedShelfView(browseInput)),
     queryKey: ['shelf-view', 'cached', activeSourceId ?? allSourcesId, pageUrl],
     staleTime: Infinity,
   }))
   const refreshedViewQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: browseEnabled,
-    queryFn: () => desktopEffect(() => window.desktop.refreshShelfView(browseInput)),
+    queryFn: () => desktopEffect('shelf.refresh-view', () => window.desktop.refreshShelfView(browseInput)),
     queryKey: ['shelf-view', 'refresh', activeSourceId ?? allSourcesId, pageUrl],
     retry: false,
     staleTime: 60_000,
@@ -56,7 +56,7 @@ export function useShelfCatalog(routeSearch: ShelfSearch, query: string) {
   const paginationUrls = activeSourceId ? paginationByContext[paginationContext] ?? [] : []
   const paginationQueries = useQueries({
     queries: paginationUrls.map(url => shelfEffectQuery.queryOptions({
-      queryFn: () => desktopEffect(() => window.desktop.refreshShelfView({
+      queryFn: () => desktopEffect('shelf.refresh-page', () => window.desktop.refreshShelfView({
         pageUrl: url,
         ...(activeSourceId ? { sourceId: activeSourceId } : {}),
       })),

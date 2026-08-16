@@ -30,7 +30,7 @@ export function ShelfBookReadingControls({
   const queryClient = useQueryClient()
   const detailsQueryKey = shelfPublicationQueryKey(sourceId, publicationId)
   const prepareReadingMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (format: ShelfReadingFormat) => desktopEffect(() => window.desktop.prepareShelfReading({
+    mutationFn: (format: ShelfReadingFormat) => desktopEffect('shelf.prepare-reading', () => window.desktop.prepareShelfReading({
       format,
       publicationId,
       retention: onlineReading ? 'cache' : 'library',
@@ -44,7 +44,7 @@ export function ShelfBookReadingControls({
     },
   }))
   const deleteReadingMutation = useMutation(shelfEffectQuery.mutationOptions({
-    mutationFn: (readingId: string) => desktopEffect(() => window.desktop.deleteShelfReading(readingId)),
+    mutationFn: (readingId: string) => desktopEffect('shelf.delete-reading', () => window.desktop.deleteShelfReading(readingId)),
     mutationKey: ['shelf-delete-reading', sourceId, publicationId],
     onSuccess: async (deleted) => {
       if (deleted)

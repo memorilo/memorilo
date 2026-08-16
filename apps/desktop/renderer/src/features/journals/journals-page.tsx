@@ -19,6 +19,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 
+import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { createEditorNoteSessionCache } from '../notes/note-runtime'
 import { useFlushNotePersistence } from '../notes/persistence/note-persistence-hooks'
 import { noteQueryKeys } from '../notes/query-keys'
@@ -58,33 +59,35 @@ export function JournalsPage({ requestedDate }: { requestedDate?: JournalDate })
   const [selectedJournal, setSelectedJournal] = useState<DesktopJournalSummary | null>(null)
   const [selectingDate, setSelectingDate] = useState(false)
 
-  const todayQuery = useQuery({
+  const todayQuery = useQuery(desktopEffectQuery.queryOptions({
     gcTime: 0,
-    queryFn: async () => {
+    queryFn: () => desktopEffect('journals.open-today', async () => {
       await flushNotePersistence()
       const pruned = await window.desktop.prunePastEmptyJournals()
       pruned.deletedNoteIds.forEach(noteId => sessionCache.delete(noteId))
       return window.desktop.openJournal()
-    },
+    }),
     queryKey: journalQueryKeys.today,
     refetchOnMount: 'always',
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     staleTime: 0,
-  })
+  }))
   const today = todayQuery.data
   const todayDate = today?.journalDate
   const retryInitialLoad = todayQuery.refetch
-  const pastQuery = useInfiniteQuery({
+  const pastQuery = useInfiniteQuery(desktopEffectQuery.infiniteQueryOptions({
     enabled: today !== undefined,
     getNextPageParam: (lastPage: DesktopJournalPage) => lastPage.nextCursor ?? undefined,
     initialPageParam: null as JournalDate | null,
-    queryFn: ({ pageParam }) => window.desktop.listPastJournals({
-      ...(pageParam === null ? {} : { before: pageParam }),
-      limit: journalPageSize,
-    }),
+    queryFn: ({ pageParam }) => desktopEffect('journals.list-past', () => (
+      window.desktop.listPastJournals({
+        ...(pageParam === null ? {} : { before: pageParam }),
+        limit: journalPageSize,
+      })
+    )),
     queryKey: journalQueryKeys.feed,
-  })
+  }))
   useEffect(() => {
     const coordinator = createJournalRouteCoordinator({
       flush: flushNotePersistence,

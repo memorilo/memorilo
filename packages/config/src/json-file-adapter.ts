@@ -3,7 +3,7 @@ import { watch } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import process from 'node:process'
-import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
+import { combineLifecycleFailures, toError } from '@memorilo/effect-lifecycle'
 import { Effect, Semaphore } from 'effect'
 import { setConfigurationValue } from './configuration-path'
 
@@ -69,22 +69,22 @@ export function createJsonFileConfigurationAdapter(
   if (!Number.isFinite(debounceMs) || debounceMs < 0)
     throw new RangeError('Configuration watcher debounce must be non-negative')
 
-  const writeAtomically = (configuration: unknown): Effect.Effect<void, unknown> => Effect.gen(function* () {
-    yield* Effect.tryPromise({ catch: error => error, try: () => mkdir(directory, { recursive: true }) })
+  const writeAtomically = (configuration: unknown): Effect.Effect<void, Error> => Effect.gen(function* () {
+    yield* Effect.tryPromise({ catch: toError, try: () => mkdir(directory, { recursive: true }) })
     temporaryFileSequence += 1
     const temporaryPath = join(directory, `.${filename}.${process.pid}.${temporaryFileSequence}.tmp`)
     return yield* Effect.gen(function* () {
       const serialized = yield* Effect.try({
-        catch: error => error,
+        catch: toError,
         try: () => `${JSON.stringify(configuration, null, 2)}\n`,
       })
       yield* Effect.tryPromise({
-        catch: error => error,
+        catch: toError,
         try: () => writeFile(temporaryPath, serialized, { encoding: 'utf8', mode: 0o600 }),
       })
-      yield* Effect.tryPromise({ catch: error => error, try: () => rename(temporaryPath, path) })
+      yield* Effect.tryPromise({ catch: toError, try: () => rename(temporaryPath, path) })
     }).pipe(Effect.catchEager(writeError => Effect.tryPromise({
-      catch: error => error,
+      catch: toError,
       try: () => rm(temporaryPath, { force: true }),
     }).pipe(
       Effect.catchEager(cleanupError => Effect.fail(combineLifecycleFailures(
@@ -95,8 +95,8 @@ export function createJsonFileConfigurationAdapter(
     )))
   })
 
-  const readPersisted = (): Effect.Effect<unknown | null, unknown> => Effect.tryPromise({
-    catch: error => error,
+  const readPersisted = (): Effect.Effect<unknown | null, Error> => Effect.tryPromise({
+    catch: toError,
     try: async () => {
       try {
         return JSON.parse(await readFile(path, 'utf8')) as unknown
@@ -109,12 +109,12 @@ export function createJsonFileConfigurationAdapter(
     },
   })
 
-  const readCurrent = (persistMigration: boolean): Effect.Effect<unknown | null, unknown> => Effect.gen(function* () {
+  const readCurrent = (persistMigration: boolean): Effect.Effect<unknown | null, Error> => Effect.gen(function* () {
     const persisted = yield* readPersisted()
     if (persisted === null || !migrate)
       return persisted
     const migrated = yield* Effect.try({
-      catch: error => error,
+      catch: toError,
       try: () => migrate(persisted),
     })
     if (persistMigration && migrated !== persisted)
@@ -131,7 +131,7 @@ export function createJsonFileConfigurationAdapter(
       if (typeof persisted !== 'object' || persisted === null || Array.isArray(persisted))
         return yield* Effect.fail(new TypeError(`Configuration ${path} must contain a JSON object`))
       const updated = yield* Effect.try({
-        catch: error => error,
+        catch: toError,
         try: () => setConfigurationValue(persisted, configurationPath, value),
       })
       yield* writeAtomically(updated)

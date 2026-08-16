@@ -1,4 +1,3 @@
-import type { DesktopIpcClient } from '@memorilo/desktop-preload/ipc'
 import type { WebContents } from 'electron'
 import type { DesktopIpcHandlers, IpcHandlerHost } from './ipc-handler-registry'
 import { desktopIpcChannels } from '@memorilo/desktop-preload/ipc'
@@ -52,7 +51,10 @@ describe('ipc handler registry', () => {
     const registry = await createIpcHandlerRegistry(handlers, { host })
 
     const channel = desktopIpcChannels.books.closeReadingSession
-    await expect(host.handlers.get(channel)?.({ sender }, 'session-1')).resolves.toBe(true)
+    await expect(host.handlers.get(channel)?.({ sender }, 'session-1')).resolves.toEqual({
+      status: 'success',
+      value: true,
+    })
     expect(channel).toBe('memorilo:invoke:books:closeReadingSession')
     expect(closeReadingSession).toHaveBeenCalledWith('session-1')
     await registry.close()
@@ -90,7 +92,7 @@ describe('ipc handler registry', () => {
     const registry = await createIpcHandlerRegistry(handlers, { host })
     const channel = desktopIpcChannels.app.getRuntimeInfo
     const handler = host.handlers.get(channel)!
-    const request = handler({ sender }) as ReturnType<DesktopIpcClient['app']['getRuntimeInfo']>
+    const request = handler({ sender }) as Promise<unknown>
     const close = registry.close()
 
     let closed = false
@@ -100,10 +102,21 @@ describe('ipc handler registry', () => {
     await Promise.resolve()
     expect(host.handlers.has(channel)).toBe(true)
     expect(closed).toBe(false)
-    await expect(handler({ sender })).rejects.toThrow('shutting down')
+    await expect(handler({ sender })).resolves.toEqual({
+      error: {
+        code: 'Error',
+        details: {},
+        message: 'Desktop IPC transport is shutting down',
+        name: 'Error',
+      },
+      status: 'failure',
+    })
 
     release()
-    await expect(request).resolves.toEqual({ platform: 'win32', version: 'test' })
+    await expect(request).resolves.toEqual({
+      status: 'success',
+      value: { platform: 'win32', version: 'test' },
+    })
     await close
     expect(host.handlers.has(channel)).toBe(false)
     expect(closed).toBe(true)

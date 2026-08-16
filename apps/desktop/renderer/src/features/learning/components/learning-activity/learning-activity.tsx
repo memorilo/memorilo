@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopEffect, desktopEffectQuery } from '../../../../shared/effect-query'
 import { learningQueryKeys } from '../../query-keys'
 import { learningActivityStyles as styles } from './learning-activity.stylex'
 
@@ -271,11 +272,13 @@ function LearningActivityContent({
 
 export function LearningActivity() {
   const { t } = useTranslation('learning')
-  const activityQuery = useQuery({
-    queryFn: () => window.desktop.learning.getActivitySummary({ days: activityPeriodDays }),
+  const activityQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.get-activity-summary', () => (
+      window.desktop.learning.getActivitySummary({ days: activityPeriodDays })
+    )),
     queryKey: learningQueryKeys.activitySummary,
     refetchOnMount: 'always',
-  })
+  }))
 
   if (activityQuery.isPending) {
     return (

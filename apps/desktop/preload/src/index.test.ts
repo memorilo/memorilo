@@ -36,14 +36,17 @@ beforeEach(() => {
 
 describe('preload IPC bridge', () => {
   it('invokes stable application-owned channels with the original arguments', async () => {
-    mocks.ipcInvoke.mockResolvedValueOnce({ platform: 'win32', version: '43.2.0' })
+    mocks.ipcInvoke.mockResolvedValueOnce({
+      status: 'success',
+      value: { platform: 'win32', version: '43.2.0' },
+    })
     await expect(exposedApi().getRuntimeInfo()).resolves.toEqual({
       platform: 'win32',
       version: '43.2.0',
     })
     expect(mocks.ipcInvoke).toHaveBeenCalledWith('memorilo:invoke:app:getRuntimeInfo')
 
-    mocks.ipcInvoke.mockResolvedValueOnce({ reduceMotion: true })
+    mocks.ipcInvoke.mockResolvedValueOnce({ status: 'success', value: { reduceMotion: true } })
     await exposedApi().setConfigurationValue('reduceMotion', true)
     expect(mocks.ipcInvoke).toHaveBeenLastCalledWith(
       'memorilo:invoke:configuration:setValue',

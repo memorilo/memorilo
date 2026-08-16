@@ -10,6 +10,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDesktopConfiguration } from '../../../shared/configuration'
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import * as LearningActivity from '../components/learning-activity'
 import { learningQueryKeys } from '../query-keys'
 import { buildAnkiDeckTree } from './anki-deck-tree'
@@ -192,11 +193,13 @@ function LearningNoteRow({
   const updatedDate = useMemo(() => new Intl.DateTimeFormat(i18n.language, {
     dateStyle: 'medium',
   }).format(note.updatedAt), [i18n.language, note.updatedAt])
-  const assignment = useMutation({
-    mutationFn: (optimizer: LearningOptimizer) => window.desktop.learning.assignNoteOptimizer({
-      noteId: note.noteId,
-      optimizerId: optimizer.id,
-    }),
+  const assignment = useMutation(desktopEffectQuery.mutationOptions({
+    mutationFn: (optimizer: LearningOptimizer) => desktopEffect('learning.assign-note-optimizer', () => (
+      window.desktop.learning.assignNoteOptimizer({
+        noteId: note.noteId,
+        optimizerId: optimizer.id,
+      })
+    )),
     onError: (error, _optimizer, previousNotes) => {
       if (previousNotes)
         queryClient.setQueryData(learningQueryKeys.notesWithCards, previousNotes)
@@ -222,7 +225,7 @@ function LearningNoteRow({
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: learningQueryKeys.notesWithCards }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: learningQueryKeys.optimizers }),
-  })
+  }))
 
   const changeOptimizer = (event: ChangeEvent<HTMLSelectElement>) => {
     const optimizerId = event.currentTarget.value
@@ -301,25 +304,29 @@ function LearningNoteRow({
 export function LearningNotesPanel() {
   const { t } = useTranslation('learning')
   const configuration = useDesktopConfiguration()
-  const notesQuery = useQuery({
-    queryFn: () => window.desktop.learning.listNotesWithCards(),
+  const notesQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.list-notes-with-cards', () => (
+      window.desktop.learning.listNotesWithCards()
+    )),
     queryKey: learningQueryKeys.notesWithCards,
     refetchOnMount: 'always',
-  })
-  const optimizersQuery = useQuery({
-    queryFn: async () => (await window.desktop.learning.listOptimizers())
-      .filter(optimizer => optimizer.status === 'active'),
+  }))
+  const optimizersQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.list-active-optimizers', async () => (
+      (await window.desktop.learning.listOptimizers())
+        .filter(optimizer => optimizer.status === 'active')
+    )),
     queryKey: learningQueryKeys.optimizerOptions,
     refetchOnMount: 'always',
-  })
+  }))
   const ankiRevision = useAnkiConnectionRevision(configuration.anki)
-  const ankiDecksQuery = useQuery({
+  const ankiDecksQuery = useQuery(desktopEffectQuery.queryOptions({
     enabled: configuration.anki.enabled,
-    queryFn: () => window.desktop.learning.listAnkiDecks(),
+    queryFn: () => desktopEffect('learning.list-anki-decks', () => window.desktop.learning.listAnkiDecks()),
     queryKey: learningQueryKeys.ankiDecks(ankiRevision),
     refetchOnMount: 'always',
     staleTime: 30_000,
-  })
+  }))
 
   if (notesQuery.isPending || optimizersQuery.isPending) {
     return (

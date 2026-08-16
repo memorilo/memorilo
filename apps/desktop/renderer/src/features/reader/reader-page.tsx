@@ -65,7 +65,7 @@ function ShelfReaderSession({
 
   const documentQuery = useQuery(shelfEffectQuery.queryOptions({
     gcTime: 0,
-    queryFn: () => desktopEffect(() => window.desktop.openShelfReading({ readingId })),
+    queryFn: () => desktopEffect('shelf.open-reading', () => window.desktop.openShelfReading({ readingId })),
     queryKey: ['shelf-reading', readingId],
     retry: false,
     staleTime: Infinity,
@@ -73,7 +73,7 @@ function ShelfReaderSession({
   const contextsQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: documentQuery.data !== undefined,
     gcTime: 0,
-    queryFn: () => desktopEffect(() => window.desktop.listBookContexts(readingId)),
+    queryFn: () => desktopEffect('books.list-contexts', () => window.desktop.listBookContexts(readingId)),
     queryKey: ['shelf-reading-contexts', readingId],
     retry: false,
     staleTime: Infinity,
