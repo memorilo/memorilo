@@ -351,11 +351,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
       },
       {
         control: 'select',
-        description: 'Choose the default layout mode for reflowable EPUB books.',
-        label: 'EPUB layout mode',
+        description: 'Choose original book formatting or optimized reading layout for reflowable EPUB books.',
+        label: 'EPUB layout preference',
         options: [
-          { label: 'Publisher', value: 'publisher' },
-          { label: 'Reader', value: 'reader' },
+          { label: 'Original formatting', value: 'publisher' },
+          { label: 'Optimized reading', value: 'reader' },
         ],
         path: 'readerEpubPresentationMode',
       },
