@@ -5,17 +5,12 @@ export type { TaskHistory, TaskStatus } from '../../schema/task-schema'
 
 export const TASK_STATUSES: readonly TaskStatus[] = ['todo', 'doing', 'done']
 
-/**
- * Resolve the effective task status from raw list attributes.
- *
- * Falls back to the legacy `checked` flag so documents authored before the
- * three-state control still render sensibly (`checked` → `done`).
- */
+/** Resolve and validate the task status from raw list attributes. */
 export function effectiveStatus(attrs: Attrs): TaskStatus {
   const status = attrs.status
   if (status === 'todo' || status === 'doing' || status === 'done')
     return status
-  return attrs.checked ? 'done' : 'todo'
+  throw new TypeError('Task status must be todo, doing, or done')
 }
 
 /** The next status when the control is clicked (cycles without leaving the task). */

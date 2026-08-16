@@ -14,10 +14,6 @@ export interface SqliteShelfStorageOptions {
   operationSupervisor?: OperationSupervisor
 }
 
-export interface CreateShelfStorageOptions {
-  database: EditorStorageDatabase
-}
-
 /** SQLite adapter that participates in one admission/drain lifecycle for every Shelf facet. */
 export class SqliteShelfStorage implements ShelfStorage {
   readonly #resources: ReturnType<typeof createResourceScope>
@@ -90,9 +86,4 @@ export class SqliteShelfStorage implements ShelfStorage {
   close(): Promise<void> {
     return this.#resources.close()
   }
-}
-
-/** @deprecated Prefer `SqliteShelfStorage.open` with explicit ownership. */
-export function createShelfStorage(options: CreateShelfStorageOptions): Promise<SqliteShelfStorage> {
-  return SqliteShelfStorage.open({ ...options, databaseOwnership: 'owned' })
 }

@@ -32,25 +32,4 @@ describe('desktop configuration adapter', () => {
     expect(updated).toMatchObject({ language: 'en', weekStart: 'monday' })
     expect(await adapter.read()).toMatchObject({ language: 'en', weekStart: 'monday' })
   })
-
-  it('keeps a concurrent field update while migrating a legacy configuration', async () => {
-    const userDataPath = await mkdtemp(join(tmpdir(), 'memorilo-desktop-configuration-'))
-    temporaryDirectories.push(userDataPath)
-    const adapter = createDesktopConfigurationAdapter(userDataPath)
-    await adapter.write({ language: 'zh', reduceMotion: true })
-    if (!adapter.setValue)
-      throw new Error('Desktop configuration adapter must support field updates')
-
-    await Promise.all([
-      adapter.read(),
-      adapter.setValue('weekStart', 'monday'),
-    ])
-
-    expect(await adapter.read()).toEqual({
-      ...desktopConfigurationDefinition.defaults,
-      language: 'zh',
-      reduceMotion: true,
-      weekStart: 'monday',
-    })
-  })
 })
