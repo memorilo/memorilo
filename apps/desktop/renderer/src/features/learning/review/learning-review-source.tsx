@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { learningReviewSourceStyles as styles } from './learning-review-source.stylex'
 
 const ImageOcclusionReview = lazy(async () => {
@@ -64,10 +65,12 @@ function EditorLearningReviewSource({
   if (item.card.kind === 'image-occlusion')
     throw new TypeError('Image occlusion Cards require the image occlusion review surface')
   const card = item.card
-  const sourceQuery = useQuery({
-    queryFn: () => window.desktop.getNote({ noteId: item.queue.noteId }),
+  const sourceQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('notes.get-review-source', () => (
+      window.desktop.getNote({ noteId: item.queue.noteId })
+    )),
     queryKey: ['learning', 'review-source', item.queue.noteId, item.updatedAt],
-  })
+  }))
   const source = useMemo(() => {
     if (!sourceQuery.data)
       return null

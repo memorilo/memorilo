@@ -15,7 +15,7 @@ import { shelfPublicationStyles } from './shelf-publication.stylex'
 function useShelfPreview(sourceId: string, pageUrl: string | null, enabled: boolean) {
   return useQuery(shelfEffectQuery.queryOptions({
     enabled: enabled && pageUrl !== null,
-    queryFn: () => desktopEffect(() => {
+    queryFn: () => desktopEffect('shelf.refresh-preview', () => {
       if (pageUrl === null)
         throw new Error('Shelf preview page URL is missing')
       return window.desktop.refreshShelfView({ pageUrl, sourceId })

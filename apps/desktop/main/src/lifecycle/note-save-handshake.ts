@@ -1,7 +1,7 @@
 import type { NoteSaveRequest, NoteSaveResult } from '@memorilo/desktop-preload/note-save-handshake'
 import { randomUUID } from 'node:crypto'
 import { noteSaveRequestChannel, noteSaveResultChannel } from '@memorilo/desktop-preload/note-save-handshake'
-import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
+import { combineLifecycleFailures, toError } from '@memorilo/effect-lifecycle'
 import { Deferred, Effect } from 'effect'
 
 export type RendererNoteSaveOutcome = {
@@ -88,7 +88,7 @@ export async function flushRendererNotes({
 
     yield* Effect.acquireRelease(
       Effect.try({
-        catch: error => error,
+        catch: toError,
         try: () => ipcMain.on(noteSaveResultChannel, handleResult),
       }),
       () => Effect.sync(() => {
@@ -108,7 +108,7 @@ export async function flushRendererNotes({
       })
       yield* Effect.acquireRelease(
         Effect.try({
-          catch: error => error,
+          catch: toError,
           try: () => target.once('destroyed', destroyed),
         }),
         () => Effect.sync(() => {
@@ -128,7 +128,7 @@ export async function flushRendererNotes({
       if (Deferred.isDoneUnsafe(completion))
         break
       yield* Effect.try({
-        catch: error => error,
+        catch: toError,
         try: () => target.send(noteSaveRequestChannel, { requestId }),
       })
     }

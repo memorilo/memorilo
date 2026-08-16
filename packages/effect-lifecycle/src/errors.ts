@@ -1,4 +1,4 @@
-function toLifecycleError(cause: unknown): Error {
+export function toError(cause: unknown): Error {
   return cause instanceof Error ? cause : new Error(String(cause))
 }
 
@@ -17,14 +17,14 @@ export function createRetryableClose(): (attempt: () => Promise<void>) => Promis
       started = Promise.resolve(attempt())
     }
     catch (error) {
-      started = Promise.reject(error)
+      started = Promise.reject(toError(error))
     }
     const observed = started.then(
       () => undefined,
       (error) => {
         if (current === observed)
           current = undefined
-        throw error
+        throw toError(error)
       },
     )
     current = observed
@@ -36,7 +36,7 @@ export function createRetryableClose(): (attempt: () => Promise<void>) => Promis
 function flattenLifecycleFailures(cause: unknown): readonly Error[] {
   if (cause instanceof AggregateError)
     return cause.errors.flatMap(flattenLifecycleFailures)
-  return [toLifecycleError(cause)]
+  return [toError(cause)]
 }
 
 /**

@@ -1,34 +1,35 @@
 import type { CreateDesktopNoteInput, DesktopNote, DesktopNoteSearchHit } from '@memorilo/desktop-preload'
-import type { Cause } from 'effect'
 import type { TFunction } from 'i18next'
 import type { PaletteCommand } from '../../shared/command-palette'
+import type { DesktopClientError } from '../../shared/effect-query'
 import type {
   CommandPaletteNavigation,
   CommandPaletteSearchProjection,
 } from './command-palette-search-model'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Effect, Layer } from 'effect'
-import { createEffectQuery } from 'effect-query'
 import { useCallback, useDeferredValue, useMemo, useRef } from 'react'
 import { defaultTopicId } from '../../features/notes/note-runtime'
+import {
+  desktopEffect,
+  desktopEffectQuery,
+} from '../../shared/effect-query'
 import { router } from '../router'
 import { projectCommandPaletteSearch } from './command-palette-search-model'
 
-const effectQuery = createEffectQuery(Layer.empty)
 const searchLimit = 20
 
 function noteSearchQueryOptions(query: string, enabled: boolean) {
-  return effectQuery.queryOptions<readonly DesktopNoteSearchHit[], Cause.UnknownError, never>({
+  return desktopEffectQuery.queryOptions<readonly DesktopNoteSearchHit[], DesktopClientError, never>({
     enabled,
-    queryFn: () => Effect.tryPromise(() => window.desktop.searchNotes({ limit: searchLimit, query })),
+    queryFn: () => desktopEffect('notes.search', () => window.desktop.searchNotes({ limit: searchLimit, query })),
     queryKey: ['memorilo-search', query] as const,
     staleTime: 15_000,
   })
 }
 
 function createNoteMutationOptions() {
-  return effectQuery.mutationOptions<DesktopNote, Cause.UnknownError, never, CreateDesktopNoteInput>({
-    mutationFn: input => Effect.tryPromise(() => window.desktop.createNote(input)),
+  return desktopEffectQuery.mutationOptions<DesktopNote, DesktopClientError, never, CreateDesktopNoteInput>({
+    mutationFn: input => desktopEffect('notes.create', () => window.desktop.createNote(input)),
   })
 }
 

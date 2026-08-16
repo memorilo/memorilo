@@ -20,6 +20,11 @@ import { basename, dirname, isAbsolute, join, posix, relative, sep } from 'node:
 import { pipeline } from 'node:stream/promises'
 import { createZstdCompress, createZstdDecompress } from 'node:zlib'
 
+import {
+  combineLifecycleFailures,
+  runLifecycleOperations,
+  toError,
+} from '@memorilo/effect-lifecycle'
 import * as tar from 'tar-stream'
 import { createDatabaseSnapshot, inspectDatabase } from './database-backup'
 
@@ -122,23 +127,36 @@ async function writeCompressedArchive(root: string, destinationPath: string): Pr
     createZstdCompress(),
     createWriteStream(temporaryPath, { flags: 'wx' }),
   )
-  let published = false
+  let writingComplete = false
   try {
     for (const file of await listStagedFiles(root))
       await addFile(pack, file)
     pack.finalize()
     await writing
+    writingComplete = true
     await rename(temporaryPath, destinationPath)
-    published = true
   }
   catch (error) {
-    pack.destroy(error instanceof Error ? error : new Error(String(error)))
-    await writing.catch(() => undefined)
-    throw error
-  }
-  finally {
-    if (!published)
-      await rm(temporaryPath, { force: true })
+    const archiveError = toError(error)
+    try {
+      await runLifecycleOperations([
+        () => pack.destroy(archiveError),
+        ...writingComplete
+          ? []
+          : [() => writing.catch((writingError) => {
+              if (writingError !== error)
+                throw writingError
+            })],
+        () => rm(temporaryPath, { force: true }),
+      ], `Failed to clean up database export ${temporaryPath}`, 'sequential')
+    }
+    catch (cleanupError) {
+      throw combineLifecycleFailures(
+        [archiveError, cleanupError],
+        `Database export and cleanup failed for ${destinationPath}`,
+      )
+    }
+    throw archiveError
   }
 }
 
@@ -175,8 +193,24 @@ export async function exportDatabase(input: ExportInput): Promise<void> {
     )
     await writeCompressedArchive(payloadRoot, input.destinationPath)
   }
-  finally {
+  catch (error) {
+    const exportError = toError(error)
+    try {
+      await rm(temporaryRoot, { force: true, recursive: true })
+    }
+    catch (cleanupError) {
+      throw combineLifecycleFailures(
+        [exportError, cleanupError],
+        `Database export and staging cleanup failed for ${input.destinationPath}`,
+      )
+    }
+    throw exportError
+  }
+  try {
     await rm(temporaryRoot, { force: true, recursive: true })
+  }
+  catch (cleanupError) {
+    throw new Error(`Failed to clean up database export staging ${temporaryRoot}`, { cause: cleanupError })
   }
 }
 

@@ -17,6 +17,7 @@ import { useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { learningQueryKeys } from '../query-keys'
@@ -131,11 +132,11 @@ function LearningReviewPageSession({
   const routeIdentity = learningReviewRoute.identity(route)
   const routeRef = useRef(route)
   routeRef.current = route
-  const progressQuery = useQuery({
-    queryFn: () => window.desktop.learning.getDailyProgress(),
+  const progressQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.get-daily-progress', () => window.desktop.learning.getDailyProgress()),
     queryKey: learningQueryKeys.dailyProgress,
     refetchOnMount: 'always',
-  })
+  }))
 
   useEffect(() => {
     workflow.setRoute(routeRef.current)

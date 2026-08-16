@@ -12,17 +12,17 @@ import type {
   ReaderScrollResult,
 } from '../reader-adapter'
 import type { RegionSelectionResult } from '../region-selection'
+import type { PdfContinuousPage } from './pdf-continuous-page'
 import type { PdfOutlineNode } from './pdf-outline-navigation'
 import type { PdfJsModule } from './pdf-page-view'
 import type { PdfSource } from './pdf-reader-mount'
 import { combineLifecycleFailures, createResourceScope } from '@memorilo/effect-lifecycle'
 import { interruptPromise } from '../interrupt-promise'
 import { toReaderError } from '../reader-adapter'
-import { RegionSelectionController } from '../region-selection'
+import { createPdfContinuousPage } from './pdf-continuous-page'
 import { projectPdfContinuousTextSelection } from './pdf-continuous-text-selection'
 import { openPdfDocumentSession } from './pdf-document-session'
 import { PdfOutlineNavigation } from './pdf-outline-navigation'
-import { PdfPageView } from './pdf-page-view'
 
 interface OpenPdfContinuousReaderMountOptions {
   annotations: readonly ReaderAnnotation[]
@@ -35,22 +35,6 @@ interface OpenPdfContinuousReaderMountOptions {
   scale: number
   signal: AbortSignal
   source: PdfSource
-}
-
-interface ContinuousPdfPage {
-  close: () => Promise<void>
-  kind: ReaderTextLayerKind
-  pageNumber: number
-  pageSurface: HTMLDivElement
-  regionSelection: RegionSelectionController
-  render: (
-    forceOcr: boolean,
-    availableWidth: number,
-    scale: number,
-    signal: AbortSignal,
-  ) => Promise<boolean>
-  setAnnotations: (annotations: readonly ReaderAnnotation[]) => void
-  textLayer: HTMLDivElement
 }
 
 interface ContinuousPdfPageRender {
@@ -74,25 +58,6 @@ function createPageSlot(ownerDocument: Document, pageNumber: number): HTMLDivEle
   return slot
 }
 
-function createPageDom(slot: HTMLElement, pageNumber: number) {
-  const ownerDocument = slot.ownerDocument
-  const pageSurface = ownerDocument.createElement('div')
-  pageSurface.className = 'reader-pdf-page'
-  const canvas = ownerDocument.createElement('canvas')
-  canvas.className = 'reader-pdf-canvas'
-  canvas.setAttribute('aria-label', `Page ${pageNumber}`)
-  const annotationLayer = ownerDocument.createElement('div')
-  annotationLayer.className = 'reader-pdf-annotations'
-  const textLayer = ownerDocument.createElement('div')
-  textLayer.className = 'reader-pdf-text-layer'
-  const regionCapture = ownerDocument.createElement('div')
-  regionCapture.className = 'reader-pdf-region-capture'
-  regionCapture.setAttribute('aria-hidden', 'true')
-  pageSurface.append(canvas, annotationLayer, textLayer, regionCapture)
-  slot.replaceChildren(pageSurface)
-  return { annotationLayer, canvas, pageSurface, regionCapture, textLayer }
-}
-
 function selectionIntersects(root: Node): boolean {
   const selection = root.ownerDocument?.getSelection()
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed)
@@ -109,7 +74,7 @@ export class PdfContinuousReaderMount {
   readonly #lifetime = new AbortController()
   readonly #observer: IntersectionObserver
   readonly #outline: PdfOutlineNavigation
-  readonly #pages = new Map<number, ContinuousPdfPage>()
+  readonly #pages = new Map<number, PdfContinuousPage>()
   readonly #pageRenders = new Map<number, ContinuousPdfPageRender>()
   readonly #pdfJs: PdfJsModule
   readonly #resources: ReturnType<typeof createResourceScope>
@@ -418,78 +383,29 @@ export class PdfContinuousReaderMount {
     })
   }
 
-  #createPage(pageNumber: number): ContinuousPdfPage {
+  #createPage(pageNumber: number): PdfContinuousPage {
     const slot = this.#slots[pageNumber - 1]
     if (!slot)
       throw new RangeError(`PDF page ${pageNumber} is outside the document`)
-    const dom = createPageDom(slot, pageNumber)
-    let kind: ReaderTextLayerKind = 'none'
-    const regionSelection = new RegionSelectionController({
-      onEnabledChange: enabled => this.#syncRegionSelection(enabled),
-      onSelection: result => this.#publishRegionSelection(pageNumber, result),
-    })
-    regionSelection.mount(dom.pageSurface, dom.regionCapture)
-    regionSelection.setEnabled(this.#regionSelectionEnabled)
-    dom.textLayer.addEventListener('pointerup', this.#captureTextSelection)
-    dom.textLayer.addEventListener('keyup', this.#captureTextSelection)
-    const view = new PdfPageView({
-      annotationLayer: dom.annotationLayer,
+    return createPdfContinuousPage({
+      annotations: this.#annotations,
       callbacks: this.#callbacks,
-      canvas: dom.canvas,
       document: this.#document,
       ocrProvider: this.#ocrProvider,
-      onTextLayerKindChange: (nextKind) => {
-        kind = nextKind
+      onPositionChange: (nextKind) => {
         const position = this.currentPosition()
         if (position.pageNumber === pageNumber)
           this.#onPositionChange(pageNumber, position.pageProgress, nextKind)
       },
-      pageSurface: dom.pageSurface,
-      pdfJs: this.#pdfJs,
-      textLayer: dom.textLayer,
-    })
-    view.setAnnotations(this.#annotations, pageNumber)
-    const render = async (
-      forceOcr: boolean,
-      availableWidth: number,
-      scale: number,
-      signal: AbortSignal,
-    ): Promise<boolean> => {
-      const cancel = () => view.cancel(signal.reason)
-      signal.addEventListener('abort', cancel, { once: true })
-      try {
-        const rendered = await interruptPromise(
-          view.render({ availableWidth, forceOcr, pageNumber, scale }),
-          signal,
-        )
-        if (rendered) {
-          slot.style.minHeight = `${dom.pageSurface.offsetHeight}px`
-          this.#schedulePosition()
-        }
-        return rendered
-      }
-      finally {
-        signal.removeEventListener('abort', cancel)
-      }
-    }
-    return {
-      close: async () => {
-        dom.textLayer.removeEventListener('pointerup', this.#captureTextSelection)
-        dom.textLayer.removeEventListener('keyup', this.#captureTextSelection)
-        regionSelection.destroy()
-        await view.close()
-        dom.pageSurface.remove()
-      },
-      get kind() {
-        return kind
-      },
+      onRegionSelection: result => this.#publishRegionSelection(pageNumber, result),
+      onRegionSelectionEnabledChange: enabled => this.#syncRegionSelection(enabled),
+      onTextSelection: this.#captureTextSelection,
       pageNumber,
-      pageSurface: dom.pageSurface,
-      regionSelection,
-      render,
-      setAnnotations: annotations => view.setAnnotations(annotations, pageNumber),
-      textLayer: dom.textLayer,
-    }
+      pdfJs: this.#pdfJs,
+      regionSelectionEnabled: this.#regionSelectionEnabled,
+      schedulePosition: this.#schedulePosition,
+      slot,
+    })
   }
 
   private currentPosition(): { pageNumber: number, pageProgress: number } {

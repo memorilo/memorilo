@@ -1,5 +1,5 @@
 import { Effect, Exit, Fiber, FiberMap, FiberSet, Scope, Semaphore } from 'effect'
-import { createRetryableClose } from './errors'
+import { createRetryableClose, toError } from './errors'
 
 export type LatestOperationResult<Result>
   = | { status: 'current', value: Result }
@@ -70,16 +70,16 @@ export function createLatestOperationSupervisor<Channel extends PropertyKey>(
     if (!accepting)
       return Promise.reject(closedError())
 
-    let fiber: Fiber.Fiber<LatestOperationResult<Result>, unknown>
+    let fiber: Fiber.Fiber<LatestOperationResult<Result>, Error>
     let ownedPromise: Promise<LatestOperationResult<Result>> | undefined
     const isCurrent = (): boolean => accepting
       && (fiber === undefined || FiberMap.getUnsafe(fibers, channel) === fiber)
 
-    const effect: Effect.Effect<LatestOperationResult<Result>, unknown> = Effect.tryPromise({
-      catch: error => error,
+    const effect: Effect.Effect<LatestOperationResult<Result>, Error> = Effect.tryPromise({
+      catch: toError,
       try: (fiberSignal) => {
-        const ownedEffect: Effect.Effect<LatestOperationResult<Result>, unknown> = Effect.tryPromise({
-          catch: error => error,
+        const ownedEffect: Effect.Effect<LatestOperationResult<Result>, Error> = Effect.tryPromise({
+          catch: toError,
           try: async (ownedSignal) => {
             const signal = AbortSignal.any([
               fiberSignal,

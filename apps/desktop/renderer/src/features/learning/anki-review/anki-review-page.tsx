@@ -1,6 +1,6 @@
 import type { AnkiReviewRating } from '@memorilo/anki-connect'
 import type { DesktopAnkiDeck, DesktopAnkiReviewerCard } from '@memorilo/desktop-preload'
-import { AnkiConnectNetworkError, resolveAnkiCardMedia } from '@memorilo/anki-connect'
+import { AnkiConnectInputError, AnkiConnectNetworkError, resolveAnkiCardMedia } from '@memorilo/anki-connect'
 import { AnkiNoteRenderer } from '@memorilo/anki-connect/renderer'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,7 @@ import { useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { PageTitlebarButton } from '../../../shared/page-titlebar-button'
 import { learningQueryKeys } from '../query-keys'
@@ -47,12 +48,14 @@ export function AnkiReviewPage({
   const shouldReduceMotion = useReducedMotion()
   const [revealedCardId, setRevealedCardId] = useState<number | null>(null)
   const reviewKey = learningQueryKeys.ankiReview(deck.id)
-  const reviewQuery = useQuery({
-    queryFn: () => window.desktop.learning.startAnkiDeckReview(deck),
+  const reviewQuery = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.start-anki-review', () => (
+      window.desktop.learning.startAnkiDeckReview(deck)
+    )),
     queryKey: reviewKey,
     refetchOnMount: 'always',
     staleTime: 0,
-  })
+  }))
   const card = reviewQuery.data ?? null
   const revealed = card !== null && revealedCardId === card.cardId
   const mediaClient = useMemo(() => ({
@@ -64,37 +67,43 @@ export function AnkiReviewPage({
       }),
     }),
   }), [])
-  const mediaQuery = useQuery({
+  const mediaQuery = useQuery(desktopEffectQuery.queryOptions({
     enabled: card !== null,
     queryFn: () => {
       if (!card)
-        throw new Error('Anki card media requires an active reviewer card')
-      return Effect.runPromise(resolveAnkiCardMedia(mediaClient, card))
+        return Effect.fail(new AnkiConnectInputError('Anki card media requires an active reviewer card'))
+      return resolveAnkiCardMedia(mediaClient, card)
     },
     queryKey: card ? learningQueryKeys.ankiCardMedia(card.cardId) : ['learning', 'anki-review', 'media', 'none'],
     staleTime: Number.POSITIVE_INFINITY,
-  })
-  const showAnswer = useMutation({
-    mutationFn: (current: DesktopAnkiReviewerCard) => window.desktop.learning.showAnkiReviewAnswer({ cardId: current.cardId }),
+  }))
+  const showAnswer = useMutation(desktopEffectQuery.mutationOptions({
+    mutationFn: (current: DesktopAnkiReviewerCard) => desktopEffect('learning.show-anki-answer', () => (
+      window.desktop.learning.showAnkiReviewAnswer({ cardId: current.cardId })
+    )),
     onSuccess: current => setRevealedCardId(current.cardId),
-  })
-  const rate = useMutation({
+  }))
+  const rate = useMutation(desktopEffectQuery.mutationOptions({
     mutationFn: ({ current, rating }: { current: DesktopAnkiReviewerCard, rating: AnkiReviewRating }) => (
-      window.desktop.learning.answerAnkiReviewCard({ cardId: current.cardId, rating })
+      desktopEffect('learning.answer-anki-card', () => (
+        window.desktop.learning.answerAnkiReviewCard({ cardId: current.cardId, rating })
+      ))
     ),
     onSuccess: (next) => {
       setRevealedCardId(null)
       queryClient.setQueryData(reviewKey, next)
       void queryClient.invalidateQueries({ queryKey: learningQueryKeys.ankiDecksRoot })
     },
-  })
-  const playAudio = useMutation({
-    mutationFn: (current: DesktopAnkiReviewerCard) => window.desktop.learning.playAnkiReviewAudio({ cardId: current.cardId }),
-  })
-  const closeReview = useMutation({
-    mutationFn: () => window.desktop.learning.endAnkiReview(),
+  }))
+  const playAudio = useMutation(desktopEffectQuery.mutationOptions({
+    mutationFn: (current: DesktopAnkiReviewerCard) => desktopEffect('learning.play-anki-audio', () => (
+      window.desktop.learning.playAnkiReviewAudio({ cardId: current.cardId })
+    )),
+  }))
+  const closeReview = useMutation(desktopEffectQuery.mutationOptions({
+    mutationFn: () => desktopEffect('learning.end-anki-review', () => window.desktop.learning.endAnkiReview()),
     onSuccess: () => onClose(),
-  })
+  }))
   const actionPending = showAnswer.isPending || rate.isPending
   const actionError = showAnswer.error ?? rate.error ?? playAudio.error
 
@@ -112,7 +121,7 @@ export function AnkiReviewPage({
   }, [])
 
   const close = useCallback(() => {
-    closeReview.mutate()
+    closeReview.mutate(undefined)
   }, [closeReview])
   const play = useCallback(() => {
     if (card)

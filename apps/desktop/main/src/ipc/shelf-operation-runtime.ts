@@ -48,21 +48,18 @@ function withKeyedPermits<Result, Failure>(
   requestedPermits: number,
   operation: EffectType.Effect<Result, Failure>,
 ): EffectType.Effect<Result, Failure | TypeError> {
-  return Effect.acquireUseRelease(
-    Effect.try({
-      catch: error => error as TypeError,
-      try: () => {
-        if (identity.length === 0)
-          throw new TypeError(`Shelf ${identityName} id must be non-empty`)
+  if (identity.length === 0)
+    return Effect.fail(new TypeError(`Shelf ${identityName} id must be non-empty`))
 
-        let lane = lanes.get(identity)
-        if (!lane) {
-          lane = { semaphore: Semaphore.makeUnsafe(laneCapacity), users: 0 }
-          lanes.set(identity, lane)
-        }
-        lane.users += 1
-        return lane
-      },
+  return Effect.acquireUseRelease(
+    Effect.sync(() => {
+      let lane = lanes.get(identity)
+      if (!lane) {
+        lane = { semaphore: Semaphore.makeUnsafe(laneCapacity), users: 0 }
+        lanes.set(identity, lane)
+      }
+      lane.users += 1
+      return lane
     }),
     lane => lane.semaphore.withPermits(requestedPermits)(operation),
     lane => Effect.sync(() => releaseLane(lanes, identity, lane)),

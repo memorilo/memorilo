@@ -1,7 +1,6 @@
 import type { Link } from '@readium/shared'
 import type {
   ReaderAnnotation,
-  ReaderEpubRegionTarget,
   ReaderPageMode,
   ReaderPresentationMode,
 } from '../../types'
@@ -12,17 +11,20 @@ import type {
 } from '../reader-adapter'
 import type { ReaderOutlineProjection } from '../reader-outline'
 import type { RegionSelectionResult } from '../region-selection'
+import type { ContinuousEpubSection } from './epub-continuous-section'
 import type { ParsedEpub } from './epub-parser'
 import { createResourceScope } from '@memorilo/effect-lifecycle'
-import { Layout, Locator, LocatorLocations } from '@readium/shared'
-import { annotationOverlayTint } from '../annotations'
-import { normalizedRectWithinSurface } from '../fixed-page/geometry'
+import { Locator, LocatorLocations } from '@readium/shared'
 import { clampReaderScale, toReaderError } from '../reader-adapter'
 import { RegionSelectionController } from '../region-selection'
 import { epubOutline, serializedEpubLocator } from './epub-content-projection'
+import { renderContinuousEpubAnnotations } from './epub-continuous-annotations'
+import { projectContinuousEpubRegionSelection } from './epub-continuous-region-selection'
 import {
-  epubContinuousTextOffsets,
-  epubContinuousTextRange,
+  appendContinuousEpubSection,
+  layoutContinuousEpubSection,
+} from './epub-continuous-section'
+import {
   projectEpubContinuousTextSelection,
 } from './epub-continuous-text-selection'
 import { projectEpubReaderState } from './epub-reader-state'
@@ -40,76 +42,8 @@ interface EpubContinuousReaderMountOptions {
   sourceName: string
 }
 
-interface ContinuousEpubSection {
-  annotationLayer: HTMLDivElement
-  content: HTMLElement
-  fixed: boolean
-  href: string
-  link: Link
-  naturalHeight: number
-  naturalWidth: number
-  root: HTMLElement
-  type: string
-}
-
 const scrollStep = 48
 const scrollTolerance = 1
-
-function parserType(mediaType: string): DOMParserSupportedType {
-  return mediaType === 'text/html' ? 'text/html' : 'application/xhtml+xml'
-}
-
-function viewportSize(document: Document): { height: number, width: number } {
-  const value = document.querySelector('meta[name="viewport" i]')?.getAttribute('content') ?? ''
-  const width = /(?:^|,)\s*width\s*=\s*([\d.]+)/i.exec(value)?.[1]
-  const height = /(?:^|,)\s*height\s*=\s*([\d.]+)/i.exec(value)?.[1]
-  const parsedWidth = Number(width)
-  const parsedHeight = Number(height)
-  return {
-    height: Number.isFinite(parsedHeight) && parsedHeight > 0 ? parsedHeight : 768,
-    width: Number.isFinite(parsedWidth) && parsedWidth > 0 ? parsedWidth : 1024,
-  }
-}
-
-function intersectionRect(left: DOMRectReadOnly, right: DOMRectReadOnly): DOMRect | null {
-  const x = Math.max(left.left, right.left)
-  const y = Math.max(left.top, right.top)
-  const width = Math.max(0, Math.min(left.right, right.right) - x)
-  const height = Math.max(0, Math.min(left.bottom, right.bottom) - y)
-  return width > 0 && height > 0 ? new DOMRect(x, y, width, height) : null
-}
-
-function isAnchorableElement(element: Element): boolean {
-  if (['canvas', 'img', 'picture', 'svg', 'video'].includes(element.localName))
-    return true
-  return [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())
-}
-
-function stableSelector(root: HTMLElement, element: Element): string {
-  if (!root.contains(element))
-    throw new Error('EPUB region target is outside its spine section')
-  if (element.id) {
-    const byId = `#${CSS.escape(element.id)}`
-    if (root.querySelectorAll(byId).length === 1)
-      return byId
-  }
-  const segments: string[] = []
-  let current: Element | null = element
-  while (current && current !== root) {
-    const name = CSS.escape(current.localName)
-    const siblings = current.parentElement
-      ? [...current.parentElement.children].filter(sibling => sibling.localName === current!.localName)
-      : [current]
-    segments.unshift(`${name}:nth-of-type(${siblings.indexOf(current) + 1})`)
-    current = current.parentElement
-  }
-  if (current !== root || segments.length === 0)
-    throw new Error('Unable to create an EPUB region target selector')
-  const selector = segments.join(' > ')
-  if (root.querySelectorAll(selector).length !== 1)
-    throw new Error('Unable to create a stable EPUB region target selector')
-  return selector
-}
 
 function keyboardEventInput(event: KeyboardEvent) {
   return {
@@ -367,8 +301,15 @@ export class EpubContinuousReaderMount {
         return { bytes, link, type }
       }))
       this.options.signal.throwIfAborted()
-      for (const resource of resources)
-        this.#sections.push(this.#appendSection(frameDocument, resource.link, resource.type, resource.bytes))
+      for (const resource of resources) {
+        this.#sections.push(appendContinuousEpubSection(
+          frameDocument,
+          resource.link,
+          resource.type,
+          resource.bytes,
+          this.#parsed.layout === 'fixed',
+        ))
+      }
       if (this.#sections.length === 0)
         throw new Error('EPUB does not contain a continuous reading section')
       this.#installFrameEvents(frameDocument)
@@ -380,105 +321,12 @@ export class EpubContinuousReaderMount {
     }
   }
 
-  #appendSection(
-    frameDocument: Document,
-    link: Link,
-    type: string,
-    bytes: Uint8Array,
-  ): ContinuousEpubSection {
-    const source = new DOMParser().parseFromString(new TextDecoder().decode(bytes), parserType(type))
-    if (source.querySelector('parsererror'))
-      throw new Error(`Invalid EPUB content document ${link.href}`)
-    const fixed = this.#parsed.layout === 'fixed'
-      || link.properties?.otherProperties.layout === Layout.fixed
-    const size = viewportSize(source)
-    const root = frameDocument.createElement('section')
-    root.className = 'memorilo-epub-section'
-    root.dataset.href = normalizeEpubPath(link.href)
-    const content = frameDocument.createElement('div')
-    content.className = 'memorilo-epub-content'
-    content.dataset.href = normalizeEpubPath(link.href)
-    const sourceBody = source.body ?? source.documentElement
-    content.classList.add(...sourceBody.classList)
-    const bodyStyle = sourceBody.getAttribute('style')
-    if (bodyStyle)
-      content.style.cssText += bodyStyle
-    for (const child of [...sourceBody.childNodes])
-      content.append(frameDocument.importNode(child, true))
-    for (const stylesheet of [...source.querySelectorAll('style, link[rel~="stylesheet" i]')])
-      root.prepend(frameDocument.importNode(stylesheet, true))
-    const annotationLayer = frameDocument.createElement('div')
-    annotationLayer.className = 'memorilo-epub-annotations'
-    root.append(content, annotationLayer)
-    frameDocument.body.append(root)
-    return {
-      annotationLayer,
-      content,
-      fixed,
-      href: normalizeEpubPath(link.href),
-      link,
-      naturalHeight: size.height,
-      naturalWidth: size.width,
-      root,
-      type,
-    }
-  }
-
   #applyAnnotations(): void {
-    for (const section of this.#sections)
-      section.annotationLayer.replaceChildren()
-    for (const annotation of this.#annotations) {
-      for (const anchor of annotation.anchors) {
-        if (anchor.format !== 'epub')
-          continue
-        const section = this.#sections.find(candidate => candidate.href === normalizeEpubPath(anchor.locator.href))
-        if (!section)
-          continue
-        if (anchor.type === 'text') {
-          const offsets = epubContinuousTextOffsets(anchor, section.content)
-          const range = epubContinuousTextRange(section.content, offsets.start, offsets.end)
-          for (const rect of [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0))
-            section.annotationLayer.append(this.#annotationMarker(annotation, section, rect))
-          continue
-        }
-        for (const target of anchor.targets) {
-          const element = section.content.querySelector(target.selector)
-          if (!element)
-            continue
-          const elementRect = element.getBoundingClientRect()
-          const rect = new DOMRect(
-            elementRect.left + target.rect.x * elementRect.width,
-            elementRect.top + target.rect.y * elementRect.height,
-            target.rect.width * elementRect.width,
-            target.rect.height * elementRect.height,
-          )
-          section.annotationLayer.append(this.#annotationMarker(annotation, section, rect))
-        }
-      }
-    }
-  }
-
-  #annotationMarker(
-    annotation: ReaderAnnotation,
-    section: ContinuousEpubSection,
-    rect: DOMRectReadOnly,
-  ): HTMLButtonElement {
-    const marker = section.root.ownerDocument.createElement('button')
-    marker.className = 'memorilo-epub-annotation'
-    marker.dataset.annotationId = annotation.id
-    marker.setAttribute('aria-label', this.#callbacks.regionAnnotationLabel())
-    marker.type = 'button'
-    const sectionRect = section.root.getBoundingClientRect()
-    const tint = annotationOverlayTint(annotation.color)
-    Object.assign(marker.style, {
-      background: annotation.style === 'highlight' ? tint : 'transparent',
-      borderBottom: annotation.style === 'underline' ? `2px solid ${tint}` : '0',
-      height: `${rect.height}px`,
-      left: `${rect.left - sectionRect.left}px`,
-      top: `${rect.top - sectionRect.top}px`,
-      width: `${rect.width}px`,
-    })
-    return marker
+    renderContinuousEpubAnnotations(
+      this.#annotations,
+      this.#sections,
+      this.#callbacks.regionAnnotationLabel(),
+    )
   }
 
   #currentPosition(): Locator {
@@ -579,29 +427,11 @@ export class EpubContinuousReaderMount {
   }
 
   #layoutSection(section: ContinuousEpubSection): void {
-    if (section.fixed) {
-      const availableWidth = Math.max(1, this.#scroller.clientWidth - 48)
-      const fitScale = Math.min(1, availableWidth / section.naturalWidth)
-      const scale = fitScale * this.#scale
-      section.content.style.width = `${section.naturalWidth}px`
-      section.content.style.height = `${section.naturalHeight}px`
-      section.content.style.transform = `scale(${scale})`
-      section.content.style.transformOrigin = '0 0'
-      section.root.style.width = `${Math.max(1, Math.round(section.naturalWidth * scale))}px`
-      section.root.style.height = `${Math.max(1, Math.round(section.naturalHeight * scale))}px`
-      section.root.style.padding = '0'
-      section.root.style.overflow = 'hidden'
-      return
-    }
-    const fontScale = this.options.presentationMode === 'reader' ? this.#scale : 1
-    section.content.style.fontSize = `${fontScale}em`
-    section.content.style.lineHeight = this.options.presentationMode === 'reader' ? '1.5' : ''
-    section.content.style.maxWidth = this.options.presentationMode === 'reader' ? '72ch' : 'none'
-    section.content.style.margin = '0 auto'
-    section.root.style.width = 'min(100%, 960px)'
-    section.root.style.height = 'auto'
-    section.root.style.padding = '48px clamp(24px, 6vw, 72px)'
-    section.root.style.overflow = 'visible'
+    layoutContinuousEpubSection(section, {
+      availableWidth: this.#scroller.clientWidth,
+      presentationMode: this.options.presentationMode,
+      scale: this.#scale,
+    })
   }
 
   #locator(section: ContinuousEpubSection, progression: number, href = section.href): Locator {
@@ -632,46 +462,18 @@ export class EpubContinuousReaderMount {
       this.#callbacks.onSelectionChange(null)
       return
     }
-    const frameRect = this.#frame.getBoundingClientRect()
-    const localRect = new DOMRect(
-      result.clientRect.left - frameRect.left,
-      result.clientRect.top - frameRect.top,
-      result.clientRect.width,
-      result.clientRect.height,
+    const projection = projectContinuousEpubRegionSelection(
+      result,
+      this.#frame.getBoundingClientRect(),
+      this.#sections,
     )
-    const section = this.#sections.find(candidate => intersectionRect(localRect, candidate.root.getBoundingClientRect()))
-    if (!section)
-      throw new Error('EPUB area selection does not intersect a spine section')
-    const candidates = [...section.content.querySelectorAll('*')].filter((element) => {
-      if (!isAnchorableElement(element))
-        return false
-      return intersectionRect(localRect, element.getBoundingClientRect()) !== null
-    })
-    const media = candidates.filter(element => ['canvas', 'img', 'picture', 'svg', 'video'].includes(element.localName))
-    const preferred = media.length > 0 ? media : candidates
-    const targets: ReaderEpubRegionTarget[] = preferred
-      .filter(element => !preferred.some(other => other !== element && other.contains(element)))
-      .map((element) => {
-        const elementRect = element.getBoundingClientRect()
-        const overlap = intersectionRect(localRect, elementRect)
-        const rect = overlap && normalizedRectWithinSurface(overlap, elementRect)
-        if (!rect)
-          throw new Error('EPUB area selection produced an invalid content rectangle')
-        return { rect, selector: stableSelector(section.content, element) }
-      })
-    if (targets.length === 0)
-      throw new Error('EPUB area selection does not intersect anchorable content')
-    const sectionRect = section.root.getBoundingClientRect()
-    const progression = sectionRect.height <= 0
-      ? 0
-      : Math.min(1, Math.max(0, (localRect.top - sectionRect.top) / sectionRect.height))
     this.#callbacks.onSelectionChange({
-      clientRect: result.clientRect,
+      clientRect: projection.clientRect,
       selection: {
         anchors: [{
           format: 'epub',
-          locator: serializedEpubLocator(this.#locator(section, progression)),
-          targets,
+          locator: serializedEpubLocator(this.#locator(projection.section, projection.progression)),
+          targets: projection.targets,
           type: 'region',
         }],
         type: 'region',

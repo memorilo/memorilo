@@ -1,31 +1,41 @@
 import type { IpcRenderer } from 'electron'
 import type { DesktopIpcClient } from './ipc-contract'
 import { desktopIpcChannels } from './ipc-contract'
+import { decodeDesktopIpcEnvelope, DesktopIpcError } from './ipc-wire'
 
-type Invoke = (channel: string, ...args: unknown[]) => Promise<unknown>
+type Invoke = <Result>(channel: string, ...args: unknown[]) => Promise<Result>
 
-function createGroupClient(channels: Readonly<Record<string, string>>, invoke: Invoke) {
+function createGroupClient<Group extends keyof DesktopIpcClient>(
+  group: Group,
+  invoke: Invoke,
+): DesktopIpcClient[Group] {
+  const channels = desktopIpcChannels[group] as Readonly<Record<string, string>>
   return Object.fromEntries(
     Object.entries(channels).map(([method, channel]) => [
       method,
       (...args: unknown[]) => invoke(channel, ...args),
     ]),
-  )
+  ) as DesktopIpcClient[Group]
 }
 
 export function createDesktopIpcClient(renderer: Pick<IpcRenderer, 'invoke'>): DesktopIpcClient {
-  const invoke: Invoke = (channel, ...args) => renderer.invoke(channel, ...args)
+  const invoke: Invoke = async <Result>(channel: string, ...args: unknown[]): Promise<Result> => {
+    const envelope = decodeDesktopIpcEnvelope(channel, await renderer.invoke(channel, ...args))
+    if (envelope.status === 'failure')
+      throw new DesktopIpcError(channel, envelope.error)
+    return envelope.value as Result
+  }
   return {
-    app: createGroupClient(desktopIpcChannels.app, invoke),
-    backup: createGroupClient(desktopIpcChannels.backup, invoke),
-    assets: createGroupClient(desktopIpcChannels.assets, invoke),
-    books: createGroupClient(desktopIpcChannels.books, invoke),
-    configuration: createGroupClient(desktopIpcChannels.configuration, invoke),
-    journals: createGroupClient(desktopIpcChannels.journals, invoke),
-    learning: createGroupClient(desktopIpcChannels.learning, invoke),
-    notes: createGroupClient(desktopIpcChannels.notes, invoke),
-    whiteboardLibrary: createGroupClient(desktopIpcChannels.whiteboardLibrary, invoke),
-    shelf: createGroupClient(desktopIpcChannels.shelf, invoke),
-    window: createGroupClient(desktopIpcChannels.window, invoke),
-  } as unknown as DesktopIpcClient
+    app: createGroupClient('app', invoke),
+    backup: createGroupClient('backup', invoke),
+    assets: createGroupClient('assets', invoke),
+    books: createGroupClient('books', invoke),
+    configuration: createGroupClient('configuration', invoke),
+    journals: createGroupClient('journals', invoke),
+    learning: createGroupClient('learning', invoke),
+    notes: createGroupClient('notes', invoke),
+    whiteboardLibrary: createGroupClient('whiteboardLibrary', invoke),
+    shelf: createGroupClient('shelf', invoke),
+    window: createGroupClient('window', invoke),
+  }
 }

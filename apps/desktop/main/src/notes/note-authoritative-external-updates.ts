@@ -3,6 +3,7 @@ import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import type { SaveNoteUpdatesInput } from './note-application-contracts'
 import type { AuthoritativeNote, NoteAuthoritativeCache } from './note-authoritative-cache'
 import { resolveJournalTopic } from '@memorilo/editor/note'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { projectNoteAssetReferences } from '../assets/asset-references'
 import {
@@ -36,9 +37,9 @@ export function createNoteAuthoritativeExternalUpdates({
   storage,
 }: NoteAuthoritativeExternalUpdatesDependencies): (
   input: SaveNoteUpdatesInput,
-) => Effect.Effect<{ updatedAt: number }, unknown> {
+) => Effect.Effect<{ updatedAt: number }, Error> {
   return input => Effect.gen(function* () {
-    const current = yield* Effect.tryPromise({ catch: error => error, try: () => open(input.noteId) })
+    const current = yield* Effect.tryPromise({ catch: toError, try: () => open(input.noteId) })
     if (input.updates.length === 0)
       return yield* Effect.fail(new TypeError('Note updates must contain at least one update'))
     const protectedEntryIds = protectedReadingEntryIds(
@@ -49,7 +50,7 @@ export function createNoteAuthoritativeExternalUpdates({
 
     return yield* Effect.gen(function* () {
       const projectedEntries = yield* Effect.try({
-        catch: error => error,
+        catch: toError,
         try: () => {
           input.updates.forEach(update => mergeMutation(changed, current.note.importUpdates(update)))
           const entries = current.note.getEntries()
@@ -63,7 +64,7 @@ export function createNoteAuthoritativeExternalUpdates({
         { discard: true },
       )
       const projection = yield* Effect.try({
-        catch: error => error,
+        catch: toError,
         try: () => {
           const journalTopic = current.journalDate === null
             ? null
@@ -89,7 +90,7 @@ export function createNoteAuthoritativeExternalUpdates({
         },
       })
       const receipt = yield* Effect.tryPromise({
-        catch: error => error,
+        catch: toError,
         try: () => storage.notes.saveNoteUpdates({
           allowedMissingAssetFileNames: projection.assetReferences.map(reference => reference.fileName),
           assetReferences: projection.assetReferences,
@@ -105,7 +106,7 @@ export function createNoteAuthoritativeExternalUpdates({
       })
       current.latestSequence = receipt.latestSequence
       current.updatedAt = receipt.updatedAt
-      yield* Effect.tryPromise({ catch: error => error, try: () => cache.checkpointIfNeeded(current) })
+      yield* Effect.tryPromise({ catch: toError, try: () => cache.checkpointIfNeeded(current) })
       const acceptedHashes = new Set(receipt.acceptedUpdateHashes)
       if (acceptedHashes.size > 0)
         scheduleIndex(current.note.id)

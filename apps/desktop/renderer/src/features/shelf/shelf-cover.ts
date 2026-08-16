@@ -20,7 +20,7 @@ function assetDataUrl(bytes: Uint8Array, mimeType: string): string {
 export function useShelfCover(sourceId: string, coverUrl: string | null, enabled: boolean): ShelfCoverResult {
   const assetQuery = useQuery(shelfEffectQuery.queryOptions({
     enabled: enabled && coverUrl !== null,
-    queryFn: () => desktopEffect(() => {
+    queryFn: () => desktopEffect('shelf.get-asset', () => {
       if (coverUrl === null)
         throw new Error('Shelf cover URL is missing')
       return window.desktop.getShelfAsset({ sourceId, url: coverUrl })

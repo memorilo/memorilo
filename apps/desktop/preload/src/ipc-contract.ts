@@ -58,6 +58,15 @@ import type {
   UpdateShelfSourceInput,
 } from './contract'
 
+export {
+  decodeDesktopIpcEnvelope,
+  DesktopIpcError,
+  desktopIpcFailure,
+  DesktopIpcProtocolError,
+  desktopIpcSuccess,
+} from './ipc-wire'
+export type { DesktopIpcEnvelope, DesktopIpcFailure } from './ipc-wire'
+
 export interface DesktopIpcClient {
   app: { getRuntimeInfo: () => Promise<RuntimeInfo> }
   backup: {
