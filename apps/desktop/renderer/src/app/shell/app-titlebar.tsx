@@ -276,6 +276,7 @@ export function AppTitlebar({
               {...stylex.props(
                 appTitlebarStyles.navigationGroup,
                 appTitlebarStyles.trailingGroup,
+                page.trailingAppearance === 'plain' && appTitlebarStyles.trailingGroupPlain,
                 page.sidebarAction !== undefined && appTitlebarStyles.trailingGroupWithSidebarAction,
               )}
               data-window-no-drag=""

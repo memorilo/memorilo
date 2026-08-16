@@ -50,6 +50,10 @@ export interface DesktopMcpConfiguration {
   port: number
 }
 
+export interface DesktopTodoConfiguration {
+  enabled: boolean
+}
+
 export interface DesktopConfiguration {
   anki: DesktopAnkiConfiguration
   backup: DesktopBackupConfiguration
@@ -67,5 +71,6 @@ export interface DesktopConfiguration {
   readerPageMode: DesktopReaderPageMode
   reduceMotion: boolean
   tiffConversionFormat: DesktopTiffConversionFormat
+  todo: DesktopTodoConfiguration
   weekStart: DesktopWeekStart
 }

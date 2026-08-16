@@ -408,6 +408,105 @@ export interface StoredTopicBlock extends TopicBlockProjection {
   topicId: string
 }
 
+export type TodoTaskStatus = 'todo' | 'doing' | 'done'
+
+export type TodoRepeatMode = 'due' | 'completion'
+export type TodoRepeatUnit = 'day' | 'week' | 'month' | 'year' | 'holiday'
+export type TodoRepeatHolidayPolicy = 'allow' | 'skip' | 'next-workday'
+
+export interface TodoRepeatRule {
+  calendarId?: string
+  holidayPolicy?: TodoRepeatHolidayPolicy
+  interval: number
+  mode: TodoRepeatMode
+  unit: TodoRepeatUnit
+  weekdays?: readonly number[]
+}
+
+export interface ListTodoTasksInput {
+  cursor?: number
+  limit?: number
+  status?: TodoTaskStatus
+}
+
+export interface UpdateTodoTaskInput {
+  blockId: string
+  dueDate?: JournalDate | null
+  noteId: string
+  repeatRule?: TodoRepeatRule | null
+  status?: TodoTaskStatus
+  text?: string
+  topicId: string
+}
+
+export interface TodoTask {
+  blockId: string
+  dueDate: JournalDate | null
+  elapsedMs: number
+  journalDate: JournalDate | null
+  noteId: string
+  noteFavorite: boolean
+  noteTitle: string
+  parentId: string | null
+  repeatRule: TodoRepeatRule | null
+  startedAt: number | null
+  status: TodoTaskStatus
+  text: string
+  topicId: string
+  topicTitle: string
+}
+
+export interface TodoTaskPage {
+  items: readonly TodoTask[]
+  nextCursor: number | null
+}
+
+export interface TodoCalendarSubscription {
+  etag: string | null
+  enabled: boolean
+  fetchedAt: number | null
+  id: string
+  title: string
+  url: string
+  version: string | null
+  lastModified: string | null
+}
+
+export interface TodoCalendarEvent {
+  endDate: JournalDate | null
+  startDate: JournalDate
+  subscriptionId: string
+  subscriptionTitle: string
+  title: string
+  uid: string
+}
+
+export interface SaveTodoCalendarSnapshotInput {
+  etag?: string | null
+  fetchedAt: number
+  id: string
+  lastModified?: string | null
+  rawIcs: string
+  title: string
+  url: string
+  version: string
+  events: readonly Omit<TodoCalendarEvent, 'subscriptionId' | 'subscriptionTitle'>[]
+}
+
+export interface EnsureTodoCalendarSubscriptionInput {
+  id: string
+  title: string
+  url: string
+}
+
+export interface EditorTodoCalendarStorage {
+  listEvents: (input: { from: JournalDate, through: JournalDate }) => Promise<readonly TodoCalendarEvent[]>
+  listSubscriptions: () => Promise<readonly TodoCalendarSubscription[]>
+  ensureSubscription: (input: EnsureTodoCalendarSubscriptionInput) => Promise<void>
+  remove: (id: string) => Promise<void>
+  saveSnapshot: (input: SaveTodoCalendarSnapshotInput) => Promise<void>
+}
+
 export interface TopicBlockSearchHit extends StoredTopicBlock {
   preview: string
   rank: number
@@ -461,6 +560,10 @@ export interface EditorSearchStorage {
   searchTopicBlocks: (input: SearchTopicBlocksInput) => Promise<readonly TopicBlockSearchHit[]>
 }
 
+export interface EditorTodoStorage {
+  list: (input?: ListTodoTasksInput) => Promise<TodoTaskPage>
+}
+
 export interface SaveUserDocumentInput {
   documentId: string
   snapshot: Uint8Array
@@ -484,6 +587,8 @@ export interface EditorStorage {
   readonly learning: LearningStorage
   readonly notes: EditorNoteStorage
   readonly search: EditorSearchStorage
+  readonly tasks: EditorTodoStorage
+  readonly todoCalendars: EditorTodoCalendarStorage
   readonly userDocuments: EditorUserDocumentStorage
 }
 

@@ -1,0 +1,75 @@
+{
+  "title": "Todo",
+  "listView": "List",
+  "boardView": "Board",
+  "timelineView": "Timeline",
+  "calendarView": "Calendar",
+  "quadrantView": "Quadrants",
+  "viewLabel": "Todo views",
+  "switchToBoard": "Switch to board view",
+  "switchToList": "Switch to list view",
+  "switchToTimeline": "Switch to timeline view",
+  "switchToCalendar": "Switch to calendar view",
+  "switchToQuadrant": "Switch to quadrant view",
+  "filterLabel": "Task status",
+  "filterAll": "All",
+  "statusTodo": "Todo",
+  "statusDoing": "In Progress",
+  "statusDone": "Done",
+  "taskCount_one": "{{count}} task loaded",
+  "taskCount_other": "{{count}} tasks loaded",
+  "loading": "Loading tasks",
+  "loadingMore": "Loading more tasks…",
+  "couldNotLoad": "Couldn’t load tasks",
+  "noTasks": "No tasks in this view",
+  "noTasksInColumn": "No tasks",
+  "tryAgain": "Try Again",
+  "openTask": "Open {{task}} in {{note}}",
+  "source": "{{note}} · {{topic}}",
+  "elapsed": "{{duration}} elapsed",
+  "timelineSubtitle": "Tasks grouped by date",
+  "calendarSubtitle": "Tasks grouped by day",
+  "quadrantSubtitle": "Focus by importance and urgency",
+  "quadrantRule": "Important: favorite note · Urgent: today or overdue",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "today": "Today",
+  "unscheduled": "Unscheduled",
+  "noTasksInPeriod": "No tasks in this period",
+  "selectedDay": "Selected day",
+  "noTasksOnDay": "No tasks on this day",
+  "calendarDay_one": "{{date}}, {{count}} task",
+  "calendarDay_other": "{{date}}, {{count}} tasks",
+  "moreTasks": "+{{count}} more",
+  "quadrantImportantUrgent": "Important and urgent",
+  "quadrantImportantNotUrgent": "Important, not urgent",
+  "quadrantNotImportantUrgent": "Not important, urgent",
+  "quadrantNotImportantNotUrgent": "Not important, not urgent",
+  "noTasksInQuadrant": "No tasks"
+  ,"taskActions": "Task actions"
+  ,"repeatSettings": "Repeat settings"
+  ,"repeatEvery": "Every"
+  ,"repeatUnit": "Unit"
+  ,"repeatDay": "day"
+  ,"repeatWeek": "week"
+  ,"repeatMonth": "month"
+  ,"repeatYear": "year"
+  ,"repeatHoliday": "legal holiday"
+  ,"repeatMode": "Repeat timing"
+  ,"repeatDue": "Repeat on due date"
+  ,"repeatCompletion": "Repeat on completion"
+  ,"holidayPolicy": "Holiday policy"
+  ,"holidayAllow": "Keep date"
+  ,"holidaySkip": "Skip holiday"
+  ,"holidayNextWorkday": "Next workday"
+  ,"repeatStartDate": "Start date"
+  ,"saveRepeat": "Save repeat"
+  ,"repeatIntervalError": "Repeat interval must be an integer from 1 to 999"
+  ,"skipThis": "Skip this occurrence"
+  ,"onlyThis": "Edit this occurrence"
+  ,"onlyThisText": "This text"
+  ,"completeAndRepeat": "Complete and schedule next"
+  ,"calendarSubscriptions": "Calendar subscriptions"
+  ,"calendarItemCount_one": "{{count}} item"
+  ,"calendarItemCount_other": "{{count}} items"
+}

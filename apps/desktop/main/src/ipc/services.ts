@@ -18,6 +18,7 @@ import { createDesktopAnkiService } from '../anki/desktop-anki-service'
 import { createLearningReviewApplication } from '../learning/learning-review-application'
 import { registerMemoriloProtocol } from '../memorilo-protocol'
 
+import { createTodoCalendarService } from '../todo/todo-calendar-service'
 import { createAppHandlers } from './app-service'
 import { createAssetHandlers } from './asset-service'
 import { createBackupHandlers } from './backup-service'
@@ -78,7 +79,7 @@ export async function createDesktopServices(
         createDesktopAnkiService(configuration),
         now,
       ),
-      notes: createNoteHandlers(notes),
+      notes: createNoteHandlers(notes, createTodoCalendarService(storage, () => configuration.getSnapshot().language)),
       shelf: createShelfHandlers(
         shelfStorage,
         shelfImageCache,

@@ -40,6 +40,8 @@
   "ankiApiKeyDescription": "Optional API key configured in the AnkiConnect add-on. Keep it private.",
   "learningEnabled": "Enable learning features",
   "learningEnabledDescription": "Enable flashcards, cloze authoring, FSRS scheduling, learning pages, and image occlusion.",
+  "todoEnabled": "Enable Todo workspace",
+  "todoEnabledDescription": "Show the Todo workspace without changing Todo blocks inside the editor.",
   "language": "Language",
   "systemDefault": "System Default",
   "english": "English",

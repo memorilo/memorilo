@@ -12,6 +12,11 @@ import type {
   DesktopNoteWriteReceipt,
   DesktopRecentNoteItem,
   DesktopStoredTopicBlock,
+  DesktopTodoCalendarEvent,
+  DesktopTodoCalendarSubscription,
+  DesktopTodoRepeatRule,
+  DesktopTodoTask,
+  DesktopTodoTaskPage,
   DesktopTopicBlockSearchHit,
   JournalDate,
   PruneDesktopPastEmptyJournalsResult,
@@ -177,6 +182,57 @@ export const DesktopTopicBlockSearchHitsSchema: EffectSchema.Codec<readonly Desk
     topicId: Schema.NonEmptyString,
   }),
 )
+
+export const DesktopTodoTaskSchema: EffectSchema.Codec<DesktopTodoTask> = Schema.Struct({
+  blockId: Schema.NonEmptyString,
+  dueDate: nullable(JournalDateSchema),
+  elapsedMs: NonNegativeIntegerSchema,
+  journalDate: nullable(JournalDateSchema),
+  noteId: Schema.NonEmptyString,
+  noteFavorite: Schema.Boolean,
+  noteTitle: Schema.String,
+  parentId: nullable(Schema.NonEmptyString),
+  repeatRule: nullable(Schema.Struct({
+    calendarId: Schema.optionalKey(Schema.NonEmptyString),
+    holidayPolicy: Schema.optionalKey(Schema.Literals(['allow', 'skip', 'next-workday'])),
+    interval: PositiveIntegerSchema,
+    mode: Schema.Literals(['due', 'completion']),
+    unit: Schema.Literals(['day', 'week', 'month', 'year', 'holiday']),
+    weekdays: Schema.optionalKey(Schema.Array(Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 0 })))),
+  }) as EffectSchema.Codec<DesktopTodoRepeatRule | null>),
+  startedAt: nullable(NonNegativeIntegerSchema),
+  status: Schema.Literals(['todo', 'doing', 'done']),
+  text: Schema.String,
+  topicId: Schema.NonEmptyString,
+  topicTitle: Schema.String,
+})
+
+export const DesktopTodoTaskPageSchema: EffectSchema.Codec<DesktopTodoTaskPage> = Schema.Struct({
+  items: Schema.Array(DesktopTodoTaskSchema),
+  nextCursor: nullable(PositiveIntegerSchema),
+})
+
+export const DesktopTodoCalendarSubscriptionSchema: EffectSchema.Codec<DesktopTodoCalendarSubscription> = Schema.Struct({
+  enabled: Schema.Boolean,
+  etag: nullable(Schema.String),
+  fetchedAt: nullable(NonNegativeIntegerSchema),
+  id: Schema.NonEmptyString,
+  lastModified: nullable(Schema.String),
+  title: Schema.String,
+  url: Schema.NonEmptyString,
+  version: nullable(Schema.NonEmptyString),
+})
+
+export const DesktopTodoCalendarSubscriptionsSchema: EffectSchema.Codec<readonly DesktopTodoCalendarSubscription[]> = Schema.Array(DesktopTodoCalendarSubscriptionSchema)
+
+export const DesktopTodoCalendarEventsSchema: EffectSchema.Codec<readonly DesktopTodoCalendarEvent[]> = Schema.Array(Schema.Struct({
+  endDate: nullable(JournalDateSchema),
+  startDate: JournalDateSchema,
+  subscriptionId: Schema.NonEmptyString,
+  subscriptionTitle: Schema.String,
+  title: Schema.String,
+  uid: Schema.NonEmptyString,
+}))
 
 const SearchIdentityRegular = { noteKind: Schema.Literal('regular') } as const
 const SearchIdentityJournal = {

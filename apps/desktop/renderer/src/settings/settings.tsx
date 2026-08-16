@@ -146,6 +146,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('mcpEnabled')
     case 'learning.enabled':
       return t('learningEnabled')
+    case 'todo.enabled':
+      return t('todoEnabled')
     case 'mcp.port':
       return t('mcpPort')
     case 'mcp.accessToken':
@@ -215,6 +217,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('mcpEnabledDescription')
     case 'learning.enabled':
       return t('learningEnabledDescription')
+    case 'todo.enabled':
+      return t('todoEnabledDescription')
     case 'mcp.port':
       return t('mcpPortDescription')
     case 'mcp.accessToken':

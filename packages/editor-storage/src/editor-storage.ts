@@ -7,6 +7,8 @@ import type {
   EditorNoteStorage,
   EditorSearchStorage,
   EditorStorage,
+  EditorTodoCalendarStorage,
+  EditorTodoStorage,
   EditorUserDocumentStorage,
   SqliteEditorStorageOptions,
 } from './editor-storage-contracts'
@@ -21,6 +23,8 @@ import { EditorNoteRepository } from './editor-note-repository'
 import { EditorSearch } from './editor-search'
 import { initializeEditorStorageSchema } from './editor-storage-schema'
 import { assertJournalDate } from './editor-storage-shared'
+import { EditorTodoCalendarRepository } from './editor-todo-calendar-repository'
+import { EditorTodoRepository } from './editor-todo-repository'
 import { EditorUserDocumentRepository } from './editor-user-document-repository'
 import { SqliteLearningStorage } from './learning/learning-storage'
 
@@ -41,6 +45,8 @@ export class SqliteEditorStorage implements EditorStorage {
   readonly notes: EditorNoteStorage
   readonly #resources: ReturnType<typeof createResourceScope>
   readonly search: EditorSearchStorage
+  readonly tasks: EditorTodoStorage
+  readonly todoCalendars: EditorTodoCalendarStorage
   readonly userDocuments: EditorUserDocumentStorage
 
   private constructor(
@@ -82,6 +88,8 @@ export class SqliteEditorStorage implements EditorStorage {
       runOperation,
     })
     this.search = new EditorSearch(options.database, options.embeddingModel, runOperation)
+    this.tasks = new EditorTodoRepository({ database: options.database, runOperation })
+    this.todoCalendars = new EditorTodoCalendarRepository({ database: options.database, runOperation })
     this.userDocuments = new EditorUserDocumentRepository({ database: options.database, runOperation })
     this.#resources.commit()
   }

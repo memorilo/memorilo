@@ -40,6 +40,8 @@
   "ankiApiKeyDescription": "AnkiConnect 插件中配置的可选 API Key，请妥善保管。",
   "learningEnabled": "启用学习功能",
   "learningEnabledDescription": "启用卡片、挖空、FSRS 排程、学习页和图片遮罩。",
+  "todoEnabled": "启用 Todo 工作区",
+  "todoEnabledDescription": "显示 Todo 聚合页面；关闭后，编辑器中的 Todo 块仍可正常使用。",
   "language": "语言",
   "systemDefault": "跟随系统",
   "english": "英语",
