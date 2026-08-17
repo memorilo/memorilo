@@ -139,7 +139,9 @@ function BoardView({
                               <span aria-hidden="true">›</span>
                             </span>
                           </button>
-                          <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+                          <div {...stylex.props(todoPageStyles.boardCardActions)}>
+                            <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+                          </div>
                         </div>
                       )
                     })}
@@ -361,7 +363,6 @@ export function TodoPage({
                         ? (
                             <TodoCalendarView
                               calendarEvents={calendarQuery.data?.events ?? []}
-                              calendarSubscriptions={calendarQuery.data?.subscriptions ?? []}
                               locale={i18n.language}
                               now={now}
                               onOpenTask={onOpenTask}

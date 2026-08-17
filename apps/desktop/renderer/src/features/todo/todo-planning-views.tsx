@@ -1,4 +1,4 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { DesktopWeekStart } from '@memorilo/desktop-config'
 import type { Dayjs } from 'dayjs'
 import type { TFunction } from 'i18next'
@@ -74,7 +74,9 @@ function PlanningTaskButton({
         </span>
         <span {...stylex.props(styles.planningTaskElapsed)} title={t('elapsed', { duration: elapsed })}>{elapsed}</span>
       </button>
-      <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+      <div {...stylex.props(styles.planningTaskActions)}>
+        <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+      </div>
     </div>
   )
 }
@@ -240,9 +242,88 @@ function calendarDays(month: Dayjs, weekStart: DesktopWeekStart): readonly Dayjs
   return Array.from({ length: 42 }, (_, index) => start.add(index, 'day'))
 }
 
+type CalendarItem
+  = | { event: DesktopTodoCalendarEvent, kind: 'event' }
+    | { kind: 'task', task: DesktopTodoTask }
+
+function calendarItemKey(item: CalendarItem): string {
+  return item.kind === 'task'
+    ? taskKey(item.task)
+    : `${item.event.subscriptionId}:${item.event.uid}:${item.event.startDate}`
+}
+
+function CalendarTaskItem({
+  calendarEvents,
+  onOpenTask,
+  onUpdateTask,
+  t,
+  task,
+}: {
+  calendarEvents: readonly DesktopTodoCalendarEvent[]
+  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  t: TFunction
+  task: DesktopTodoTask
+}) {
+  return (
+    <div {...stylex.props(styles.calendarTaskShell)}>
+      <button
+        {...stylex.props(styles.calendarTaskButton)}
+        aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
+        title={t('openTask', { note: task.noteTitle, task: task.text })}
+        type="button"
+        onClick={() => void onOpenTask(task)}
+      >
+        <span
+          {...stylex.props(
+            styles.calendarTaskStatus,
+            task.status === 'doing' && styles.calendarTaskStatusDoing,
+            task.status === 'done' && styles.calendarTaskStatusDone,
+          )}
+          aria-hidden="true"
+        />
+        <span {...stylex.props(styles.calendarTaskText, task.status === 'done' && styles.calendarTaskTextDone)}>{task.text}</span>
+      </button>
+      <div {...stylex.props(styles.calendarTaskActions)}>
+        <TodoTaskActions compact calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+      </div>
+    </div>
+  )
+}
+
+function CalendarEventItem({ event }: { event: DesktopTodoCalendarEvent }) {
+  return (
+    <div
+      {...stylex.props(styles.calendarEventPreview)}
+      title={`${event.title} - ${event.subscriptionTitle}`}
+    >
+      <span {...stylex.props(styles.calendarEventAccent)} aria-hidden="true" />
+      <span {...stylex.props(styles.calendarEventText)}>{event.title}</span>
+      <span {...stylex.props(styles.calendarEventSource)}>{event.subscriptionTitle}</span>
+    </div>
+  )
+}
+
+function CalendarItemRow({
+  calendarEvents,
+  item,
+  onOpenTask,
+  onUpdateTask,
+  t,
+}: {
+  calendarEvents: readonly DesktopTodoCalendarEvent[]
+  item: CalendarItem
+  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  t: TFunction
+}) {
+  if (item.kind === 'event')
+    return <CalendarEventItem event={item.event} />
+  return <CalendarTaskItem calendarEvents={calendarEvents} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
+}
+
 export function TodoCalendarView({
   calendarEvents,
-  calendarSubscriptions,
   locale,
   now,
   onOpenTask,
@@ -252,7 +333,6 @@ export function TodoCalendarView({
   weekStart,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
-  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
@@ -277,7 +357,6 @@ export function TodoCalendarView({
     return groupedEvents
   }, [calendarEvents])
   const days = useMemo(() => calendarDays(activeMonth, weekStart), [activeMonth, weekStart])
-  const selectedTasks = grouped.get(selectedDate) ?? []
   const previousMonth = activeMonth.subtract(1, 'month')
   const nextMonth = activeMonth.add(1, 'month')
   const labels = weekdayLabels(locale, weekStart)
@@ -295,27 +374,23 @@ export function TodoCalendarView({
 
   return (
     <div {...stylex.props(styles.planningRoot)}>
-      <div {...stylex.props(styles.planningToolbar)}>
-        <div {...stylex.props(styles.planningToolbarTitle)}>
-          <span {...stylex.props(styles.planningTitle)}>{t('calendarView')}</span>
-          <span {...stylex.props(styles.planningSubtitle)}>{t('calendarSubtitle')}</span>
-        </div>
+      <div {...stylex.props(styles.calendarToolbar)}>
+        <h1 {...stylex.props(styles.calendarMonthTitle)}>{formatMonth(activeMonth, locale)}</h1>
         <div {...stylex.props(styles.planningToolbarActions)}>
-          <div {...stylex.props(styles.planningPeriodControl)}>
+          <div {...stylex.props(styles.calendarNavigationControl)}>
             {periodButton({ direction: 'previous', label: t('previousMonth'), onClick: () => selectMonth(previousMonth) })}
-            <span {...stylex.props(styles.planningPeriodLabel)}>{formatMonth(activeMonth, locale)}</span>
+            <button
+              {...stylex.props(styles.calendarTodayButton)}
+              type="button"
+              onClick={() => {
+                setActiveMonth(today.startOf('month'))
+                setSelectedDate(today.format('YYYY-MM-DD'))
+              }}
+            >
+              {t('today')}
+            </button>
             {periodButton({ direction: 'next', label: t('nextMonth'), onClick: () => selectMonth(nextMonth) })}
           </div>
-          <button
-            {...stylex.props(styles.planningTodayButton)}
-            type="button"
-            onClick={() => {
-              setActiveMonth(today.startOf('month'))
-              setSelectedDate(today.format('YYYY-MM-DD'))
-            }}
-          >
-            {t('today')}
-          </button>
         </div>
       </div>
       <div {...stylex.props(styles.calendarLayout)}>
@@ -324,82 +399,90 @@ export function TodoCalendarView({
             <div {...stylex.props(styles.calendarWeekdays)} aria-hidden="true">
               {labels.map(item => <span key={item.key} {...stylex.props(styles.calendarWeekday)}>{item.label}</span>)}
             </div>
-            <div role="grid" aria-label={formatMonth(activeMonth, locale)}>
-              <div {...stylex.props(styles.calendarGrid)}>
-                {days.map((date) => {
-                  const dateKey = date.format('YYYY-MM-DD')
-                  const dateTasks = grouped.get(dateKey) ?? []
-                  const dateEvents = eventsByDate.get(dateKey) ?? []
-                  const inMonth = date.isSame(activeMonth, 'month')
-                  const isToday = dateKey === today.format('YYYY-MM-DD')
-                  const isSelected = dateKey === selectedDate
-                  return (
+            <div {...stylex.props(styles.calendarGrid)} role="grid" aria-label={formatMonth(activeMonth, locale)}>
+              {days.map((date) => {
+                const dateKey = date.format('YYYY-MM-DD')
+                const dateTasks = grouped.get(dateKey) ?? []
+                const dateEvents = eventsByDate.get(dateKey) ?? []
+                const items: readonly CalendarItem[] = [
+                  ...dateTasks.map(task => ({ kind: 'task' as const, task })),
+                  ...dateEvents.map(event => ({ event, kind: 'event' as const })),
+                ]
+                const visibleItems = items.slice(0, 3)
+                const inMonth = date.isSame(activeMonth, 'month')
+                const isToday = dateKey === today.format('YYYY-MM-DD')
+                const isSelected = dateKey === selectedDate
+                return (
+                  <div
+                    key={dateKey}
+                    {...stylex.props(
+                      styles.calendarCell,
+                      !inMonth && styles.calendarCellNeighbor,
+                    )}
+                    aria-label={t('calendarDay', { date: formatDate(date, locale), count: dateTasks.length + dateEvents.length })}
+                    aria-selected={isSelected}
+                    role="gridcell"
+                  >
                     <button
-                      key={dateKey}
                       {...stylex.props(
-                        styles.calendarTile,
-                        !inMonth && styles.calendarTileNeighbor,
-                        isToday && styles.calendarTileToday,
-                        isSelected && styles.calendarTileSelected,
+                        styles.calendarDayButton,
+                        !inMonth && styles.calendarDayButtonNeighbor,
+                        isSelected && styles.calendarDayButtonSelected,
+                        isToday && styles.calendarDayButtonToday,
                       )}
-                      aria-label={t('calendarDay', { date: formatDate(date, locale), count: dateTasks.length + dateEvents.length })}
-                      aria-selected={isSelected}
-                      role="gridcell"
+                      aria-label={formatDate(date, locale)}
                       type="button"
                       onClick={() => chooseDate(date)}
                     >
-                      <span {...stylex.props(styles.calendarDayNumber, isToday && styles.calendarDayNumberToday)}>{date.date()}</span>
-                      <span {...stylex.props(styles.calendarTaskList)}>
-                        {dateTasks.slice(0, 3).map(task => (
-                          <span key={taskKey(task)} {...stylex.props(styles.calendarTaskPreview)}>{task.text}</span>
-                        ))}
-                        {dateEvents.slice(0, Math.max(0, 3 - dateTasks.length)).map(event => (
-                          <span key={`${event.uid}:${event.startDate}`} {...stylex.props(styles.calendarEventPreview)}>{event.title}</span>
-                        ))}
-                        {dateTasks.length + dateEvents.length > 3 && <span {...stylex.props(styles.calendarTaskMore)}>{t('moreTasks', { count: dateTasks.length + dateEvents.length - 3 })}</span>}
-                      </span>
+                      {date.date()}
                     </button>
-                  )
-                })}
-              </div>
+                    <div {...stylex.props(styles.calendarTaskList)}>
+                      {visibleItems.map(item => (
+                        <CalendarItemRow
+                          calendarEvents={calendarEvents}
+                          item={item}
+                          key={calendarItemKey(item)}
+                          onOpenTask={onOpenTask}
+                          onUpdateTask={onUpdateTask}
+                          t={t}
+                        />
+                      ))}
+                      {items.length > 3 && (
+                        <details {...stylex.props(styles.calendarOverflow)}>
+                          <summary {...stylex.props(styles.calendarTaskMore)}>{t('moreTasks', { count: items.length - 3 })}</summary>
+                          <div {...stylex.props(styles.calendarOverflowPopover)}>
+                            <strong {...stylex.props(styles.calendarOverflowTitle)}>{formatDate(date, locale)}</strong>
+                            <div {...stylex.props(styles.calendarOverflowList)}>
+                              {items.map(item => (
+                                <CalendarItemRow
+                                  calendarEvents={calendarEvents}
+                                  item={item}
+                                  key={calendarItemKey(item)}
+                                  onOpenTask={onOpenTask}
+                                  onUpdateTask={onUpdateTask}
+                                  t={t}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </section>
-        <aside {...stylex.props(styles.calendarDetails)} aria-label={t('selectedDay')}>
-          <header {...stylex.props(styles.calendarDetailsHeader)}>
-            <span {...stylex.props(styles.calendarDetailsTitle)}>{formatDate(dayjs(selectedDate), locale)}</span>
-            <span {...stylex.props(styles.calendarDetailsCount)}>{t('calendarItemCount', { count: selectedTasks.length + (eventsByDate.get(selectedDate)?.length ?? 0) })}</span>
-          </header>
-          <div {...stylex.props(styles.calendarDetailsList)}>
-            {selectedTasks.length === 0 && (eventsByDate.get(selectedDate)?.length ?? 0) === 0
-              ? <div {...stylex.props(styles.planningEmpty)}>{t('noTasksOnDay')}</div>
-              : (
-                  <>
-                    {selectedTasks.map(task => <PlanningTaskButton calendarEvents={calendarEvents} key={taskKey(task)} now={now} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={task} />)}
-                    {(eventsByDate.get(selectedDate) ?? []).map(event => (
-                      <div key={`${event.uid}:${event.startDate}`} {...stylex.props(styles.calendarEventDetail)}>
-                        <span {...stylex.props(styles.calendarEventTitle)}>{event.title}</span>
-                        <span {...stylex.props(styles.calendarEventSource)}>{event.subscriptionTitle}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-          </div>
-        </aside>
       </div>
-      {calendarSubscriptions.length > 0 && (
-        <div {...stylex.props(styles.calendarSubscriptions)} aria-label={t('calendarSubscriptions')}>
-          {calendarSubscriptions.filter(subscription => subscription.enabled).map(subscription => <span key={subscription.id}>{subscription.title}</span>)}
-        </div>
-      )}
     </div>
   )
 }
 
-const quadrantDefinitions: readonly { id: TodoQuadrant, labelKey: string, signal: 'quiet' | 'strong' }[] = [
-  { id: 'importantUrgent', labelKey: 'quadrantImportantUrgent', signal: 'strong' },
-  { id: 'importantNotUrgent', labelKey: 'quadrantImportantNotUrgent', signal: 'strong' },
-  { id: 'notImportantUrgent', labelKey: 'quadrantNotImportantUrgent', signal: 'quiet' },
+const quadrantDefinitions: readonly { id: TodoQuadrant, labelKey: string, signal: 'critical' | 'important' | 'quiet' | 'urgent' }[] = [
+  { id: 'importantUrgent', labelKey: 'quadrantImportantUrgent', signal: 'critical' },
+  { id: 'importantNotUrgent', labelKey: 'quadrantImportantNotUrgent', signal: 'important' },
+  { id: 'notImportantUrgent', labelKey: 'quadrantNotImportantUrgent', signal: 'urgent' },
   { id: 'notImportantNotUrgent', labelKey: 'quadrantNotImportantNotUrgent', signal: 'quiet' },
 ]
 
@@ -447,7 +530,15 @@ export function TodoQuadrantView({
             <section key={definition.id} {...stylex.props(styles.quadrantPanel)} aria-label={t(definition.labelKey)}>
               <header {...stylex.props(styles.quadrantHeader)}>
                 <span {...stylex.props(styles.quadrantTitle)}>
-                  <span {...stylex.props(styles.quadrantSignal, definition.signal === 'quiet' && styles.quadrantSignalQuiet)} aria-hidden="true" />
+                  <span
+                    {...stylex.props(
+                      styles.quadrantSignal,
+                      definition.signal === 'important' && styles.quadrantSignalImportant,
+                      definition.signal === 'urgent' && styles.quadrantSignalUrgent,
+                      definition.signal === 'quiet' && styles.quadrantSignalQuiet,
+                    )}
+                    aria-hidden="true"
+                  />
                   {t(definition.labelKey)}
                 </span>
                 <span {...stylex.props(styles.quadrantCount)}>{quadrantTasks.length}</span>

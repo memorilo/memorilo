@@ -27,6 +27,17 @@ export const todoTaskActionStyles = stylex.create({
       ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
     },
   },
+  summaryCompact: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(0, 122, 255, 0.1)',
+      ':active': 'rgba(0, 122, 255, 0.16)',
+    },
+    color: 'rgba(18, 64, 111, 0.58)',
+  },
   menu: {
     position: 'absolute',
     top: 32,
@@ -44,6 +55,10 @@ export const todoTaskActionStyles = stylex.create({
     backgroundColor: 'rgba(245, 247, 251, 0.88)',
     backdropFilter: 'blur(22px) saturate(160%)',
     boxShadow: '0 12px 28px rgba(31, 38, 48, 0.18), inset 0 1px rgba(255, 255, 255, 0.96)',
+  },
+  menuCompact: {
+    top: 'auto',
+    bottom: 24,
   },
   heading: {
     color: 'rgba(25, 27, 31, 0.88)',
