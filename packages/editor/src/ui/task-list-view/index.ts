@@ -8,14 +8,8 @@ import { createToggleListCommand, createUnwrapListCommand } from 'prosemirror-fl
 
 import { defineTaskAttrs, parseTaskHistory } from '../../schema/task-schema'
 import { createTaskListView } from './task-list-view.tsx'
+import { createTaskSplitCommand, EMPTY_TASK_ATTRS } from './task-split'
 import { effectiveStatus, pauseTask, resumeTask, transitionAttrs } from './task-status'
-
-const EMPTY_TASK_ATTRS: TaskTimingAttrs = {
-  status: 'todo',
-  elapsedMs: 0,
-  startedAt: null,
-  checked: false,
-}
 
 function taskAttrsAtSelection(state: Parameters<Command>[0]): TaskTimingAttrs {
   const { $from } = state.selection
@@ -139,6 +133,7 @@ export function defineTaskListView(): Extension {
       constructor: createTaskListView,
     }),
     defineKeymap({
+      'Enter': createTaskSplitCommand(),
       'Mod-Enter': cycleTaskCommand,
     }),
   )
