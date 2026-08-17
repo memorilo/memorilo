@@ -137,8 +137,14 @@ function FieldControl<T extends object>({
       break
   }
 
+  const rowStyles = stylex.props(
+    configurationFieldStyles.row,
+    field.control === 'select' && configurationFieldStyles.selectRow,
+    pending && configurationFieldStyles.pending,
+  )
+
   return (
-    <div {...stylex.props(configurationFieldStyles.row, pending && configurationFieldStyles.pending)}>
+    <div {...rowStyles}>
       <div {...stylex.props(configurationFieldStyles.copy)}>
         <span {...stylex.props(configurationFieldStyles.label)}>{field.label}</span>
         {field.description

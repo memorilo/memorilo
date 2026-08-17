@@ -10,4 +10,12 @@ export type {
   TaskCalendarSnapshot,
   TaskCalendarSubscription,
 } from './task-calendar'
+export type {
+  RecurringTaskCompletionAction,
+  RecurringTaskOccurrencePlan,
+} from './task-completion'
+export {
+  planRecurringTaskOccurrences,
+  resetTaskForNextOccurrence,
+} from './task-completion'
 export { nextTaskOccurrenceDate, taskRepeatBaseDate } from './task-recurrence'

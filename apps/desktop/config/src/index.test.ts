@@ -74,7 +74,21 @@ describe('desktop MCP configuration', () => {
     const legacy = Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'todo'))
     expect(migrateDesktopConfiguration(legacy)).toEqual({
       ...legacy,
-      todo: { enabled: true },
+      todo: desktopConfigurationDefinition.defaults.todo,
+    })
+  })
+
+  it('adds the default recurring-task completion action to existing Todo settings', () => {
+    const current = configuration({ accessToken: '', enabled: false, port: 8765 })
+    expect(migrateDesktopConfiguration({
+      ...current,
+      todo: { enabled: false },
+    })).toEqual({
+      ...current,
+      todo: {
+        enabled: false,
+        recurringTaskCompletionAction: 'archive-completed-to-today',
+      },
     })
   })
 })

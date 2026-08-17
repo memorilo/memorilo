@@ -62,11 +62,35 @@ function errorMessage(error: unknown | null): string | null {
   return error === null ? null : toEditorNoteError(error).message
 }
 
-export function desktopEditorAdapters(networkImagePasteBehavior: 'download' | 'url') {
+interface DesktopEditorTaskContext {
+  flush: () => Promise<void>
+  noteId: string
+  topicId: string
+}
+
+export function desktopEditorAdapters(
+  networkImagePasteBehavior: 'download' | 'url',
+  taskContext?: DesktopEditorTaskContext,
+) {
   return {
     ...demoEditorAdapters,
     importNetworkImage: async (source: string) => (await desktopRequests.importNetworkImage({ source })).src,
     networkImagePasteBehavior,
+    ...(taskContext === undefined
+      ? {}
+      : {
+          taskActions: {
+            completeRecurring: async ({ blockId }: { blockId: string }) => {
+              await taskContext.flush()
+              await desktopRequests.updateTodoTask({
+                blockId,
+                noteId: taskContext.noteId,
+                status: 'done',
+                topicId: taskContext.topicId,
+              })
+            },
+          },
+        }),
     taskCalendar: {
       load: async () => {
         const year = dayjs().year()

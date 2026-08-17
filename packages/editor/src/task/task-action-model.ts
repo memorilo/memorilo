@@ -1,5 +1,6 @@
 import type { TaskRepeatRule, TaskStatus } from '../schema/task-schema'
 import { parseTaskDueDate, parseTaskRepeatRule, transitionTaskAttrs } from '../schema/task-schema'
+import { resetTaskForNextOccurrence } from './task-completion'
 
 export interface TaskActionUpdate {
   dueDate?: string | null
@@ -27,17 +28,6 @@ function taskDate(value: string | null, name: string): string | null {
   if (parsed === null)
     throw new TypeError(`${name} must use YYYY-MM-DD format`)
   return parsed
-}
-
-function resetTaskAttrs(attrs: Readonly<Record<string, unknown>>, dueDate: string | null) {
-  return {
-    ...attrs,
-    checked: false,
-    dueDate,
-    elapsedMs: 0,
-    startedAt: null,
-    status: 'todo' as const,
-  }
 }
 
 export function planTaskAction(
@@ -73,7 +63,7 @@ export function planTaskAction(
     && sourceRepeatRule !== null) {
     return {
       current: {
-        attrs: resetTaskAttrs(nextAttrs, nextDueDate),
+        attrs: resetTaskForNextOccurrence(nextAttrs, nextDueDate),
         ...(input.text === undefined ? {} : { text: input.text }),
       },
     }
@@ -83,10 +73,10 @@ export function planTaskAction(
     if (nextDueDate === undefined)
       throw new TypeError('Editing one task occurrence requires the next series due date')
     return {
-      current: { attrs: resetTaskAttrs(nextAttrs, nextDueDate) },
+      current: { attrs: resetTaskForNextOccurrence(nextAttrs, nextDueDate) },
       occurrence: {
         attrs: {
-          ...resetTaskAttrs(sourceAttrs, dueDate ?? null),
+          ...resetTaskForNextOccurrence(sourceAttrs, dueDate ?? null),
           repeatRule: null,
         },
         text: input.text ?? sourceText,

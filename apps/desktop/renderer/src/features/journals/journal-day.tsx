@@ -16,6 +16,7 @@ import {
   desktopEditorAdapters,
   useEditorNoteSession,
 } from '../notes/editor/note-editor-session'
+import { useFlushNotePersistence } from '../notes/persistence/note-persistence-hooks'
 import { formatJournalHeading } from './journal-model'
 import { journalsPageStyles as journalRouteStyles } from './journals-page.stylex'
 
@@ -65,9 +66,14 @@ export function JournalDay({
     resolveTopic: resolveStoredJournalTopic,
     topicKey: summary.topicId,
   })
+  const flushNotePersistence = useFlushNotePersistence()
   const adapters = useMemo(
-    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
-    [configuration.networkImagePasteBehavior],
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      flush: flushNotePersistence,
+      noteId: summary.noteId,
+      topicId: summary.topicId,
+    }),
+    [configuration.networkImagePasteBehavior, flushNotePersistence, summary.noteId, summary.topicId],
   )
 
   let editorContent

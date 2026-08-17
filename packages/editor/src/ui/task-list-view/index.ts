@@ -2,11 +2,12 @@ import type { Extension } from 'prosekit/core'
 import type { Attrs } from 'prosekit/pm/model'
 import type { Command } from 'prosekit/pm/state'
 import type { ListAttributes } from 'prosemirror-flat-list'
+import type { EditorTaskActionAdapter } from '../../adapters/editor-adapters'
 import type { TaskHistory, TaskTimingAttrs } from './task-status'
 import { defineCommands, defineKeymap, defineNodeView, union } from 'prosekit/core'
 import { createToggleListCommand, createUnwrapListCommand } from 'prosemirror-flat-list'
 
-import { defineTaskAttrs, parseTaskHistory } from '../../schema/task-schema'
+import { defineTaskAttrs, parseTaskHistory, parseTaskRepeatRule } from '../../schema/task-schema'
 import { createTaskListView } from './task-list-view.tsx'
 import { createTaskSplitCommand, EMPTY_TASK_ATTRS } from './task-split'
 import { effectiveStatus, pauseTask, resumeTask, transitionAttrs } from './task-status'
@@ -90,39 +91,52 @@ function createTaskAwareToggleListCommand(attrs: ListAttributes = {}): Command {
  *
  * Timing settles on every hop (see {@link transitionAttrs}).
  */
-const cycleTaskCommand: Command = (state, dispatch, view) => {
-  const { $from } = state.selection
+function createCycleTaskCommand(taskActions?: EditorTaskActionAdapter): Command {
+  return (state, dispatch, view) => {
+    const { $from } = state.selection
 
-  for (let depth = $from.depth; depth > 0; depth--) {
-    const node = $from.node(depth)
-    if (node.type.name !== 'list')
-      continue
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth)
+      if (node.type.name !== 'list')
+        continue
 
-    if (node.attrs.kind !== 'task') {
-      // A non-task list becomes a task in the `todo` state.
-      return createTaskCycleWrapCommand()(state, dispatch, view)
+      if (node.attrs.kind !== 'task') {
+        // A non-task list becomes a task in the `todo` state.
+        return createTaskCycleWrapCommand()(state, dispatch, view)
+      }
+
+      const status = effectiveStatus(node.attrs)
+      if (status === 'done') {
+        // Completed task cycles back to a plain block.
+        return createTaskToggleCommand()(state, dispatch, view)
+      }
+
+      const next = status === 'todo' ? 'doing' : 'done'
+      const blockId = node.attrs.blockId
+      if (next === 'done' && parseTaskRepeatRule(node.attrs.repeatRule) !== null && taskActions) {
+        if (typeof blockId !== 'string' || blockId.length === 0)
+          throw new Error('Recurring task completion requires a Block id')
+        if (dispatch) {
+          void taskActions.completeRecurring({ blockId }).catch((error) => {
+            console.error(`Failed to complete recurring task ${blockId}`, error)
+          })
+        }
+        return true
+      }
+      if (dispatch) {
+        const pos = $from.before(depth)
+        const attrs = transitionAttrs(node.attrs, next)
+        dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attrs }))
+      }
+      return true
     }
 
-    const status = effectiveStatus(node.attrs)
-    if (status === 'done') {
-      // Completed task cycles back to a plain block.
-      return createTaskToggleCommand()(state, dispatch, view)
-    }
-
-    const next = status === 'todo' ? 'doing' : 'done'
-    if (dispatch) {
-      const pos = $from.before(depth)
-      const attrs = transitionAttrs(node.attrs, next)
-      dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attrs }))
-    }
-    return true
+    // Not in a list: wrap the current block into a `todo` task.
+    return createTaskCycleWrapCommand()(state, dispatch, view)
   }
-
-  // Not in a list: wrap the current block into a `todo` task.
-  return createTaskCycleWrapCommand()(state, dispatch, view)
 }
 
-export function defineTaskListView(): Extension {
+export function defineTaskListView(taskActions?: EditorTaskActionAdapter): Extension {
   return union(
     defineTaskAttrs(),
     defineCommands({
@@ -130,11 +144,11 @@ export function defineTaskListView(): Extension {
     }),
     defineNodeView({
       name: 'list',
-      constructor: createTaskListView,
+      constructor: createTaskListView(taskActions),
     }),
     defineKeymap({
       'Enter': createTaskSplitCommand(),
-      'Mod-Enter': cycleTaskCommand,
+      'Mod-Enter': createCycleTaskCommand(taskActions),
     }),
   )
 }

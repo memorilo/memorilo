@@ -1,5 +1,5 @@
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { fireEvent, render, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { DesktopConfigurationEnvironment } from '../app/configuration/configuration-environment'
@@ -20,12 +20,16 @@ describe('settings renderer', () => {
     expect(rendered.getByRole('heading', { name: 'General' })).toBeInTheDocument()
     const language = rendered.getByRole('combobox', { name: 'Language' })
     expect(language).toHaveValue('system')
-    expect(rendered.getAllByRole('option').map(option => option.textContent)).toEqual([
+    expect(within(language).getAllByRole('option').map(option => option.textContent)).toEqual([
       'System Default',
       'English',
       '简体中文',
     ])
     expect(rendered.getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute('aria-checked', 'false')
+    const recurringTaskCompletion = rendered.getByRole('combobox', { name: 'After completing a recurring task' })
+    expect(recurringTaskCompletion).toHaveValue('archive-completed-to-today')
+    fireEvent.change(recurringTaskCompletion, { target: { value: 'move-next-to-due-date' } })
+    await waitFor(() => expect(store.getSnapshot().todo.recurringTaskCompletionAction).toBe('move-next-to-due-date'))
     expect(rendered.getByRole('radio', { name: 'Sunday' })).toBeChecked()
     fireEvent.click(rendered.getByRole('radio', { name: 'Monday' }))
     await waitFor(() => expect(store.getSnapshot().weekStart).toBe('monday'))
@@ -85,7 +89,10 @@ describe('settings renderer', () => {
         readerPageMode: 'single-page',
         reduceMotion: false,
         tiffConversionFormat: 'webp',
-        todo: desktopConfigurationDefinition.defaults.todo,
+        todo: {
+          ...desktopConfigurationDefinition.defaults.todo,
+          recurringTaskCompletionAction: 'move-next-to-due-date',
+        },
         weekStart: 'monday',
       })
       expect(document.documentElement.lang).toBe('zh-CN')
@@ -110,7 +117,10 @@ describe('settings renderer', () => {
         readerPageMode: 'single-page',
         reduceMotion: true,
         tiffConversionFormat: 'webp',
-        todo: desktopConfigurationDefinition.defaults.todo,
+        todo: {
+          ...desktopConfigurationDefinition.defaults.todo,
+          recurringTaskCompletionAction: 'move-next-to-due-date',
+        },
         weekStart: 'monday',
       })
       expect(document.documentElement).toHaveAttribute('data-reduce-motion', 'true')

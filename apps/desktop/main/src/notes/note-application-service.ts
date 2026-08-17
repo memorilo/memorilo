@@ -57,6 +57,7 @@ export function createNoteApplicationService(
 ) {
   const today = (): JournalDate => localJournalDate(options.now?.() ?? new Date())
   const defaultNoteLearningEnabled = options.defaultNoteLearningEnabled ?? (() => true)
+  const recurringTaskCompletionAction = options.recurringTaskCompletionAction ?? (() => 'archive-completed-to-today' as const)
   const runtime = createNoteAuthoritativeRuntime({
     activeReadings,
     defaultNoteLearningEnabled,
@@ -67,7 +68,7 @@ export function createNoteApplicationService(
   return {
     close: runtime.close,
     ...createNoteApplicationQueries({ runtime, storage, today }),
-    ...createNoteApplicationCommands({ defaultNoteLearningEnabled, runtime, storage, today }),
+    ...createNoteApplicationCommands({ defaultNoteLearningEnabled, recurringTaskCompletionAction, runtime, storage, today }),
   }
 }
 

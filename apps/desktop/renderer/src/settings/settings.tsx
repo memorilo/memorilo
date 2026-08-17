@@ -149,6 +149,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('learningEnabled')
     case 'todo.enabled':
       return t('todoEnabled')
+    case 'todo.recurringTaskCompletionAction':
+      return t('recurringTaskCompletionAction')
     case 'mcp.port':
       return t('mcpPort')
     case 'mcp.accessToken':
@@ -220,6 +222,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('learningEnabledDescription')
     case 'todo.enabled':
       return t('todoEnabledDescription')
+    case 'todo.recurringTaskCompletionAction':
+      return t('recurringTaskCompletionActionDescription')
     case 'mcp.port':
       return t('mcpPortDescription')
     case 'mcp.accessToken':
@@ -295,6 +299,18 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('allDue')
     case 'fixed':
       return t('fixedDailyLimit')
+    case 'archive-completed-to-today':
+      return t('recurringTaskArchiveCompletedToToday')
+    case 'move-next-to-today':
+      return t('recurringTaskMoveNextToToday')
+    case 'move-next-to-due-date':
+      return t('recurringTaskMoveNextToDueDate')
+    case 'nest-completed-under-next':
+      return t('recurringTaskNestCompletedUnderNext')
+    case 'place-next-after-completed':
+      return t('recurringTaskPlaceNextAfterCompleted')
+    case 'replace-completed':
+      return t('recurringTaskReplaceCompleted')
     default:
       return value
   }

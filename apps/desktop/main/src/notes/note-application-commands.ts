@@ -1,5 +1,7 @@
 import type { EditorStorage, JournalDate } from '@memorilo/editor-storage'
-import type { TopicBlockEdit } from '@memorilo/editor/note'
+import type { TopicBlockEdit, TopicBlockProjection } from '@memorilo/editor/note'
+import type { TaskRepeatRule } from '@memorilo/editor/schema'
+import type { RecurringTaskCompletionAction } from '@memorilo/editor/task'
 import type {
   ApplyTopicEditsInput,
   CreateBookNoteInput,
@@ -16,8 +18,9 @@ import type {
 import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
-import { createEditorNote } from '@memorilo/editor/note'
-import { planTaskAction } from '@memorilo/editor/task'
+import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
+import { parseTaskDueDate, parseTaskRepeatRule } from '@memorilo/editor/schema'
+import { nextTaskOccurrenceDate, planTaskAction, taskRepeatBaseDate } from '@memorilo/editor/task'
 import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { NoteRevisionConflictError } from './note-application-contracts'
@@ -27,6 +30,7 @@ import {
   projectBookTopicReadingContext,
 } from './note-application-projection'
 import { noteRevision } from './note-authoritative-projection'
+import { planRecurringTaskPlacement } from './recurring-task-completion'
 
 interface NodeJSON {
   attrs?: Record<string, unknown>
@@ -37,12 +41,36 @@ interface NodeJSON {
 
 interface NoteApplicationCommandsDependencies {
   defaultNoteLearningEnabled: () => boolean
+  recurringTaskCompletionAction: () => RecurringTaskCompletionAction
   runtime: Pick<NoteAuthoritativeRuntime, 'applyExternalUpdates' | 'commit' | 'invalidate' | 'open' | 'openJournal' | 'persistLocalMutation' | 'prunePastEmptyJournals' | 'run' | 'runEffect'>
   storage: EditorStorage
   today: () => JournalDate
 }
 
-export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runtime, storage, today }: NoteApplicationCommandsDependencies) {
+function recurrenceCalendarRange(date: JournalDate): { from: JournalDate, through: JournalDate } {
+  const year = Number(date.slice(0, 4))
+  if (!Number.isSafeInteger(year))
+    throw new TypeError(`Task recurrence date has an invalid year: ${date}`)
+  const fromYear = Math.max(1, year - 1)
+  const throughYear = Math.min(9999, year + 5)
+  return {
+    from: `${String(fromYear).padStart(4, '0')}-01-01`,
+    through: `${String(throughYear).padStart(4, '0')}-12-31`,
+  }
+}
+
+function recurrenceNeedsCalendar(rule: TaskRepeatRule): boolean {
+  return rule.unit === 'holiday'
+    || (rule.holidayPolicy !== undefined && rule.holidayPolicy !== 'allow')
+}
+
+export function createNoteApplicationCommands({
+  defaultNoteLearningEnabled,
+  recurringTaskCompletionAction,
+  runtime,
+  storage,
+  today,
+}: NoteApplicationCommandsDependencies) {
   const serialize = <Result>(operation: () => Promise<Result>): Promise<Result> => runtime.run(operation)
   const serializeEffect = <Result, Failure>(operation: Effect.Effect<Result, Failure>): Promise<Result> => runtime.runEffect(operation)
   const assertRevision = (current: Awaited<ReturnType<NoteAuthoritativeRuntime['open']>>, expectedRevision: string): void => {
@@ -72,6 +100,104 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
     type: 'paragraph',
   })
 
+  const completeRecurringTask = async (
+    current: Awaited<ReturnType<NoteAuthoritativeRuntime['open']>>,
+    source: NodeJSON,
+    sourceBlock: TopicBlockProjection,
+    topicId: string,
+  ): Promise<void> => {
+    const sourceAttrs = source.attrs ?? {}
+    const repeatRule = parseTaskRepeatRule(sourceAttrs.repeatRule)
+    if (repeatRule === null)
+      throw new TypeError(`Todo task ${sourceBlock.id} does not have a valid repeat rule`)
+    const dueDateValue = sourceAttrs.dueDate
+    const dueDate = dueDateValue === null || dueDateValue === undefined
+      ? null
+      : parseTaskDueDate(dueDateValue)
+    if (dueDateValue !== null && dueDateValue !== undefined && dueDate === null)
+      throw new TypeError(`Todo task ${sourceBlock.id} has an invalid due date`)
+
+    const completedOn = today()
+    const occurrenceDate = dueDate ?? current.journalDate ?? completedOn
+    const baseDate = taskRepeatBaseDate(occurrenceDate, repeatRule, completedOn)
+    const calendarEvents = recurrenceNeedsCalendar(repeatRule)
+      ? await storage.todoCalendars.listEvents(recurrenceCalendarRange(baseDate))
+      : []
+    const nextDueDate = nextTaskOccurrenceDate(baseDate, repeatRule, calendarEvents)
+    const placement = planRecurringTaskPlacement({
+      action: recurringTaskCompletionAction(),
+      generateId: randomUUID,
+      nextDueDate,
+      sourceBlock,
+      sourceNode: source,
+      today: completedOn,
+    })
+
+    const sourceVersion = current.note.getVersion()
+    const targetOpened = placement.target === undefined
+      ? null
+      : await runtime.openJournal(placement.target.date)
+    const target = targetOpened?.current ?? null
+    const targetVersion = target?.note.getVersion() ?? null
+    const targetTopicId = target === null
+      ? null
+      : resolveJournalTopic(target.note, { expectedNoteTitle: placement.target?.date }).topicId
+    const targetEdits: readonly TopicBlockEdit[] = target === null || targetTopicId === null || placement.target === undefined
+      ? []
+      : [
+          ...(target.note.hasUserContent()
+            ? []
+            : (() => {
+                const [placeholder, ...extra] = target.note.getTopicContent(targetTopicId).blocks
+                if (!placeholder || extra.length > 0)
+                  throw new Error(`Empty Journal ${placement.target.date} does not have one canonical placeholder Block`)
+                return [{
+                  blockId: placeholder.id,
+                  operation: 'delete-block' as const,
+                  strategy: 'delete-subtree' as const,
+                }]
+              })()),
+          ...placement.target.edits,
+        ]
+
+    const sameDocument = target !== null
+      && target.note.id === current.note.id
+      && targetTopicId === topicId
+    try {
+      if (sameDocument) {
+        current.note.applyTopicBlockEdits({
+          edits: [...placement.sourceEdits, ...targetEdits],
+          topicId,
+        })
+        await current.note.validateTopic(topicId)
+        await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] })
+        return
+      }
+
+      current.note.applyTopicBlockEdits({ edits: placement.sourceEdits, topicId })
+      if (target !== null && targetTopicId !== null)
+        target.note.applyTopicBlockEdits({ edits: targetEdits, topicId: targetTopicId })
+      await Promise.all([
+        current.note.validateTopic(topicId),
+        ...(target !== null && targetTopicId !== null ? [target.note.validateTopic(targetTopicId)] : []),
+      ])
+
+      if (target !== null && targetTopicId !== null) {
+        if (targetVersion === null)
+          throw new Error('Recurring task Journal target is missing its source version')
+        // The stored source still contains the full occurrence until the target copy is durable.
+        await runtime.persistLocalMutation(target, targetVersion, { broadcast: true, topicIds: [targetTopicId] })
+      }
+      await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] })
+    }
+    catch (error) {
+      runtime.invalidate(current.note.id)
+      if (target !== null)
+        runtime.invalidate(target.note.id)
+      throw error
+    }
+  }
+
   const updateTodoTask = (input: UpdateTodoTaskInput) => serialize(async () => {
     const current = await runtime.open(input.noteId)
     const validation = current.note.getTopicValidationInput(input.topicId)
@@ -84,6 +210,12 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
     const sourceBlock = current.note.getTopicContent(input.topicId).blocks.find(block => block.id === input.blockId)
     if (!sourceBlock)
       throw new Error(`Todo task ${input.blockId} disappeared from Topic projection`)
+    if (!input.onlyThis
+      && input.status === 'done'
+      && parseTaskRepeatRule(sourceAttrs.repeatRule) !== null) {
+      await completeRecurringTask(current, source, sourceBlock, input.topicId)
+      return
+    }
     const plan = planTaskAction(sourceAttrs, sourceBlock.text, input)
     const edits: TopicBlockEdit[] = []
     if (plan.occurrence) {

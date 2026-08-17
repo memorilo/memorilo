@@ -1,6 +1,7 @@
 import type { JournalDate, TodoRepeatRule, TodoTaskStatus } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { TopicBlockEdit } from '@memorilo/editor/note'
+import type { RecurringTaskCompletionAction } from '@memorilo/editor/task'
 import type { BookFileBinding } from '@memorilo/reading-model'
 import type { BookTopicReadingContext } from './note-application-projection'
 
@@ -43,6 +44,7 @@ export interface ListJournalDatesInput {
 export interface NoteApplicationServiceOptions {
   defaultNoteLearningEnabled?: () => boolean
   now?: () => Date
+  recurringTaskCompletionAction?: () => RecurringTaskCompletionAction
 }
 
 export interface ApplyTopicEditsInput {
