@@ -4,6 +4,7 @@ import { TextSelection } from 'prosekit/pm/state'
 import { createSplitListCommand } from 'prosemirror-flat-list'
 import { validateRequiredId } from '../schema/card-schema'
 import { parseTaskHistory } from '../schema/task-schema'
+import { initializeTaskSplit } from '../ui/task-list-view/task-split'
 import { pauseTask } from '../ui/task-list-view/task-status'
 import {
   createCardAnswerBlock,
@@ -80,6 +81,8 @@ function continueCardAnswerMember(): Command {
     }
 
     const transaction: Transaction = splitTransaction
+    if (current.node.attrs.kind === 'task')
+      initializeTaskSplit(transaction, current.position)
     const { $from } = transaction.selection
     let newMemberPosition: number | null = null
     for (let depth = $from.depth; depth > 0; depth -= 1) {

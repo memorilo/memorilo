@@ -440,6 +440,50 @@ describe('document interactions', () => {
       expect(rendered.container.querySelector('[data-block-id="ordered"]')).toHaveAttribute('data-list-order', '4')
   })
 
+  it('splits a Todo into a fresh Todo sibling and keeps both blocks keyboard-accessible', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('first', paragraph('First line'))],
+        }}
+      />,
+    )
+    await rendered.findByText('First line')
+
+    await userEvent.click(rendered.getByText('First line'))
+    await userEvent.keyboard(modShortcut('{Enter}'))
+    await rendered.findByRole('button', { name: 'Task status: todo' })
+
+    await userEvent.keyboard('{End}{Enter}Second line')
+
+    await waitFor(() => {
+      const editor = rendered.getByRole('textbox', { name: 'Editor content' })
+      const blocks = Array.from(editor.children)
+      expect(blocks).toHaveLength(2)
+      expect(blocks.map(block => block.getAttribute('data-list-kind'))).toEqual(['task', 'task'])
+      expect(blocks.map(block => block.getAttribute('data-task-status'))).toEqual(['todo', 'todo'])
+      expect(blocks.map(block => block.querySelector(':scope > .list-content')?.textContent)).toEqual(['First line', 'Second line'])
+      expect(blocks[0]).toHaveAttribute('data-block-id', 'first')
+      expect(blocks[1]).toHaveAttribute('data-block-id')
+      expect(blocks[1]?.getAttribute('data-block-id')).not.toBe('first')
+    })
+
+    const secondBlockId = rendered.getByText('Second line').closest<HTMLElement>('[data-block-id]')?.dataset.blockId
+    if (!secondBlockId)
+      throw new Error('The split Todo is missing its stable block ID')
+
+    await userEvent.keyboard(modShortcut('{Enter}'))
+    await waitFor(() => expect(rendered.container.querySelector(`[data-block-id="${secondBlockId}"]`)).toHaveAttribute('data-task-status', 'doing'))
+    expect(rendered.container.querySelector('[data-block-id="first"]')).toHaveAttribute('data-task-status', 'todo')
+
+    await userEvent.click(rendered.getByText('First line'))
+    await userEvent.keyboard('{End}{ArrowDown}')
+    await waitFor(() => expect(selectedDomBlockId()).toBe(secondBlockId))
+  })
+
   it.each([
     { kind: 'bullet', order: null, text: 'Bullet item' },
     { kind: 'ordered', order: 4, text: 'Ordered item' },
