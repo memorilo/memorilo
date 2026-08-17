@@ -6,9 +6,9 @@ export const imageOcclusionEditorStyles = stylex.create({
     gridTemplateRows: 'auto minmax(0, 1fr)',
     width: '100%',
     height: '100%',
-    minHeight: 0,
     backgroundColor: '#f4f5f7',
     color: '#1d2026',
+    minHeight: 0,
   },
   toolbar: {
     zIndex: 2,

@@ -30,6 +30,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
+import { loadNodeBuiltin } from "./node-builtin";
+
 const Module = (function () {
   const _scriptDir =
     typeof document !== "undefined" && document.currentScript
@@ -91,10 +93,10 @@ const Module = (function () {
       read_ = function shell_read(filename, binary) {
         let ret;
         if (!nodeFS) {
-          nodeFS = require(["fs"].join());
+          nodeFS = loadNodeBuiltin("fs");
         }
         if (!nodePath) {
-          nodePath = require(["path"].join());
+          nodePath = loadNodeBuiltin("path");
         }
         filename = nodePath.normalize(filename);
         ret = nodeFS.readFileSync(filename);
@@ -4047,5 +4049,4 @@ const Module = (function () {
 })();
 
 export default Module;
-
 

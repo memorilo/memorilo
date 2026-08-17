@@ -12,6 +12,11 @@ export default antfu(
       '**/.output/**',
       '**/.turbo/**',
       '**/routeTree.gen.ts',
+      'apps/mobile/.expo/**',
+      'apps/mobile/.generated/**',
+      'apps/mobile/android/**',
+      'apps/mobile/ios/**',
+      'apps/mobile/modules/**',
     ],
   },
   {

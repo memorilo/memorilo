@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@huggingface/transformers": "3.7.5",
+    "@memorilo/anki-connect": "workspace:*",
+    "@memorilo/application": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/desktop-api": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",
@@ -21,7 +23,6 @@
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
     "@memorilo/effect-lifecycle": "workspace:*",
-    "@memorilo/p2p-sync": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
     "@memorilo/shelf": "workspace:*",
     "@memorilo/spreadsheet": "workspace:*",

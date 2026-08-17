@@ -5,6 +5,36 @@ import type { NestedKeyOf } from "./utility-types";
 
 const COMPLETION_THRESHOLD = 85;
 
+const localeLoaders = {
+  "ar-SA": () => import("./locales/ar-SA.json"),
+  "cs-CZ": () => import("./locales/cs-CZ.json"),
+  "de-DE": () => import("./locales/de-DE.json"),
+  en: () => import("./locales/en.json"),
+  "es-ES": () => import("./locales/es-ES.json"),
+  "eu-ES": () => import("./locales/eu-ES.json"),
+  "fr-FR": () => import("./locales/fr-FR.json"),
+  "gl-ES": () => import("./locales/gl-ES.json"),
+  "id-ID": () => import("./locales/id-ID.json"),
+  "it-IT": () => import("./locales/it-IT.json"),
+  "ja-JP": () => import("./locales/ja-JP.json"),
+  "ko-KR": () => import("./locales/ko-KR.json"),
+  "ku-TR": () => import("./locales/ku-TR.json"),
+  "mr-IN": () => import("./locales/mr-IN.json"),
+  "nb-NO": () => import("./locales/nb-NO.json"),
+  "oc-FR": () => import("./locales/oc-FR.json"),
+  "pl-PL": () => import("./locales/pl-PL.json"),
+  "pt-BR": () => import("./locales/pt-BR.json"),
+  "ro-RO": () => import("./locales/ro-RO.json"),
+  "ru-RU": () => import("./locales/ru-RU.json"),
+  "sk-SK": () => import("./locales/sk-SK.json"),
+  "sl-SI": () => import("./locales/sl-SI.json"),
+  "sv-SE": () => import("./locales/sv-SE.json"),
+  "tr-TR": () => import("./locales/tr-TR.json"),
+  "uk-UA": () => import("./locales/uk-UA.json"),
+  "zh-CN": () => import("./locales/zh-CN.json"),
+  "zh-TW": () => import("./locales/zh-TW.json"),
+};
+
 export interface Language {
   code: string;
   label: string;
@@ -95,7 +125,12 @@ export const setLanguage = async (lang: Language) => {
     currentLangData = {};
   } else {
     try {
-      currentLangData = await import(`./locales/${currentLang.code}.json`);
+      const loadLocale = localeLoaders[currentLang.code as keyof typeof localeLoaders];
+      if (!loadLocale) {
+        throw new Error(`No bundled locale for ${currentLang.code}`);
+      }
+      const loaded = await loadLocale();
+      currentLangData = loaded.default;
     } catch (error: any) {
       console.error(`Failed to load language ${lang.code}:`, error.message);
       currentLangData = fallbackLangData;

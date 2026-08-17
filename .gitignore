@@ -27,3 +27,8 @@ Thumbs.db
 
 apps/desktop/**/data/
 apps/desktop/**/routeTree.gen.ts
+apps/mobile/.expo/
+apps/mobile/.generated/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/modules/memorilo-sqlite-vec/ios/vec.xcframework/

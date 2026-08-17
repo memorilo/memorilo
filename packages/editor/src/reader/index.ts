@@ -1,3 +1,8 @@
+export {
+  prepareReaderAnnotationTopicsForDeletion,
+  readerAnnotationDependents,
+  reconciledReaderAnnotations,
+} from './reader-note-bindings'
 export { Reader, readerAnnotationLabel, WindowReader } from '@memorilo/reader'
 export type {
   ReaderAnchor,

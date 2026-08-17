@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Memorilo",
+    "slug": "memorilo",
+    "version": "0.0.0",
+    "orientation": "default",
+    "scheme": "memorilo",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.memorilo.app"
+    },
+    "android": {
+      "package": "com.memorilo.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F7F4"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true,
+          "withSQLiteVecExtension": true
+        }
+      ],
+      "./plugins/with-onnxruntime-android-compat",
+      "onnxruntime-react-native"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

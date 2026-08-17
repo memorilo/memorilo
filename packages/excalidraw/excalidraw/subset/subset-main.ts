@@ -2,7 +2,7 @@ import { WorkerPool } from "../workers";
 import { isServerEnv, promiseTry } from "../utils";
 import { WorkerInTheMainChunkError, WorkerUrlNotDefinedError } from "../errors";
 
-import type { Commands } from "./subset-shared.chunk";
+import type { SubsetCommands } from "./subset-shared.chunk";
 
 let shouldUseWorkers = typeof Worker !== "undefined";
 
@@ -21,7 +21,7 @@ export const subsetWoff2GlyphsByCodepoints = async (
   arrayBuffer: ArrayBuffer,
   codePoints: Array<number>,
 ): Promise<string> => {
-  const { Commands, subsetToBase64, toBase64 } =
+  const { SubsetCommands, subsetToBase64, toBase64 } =
     await lazyLoadSharedSubsetChunk();
 
   if (!shouldUseWorkers) {
@@ -36,7 +36,7 @@ export const subsetWoff2GlyphsByCodepoints = async (
       const arrayBufferCopy = arrayBuffer.slice(0);
       const result = await workerPool.postMessage(
         {
-          command: Commands.Subset,
+          command: SubsetCommands.Subset,
           arrayBuffer: arrayBufferCopy,
           codePoints,
         } as const,
@@ -93,13 +93,13 @@ const lazyLoadSharedSubsetChunk = async () => {
 
 // could be extended with multiple commands in the future
 type SubsetWorkerData = {
-  command: typeof Commands.Subset;
+  command: typeof SubsetCommands.Subset;
   arrayBuffer: ArrayBuffer;
   codePoints: Array<number>;
 };
 
 type SubsetWorkerResult<T extends SubsetWorkerData["command"]> =
-  T extends typeof Commands.Subset ? ArrayBuffer : never;
+  T extends typeof SubsetCommands.Subset ? ArrayBuffer : never;
 
 let workerPool: Promise<
   WorkerPool<SubsetWorkerData, SubsetWorkerResult<SubsetWorkerData["command"]>>

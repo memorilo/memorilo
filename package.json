@@ -16,9 +16,16 @@
   },
   "scripts": {
     "dev": "turbo run dev --filter=@memorilo/desktop",
+    "dev:mobile": "pnpm --filter @memorilo/mobile dev",
+    "mobile:android": "pnpm --filter @memorilo/mobile android",
+    "mobile:export": "pnpm --filter @memorilo/mobile export",
+    "mobile:ios": "pnpm --filter @memorilo/mobile ios",
+    "mobile:prebuild": "pnpm --filter @memorilo/mobile prebuild",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "prepare:embedding-model": "node scripts/prepare-embedding-model.mjs",
+    "prepare:mobile-embedding-model": "node scripts/prepare-mobile-embedding-model.mjs",
+    "prepare:mobile-sqlite-vec": "node scripts/prepare-mobile-sqlite-vec.mjs",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test --concurrency=1",
     "test:e2e": "turbo run test:e2e --filter=@memorilo/desktop-e2e"

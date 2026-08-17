@@ -1,5 +1,4 @@
 import * as stylex from '@stylexjs/stylex'
-import { noteTheme } from './note-shared.stylex'
 
 export const whiteboardEditorStyles = stylex.create({
   root: {
@@ -28,9 +27,9 @@ export const whiteboardEditorStyles = stylex.create({
     },
     boxShadow: {
       'default': 'none',
-      ':focus-visible': `0 0 0 2px ${noteTheme.focus}`,
+      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
     },
-    color: noteTheme.chromeText,
+    color: 'rgba(30, 29, 32, 0.86)',
     cursor: 'default',
     outline: 'none',
     transform: {

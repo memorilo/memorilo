@@ -1,9 +1,6 @@
-import type {
-  EditorImageOcclusionTopicDocument,
-  ImageOcclusionState,
-} from '@memorilo/editor'
 import type { RefObject } from 'react'
-import { imageOcclusionStateSignature } from '@memorilo/editor'
+import type { EditorImageOcclusionTopicDocument } from '../note/editor-note'
+import type { ImageOcclusionState } from './image-occlusion-model'
 import {
   useCallback,
   useEffect,
@@ -11,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
+import { imageOcclusionStateSignature } from './image-occlusion-model'
 
 export function useElementSize(ref: RefObject<HTMLElement | null>) {
   const snapshot = useRef({ height: 1, width: 1 })

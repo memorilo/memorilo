@@ -1,4 +1,7 @@
-import type { RatingHistory } from '@memorilo/srs'
+import type {
+  FsrsOptimizerConfiguration,
+  RatingHistory,
+} from '@memorilo/srs/portable'
 import type { EditorStorageDatabase, StorageOperationRunner } from '../database-driver'
 import type { LearningOptimizerCatalog } from './learning-optimizer-catalog'
 import type { LearningReviewHistory } from './learning-review-history'
@@ -9,7 +12,7 @@ import type {
   OptimizeFsrsOptimizerInput,
   SaveFsrsOptimizerInput,
 } from './types'
-import { fingerprintRatingHistories, optimizeFsrsParameters } from '@memorilo/srs'
+import { fingerprintRatingHistories } from '@memorilo/srs/portable'
 import { LearningOptimizerMutations } from './learning-optimizer-mutations'
 import { LearningOptimizerRescheduler } from './learning-optimizer-rescheduler'
 import { assertNonEmpty } from './learning-storage-shared'
@@ -19,7 +22,17 @@ export interface LearningOptimizerRepositoryDependencies {
   database: EditorStorageDatabase
   history: Pick<LearningReviewHistory, 'buildRescheduleCommands' | 'getRatingHistory'>
   runOperation: StorageOperationRunner
-  optimizeFsrsParameters?: typeof optimizeFsrsParameters
+  optimizeFsrsParameters?: FsrsParameterOptimizer
+}
+
+export type FsrsParameterOptimizer = (
+  histories: readonly RatingHistory[],
+  configuration: FsrsOptimizerConfiguration,
+  timeoutMilliseconds?: number,
+) => Promise<FsrsOptimizerConfiguration>
+
+const unavailableOptimizer: FsrsParameterOptimizer = async () => {
+  throw new Error('FSRS parameter optimization is unavailable in this runtime')
 }
 
 export class LearningOptimizerRepository {
@@ -28,11 +41,11 @@ export class LearningOptimizerRepository {
   readonly #mutations: LearningOptimizerMutations
   readonly #rescheduler: LearningOptimizerRescheduler
   readonly #runOperation: LearningOptimizerRepositoryDependencies['runOperation']
-  readonly #optimizeFsrsParameters: NonNullable<LearningOptimizerRepositoryDependencies['optimizeFsrsParameters']>
+  readonly #optimizeFsrsParameters: FsrsParameterOptimizer
 
   constructor(dependencies: LearningOptimizerRepositoryDependencies) {
     this.#runOperation = dependencies.runOperation
-    this.#optimizeFsrsParameters = dependencies.optimizeFsrsParameters ?? optimizeFsrsParameters
+    this.#optimizeFsrsParameters = dependencies.optimizeFsrsParameters ?? unavailableOptimizer
     this.#catalog = dependencies.catalog
     this.#history = dependencies.history
     this.#rescheduler = new LearningOptimizerRescheduler({

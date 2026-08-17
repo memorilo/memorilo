@@ -1,3 +1,5 @@
+/// <reference path="./asset-modules.d.ts" />
+
 export { readerAnnotationLabel } from './internal/annotation-label'
 export { Reader, WindowReader } from './reader'
 export { prepareReaderAnnotationDeletion } from './reader-annotation-deletion'

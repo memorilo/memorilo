@@ -1,6 +1,7 @@
-import type { OcclusionShape } from '@memorilo/editor'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
+import type { OcclusionShape } from './image-occlusion-model'
+import { Ellipse, Line, Rect } from 'react-konva'
 import {
   containOcclusionBoundsShape,
   imageOcclusionBoundsStrokeWidth,
@@ -8,8 +9,7 @@ import {
   imageOcclusionColor,
   scaleOcclusionBrushPoints,
   translateOcclusionBrushShape,
-} from '@memorilo/editor'
-import { Ellipse, Line, Rect } from 'react-konva'
+} from './image-occlusion-model'
 
 export interface ImageOcclusionViewport {
   height: number

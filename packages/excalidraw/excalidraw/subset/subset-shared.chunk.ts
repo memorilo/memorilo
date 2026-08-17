@@ -13,7 +13,7 @@ import loadHbSubset from "./harfbuzz/harfbuzz-loader";
 /**
  * Shared commands between the main thread and worker threads.
  */
-export const Commands = {
+export const SubsetCommands = {
   Subset: "SUBSET",
 } as const;
 

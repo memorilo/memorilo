@@ -1,12 +1,12 @@
 import type { FsrsOptimizerConfiguration, RatingHistory, ReviewRating } from './types'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import {
   computeParameters,
   FSRSBindingItem,
   FSRSBindingReview,
 } from '@open-spaced-repetition/binding'
 import { validateOptimizerConfiguration } from './fsrs'
+
+export { fingerprintRatingHistories } from './optimizer-fingerprint'
 
 function ratingNumber(rating: ReviewRating): number {
   switch (rating) {
@@ -23,14 +23,6 @@ function ratingNumber(rating: ReviewRating): number {
 
 function orderedHistories(histories: readonly RatingHistory[]): readonly RatingHistory[] {
   return [...histories].sort((left, right) => left.targetId.localeCompare(right.targetId))
-}
-
-export function fingerprintRatingHistories(histories: readonly RatingHistory[]): string {
-  const facts = orderedHistories(histories).map(history => [
-    history.targetId,
-    history.ratings.map(rating => [rating.eventId, rating.occurredAt, rating.rating] as const),
-  ] as const)
-  return bytesToHex(sha256(utf8ToBytes(JSON.stringify(facts))))
 }
 
 export async function optimizeFsrsParameters(

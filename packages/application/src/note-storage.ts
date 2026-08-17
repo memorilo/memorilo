@@ -1,0 +1,152 @@
+import type {
+  EditorStorage,
+  LearningCardProjection,
+  LearningTopicCardProjection,
+  NoteEntryProjection,
+  SpreadsheetProjection,
+  TopicContentProjection as StoredTopicContentProjection,
+} from '@memorilo/editor-storage'
+import type { ReviewCardProjection } from '@memorilo/editor/card'
+import type {
+  EditorNote,
+  NoteEntrySnapshot,
+  TopicContentProjection,
+} from '@memorilo/editor/note'
+import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
+import { projectCardTopicCards } from '@memorilo/editor/note'
+import { spreadsheetCellKey } from '@memorilo/spreadsheet/model'
+
+type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
+
+export interface EditorNoteStorageProjection {
+  entries: readonly NoteEntryProjection[]
+  learningCards: readonly LearningTopicCardProjection[]
+  spreadsheets: readonly SpreadsheetProjection[]
+  topics: readonly StoredTopicContentProjection[]
+}
+
+function topicDocuments(note: EditorNote, topicId: string): readonly TopicDocument[] {
+  const validation = note.getTopicValidationInput(topicId)
+  if ('document' in validation)
+    return [validation.document]
+  if ('embeddedEditors' in validation)
+    return Object.values(validation.embeddedEditors).map(editor => editor.document)
+  throw new TypeError(`ImageOcclusionTopic ${topicId} does not have ProseMirror documents`)
+}
+
+function toLearningCard(card: ReviewCardProjection): LearningCardProjection {
+  return {
+    cardId: card.id,
+    direction: card.kind === 'cloze' || card.kind === 'highlight' ? 'forward' : card.direction,
+    itemBlockIds: (card.kind === 'list' || card.kind === 'set') && card.direction === 'forward'
+      ? card.items.map(item => item.blockId)
+      : [],
+    kind: card.kind === 'image-occlusion' || card.kind === 'highlight' ? 'basic' : card.kind,
+    sourceBlockId: card.sourceBlockId,
+  }
+}
+
+export function toStoredEntries(entries: readonly NoteEntrySnapshot[]): readonly NoteEntryProjection[] {
+  return entries.map(entry => structuredClone(entry))
+}
+
+export function toStoredTopic(topic: TopicContentProjection): StoredTopicContentProjection {
+  return structuredClone(topic)
+}
+
+export function toStoredSpreadsheets(
+  note: Pick<EditorNote, 'getEntries' | 'getSpreadsheetTopic'>,
+  topicIds?: ReadonlySet<string>,
+): readonly SpreadsheetProjection[] {
+  return note.getEntries().flatMap((entry) => {
+    if (entry.kind !== 'topic'
+      || entry.topicType !== 'spreadsheet'
+      || (topicIds !== undefined && !topicIds.has(entry.id))) {
+      return []
+    }
+    const workbook = note.getSpreadsheetTopic(entry.id).getWorkbook()
+    return [{
+      sheets: workbook.sheets.map(sheet => ({
+        cells: sheet.rows.flatMap(row => sheet.columns.flatMap((column) => {
+          const cell = sheet.cells[spreadsheetCellKey(row.id, column.id)]
+          return cell === undefined
+            ? []
+            : [{ ...structuredClone(cell), columnId: column.id, rowId: row.id }]
+        })),
+        columnIds: sheet.columns.map(column => column.id),
+        id: sheet.id,
+        name: sheet.name,
+        rowIds: sheet.rows.map(row => row.id),
+      })),
+      topicId: entry.id,
+    }]
+  })
+}
+
+export function projectNoteLearningCards(
+  note: EditorNote,
+  topicIds?: Iterable<string>,
+): readonly LearningTopicCardProjection[] {
+  const learningEnabled = note.getLearningEnabled()
+  const entries = note.getEntries()
+  const selectedTopicIds = topicIds === undefined
+    ? entries.filter(entry => entry.kind === 'topic').map(entry => entry.id)
+    : [...new Set(topicIds)]
+  return selectedTopicIds.map((topicId) => {
+    const topicOrder = entries.findIndex(candidate => candidate.id === topicId)
+    const entry = topicOrder === -1 ? undefined : entries[topicOrder]
+    let cards: readonly LearningCardProjection[]
+    if (entry?.kind !== 'topic' || !learningEnabled || entry.topicType === 'spreadsheet') {
+      cards = []
+    }
+    else if (entry.topicType === 'image-occlusion') {
+      cards = projectImageOcclusionCards(note.getImageOcclusionTopic(topicId).getState()).map(toLearningCard)
+    }
+    else if (entry.topicType === 'regular') {
+      const source = entry.cardSource
+      cards = source === undefined
+        ? []
+        : topicDocuments(note, topicId).flatMap(document => projectCardTopicCards(document, source).map(toLearningCard))
+    }
+    else {
+      cards = topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
+    }
+    return {
+      cards,
+      topicId,
+      topicOrder: topicOrder === -1 ? 0 : topicOrder,
+    }
+  })
+}
+
+export function projectEditorNoteStorage(note: EditorNote): EditorNoteStorageProjection {
+  const entries = note.getEntries()
+  return {
+    entries: toStoredEntries(entries),
+    learningCards: projectNoteLearningCards(note),
+    spreadsheets: toStoredSpreadsheets(note),
+    topics: entries
+      .filter(entry => entry.kind === 'topic')
+      .map(entry => toStoredTopic(note.getTopicContent(entry.id))),
+  }
+}
+
+export async function repairNoteLearningCards(
+  storage: EditorStorage,
+  note: EditorNote,
+): Promise<void> {
+  const current = projectNoteLearningCards(note)
+  const topicIds = new Set([
+    ...current.map(topic => topic.topicId),
+    ...await storage.learning.cards.listNoteTopicIds(note.id),
+  ])
+  const projectionByTopic = new Map(
+    projectNoteLearningCards(note, topicIds).map(topic => [topic.topicId, topic]),
+  )
+  for (const topic of projectionByTopic.values()) {
+    await storage.learning.cards.reconcileTopicCards({
+      ...topic,
+      noteId: note.id,
+    })
+  }
+}

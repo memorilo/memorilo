@@ -1,0 +1,16 @@
+export const colors = {
+  accent: '#A5523D',
+  accentSoft: '#F2DED6',
+  background: '#F3F1EC',
+  backgroundRaised: '#EAE8E1',
+  border: 'rgba(36, 35, 31, 0.12)',
+  danger: '#B3261E',
+  dangerSoft: '#F8E4DE',
+  glass: 'rgba(255, 255, 255, 0.66)',
+  glassStrong: 'rgba(255, 255, 255, 0.84)',
+  glassBorder: 'rgba(255, 255, 255, 0.76)',
+  muted: '#6B6962',
+  secondary: '#4F685D',
+  surface: '#FAF9F5',
+  text: '#1C1C1A',
+} as const

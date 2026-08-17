@@ -19,6 +19,7 @@ import type {
 } from './note-application-contracts'
 import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
+import { createBookEditorNote } from '@memorilo/application'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { parseTaskDueDate, parseTaskRepeatRule, transitionTaskAttrs } from '@memorilo/editor/schema'
@@ -345,19 +346,17 @@ export function createNoteApplicationCommands({
     })),
     createBookNote: (input: CreateBookNoteInput) => serialize(async (): Promise<CreateBookNoteResult> => {
       const id = randomUUID()
-      const note = createEditorNote({
+      const created = createBookEditorNote({
+        book: input.book,
         id,
-        initialBookTopic: { book: input.book, mode: 0, title: input.topicTitle },
         learningEnabled: defaultNoteLearningEnabled(),
-        title: input.noteTitle,
+        noteTitle: input.noteTitle,
+        topicTitle: input.topicTitle,
       })
       try {
-        const current = await runtime.commit(note)
-        const topic = note.getEntries().find(entry => entry.kind === 'topic' && entry.topicType === 'book')
-        if (!topic)
-          throw new Error(`New Book Note ${id} does not contain its BookTopic`)
+        const current = await runtime.commit(created.note)
         return {
-          context: await projectBookTopicReadingContext(storage, current, topic.id, false),
+          context: await projectBookTopicReadingContext(storage, current, created.topicId, false),
           status: 'created',
         }
       }

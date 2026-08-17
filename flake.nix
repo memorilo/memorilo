@@ -22,9 +22,11 @@
       pnpm = pkgs.pnpm.override {nodejs-slim = pkgs.nodejs-slim_22;};
       commonPackages = [pkgs.nodejs_22 pnpm pkgs.git pkgs.just];
       android = {
-        api = "35";
-        buildTools = "35.0.0";
+        compileApi = "36";
+        emulatorApi = "35";
+        buildToolsVersions = ["36.0.0" "35.0.0"];
         ndk = "27.1.12297006";
+        ndkVersions = ["27.1.12297006" "27.0.12077973"];
         cmake = "3.22.1";
       };
       emulatorAbi =
@@ -34,14 +36,17 @@
       supportsAndroidEmulator =
         pkgs.stdenv.hostPlatform.isDarwin || pkgs.stdenv.hostPlatform.isx86_64;
 
-      mkAndroidSdk = {withEmulator ? false}:
+      mkAndroidSdk = {
+        withEmulator ? false,
+        platformVersions ? [android.compileApi],
+      }:
         (pkgs.androidenv.composeAndroidPackages ({
-            platformVersions = [android.api];
-            buildToolsVersions = [android.buildTools];
+            inherit platformVersions;
+            buildToolsVersions = android.buildToolsVersions;
             includeCmake = true;
             cmakeVersions = [android.cmake];
             includeNDK = true;
-            ndkVersions = [android.ndk];
+            ndkVersions = android.ndkVersions;
           }
           // pkgs.lib.optionalAttrs withEmulator {
             includeEmulator = true;
@@ -86,7 +91,10 @@
           android = mkAndroidShell (mkAndroidSdk {});
         }
         // pkgs.lib.optionalAttrs supportsAndroidEmulator {
-          android-emulator = mkAndroidShell (mkAndroidSdk {withEmulator = true;});
+          android-emulator = mkAndroidShell (mkAndroidSdk {
+            withEmulator = true;
+            platformVersions = [android.emulatorApi];
+          });
         }
         // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
           ios = iosShell;

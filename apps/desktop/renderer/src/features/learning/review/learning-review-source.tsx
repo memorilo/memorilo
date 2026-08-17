@@ -1,19 +1,14 @@
 import type { DesktopReviewItem } from '@memorilo/desktop-api'
 import type { CardSurfaceItemSelection, CardSurfaceSide } from '@memorilo/editor'
-import { CardSurface, createEditorNote, demoEditorAdapters, projectEditorCards } from '@memorilo/editor'
+import { createEditorNote, demoEditorAdapters, ReviewCardSource } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
-import { lazy, Suspense, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
 
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
 import { learningReviewSourceStyles as styles } from './learning-review-source.stylex'
-
-const ImageOcclusionReview = lazy(async () => {
-  const module = await import('./image-occlusion-review')
-  return { default: module.ImageOcclusionReview }
-})
 
 export function LearningReviewSource({
   item,
@@ -28,14 +23,18 @@ export function LearningReviewSource({
   showSource: boolean
   side: CardSurfaceSide
 }) {
-  const { t } = useTranslation('learning')
   if (item.card.kind === 'image-occlusion') {
-    if (showSource)
-      throw new Error('Image occlusion Cards do not support source context')
     return (
-      <Suspense fallback={<div {...stylex.props(styles.sourceStatus)} role="status">{t('loadingSource')}</div>}>
-        <ImageOcclusionReview card={item.card} side={side} />
-      </Suspense>
+      <ReviewCardSource
+        adapters={demoEditorAdapters}
+        card={item.card}
+        itemSelection={itemSelection}
+        note={null}
+        revealedItemBlockIds={revealedItemBlockIds}
+        showSource={showSource}
+        side={side}
+        topicId={item.queue.topicId}
+      />
     )
   }
   return (
@@ -65,7 +64,6 @@ function EditorLearningReviewSource({
   const { t } = useTranslation('learning')
   if (item.card.kind === 'image-occlusion')
     throw new TypeError('Image occlusion Cards require the image occlusion review surface')
-  const card = item.card
   const sourceQuery = useQuery(desktopEffectQuery.queryOptions({
     queryFn: () => desktopEffect('notes.get-review-source', () => (
       desktopRequests.getNote({ noteId: item.queue.noteId })
@@ -80,30 +78,8 @@ function EditorLearningReviewSource({
       snapshot: sourceQuery.data.snapshot,
       title: sourceQuery.data.title,
     })
-    const entry = note.getEntries().find((candidate): candidate is Extract<typeof candidate, { kind: 'topic' }> => (
-      candidate.kind === 'topic' && candidate.id === item.queue.topicId
-    ))
-    if (!entry || entry.kind !== 'topic')
-      throw new Error(`Note ${note.id} does not contain Review Topic ${item.queue.topicId}`)
-    if (entry.topicType === 'image-occlusion')
-      throw new Error(`Review Topic ${entry.id} does not contain editor content`)
-    if (entry.topicType !== 'whiteboard')
-      return { note, topic: note.getTopic(entry.id) }
-    const validation = note.getTopicValidationInput(entry.id)
-    if (!('embeddedEditors' in validation))
-      throw new Error(`WhiteboardTopic ${entry.id} is missing its Embedded Editors`)
-    const matchingEditors = Object.values(validation.embeddedEditors)
-      .filter(editor => projectEditorCards(editor.document).some(card => card.id === item.card.id))
-    if (matchingEditors.length !== 1) {
-      throw new Error(
-        `Card ${item.card.id} must belong to exactly one Embedded Editor in WhiteboardTopic ${entry.id}`,
-      )
-    }
-    const editor = matchingEditors[0]
-    if (!editor)
-      throw new Error(`Card ${item.card.id} has no Embedded Editor`)
-    return { note, topic: note.getWhiteboardTopic(entry.id).getEmbeddedEditor(editor.editorId) }
-  }, [item.card.id, item.queue.topicId, sourceQuery.data])
+    return note
+  }, [sourceQuery.data])
   if (sourceQuery.isError) {
     return (
       <div {...stylex.props(styles.sourceStatus, styles.sourceError)} role="alert">
@@ -115,14 +91,15 @@ function EditorLearningReviewSource({
     return <div {...stylex.props(styles.sourceStatus)} role="status">{t('loadingSource')}</div>
 
   return (
-    <CardSurface
+    <ReviewCardSource
       adapters={demoEditorAdapters}
-      card={card}
+      card={item.card}
       itemSelection={itemSelection}
+      note={source}
       revealedItemBlockIds={revealedItemBlockIds}
       showSource={showSource}
       side={side}
-      topic={source.topic}
+      topicId={item.queue.topicId}
     />
   )
 }

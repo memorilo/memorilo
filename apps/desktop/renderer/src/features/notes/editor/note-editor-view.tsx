@@ -11,7 +11,7 @@ import type {
 import type { ComponentProps } from 'react'
 import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
-import { Editor, EditorMode, projectCardTopicCards, useEditorTopicMode } from '@memorilo/editor'
+import { Editor, EditorMode, projectCardTopicCards, SpreadsheetEditor, useEditorTopicMode } from '@memorilo/editor'
 import { readerAnnotationLabel } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { AlignLeft, Copy, ListTree } from 'lucide-react'
@@ -29,7 +29,6 @@ import { desktopEditorAdapters } from './note-editor-session'
 import { CardTopicPreview, ReaderSourceHeader } from './note-editor-topic-chrome'
 import { noteEditorStyles } from './note-editor.stylex'
 import { useNoteEntryContextMenu } from './note-entry-context-menu'
-import { SpreadsheetEditor } from './spreadsheet-editor'
 import { WhiteboardEditor } from './whiteboard-editor'
 
 const ImageOcclusionTopicEditor = lazy(async () => {

@@ -1,9 +1,13 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import {
+  mainDatabaseSchemaGeneration,
+  UnsupportedDatabaseGenerationError,
+} from '@memorilo/editor-storage'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BetterSqliteDatabase } from './better-sqlite-database'
-import { mainDatabaseSchemaGeneration, openCurrentMainDatabase } from './main-database'
+import { openCurrentMainDatabase } from './main-database'
 
 const temporaryDirectories: string[] = []
 
@@ -35,40 +39,40 @@ describe('main database generation', () => {
     await second.close()
   })
 
-  it('deletes an unversioned legacy database before opening the current generation', async () => {
+  it('rejects an unversioned legacy database without deleting it', async () => {
     const path = await databasePath()
     const legacy = new BetterSqliteDatabase(path)
     await legacy.exec('CREATE TABLE legacy_notes (value TEXT NOT NULL)')
-    await legacy.run('INSERT INTO legacy_notes (value) VALUES (?)', ['delete me'])
+    await legacy.run('INSERT INTO legacy_notes (value) VALUES (?)', ['preserve me'])
     await legacy.close()
 
-    const current = await openCurrentMainDatabase(path)
+    await expect(openCurrentMainDatabase(path)).rejects.toEqual(
+      new UnsupportedDatabaseGenerationError(0, mainDatabaseSchemaGeneration),
+    )
 
-    await expect(current.get<{ name: string }>(
-      'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = \'legacy_notes\'',
-    )).resolves.toBeUndefined()
-    await expect(current.get<{ user_version: number }>('PRAGMA user_version')).resolves.toEqual({
-      user_version: mainDatabaseSchemaGeneration,
+    const preserved = new BetterSqliteDatabase(path)
+    await expect(preserved.get<{ value: string }>('SELECT value FROM legacy_notes')).resolves.toEqual({
+      value: 'preserve me',
     })
-    await current.close()
+    await preserved.close()
   })
 
-  it('deletes a database from an incompatible generation before opening the current generation', async () => {
+  it('rejects an incompatible generation without deleting it', async () => {
     const path = await databasePath()
     const legacy = new BetterSqliteDatabase(path)
     await legacy.exec('CREATE TABLE incompatible_notes (value TEXT NOT NULL)')
-    await legacy.run('INSERT INTO incompatible_notes (value) VALUES (?)', ['delete me'])
+    await legacy.run('INSERT INTO incompatible_notes (value) VALUES (?)', ['preserve me'])
     await legacy.exec('PRAGMA user_version = 999')
     await legacy.close()
 
-    const current = await openCurrentMainDatabase(path)
+    await expect(openCurrentMainDatabase(path)).rejects.toEqual(
+      new UnsupportedDatabaseGenerationError(999, mainDatabaseSchemaGeneration),
+    )
 
-    await expect(current.get<{ name: string }>(
-      'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = \'incompatible_notes\'',
-    )).resolves.toBeUndefined()
-    await expect(current.get<{ user_version: number }>('PRAGMA user_version')).resolves.toEqual({
-      user_version: mainDatabaseSchemaGeneration,
+    const preserved = new BetterSqliteDatabase(path)
+    await expect(preserved.get<{ value: string }>('SELECT value FROM incompatible_notes')).resolves.toEqual({
+      value: 'preserve me',
     })
-    await current.close()
+    await preserved.close()
   })
 })

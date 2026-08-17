@@ -1,0 +1,23 @@
+{
+  "name": "@memorilo/application",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./learning-review": "./src/learning-review.ts",
+    "./note-card-projection": "./src/note-card-projection.ts",
+    "./note-storage": "./src/note-storage.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@memorilo/editor": "workspace:*",
+    "@memorilo/editor-storage": "workspace:*",
+    "@memorilo/spreadsheet": "workspace:*"
+  }
+}

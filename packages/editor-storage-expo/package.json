@@ -1,0 +1,19 @@
+{
+  "name": "@memorilo/editor-storage-expo",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@memorilo/editor-storage": "workspace:*",
+    "expo-sqlite": "57.0.1"
+  }
+}

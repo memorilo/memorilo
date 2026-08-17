@@ -7,7 +7,7 @@
  * In the future consider separating common utils into a separate shared chunk.
  */
 
-import { Commands, subsetToBinary } from "./subset-shared.chunk";
+import { SubsetCommands, subsetToBinary } from "./subset-shared.chunk";
 
 /**
  * Due to this export (and related dynamic import), this worker code will be included in the bundle automatically (as a separate chunk),
@@ -23,13 +23,13 @@ export const WorkerUrl: URL | undefined = import.meta.url
 if (typeof window === "undefined" && typeof self !== "undefined") {
   self.onmessage = async (e: {
     data: {
-      command: typeof Commands.Subset;
+      command: typeof SubsetCommands.Subset;
       arrayBuffer: ArrayBuffer;
       codePoints: Array<number>;
     };
   }) => {
     switch (e.data.command) {
-      case Commands.Subset:
+      case SubsetCommands.Subset:
         const buffer = await subsetToBinary(
           e.data.arrayBuffer,
           e.data.codePoints,

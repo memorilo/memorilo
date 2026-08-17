@@ -51,11 +51,17 @@ export type {
   EditorCardSyncError,
 } from './card/card-sync'
 export { createEditorCardSync, EditorCardSyncClosedError } from './card/card-sync'
+export { ImageOcclusionReview } from './card/image-occlusion-review'
+export { imageOcclusionReviewStyles } from './card/image-occlusion-review.stylex'
+export type { ReviewCardSourceProps } from './card/review-card-source'
+export { ReviewCardSource } from './card/review-card-source'
 export { EditorMode } from './common/editor-mode'
 export type { EditorModeName, EditorModeValue } from './common/editor-mode'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
 export type { EditorFocusTarget, EditorLayout, EditorProps } from './editor'
+export type { ImageOcclusionEditorProps } from './image-occlusion/image-occlusion-editor'
+export { ImageOcclusionEditor } from './image-occlusion/image-occlusion-editor'
 export type {
   EditorImageOcclusionIntegration,
   ImageOcclusionCardProjection,
@@ -190,3 +196,9 @@ export {
   LoroWhiteboardTopicEntrySchema,
   validateLoroTopic,
 } from './schema'
+export { SpreadsheetEditor } from './spreadsheet/spreadsheet-editor'
+export type {
+  WhiteboardEditorProps,
+  WhiteboardLibraryPersistenceAdapter,
+} from './whiteboard/whiteboard-editor'
+export { WhiteboardEditor } from './whiteboard/whiteboard-editor'
