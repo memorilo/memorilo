@@ -1,31 +1,32 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { TodoFilter, TodoView } from './todo-model'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  Circle,
-  CircleCheck,
-  CircleDotDashed,
+  CalendarDays,
+  ChartNoAxesGantt,
   Columns3,
+  Grid2X2,
   List,
   ListTodo,
   LoaderCircle,
   TriangleAlert,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { todoQueryKeys } from './query-keys'
-import { formatTaskDuration, groupTodoTasks, taskElapsedMs, todoCalendarQueryOptions, todoStatuses, todoTaskQueryOptions } from './todo-model'
+import { todoCalendarQueryOptions, todoTaskQueryOptions } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
-import { PlanningViewIcon, TodoCalendarView, TodoQuadrantView, TodoTimelineView } from './todo-planning-views'
-import { TodoTaskActions } from './todo-task-actions'
+import { TodoBoardView } from './views/todo-board-view'
+import { TodoCalendarView } from './views/todo-calendar-view'
+import { TodoListView } from './views/todo-list-view'
+import { TodoQuadrantView } from './views/todo-quadrant-view'
+import { TodoTimelineView } from './views/todo-timeline-view'
 
-const rowHeight = 58
 const filters: readonly { id: TodoFilter, labelKey: string }[] = [
   { id: 'all', labelKey: 'filterAll' },
   { id: 'todo', labelKey: 'statusTodo' },
@@ -41,25 +42,6 @@ const viewOptions: readonly { descriptionKey: string, id: TodoView, labelKey: st
   { descriptionKey: 'switchToQuadrant', id: 'quadrant', labelKey: 'quadrantView' },
 ]
 
-function estimateRowSize() {
-  return rowHeight
-}
-
-function taskKey(task: DesktopTodoTask): string {
-  return `${task.noteId}\0${task.topicId}\0${task.blockId}`
-}
-
-function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
-  switch (status) {
-    case 'todo':
-      return t('statusTodo')
-    case 'doing':
-      return t('statusDoing')
-    case 'done':
-      return t('statusDone')
-  }
-}
-
 function viewLabel(view: TodoView, t: TFunction): string {
   const option = viewOptions.find(item => item.id === view)
   if (!option)
@@ -68,88 +50,45 @@ function viewLabel(view: TodoView, t: TFunction): string {
 }
 
 function ViewIcon({ view }: { view: TodoView }) {
-  if (view === 'list')
-    return <List aria-hidden="true" size={14} strokeWidth={1.8} />
-  if (view === 'board')
-    return <Columns3 aria-hidden="true" size={14} strokeWidth={1.8} />
-  return <PlanningViewIcon view={view} />
-}
-
-function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
-  switch (status) {
-    case 'todo':
-      return <Circle {...stylex.props(todoPageStyles.statusIcon)} aria-hidden="true" strokeWidth={1.7} />
-    case 'doing':
-      return <CircleDotDashed {...stylex.props(todoPageStyles.statusIcon, todoPageStyles.statusDoing)} aria-hidden="true" strokeWidth={1.8} />
-    case 'done':
-      return <CircleCheck {...stylex.props(todoPageStyles.statusIcon, todoPageStyles.statusDone)} aria-hidden="true" strokeWidth={1.8} />
+  switch (view) {
+    case 'list':
+      return <List aria-hidden="true" size={14} strokeWidth={1.8} />
+    case 'board':
+      return <Columns3 aria-hidden="true" size={14} strokeWidth={1.8} />
+    case 'timeline':
+      return <ChartNoAxesGantt aria-hidden="true" size={14} strokeWidth={1.8} />
+    case 'calendar':
+      return <CalendarDays aria-hidden="true" size={14} strokeWidth={1.8} />
+    case 'quadrant':
+      return <Grid2X2 aria-hidden="true" size={14} strokeWidth={1.8} />
   }
 }
 
-function BoardView({
-  calendarEvents,
-  isFetchingMore,
-  now,
-  onOpenTask,
-  onUpdateTask,
+function TodoStatus({
+  kind,
+  onRetry,
   t,
-  tasks,
 }: {
-  calendarEvents: readonly DesktopTodoCalendarEvent[]
-  isFetchingMore: boolean
-  now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
-  onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  kind: 'empty' | 'error' | 'loading'
+  onRetry: () => Promise<unknown>
   t: TFunction
-  tasks: readonly DesktopTodoTask[]
 }) {
-  const grouped = groupTodoTasks(tasks)
   return (
-    <div {...stylex.props(todoPageStyles.boardViewport)}>
-      <div {...stylex.props(todoPageStyles.boardGrid)}>
-        {todoStatuses.map((status) => {
-          const columnTasks = grouped[status]
-          return (
-            <section key={status} {...stylex.props(todoPageStyles.boardColumn)} aria-label={statusLabel(status, t)}>
-              <header {...stylex.props(todoPageStyles.boardColumnHeader)}>
-                <span {...stylex.props(todoPageStyles.boardColumnTitle)}>
-                  <TaskStatusIcon status={status} />
-                  {statusLabel(status, t)}
-                </span>
-                <span {...stylex.props(todoPageStyles.boardColumnCount)}>{columnTasks.length}</span>
-              </header>
-              <div {...stylex.props(todoPageStyles.boardColumnBody)}>
-                {columnTasks.length === 0
-                  ? <p {...stylex.props(todoPageStyles.boardColumnEmpty)}>{t('noTasksInColumn')}</p>
-                  : columnTasks.map((task) => {
-                      const elapsed = formatTaskDuration(taskElapsedMs(task, now))
-                      return (
-                        <div {...stylex.props(todoPageStyles.boardCardShell)} key={taskKey(task)}>
-                          <button
-                            {...stylex.props(todoPageStyles.boardCard)}
-                            aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
-                            title={t('openTask', { note: task.noteTitle, task: task.text })}
-                            type="button"
-                            onClick={() => void onOpenTask(task)}
-                          >
-                            <span {...stylex.props(todoPageStyles.boardCardText, task.status === 'done' && todoPageStyles.taskDone)}>{task.text}</span>
-                            <span {...stylex.props(todoPageStyles.boardCardSource)}>{t('source', { note: task.noteTitle, topic: task.topicTitle })}</span>
-                            <span {...stylex.props(todoPageStyles.boardCardFooter)}>
-                              <span>{t('elapsed', { duration: elapsed })}</span>
-                              <span aria-hidden="true">›</span>
-                            </span>
-                          </button>
-                          <div {...stylex.props(todoPageStyles.boardCardActions)}>
-                            <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
-                          </div>
-                        </div>
-                      )
-                    })}
-                {isFetchingMore && <span {...stylex.props(todoPageStyles.boardColumnLoading)}>{t('loadingMore')}</span>}
-              </div>
-            </section>
-          )
-        })}
+    <div {...stylex.props(todoPageStyles.status)}>
+      <div {...stylex.props(todoPageStyles.statusContent)}>
+        {kind === 'loading'
+          ? <LoaderCircle {...stylex.props(todoPageStyles.statusGlyph, todoPageStyles.loadingIcon)} aria-hidden="true" strokeWidth={1.7} />
+          : kind === 'error'
+            ? <TriangleAlert {...stylex.props(todoPageStyles.statusGlyph, todoPageStyles.errorIcon)} aria-hidden="true" strokeWidth={1.7} />
+            : <ListTodo {...stylex.props(todoPageStyles.statusGlyph)} aria-hidden="true" strokeWidth={1.6} />}
+        <span role={kind === 'loading' ? 'status' : undefined}>
+          {kind === 'loading' ? t('loading') : kind === 'error' ? t('couldNotLoad') : t('noTasks')}
+        </span>
+        {kind === 'error' && (
+          <button {...stylex.props(todoPageStyles.retryButton)} type="button" onClick={() => void onRetry()}>
+            {t('tryAgain')}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -171,12 +110,13 @@ export function TodoPage({
   const { i18n, t } = useTranslation('todo')
   const configuration = useDesktopConfiguration()
   const queryClient = useQueryClient()
-  const scrollElementRef = useRef<HTMLDivElement>(null)
   const tasksQuery = useInfiniteQuery(todoTaskQueryOptions(filter))
   const calendarQuery = useQuery(todoCalendarQueryOptions())
+  const { fetchNextPage } = tasksQuery
   const tasks = useMemo(() => tasksQuery.data
     ? tasksQuery.data.pages.flatMap(page => [...page.items])
     : [], [tasksQuery.data])
+  const calendarEvents = calendarQuery.data?.events ?? []
   const hasRunningTasks = tasks.some(task => task.status === 'doing' && task.startedAt !== null)
   const [now, setNow] = useState(() => Date.now())
   const updateTodoTask = useCallback(async (input: UpdateDesktopTodoTaskInput) => {
@@ -184,6 +124,9 @@ export function TodoPage({
     await queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
     await calendarQuery.refetch()
   }, [calendarQuery, queryClient])
+  const loadNextPage = useCallback(async () => {
+    await fetchNextPage()
+  }, [fetchNextPage])
 
   useEffect(() => {
     if (!hasRunningTasks)
@@ -200,10 +143,20 @@ export function TodoPage({
   }, [queryClient])
 
   useEffect(() => {
-    const scrollElement = scrollElementRef.current
-    if (scrollElement)
-      scrollElement.scrollTop = 0
-  }, [filter, view])
+    if (view === 'list'
+      || !tasksQuery.hasNextPage
+      || tasksQuery.isFetchingNextPage
+      || tasksQuery.isFetchNextPageError) {
+      return
+    }
+    void loadNextPage()
+  }, [
+    loadNextPage,
+    tasksQuery.hasNextPage,
+    tasksQuery.isFetchNextPageError,
+    tasksQuery.isFetchingNextPage,
+    view,
+  ])
 
   const titlebar = useMemo(() => ({
     title: t('title'),
@@ -228,56 +181,85 @@ export function TodoPage({
   }), [onViewChange, t, view])
   usePageTitlebar(titlebar)
 
-  const {
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-  } = tasksQuery
-  const virtualCount = view === 'list' ? tasks.length + (hasNextPage ? 1 : 0) : 0
-  const getVirtualRowKey = useCallback((index: number) => {
-    const task = tasks[index]
-    if (task)
-      return taskKey(task)
-    if (index === tasks.length && hasNextPage)
-      return 'load-next-todo-page'
-    throw new RangeError(`Virtual Todo row ${index} is outside the list`)
-  }, [hasNextPage, tasks])
-  const rowVirtualizer = useVirtualizer({
-    count: virtualCount,
-    estimateSize: estimateRowSize,
-    getItemKey: getVirtualRowKey,
-    getScrollElement: () => scrollElementRef.current,
-    overscan: 10,
-  })
-  const virtualRows = rowVirtualizer.getVirtualItems()
-  const lastVirtualRow = virtualRows.at(-1)
-
-  useEffect(() => {
-    if (view !== 'list'
-      || !lastVirtualRow
-      || lastVirtualRow.index !== tasks.length
-      || !hasNextPage
-      || isFetchingNextPage
-      || isFetchNextPageError) {
-      return
-    }
-    void fetchNextPage()
-  }, [
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    lastVirtualRow,
-    tasks.length,
-    view,
-  ])
-
-  useEffect(() => {
-    if (view === 'list' || !hasNextPage || isFetchingNextPage || isFetchNextPageError)
-      return
-    void fetchNextPage()
-  }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, view])
+  let viewContent
+  if (tasksQuery.isPending) {
+    viewContent = <TodoStatus kind="loading" onRetry={tasksQuery.refetch} t={t} />
+  }
+  else if (tasksQuery.isError && tasks.length === 0) {
+    viewContent = <TodoStatus kind="error" onRetry={tasksQuery.refetch} t={t} />
+  }
+  else if (tasks.length === 0) {
+    viewContent = <TodoStatus kind="empty" onRetry={tasksQuery.refetch} t={t} />
+  }
+  else if (view === 'list') {
+    viewContent = (
+      <TodoListView
+        calendarEvents={calendarEvents}
+        hasNextPage={Boolean(tasksQuery.hasNextPage)}
+        isFetchNextPageError={tasksQuery.isFetchNextPageError}
+        isFetchingNextPage={tasksQuery.isFetchingNextPage}
+        now={now}
+        onFetchNextPage={loadNextPage}
+        onOpenTask={onOpenTask}
+        onUpdateTask={updateTodoTask}
+        resetKey={filter}
+        t={t}
+        tasks={tasks}
+      />
+    )
+  }
+  else if (view === 'board') {
+    viewContent = (
+      <TodoBoardView
+        calendarEvents={calendarEvents}
+        isFetchingMore={tasksQuery.isFetchingNextPage}
+        now={now}
+        onOpenTask={onOpenTask}
+        onUpdateTask={updateTodoTask}
+        t={t}
+        tasks={tasks}
+      />
+    )
+  }
+  else if (view === 'timeline') {
+    viewContent = (
+      <TodoTimelineView
+        calendarEvents={calendarEvents}
+        locale={i18n.language}
+        now={now}
+        onOpenTask={onOpenTask}
+        onUpdateTask={updateTodoTask}
+        t={t}
+        tasks={tasks}
+      />
+    )
+  }
+  else if (view === 'calendar') {
+    viewContent = (
+      <TodoCalendarView
+        calendarEvents={calendarEvents}
+        locale={i18n.language}
+        now={now}
+        onOpenTask={onOpenTask}
+        onUpdateTask={updateTodoTask}
+        t={t}
+        tasks={tasks}
+        weekStart={configuration.weekStart}
+      />
+    )
+  }
+  else {
+    viewContent = (
+      <TodoQuadrantView
+        calendarEvents={calendarEvents}
+        now={now}
+        onOpenTask={onOpenTask}
+        onUpdateTask={updateTodoTask}
+        t={t}
+        tasks={tasks}
+      />
+    )
+  }
 
   return (
     <main {...stylex.props(todoPageStyles.page)} aria-label={t('title')}>
@@ -302,165 +284,7 @@ export function TodoPage({
             </p>
           </div>
         )}
-
-        <div {...stylex.props(todoPageStyles.listRegion)}>
-          <div ref={scrollElementRef} {...stylex.props(todoPageStyles.listViewport)}>
-            {tasksQuery.isPending
-              ? (
-                  <div {...stylex.props(todoPageStyles.status)}>
-                    <div {...stylex.props(todoPageStyles.statusContent)}>
-                      <LoaderCircle {...stylex.props(todoPageStyles.statusGlyph, todoPageStyles.loadingIcon)} aria-hidden="true" strokeWidth={1.7} />
-                      <span role="status">{t('loading')}</span>
-                    </div>
-                  </div>
-                )
-              : tasksQuery.isError && tasks.length === 0
-                ? (
-                    <div {...stylex.props(todoPageStyles.status)}>
-                      <div {...stylex.props(todoPageStyles.statusContent)}>
-                        <TriangleAlert {...stylex.props(todoPageStyles.statusGlyph, todoPageStyles.errorIcon)} aria-hidden="true" strokeWidth={1.7} />
-                        <span>{t('couldNotLoad')}</span>
-                        <button {...stylex.props(todoPageStyles.retryButton)} type="button" onClick={() => void tasksQuery.refetch()}>
-                          {t('tryAgain')}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                : tasks.length === 0
-                  ? (
-                      <div {...stylex.props(todoPageStyles.status)}>
-                        <div {...stylex.props(todoPageStyles.statusContent)}>
-                          <ListTodo {...stylex.props(todoPageStyles.statusGlyph)} aria-hidden="true" strokeWidth={1.6} />
-                          <span>{t('noTasks')}</span>
-                        </div>
-                      </div>
-                    )
-                  : view === 'board'
-                    ? (
-                        <BoardView
-                          calendarEvents={calendarQuery.data?.events ?? []}
-                          isFetchingMore={isFetchingNextPage}
-                          now={now}
-                          onOpenTask={onOpenTask}
-                          onUpdateTask={updateTodoTask}
-                          t={t}
-                          tasks={tasks}
-                        />
-                      )
-                    : view === 'timeline'
-                      ? (
-                          <TodoTimelineView
-                            calendarEvents={calendarQuery.data?.events ?? []}
-                            locale={i18n.language}
-                            now={now}
-                            onOpenTask={onOpenTask}
-                            onUpdateTask={updateTodoTask}
-                            t={t}
-                            tasks={tasks}
-                          />
-                        )
-                      : view === 'calendar'
-                        ? (
-                            <TodoCalendarView
-                              calendarEvents={calendarQuery.data?.events ?? []}
-                              locale={i18n.language}
-                              now={now}
-                              onOpenTask={onOpenTask}
-                              onUpdateTask={updateTodoTask}
-                              t={t}
-                              tasks={tasks}
-                              weekStart={configuration.weekStart}
-                            />
-                          )
-                        : view === 'quadrant'
-                          ? (
-                              <TodoQuadrantView
-                                calendarEvents={calendarQuery.data?.events ?? []}
-                                now={now}
-                                onOpenTask={onOpenTask}
-                                onUpdateTask={updateTodoTask}
-                                t={t}
-                                tasks={tasks}
-                              />
-                            )
-                          : (
-                              <ul
-                                {...stylex.props(todoPageStyles.list)}
-                                aria-busy={isFetchingNextPage}
-                                style={{ height: rowVirtualizer.getTotalSize() }}
-                              >
-                                {virtualRows.map((virtualRow) => {
-                                  const task = tasks[virtualRow.index]
-                                  if (!task) {
-                                    if (virtualRow.index !== tasks.length || !hasNextPage)
-                                      throw new RangeError(`Virtual Todo row ${virtualRow.index} is outside the list`)
-                                    return (
-                                      <li
-                                        key={virtualRow.key}
-                                        {...stylex.props(todoPageStyles.row)}
-                                        style={{ transform: `translateY(${virtualRow.start}px)` }}
-                                      >
-                                        <div {...stylex.props(todoPageStyles.loadingMore)}>
-                                          {isFetchNextPageError
-                                            ? (
-                                                <button {...stylex.props(todoPageStyles.retryButton)} type="button" onClick={() => void fetchNextPage()}>
-                                                  {t('tryAgain')}
-                                                </button>
-                                              )
-                                            : (
-                                                <>
-                                                  <LoaderCircle {...stylex.props(todoPageStyles.loadingMoreIcon, todoPageStyles.loadingIcon)} aria-hidden="true" strokeWidth={1.8} />
-                                                  <span>{t('loadingMore')}</span>
-                                                </>
-                                              )}
-                                        </div>
-                                      </li>
-                                    )
-                                  }
-                                  const elapsed = formatTaskDuration(taskElapsedMs(task, now))
-                                  return (
-                                    <li
-                                      key={taskKey(task)}
-                                      {...stylex.props(todoPageStyles.row)}
-                                      style={{ transform: `translateY(${virtualRow.start}px)` }}
-                                    >
-                                      <div {...stylex.props(todoPageStyles.rowShell)}>
-                                        <button
-                                          {...stylex.props(todoPageStyles.rowButton)}
-                                          aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
-                                          title={t('openTask', { note: task.noteTitle, task: task.text })}
-                                          type="button"
-                                          onClick={() => void onOpenTask(task)}
-                                        >
-                                          <span title={statusLabel(task.status, t)}>
-                                            <TaskStatusIcon status={task.status} />
-                                          </span>
-                                          <span {...stylex.props(todoPageStyles.taskContent)}>
-                                            <span {...stylex.props(todoPageStyles.taskText, task.status === 'done' && todoPageStyles.taskDone)}>
-                                              {task.text}
-                                            </span>
-                                            <span {...stylex.props(todoPageStyles.source)}>
-                                              {t('source', { note: task.noteTitle, topic: task.topicTitle })}
-                                            </span>
-                                          </span>
-                                          <span {...stylex.props(todoPageStyles.elapsed)} title={t('elapsed', { duration: elapsed })}>
-                                            {elapsed}
-                                          </span>
-                                        </button>
-                                        <TodoTaskActions
-                                          calendarEvents={calendarQuery.data?.events ?? []}
-                                          onUpdateTask={updateTodoTask}
-                                          t={t}
-                                          task={task}
-                                        />
-                                      </div>
-                                    </li>
-                                  )
-                                })}
-                              </ul>
-                            )}
-          </div>
-        </div>
+        <div {...stylex.props(todoPageStyles.viewRegion)}>{viewContent}</div>
       </section>
     </main>
   )

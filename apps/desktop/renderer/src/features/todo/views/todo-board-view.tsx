@@ -1,0 +1,98 @@
+import type { DesktopTodoCalendarEvent, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { TFunction } from 'i18next'
+import * as stylex from '@stylexjs/stylex'
+import { Circle, CircleCheck, CircleDotDashed } from 'lucide-react'
+import { formatTaskDuration, groupTodoTasks, taskElapsedMs, todoStatuses, todoTaskKey } from '../todo-model'
+import { TodoTaskActions } from '../todo-task-actions'
+import { todoBoardViewStyles as styles } from './todo-board-view.stylex'
+
+function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
+  switch (status) {
+    case 'todo':
+      return t('statusTodo')
+    case 'doing':
+      return t('statusDoing')
+    case 'done':
+      return t('statusDone')
+  }
+}
+
+function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
+  switch (status) {
+    case 'todo':
+      return <Circle {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.7} />
+    case 'doing':
+      return <CircleDotDashed {...stylex.props(styles.statusIcon, styles.statusDoing)} aria-hidden="true" strokeWidth={1.8} />
+    case 'done':
+      return <CircleCheck {...stylex.props(styles.statusIcon, styles.statusDone)} aria-hidden="true" strokeWidth={1.8} />
+  }
+}
+
+export function TodoBoardView({
+  calendarEvents,
+  isFetchingMore,
+  now,
+  onOpenTask,
+  onUpdateTask,
+  t,
+  tasks,
+}: {
+  calendarEvents: readonly DesktopTodoCalendarEvent[]
+  isFetchingMore: boolean
+  now: number
+  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  t: TFunction
+  tasks: readonly DesktopTodoTask[]
+}) {
+  const grouped = groupTodoTasks(tasks)
+  return (
+    <div {...stylex.props(styles.viewport)}>
+      <div {...stylex.props(styles.grid)}>
+        {todoStatuses.map((status) => {
+          const columnTasks = grouped[status]
+          return (
+            <section key={status} {...stylex.props(styles.column)} aria-label={statusLabel(status, t)}>
+              <header {...stylex.props(styles.columnHeader)}>
+                <span {...stylex.props(styles.columnTitle)}>
+                  <TaskStatusIcon status={status} />
+                  {statusLabel(status, t)}
+                </span>
+                <span {...stylex.props(styles.columnCount)}>{columnTasks.length}</span>
+              </header>
+              <div {...stylex.props(styles.columnBody)}>
+                {columnTasks.length === 0
+                  ? <p {...stylex.props(styles.columnEmpty)}>{t('noTasksInColumn')}</p>
+                  : columnTasks.map((task) => {
+                      const elapsed = formatTaskDuration(taskElapsedMs(task, now))
+                      return (
+                        <div {...stylex.props(styles.cardShell)} key={todoTaskKey(task)}>
+                          <button
+                            {...stylex.props(styles.card)}
+                            aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
+                            title={t('openTask', { note: task.noteTitle, task: task.text })}
+                            type="button"
+                            onClick={() => void onOpenTask(task)}
+                          >
+                            <span {...stylex.props(styles.cardText, task.status === 'done' && styles.taskDone)}>{task.text}</span>
+                            <span {...stylex.props(styles.cardSource)}>{t('source', { note: task.noteTitle, topic: task.topicTitle })}</span>
+                            <span {...stylex.props(styles.cardFooter)}>
+                              <span>{t('elapsed', { duration: elapsed })}</span>
+                              <span aria-hidden="true">›</span>
+                            </span>
+                          </button>
+                          <div {...stylex.props(styles.cardActions)}>
+                            <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                {isFetchingMore && <span {...stylex.props(styles.columnLoading)}>{t('loadingMore')}</span>}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
