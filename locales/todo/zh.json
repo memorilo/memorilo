@@ -78,6 +78,8 @@
   ,"repeatIntervalError": "重复间隔必须是 1 到 999 的整数"
   ,"repeatCalendarError": "请为此重复规则选择日历订阅"
   ,"repeatWeekdayError": "请至少选择一个星期"
+  ,"loadingCalendars": "正在加载日历…"
+  ,"couldNotLoadCalendars": "无法加载日历：{{message}}"
   ,"skipThis": "跳过本次"
   ,"onlyThis": "仅修改本次"
   ,"onlyThisText": "本次文本"

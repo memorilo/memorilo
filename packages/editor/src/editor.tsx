@@ -41,6 +41,8 @@ interface EditorBaseProps {
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
   readOnly?: boolean
+  /** Planning date used by tasks without an explicit due date, such as Journal tasks. */
+  taskDate?: string
 }
 
 export interface EditorFocusTarget {
@@ -193,6 +195,7 @@ export function Editor(props: EditorProps) {
             mode={mode}
             readOnly={props.readOnly === true}
             session={session}
+            taskDate={props.taskDate}
           >
             {mode === EditorMode.Outline
               ? (

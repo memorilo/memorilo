@@ -10,6 +10,7 @@ import type {
 } from './note-editor-session-runtime'
 import { demoEditorAdapters } from '@memorilo/editor'
 import { createLatestOperationSupervisor } from '@memorilo/effect-lifecycle'
+import dayjs from 'dayjs'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
@@ -66,6 +67,19 @@ export function desktopEditorAdapters(networkImagePasteBehavior: 'download' | 'u
     ...demoEditorAdapters,
     importNetworkImage: async (source: string) => (await desktopRequests.importNetworkImage({ source })).src,
     networkImagePasteBehavior,
+    taskCalendar: {
+      load: async () => {
+        const year = dayjs().year()
+        const [events, subscriptions] = await Promise.all([
+          desktopRequests.listTodoCalendarEvents({
+            from: `${year - 1}-01-01`,
+            through: `${year + 5}-12-31`,
+          }),
+          desktopRequests.listTodoCalendarSubscriptions(),
+        ])
+        return { events, subscriptions }
+      },
+    },
     uploadImage: async ({ file, onProgress }: Parameters<typeof demoEditorAdapters.uploadImage>[0]) => {
       const total = Math.max(file.size, 1)
       onProgress({ loaded: 0, total })

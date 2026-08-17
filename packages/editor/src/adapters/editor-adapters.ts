@@ -1,3 +1,5 @@
+import type { TaskCalendarAdapter } from '../task/task-calendar'
+
 export interface EditorTag {
   id: string
   label: string
@@ -18,5 +20,6 @@ export interface EditorAdapters {
   importNetworkImage?: (source: string) => Promise<string>
   networkImagePasteBehavior?: 'download' | 'url'
   tagStorage: EditorTagStorage
+  taskCalendar?: TaskCalendarAdapter
   uploadImage: (input: ImageUploadInput) => Promise<string>
 }

@@ -17,7 +17,7 @@ import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
-import { parseTaskRepeatRule, transitionTaskAttrs } from '@memorilo/editor/schema'
+import { planTaskAction } from '@memorilo/editor/task'
 import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { NoteRevisionConflictError } from './note-application-contracts'
@@ -84,56 +84,26 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
     const sourceBlock = current.note.getTopicContent(input.topicId).blocks.find(block => block.id === input.blockId)
     if (!sourceBlock)
       throw new Error(`Todo task ${input.blockId} disappeared from Topic projection`)
-    const repeatRule = input.repeatRule === undefined || input.repeatRule === null
-      ? input.repeatRule
-      : parseTaskRepeatRule(input.repeatRule)
-    if (input.repeatRule !== undefined && input.repeatRule !== null && repeatRule === null)
-      throw new TypeError('Todo repeat rule is invalid')
-    const nextAttrs = {
-      ...sourceAttrs,
-      ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
-      ...(repeatRule === undefined ? {} : { repeatRule }),
-      ...(input.status === undefined
-        ? {}
-        : transitionTaskAttrs(sourceAttrs, input.status)),
-    }
-    if (!input.onlyThis
-      && input.status === 'done'
-      && input.nextDueDate !== undefined
-      && sourceAttrs.repeatRule !== null
-      && typeof sourceAttrs.repeatRule === 'object') {
-      const repeatRule = sourceAttrs.repeatRule as { mode?: unknown }
-      if (repeatRule.mode === 'due' || repeatRule.mode === 'completion') {
-        nextAttrs.status = 'todo'
-        nextAttrs.checked = false
-        nextAttrs.dueDate = input.nextDueDate
-        nextAttrs.elapsedMs = 0
-        nextAttrs.startedAt = null
-      }
-    }
+    const plan = planTaskAction(sourceAttrs, sourceBlock.text, input)
     const edits: TopicBlockEdit[] = []
-    if (input.onlyThis) {
-      if (input.text === undefined)
-        throw new TypeError('Only-this Todo edits require replacement text')
-      if (input.nextDueDate === undefined)
-        throw new TypeError('Only-this Todo edits require the next series due date')
+    if (plan.occurrence) {
       edits.push({
-        attributes: { ...nextAttrs, dueDate: input.nextDueDate, status: 'todo', checked: false, elapsedMs: 0, startedAt: null },
+        attributes: plan.current.attrs,
         blockId: input.blockId,
         operation: 'update-block-attributes',
       })
       edits.push({
-        attributes: { ...sourceAttrs, checked: false, dueDate: input.dueDate ?? null, elapsedMs: 0, repeatRule: null, startedAt: null, status: 'todo' },
-        content: [paragraph(input.text)],
+        attributes: plan.occurrence.attrs,
+        content: [paragraph(plan.occurrence.text)],
         kind: 'task',
         operation: 'insert-block',
         parentId: sourceBlock.parentId,
       })
     }
     else {
-      if (input.text !== undefined)
-        edits.push({ blockId: input.blockId, content: [paragraph(input.text)], operation: 'update-block-content' })
-      edits.push({ attributes: nextAttrs, blockId: input.blockId, operation: 'update-block-attributes' })
+      if (plan.current.text !== undefined)
+        edits.push({ blockId: input.blockId, content: [paragraph(plan.current.text)], operation: 'update-block-content' })
+      edits.push({ attributes: plan.current.attrs, blockId: input.blockId, operation: 'update-block-attributes' })
     }
     const version = current.note.getVersion()
     try {

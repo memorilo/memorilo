@@ -5,6 +5,8 @@ import commonEn from '../../../../locales/common/en.json'
 import commonZh from '../../../../locales/common/zh.json'
 import editorEn from '../../../../locales/editor/en.json'
 import editorZh from '../../../../locales/editor/zh.json'
+import todoEn from '../../../../locales/todo/en.json'
+import todoZh from '../../../../locales/todo/zh.json'
 
 /**
  * Initializes i18next with the repository-root locale bundles. The desktop renderer
@@ -34,10 +36,12 @@ export async function initEditorI18nForTests(): Promise<void> {
       en: {
         editor: editorEn,
         common: commonEn,
+        todo: todoEn,
       },
       zh: {
         editor: editorZh,
         common: commonZh,
+        todo: todoZh,
       },
     },
   })
