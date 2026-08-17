@@ -1,4 +1,4 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
 import { Circle, CircleCheck, CircleDotDashed } from 'lucide-react'
@@ -30,6 +30,7 @@ function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
 
 export function TodoBoardView({
   calendarEvents,
+  calendarSubscriptions,
   isFetchingMore,
   now,
   onOpenTask,
@@ -38,6 +39,7 @@ export function TodoBoardView({
   tasks,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   isFetchingMore: boolean
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
@@ -82,7 +84,7 @@ export function TodoBoardView({
                             </span>
                           </button>
                           <div {...stylex.props(styles.cardActions)}>
-                            <TodoTaskActions calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+                            <TodoTaskActions calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} onUpdateTask={onUpdateTask} t={t} task={task} />
                           </div>
                         </div>
                       )

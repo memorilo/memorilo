@@ -25,10 +25,7 @@ export const noteEntryContextMenuStyles = stylex.create({
     position: 'relative',
   },
   entryContextSubmenu: {
-    position: 'absolute',
     zIndex: 71,
-    top: -4,
-    left: 'calc(100% + 4px)',
     width: 168,
     borderColor: 'rgba(48, 51, 58, 0.16)',
     borderStyle: 'solid',
@@ -44,10 +41,6 @@ export const noteEntryContextMenuStyles = stylex.create({
       '@media (prefers-reduced-transparency: reduce)': 'none',
     },
     boxShadow: '0 12px 28px rgba(28, 34, 44, 0.18), 0 2px 6px rgba(28, 34, 44, 0.1)',
-  },
-  entryContextSubmenuLeft: {
-    right: 'calc(100% + 4px)',
-    left: 'auto',
   },
   entryContextMenuItem: {
     display: 'flex',

@@ -4,6 +4,7 @@ import type { Uploader } from 'prosekit/extensions/file'
 import type { KeyboardEventHandler, MouseEvent as ReactMouseEvent, ReactNode, Ref } from 'react'
 import type { EditorAction } from '../editor-actions/index.ts'
 import type { ContextMenuPoint } from './context-menu-interactions'
+import { autoUpdate, flip, FloatingPortal, offset, shift, size, useFloating, useMergeRefs } from '@floating-ui/react'
 import * as stylex from '@stylexjs/stylex'
 import {
   Check,
@@ -14,11 +15,11 @@ import {
   Quote,
   X,
 } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { floatingPointReference, floatingTransformOrigin } from '../floating-surface/floating-position'
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { ImageUploadForm } from '../image-upload-popover/index.ts'
-import { keepContextMenuInViewport } from './context-menu-interactions'
 import { contextMenuStyles } from './context-menu.stylex'
 
 export function ContextMenuItem(props: {
@@ -81,14 +82,41 @@ export function ImageInsertPanel({ point, uploader, onClose }: {
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const { t } = useTranslation('editor')
+  const reference = useMemo(() => floatingPointReference(point.x, point.y), [point.x, point.y])
+  const {
+    floatingStyles,
+    isPositioned,
+    placement,
+    refs,
+  } = useFloating({
+    middleware: [
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        padding: 8,
+        apply({ availableHeight, elements }) {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
+        },
+      }),
+    ],
+    open: true,
+    placement: 'bottom-start',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+  })
+  const floatingRef = useMergeRefs([panelRef, refs.setFloating])
+
+  useLayoutEffect(() => {
+    refs.setReference(reference)
+  }, [reference, refs])
 
   useLayoutEffect(() => {
     const panel = panelRef.current
-    if (!panel)
+    if (!panel || !isPositioned)
       return
-    keepContextMenuInViewport(panel, point)
     panel.querySelector<HTMLInputElement>('input')?.focus()
-  }, [point])
+  }, [isPositioned])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -100,41 +128,48 @@ export function ImageInsertPanel({ point, uploader, onClose }: {
   }, [onClose])
 
   return (
-    <div
-      {...stylex.props(contextMenuStyles.overlay)}
-      onMouseDown={(event: ReactMouseEvent<HTMLDivElement>) => {
-        if (event.target === event.currentTarget)
-          onClose()
-      }}
-    >
+    <FloatingPortal>
       <div
-        ref={panelRef}
-        {...stylex.props(
-          floatingSurfaceStyles.surface,
-          contextMenuStyles.imagePanel,
-        )}
-        aria-label={t('ui.insertImage')}
-        aria-modal="false"
-        role="dialog"
+        {...stylex.props(contextMenuStyles.overlay)}
+        onMouseDown={(event: ReactMouseEvent<HTMLDivElement>) => {
+          if (event.target === event.currentTarget)
+            onClose()
+        }}
       >
-        <div {...stylex.props(contextMenuStyles.imageHeader)}>
-          <strong>{t('ui.insertImageTitle')}</strong>
-          <button
-            {...stylex.props(contextMenuStyles.imageClose)}
-            aria-label={t('ui.closeImageMenu')}
-            type="button"
-            onClick={onClose}
-          >
-            <X aria-hidden="true" size={16} />
-          </button>
+        <div
+          ref={floatingRef}
+          {...stylex.props(
+            floatingSurfaceStyles.surface,
+            contextMenuStyles.imagePanel,
+          )}
+          aria-label={t('ui.insertImage')}
+          aria-modal="false"
+          role="dialog"
+          style={{
+            ...floatingStyles,
+            transformOrigin: floatingTransformOrigin(placement),
+            visibility: isPositioned ? 'visible' : 'hidden',
+          }}
+        >
+          <div {...stylex.props(contextMenuStyles.imageHeader)}>
+            <strong>{t('ui.insertImageTitle')}</strong>
+            <button
+              {...stylex.props(contextMenuStyles.imageClose)}
+              aria-label={t('ui.closeImageMenu')}
+              type="button"
+              onClick={onClose}
+            >
+              <X aria-hidden="true" size={16} />
+            </button>
+          </div>
+          <ImageUploadForm uploader={uploader} onComplete={onClose} />
         </div>
-        <ImageUploadForm uploader={uploader} onComplete={onClose} />
       </div>
-    </div>
+    </FloatingPortal>
   )
 }
 
-export function ContextStyleMenu({ actions, menuRef, onKeyDown, onRun }: {
+export function ContextStyleMenu({ actions, anchor, menuRef, onKeyDown, onRun }: {
   actions: {
     blockquote: EditorAction
     bulletList: EditorAction
@@ -143,64 +178,97 @@ export function ContextStyleMenu({ actions, menuRef, onKeyDown, onRun }: {
     taskList: EditorAction
     toggleList: EditorAction
   }
+  anchor: HTMLElement
   menuRef: Ref<HTMLDivElement>
   onKeyDown: KeyboardEventHandler<HTMLDivElement>
   onRun: (action: EditorAction) => void
 }) {
   const { t } = useTranslation('editor')
+  const {
+    floatingStyles,
+    isPositioned,
+    placement,
+    refs,
+  } = useFloating({
+    elements: { reference: anchor },
+    middleware: [
+      offset(4),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        padding: 8,
+        apply({ availableHeight, elements }) {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
+        },
+      }),
+    ],
+    open: true,
+    placement: 'right-start',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+  })
+  const floatingRef = useMergeRefs([menuRef, refs.setFloating])
 
   return (
-    <div
-      ref={menuRef}
-      {...stylex.props(
-        floatingSurfaceStyles.surface,
-        contextMenuStyles.popup,
-        contextMenuStyles.submenuPopup,
-      )}
-      aria-label={t('ui.objectStyles')}
-      role="menu"
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
-    >
-      <ContextMenuItem
-        action={actions.bulletList}
-        icon={<List aria-hidden="true" size={16} />}
-        label={t('ui.bulletList')}
-        onSelect={() => onRun(actions.bulletList)}
-      />
-      <ContextMenuItem
-        action={actions.orderedList}
-        icon={<ListOrdered aria-hidden="true" size={16} />}
-        label={t('ui.orderedList')}
-        onSelect={() => onRun(actions.orderedList)}
-      />
-      <ContextMenuItem
-        action={actions.taskList}
-        icon={<ListChecks aria-hidden="true" size={16} />}
-        label={t('ui.taskList')}
-        onSelect={() => onRun(actions.taskList)}
-      />
-      <ContextMenuItem
-        action={actions.toggleList}
-        icon={<List aria-hidden="true" size={16} />}
-        label={t('ui.toggleList')}
-        onSelect={() => onRun(actions.toggleList)}
-      />
+    <FloatingPortal>
+      <div
+        ref={floatingRef}
+        {...stylex.props(
+          floatingSurfaceStyles.surface,
+          contextMenuStyles.popup,
+          contextMenuStyles.submenuPopup,
+        )}
+        aria-label={t('ui.objectStyles')}
+        role="menu"
+        style={{
+          ...floatingStyles,
+          transformOrigin: floatingTransformOrigin(placement),
+          visibility: isPositioned ? 'visible' : 'hidden',
+        }}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
+        <ContextMenuItem
+          action={actions.bulletList}
+          icon={<List aria-hidden="true" size={16} />}
+          label={t('ui.bulletList')}
+          onSelect={() => onRun(actions.bulletList)}
+        />
+        <ContextMenuItem
+          action={actions.orderedList}
+          icon={<ListOrdered aria-hidden="true" size={16} />}
+          label={t('ui.orderedList')}
+          onSelect={() => onRun(actions.orderedList)}
+        />
+        <ContextMenuItem
+          action={actions.taskList}
+          icon={<ListChecks aria-hidden="true" size={16} />}
+          label={t('ui.taskList')}
+          onSelect={() => onRun(actions.taskList)}
+        />
+        <ContextMenuItem
+          action={actions.toggleList}
+          icon={<List aria-hidden="true" size={16} />}
+          label={t('ui.toggleList')}
+          onSelect={() => onRun(actions.toggleList)}
+        />
 
-      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+        <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
-      <ContextMenuItem
-        action={actions.blockquote}
-        icon={<Quote aria-hidden="true" size={16} />}
-        label={t('ui.blockquote')}
-        onSelect={() => onRun(actions.blockquote)}
-      />
-      <ContextMenuItem
-        action={actions.codeBlock}
-        icon={<Code2 aria-hidden="true" size={16} />}
-        label={t('ui.codeBlock')}
-        onSelect={() => onRun(actions.codeBlock)}
-      />
-    </div>
+        <ContextMenuItem
+          action={actions.blockquote}
+          icon={<Quote aria-hidden="true" size={16} />}
+          label={t('ui.blockquote')}
+          onSelect={() => onRun(actions.blockquote)}
+        />
+        <ContextMenuItem
+          action={actions.codeBlock}
+          icon={<Code2 aria-hidden="true" size={16} />}
+          label={t('ui.codeBlock')}
+          onSelect={() => onRun(actions.codeBlock)}
+        />
+      </div>
+    </FloatingPortal>
   )
 }

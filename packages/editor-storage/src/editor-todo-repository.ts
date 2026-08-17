@@ -92,8 +92,21 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     }
     if (candidate.calendarId !== undefined && (typeof candidate.calendarId !== 'string' || candidate.calendarId.length === 0))
       throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat calendar`)
-    if (candidate.unit === 'holiday' && typeof candidate.calendarId !== 'string')
+    if (candidate.holidayPolicy !== undefined
+      && candidate.holidayPolicy !== 'allow'
+      && candidate.holidayPolicy !== 'skip'
+      && candidate.holidayPolicy !== 'next-workday') {
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid holiday policy`)
+    }
+    if (candidate.weekdays !== undefined
+      && (!Array.isArray(candidate.weekdays)
+        || candidate.weekdays.some(day => typeof day !== 'number' || !Number.isInteger(day) || day < 0 || day > 6))) {
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat weekdays`)
+    }
+    if ((candidate.unit === 'holiday' || (candidate.holidayPolicy !== undefined && candidate.holidayPolicy !== 'allow'))
+      && typeof candidate.calendarId !== 'string') {
       throw new TypeError(`Stored Todo task ${row.block_id} has invalid holiday repeat calendar`)
+    }
     repeatRule = structuredClone(candidate) as unknown as TodoRepeatRule
   }
   return {

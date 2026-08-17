@@ -1,5 +1,16 @@
 import * as stylex from '@stylexjs/stylex'
 
+const menuMaterialize = stylex.keyframes({
+  from: {
+    opacity: 0,
+    transform: 'scale(0.985)',
+  },
+  to: {
+    opacity: 1,
+    transform: 'scale(1)',
+  },
+})
+
 export const todoTaskActionStyles = stylex.create({
   shell: {
     position: 'relative',
@@ -39,26 +50,36 @@ export const todoTaskActionStyles = stylex.create({
     color: 'rgba(18, 64, 111, 0.58)',
   },
   menu: {
-    position: 'absolute',
-    top: 32,
-    right: 0,
-    zIndex: 4,
+    position: 'fixed',
+    zIndex: 50,
     display: 'flex',
-    width: 230,
+    width: 'min(280px, calc(100vw - 16px))',
+    maxHeight: 'calc(100vh - 16px)',
+    boxSizing: 'border-box',
     flexDirection: 'column',
     gap: 8,
+    overflowY: 'auto',
     borderColor: 'rgba(255, 255, 255, 0.86)',
     borderStyle: 'solid',
     borderWidth: 1,
     borderRadius: 10,
     padding: 10,
-    backgroundColor: 'rgba(245, 247, 251, 0.88)',
-    backdropFilter: 'blur(22px) saturate(160%)',
-    boxShadow: '0 12px 28px rgba(31, 38, 48, 0.18), inset 0 1px rgba(255, 255, 255, 0.96)',
-  },
-  menuCompact: {
-    top: 'auto',
-    bottom: 24,
+    backgroundColor: {
+      'default': 'rgba(247, 249, 252, 0.94)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(247, 249, 252)',
+      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+    },
+    backdropFilter: {
+      'default': 'blur(24px) saturate(145%) brightness(1.02)',
+      '@media (prefers-reduced-transparency: reduce)': 'none',
+    },
+    boxShadow: '0 16px 36px rgba(31, 38, 48, 0.2), 0 0 0 0.5px rgba(72, 77, 86, 0.08), inset 0 1px rgba(255, 255, 255, 0.98)',
+    animationDuration: {
+      'default': '120ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationName: menuMaterialize,
+    animationTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
   },
   heading: {
     color: 'rgba(25, 27, 31, 0.88)',
@@ -89,6 +110,9 @@ export const todoTaskActionStyles = stylex.create({
     fontSize: 11,
     outline: 'none',
   },
+  dateInput: {
+    width: 112,
+  },
   select: {
     minWidth: 108,
     height: 25,
@@ -102,6 +126,56 @@ export const todoTaskActionStyles = stylex.create({
     color: 'rgba(25, 27, 31, 0.9)',
     fontSize: 11,
     outline: 'none',
+  },
+  selectWide: {
+    width: 150,
+    minWidth: 150,
+  },
+  weekdayField: {
+    display: 'grid',
+    gap: 5,
+  },
+  weekdayLabel: {
+    color: 'rgba(48, 52, 59, 0.68)',
+    fontSize: 10,
+    lineHeight: '16px',
+  },
+  weekdayControl: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+    gap: 3,
+  },
+  weekdayButton: {
+    'display': 'grid',
+    'height': 25,
+    'minWidth': 0,
+    'placeItems': 'center',
+    'borderColor': 'rgba(72, 77, 86, 0.14)',
+    'borderStyle': 'solid',
+    'borderWidth': 1,
+    'borderRadius': 6,
+    'padding': 0,
+    'backgroundColor': 'rgba(255, 255, 255, 0.5)',
+    'color': 'rgba(48, 52, 59, 0.62)',
+    'cursor': 'default',
+    'fontSize': 10,
+    'fontWeight': 600,
+    'lineHeight': '12px',
+    'outline': 'none',
+    ':hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    },
+    ':active': {
+      transform: 'scale(0.96)',
+    },
+    ':focus-visible': {
+      boxShadow: '0 0 0 2px rgba(41, 97, 194, 0.65)',
+    },
+  },
+  weekdayButtonSelected: {
+    borderColor: 'rgba(0, 113, 227, 0.22)',
+    backgroundColor: 'rgba(0, 113, 227, 0.14)',
+    color: 'rgb(0, 94, 190)',
   },
   textInput: {
     width: '100%',
@@ -138,6 +212,9 @@ export const todoTaskActionStyles = stylex.create({
     },
     ':active': {
       backgroundColor: 'rgba(225, 230, 238, 0.78)',
+    },
+    ':disabled': {
+      opacity: 0.5,
     },
   },
   primaryAction: {

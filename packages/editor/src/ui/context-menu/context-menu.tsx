@@ -7,6 +7,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { OutlineRuntime } from '../../common/outline-runtime'
 import type { EditorAction } from '../editor-actions/index.ts'
 import type { ContextMenuPoint } from './context-menu-interactions'
+import { autoUpdate, flip, FloatingPortal, shift, size, useFloating, useMergeRefs } from '@floating-ui/react'
 import * as stylex from '@stylexjs/stylex'
 import {
   ChevronRight,
@@ -23,20 +24,18 @@ import {
 } from 'lucide-react'
 import { AllSelection } from 'prosekit/pm/state'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 import { useTranslation } from 'react-i18next'
 import { getEditorActions } from '../editor-actions/index.ts'
+import { floatingPointReference, floatingTransformOrigin } from '../floating-surface/floating-position'
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { ContextMenuItem, ContextStyleMenu, ImageInsertPanel } from './context-menu-elements'
 import {
   blockIdFromContextTarget,
   contextMenuPoint,
   handleContextMenuKeyDown,
-  keepContextMenuInViewport,
   moveSelectionToContextPoint,
-  positionContextSubmenu,
 } from './context-menu-interactions'
 import { contextMenuStyles } from './context-menu.stylex'
 import { copySelection, cutSelection, pasteClipboard } from './editor-clipboard.ts'
@@ -123,6 +122,37 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
       : [outlineBlockId]
     : []
   const shouldCollapseOutlineBlocks = outlineCollapseBlockIds.some(blockId => !outlineSnapshot.collapsedBlockIds.includes(blockId))
+  const menuReference = useMemo(
+    () => menuPoint ? floatingPointReference(menuPoint.x, menuPoint.y) : null,
+    [menuPoint],
+  )
+  const {
+    floatingStyles,
+    isPositioned,
+    placement,
+    refs,
+  } = useFloating({
+    middleware: [
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        padding: 8,
+        apply({ availableHeight, elements }) {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
+        },
+      }),
+    ],
+    open: menuPoint !== null,
+    placement: 'bottom-start',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+  })
+  const floatingMenuRef = useMergeRefs([menuRef, refs.setFloating])
+
+  useLayoutEffect(() => {
+    refs.setReference(menuReference)
+  }, [menuReference, refs])
 
   useEffect(() => {
     const editorElement = editor.view.dom
@@ -143,20 +173,17 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
 
   useLayoutEffect(() => {
     const menu = menuRef.current
-    if (!menu || !menuPoint)
+    if (!menu || !menuPoint || !isPositioned)
       return
 
-    keepContextMenuInViewport(menu, menuPoint)
     menu.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
-  }, [menuPoint])
+  }, [isPositioned, menuPoint])
 
   useLayoutEffect(() => {
     const submenu = styleMenuRef.current
-    const trigger = styleTriggerRef.current
-    if (!styleMenuOpen || !submenu || !trigger)
+    if (!styleMenuOpen || !submenu)
       return
 
-    positionContextSubmenu(submenu, trigger)
     if (focusStyleMenuRef.current) {
       focusStyleMenuRef.current = false
       submenu.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
@@ -208,133 +235,141 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
   if (!menuPoint && !imagePoint)
     return null
 
-  return createPortal(
+  return (
     <>
       {menuPoint
         ? (
-            <div
-              ref={menuRef}
-              {...stylex.props(floatingSurfaceStyles.surface, contextMenuStyles.popup)}
-              aria-label={t('ui.editorActions')}
-              role="menu"
-              tabIndex={-1}
-              onKeyDown={handleMainMenuKeyDown}
-            >
-              <ContextMenuItem
-                disabled={!hasSelection || !canWriteClipboard}
-                icon={<Scissors aria-hidden="true" size={16} />}
-                label={t('ui.cut')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => handleClipboardAction('Cut', () => cutSelection(editor))}
-                shortcut={`${primaryModifier}X`}
-              />
-              <ContextMenuItem
-                disabled={!hasSelection || !canWriteClipboard}
-                icon={<Copy aria-hidden="true" size={16} />}
-                label={t('ui.copy')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => handleClipboardAction('Copy', () => copySelection(editor))}
-                shortcut={`${primaryModifier}C`}
-              />
-              <ContextMenuItem
-                disabled={!canReadClipboard}
-                icon={<ClipboardPaste aria-hidden="true" size={16} />}
-                label={t('ui.paste')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => handleClipboardAction('Paste', () => pasteClipboard(editor))}
-                shortcut={`${primaryModifier}V`}
-              />
-
-              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
-
-              <ContextMenuItem
-                icon={<TextSelect aria-hidden="true" size={16} />}
-                label={t('ui.selectAll')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => {
-                  editor.view.dispatch(
-                    editor.state.tr.setSelection(new AllSelection(editor.state.doc)),
-                  )
-                  closeMenu()
-                  editor.focus()
+            <FloatingPortal>
+              <div
+                ref={floatingMenuRef}
+                {...stylex.props(floatingSurfaceStyles.surface, contextMenuStyles.popup)}
+                aria-label={t('ui.editorActions')}
+                role="menu"
+                style={{
+                  ...floatingStyles,
+                  transformOrigin: floatingTransformOrigin(placement),
+                  visibility: isPositioned ? 'visible' : 'hidden',
                 }}
-                shortcut={`${primaryModifier}A`}
-              />
+                tabIndex={-1}
+                onKeyDown={handleMainMenuKeyDown}
+              >
+                <ContextMenuItem
+                  disabled={!hasSelection || !canWriteClipboard}
+                  icon={<Scissors aria-hidden="true" size={16} />}
+                  label={t('ui.cut')}
+                  onMouseEnter={() => setStyleMenuOpen(false)}
+                  onSelect={() => handleClipboardAction('Cut', () => cutSelection(editor))}
+                  shortcut={`${primaryModifier}X`}
+                />
+                <ContextMenuItem
+                  disabled={!hasSelection || !canWriteClipboard}
+                  icon={<Copy aria-hidden="true" size={16} />}
+                  label={t('ui.copy')}
+                  onMouseEnter={() => setStyleMenuOpen(false)}
+                  onSelect={() => handleClipboardAction('Copy', () => copySelection(editor))}
+                  shortcut={`${primaryModifier}C`}
+                />
+                <ContextMenuItem
+                  disabled={!canReadClipboard}
+                  icon={<ClipboardPaste aria-hidden="true" size={16} />}
+                  label={t('ui.paste')}
+                  onMouseEnter={() => setStyleMenuOpen(false)}
+                  onSelect={() => handleClipboardAction('Paste', () => pasteClipboard(editor))}
+                  shortcut={`${primaryModifier}V`}
+                />
 
-              {outlineCollapseBlockIds.length > 0
-                ? (
-                    <>
-                      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
-                      <ContextMenuItem
-                        icon={shouldCollapseOutlineBlocks
-                          ? <ChevronsUp aria-hidden="true" size={16} />
-                          : <ChevronsDown aria-hidden="true" size={16} />}
-                        label={shouldCollapseOutlineBlocks ? t('ui.collapse') : t('ui.expand')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => {
-                          outlineRuntime.toggleCollapsed(outlineCollapseBlockIds)
-                          closeMenu()
-                          editor.focus()
-                        }}
-                      />
-                    </>
-                  )
-                : null}
+                <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
-              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+                <ContextMenuItem
+                  icon={<TextSelect aria-hidden="true" size={16} />}
+                  label={t('ui.selectAll')}
+                  onMouseEnter={() => setStyleMenuOpen(false)}
+                  onSelect={() => {
+                    editor.view.dispatch(
+                      editor.state.tr.setSelection(new AllSelection(editor.state.doc)),
+                    )
+                    closeMenu()
+                    editor.focus()
+                  }}
+                  shortcut={`${primaryModifier}A`}
+                />
 
-              <ContextMenuItem
-                buttonRef={styleTriggerRef}
-                expanded={styleMenuOpen}
-                hasSubmenu
-                icon={<Pilcrow aria-hidden="true" size={16} />}
-                label={t('ui.style')}
-                open={styleMenuOpen}
-                onMouseEnter={() => openStyleMenu(false)}
-                onSelect={() => openStyleMenu(true)}
-                trailing={<ChevronRight aria-hidden="true" size={15} />}
-              />
+                {outlineCollapseBlockIds.length > 0
+                  ? (
+                      <>
+                        <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+                        <ContextMenuItem
+                          icon={shouldCollapseOutlineBlocks
+                            ? <ChevronsUp aria-hidden="true" size={16} />
+                            : <ChevronsDown aria-hidden="true" size={16} />}
+                          label={shouldCollapseOutlineBlocks ? t('ui.collapse') : t('ui.expand')}
+                          onMouseEnter={() => setStyleMenuOpen(false)}
+                          onSelect={() => {
+                            outlineRuntime.toggleCollapsed(outlineCollapseBlockIds)
+                            closeMenu()
+                            editor.focus()
+                          }}
+                        />
+                      </>
+                    )
+                  : null}
 
-              {!hasSelection
-                ? (
-                    <>
-                      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+                <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
 
-                      <ContextMenuItem
-                        action={actions.insert.table}
-                        icon={<Table2 aria-hidden="true" size={16} />}
-                        label={t('ui.insertTable')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => runAction(editor, actions.insert.table, closeMenu)}
-                      />
-                      <ContextMenuItem
-                        action={actions.insert.divider}
-                        icon={<Minus aria-hidden="true" size={16} />}
-                        label={t('ui.insertDivider')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => runAction(editor, actions.insert.divider, closeMenu)}
-                      />
-                      <ContextMenuItem
-                        disabled={!actions.insert.image.canExec}
-                        icon={<ImagePlus aria-hidden="true" size={16} />}
-                        label={t('ui.insertImageELLIPSIS')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => {
-                          setImagePoint(menuPoint)
-                          closeMenu()
-                        }}
-                      />
-                    </>
-                  )
-                : null}
-            </div>
+                <ContextMenuItem
+                  buttonRef={styleTriggerRef}
+                  expanded={styleMenuOpen}
+                  hasSubmenu
+                  icon={<Pilcrow aria-hidden="true" size={16} />}
+                  label={t('ui.style')}
+                  open={styleMenuOpen}
+                  onMouseEnter={() => openStyleMenu(false)}
+                  onSelect={() => openStyleMenu(true)}
+                  trailing={<ChevronRight aria-hidden="true" size={15} />}
+                />
+
+                {!hasSelection
+                  ? (
+                      <>
+                        <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+
+                        <ContextMenuItem
+                          action={actions.insert.table}
+                          icon={<Table2 aria-hidden="true" size={16} />}
+                          label={t('ui.insertTable')}
+                          onMouseEnter={() => setStyleMenuOpen(false)}
+                          onSelect={() => runAction(editor, actions.insert.table, closeMenu)}
+                        />
+                        <ContextMenuItem
+                          action={actions.insert.divider}
+                          icon={<Minus aria-hidden="true" size={16} />}
+                          label={t('ui.insertDivider')}
+                          onMouseEnter={() => setStyleMenuOpen(false)}
+                          onSelect={() => runAction(editor, actions.insert.divider, closeMenu)}
+                        />
+                        <ContextMenuItem
+                          disabled={!actions.insert.image.canExec}
+                          icon={<ImagePlus aria-hidden="true" size={16} />}
+                          label={t('ui.insertImageELLIPSIS')}
+                          onMouseEnter={() => setStyleMenuOpen(false)}
+                          onSelect={() => {
+                            setImagePoint(menuPoint)
+                            closeMenu()
+                          }}
+                        />
+                      </>
+                    )
+                  : null}
+              </div>
+            </FloatingPortal>
           )
         : null}
 
-      {menuPoint && styleMenuOpen
+      {menuPoint && styleMenuOpen && styleTriggerRef.current
         ? (
             <ContextStyleMenu
               actions={actions.block}
+              anchor={styleTriggerRef.current}
               menuRef={styleMenuRef}
               onKeyDown={handleStyleMenuKeyDown}
               onRun={action => runAction(editor, action, closeMenu)}
@@ -345,7 +380,6 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
       {imagePoint
         ? <ImageInsertPanel point={imagePoint} uploader={uploader} onClose={closeImagePanel} />
         : null}
-    </>,
-    document.body,
+    </>
   )
 }

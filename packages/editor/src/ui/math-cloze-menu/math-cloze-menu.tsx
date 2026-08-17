@@ -1,15 +1,18 @@
 'use client'
 
+import type { VirtualElement } from '@floating-ui/react'
 import type { Editor } from 'prosekit/core'
 import type { CSSProperties } from 'react'
 import type { CardExtension } from '../../card/card-extension'
+import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
 import * as stylex from '@stylexjs/stylex'
 import { Brackets } from 'lucide-react'
 import { TextSelection } from 'prosekit/pm/state'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useReducer, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { floatingTransformOrigin } from '../floating-surface/floating-position'
 import { mathClozeMenuStyles } from './math-cloze-menu.stylex'
 
 type MathClozeKind = 'block' | 'inline'
@@ -21,13 +24,6 @@ interface MathClozeSelection {
   kind: MathClozeKind
   nodePosition: number
   to: number
-}
-
-interface MenuPosition {
-  left: number
-  top: number
-  transform: string
-  transformOrigin: string
 }
 
 function getMathClozeSelectionKey(editor: Editor<CardExtension>): MathClozeSelectionKey | null {
@@ -75,24 +71,13 @@ function restoreMathSelection(editor: Editor<CardExtension>, selected: MathCloze
   ))
 }
 
-function positionForFormula(rect: DOMRect, kind: MathClozeKind): MenuPosition {
-  const viewportPadding = 12
-  if (kind === 'block') {
-    return {
-      left: Math.min(rect.right - 6, window.innerWidth - viewportPadding),
-      top: Math.max(viewportPadding, rect.top + 6),
-      transform: 'translateX(-100%)',
-      transformOrigin: 'right top',
-    }
-  }
-
-  const estimatedWidth = 116
-  const placeRight = window.innerWidth - rect.right >= estimatedWidth + viewportPadding
+function blockFormulaReference(formula: HTMLElement): VirtualElement {
   return {
-    left: placeRight ? rect.right + 6 : rect.left - 6,
-    top: Math.max(viewportPadding, Math.min(rect.top + rect.height / 2, window.innerHeight - viewportPadding)),
-    transform: placeRight ? 'translateY(-50%)' : 'translate(-100%, -50%)',
-    transformOrigin: placeRight ? 'left center' : 'right center',
+    contextElement: formula,
+    getBoundingClientRect() {
+      const rect = formula.getBoundingClientRect()
+      return new DOMRect(rect.right - 6, rect.top + 6, 0, 0)
+    },
   }
 }
 
@@ -102,12 +87,28 @@ export default function MathClozeMenu() {
   const retainedSelectionKey = useRef(selectionKey)
   const { t } = useTranslation('editor')
   const [, renderAfterDismissal] = useReducer(count => count + 1, 0)
-  const [position, setPosition] = useState<MenuPosition | null>(null)
   if (selectionKey)
     retainedSelectionKey.current = selectionKey
   const selected = parseMathClozeSelection(selectionKey ?? retainedSelectionKey.current)
   const selectedKind = selected?.kind ?? null
   const selectedNodePosition = selected?.nodePosition ?? null
+  const {
+    floatingStyles,
+    isPositioned,
+    placement,
+    refs,
+  } = useFloating({
+    middleware: [
+      offset(selectedKind === 'block' ? 0 : 6),
+      flip({ padding: 12 }),
+      shift({ padding: 12 }),
+    ],
+    open: selected !== null,
+    placement: selectedKind === 'block' ? 'bottom-end' : 'right',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+  })
 
   useEffect(() => {
     if (selectionKey)
@@ -121,25 +122,16 @@ export default function MathClozeMenu() {
 
   useLayoutEffect(() => {
     if (!selectedKind || selectedNodePosition === null) {
-      setPosition(null)
+      refs.setReference(null)
       return
     }
-    const update = () => {
-      const formula = editor.view.nodeDOM(selectedNodePosition)
-      if (!(formula instanceof HTMLElement))
-        throw new Error('Selected formula is missing its DOM element')
-      setPosition(positionForFormula(formula.getBoundingClientRect(), selectedKind))
-    }
-    update()
-    window.addEventListener('resize', update)
-    document.addEventListener('scroll', update, true)
-    return () => {
-      window.removeEventListener('resize', update)
-      document.removeEventListener('scroll', update, true)
-    }
-  }, [editor, selectedKind, selectedNodePosition])
+    const formula = editor.view.nodeDOM(selectedNodePosition)
+    if (!(formula instanceof HTMLElement))
+      throw new Error('Selected formula is missing its DOM element')
+    refs.setReference(selectedKind === 'block' ? blockFormulaReference(formula) : formula)
+  }, [editor, refs, selectedKind, selectedNodePosition])
 
-  if (!selected || !position)
+  if (!selected)
     return null
 
   const run = () => {
@@ -154,39 +146,41 @@ export default function MathClozeMenu() {
     ? t('ui.removeClozeFromFormula')
     : t('ui.createClozeFromFormula')
   const popupStyle: CSSProperties = {
-    '--math-cloze-transform-origin': position.transformOrigin,
-    'left': position.left,
-    'top': position.top,
-    'transform': position.transform,
+    ...floatingStyles,
+    '--math-cloze-transform-origin': floatingTransformOrigin(placement),
+    'visibility': isPositioned ? 'visible' : 'hidden',
   } as CSSProperties
 
   return (
-    <div
-      {...stylex.props(mathClozeMenuStyles.toolbar)}
-      aria-label={t('ui.formulaSelection')}
-      data-math-cloze-kind={selected.kind}
-      role="toolbar"
-      style={popupStyle}
-    >
-      <button
-        {...stylex.props(mathClozeMenuStyles.button)}
-        aria-label={label}
-        aria-pressed={selected.clozeSelected}
-        type="button"
-        onClick={run}
-        onPointerDown={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          restoreMathSelection(editor, selected)
-        }}
-        onMouseDown={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-        }}
+    <FloatingPortal>
+      <div
+        ref={refs.setFloating}
+        {...stylex.props(mathClozeMenuStyles.toolbar)}
+        aria-label={t('ui.formulaSelection')}
+        data-math-cloze-kind={selected.kind}
+        role="toolbar"
+        style={popupStyle}
       >
-        <Brackets {...stylex.props(mathClozeMenuStyles.icon)} aria-hidden="true" size={14} strokeWidth={1.8} />
-        <span>{selected.clozeSelected ? t('ui.removeCloze') : t('ui.cloze')}</span>
-      </button>
-    </div>
+        <button
+          {...stylex.props(mathClozeMenuStyles.button)}
+          aria-label={label}
+          aria-pressed={selected.clozeSelected}
+          type="button"
+          onClick={run}
+          onPointerDown={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            restoreMathSelection(editor, selected)
+          }}
+          onMouseDown={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+        >
+          <Brackets {...stylex.props(mathClozeMenuStyles.icon)} aria-hidden="true" size={14} strokeWidth={1.8} />
+          <span>{selected.clozeSelected ? t('ui.removeCloze') : t('ui.cloze')}</span>
+        </button>
+      </div>
+    </FloatingPortal>
   )
 }

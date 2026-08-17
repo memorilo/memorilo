@@ -1,9 +1,11 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating, useMergeRefs } from '@floating-ui/react'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, PenLine, Plus, RefreshCw, Table2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
+import { floatingPointReference, floatingTransformOrigin } from '../../../shared/floating-ui'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
 import { noteEntryContextMenuStyles } from './note-entry-context-menu.stylex'
 
@@ -60,6 +62,38 @@ export function useNoteEntryContextMenu({
   const availability = useLatestOperations<'availability'>('Book reading availability check', {
     concurrency: 'parallel',
   })
+  const menuReference = useMemo(
+    () => contextMenu ? floatingPointReference(contextMenu.x, contextMenu.y) : null,
+    [contextMenu],
+  )
+  const mainFloating = useFloating({
+    middleware: [flip({ padding: 8 }), shift({ padding: 8 })],
+    open: contextMenu !== null,
+    placement: 'bottom-start',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+  })
+  const submenuFloating = useFloating({
+    middleware: [
+      offset(4),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+    ],
+    open: addSubmenuOpen,
+    placement: 'right-start',
+    strategy: 'fixed',
+    transform: false,
+    whileElementsMounted: autoUpdate,
+  })
+  const addMenuTriggerReference = useMergeRefs([
+    addMenuTriggerRef,
+    submenuFloating.refs.setReference,
+  ])
+
+  useLayoutEffect(() => {
+    mainFloating.refs.setReference(menuReference)
+  }, [mainFloating.refs, menuReference])
 
   const close = useCallback(() => {
     availability.invalidate('availability')
@@ -128,199 +162,183 @@ export function useNoteEntryContextMenu({
     }
   }, [close, contextMenu])
 
-  const layout = useMemo(() => {
-    if (!contextMenu)
-      return null
-    const viewportInset = 8
-    const menuWidth = 168
-    const menuGap = 4
-    const menuPadding = 8
-    const menuItemHeight = 30
-    const mainItemCount = contextMenu.kind === 'book' && contextMenu.resourceState !== 'available' ? 2 : 1
-    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 5 : 4
-    const requiredHeight = Math.max(
-      menuPadding + mainItemCount * menuItemHeight,
-      menuPadding + submenuItemCount * menuItemHeight,
-    )
-    const left = Math.max(
-      viewportInset,
-      Math.min(contextMenu.x, Math.max(viewportInset, window.innerWidth - menuWidth - viewportInset)),
-    )
-    const top = Math.max(
-      viewportInset,
-      Math.min(contextMenu.y, Math.max(viewportInset, window.innerHeight - requiredHeight - viewportInset)),
-    )
-    return {
-      left,
-      submenuOpensLeft: left + menuWidth + menuGap + menuWidth > window.innerWidth - viewportInset,
-      top,
-    }
-  }, [contextMenu])
-
-  const menu = contextMenu && layout
+  const menu = contextMenu
     ? (
-        <div
-          {...stylex.props(noteEntryContextMenuStyles.entryContextMenu)}
-          role="menu"
-          style={{ left: layout.left, top: layout.top }}
-          onContextMenu={event => event.preventDefault()}
-          onPointerDown={event => event.stopPropagation()}
-        >
+        <FloatingPortal>
           <div
-            {...stylex.props(noteEntryContextMenuStyles.entryContextSubmenuTrigger)}
-            onPointerEnter={() => setAddSubmenuOpen(true)}
+            ref={mainFloating.refs.setFloating}
+            {...stylex.props(noteEntryContextMenuStyles.entryContextMenu)}
+            role="menu"
+            style={{
+              ...mainFloating.floatingStyles,
+              transformOrigin: floatingTransformOrigin(mainFloating.placement),
+              visibility: mainFloating.isPositioned ? 'visible' : 'hidden',
+            }}
+            onContextMenu={event => event.preventDefault()}
+            onPointerDown={event => event.stopPropagation()}
           >
-            <button
-              ref={addMenuTriggerRef}
-              {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-              aria-expanded={addSubmenuOpen}
-              aria-haspopup="menu"
-              role="menuitem"
-              type="button"
-              onClick={() => setAddSubmenuOpen(true)}
-              onKeyDown={(event) => {
-                if (event.key !== 'ArrowRight' && event.key !== 'Enter' && event.key !== ' ')
-                  return
-                event.preventDefault()
-                setAddSubmenuOpen(true)
-                queueMicrotask(() => addMenuFirstItemRef.current?.focus())
-              }}
+            <div
+              {...stylex.props(noteEntryContextMenuStyles.entryContextSubmenuTrigger)}
+              onPointerEnter={() => setAddSubmenuOpen(true)}
             >
-              <Plus aria-hidden="true" size={14} strokeWidth={1.8} />
-              {t('add')}
-              <ChevronRight
-                {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItemTrailing)}
-                aria-hidden="true"
-                size={13}
-                strokeWidth={1.8}
-              />
-            </button>
-            {addSubmenuOpen
+              <button
+                ref={addMenuTriggerReference}
+                {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                aria-expanded={addSubmenuOpen}
+                aria-haspopup="menu"
+                role="menuitem"
+                type="button"
+                onClick={() => setAddSubmenuOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowRight' && event.key !== 'Enter' && event.key !== ' ')
+                    return
+                  event.preventDefault()
+                  setAddSubmenuOpen(true)
+                  queueMicrotask(() => addMenuFirstItemRef.current?.focus())
+                }}
+              >
+                <Plus aria-hidden="true" size={14} strokeWidth={1.8} />
+                {t('add')}
+                <ChevronRight
+                  {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItemTrailing)}
+                  aria-hidden="true"
+                  size={13}
+                  strokeWidth={1.8}
+                />
+              </button>
+              {addSubmenuOpen
+                ? (
+                    <FloatingPortal>
+                      <div
+                        ref={submenuFloating.refs.setFloating}
+                        {...stylex.props(noteEntryContextMenuStyles.entryContextSubmenu)}
+                        role="menu"
+                        style={{
+                          ...submenuFloating.floatingStyles,
+                          transformOrigin: floatingTransformOrigin(submenuFloating.placement),
+                          visibility: submenuFloating.isPositioned ? 'visible' : 'hidden',
+                        }}
+                        onPointerDown={event => event.stopPropagation()}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'ArrowLeft')
+                            return
+                          event.preventDefault()
+                          setAddSubmenuOpen(false)
+                          queueMicrotask(() => addMenuTriggerRef.current?.focus())
+                        }}
+                      >
+                        <button
+                          ref={addMenuFirstItemRef}
+                          {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddTopic(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                            close()
+                          }}
+                        >
+                          <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('topic')}
+                        </button>
+                        <button
+                          {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddWhiteboard(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                            close()
+                          }}
+                        >
+                          <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('whiteboard')}
+                        </button>
+                        <button
+                          {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddSpreadsheet(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                            close()
+                          }}
+                        >
+                          <Table2 aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('spreadsheet.label')}
+                        </button>
+                        {contextMenu.kind === 'container' && contextMenu.allowFolder
+                          ? (
+                              <button
+                                {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                                role="menuitem"
+                                type="button"
+                                onClick={() => {
+                                  onAddFolder(contextMenu.parentId)
+                                  close()
+                                }}
+                              >
+                                <Folder aria-hidden="true" size={14} strokeWidth={1.8} />
+                                {t('folder')}
+                              </button>
+                            )
+                          : null}
+                        <button
+                          {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            onAddBook(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                            close()
+                          }}
+                        >
+                          <BookOpen aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('book')}
+                        </button>
+                      </div>
+                    </FloatingPortal>
+                  )
+                : null}
+            </div>
+            {contextMenu.kind === 'book' && contextMenu.resourceState === 'missing'
               ? (
-                  <div
-                    {...stylex.props(
-                      noteEntryContextMenuStyles.entryContextSubmenu,
-                      layout.submenuOpensLeft && noteEntryContextMenuStyles.entryContextSubmenuLeft,
-                    )}
-                    role="menu"
-                    onKeyDown={(event) => {
-                      if (event.key !== 'ArrowLeft')
-                        return
-                      event.preventDefault()
-                      setAddSubmenuOpen(false)
-                      queueMicrotask(() => addMenuTriggerRef.current?.focus())
+                  <button
+                    {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                    role="menuitem"
+                    type="button"
+                    onFocus={() => setAddSubmenuOpen(false)}
+                    onPointerEnter={() => setAddSubmenuOpen(false)}
+                    onClick={() => {
+                      onRebindBook(contextMenu.topicId)
+                      close()
                     }}
                   >
-                    <button
-                      ref={addMenuFirstItemRef}
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddTopic(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('topic')}
-                    </button>
-                    <button
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddWhiteboard(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('whiteboard')}
-                    </button>
-                    <button
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddSpreadsheet(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <Table2 aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('spreadsheet.label')}
-                    </button>
-                    {contextMenu.kind === 'container' && contextMenu.allowFolder
-                      ? (
-                          <button
-                            {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                            role="menuitem"
-                            type="button"
-                            onClick={() => {
-                              onAddFolder(contextMenu.parentId)
-                              close()
-                            }}
-                          >
-                            <Folder aria-hidden="true" size={14} strokeWidth={1.8} />
-                            {t('folder')}
-                          </button>
-                        )
-                      : null}
-                    <button
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddBook(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <BookOpen aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('book')}
-                    </button>
-                  </div>
+                    <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
+                    {t('rebindBook')}
+                  </button>
+                )
+              : null}
+            {contextMenu.kind === 'book'
+              && (contextMenu.resourceState === 'checking' || contextMenu.resourceState === 'error')
+              ? (
+                  <button
+                    {...stylex.props(
+                      noteEntryContextMenuStyles.entryContextMenuItem,
+                      noteEntryContextMenuStyles.entryContextMenuItemDisabled,
+                    )}
+                    aria-disabled="true"
+                    disabled
+                    role="menuitem"
+                    type="button"
+                  >
+                    {contextMenu.resourceState === 'checking'
+                      ? <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
+                      : <CircleAlert aria-hidden="true" size={14} strokeWidth={1.8} />}
+                    {contextMenu.resourceState === 'checking'
+                      ? t('checkingBookAvailability')
+                      : t('bookAvailabilityCheckFailed')}
+                  </button>
                 )
               : null}
           </div>
-          {contextMenu.kind === 'book' && contextMenu.resourceState === 'missing'
-            ? (
-                <button
-                  {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                  role="menuitem"
-                  type="button"
-                  onFocus={() => setAddSubmenuOpen(false)}
-                  onPointerEnter={() => setAddSubmenuOpen(false)}
-                  onClick={() => {
-                    onRebindBook(contextMenu.topicId)
-                    close()
-                  }}
-                >
-                  <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-                  {t('rebindBook')}
-                </button>
-              )
-            : null}
-          {contextMenu.kind === 'book'
-            && (contextMenu.resourceState === 'checking' || contextMenu.resourceState === 'error')
-            ? (
-                <button
-                  {...stylex.props(
-                    noteEntryContextMenuStyles.entryContextMenuItem,
-                    noteEntryContextMenuStyles.entryContextMenuItemDisabled,
-                  )}
-                  aria-disabled="true"
-                  disabled
-                  role="menuitem"
-                  type="button"
-                >
-                  {contextMenu.resourceState === 'checking'
-                    ? <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-                    : <CircleAlert aria-hidden="true" size={14} strokeWidth={1.8} />}
-                  {contextMenu.resourceState === 'checking'
-                    ? t('checkingBookAvailability')
-                    : t('bookAvailabilityCheckFailed')}
-                </button>
-              )
-            : null}
-        </div>
+        </FloatingPortal>
       )
     : null
 

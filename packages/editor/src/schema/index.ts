@@ -1,3 +1,5 @@
+export type { TaskRepeatRule, TaskStatus, TaskTimingAttrs } from './task-schema'
+export { parseTaskRepeatRule, readTaskStatus, transitionTaskAttrs } from './task-schema'
 export type {
   LoroBookTopic,
   LoroImageOcclusionTopic,

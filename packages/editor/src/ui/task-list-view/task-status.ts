@@ -1,5 +1,6 @@
 import type { Attrs } from 'prosekit/pm/model'
-import type { TaskHistory, TaskStatus } from '../../schema/task-schema'
+import type { TaskHistory, TaskStatus, TaskTimingAttrs } from '../../schema/task-schema'
+import { readTaskStatus, transitionTaskAttrs } from '../../schema/task-schema'
 
 export type { TaskHistory, TaskStatus } from '../../schema/task-schema'
 
@@ -7,10 +8,7 @@ export const TASK_STATUSES: readonly TaskStatus[] = ['todo', 'doing', 'done']
 
 /** Resolve and validate the task status from raw list attributes. */
 export function effectiveStatus(attrs: Attrs): TaskStatus {
-  const status = attrs.status
-  if (status === 'todo' || status === 'doing' || status === 'done')
-    return status
-  throw new TypeError('Task status must be todo, doing, or done')
+  return readTaskStatus(attrs.status)
 }
 
 /** The next status when the control is clicked (cycles without leaving the task). */
@@ -25,12 +23,7 @@ export function nextClickStatus(status: TaskStatus): TaskStatus {
   }
 }
 
-export interface TaskTimingAttrs {
-  status: TaskStatus
-  elapsedMs: number
-  startedAt: number | null
-  checked: boolean
-}
+export type { TaskTimingAttrs } from '../../schema/task-schema'
 
 /**
  * Compute the list attributes for moving a task to `next`, settling the
@@ -40,19 +33,7 @@ export interface TaskTimingAttrs {
  * leaving `doing` folds the elapsed wall-clock span back into `elapsedMs`.
  */
 export function transitionAttrs(attrs: Attrs, next: TaskStatus, now = Date.now()): TaskTimingAttrs {
-  const current = effectiveStatus(attrs)
-  let elapsedMs = typeof attrs.elapsedMs === 'number' ? attrs.elapsedMs : 0
-  let startedAt = typeof attrs.startedAt === 'number' ? attrs.startedAt : null
-
-  if (current === 'doing' && startedAt != null) {
-    elapsedMs += Math.max(0, now - startedAt)
-    startedAt = null
-  }
-
-  if (next === 'doing')
-    startedAt = now
-
-  return { status: next, elapsedMs, startedAt, checked: next === 'done' }
+  return transitionTaskAttrs(attrs, next, now)
 }
 
 /** Settle a task timer before temporarily turning the task into a plain block. */

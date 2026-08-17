@@ -8,36 +8,6 @@ export interface ContextMenuPoint {
   y: number
 }
 
-export function keepContextMenuInViewport(
-  element: HTMLElement,
-  point: ContextMenuPoint,
-): void {
-  const edge = 8
-  const rect = element.getBoundingClientRect()
-  const left = Math.max(edge, Math.min(point.x, window.innerWidth - rect.width - edge))
-  const top = Math.max(edge, Math.min(point.y, window.innerHeight - rect.height - edge))
-  element.style.left = `${left}px`
-  element.style.top = `${top}px`
-}
-
-export function positionContextSubmenu(
-  element: HTMLElement,
-  trigger: HTMLElement,
-): void {
-  const edge = 8
-  const gap = 4
-  const rect = element.getBoundingClientRect()
-  const triggerRect = trigger.getBoundingClientRect()
-  const right = triggerRect.right + gap
-  const left = right + rect.width <= window.innerWidth - edge
-    ? right
-    : triggerRect.left - rect.width - gap
-  const top = Math.max(edge, Math.min(triggerRect.top - 5, window.innerHeight - rect.height - edge))
-
-  element.style.left = `${Math.max(edge, left)}px`
-  element.style.top = `${top}px`
-}
-
 export function contextMenuPoint(
   editor: Editor<BasicExtension>,
   event: MouseEvent,

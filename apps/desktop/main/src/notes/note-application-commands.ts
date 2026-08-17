@@ -17,6 +17,7 @@ import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
+import { parseTaskRepeatRule, transitionTaskAttrs } from '@memorilo/editor/schema'
 import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { NoteRevisionConflictError } from './note-application-contracts'
@@ -83,18 +84,18 @@ export function createNoteApplicationCommands({ defaultNoteLearningEnabled, runt
     const sourceBlock = current.note.getTopicContent(input.topicId).blocks.find(block => block.id === input.blockId)
     if (!sourceBlock)
       throw new Error(`Todo task ${input.blockId} disappeared from Topic projection`)
+    const repeatRule = input.repeatRule === undefined || input.repeatRule === null
+      ? input.repeatRule
+      : parseTaskRepeatRule(input.repeatRule)
+    if (input.repeatRule !== undefined && input.repeatRule !== null && repeatRule === null)
+      throw new TypeError('Todo repeat rule is invalid')
     const nextAttrs = {
       ...sourceAttrs,
       ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
-      ...(input.repeatRule === undefined ? {} : { repeatRule: input.repeatRule }),
+      ...(repeatRule === undefined ? {} : { repeatRule }),
       ...(input.status === undefined
         ? {}
-        : {
-            checked: input.status === 'done',
-            elapsedMs: input.status === 'todo' ? 0 : sourceAttrs.elapsedMs,
-            startedAt: input.status === 'doing' ? sourceAttrs.startedAt ?? Date.now() : null,
-            status: input.status,
-          }),
+        : transitionTaskAttrs(sourceAttrs, input.status)),
     }
     if (!input.onlyThis
       && input.status === 'done'

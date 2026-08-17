@@ -1,4 +1,4 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { TodoQuadrant } from '../todo-model'
 import * as stylex from '@stylexjs/stylex'
@@ -18,6 +18,7 @@ const quadrantDefinitions: readonly { id: TodoQuadrant, labelKey: string, signal
 
 export function TodoQuadrantView({
   calendarEvents,
+  calendarSubscriptions,
   now,
   onOpenTask,
   onUpdateTask,
@@ -25,6 +26,7 @@ export function TodoQuadrantView({
   tasks,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
@@ -79,6 +81,7 @@ export function TodoQuadrantView({
                   : quadrantTasks.map(task => (
                       <TodoPlanningTask
                         calendarEvents={calendarEvents}
+                        calendarSubscriptions={calendarSubscriptions}
                         key={todoTaskKey(task)}
                         now={now}
                         onOpenTask={onOpenTask}

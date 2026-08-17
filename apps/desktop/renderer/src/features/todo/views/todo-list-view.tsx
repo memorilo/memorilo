@@ -1,4 +1,4 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -38,6 +38,7 @@ function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
 
 export function TodoListView({
   calendarEvents,
+  calendarSubscriptions,
   hasNextPage,
   isFetchNextPageError,
   isFetchingNextPage,
@@ -50,6 +51,7 @@ export function TodoListView({
   tasks,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   hasNextPage: boolean
   isFetchNextPageError: boolean
   isFetchingNextPage: boolean
@@ -172,6 +174,7 @@ export function TodoListView({
                 </button>
                 <TodoTaskActions
                   calendarEvents={calendarEvents}
+                  calendarSubscriptions={calendarSubscriptions}
                   onUpdateTask={onUpdateTask}
                   t={t}
                   task={task}

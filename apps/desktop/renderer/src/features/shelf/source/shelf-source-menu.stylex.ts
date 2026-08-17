@@ -3,10 +3,7 @@ import { shelfTheme } from '../shelf-shared.stylex'
 
 export const shelfSourceMenuStyles = stylex.create({
   sourceMenu: {
-    position: 'absolute',
     zIndex: 40,
-    top: 44,
-    left: 0,
     display: 'flex',
     width: 286,
     maxHeight: 390,
@@ -32,7 +29,6 @@ export const shelfSourceMenuStyles = stylex.create({
       '@media (prefers-reduced-transparency: reduce)': 'none',
     },
     boxShadow: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1), inset 0 1px rgba(255, 255, 255, 0.94)',
-    transformOrigin: 'top left',
   },
   sourceMenuScroll: {
     minHeight: 0,

@@ -17,7 +17,6 @@ import {
 import {
   startTransition,
   useDeferredValue,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -180,7 +179,6 @@ export function ShelfPage({
   usePageTitlebar(titlebar)
   const scrollElementRef = useRef<HTMLDivElement>(null)
   const sourceManagementRef = useRef<ShelfSourceManagementHandle>(null)
-  const sourceMenuRef = useRef<HTMLDivElement>(null)
   const sourceTriggerRef = useRef<HTMLButtonElement>(null)
   const [sourceMenuOpen, setSourceMenuOpen] = useState(false)
   const searchQuery = routeSearch.q ?? ''
@@ -193,25 +191,6 @@ export function ShelfPage({
       : t('shelfUpdatedAt', {
           time: shelfRelativeUpdateTime(catalog.refreshedAt, i18n.resolvedLanguage ?? i18n.language),
         })
-
-  useEffect(() => {
-    if (!sourceMenuOpen)
-      return
-    const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !sourceMenuRef.current?.contains(event.target))
-        setSourceMenuOpen(false)
-    }
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape')
-        setSourceMenuOpen(false)
-    }
-    window.addEventListener('pointerdown', closeOutside)
-    window.addEventListener('keydown', closeWithEscape)
-    return () => {
-      window.removeEventListener('pointerdown', closeOutside)
-      window.removeEventListener('keydown', closeWithEscape)
-    }
-  }, [sourceMenuOpen])
 
   const scrollToTop = () => scrollElementRef.current?.scrollTo({ behavior: 'auto', top: 0 })
   const selectSource = (sourceId: string | null) => {
@@ -237,7 +216,7 @@ export function ShelfPage({
         ? (
             <div {...stylex.props(shelfPageStyles.toolbarWrap)}>
               <div {...stylex.props(shelfPageStyles.toolbar)}>
-                <div ref={sourceMenuRef} {...stylex.props(shelfPageStyles.sourceSwitcher)}>
+                <div {...stylex.props(shelfPageStyles.sourceSwitcher)}>
                   <button
                     ref={sourceTriggerRef}
                     {...stylex.props(shelfPageStyles.sourceTrigger)}
@@ -253,6 +232,7 @@ export function ShelfPage({
                     <ChevronDown size={14} strokeWidth={1.9} aria-hidden="true" />
                   </button>
                   <ShelfSourceMenu
+                    anchorRef={sourceTriggerRef}
                     open={sourceMenuOpen}
                     selectedSourceId={catalog.activeSourceId}
                     sources={catalog.sources}

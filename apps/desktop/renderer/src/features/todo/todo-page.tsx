@@ -117,6 +117,7 @@ export function TodoPage({
     ? tasksQuery.data.pages.flatMap(page => [...page.items])
     : [], [tasksQuery.data])
   const calendarEvents = calendarQuery.data?.events ?? []
+  const calendarSubscriptions = calendarQuery.data?.subscriptions ?? []
   const hasRunningTasks = tasks.some(task => task.status === 'doing' && task.startedAt !== null)
   const [now, setNow] = useState(() => Date.now())
   const updateTodoTask = useCallback(async (input: UpdateDesktopTodoTaskInput) => {
@@ -195,6 +196,7 @@ export function TodoPage({
     viewContent = (
       <TodoListView
         calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
         hasNextPage={Boolean(tasksQuery.hasNextPage)}
         isFetchNextPageError={tasksQuery.isFetchNextPageError}
         isFetchingNextPage={tasksQuery.isFetchingNextPage}
@@ -212,6 +214,7 @@ export function TodoPage({
     viewContent = (
       <TodoBoardView
         calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
         isFetchingMore={tasksQuery.isFetchingNextPage}
         now={now}
         onOpenTask={onOpenTask}
@@ -225,6 +228,7 @@ export function TodoPage({
     viewContent = (
       <TodoTimelineView
         calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
         locale={i18n.language}
         now={now}
         onOpenTask={onOpenTask}
@@ -238,6 +242,7 @@ export function TodoPage({
     viewContent = (
       <TodoCalendarView
         calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
         locale={i18n.language}
         now={now}
         onOpenTask={onOpenTask}
@@ -252,6 +257,7 @@ export function TodoPage({
     viewContent = (
       <TodoQuadrantView
         calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
         now={now}
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
