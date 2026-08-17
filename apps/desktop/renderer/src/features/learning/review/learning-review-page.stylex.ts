@@ -136,6 +136,7 @@ export const learningReviewPageStyles = stylex.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
+    gap: 0,
     borderColor: 'rgba(52, 59, 69, 0.12)',
     borderStyle: 'solid',
     borderWidth: 1,

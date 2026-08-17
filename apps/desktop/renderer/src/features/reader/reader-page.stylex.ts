@@ -106,6 +106,7 @@ export const readerPageStyles = stylex.create({
     cursor: 'default',
     outline: 'none',
     boxShadow: {
+      'default': 'none',
       ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.72)',
     },
     transform: {

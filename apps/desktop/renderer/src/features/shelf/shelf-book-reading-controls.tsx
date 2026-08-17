@@ -1,4 +1,5 @@
 import type { ShelfPublicationDetails, ShelfReadingFormat } from '@memorilo/shelf'
+import { Button, ButtonGroup } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, ChevronDown, Info, LoaderCircle, Trash2 } from 'lucide-react'
@@ -72,13 +73,13 @@ export function ShelfBookReadingControls({
   return (
     <>
       <div {...stylex.props(styles.readingActions)}>
-        <div {...stylex.props(styles.readControl, prepareReadingMutation.isPending && styles.readControlDisabled)}>
-          <button
-            {...stylex.props(styles.readButton)}
+        <ButtonGroup xstyle={[styles.readControl, prepareReadingMutation.isPending && styles.readControlDisabled]}>
+          <Button
             aria-busy={prepareReadingMutation.isPending}
             disabled={selectedReadingOption === null || prepareReadingMutation.isPending}
             title={selectedReadingOption === null ? t('shelfNoReadableDownload') : t('shelfReadBook')}
-            type="button"
+            variant="plain"
+            xstyle={styles.readButton}
             onClick={() => {
               if (selectedReadingOption)
                 prepareReadingMutation.mutate(selectedReadingOption.format)
@@ -88,7 +89,7 @@ export function ShelfBookReadingControls({
               ? <LoaderCircle {...stylex.props(shelfBookShellStyles.spinner)} aria-hidden="true" size={16} strokeWidth={1.9} />
               : <BookOpen aria-hidden="true" size={16} strokeWidth={1.9} />}
             <span>{prepareReadingMutation.isPending ? t('shelfDownloading') : t('shelfRead')}</span>
-          </button>
+          </Button>
           {details.readingOptions.length > 1 && selectedReadingOption
             ? (
                 <label {...stylex.props(styles.formatPicker)}>
@@ -108,7 +109,7 @@ export function ShelfBookReadingControls({
                 </label>
               )
             : null}
-        </div>
+        </ButtonGroup>
         <label {...stylex.props(styles.onlineReadingOption)}>
           <input
             {...stylex.props(styles.onlineReadingCheckbox)}
@@ -124,18 +125,18 @@ export function ShelfBookReadingControls({
         </span>
         {selectedReadingOption?.savedLocally
           ? (
-              <button
-                {...stylex.props(styles.deleteReadingButton)}
+              <Button
                 aria-label={t('shelfDeleteLocalBookFile')}
                 disabled={deleteReadingMutation.isPending || prepareReadingMutation.isPending}
                 title={t('shelfDeleteLocalFile')}
-                type="button"
+                variant="toolbar"
+                xstyle={styles.deleteReadingButton}
                 onClick={() => deleteReadingMutation.mutate(selectedReadingOption.readingId)}
               >
                 {deleteReadingMutation.isPending
                   ? <LoaderCircle {...stylex.props(shelfBookShellStyles.spinner)} aria-hidden="true" size={15} strokeWidth={1.8} />
                   : <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />}
-              </button>
+              </Button>
             )
           : null}
       </div>

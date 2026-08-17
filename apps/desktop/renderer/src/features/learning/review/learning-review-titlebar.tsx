@@ -2,6 +2,7 @@ import type { DesktopLearningApi } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { ActiveReview, ReviewProjection } from './learning-review-rating-model'
 import type { LearningReviewRoute } from './learning-review-route'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpen, ChevronRight, RotateCcw } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -91,30 +92,30 @@ export function LearningReviewTitlebar({
                   transition={shouldReduceMotion ? { duration: 0 } : learningReviewSpring}
                 />
               </div>
-              <button
-                {...stylex.props(styles.iconButton)}
+              <Button
                 aria-label={t('undoRating')}
                 disabled={historyLength === 0 || actionPending}
                 title={t('undoRating')}
-                type="button"
+                variant="toolbar"
+                xstyle={styles.iconButton}
                 onClick={() => void onUndo()}
               >
                 <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
-              </button>
+              </Button>
               {active.item.card.kind === 'image-occlusion'
                 ? null
                 : (
-                    <button
-                      {...stylex.props(styles.iconButton, active.sourceVisible && styles.iconButtonActive)}
+                    <Button
                       aria-label={active.sourceVisible ? t('showCard') : t('showSource')}
                       aria-pressed={active.sourceVisible}
                       disabled={!active.revealed}
                       title={active.sourceVisible ? t('showCard') : t('showSource')}
-                      type="button"
+                      variant="toolbar"
+                      xstyle={[styles.iconButton, active.sourceVisible && styles.iconButtonActive]}
                       onClick={onToggleSource}
                     >
                       <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
-                    </button>
+                    </Button>
                   )}
             </div>
           )

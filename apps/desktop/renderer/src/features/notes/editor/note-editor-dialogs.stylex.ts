@@ -2,34 +2,11 @@ import * as stylex from '@stylexjs/stylex'
 import { noteTheme } from './note-shared.stylex'
 
 export const noteEditorDialogStyles = stylex.create({
-  bookPickerOverlay: {
-    position: 'fixed',
-    zIndex: 60,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    display: 'grid',
-    alignItems: 'center',
-    justifyItems: 'center',
-    padding: 24,
-    backgroundColor: 'rgba(28, 31, 38, 0.24)',
-    backdropFilter: 'blur(10px)',
-  },
   entryCreationDialog: {
     display: 'flex',
     width: 'min(360px, 100%)',
     overflow: 'hidden',
     flexDirection: 'column',
-    borderColor: 'rgba(50, 55, 64, 0.18)',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 12,
-    backgroundColor: {
-      'default': 'rgba(250, 251, 253, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 253)',
-    },
-    boxShadow: '0 22px 56px rgba(29, 35, 45, 0.22), 0 2px 8px rgba(29, 35, 45, 0.1)',
   },
   entryCreationBody: {
     display: 'grid',
@@ -74,15 +51,6 @@ export const noteEditorDialogStyles = stylex.create({
     maxHeight: 'min(720px, calc(100vh - 48px))',
     flexDirection: 'column',
     overflow: 'hidden',
-    borderColor: 'rgba(50, 55, 64, 0.18)',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 14,
-    backgroundColor: {
-      'default': 'rgba(250, 251, 253, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 253)',
-    },
-    boxShadow: '0 22px 56px rgba(29, 35, 45, 0.22), 0 2px 8px rgba(29, 35, 45, 0.1)',
   },
   bookPickerHeader: {
     display: 'flex',

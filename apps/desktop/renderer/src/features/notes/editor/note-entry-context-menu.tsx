@@ -1,7 +1,8 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { ContextMenu } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpen, ChevronRight, CircleAlert, FileText, Folder, PenLine, Plus, RefreshCw, Table2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
 import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
@@ -113,21 +114,6 @@ export function useNoteEntryContextMenu({
     )
   }, [availability])
 
-  useEffect(() => {
-    if (!contextMenu)
-      return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape')
-        close()
-    }
-    window.addEventListener('pointerdown', close)
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.removeEventListener('pointerdown', close)
-      window.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [close, contextMenu])
-
   const layout = useMemo(() => {
     if (!contextMenu)
       return null
@@ -159,168 +145,180 @@ export function useNoteEntryContextMenu({
 
   const menu = contextMenu && layout
     ? (
-        <div
-          {...stylex.props(noteEntryContextMenuStyles.entryContextMenu)}
-          role="menu"
-          style={{ left: layout.left, top: layout.top }}
-          onContextMenu={event => event.preventDefault()}
-          onPointerDown={event => event.stopPropagation()}
+        <ContextMenu.Root
+          open
+          position={{ x: layout.left, y: layout.top }}
+          onOpenChange={(open) => {
+            if (!open)
+              close()
+          }}
         >
-          <div
-            {...stylex.props(noteEntryContextMenuStyles.entryContextSubmenuTrigger)}
-            onPointerEnter={() => setAddSubmenuOpen(true)}
-          >
-            <button
-              ref={addMenuTriggerRef}
-              {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-              aria-expanded={addSubmenuOpen}
-              aria-haspopup="menu"
-              role="menuitem"
-              type="button"
-              onClick={() => setAddSubmenuOpen(true)}
-              onKeyDown={(event) => {
-                if (event.key !== 'ArrowRight' && event.key !== 'Enter' && event.key !== ' ')
-                  return
-                event.preventDefault()
-                setAddSubmenuOpen(true)
-                queueMicrotask(() => addMenuFirstItemRef.current?.focus())
-              }}
-            >
-              <Plus aria-hidden="true" size={14} strokeWidth={1.8} />
-              {t('add')}
-              <ChevronRight
-                {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItemTrailing)}
-                aria-hidden="true"
-                size={13}
-                strokeWidth={1.8}
-              />
-            </button>
-            {addSubmenuOpen
-              ? (
-                  <div
-                    {...stylex.props(
-                      noteEntryContextMenuStyles.entryContextSubmenu,
-                      layout.submenuOpensLeft && noteEntryContextMenuStyles.entryContextSubmenuLeft,
-                    )}
-                    role="menu"
+          <ContextMenu.Portal>
+            <ContextMenu.Content asChild variant="note" xstyle={noteEntryContextMenuStyles.entryContextMenu}>
+              <div
+                role="menu"
+                style={{ left: layout.left, top: layout.top }}
+                onContextMenu={event => event.preventDefault()}
+                onPointerDown={event => event.stopPropagation()}
+              >
+                <div
+                  {...stylex.props(noteEntryContextMenuStyles.entryContextSubmenuTrigger)}
+                  onPointerEnter={() => setAddSubmenuOpen(true)}
+                >
+                  <button
+                    ref={addMenuTriggerRef}
+                    {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                    aria-expanded={addSubmenuOpen}
+                    aria-haspopup="menu"
+                    role="menuitem"
+                    type="button"
+                    onClick={() => setAddSubmenuOpen(true)}
                     onKeyDown={(event) => {
-                      if (event.key !== 'ArrowLeft')
+                      if (event.key !== 'ArrowRight' && event.key !== 'Enter' && event.key !== ' ')
                         return
                       event.preventDefault()
-                      setAddSubmenuOpen(false)
-                      queueMicrotask(() => addMenuTriggerRef.current?.focus())
+                      setAddSubmenuOpen(true)
+                      queueMicrotask(() => addMenuFirstItemRef.current?.focus())
                     }}
                   >
-                    <button
-                      ref={addMenuFirstItemRef}
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddTopic(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('topic')}
-                    </button>
-                    <button
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddWhiteboard(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('whiteboard')}
-                    </button>
-                    <button
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddSpreadsheet(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <Table2 aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('spreadsheet.label')}
-                    </button>
-                    {contextMenu.kind === 'container' && contextMenu.allowFolder
-                      ? (
+                    <Plus aria-hidden="true" size={14} strokeWidth={1.8} />
+                    {t('add')}
+                    <ChevronRight
+                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItemTrailing)}
+                      aria-hidden="true"
+                      size={13}
+                      strokeWidth={1.8}
+                    />
+                  </button>
+                  {addSubmenuOpen
+                    ? (
+                        <div
+                          {...stylex.props(
+                            noteEntryContextMenuStyles.entryContextSubmenu,
+                            layout.submenuOpensLeft && noteEntryContextMenuStyles.entryContextSubmenuLeft,
+                          )}
+                          role="menu"
+                          onKeyDown={(event) => {
+                            if (event.key !== 'ArrowLeft')
+                              return
+                            event.preventDefault()
+                            setAddSubmenuOpen(false)
+                            queueMicrotask(() => addMenuTriggerRef.current?.focus())
+                          }}
+                        >
+                          <button
+                            ref={addMenuFirstItemRef}
+                            {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                            role="menuitem"
+                            type="button"
+                            onClick={() => {
+                              onAddTopic(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                              close()
+                            }}
+                          >
+                            <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
+                            {t('topic')}
+                          </button>
                           <button
                             {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
                             role="menuitem"
                             type="button"
                             onClick={() => {
-                              onAddFolder(contextMenu.parentId)
+                              onAddWhiteboard(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
                               close()
                             }}
                           >
-                            <Folder aria-hidden="true" size={14} strokeWidth={1.8} />
-                            {t('folder')}
+                            <PenLine aria-hidden="true" size={14} strokeWidth={1.8} />
+                            {t('whiteboard')}
                           </button>
-                        )
-                      : null}
-                    <button
-                      {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        onAddBook(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                        close()
-                      }}
-                    >
-                      <BookOpen aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {t('book')}
-                    </button>
-                  </div>
-                )
-              : null}
-          </div>
-          {contextMenu.kind === 'book' && contextMenu.resourceState === 'missing'
-            ? (
-                <button
-                  {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                  role="menuitem"
-                  type="button"
-                  onFocus={() => setAddSubmenuOpen(false)}
-                  onPointerEnter={() => setAddSubmenuOpen(false)}
-                  onClick={() => {
-                    onRebindBook(contextMenu.topicId)
-                    close()
-                  }}
-                >
-                  <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-                  {t('rebindBook')}
-                </button>
-              )
-            : null}
-          {contextMenu.kind === 'book'
-            && (contextMenu.resourceState === 'checking' || contextMenu.resourceState === 'error')
-            ? (
-                <button
-                  {...stylex.props(
-                    noteEntryContextMenuStyles.entryContextMenuItem,
-                    noteEntryContextMenuStyles.entryContextMenuItemDisabled,
-                  )}
-                  aria-disabled="true"
-                  disabled
-                  role="menuitem"
-                  type="button"
-                >
-                  {contextMenu.resourceState === 'checking'
-                    ? <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-                    : <CircleAlert aria-hidden="true" size={14} strokeWidth={1.8} />}
-                  {contextMenu.resourceState === 'checking'
-                    ? t('checkingBookAvailability')
-                    : t('bookAvailabilityCheckFailed')}
-                </button>
-              )
-            : null}
-        </div>
+                          <button
+                            {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                            role="menuitem"
+                            type="button"
+                            onClick={() => {
+                              onAddSpreadsheet(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                              close()
+                            }}
+                          >
+                            <Table2 aria-hidden="true" size={14} strokeWidth={1.8} />
+                            {t('spreadsheet.label')}
+                          </button>
+                          {contextMenu.kind === 'container' && contextMenu.allowFolder
+                            ? (
+                                <button
+                                  {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                                  role="menuitem"
+                                  type="button"
+                                  onClick={() => {
+                                    onAddFolder(contextMenu.parentId)
+                                    close()
+                                  }}
+                                >
+                                  <Folder aria-hidden="true" size={14} strokeWidth={1.8} />
+                                  {t('folder')}
+                                </button>
+                              )
+                            : null}
+                          <button
+                            {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                            role="menuitem"
+                            type="button"
+                            onClick={() => {
+                              onAddBook(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                              close()
+                            }}
+                          >
+                            <BookOpen aria-hidden="true" size={14} strokeWidth={1.8} />
+                            {t('book')}
+                          </button>
+                        </div>
+                      )
+                    : null}
+                </div>
+                {contextMenu.kind === 'book' && contextMenu.resourceState === 'missing'
+                  ? (
+                      <button
+                        {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                        role="menuitem"
+                        type="button"
+                        onFocus={() => setAddSubmenuOpen(false)}
+                        onPointerEnter={() => setAddSubmenuOpen(false)}
+                        onClick={() => {
+                          onRebindBook(contextMenu.topicId)
+                          close()
+                        }}
+                      >
+                        <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
+                        {t('rebindBook')}
+                      </button>
+                    )
+                  : null}
+                {contextMenu.kind === 'book'
+                  && (contextMenu.resourceState === 'checking' || contextMenu.resourceState === 'error')
+                  ? (
+                      <button
+                        {...stylex.props(
+                          noteEntryContextMenuStyles.entryContextMenuItem,
+                          noteEntryContextMenuStyles.entryContextMenuItemDisabled,
+                        )}
+                        aria-disabled="true"
+                        disabled
+                        role="menuitem"
+                        type="button"
+                      >
+                        {contextMenu.resourceState === 'checking'
+                          ? <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
+                          : <CircleAlert aria-hidden="true" size={14} strokeWidth={1.8} />}
+                        {contextMenu.resourceState === 'checking'
+                          ? t('checkingBookAvailability')
+                          : t('bookAvailabilityCheckFailed')}
+                      </button>
+                    )
+                  : null}
+              </div>
+            </ContextMenu.Content>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
       )
     : null
 

@@ -133,7 +133,6 @@ export function JournalCalendarControl({
                 transition={shouldReduceMotion ? { duration: 0.12 } : popoverSpring}
               >
                 <span {...stylex.props(journalRouteStyles.calendarGlassHighlight)} aria-hidden="true" />
-                <span {...stylex.props(journalRouteStyles.calendarGlassEdge)} aria-hidden="true" />
                 <div {...stylex.props(journalRouteStyles.calendarContent)}>
                   <JournalCalendar
                     activeMonth={activeMonth}

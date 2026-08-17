@@ -4,6 +4,7 @@ import type { ReviewRating } from './learning-review-rating-model'
 import type { LearningReviewRoute } from './learning-review-route'
 import type { LearningReviewFailure, LearningReviewWorkflow } from './learning-review-workflow'
 import type { ReviewCardRating } from './review-card-session'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -216,14 +217,16 @@ function LearningReviewPageSession({
         <p {...stylex.props(styles.statusTitle)}>{t('reviewUnavailable')}</p>
         <p {...stylex.props(styles.statusMessage)}>{errorMessage(view.cause)}</p>
         <div {...stylex.props(styles.statusActions)}>
-          <Link {...stylex.props(styles.secondaryButton)} search={{}} to="/learning">{t('backToLearning')}</Link>
-          <button
-            {...stylex.props(styles.primaryButton)}
-            type="button"
+          <Button asChild variant="plain" xstyle={styles.secondaryButton}>
+            <Link search={{}} to="/learning">{t('backToLearning')}</Link>
+          </Button>
+          <Button
+            variant="plain"
+            xstyle={styles.primaryButton}
             onClick={workflow.retry}
           >
             {t('retry')}
-          </button>
+          </Button>
         </div>
       </main>
     )
@@ -241,21 +244,23 @@ function LearningReviewPageSession({
         <div {...stylex.props(styles.statusActions)}>
           {historyLength > 0
             ? (
-                <button
-                  {...stylex.props(styles.secondaryButton)}
+                <Button
                   disabled={actionPending}
-                  type="button"
+                  variant="plain"
+                  xstyle={styles.secondaryButton}
                   onClick={() => void workflow.undo()}
                 >
                   <RotateCcw aria-hidden="true" size={14} strokeWidth={1.8} />
                   {t('undoRating')}
-                </button>
+                </Button>
               )
             : null}
-          <Link {...stylex.props(styles.primaryButton)} search={{}} to="/learning">
-            {t('backToLearning')}
-            <ChevronRight aria-hidden="true" size={15} strokeWidth={1.9} />
-          </Link>
+          <Button asChild variant="plain" xstyle={styles.primaryButton}>
+            <Link search={{}} to="/learning">
+              {t('backToLearning')}
+              <ChevronRight aria-hidden="true" size={15} strokeWidth={1.9} />
+            </Link>
+          </Button>
         </div>
       </main>
     )

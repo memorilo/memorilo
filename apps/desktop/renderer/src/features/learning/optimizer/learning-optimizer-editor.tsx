@@ -5,6 +5,7 @@ import type {
   OptimizerConfiguration,
   OptimizerDraft,
 } from './learning-optimizer-workflow'
+import { Button, Status, TextField, Switch as UiSwitch } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import {
   Check,
@@ -20,32 +21,6 @@ import { useTranslation } from 'react-i18next'
 
 import { learningOptimizerEditorStyles as styles } from './learning-optimizer-editor.stylex'
 import { learningOptimizerSharedStyles as sharedStyles } from './learning-optimizer-shared.stylex'
-
-export function Switch({
-  checked,
-  disabled = false,
-  label,
-  onChange,
-}: {
-  checked: boolean
-  disabled?: boolean
-  label: string
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <button
-      {...stylex.props(styles.switch, checked && styles.switchOn)}
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      role="switch"
-      type="button"
-      onClick={() => onChange(!checked)}
-    >
-      <span {...stylex.props(styles.switchThumb, checked && styles.switchThumbOn)} />
-    </button>
-  )
-}
 
 function SettingRow({
   children,
@@ -179,10 +154,10 @@ export function OptimizerEditor({
 
           {feedback
             ? (
-                <div {...stylex.props(sharedStyles.feedback, feedback.kind === 'error' ? sharedStyles.feedbackError : sharedStyles.feedbackSuccess)} role={feedback.kind === 'error' ? 'alert' : 'status'}>
+                <Status variant={feedback.kind === 'error' ? 'error' : 'success'} xstyle={[sharedStyles.feedback, feedback.kind === 'error' ? sharedStyles.feedbackError : sharedStyles.feedbackSuccess]}>
                   {feedback.kind === 'success' ? <Check aria-hidden="true" size={14} /> : null}
                   <span>{feedback.message}</span>
-                </div>
+                </Status>
               )
             : null}
 
@@ -215,45 +190,46 @@ export function OptimizerEditor({
               </SettingRow>
               <SettingRow label={t('maximumInterval')}>
                 <div {...stylex.props(styles.numberControl)}>
-                  <input
-                    {...stylex.props(sharedStyles.input, styles.numberInput)}
+                  <TextField
                     aria-label={t('maximumInterval')}
                     disabled={busy}
                     max={36500}
                     min={1}
                     type="number"
+                    variant="compact"
                     value={draft.configuration.maximumIntervalDays}
+                    xstyle={styles.numberInput}
                     onChange={event => updateConfiguration({ maximumIntervalDays: Number(event.target.value) })}
                   />
                   <span {...stylex.props(styles.unit)}>{t('days')}</span>
                 </div>
               </SettingRow>
               <SettingRow description={t('enableFuzzDescription')} label={t('enableFuzz')}>
-                <Switch checked={draft.configuration.enableFuzz} disabled={busy} label={t('enableFuzz')} onChange={enableFuzz => updateConfiguration({ enableFuzz })} />
+                <UiSwitch aria-label={t('enableFuzz')} checked={draft.configuration.enableFuzz} disabled={busy} variant="compact" onCheckedChange={enableFuzz => updateConfiguration({ enableFuzz })} />
               </SettingRow>
             </FormSection>
 
             <FormSection description={t('stepsDescription')} title={t('steps')}>
               <SettingRow label={t('learningSteps')}>
-                <input
-                  {...stylex.props(sharedStyles.input)}
+                <TextField
                   aria-invalid={stepError !== null}
                   aria-label={t('learningSteps')}
                   disabled={busy}
                   placeholder={t('stepsPlaceholder')}
                   value={learningSteps}
+                  variant="compact"
                   onBlur={() => commitSteps('learningSteps', learningSteps)}
                   onChange={event => setLearningSteps(event.target.value)}
                 />
               </SettingRow>
               <SettingRow label={t('relearningSteps')}>
-                <input
-                  {...stylex.props(sharedStyles.input)}
+                <TextField
                   aria-invalid={stepError !== null}
                   aria-label={t('relearningSteps')}
                   disabled={busy}
                   placeholder={t('stepsPlaceholder')}
                   value={relearningSteps}
+                  variant="compact"
                   onBlur={() => commitSteps('relearningSteps', relearningSteps)}
                   onChange={event => setRelearningSteps(event.target.value)}
                 />
@@ -266,10 +242,10 @@ export function OptimizerEditor({
                 <div {...stylex.props(styles.parametersControl)}>
                   <code {...stylex.props(styles.parameters)}>{draft.configuration.fsrsParameters.map(value => Number(value.toFixed(4))).join(', ')}</code>
                   <div {...stylex.props(styles.parameterActions)}>
-                    <button {...stylex.props(sharedStyles.actionButton)} disabled={busy || dirty} title={dirty ? t('unsaved') : t('optimize')} type="button" onClick={onOptimize}>
+                    <Button disabled={busy || dirty} title={dirty ? t('unsaved') : t('optimize')} variant="plain" xstyle={sharedStyles.actionButton} onClick={onOptimize}>
                       {optimizing ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : <Sparkles aria-hidden="true" size={14} />}
                       <span>{optimizing ? t('optimizing') : t('optimize')}</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </SettingRow>
@@ -277,29 +253,29 @@ export function OptimizerEditor({
 
             <div {...stylex.props(styles.formActions)}>
               <div {...stylex.props(styles.secondaryActions)}>
-                <button {...stylex.props(styles.textButton)} disabled={busy} type="button" onClick={onReset}>
+                <Button disabled={busy} variant="plain" xstyle={styles.textButton} onClick={onReset}>
                   <RotateCcw aria-hidden="true" size={14} />
                   <span>{t('restoreDefaults')}</span>
-                </button>
+                </Button>
                 {optimizer.isGlobal
                   ? null
                   : (
-                      <button {...stylex.props(styles.textButton, styles.dangerButton)} disabled={busy} type="button" onClick={onDelete}>
+                      <Button disabled={busy} variant="plain" xstyle={[styles.textButton, styles.dangerButton]} onClick={onDelete}>
                         <Trash2 aria-hidden="true" size={14} />
                         <span>{t('deleteOptimizer')}</span>
-                      </button>
+                      </Button>
                     )}
               </div>
               <div {...stylex.props(styles.saveCluster)}>
-                {dirty ? <button {...stylex.props(styles.textButton)} disabled={busy} type="button" onClick={onDiscard}>{t('discardDraft')}</button> : null}
+                {dirty ? <Button disabled={busy} variant="plain" xstyle={styles.textButton} onClick={onDiscard}>{t('discardDraft')}</Button> : null}
                 <label {...stylex.props(styles.rescheduleControl)}>
-                  <Switch checked={rescheduleNow} disabled={busy || !configurationChanged} label={t('rescheduleNow')} onChange={setRescheduleNow} />
+                  <UiSwitch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy || !configurationChanged} variant="compact" onCheckedChange={setRescheduleNow} />
                   <span>{t('rescheduleNow')}</span>
                 </label>
-                <button {...stylex.props(sharedStyles.actionButton, sharedStyles.actionButtonStrong)} disabled={busy || !dirty || stepError !== null || draft.name.trim().length === 0} type="submit">
+                <Button disabled={busy || !dirty || stepError !== null || draft.name.trim().length === 0} type="submit" variant="plain" xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}>
                   {saving ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : null}
                   <span>{saving ? t('saving') : t('saveChanges')}</span>
-                </button>
+                </Button>
               </div>
             </div>
           </form>

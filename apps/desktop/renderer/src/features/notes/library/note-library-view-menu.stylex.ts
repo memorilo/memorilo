@@ -7,37 +7,9 @@ export const noteLibraryViewMenuStyles = stylex.create({
     alignItems: 'center',
   },
   viewMenuButton: {
-    display: 'flex',
     width: 62,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: '0 0 62px',
     gap: 5,
-    borderWidth: 0,
-    borderRadius: 16,
-    padding: 0,
-    backgroundColor: {
-      'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.3)',
-      ':active': 'rgba(58, 66, 78, 0.14)',
-    },
-    boxShadow: {
-      'default': 'none',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
-    },
-    color: 'rgba(31, 35, 42, 0.82)',
-    cursor: 'default',
-    outline: 'none',
-    transform: {
-      'default': 'scale(1)',
-      ':active': 'scale(0.97)',
-    },
-    transitionDuration: {
-      'default': '110ms',
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    transitionProperty: 'background-color, box-shadow, transform',
-    transitionTimingFunction: 'ease-out',
   },
   viewMenuChevron: {
     transform: 'rotate(0deg)',

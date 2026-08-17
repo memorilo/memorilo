@@ -1,5 +1,6 @@
 import type { AddShelfSourceInput, ShelfSource, UpdateShelfSourceInput } from '@memorilo/shelf'
 import type { FormEvent, RefObject } from 'react'
+import { Button, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { AlertCircle, Check, KeyRound, LoaderCircle, Plus } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -83,15 +84,16 @@ export function ShelfSourceEditor({
     >
       <label {...stylex.props(shelfSourceManagerStyles.field)}>
         <span>{t('shelfOpdsAddress')}</span>
-        <input
+        <TextField
           ref={urlInputRef}
-          {...stylex.props(shelfSourceManagerStyles.textInput)}
           autoComplete="url"
           defaultValue={editorSource?.url}
           name="url"
           placeholder="https://example.com/opds"
           required
           type="url"
+          variant="default"
+          xstyle={shelfSourceManagerStyles.textInput}
         />
       </label>
       <label {...stylex.props(shelfSourceManagerStyles.field)}>
@@ -99,19 +101,19 @@ export function ShelfSourceEditor({
           {t('shelfSourceName')}
           {editor === 'add' ? <small {...stylex.props(shelfSourceManagerStyles.fieldOptional)}>{t('shelfOptional')}</small> : null}
         </span>
-        <input
-          {...stylex.props(shelfSourceManagerStyles.textInput)}
+        <TextField
           defaultValue={editorSource?.name}
           name="name"
           placeholder={t('shelfUsesSourceTitle')}
           required={editor !== 'add'}
           type="text"
+          xstyle={shelfSourceManagerStyles.textInput}
         />
       </label>
-      <button
-        {...stylex.props(shelfSourceManagerStyles.accountDisclosure)}
+      <Button
         aria-expanded={showAccount}
-        type="button"
+        variant="plain"
+        xstyle={shelfSourceManagerStyles.accountDisclosure}
         onClick={() => setShowAccount(current => !current)}
       >
         <span {...stylex.props(shelfSourceManagerStyles.accountLabel)}>
@@ -119,7 +121,7 @@ export function ShelfSourceEditor({
           {t('shelfAccount')}
         </span>
         <span>{showAccount ? t('shelfRemoveSignIn') : t('shelfAddSignIn')}</span>
-      </button>
+      </Button>
       <AnimatePresence initial={false}>
         {showAccount
           ? (
@@ -132,19 +134,19 @@ export function ShelfSourceEditor({
               >
                 <label {...stylex.props(shelfSourceManagerStyles.field)}>
                   <span>{t('shelfUsername')}</span>
-                  <input {...stylex.props(shelfSourceManagerStyles.textInput)} autoComplete="username" defaultValue={editorSource?.username ?? ''} name="username" required type="text" />
+                  <TextField autoComplete="username" defaultValue={editorSource?.username ?? ''} name="username" required type="text" xstyle={shelfSourceManagerStyles.textInput} />
                 </label>
                 <label {...stylex.props(shelfSourceManagerStyles.field)}>
                   <span>
                     {t('shelfPassword')}
                     {editorSource?.auth === 'basic' ? <small {...stylex.props(shelfSourceManagerStyles.fieldOptional)}>{t('shelfLeaveBlankToKeep')}</small> : null}
                   </span>
-                  <input
-                    {...stylex.props(shelfSourceManagerStyles.textInput)}
+                  <TextField
                     autoComplete="current-password"
                     name="password"
                     required={editorSource?.auth !== 'basic'}
                     type="password"
+                    xstyle={shelfSourceManagerStyles.textInput}
                   />
                 </label>
                 <p {...stylex.props(shelfSourceManagerStyles.privacyNote)}>{t('shelfPasswordPrivacy')}</p>
@@ -161,11 +163,11 @@ export function ShelfSourceEditor({
           )
         : null}
       <footer {...stylex.props(shelfSourceManagerStyles.sheetActions)}>
-        <button {...stylex.props(shelfSharedStyles.secondaryButton)} disabled={isPending} type="button" onClick={onCancel}>{t('shelfCancel')}</button>
-        <button {...stylex.props(shelfSharedStyles.primaryButton)} disabled={isPending} type="submit">
+        <Button disabled={isPending} variant="secondary" xstyle={shelfSharedStyles.secondaryButton} onClick={onCancel}>{t('shelfCancel')}</Button>
+        <Button disabled={isPending} type="submit" variant="primary" xstyle={shelfSharedStyles.primaryButton}>
           {isPending ? <LoaderCircle {...stylex.props(shelfSharedStyles.spinner)} size={16} strokeWidth={1.9} aria-hidden="true" /> : editor === 'add' ? <Plus size={16} strokeWidth={1.9} aria-hidden="true" /> : <Check size={16} strokeWidth={1.9} aria-hidden="true" />}
           {isPending ? t('shelfChecking') : editor === 'add' ? t('shelfAddSource') : t('shelfSaveChanges')}
-        </button>
+        </Button>
       </footer>
     </form>
   )

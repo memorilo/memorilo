@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react'
-import * as stylex from '@stylexjs/stylex'
-
-import { pageTitlebarButtonStyles as styles } from './page-titlebar-button.stylex'
+import { Button } from '@memorilo/ui'
 
 export function PageTitlebarButton({
   children,
@@ -17,16 +15,15 @@ export function PageTitlebarButton({
   title?: string
 }) {
   return (
-    <button
-      {...stylex.props(styles.button)}
+    <Button
       aria-label={label}
       data-window-no-drag=""
       disabled={disabled}
       title={title}
-      type="button"
+      variant="titlebar"
       onClick={onClick}
     >
       {children}
-    </button>
+    </Button>
   )
 }

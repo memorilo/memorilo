@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { ReaderAdapterState } from './internal/reader-adapter'
 import type { ReaderSessionEngine } from './internal/reader-session-engine'
 import type { ReaderOcrStatus, ReaderScaleCapability } from './types'
+import { Button, ButtonGroup } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import {
   BookOpenText,
@@ -73,24 +74,24 @@ export function ReaderToolbar({
     ? ocrStatus.state
     : undefined
   const sidebarButton = (
-    <button
-      {...stylex.props(
-        readerStyles.button,
-        chrome === 'window' && readerStyles.buttonWindow,
-        annotationPanelOpen && readerStyles.buttonActive,
-      )}
+    <Button
       aria-label={sidebarLabel}
       aria-pressed={annotationPanelOpen}
       data-window-no-drag=""
       title={sidebarLabel}
-      type="button"
+      variant="toolbar"
+      xstyle={[
+        readerStyles.button,
+        chrome === 'window' && readerStyles.buttonWindow,
+        annotationPanelOpen && readerStyles.buttonActive,
+      ]}
       onClick={onToggleAnnotationPanel}
     >
       <BookOpenText aria-hidden="true" size={16} strokeWidth={1.8} />
       {annotationCount > 0
         ? <span {...stylex.props(readerStyles.annotationBadge)}>{annotationCount}</span>
         : null}
-    </button>
+    </Button>
   )
 
   const toolbar = (
@@ -117,77 +118,77 @@ export function ReaderToolbar({
             </div>
           )}
 
-      <div
-        {...stylex.props(
+      <ButtonGroup
+        variant={chrome === 'window' ? 'glass' : 'plain'}
+        xstyle={[
           readerStyles.navigation,
-          chrome === 'window' && readerStyles.windowControlGroup,
           chrome === 'window' && readerStyles.navigationWindow,
-        )}
+        ]}
       >
-        <button
-          {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+        <Button
           aria-label={t('reader.previous')}
           data-window-no-drag=""
           disabled={status !== 'ready' || !adapterState.canGoBackward}
           title={t('reader.previous')}
-          type="button"
+          variant="toolbar"
+          xstyle={[readerStyles.button, chrome === 'window' && readerStyles.buttonWindow]}
           onClick={() => run(adapter => adapter.goBackward('end'))}
         >
           <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.9} />
-        </button>
+        </Button>
         <span {...stylex.props(readerStyles.location)} aria-live="polite">
           {adapterState.location.label || t('reader.opening')}
         </span>
-        <button
-          {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+        <Button
           aria-label={t('reader.next')}
           data-window-no-drag=""
           disabled={status !== 'ready' || !adapterState.canGoForward}
           title={t('reader.next')}
-          type="button"
+          variant="toolbar"
+          xstyle={[readerStyles.button, chrome === 'window' && readerStyles.buttonWindow]}
           onClick={() => run(adapter => adapter.goForward('start'))}
         >
           <ChevronRight aria-hidden="true" size={17} strokeWidth={1.9} />
-        </button>
-      </div>
+        </Button>
+      </ButtonGroup>
 
-      <div
-        {...stylex.props(
+      <ButtonGroup
+        variant={chrome === 'window' ? 'glass' : 'plain'}
+        xstyle={[
           readerStyles.actions,
-          chrome === 'window' && readerStyles.windowControlGroup,
           chrome === 'window' && readerStyles.actionsWindow,
           chrome === 'window' && sidebarActions !== undefined && readerStyles.actionsWindowWithSidebarActions,
-        )}
+        ]}
       >
         {sidebarButton}
         {toolbarActions}
         {annotationEditingEnabled && adapterState.capabilities.regionSelection
           ? (
-              <button
-                {...stylex.props(
-                  readerStyles.button,
-                  chrome === 'window' && readerStyles.buttonWindow,
-                  regionSelectionActive && readerStyles.buttonActive,
-                )}
+              <Button
                 aria-label={t('reader.selectArea')}
                 aria-pressed={regionSelectionActive}
                 disabled={status !== 'ready'}
                 title={t('reader.selectArea')}
-                type="button"
+                variant="toolbar"
+                xstyle={[
+                  readerStyles.button,
+                  chrome === 'window' && readerStyles.buttonWindow,
+                  regionSelectionActive && readerStyles.buttonActive,
+                ]}
                 onClick={onToggleRegionSelection}
               >
                 <ScanLine aria-hidden="true" size={16} strokeWidth={1.8} />
-              </button>
+              </Button>
             )
           : null}
         {adapterState.capabilities.ocr
           ? (
-              <button
-                {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+              <Button
                 aria-label={t('reader.recognizePage')}
                 disabled={status !== 'ready' || currentOcrState === 'recognizing'}
                 title={t('reader.recognizePage')}
-                type="button"
+                variant="toolbar"
+                xstyle={[readerStyles.button, chrome === 'window' && readerStyles.buttonWindow]}
                 onClick={() => run((adapter) => {
                   if (!adapter.recognizeCurrentPage)
                     throw new Error('The reader declared OCR without providing its command')
@@ -195,19 +196,19 @@ export function ReaderToolbar({
                 })}
               >
                 <Sparkles aria-hidden="true" size={15} strokeWidth={1.8} />
-              </button>
+              </Button>
             )
           : null}
         {scaleCapability
           ? (
               <>
-                <button
-                  {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+                <Button
                   aria-label={scaleActionLabel(scaleCapability, 'out', t)}
                   data-window-no-drag=""
                   disabled={status !== 'ready' || adapterState.scale <= scaleCapability.minimum}
                   title={scaleActionLabel(scaleCapability, 'out', t)}
-                  type="button"
+                  variant="toolbar"
+                  xstyle={[readerStyles.button, chrome === 'window' && readerStyles.buttonWindow]}
                   onClick={() => run((adapter) => {
                     if (!adapter.setScale)
                       throw new Error('The reader declared scaling without providing its command')
@@ -215,14 +216,14 @@ export function ReaderToolbar({
                   })}
                 >
                   <Minus aria-hidden="true" size={15} strokeWidth={2} />
-                </button>
-                <button
-                  {...stylex.props(readerStyles.button, chrome === 'window' && readerStyles.buttonWindow)}
+                </Button>
+                <Button
                   aria-label={scaleActionLabel(scaleCapability, 'in', t)}
                   data-window-no-drag=""
                   disabled={status !== 'ready' || adapterState.scale >= scaleCapability.maximum}
                   title={scaleActionLabel(scaleCapability, 'in', t)}
-                  type="button"
+                  variant="toolbar"
+                  xstyle={[readerStyles.button, chrome === 'window' && readerStyles.buttonWindow]}
                   onClick={() => run((adapter) => {
                     if (!adapter.setScale)
                       throw new Error('The reader declared scaling without providing its command')
@@ -230,11 +231,11 @@ export function ReaderToolbar({
                   })}
                 >
                   <Plus aria-hidden="true" size={15} strokeWidth={2} />
-                </button>
+                </Button>
               </>
             )
           : null}
-      </div>
+      </ButtonGroup>
     </header>
   )
   if (chrome !== 'window' || sidebarActions === undefined)
@@ -242,16 +243,16 @@ export function ReaderToolbar({
   return (
     <>
       {toolbar}
-      <div
-        {...stylex.props(
-          readerStyles.sidebarActions,
-          readerStyles.windowControlGroup,
-          readerStyles.sidebarActionsWindow,
-        )}
+      <ButtonGroup
         data-window-no-drag=""
+        variant="glass"
+        xstyle={[
+          readerStyles.sidebarActions,
+          readerStyles.sidebarActionsWindow,
+        ]}
       >
         {sidebarActions}
-      </div>
+      </ButtonGroup>
     </>
   )
 }

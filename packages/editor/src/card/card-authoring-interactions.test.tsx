@@ -495,7 +495,7 @@ describe('card authoring interactions', () => {
       throw new Error('Basic delimiter disappeared before opening Card options')
     await userEvent.click(within(currentDelimiter).getByRole('button', { name: 'Card options' }))
     expect(await rendered.findByRole('toolbar', { name: 'Card options' })).toBeVisible()
-    expect(rendered.getByRole('button', { name: 'Basic direction' })).toHaveAttribute('aria-pressed', 'true')
+    expect(rendered.getByRole('radio', { name: 'Basic direction' })).toHaveAttribute('aria-checked', 'true')
     const selectedDelimiter = rendered.container.querySelector<HTMLElement>('[data-card-delimiter]')
     if (!selectedDelimiter)
       throw new Error('Basic delimiter disappeared while Card options were open')

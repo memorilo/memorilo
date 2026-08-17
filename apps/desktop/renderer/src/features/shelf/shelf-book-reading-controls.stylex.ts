@@ -20,6 +20,7 @@ export const shelfBookReadingStyles = stylex.create({
     height: 36,
     overflow: 'hidden',
     alignItems: 'stretch',
+    gap: 0,
     borderColor: {
       'default': 'rgba(255, 255, 255, 0.62)',
       '@media (prefers-contrast: more)': 'rgba(0, 67, 151, 0.7)',

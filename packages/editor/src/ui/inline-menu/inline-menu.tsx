@@ -5,6 +5,7 @@ import type { Editor } from 'prosekit/core'
 import type { LinkAttrs } from 'prosekit/extensions/link'
 import type { EditorState } from 'prosekit/pm/state'
 import type { CardExtension } from '../../card/card-extension'
+import { Toolbar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Bold, Brackets, Code2, Highlighter, Italic, Link2, Strikethrough, Underline } from 'lucide-react'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
@@ -110,98 +111,96 @@ export default function InlineMenu({ learningEnabled = true }: { learningEnabled
         }}
       >
         <InlinePopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
-          <InlinePopoverPopup
-            {...stylex.props(
-              floatingSurfaceStyles.motion,
-              floatingSurfaceStyles.surface,
-              inlineMenuStyles.mainPopup,
-            )}
-            data-testid="inline-menu-main"
-          >
-            <HeadingDropdown actions={actions.heading} />
-            <Button
-              pressed={actions.mark.bold.active}
-              disabled={!actions.mark.bold.canExec}
-              onClick={actions.mark.bold.run}
-              tooltip={t('ui.bold')}
+          <Toolbar.Root asChild variant="floating" xstyle={inlineMenuStyles.mainPopup}>
+            <InlinePopoverPopup
+              {...stylex.props(floatingSurfaceStyles.motion)}
+              data-testid="inline-menu-main"
             >
-              <Bold size={16} />
-            </Button>
-            <Button
-              pressed={actions.mark.italic.active}
-              disabled={!actions.mark.italic.canExec}
-              onClick={actions.mark.italic.run}
-              tooltip={t('ui.italic')}
-            >
-              <Italic size={16} />
-            </Button>
-            <Button
-              pressed={actions.mark.underline.active}
-              disabled={!actions.mark.underline.canExec}
-              onClick={actions.mark.underline.run}
-              tooltip={t('ui.underline')}
-            >
-              <Underline size={16} />
-            </Button>
-            <Button
-              pressed={actions.mark.strike.active}
-              disabled={!actions.mark.strike.canExec}
-              onClick={actions.mark.strike.run}
-              tooltip={t('ui.strikethrough')}
-            >
-              <Strikethrough size={16} />
-            </Button>
-            <Button
-              pressed={actions.mark.code.active}
-              disabled={!actions.mark.code.canExec}
-              onClick={actions.mark.code.run}
-              tooltip={t('ui.code')}
-            >
-              <Code2 size={16} />
-            </Button>
-            {learningEnabled
-              ? (
-                  <Button
-                    pressed={cardSelection.cloze}
-                    disabled={!cardSelection.canCloze}
-                    onClick={() => {
-                      if (cardSelection.cloze)
-                        editor.commands.removeCloze()
-                      else
-                        editor.commands.addCloze({ anchorKind: cardSelection.clozeAnchorKind })
-                    }}
-                    tooltip={cardSelection.cloze ? t('ui.removeCloze') : t('ui.cloze')}
-                  >
-                    <Brackets size={16} />
-                  </Button>
-                )
-              : null}
-            <Button
-              pressed={cardSelection.highlight}
-              disabled={!cardSelection.canHighlight}
-              onClick={() => {
-                if (cardSelection.highlight)
-                  editor.commands.removeInlineHighlight()
-                else
-                  editor.commands.setInlineHighlight({ color: 'yellow' })
-              }}
-              tooltip={cardSelection.highlight ? t('ui.removeHighlight') : t('ui.highlight')}
-            >
-              <Highlighter size={16} />
-            </Button>
-            {link.canExec && (
+              <HeadingDropdown actions={actions.heading} />
               <Button
-                pressed={link.isActive}
-                onClick={() => {
-                  link.command()
-                  toggleLinkMenuOpen()
-                }}
-                tooltip={t('ui.link')}
+                pressed={actions.mark.bold.active}
+                disabled={!actions.mark.bold.canExec}
+                onClick={actions.mark.bold.run}
+                tooltip={t('ui.bold')}
               >
-                <Link2 size={16} />
+                <Bold size={16} />
               </Button>
-            )}
-          </InlinePopoverPopup>
+              <Button
+                pressed={actions.mark.italic.active}
+                disabled={!actions.mark.italic.canExec}
+                onClick={actions.mark.italic.run}
+                tooltip={t('ui.italic')}
+              >
+                <Italic size={16} />
+              </Button>
+              <Button
+                pressed={actions.mark.underline.active}
+                disabled={!actions.mark.underline.canExec}
+                onClick={actions.mark.underline.run}
+                tooltip={t('ui.underline')}
+              >
+                <Underline size={16} />
+              </Button>
+              <Button
+                pressed={actions.mark.strike.active}
+                disabled={!actions.mark.strike.canExec}
+                onClick={actions.mark.strike.run}
+                tooltip={t('ui.strikethrough')}
+              >
+                <Strikethrough size={16} />
+              </Button>
+              <Button
+                pressed={actions.mark.code.active}
+                disabled={!actions.mark.code.canExec}
+                onClick={actions.mark.code.run}
+                tooltip={t('ui.code')}
+              >
+                <Code2 size={16} />
+              </Button>
+              {learningEnabled
+                ? (
+                    <Button
+                      pressed={cardSelection.cloze}
+                      disabled={!cardSelection.canCloze}
+                      onClick={() => {
+                        if (cardSelection.cloze)
+                          editor.commands.removeCloze()
+                        else
+                          editor.commands.addCloze({ anchorKind: cardSelection.clozeAnchorKind })
+                      }}
+                      tooltip={cardSelection.cloze ? t('ui.removeCloze') : t('ui.cloze')}
+                    >
+                      <Brackets size={16} />
+                    </Button>
+                  )
+                : null}
+              <Button
+                pressed={cardSelection.highlight}
+                disabled={!cardSelection.canHighlight}
+                onClick={() => {
+                  if (cardSelection.highlight)
+                    editor.commands.removeInlineHighlight()
+                  else
+                    editor.commands.setInlineHighlight({ color: 'yellow' })
+                }}
+                tooltip={cardSelection.highlight ? t('ui.removeHighlight') : t('ui.highlight')}
+              >
+                <Highlighter size={16} />
+              </Button>
+              {link.canExec && (
+                <Button
+                  pressed={link.isActive}
+                  onClick={() => {
+                    link.command()
+                    toggleLinkMenuOpen()
+                  }}
+                  tooltip={t('ui.link')}
+                >
+                  <Link2 size={16} />
+                </Button>
+              )}
+            </InlinePopoverPopup>
+          </Toolbar.Root>
         </InlinePopoverPositioner>
       </InlinePopoverRoot>
 

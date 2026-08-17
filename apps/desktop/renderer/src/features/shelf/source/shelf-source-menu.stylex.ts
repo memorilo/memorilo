@@ -3,36 +3,14 @@ import { shelfTheme } from '../shelf-shared.stylex'
 
 export const shelfSourceMenuStyles = stylex.create({
   sourceMenu: {
-    position: 'absolute',
-    zIndex: 40,
-    top: 44,
-    left: 0,
     display: 'flex',
     width: 286,
     maxHeight: 390,
     minHeight: 0,
     overflow: 'hidden',
+    overflowX: 'hidden',
+    overflowY: 'hidden',
     flexDirection: 'column',
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.82)',
-      '@media (prefers-contrast: more)': 'rgba(35, 39, 46, 0.62)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 15,
-    padding: 5,
-    backgroundColor: {
-      'default': 'rgba(244, 246, 249, 0.5)',
-      '@media (prefers-contrast: more)': 'rgba(250, 250, 251, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(248, 249, 251)',
-    },
-    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.04))',
-    backdropFilter: {
-      'default': 'blur(20px) saturate(185%)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1), inset 0 1px rgba(255, 255, 255, 0.94)',
-    transformOrigin: 'top left',
   },
   sourceMenuScroll: {
     minHeight: 0,
@@ -81,14 +59,5 @@ export const shelfSourceMenuStyles = stylex.create({
     lineHeight: '17px',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-  },
-  menuSeparator: {
-    height: 1,
-    flex: '0 0 1px',
-    marginTop: 4,
-    marginRight: 7,
-    marginBottom: 4,
-    marginLeft: 7,
-    backgroundColor: 'rgba(72, 80, 93, 0.12)',
   },
 })

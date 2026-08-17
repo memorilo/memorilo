@@ -349,6 +349,7 @@ export const learningOptimizerEditorStyles = stylex.create({
   textButton: {
     display: 'inline-flex',
     height: 28,
+    minHeight: 28,
     alignItems: 'center',
     gap: 5,
     borderWidth: 0,

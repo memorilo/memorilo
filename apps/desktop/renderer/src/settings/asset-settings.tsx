@@ -1,4 +1,5 @@
 import type { DesktopAssetCandidate, DesktopAssetCheckResult } from '@memorilo/desktop-api'
+import { Button, ButtonGroup } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Check, LoaderCircle, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
@@ -110,17 +111,17 @@ export function AssetSettings() {
             <span {...stylex.props(settingsStyles.assetLabel)}>{t('assets')}</span>
             <p {...stylex.props(settingsStyles.assetDescription)}>{t('assetsDescription')}</p>
           </div>
-          <button
-            {...stylex.props(settingsStyles.secondaryButton)}
+          <Button
             disabled={!desktopAvailable || pending !== null}
-            type="button"
+            variant="plain"
+            xstyle={settingsStyles.secondaryButton}
             onClick={() => void checkAssets()}
           >
             {pending === 'check'
               ? <LoaderCircle aria-hidden="true" {...stylex.props(settingsStyles.spinningIcon)} size={14} />
               : <RefreshCw aria-hidden="true" size={14} />}
             <span>{t('checkAssets')}</span>
-          </button>
+          </Button>
         </div>
 
         {result
@@ -153,15 +154,15 @@ export function AssetSettings() {
                   ? (
                       <>
                         <div {...stylex.props(settingsStyles.assetSelectionHeader)}>
-                          <button
-                            {...stylex.props(settingsStyles.inlineButton)}
-                            type="button"
+                          <Button
+                            variant="plain"
+                            xstyle={settingsStyles.inlineButton}
                             onClick={() => setSelected(allSelected
                               ? new Set()
                               : new Set(result.candidates.map(candidate => candidate.fileName)))}
                           >
                             {allSelected ? t('selectNone') : t('selectAll')}
-                          </button>
+                          </Button>
                           <span>{t('selectedAssetSize', { count: selected.size, size: formatByteSize(selectedBytes) })}</span>
                         </div>
                         <div {...stylex.props(settingsStyles.assetList)}>
@@ -186,32 +187,32 @@ export function AssetSettings() {
                             </label>
                           ))}
                         </div>
-                        <div {...stylex.props(settingsStyles.assetButtons)}>
-                          <button
-                            {...stylex.props(settingsStyles.dangerButton)}
+                        <ButtonGroup xstyle={settingsStyles.assetButtons}>
+                          <Button
                             disabled={selected.size === 0 || pending !== null}
-                            type="button"
+                            variant="plain"
+                            xstyle={settingsStyles.dangerButton}
                             onClick={() => void reclaim('trash')}
                           >
                             {pending === 'trash'
                               ? <LoaderCircle aria-hidden="true" {...stylex.props(settingsStyles.spinningIcon)} size={14} />
                               : <Trash2 aria-hidden="true" size={14} />}
                             <span>{t('moveToTrash')}</span>
-                          </button>
+                          </Button>
                           {failed.size > 0
                             ? (
-                                <button
-                                  {...stylex.props(settingsStyles.warningButton)}
+                                <Button
                                   disabled={pending !== null}
-                                  type="button"
+                                  variant="plain"
+                                  xstyle={settingsStyles.warningButton}
                                   onClick={() => void reclaim('permanent')}
                                 >
                                   <TriangleAlert aria-hidden="true" size={14} />
                                   <span>{t('permanentlyDeleteFailed')}</span>
-                                </button>
+                                </Button>
                               )
                             : null}
-                        </div>
+                        </ButtonGroup>
                       </>
                     )
                   : (

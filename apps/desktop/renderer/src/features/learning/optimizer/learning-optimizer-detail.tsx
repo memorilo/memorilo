@@ -2,6 +2,7 @@ import type {
   LearningOptimizerWorkflow,
   OptimizerDraft,
 } from './learning-optimizer-workflow'
+import { Button, Switch } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -14,7 +15,7 @@ import { useLatestOperations } from '../../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { learningQueryKeys } from '../query-keys'
 import { learningOptimizerDetailStyles as styles } from './learning-optimizer-detail.stylex'
-import { OptimizerEditor, Switch } from './learning-optimizer-editor'
+import { OptimizerEditor } from './learning-optimizer-editor'
 import {
   optimizerErrorMessage,
   useLearningOptimizerWorkflow,
@@ -150,7 +151,7 @@ function LearningOptimizerDetailSession({
       <main {...stylex.props(styles.detailPage)}>
         <div {...stylex.props(sharedStyles.status)} role="alert">
           <span>{t('loadOptimizersFailed')}</span>
-          <button {...stylex.props(sharedStyles.actionButton)} type="button" onClick={() => void query.refetch()}>{t('retry')}</button>
+          <Button variant="plain" xstyle={sharedStyles.actionButton} onClick={() => void query.refetch()}>{t('retry')}</Button>
         </div>
       </main>
     )
@@ -161,7 +162,9 @@ function LearningOptimizerDetailSession({
       <main {...stylex.props(styles.detailPage)}>
         <div {...stylex.props(sharedStyles.status)} role="alert">
           <span>{t('optimizerNotFound')}</span>
-          <Link {...stylex.props(sharedStyles.actionButton)} search={{ view: 'optimizer' }} to="/learning">{t('backToOptimizers')}</Link>
+          <Button asChild variant="plain" xstyle={sharedStyles.actionButton}>
+            <Link search={{ view: 'optimizer' }} to="/learning">{t('backToOptimizers')}</Link>
+          </Button>
         </div>
       </main>
     )
@@ -219,7 +222,7 @@ function LearningOptimizerDetailSession({
               <LearningOptimizerDialog label={t('optimizeTitle', { name: selectedOptimizer.name })} onClose={closeDialog}>
                 <header {...stylex.props(sharedStyles.dialogHeader)}>
                   <h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('optimizeTitle', { name: selectedOptimizer.isGlobal ? t('globalOptimizer') : selectedOptimizer.name })}</h2>
-                  <button {...stylex.props(sharedStyles.dialogClose)} aria-label={t('close')} disabled={busy} type="button" onClick={closeDialog}><X aria-hidden="true" size={15} /></button>
+                  <Button aria-label={t('close')} disabled={busy} variant="toolbar" xstyle={sharedStyles.dialogClose} onClick={closeDialog}><X aria-hidden="true" size={15} /></Button>
                 </header>
                 <div {...stylex.props(sharedStyles.dialogBody)}>
                   <p {...stylex.props(styles.dialogDescription)}>{t('optimizeDescription')}</p>
@@ -229,15 +232,15 @@ function LearningOptimizerDetailSession({
                       <strong>{t('rescheduleNow')}</strong>
                       <small>{t('rescheduleLaterDescription')}</small>
                     </span>
-                    <Switch checked={rescheduleNow} disabled={busy} label={t('rescheduleNow')} onChange={setRescheduleNow} />
+                    <Switch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy} variant="compact" onCheckedChange={setRescheduleNow} />
                   </label>
                 </div>
                 <footer {...stylex.props(sharedStyles.dialogActions)}>
-                  <button {...stylex.props(sharedStyles.actionButton)} disabled={busy} type="button" onClick={closeDialog}>{t('cancel')}</button>
-                  <button
-                    {...stylex.props(sharedStyles.actionButton, sharedStyles.actionButtonStrong)}
+                  <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
+                  <Button
                     disabled={busy}
-                    type="button"
+                    variant="plain"
+                    xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}
                     onClick={() => void runOperation('optimize', t('optimize'), async () => {
                       const result = await workflow.optimize(selectedOptimizer.id, rescheduleNow)
                       if (result.status === 'busy')
@@ -249,7 +252,7 @@ function LearningOptimizerDetailSession({
                   >
                     {busy ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : <Sparkles aria-hidden="true" size={14} />}
                     <span>{busy ? t('optimizing') : t('optimize')}</span>
-                  </button>
+                  </Button>
                 </footer>
               </LearningOptimizerDialog>
             )
@@ -266,15 +269,15 @@ function LearningOptimizerDetailSession({
                       <strong>{t('rescheduleNow')}</strong>
                       <small>{t('rescheduleLaterDescription')}</small>
                     </span>
-                    <Switch checked={rescheduleNow} disabled={busy} label={t('rescheduleNow')} onChange={setRescheduleNow} />
+                    <Switch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy} variant="compact" onCheckedChange={setRescheduleNow} />
                   </label>
                 </div>
                 <footer {...stylex.props(sharedStyles.dialogActions)}>
-                  <button {...stylex.props(sharedStyles.actionButton)} disabled={busy} type="button" onClick={closeDialog}>{t('cancel')}</button>
-                  <button
-                    {...stylex.props(sharedStyles.actionButton, sharedStyles.actionButtonStrong)}
+                  <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
+                  <Button
                     disabled={busy}
-                    type="button"
+                    variant="plain"
+                    xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}
                     onClick={() => void runOperation('reset', t('restoreDefaults'), async () => {
                       const result = await workflow.reset(selectedOptimizer.id, rescheduleNow)
                       if (result.status === 'busy')
@@ -285,7 +288,7 @@ function LearningOptimizerDetailSession({
                     })}
                   >
                     {t('confirm')}
-                  </button>
+                  </Button>
                 </footer>
               </LearningOptimizerDialog>
             )
@@ -297,11 +300,11 @@ function LearningOptimizerDetailSession({
                 <header {...stylex.props(sharedStyles.dialogHeader)}><h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('deleteTitle', { name: selectedOptimizer.name })}</h2></header>
                 <div {...stylex.props(sharedStyles.dialogBody)}><p {...stylex.props(styles.dialogDescription)}>{t('deleteDescription', { count: selectedRecord.noteCount })}</p></div>
                 <footer {...stylex.props(sharedStyles.dialogActions)}>
-                  <button {...stylex.props(sharedStyles.actionButton)} disabled={busy} type="button" onClick={closeDialog}>{t('cancel')}</button>
-                  <button
-                    {...stylex.props(sharedStyles.actionButton, sharedStyles.actionButtonDanger)}
+                  <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
+                  <Button
                     disabled={busy}
-                    type="button"
+                    variant="plain"
+                    xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonDanger]}
                     onClick={() => void runOperation('delete', t('deleteOptimizer'), async () => {
                       const result = await workflow.archive(selectedOptimizer.id)
                       if (result.status === 'busy')
@@ -313,7 +316,7 @@ function LearningOptimizerDetailSession({
                     })}
                   >
                     {t('deleteOptimizer')}
-                  </button>
+                  </Button>
                 </footer>
               </LearningOptimizerDialog>
             )

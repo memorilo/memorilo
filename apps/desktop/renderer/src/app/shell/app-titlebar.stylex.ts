@@ -1,8 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  controlActive: 'rgba(55, 61, 72, 0.16)',
-  focus: 'rgba(41, 97, 194, 0.85)',
   text: 'rgba(25, 27, 31, 0.9)',
 } as const
 
@@ -25,32 +23,7 @@ export const appTitlebarStyles = stylex.create({
   navigationGroup: {
     position: 'absolute',
     top: 10,
-    display: 'flex',
-    height: 36,
-    alignItems: 'center',
     pointerEvents: 'auto',
-    padding: 1,
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.82)',
-      '@media (prefers-contrast: more)': 'rgba(35, 39, 46, 0.82)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 18,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.08)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(240, 242, 246)',
-      '@media (prefers-contrast: more)': 'rgb(248, 249, 251)',
-    },
-    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.04) 38%, rgba(156, 166, 182, 0.08) 68%, rgba(255, 255, 255, 0.14) 100%)',
-    backdropFilter: {
-      'default': 'blur(16px) saturate(180%) brightness(1.03)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: {
-      'default': '0 4px 12px rgba(24, 30, 40, 0.1), 0 0 0 0.5px rgba(56, 64, 77, 0.16), inset 0 1px rgba(255, 255, 255, 0.9), inset 0 -1px rgba(70, 79, 93, 0.16), inset 1px 0 rgba(255, 255, 255, 0.42), inset -1px 0 rgba(70, 79, 93, 0.08)',
-      '@media (prefers-contrast: more)': '0 4px 12px rgba(22, 27, 35, 0.16), 0 0 0 1px rgba(35, 39, 46, 0.48), inset 0 1px rgba(255, 255, 255, 0.92)',
-    },
   },
   trailingGroup: {
     right: 14,
@@ -98,40 +71,6 @@ export const appTitlebarStyles = stylex.create({
     paddingRight: 10,
     paddingLeft: 10,
   },
-  titleButton: {
-    display: 'flex',
-    minWidth: 0,
-    maxWidth: '100%',
-    height: 32,
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 0,
-    borderRadius: 16,
-    paddingRight: 8,
-    paddingLeft: 10,
-    backgroundColor: {
-      'default': 'transparent',
-      ':hover': 'rgba(240, 243, 248, 0.56)',
-      ':active': colors.controlActive,
-    },
-    color: colors.text,
-    cursor: 'default',
-    outline: 'none',
-    boxShadow: {
-      'default': 'none',
-      ':focus-visible': `0 0 0 2px ${colors.focus}`,
-    },
-    transform: {
-      'default': 'scale(1)',
-      ':active': 'scale(0.985)',
-    },
-    transitionDuration: {
-      'default': '110ms',
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    transitionProperty: 'background-color, transform',
-    transitionTimingFunction: 'ease-out',
-  },
   titleText: {
     overflow: 'hidden',
     fontSize: 13,
@@ -139,57 +78,6 @@ export const appTitlebarStyles = stylex.create({
     letterSpacing: 0,
     lineHeight: '18px',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  renameIcon: {
-    width: 12,
-    height: 12,
-    flex: '0 0 12px',
-    color: 'rgba(48, 46, 51, 0.42)',
-  },
-  titleInput: {
-    width: 'clamp(160px, 28vw, 320px)',
-    height: 34,
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.8)',
-      ':focus': 'rgba(41, 97, 194, 0.72)',
-      ':invalid': 'rgba(184, 62, 62, 0.74)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 17,
-    paddingRight: 10,
-    paddingLeft: 10,
-    backgroundColor: {
-      'default': 'rgba(233, 236, 242, 0.58)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
-    },
-    backgroundImage: 'linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(225, 229, 236, 0.24))',
-    backdropFilter: {
-      'default': 'blur(22px) saturate(180%)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: 600,
-    letterSpacing: 0,
-    lineHeight: '18px',
-    outline: 'none',
-    boxShadow: {
-      'default': '0 6px 16px rgba(31, 38, 49, 0.12), inset 0 1px rgba(255, 255, 255, 0.9), inset 0 -1px rgba(107, 116, 132, 0.1)',
-      ':focus': '0 0 0 2px rgba(41, 97, 194, 0.2), 0 6px 16px rgba(31, 38, 49, 0.12), inset 0 1px rgba(255, 255, 255, 0.9)',
-    },
-    textAlign: 'center',
-  },
-  visuallyHidden: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    overflow: 'hidden',
-    padding: 0,
-    borderWidth: 0,
-    clip: 'rect(0 0 0 0)',
-    clipPath: 'inset(50%)',
     whiteSpace: 'nowrap',
   },
 })
