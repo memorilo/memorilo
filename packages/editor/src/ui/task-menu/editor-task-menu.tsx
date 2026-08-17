@@ -314,7 +314,11 @@ export function EditorTaskMenu({ adapters, taskDate }: {
         t={t}
         task={task}
         visible={isPositioned}
-        onUpdate={input => applyTaskAction(editor, target.blockId, defaultDate, input)}
+        onUpdate={(input) => {
+          if (input.status === 'done' && task.repeatRule && adapters.taskActions)
+            return adapters.taskActions.completeRecurring({ blockId: target.blockId })
+          applyTaskAction(editor, target.blockId, defaultDate, input)
+        }}
         onUpdated={() => {
           setTriggerOpen(null)
           editor.view.focus()

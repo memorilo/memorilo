@@ -16,6 +16,7 @@ export type {
   DesktopReaderAnnotationCopyFormat,
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
+  DesktopRecurringTaskCompletionAction,
   DesktopTiffConversionFormat,
   DesktopTodoConfiguration,
   DesktopWeekStart,
@@ -88,6 +89,14 @@ export const DesktopConfigurationSchema = Schema.Struct({
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
     enabled: Schema.Boolean,
+    recurringTaskCompletionAction: Schema.Literals([
+      'archive-completed-to-today',
+      'move-next-to-today',
+      'move-next-to-due-date',
+      'nest-completed-under-next',
+      'place-next-after-completed',
+      'replace-completed',
+    ]),
   }),
   weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
@@ -129,6 +138,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     tiffConversionFormat: 'webp' as const,
     todo: {
       enabled: true,
+      recurringTaskCompletionAction: 'archive-completed-to-today' as const,
     },
     weekStart: 'sunday' as const,
   },
@@ -171,6 +181,20 @@ export const desktopConfigurationDefinition = defineConfiguration({
         description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
         label: 'Enable Todo workspace',
         path: 'todo.enabled',
+      },
+      {
+        control: 'select',
+        description: 'Choose where the completed occurrence and the next task are placed.',
+        label: 'After completing a recurring task',
+        options: [
+          { label: 'Archive in today\'s Journal', value: 'archive-completed-to-today' },
+          { label: 'Next to today\'s Journal', value: 'move-next-to-today' },
+          { label: 'Next to due-date Journal', value: 'move-next-to-due-date' },
+          { label: 'Completion under next', value: 'nest-completed-under-next' },
+          { label: 'Next after completion', value: 'place-next-after-completed' },
+          { label: 'Replace with next', value: 'replace-completed' },
+        ],
+        path: 'todo.recurringTaskCompletionAction',
       },
     ],
     id: 'general',
@@ -434,14 +458,27 @@ export const desktopConfigurationDefinition = defineConfiguration({
 })
 
 export function migrateDesktopConfiguration(configuration: unknown): unknown {
-  if (typeof configuration === 'object'
-    && configuration !== null
-    && !Array.isArray(configuration)
-    && !Object.hasOwn(configuration, 'todo')) {
+  if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration))
+    return configuration
+  const record = configuration as Record<string, unknown>
+  if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...configuration,
-      todo: { enabled: true },
+      ...record,
+      todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
-  return configuration
+  const todo = record.todo
+  if (typeof todo === 'object'
+    && todo !== null
+    && !Array.isArray(todo)
+    && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
+    return {
+      ...record,
+      todo: {
+        ...todo,
+        recurringTaskCompletionAction: desktopConfigurationDefinition.defaults.todo.recurringTaskCompletionAction,
+      },
+    }
+  }
+  return record
 }

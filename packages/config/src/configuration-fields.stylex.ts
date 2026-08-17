@@ -32,6 +32,10 @@ export const configurationFieldStyles = stylex.create({
     borderBottomStyle: 'solid',
     borderBottomWidth: 1,
   },
+  selectRow: {
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(176px, 52%)',
+    columnGap: 20,
+  },
   copy: {
     minWidth: 0,
   },

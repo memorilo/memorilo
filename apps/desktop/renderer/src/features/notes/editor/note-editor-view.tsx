@@ -21,6 +21,7 @@ import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { NoteInspector } from '../note-inspector'
 import { NoteInspectorActions } from '../note-inspector-actions'
 import { useNoteInspectorVisibility } from '../note-inspector-state'
+import { useFlushNotePersistence } from '../persistence/note-persistence-hooks'
 import { desktopEditorAdapters } from './note-editor-session'
 import { CardTopicPreview, ReaderSourceHeader } from './note-editor-topic-chrome'
 import { noteEditorStyles } from './note-editor.stylex'
@@ -88,9 +89,14 @@ export function NoteEditorView({
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
   const [inspectorVisible, setInspectorVisible] = useNoteInspectorVisibility()
   const configuration = useDesktopConfiguration()
+  const flushNotePersistence = useFlushNotePersistence()
   const editorAdapters = useMemo(
-    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
-    [configuration.networkImagePasteBehavior],
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      flush: flushNotePersistence,
+      noteId: opened.note.id,
+      topicId: opened.topic.topicId,
+    }),
+    [configuration.networkImagePasteBehavior, flushNotePersistence, opened.note.id, opened.topic.topicId],
   )
   const currentEntry = opened.entries.find(entry => entry.id === opened.topic.topicId)
   if (!currentEntry || currentEntry.kind !== 'topic')

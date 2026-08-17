@@ -262,6 +262,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
       }, {
         defaultNoteLearningEnabled: () => configurationStore.getSnapshot().defaultNoteLearningEnabled,
+        recurringTaskCompletionAction: () => configurationStore.getSnapshot().todo.recurringTaskCompletionAction,
       }, activeReadings),
       close: noteApplication => noteApplication.close(),
       name: 'Note application',
