@@ -136,9 +136,9 @@ export function TodoPage({
   }, [hasRunningTasks])
 
   useEffect(() => {
-    void queryClient.resetQueries({ queryKey: todoQueryKeys.all })
+    void queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
     return window.desktop.subscribeNoteUpdates(() => {
-      void queryClient.resetQueries({ queryKey: todoQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
     })
   }, [queryClient])
 

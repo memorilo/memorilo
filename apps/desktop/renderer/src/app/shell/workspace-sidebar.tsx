@@ -22,6 +22,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatJournalHeading } from '../../features/journals/journal-model'
 
+import { useFlushNotePersistence } from '../../features/notes/persistence/note-persistence-hooks'
 import { noteQueryKeys } from '../../features/notes/query-keys'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
@@ -57,6 +58,7 @@ interface SourceItemProps {
   }
   icon: LucideIcon
   label: string
+  onBeforeNavigate?: () => void
 }
 
 interface SourceItemContentProps {
@@ -117,7 +119,7 @@ function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentPro
   )
 }
 
-function SourceItem({ destination, icon, label }: SourceItemProps) {
+function SourceItem({ destination, icon, label, onBeforeNavigate }: SourceItemProps) {
   if (destination.kind === 'journal') {
     return (
       <Link
@@ -152,6 +154,7 @@ function SourceItem({ destination, icon, label }: SourceItemProps) {
       {...stylex.props(workspaceSidebarStyles.sourceItem)}
       activeOptions={{ exact: destination.to !== '/learning' }}
       activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
+      onClick={onBeforeNavigate}
       preload="intent"
       to={destination.to}
     >
@@ -341,8 +344,12 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
 }) {
   const { t } = useTranslation('app')
   const configuration = useDesktopConfiguration()
+  const flushNotePersistence = useFlushNotePersistence()
   const favoritesQuery = useQuery(favoriteNotesQueryOptions())
   const recentQuery = useQuery(recentNotesQueryOptions())
+  const flushBeforeTodoNavigation = useCallback(() => {
+    void flushNotePersistence().catch(error => console.error('Failed to flush pending Note updates before opening Todo', error))
+  }, [flushNotePersistence])
   const favoriteItems = (favoritesQuery.data ?? []).map(item => ({
     destination: item.kind === 'journal'
       ? { journalDate: item.journalDate, kind: 'journal' as const }
@@ -364,7 +371,15 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
         <section {...stylex.props(workspaceSidebarStyles.sourceGroup)}>
           <h2 {...stylex.props(workspaceSidebarStyles.navigationHeading)}>{t('navigation')}</h2>
           <div {...stylex.props(workspaceSidebarStyles.sourceList)}>
-            {navigationItems(t, configuration.todo.enabled, configuration.learning.enabled).map(item => <SourceItem key={item.label} {...item} />)}
+            {navigationItems(t, configuration.todo.enabled, configuration.learning.enabled).map(item => (
+              <SourceItem
+                key={item.label}
+                {...item}
+                onBeforeNavigate={item.destination.kind === 'route' && item.destination.to === '/todo'
+                  ? flushBeforeTodoNavigation
+                  : undefined}
+              />
+            ))}
           </div>
         </section>
         <SourceGroup
