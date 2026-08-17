@@ -1,0 +1,120 @@
+import * as stylex from '@stylexjs/stylex'
+
+const colors = {
+  text: 'rgba(25, 27, 31, 0.9)',
+  textMuted: 'rgba(48, 52, 59, 0.62)',
+  textQuiet: 'rgba(48, 52, 59, 0.46)',
+} as const
+
+export const todoPlanningTaskStyles = stylex.create({
+  task: {
+    display: 'flex',
+    width: '100%',
+    minWidth: 0,
+    minHeight: 62,
+    alignItems: 'center',
+    gap: 10,
+    borderColor: {
+      'default': 'rgba(72, 72, 74, 0.12)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgba(72, 72, 74, 0.16)',
+      '@media (prefers-contrast: more)': 'rgba(35, 35, 37, 0.4)',
+    },
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 9,
+    boxSizing: 'border-box',
+    paddingTop: 9,
+    paddingRight: 44,
+    paddingBottom: 9,
+    paddingLeft: 9,
+    backgroundColor: {
+      'default': 'rgba(255, 255, 255, 0.78)',
+      ':hover': 'rgba(255, 255, 255, 0.94)',
+      ':active': 'rgba(118, 118, 128, 0.1)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+    },
+    color: colors.text,
+    cursor: 'default',
+    outline: 'none',
+    textAlign: 'left',
+    boxShadow: {
+      'default': '0 2px 7px rgba(28, 28, 30, 0.07), 0 0 0 0.5px rgba(255, 255, 255, 0.7), inset 0 1px rgba(255, 255, 255, 0.92)',
+      ':hover': '0 6px 16px rgba(28, 28, 30, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.8), inset 0 1px rgba(255, 255, 255, 0.98)',
+      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+    },
+    transform: {
+      'default': 'translateY(0) scale(1)',
+      ':hover': 'translateY(-1px) scale(1.002)',
+      ':active': 'translateY(1px) scale(0.985)',
+    },
+    transitionDuration: {
+      'default': '110ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'background-color, box-shadow, transform',
+    transitionTimingFunction: 'ease-out',
+    contentVisibility: 'auto',
+    containIntrinsicSize: '62px',
+  },
+  shell: {
+    position: 'relative',
+    width: '100%',
+    minWidth: 0,
+  },
+  actions: {
+    position: 'absolute',
+    top: '50%',
+    right: 6,
+    transform: 'translateY(-50%)',
+  },
+  icon: {
+    width: 18,
+    height: 18,
+    flex: '0 0 18px',
+    color: colors.textQuiet,
+  },
+  doing: {
+    color: 'rgb(214, 127, 16)',
+  },
+  doneIcon: {
+    color: 'rgb(42, 145, 87)',
+  },
+  content: {
+    display: 'flex',
+    minWidth: 0,
+    flex: 1,
+    flexDirection: 'column',
+    gap: 3,
+  },
+  title: {
+    overflow: 'hidden',
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: 600,
+    lineHeight: '17px',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  meta: {
+    overflow: 'hidden',
+    color: colors.textQuiet,
+    fontSize: 10,
+    lineHeight: '14px',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  elapsed: {
+    flex: '0 0 auto',
+    color: colors.textMuted,
+    fontSize: 10,
+    fontVariantNumeric: 'tabular-nums',
+    fontWeight: 600,
+    lineHeight: '15px',
+    whiteSpace: 'nowrap',
+  },
+  done: {
+    color: colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+})

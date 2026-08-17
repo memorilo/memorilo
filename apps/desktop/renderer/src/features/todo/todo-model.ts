@@ -16,6 +16,10 @@ export const todoStatuses: readonly DesktopTodoTaskStatus[] = ['todo', 'doing', 
 
 export const todoTaskPageSize = 100
 
+export function todoTaskKey(task: Pick<DesktopTodoTask, 'blockId' | 'noteId' | 'topicId'>): string {
+  return `${task.noteId}\0${task.topicId}\0${task.blockId}`
+}
+
 export function todoTaskQueryOptions(filter: TodoFilter) {
   return desktopEffectQuery.infiniteQueryOptions<
     DesktopTodoTaskPage,

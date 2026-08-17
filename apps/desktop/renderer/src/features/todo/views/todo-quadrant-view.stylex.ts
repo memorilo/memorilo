@@ -1,0 +1,118 @@
+import * as stylex from '@stylexjs/stylex'
+
+const colors = {
+  panelSolid: 'rgb(250, 250, 251)',
+  text: 'rgba(25, 27, 31, 0.9)',
+  textQuiet: 'rgba(48, 52, 59, 0.46)',
+} as const
+
+export const todoQuadrantViewStyles = stylex.create({
+  grid: {
+    display: 'grid',
+    minWidth: 820,
+    minHeight: 0,
+    flex: 1,
+    gridTemplateColumns: 'repeat(2, minmax(320px, 1fr))',
+    gridTemplateRows: 'repeat(2, minmax(220px, 1fr))',
+    gap: 1,
+    overflow: 'hidden',
+    borderColor: {
+      'default': 'rgba(72, 72, 74, 0.1)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgba(72, 72, 74, 0.14)',
+      '@media (prefers-contrast: more)': 'rgba(35, 35, 37, 0.42)',
+    },
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: 'rgba(72, 72, 74, 0.095)',
+    boxShadow: {
+      'default': '0 2px 8px rgba(28, 28, 30, 0.035), 0 0 0 0.5px rgba(255, 255, 255, 0.58), inset 0 1px rgba(255, 255, 255, 0.74)',
+      '@media (prefers-contrast: more)': '0 0 0 1px rgba(35, 35, 37, 0.22)',
+    },
+  },
+  panel: {
+    display: 'flex',
+    minHeight: 0,
+    flexDirection: 'column',
+    overflow: 'hidden',
+    backgroundColor: {
+      'default': 'rgba(255, 255, 255, 0.34)',
+      '@media (prefers-reduced-transparency: reduce)': colors.panelSolid,
+      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+    },
+  },
+  header: {
+    display: 'flex',
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingTop: 8,
+    paddingRight: 14,
+    paddingBottom: 6,
+    paddingLeft: 14,
+  },
+  title: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: 650,
+    lineHeight: '18px',
+  },
+  signal: {
+    width: 6,
+    height: 6,
+    flex: '0 0 6px',
+    borderRadius: 3,
+    backgroundColor: 'rgb(255, 59, 48)',
+    boxShadow: '0 1px 3px rgba(184, 28, 21, 0.22)',
+  },
+  signalImportant: {
+    backgroundColor: 'rgb(255, 149, 0)',
+    boxShadow: '0 1px 3px rgba(180, 96, 0, 0.2)',
+  },
+  signalUrgent: {
+    backgroundColor: 'rgb(0, 122, 255)',
+    boxShadow: '0 1px 3px rgba(0, 84, 180, 0.2)',
+  },
+  signalQuiet: {
+    backgroundColor: 'rgba(72, 77, 86, 0.3)',
+    boxShadow: 'none',
+  },
+  count: {
+    minWidth: 16,
+    color: colors.textQuiet,
+    fontSize: 11,
+    fontVariantNumeric: 'tabular-nums',
+    fontWeight: 600,
+    lineHeight: '16px',
+    textAlign: 'right',
+  },
+  body: {
+    display: 'flex',
+    minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+    gap: 8,
+    overflow: 'auto',
+    paddingTop: 4,
+    paddingRight: 12,
+    paddingBottom: 12,
+    paddingLeft: 12,
+  },
+  empty: {
+    display: 'grid',
+    minHeight: 90,
+    flex: 1,
+    placeItems: 'center',
+    color: colors.textQuiet,
+    fontSize: 11,
+  },
+  rule: {
+    color: colors.textQuiet,
+    fontSize: 10,
+    lineHeight: '14px',
+  },
+})
