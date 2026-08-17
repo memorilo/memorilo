@@ -47,10 +47,7 @@ export const journalCalendarControlStyles = stylex.create({
     boxShadow: '0 5px 14px rgba(28, 28, 30, 0.1), 0 0 0 0.5px rgba(72, 72, 74, 0.2), inset 0 1px rgba(255, 255, 255, 0.96), inset 0 -1px rgba(72, 72, 74, 0.14)',
   },
   calendarPopover: {
-    position: 'absolute',
     zIndex: 40,
-    top: 42,
-    right: 0,
     width: 304,
     overflow: 'hidden',
     padding: 10,

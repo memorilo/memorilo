@@ -1,4 +1,4 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { DesktopWeekStart } from '@memorilo/desktop-config'
 import type { Dayjs } from 'dayjs'
 import type { TFunction } from 'i18next'
@@ -72,12 +72,16 @@ function PeriodButton({
 
 function CalendarTaskItem({
   calendarEvents,
+  calendarSubscriptions,
+  compactAlignment,
   onOpenTask,
   onUpdateTask,
   t,
   task,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
+  compactAlignment: 'left' | 'right'
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
   t: TFunction
@@ -103,7 +107,7 @@ function CalendarTaskItem({
         <span {...stylex.props(styles.taskText, task.status === 'done' && styles.taskTextDone)}>{task.text}</span>
       </button>
       <div {...stylex.props(styles.taskActions)}>
-        <TodoTaskActions compact calendarEvents={calendarEvents} onUpdateTask={onUpdateTask} t={t} task={task} />
+        <TodoTaskActions compact calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onUpdateTask={onUpdateTask} t={t} task={task} />
       </div>
     </div>
   )
@@ -124,12 +128,16 @@ function CalendarEventItem({ event }: { event: DesktopTodoCalendarEvent }) {
 
 function CalendarItemRow({
   calendarEvents,
+  calendarSubscriptions,
+  compactAlignment,
   item,
   onOpenTask,
   onUpdateTask,
   t,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
+  compactAlignment: 'left' | 'right'
   item: CalendarItem
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
@@ -137,11 +145,12 @@ function CalendarItemRow({
 }) {
   if (item.kind === 'event')
     return <CalendarEventItem event={item.event} />
-  return <CalendarTaskItem calendarEvents={calendarEvents} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
+  return <CalendarTaskItem calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
 }
 
 export function TodoCalendarView({
   calendarEvents,
+  calendarSubscriptions,
   locale,
   now,
   onOpenTask,
@@ -151,6 +160,7 @@ export function TodoCalendarView({
   weekStart,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
@@ -216,7 +226,7 @@ export function TodoCalendarView({
               {labels.map(item => <span key={item.key} {...stylex.props(styles.weekday)}>{item.label}</span>)}
             </div>
             <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(activeMonth, locale)}>
-              {days.map((date) => {
+              {days.map((date, dayIndex) => {
                 const dateKey = date.format('YYYY-MM-DD')
                 const dateTasks = grouped.get(dateKey) ?? []
                 const dateEvents = eventsByDate.get(dateKey) ?? []
@@ -228,6 +238,7 @@ export function TodoCalendarView({
                 const inMonth = date.isSame(activeMonth, 'month')
                 const isToday = dateKey === today.format('YYYY-MM-DD')
                 const isSelected = dateKey === selectedDate
+                const compactAlignment = dayIndex % 7 < 2 ? 'left' : 'right'
                 return (
                   <div
                     key={dateKey}
@@ -253,6 +264,8 @@ export function TodoCalendarView({
                       {visibleItems.map(item => (
                         <CalendarItemRow
                           calendarEvents={calendarEvents}
+                          calendarSubscriptions={calendarSubscriptions}
+                          compactAlignment={compactAlignment}
                           item={item}
                           key={calendarItemKey(item)}
                           onOpenTask={onOpenTask}
@@ -269,6 +282,8 @@ export function TodoCalendarView({
                               {items.map(item => (
                                 <CalendarItemRow
                                   calendarEvents={calendarEvents}
+                                  calendarSubscriptions={calendarSubscriptions}
+                                  compactAlignment={compactAlignment}
                                   item={item}
                                   key={calendarItemKey(item)}
                                   onOpenTask={onOpenTask}

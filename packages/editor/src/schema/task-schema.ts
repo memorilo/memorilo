@@ -3,6 +3,47 @@ import { defineNodeAttr, union } from 'prosekit/core'
 
 export type TaskStatus = 'todo' | 'doing' | 'done'
 
+export interface TaskTimingAttrs {
+  checked: boolean
+  elapsedMs: number
+  startedAt: number | null
+  status: TaskStatus
+}
+
+export function readTaskStatus(value: unknown): TaskStatus {
+  if (value === 'todo' || value === 'doing' || value === 'done')
+    return value
+  throw new TypeError('Task status must be todo, doing, or done')
+}
+
+/** Settle a running span and return the complete timing state for a status change. */
+export function transitionTaskAttrs(
+  attrs: Readonly<Record<string, unknown>>,
+  next: TaskStatus,
+  now = Date.now(),
+): TaskTimingAttrs {
+  if (!Number.isFinite(now))
+    throw new TypeError('Task transition time must be finite')
+  const current = readTaskStatus(attrs.status)
+  const elapsedValue = attrs.elapsedMs
+  if (elapsedValue !== undefined && (typeof elapsedValue !== 'number' || !Number.isFinite(elapsedValue) || elapsedValue < 0))
+    throw new TypeError('Task elapsedMs must be a non-negative finite number')
+  const startedValue = attrs.startedAt
+  if (startedValue !== undefined && startedValue !== null && (typeof startedValue !== 'number' || !Number.isFinite(startedValue) || startedValue < 0))
+    throw new TypeError('Task startedAt must be a non-negative finite number or null')
+
+  let elapsedMs = typeof elapsedValue === 'number' ? elapsedValue : 0
+  let startedAt = typeof startedValue === 'number' ? startedValue : null
+  if (current === 'doing' && startedAt !== null) {
+    elapsedMs += Math.max(0, now - startedAt)
+    startedAt = null
+  }
+  if (next === 'doing')
+    startedAt = now
+
+  return { checked: next === 'done', elapsedMs, startedAt, status: next }
+}
+
 export type TaskRepeatMode = 'due' | 'completion'
 export type TaskRepeatUnit = 'day' | 'week' | 'month' | 'year' | 'holiday'
 export type TaskRepeatHolidayPolicy = 'allow' | 'skip' | 'next-workday'
@@ -36,8 +77,10 @@ export function parseTaskRepeatRule(value: unknown): TaskRepeatRule | null {
     return null
   if (weekdays !== undefined && (!Array.isArray(weekdays) || weekdays.some(day => typeof day !== 'number' || !Number.isInteger(day) || day < 0 || day > 6)))
     return null
-  if (unit === 'holiday' && (typeof calendarId !== 'string' || calendarId.length === 0))
+  if ((unit === 'holiday' || (holidayPolicy !== undefined && holidayPolicy !== 'allow'))
+    && (typeof calendarId !== 'string' || calendarId.length === 0)) {
     return null
+  }
   return {
     ...(calendarId === undefined ? {} : { calendarId }),
     ...(holidayPolicy === undefined ? {} : { holidayPolicy }),

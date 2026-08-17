@@ -1,4 +1,4 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { Dayjs } from 'dayjs'
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
@@ -44,6 +44,7 @@ function PeriodButton({
 
 function TimelineGroup({
   calendarEvents,
+  calendarSubscriptions,
   date,
   isToday,
   locale,
@@ -54,6 +55,7 @@ function TimelineGroup({
   tasks,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   date: Dayjs
   isToday: boolean
   locale: string
@@ -75,6 +77,7 @@ function TimelineGroup({
         {tasks.map(task => (
           <TodoPlanningTask
             calendarEvents={calendarEvents}
+            calendarSubscriptions={calendarSubscriptions}
             key={todoTaskKey(task)}
             now={now}
             onOpenTask={onOpenTask}
@@ -90,6 +93,7 @@ function TimelineGroup({
 
 export function TodoTimelineView({
   calendarEvents,
+  calendarSubscriptions,
   locale,
   now,
   onOpenTask,
@@ -98,6 +102,7 @@ export function TodoTimelineView({
   tasks,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
+  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
@@ -133,6 +138,7 @@ export function TodoTimelineView({
         {monthGroups.map(([date, dateTasks]) => (
           <TimelineGroup
             calendarEvents={calendarEvents}
+            calendarSubscriptions={calendarSubscriptions}
             key={date}
             date={dayjs(date)}
             isToday={date === today.format('YYYY-MM-DD')}
@@ -151,6 +157,7 @@ export function TodoTimelineView({
               {unscheduled.map(task => (
                 <TodoPlanningTask
                   calendarEvents={calendarEvents}
+                  calendarSubscriptions={calendarSubscriptions}
                   key={todoTaskKey(task)}
                   now={now}
                   onOpenTask={onOpenTask}
