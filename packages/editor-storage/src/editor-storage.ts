@@ -56,14 +56,6 @@ export class SqliteEditorStorage implements EditorStorage {
     ownsOperations: boolean,
   ) {
     this.#resources = createResourceScope('Editor storage', { closeMode: 'dependent' })
-    if (ownsOperations)
-      this.#resources.own({ close: () => operations.close(), name: 'Editor operations' })
-    if (options.databaseOwnership !== 'borrowed') {
-      this.#resources.own({
-        close: () => options.database.close(),
-        name: 'Editor database',
-      })
-    }
     this.learning = learning
     const runOperation: StorageOperationRunner = operation => operations.run(operation)
     const records = new EditorNoteRecords(options.database)
@@ -87,10 +79,20 @@ export class SqliteEditorStorage implements EditorStorage {
       records,
       runOperation,
     })
-    this.search = new EditorSearch(options.database, options.embeddingModel, runOperation)
+    const search = new EditorSearch(options.database, options.embeddingModel, runOperation)
+    this.search = search
     this.tasks = new EditorTodoRepository({ database: options.database, runOperation })
     this.todoCalendars = new EditorTodoCalendarRepository({ database: options.database, runOperation })
     this.userDocuments = new EditorUserDocumentRepository({ database: options.database, runOperation })
+    this.#resources.own({ close: () => search.close(), name: 'Editor search indexing' })
+    if (ownsOperations)
+      this.#resources.own({ close: () => operations.close(), name: 'Editor operations' })
+    if (options.databaseOwnership !== 'borrowed') {
+      this.#resources.own({
+        close: () => options.database.close(),
+        name: 'Editor database',
+      })
+    }
     this.#resources.commit()
   }
 
