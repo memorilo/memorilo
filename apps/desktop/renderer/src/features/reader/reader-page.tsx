@@ -2,6 +2,7 @@ import type { DesktopBookTopicContextSummary, DesktopBookTopicReadingContext } f
 import type { ReaderPosition, ReaderSource } from '@memorilo/editor/reader'
 import type { BookTitleDraft } from './reader-context-dialogs'
 import { WindowReader } from '@memorilo/editor/reader'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -265,17 +266,17 @@ function ShelfReaderSession({
 
   const toolbarActions = requestedContext === null && context === null && !contextChooserOpen
     ? (
-        <button
-          {...stylex.props(readerPageStyles.toolbarActionButton)}
+        <Button
           aria-label={t('reader.addContext')}
           data-window-no-drag=""
           disabled={documentQuery.data === undefined}
           title={t('reader.addContext')}
-          type="button"
+          variant="toolbar"
+          xstyle={readerPageStyles.toolbarActionButton}
           onClick={openCreateForm}
         >
           <Plus aria-hidden="true" size={17} strokeWidth={1.9} />
-        </button>
+        </Button>
       )
     : null
   const titlebar = useMemo(() => ({ navigation: 'hidden' as const }), [])

@@ -1,4 +1,5 @@
 import type { ShelfSource } from '@memorilo/shelf'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Globe2, Plus, Settings2, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -26,40 +27,40 @@ export function ShelfSourceList({
             <span {...stylex.props(shelfSourceManagerStyles.managerSourceIcon)} aria-hidden="true">
               <Globe2 size={17} strokeWidth={1.8} />
             </span>
-            <button
-              {...stylex.props(shelfSourceManagerStyles.managerSourceDetails)}
-              type="button"
+            <Button
+              variant="plain"
+              xstyle={shelfSourceManagerStyles.managerSourceDetails}
               onClick={() => onEdit(source)}
             >
               <strong>{source.name}</strong>
               <span>{source.username ? `${new URL(source.url).host}  -  ${source.username}` : new URL(source.url).host}</span>
-            </button>
-            <button
-              {...stylex.props(shelfSharedStyles.iconButton)}
+            </Button>
+            <Button
               aria-label={t('shelfEditSourceFor', { name: source.name })}
               title={t('shelfEditSourceFor', { name: source.name })}
-              type="button"
+              variant="toolbar"
+              xstyle={shelfSharedStyles.iconButton}
               onClick={() => onEdit(source)}
             >
               <Settings2 size={16} strokeWidth={1.8} aria-hidden="true" />
-            </button>
-            <button
-              {...stylex.props(shelfSourceManagerStyles.managerRemoveButton)}
+            </Button>
+            <Button
               aria-label={t('shelfRemoveSourceFor', { name: source.name })}
               title={t('shelfRemoveSourceFor', { name: source.name })}
-              type="button"
+              variant="toolbar"
+              xstyle={shelfSourceManagerStyles.managerRemoveButton}
               onClick={() => onRemove(source)}
             >
               <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         ))}
       </div>
       <footer {...stylex.props(shelfSourceManagerStyles.managerActions)}>
-        <button {...stylex.props(shelfSharedStyles.primaryButton)} type="button" onClick={onAdd}>
+        <Button variant="primary" xstyle={shelfSharedStyles.primaryButton} onClick={onAdd}>
           <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
           {t('shelfAddBookSource')}
-        </button>
+        </Button>
       </footer>
     </div>
   )

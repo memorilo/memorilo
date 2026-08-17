@@ -1,0 +1,208 @@
+import * as stylex from '@stylexjs/stylex'
+import { uiColors, uiMotion } from '../theme.stylex'
+
+const sharedSidebarSurface = {
+  position: 'relative',
+  zIndex: 2,
+  display: 'flex',
+  minWidth: 0,
+  minHeight: 0,
+  overflow: 'hidden',
+  flexDirection: 'column',
+  marginTop: 8,
+  marginBottom: 8,
+  borderColor: {
+    'default': 'rgba(255, 255, 255, 0.62)',
+    '@media (prefers-contrast: more)': 'rgba(0, 0, 0, 0.42)',
+  },
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderRadius: 18,
+  backgroundColor: {
+    'default': 'rgba(255, 255, 255, 0.48)',
+    '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+    '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.96)',
+  },
+  backdropFilter: {
+    'default': 'blur(30px) saturate(170%)',
+    '@media (prefers-reduced-transparency: reduce)': 'none',
+  },
+  boxShadow: '0 12px 30px rgba(31, 38, 48, 0.13), 0 2px 7px rgba(31, 38, 48, 0.09), inset 0 1px rgba(255, 255, 255, 0.8), inset 1px 0 rgba(255, 255, 255, 0.48)',
+} as const
+
+export const sidebarStyles = stylex.create({
+  root: sharedSidebarSurface,
+  workspaceRoot: {},
+  settingsRoot: {
+    width: 204,
+    marginLeft: 8,
+    borderColor: {
+      'default': 'rgba(255, 255, 255, 0.62)',
+      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.18)',
+      '@media (prefers-contrast: more)': 'rgba(0, 0, 0, 0.42)',
+    },
+    backgroundColor: {
+      'default': 'rgba(255, 255, 255, 0.48)',
+      '@media (prefers-color-scheme: dark)': 'rgba(45, 47, 54, 0.58)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+      '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.96)',
+    },
+  },
+  workspaceHeader: {
+    marginTop: 0,
+    marginRight: 8,
+    marginBottom: 6,
+    marginLeft: 8,
+    color: uiColors.textMuted,
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: '20px',
+  },
+  settingsHeader: {
+    display: 'flex',
+    height: 72,
+    alignItems: 'flex-end',
+    paddingRight: 18,
+    paddingBottom: 13,
+    paddingLeft: 18,
+    color: {
+      'default': 'rgba(30, 31, 35, 0.58)',
+      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.58)',
+    },
+    fontSize: 12,
+    fontWeight: 650,
+    lineHeight: '18px',
+  },
+  workspaceNavigation: {
+    minHeight: 0,
+    overflowY: 'auto',
+    paddingTop: 64,
+    paddingRight: 10,
+    paddingBottom: 20,
+    paddingLeft: 10,
+  },
+  settingsNavigation: {
+    display: 'flex',
+    minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+    gap: 3,
+    paddingRight: 10,
+    paddingLeft: 10,
+  },
+  group: {
+    marginBottom: 17,
+  },
+  item: {
+    width: '100%',
+    minWidth: 0,
+    alignItems: 'center',
+    borderColor: 'transparent',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+    color: uiColors.text,
+    cursor: 'default',
+    outline: 'none',
+    textAlign: 'left',
+    textDecoration: 'none',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${uiColors.focus}`,
+    },
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.985)',
+    },
+    transitionDuration: uiMotion.duration,
+    transitionProperty: 'background-color, border-color, color, transform, box-shadow',
+    transitionTimingFunction: uiMotion.easing,
+  },
+  workspaceItem: {
+    display: 'grid',
+    height: 31,
+    gridTemplateColumns: '20px minmax(0, 1fr)',
+    gap: 7,
+    borderRadius: 8,
+    paddingRight: 9,
+    paddingLeft: 8,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(76, 84, 96, 0.07)',
+      ':active': 'rgba(76, 84, 96, 0.15)',
+    },
+    fontWeight: {
+      'default': 400,
+      ':is([data-state="active"])': 550,
+    },
+    fontSize: 13,
+    lineHeight: '18px',
+  },
+  settingsItem: {
+    display: 'flex',
+    minHeight: 34,
+    gap: 10,
+    borderRadius: 9,
+    paddingRight: 10,
+    paddingLeft: 10,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(255, 255, 255, 0.32)',
+      ':active': 'rgba(80, 91, 108, 0.14)',
+      ':is([data-state="active"])': 'rgba(0, 113, 227, 0.9)',
+    },
+    borderColor: {
+      'default': 'transparent',
+      ':is([data-state="active"])': 'rgba(255, 255, 255, 0.2)',
+    },
+    color: {
+      'default': uiColors.text,
+      ':is([data-state="active"])': 'white',
+    },
+    fontWeight: {
+      'default': 500,
+      ':is([data-state="active"])': 600,
+    },
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${uiColors.focus}`,
+      ':is([data-state="active"])': 'inset 0 1px rgba(255, 255, 255, 0.34), 0 2px 6px rgba(0, 75, 164, 0.22)',
+    },
+    fontSize: 13,
+    lineHeight: '18px',
+  },
+  icon: {
+    display: 'grid',
+    flex: '0 0 auto',
+    placeItems: 'center',
+    color: uiColors.textMuted,
+  },
+  workspaceIcon: {
+    width: 17,
+    height: 17,
+    justifySelf: 'center',
+  },
+  settingsIcon: {
+    flex: '0 0 auto',
+  },
+  iconActiveWorkspace: {
+    color: uiColors.accent,
+  },
+  iconActiveSettings: {
+    color: 'white',
+  },
+  label: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  workspaceLabel: {},
+  settingsLabel: {},
+  labelActiveWorkspace: {
+    color: uiColors.accent,
+  },
+  labelActiveSettings: {
+    color: 'white',
+  },
+})

@@ -5,6 +5,7 @@ import type {
   LearningOptimizerWorkflow,
   OptimizerRecord,
 } from './learning-optimizer-workflow'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -155,9 +156,9 @@ function CreateOptimizerDialog({
       <form onSubmit={create}>
         <header {...stylex.props(sharedStyles.dialogHeader)}>
           <h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('newOptimizerTitle')}</h2>
-          <button {...stylex.props(sharedStyles.dialogClose)} aria-label={t('close')} disabled={creating} type="button" onClick={onClose}>
+          <Button aria-label={t('close')} disabled={creating} variant="toolbar" xstyle={sharedStyles.dialogClose} onClick={onClose}>
             <X aria-hidden="true" size={15} />
-          </button>
+          </Button>
         </header>
         <div {...stylex.props(sharedStyles.dialogBody)}>
           <label {...stylex.props(styles.dialogField)}>
@@ -176,11 +177,11 @@ function CreateOptimizerDialog({
           </label>
         </div>
         <footer {...stylex.props(sharedStyles.dialogActions)}>
-          <button {...stylex.props(sharedStyles.actionButton)} disabled={creating} type="button" onClick={onClose}>{t('cancel')}</button>
-          <button {...stylex.props(sharedStyles.actionButton, sharedStyles.actionButtonStrong)} disabled={creating || createName.trim().length === 0} type="submit">
+          <Button disabled={creating} variant="plain" xstyle={sharedStyles.actionButton} onClick={onClose}>{t('cancel')}</Button>
+          <Button disabled={creating || createName.trim().length === 0} type="submit" variant="plain" xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}>
             {creating ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : null}
             <span>{creating ? t('creating') : t('create')}</span>
-          </button>
+          </Button>
         </footer>
       </form>
     </LearningOptimizerDialog>
@@ -226,7 +227,7 @@ function LearningOptimizerPanelSession({
     return (
       <div {...stylex.props(sharedStyles.status)} role="alert">
         <span>{t('loadOptimizersFailed')}</span>
-        <button {...stylex.props(sharedStyles.actionButton)} type="button" onClick={() => void query.refetch()}>{t('retry')}</button>
+        <Button variant="plain" xstyle={sharedStyles.actionButton} onClick={() => void query.refetch()}>{t('retry')}</Button>
       </div>
     )
   }
@@ -245,14 +246,14 @@ function LearningOptimizerPanelSession({
               <h2 {...stylex.props(styles.listTitle)}>{t('optimizers')}</h2>
               <p {...stylex.props(styles.listSummary)}>{t('optimizerCount', { count: records.length })}</p>
             </div>
-            <button
-              {...stylex.props(styles.liquidPrimaryButton)}
-              type="button"
+            <Button
+              variant="plain"
+              xstyle={styles.liquidPrimaryButton}
               onClick={() => setCreateDialogOpen(true)}
             >
               <Plus aria-hidden="true" size={15} strokeWidth={2} />
               <span>{t('newOptimizer')}</span>
-            </button>
+            </Button>
           </header>
           <div {...stylex.props(styles.optimizerList)} role="list">
             {records.map((record, index) => (

@@ -29,27 +29,7 @@ export const commandPaletteStyles = stylex.create({
     minHeight: 0,
     overflow: 'hidden',
     gridTemplateRows: '56px minmax(0, 1fr)',
-    borderColor: {
-      'default': 'rgba(95, 95, 101, 0.3)',
-      '@media (prefers-contrast: more)': 'rgba(43, 44, 49, 0.68)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    backgroundColor: {
-      'default': 'rgba(248, 248, 249, 0.74)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(248, 248, 249)',
-      '@media (prefers-contrast: more)': 'rgb(252, 252, 253)',
-    },
-    backdropFilter: {
-      'default': 'blur(44px) saturate(145%) brightness(1.025)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: {
-      'default': '0 18px 44px rgba(20, 20, 24, 0.19), 0 4px 14px rgba(20, 20, 24, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.56), inset 0 1px rgba(255, 255, 255, 0.76)',
-      '@media (prefers-contrast: more)': '0 20px 50px rgba(20, 20, 24, 0.28), 0 0 0 1px rgba(43, 44, 49, 0.64)',
-    },
     color: colors.text,
-    borderRadius: 30,
   },
   searchRow: {
     position: 'relative',

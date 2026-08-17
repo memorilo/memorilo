@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Button, ButtonGroup } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { LoaderCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -95,30 +96,30 @@ export function ReviewCardSession<Rating extends number | string>({
             : null}
           {!revealed
             ? (
-                <button
-                  {...stylex.props(styles.showAnswerButton)}
+                <Button
                   disabled={revealDisabled}
-                  type="button"
+                  variant="plain"
+                  xstyle={styles.showAnswerButton}
                   onClick={onReveal}
                 >
                   {showAnswerLabel}
-                </button>
+                </Button>
               )
             : (
-                <div {...stylex.props(styles.ratingGrid)} aria-label={rateAriaLabel} role="group">
+                <ButtonGroup aria-label={rateAriaLabel} xstyle={styles.ratingGrid}>
                   {ratings.map(rating => (
-                    <button
+                    <Button
                       key={String(rating.id)}
-                      {...stylex.props(styles.ratingButton, ratingToneStyle(rating.tone))}
                       disabled={actionPending || ratingsDisabled}
-                      type="button"
+                      variant="plain"
+                      xstyle={[styles.ratingButton, ratingToneStyle(rating.tone)]}
                       onClick={() => onRate(rating.id)}
                     >
                       <span {...stylex.props(styles.ratingInterval)}>{rating.interval}</span>
                       <span {...stylex.props(styles.ratingLabel)}>{rating.label}</span>
-                    </button>
+                    </Button>
                   ))}
-                </div>
+                </ButtonGroup>
               )}
           {actionPending
             ? <LoaderCircle {...stylex.props(styles.dockSpinner, styles.spinner)} aria-label={pendingLabel} size={15} />

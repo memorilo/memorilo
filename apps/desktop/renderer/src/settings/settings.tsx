@@ -3,6 +3,7 @@ import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
+import { Sidebar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpen, GraduationCap, HardDrive, NotebookPen, Plug, Settings2 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -420,29 +421,26 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
     <main {...stylex.props(settingsStyles.window)}>
       <div {...stylex.props(settingsStyles.dragRegion)} data-window-drag="" />
       <div {...stylex.props(settingsStyles.layout)}>
-        <aside {...stylex.props(settingsStyles.sidebar)} aria-label={t('categories')}>
-          <div {...stylex.props(settingsStyles.sidebarHeader)}>
-            <span {...stylex.props(settingsStyles.sidebarTitle)}>{t('title')}</span>
-          </div>
-          <nav {...stylex.props(settingsStyles.navigation)} aria-label={t('categories')}>
+        <Sidebar.Root aria-label={t('categories')} variant="settings">
+          <Sidebar.Header>{t('title')}</Sidebar.Header>
+          <Sidebar.Navigation aria-label={t('categories')}>
             {categories.map((category) => {
               const Icon = categoryIcons[category.id]
               const selected = category.id === activeCategory.id
               return (
-                <button
+                <Sidebar.Item
                   key={category.id}
-                  {...stylex.props(settingsStyles.navigationItem, selected && settingsStyles.navigationItemSelected)}
                   aria-current={selected ? 'page' : undefined}
-                  type="button"
+                  data-state={selected ? 'active' : 'inactive'}
                   onClick={() => setActiveCategoryId(category.id)}
                 >
-                  <Icon {...stylex.props(settingsStyles.navigationIcon, selected && settingsStyles.navigationIconSelected)} aria-hidden="true" size={16} strokeWidth={2} />
-                  <span>{category.label}</span>
-                </button>
+                  <Sidebar.ItemIcon active={selected}><Icon aria-hidden="true" size={16} strokeWidth={2} /></Sidebar.ItemIcon>
+                  <Sidebar.ItemLabel active={selected}>{category.label}</Sidebar.ItemLabel>
+                </Sidebar.Item>
               )
             })}
-          </nav>
-        </aside>
+          </Sidebar.Navigation>
+        </Sidebar.Root>
 
         <section {...stylex.props(settingsStyles.contentPane)} aria-labelledby="active-settings-heading">
           <div {...stylex.props(settingsStyles.contentScroll)}>

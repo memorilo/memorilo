@@ -1,6 +1,7 @@
 import type { ChangeEvent, KeyboardEvent } from 'react'
 import type { ConfigurationField } from './configuration-definition'
 import type { ConfigurationStore } from './configuration-store'
+import { SegmentedControl, Switch, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useState, useSyncExternalStore } from 'react'
 
@@ -54,9 +55,8 @@ function FieldControl<T extends object>({
       }
       control = (
         <>
-          <input
+          <TextField
             key={`${field.path}:${value}`}
-            {...stylex.props(configurationFieldStyles.input, configurationFieldStyles.numberInput)}
             aria-label={field.label}
             defaultValue={value}
             disabled={pending}
@@ -64,6 +64,8 @@ function FieldControl<T extends object>({
             min={field.min}
             step={field.step}
             type="number"
+            variant="settings"
+            xstyle={configurationFieldStyles.numberInput}
             onBlur={commit}
             onKeyDown={commitOnEnter}
           />
@@ -91,26 +93,11 @@ function FieldControl<T extends object>({
       if (typeof value !== 'string')
         throw new TypeError(`Segmented field ${field.path} received a non-string value`)
       control = (
-        <div
-          {...stylex.props(configurationFieldStyles.segmentedControl)}
-          aria-label={field.label}
-          role="radiogroup"
-        >
+        <SegmentedControl.Root aria-label={field.label} disabled={pending} value={value} onValueChange={next => void update(next)}>
           {field.options.map(option => (
-            <label key={option.value} {...stylex.props(configurationFieldStyles.segmentedOption)}>
-              <input
-                {...stylex.props(configurationFieldStyles.segmentedInput)}
-                checked={value === option.value}
-                disabled={pending}
-                name={field.path}
-                type="radio"
-                value={option.value}
-                onChange={() => void update(option.value)}
-              />
-              <span {...stylex.props(configurationFieldStyles.segmentedLabel)}>{option.label}</span>
-            </label>
+            <SegmentedControl.Item key={option.value} value={option.value}>{option.label}</SegmentedControl.Item>
           ))}
-        </div>
+        </SegmentedControl.Root>
       )
       break
     case 'text': {
@@ -118,15 +105,15 @@ function FieldControl<T extends object>({
         throw new TypeError(`Text field ${field.path} received a non-string value`)
       const commit = (event: ChangeEvent<HTMLInputElement>) => void update(event.target.value)
       control = (
-        <input
+        <TextField
           key={`${field.path}:${value}`}
-          {...stylex.props(configurationFieldStyles.input)}
           aria-label={field.label}
           autoComplete={field.sensitive ? 'off' : undefined}
           defaultValue={value}
           disabled={pending}
           placeholder={field.placeholder}
           type={field.sensitive ? 'password' : 'text'}
+          variant="settings"
           onBlur={commit}
           onKeyDown={(event) => {
             if (event.key === 'Enter')
@@ -140,25 +127,12 @@ function FieldControl<T extends object>({
       if (typeof value !== 'boolean')
         throw new TypeError(`Toggle field ${field.path} received a non-boolean value`)
       control = (
-        <button
-          {...stylex.props(
-            configurationFieldStyles.switch,
-            value && configurationFieldStyles.switchOn,
-          )}
+        <Switch
           aria-label={field.label}
-          aria-checked={value}
+          checked={value}
           disabled={pending}
-          role="switch"
-          type="button"
-          onClick={() => void update(!value)}
-        >
-          <span
-            {...stylex.props(
-              configurationFieldStyles.switchThumb,
-              value && configurationFieldStyles.switchThumbOn,
-            )}
-          />
-        </button>
+          onCheckedChange={next => void update(next)}
+        />
       )
       break
   }

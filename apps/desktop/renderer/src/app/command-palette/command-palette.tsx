@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { PaletteCommand } from '../../shared/command-palette'
 import type { PaletteResult } from './command-palette-search-model'
+import { Dialog, Status } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { LoaderCircle, Search } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -196,201 +197,206 @@ export function CommandPalette({
   let resultStatus: ReactNode = null
   if (createNoteFailed) {
     resultStatus = (
-      <div {...stylex.props(commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError)} role="alert">
-        {t('couldNotCreateNote')}
-      </div>
+      <Status variant="error" xstyle={[commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError]}>{t('couldNotCreateNote')}</Status>
     )
   }
   else if (actionFailed) {
     resultStatus = (
-      <div {...stylex.props(commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError)} role="alert">
-        {t('couldNotRunCommand')}
-      </div>
+      <Status variant="error" xstyle={[commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError]}>{t('couldNotRunCommand')}</Status>
     )
   }
   else if (searchPending && visibleResults.length === 0) {
     resultStatus = (
-      <div {...stylex.props(commandPaletteStyles.searchStatus)} role="status">
-        {t('searchingNotes')}
-      </div>
+      <Status xstyle={commandPaletteStyles.searchStatus}>{t('searchingNotes')}</Status>
     )
   }
   else if (searchFailed) {
     resultStatus = (
-      <div {...stylex.props(commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError)} role="alert">
-        {t('couldNotSearchNotes')}
-      </div>
+      <Status variant="error" xstyle={[commandPaletteStyles.searchStatus, commandPaletteStyles.searchStatusError]}>{t('couldNotSearchNotes')}</Status>
     )
   }
   else if (visibleResults.length === 0) {
     resultStatus = (
-      <div {...stylex.props(commandPaletteStyles.searchStatus)} role="status">
-        {t('noMatches')}
-      </div>
+      <Status xstyle={commandPaletteStyles.searchStatus}>{t('noMatches')}</Status>
     )
   }
 
   return (
-    <AnimatePresence initial={false} onExitComplete={restoreFocus}>
-      {open
-        ? (
-            <motion.div
-              key="command-palette"
-              {...stylex.props(commandPaletteStyles.overlay)}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              initial={{ opacity: 0 }}
-              transition={{ duration: shouldReduceMotion ? 0.08 : 0.13 }}
-              onPointerDown={(event) => {
-                if (event.target === event.currentTarget)
-                  closePalette()
-              }}
-            >
-              <motion.section
-                {...stylex.props(commandPaletteStyles.panel)}
-                animate={{ height: panelHeight, opacity: 1 }}
-                aria-label={t('searchDialogLabel')}
-                aria-modal="true"
-                exit={{ opacity: 0 }}
-                initial={{ height: 58, opacity: 0 }}
-                role="dialog"
-                transition={{
-                  height: heightTransition,
-                  opacity: { duration: shouldReduceMotion ? 0.08 : 0.13 },
-                }}
-                onPointerDown={event => event.stopPropagation()}
-              >
-                <h2 {...stylex.props(commandPaletteStyles.visuallyHidden)}>{t('searchDialogLabel')}</h2>
-                <div
-                  {...stylex.props(
-                    commandPaletteStyles.searchRow,
-                    hasQuery && commandPaletteStyles.searchRowExpanded,
-                  )}
+    <Dialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen)
+          closePalette()
+      }}
+    >
+      <Dialog.Portal forceMount>
+        <AnimatePresence initial={false} onExitComplete={restoreFocus}>
+          {open
+            ? (
+                <motion.div
+                  key="command-palette"
+                  {...stylex.props(commandPaletteStyles.overlay)}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  transition={{ duration: shouldReduceMotion ? 0.08 : 0.13 }}
+                  onPointerDown={(event) => {
+                    if (event.target === event.currentTarget)
+                      closePalette()
+                  }}
                 >
-                  <Search {...stylex.props(commandPaletteStyles.searchIcon)} aria-hidden="true" strokeWidth={1.8} />
-                  <div {...stylex.props(commandPaletteStyles.searchInputCluster)}>
-                    <input
-                      ref={inputRef}
-                      {...stylex.props(
-                        commandPaletteStyles.input,
-                        hasQuery && commandPaletteStyles.inputWithQuery,
-                      )}
-                      aria-activedescendant={activeDescendant}
-                      aria-autocomplete="list"
-                      aria-busy={actionPending}
-                      aria-controls={hasQuery ? listboxId : undefined}
-                      aria-expanded={hasQuery}
-                      aria-label={t('searchLabel')}
-                      autoComplete="off"
-                      placeholder={t('searchPlaceholder')}
-                      readOnly={actionPending}
-                      role="combobox"
-                      spellCheck={false}
-                      value={query}
-                      onChange={(event) => {
-                        dispatch({ query: event.target.value, type: 'queryChanged' })
-                        resetCreateNote()
+                  <Dialog.Content
+                    aria-label={t('searchDialogLabel')}
+                    asChild
+                    forceMount
+                    position="custom"
+                    variant="command"
+                    xstyle={commandPaletteStyles.panel}
+                  >
+                    <motion.section
+                      animate={{ height: panelHeight, opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      initial={{ height: 58, opacity: 0 }}
+                      transition={{
+                        height: heightTransition,
+                        opacity: { duration: shouldReduceMotion ? 0.08 : 0.13 },
                       }}
-                    />
-                    {hasQuery && selectedResult
-                      ? (
-                          <span {...stylex.props(commandPaletteStyles.searchIntent)} aria-hidden="true">
-                            —
-                            {' '}
-                            {selectedResult.action}
-                          </span>
-                        )
-                      : null}
-                  </div>
-                  {actionPending
-                    ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label={t('runningCommand')} />
-                    : SelectedIcon
-                      ? (
-                          <span
+                      onPointerDown={event => event.stopPropagation()}
+                    >
+                      <h2 {...stylex.props(commandPaletteStyles.visuallyHidden)}>{t('searchDialogLabel')}</h2>
+                      <div
+                        {...stylex.props(
+                          commandPaletteStyles.searchRow,
+                          hasQuery && commandPaletteStyles.searchRowExpanded,
+                        )}
+                      >
+                        <Search {...stylex.props(commandPaletteStyles.searchIcon)} aria-hidden="true" strokeWidth={1.8} />
+                        <div {...stylex.props(commandPaletteStyles.searchInputCluster)}>
+                          <input
+                            ref={inputRef}
                             {...stylex.props(
-                              commandPaletteStyles.searchCommandIconFrame,
-                              selectedResult.accent === 'blue' && commandPaletteStyles.commandIconBlue,
-                              selectedResult.accent === 'violet' && commandPaletteStyles.commandIconViolet,
-                              selectedResult.accent === 'graphite' && commandPaletteStyles.commandIconGraphite,
+                              commandPaletteStyles.input,
+                              hasQuery && commandPaletteStyles.inputWithQuery,
                             )}
-                            aria-hidden="true"
-                          >
-                            <SelectedIcon {...stylex.props(commandPaletteStyles.commandIcon)} strokeWidth={1.8} />
-                          </span>
-                        )
-                      : searchPending
-                        ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label={t('searchingNotes')} />
-                        : null}
-                </div>
+                            aria-activedescendant={activeDescendant}
+                            aria-autocomplete="list"
+                            aria-busy={actionPending}
+                            aria-controls={hasQuery ? listboxId : undefined}
+                            aria-expanded={hasQuery}
+                            aria-label={t('searchLabel')}
+                            autoComplete="off"
+                            placeholder={t('searchPlaceholder')}
+                            readOnly={actionPending}
+                            role="combobox"
+                            spellCheck={false}
+                            value={query}
+                            onChange={(event) => {
+                              dispatch({ query: event.target.value, type: 'queryChanged' })
+                              resetCreateNote()
+                            }}
+                          />
+                          {hasQuery && selectedResult
+                            ? (
+                                <span {...stylex.props(commandPaletteStyles.searchIntent)} aria-hidden="true">
+                                  —
+                                  {' '}
+                                  {selectedResult.action}
+                                </span>
+                              )
+                            : null}
+                        </div>
+                        {actionPending
+                          ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label={t('runningCommand')} />
+                          : SelectedIcon
+                            ? (
+                                <span
+                                  {...stylex.props(
+                                    commandPaletteStyles.searchCommandIconFrame,
+                                    selectedResult.accent === 'blue' && commandPaletteStyles.commandIconBlue,
+                                    selectedResult.accent === 'violet' && commandPaletteStyles.commandIconViolet,
+                                    selectedResult.accent === 'graphite' && commandPaletteStyles.commandIconGraphite,
+                                  )}
+                                  aria-hidden="true"
+                                >
+                                  <SelectedIcon {...stylex.props(commandPaletteStyles.commandIcon)} strokeWidth={1.8} />
+                                </span>
+                              )
+                            : searchPending
+                              ? <LoaderCircle {...stylex.props(commandPaletteStyles.searchSpinner)} aria-label={t('searchingNotes')} />
+                              : null}
+                      </div>
 
-                <div {...stylex.props(commandPaletteStyles.resultsShell)} aria-hidden={!hasQuery}>
-                  <AnimatePresence initial={false}>
-                    {hasQuery
-                      ? (
-                          <motion.div
-                            ref={resultsRef}
-                            id={listboxId}
-                            key="search-results"
-                            {...stylex.props(commandPaletteStyles.resultsViewport)}
-                            animate={{ opacity: 1 }}
-                            aria-label={t('commandsAndNotesLabel')}
-                            exit={{ opacity: 0 }}
-                            initial={{ opacity: 0 }}
-                            role="listbox"
-                            transition={{ duration: shouldReduceMotion ? 0.08 : 0.14 }}
-                          >
-                            <ul {...stylex.props(commandPaletteStyles.commandList)} role="none">
-                              {visibleResults.map((result) => {
-                                const selected = result.id === selectedResult?.id
-                                const Icon = result.icon
-                                return (
-                                  <li key={result.id} role="none">
-                                    <button
-                                      id={`${listboxId}-${result.id}`}
-                                      {...stylex.props(
-                                        commandPaletteStyles.command,
-                                        selected && commandPaletteStyles.commandSelected,
-                                      )}
-                                      aria-selected={selected}
-                                      disabled={result.disabled}
-                                      role="option"
-                                      tabIndex={-1}
-                                      type="button"
-                                      onClick={() => void executeResult(result)}
-                                      onPointerMove={() => dispatch({
-                                        selectedId: result.id,
-                                        type: 'selectionChanged',
-                                      })}
-                                    >
-                                      <span
-                                        {...stylex.props(
-                                          commandPaletteStyles.commandIconFrame,
-                                          result.accent === 'blue' && commandPaletteStyles.commandIconBlue,
-                                          result.accent === 'violet' && commandPaletteStyles.commandIconViolet,
-                                          result.accent === 'graphite' && commandPaletteStyles.commandIconGraphite,
-                                        )}
-                                      >
-                                        <Icon {...stylex.props(commandPaletteStyles.commandIcon)} aria-hidden="true" strokeWidth={1.9} />
-                                      </span>
-                                      <span {...stylex.props(commandPaletteStyles.commandText)}>
-                                        <span {...stylex.props(commandPaletteStyles.commandLabel)}>{result.label}</span>
-                                        <span {...stylex.props(commandPaletteStyles.commandDescription)}>{result.description}</span>
-                                      </span>
-                                    </button>
-                                  </li>
-                                )
-                              })}
-                            </ul>
-                            {resultStatus}
-                          </motion.div>
-                        )
-                      : null}
-                  </AnimatePresence>
-                </div>
-              </motion.section>
-            </motion.div>
-          )
-        : null}
-    </AnimatePresence>
+                      <div {...stylex.props(commandPaletteStyles.resultsShell)} aria-hidden={!hasQuery}>
+                        <AnimatePresence initial={false}>
+                          {hasQuery
+                            ? (
+                                <motion.div
+                                  ref={resultsRef}
+                                  id={listboxId}
+                                  key="search-results"
+                                  {...stylex.props(commandPaletteStyles.resultsViewport)}
+                                  animate={{ opacity: 1 }}
+                                  aria-label={t('commandsAndNotesLabel')}
+                                  exit={{ opacity: 0 }}
+                                  initial={{ opacity: 0 }}
+                                  role="listbox"
+                                  transition={{ duration: shouldReduceMotion ? 0.08 : 0.14 }}
+                                >
+                                  <ul {...stylex.props(commandPaletteStyles.commandList)} role="none">
+                                    {visibleResults.map((result) => {
+                                      const selected = result.id === selectedResult?.id
+                                      const Icon = result.icon
+                                      return (
+                                        <li key={result.id} role="none">
+                                          <button
+                                            id={`${listboxId}-${result.id}`}
+                                            {...stylex.props(
+                                              commandPaletteStyles.command,
+                                              selected && commandPaletteStyles.commandSelected,
+                                            )}
+                                            aria-selected={selected}
+                                            disabled={result.disabled}
+                                            role="option"
+                                            tabIndex={-1}
+                                            type="button"
+                                            onClick={() => void executeResult(result)}
+                                            onPointerMove={() => dispatch({
+                                              selectedId: result.id,
+                                              type: 'selectionChanged',
+                                            })}
+                                          >
+                                            <span
+                                              {...stylex.props(
+                                                commandPaletteStyles.commandIconFrame,
+                                                result.accent === 'blue' && commandPaletteStyles.commandIconBlue,
+                                                result.accent === 'violet' && commandPaletteStyles.commandIconViolet,
+                                                result.accent === 'graphite' && commandPaletteStyles.commandIconGraphite,
+                                              )}
+                                            >
+                                              <Icon {...stylex.props(commandPaletteStyles.commandIcon)} aria-hidden="true" strokeWidth={1.9} />
+                                            </span>
+                                            <span {...stylex.props(commandPaletteStyles.commandText)}>
+                                              <span {...stylex.props(commandPaletteStyles.commandLabel)}>{result.label}</span>
+                                              <span {...stylex.props(commandPaletteStyles.commandDescription)}>{result.description}</span>
+                                            </span>
+                                          </button>
+                                        </li>
+                                      )
+                                    })}
+                                  </ul>
+                                  {resultStatus}
+                                </motion.div>
+                              )
+                            : null}
+                        </AnimatePresence>
+                      </div>
+                    </motion.section>
+                  </Dialog.Content>
+                </motion.div>
+              )
+            : null}
+        </AnimatePresence>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

@@ -1,9 +1,9 @@
-import type { KeyboardEvent } from 'react'
+import { Button, Tabs } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
 import { Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { usePageTitlebar } from '../../shared/page-titlebar'
@@ -48,129 +48,83 @@ export function LearningPage({
   const titlebar = useMemo(() => ({
     title: t('title'),
     trailing: (
-      <Link
-        {...stylex.props(learningRouteStyles.startReviewButton)}
+      <Button
+        asChild
         aria-label={t('startGlobalReview')}
-        search={{ scope: 'global' }}
+        data-window-no-drag=""
         title={t('startGlobalReview')}
-        to="/learning/review"
+        variant="titlebar"
+        xstyle={learningRouteStyles.startReviewButton}
       >
-        <Play aria-hidden="true" fill="currentColor" size={12} strokeWidth={1.8} />
-        <span>{t('startReview')}</span>
-      </Link>
+        <Link search={{ scope: 'global' }} to="/learning/review">
+          <Play aria-hidden="true" fill="currentColor" size={12} strokeWidth={1.8} />
+          <span>{t('startReview')}</span>
+        </Link>
+      </Button>
     ),
   }), [t])
   usePageTitlebar(titlebar)
   const activeTab = view ?? 'notes'
-  const tabRefs = useRef<Partial<Record<LearningTabId, HTMLButtonElement>>>({})
   const shouldReduceMotion = useReducedMotion()
 
   const selectTab = (tabId: LearningTabId) => {
     void onViewChange(tabId)
   }
 
-  const focusTab = (tabId: LearningTabId) => {
-    const tab = tabRefs.current[tabId]
-    if (!tab)
-      throw new Error(`Learning tab ${tabId} is not mounted`)
-    selectTab(tabId)
-    tab.focus()
-  }
-
-  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tabId: LearningTabId) => {
-    const currentIndex = learningTabs.findIndex(tab => tab.id === tabId)
-    if (currentIndex < 0)
-      throw new Error(`Unknown Learning tab: ${tabId}`)
-
-    let nextIndex: number
-    switch (event.key) {
-      case 'ArrowLeft':
-        nextIndex = (currentIndex - 1 + learningTabs.length) % learningTabs.length
-        break
-      case 'ArrowRight':
-        nextIndex = (currentIndex + 1) % learningTabs.length
-        break
-      case 'End':
-        nextIndex = learningTabs.length - 1
-        break
-      case 'Home':
-        nextIndex = 0
-        break
-      default:
-        return
-    }
-
-    event.preventDefault()
-    const nextTab = learningTabs[nextIndex]
-    if (!nextTab)
-      throw new RangeError(`Learning tab index ${nextIndex} is outside the tab list`)
-    focusTab(nextTab.id)
-  }
-
   return (
     <main {...stylex.props(learningRouteStyles.page)} aria-label={t('title')}>
-      <div {...stylex.props(learningRouteStyles.tabRegion)}>
-        <div
-          {...stylex.props(learningRouteStyles.tabList)}
-          aria-label={t('viewsLabel')}
-          role="tablist"
-        >
+      <Tabs.Root
+        value={activeTab}
+        onValueChange={(value) => {
+          if (value === 'notes' || value === 'optimizer')
+            selectTab(value)
+        }}
+      >
+        <div {...stylex.props(learningRouteStyles.tabRegion)}>
+          <Tabs.List aria-label={t('viewsLabel')} xstyle={learningRouteStyles.tabList}>
+            {learningTabs.map(tab => (
+              <Tabs.Trigger
+                key={tab.id}
+                id={tabElementId(tab.id)}
+                aria-controls={panelElementId(tab.id)}
+                value={tab.id}
+                xstyle={[learningRouteStyles.tab, activeTab === tab.id && learningRouteStyles.tabSelected]}
+              >
+                {activeTab === tab.id
+                  ? (
+                      <motion.span
+                        {...stylex.props(learningRouteStyles.selectionIndicator)}
+                        aria-hidden="true"
+                        initial={false}
+                        layoutId="learning-tab-selection"
+                        transition={shouldReduceMotion ? { duration: 0 } : tabSpring}
+                      />
+                    )
+                  : null}
+                <span {...stylex.props(learningRouteStyles.tabLabel)}>{t(tab.labelKey)}</span>
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+        </div>
+
+        <div {...stylex.props(learningRouteStyles.panelRegion)}>
           {learningTabs.map(tab => (
-            <button
+            <section
               key={tab.id}
-              ref={(element) => {
-                if (element)
-                  tabRefs.current[tab.id] = element
-                else
-                  delete tabRefs.current[tab.id]
-              }}
-              {...stylex.props(
-                learningRouteStyles.tab,
-                activeTab === tab.id && learningRouteStyles.tabSelected,
-              )}
-              id={tabElementId(tab.id)}
-              aria-controls={panelElementId(tab.id)}
-              aria-selected={activeTab === tab.id}
-              role="tab"
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              type="button"
-              onClick={() => selectTab(tab.id)}
-              onKeyDown={event => handleTabKeyDown(event, tab.id)}
+              {...stylex.props(learningRouteStyles.panel)}
+              id={panelElementId(tab.id)}
+              aria-labelledby={tabElementId(tab.id)}
+              hidden={activeTab !== tab.id}
+              role="tabpanel"
             >
-              {activeTab === tab.id
-                ? (
-                    <motion.span
-                      {...stylex.props(learningRouteStyles.selectionIndicator)}
-                      aria-hidden="true"
-                      initial={false}
-                      layoutId="learning-tab-selection"
-                      transition={shouldReduceMotion ? { duration: 0 } : tabSpring}
-                    />
-                  )
+              {tab.id === 'notes' && activeTab === 'notes' ? <LearningNotesPanel /> : null}
+              {tab.id === 'optimizer' && activeTab === 'optimizer'
+                ? <LearningOptimizerPanel onOpenOptimizer={onOpenOptimizer} />
                 : null}
-              <span {...stylex.props(learningRouteStyles.tabLabel)}>{t(tab.labelKey)}</span>
-            </button>
+            </section>
           ))}
         </div>
-      </div>
-
-      <div {...stylex.props(learningRouteStyles.panelRegion)}>
-        {learningTabs.map(tab => (
-          <section
-            key={tab.id}
-            {...stylex.props(learningRouteStyles.panel)}
-            id={panelElementId(tab.id)}
-            aria-labelledby={tabElementId(tab.id)}
-            hidden={activeTab !== tab.id}
-            role="tabpanel"
-          >
-            {tab.id === 'notes' && activeTab === 'notes' ? <LearningNotesPanel /> : null}
-            {tab.id === 'optimizer' && activeTab === 'optimizer'
-              ? <LearningOptimizerPanel onOpenOptimizer={onOpenOptimizer} />
-              : null}
-          </section>
-        ))}
-      </div>
+      </Tabs.Root>
     </main>
   )
 }

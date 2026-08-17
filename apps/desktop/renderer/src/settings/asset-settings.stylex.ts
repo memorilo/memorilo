@@ -48,6 +48,7 @@ export const assetSettingsStyles = stylex.create({
   secondaryButton: {
     display: 'inline-flex',
     height: 30,
+    minHeight: 30,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -164,7 +165,9 @@ export const assetSettingsStyles = stylex.create({
     letterSpacing: 0,
   },
   inlineButton: {
+    minHeight: 0,
     borderWidth: 0,
+    borderRadius: 0,
     padding: 0,
     backgroundColor: 'transparent',
     color: 'rgb(0, 113, 227)',
@@ -224,6 +227,7 @@ export const assetSettingsStyles = stylex.create({
   dangerButton: {
     display: 'inline-flex',
     height: 30,
+    minHeight: 30,
     alignItems: 'center',
     gap: 6,
     borderWidth: 0,

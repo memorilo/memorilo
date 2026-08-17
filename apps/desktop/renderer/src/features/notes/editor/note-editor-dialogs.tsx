@@ -2,6 +2,7 @@ import type { ShelfPublication, ShelfReadingFormat, ShelfSource } from '@memoril
 import type { FormEvent } from 'react'
 import { readingFormatDisplayName } from '@memorilo/reading-model'
 import { matchesShelfPublication, shelfReadingAcquisitions } from '@memorilo/shelf'
+import { Dialog, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
@@ -127,133 +128,135 @@ export function BookTopicPickerDialog({
   }
 
   return (
-    <div {...stylex.props(noteEditorDialogStyles.bookPickerOverlay)}>
-      <section
-        {...stylex.props(noteEditorDialogStyles.bookPickerDialog)}
-        aria-describedby="book-topic-picker-description"
-        aria-labelledby="book-topic-picker-title"
-        aria-modal="true"
-        role="dialog"
-      >
-        <header {...stylex.props(noteEditorDialogStyles.bookPickerHeader)}>
-          <div>
-            <h1 id="book-topic-picker-title" {...stylex.props(noteEditorDialogStyles.bookPickerTitle)}>
-              {mode === 'rebind' ? t('rebindBook') : t('addBook')}
-            </h1>
-            <p id="book-topic-picker-description" {...stylex.props(noteEditorDialogStyles.bookPickerDescription)}>
-              {mode === 'rebind' ? t('rebindBookDescription') : t('addBookDescription')}
-            </p>
-          </div>
-          <button
-            {...stylex.props(noteEditorDialogStyles.inspectorCloseButton)}
-            aria-label={t('closeBookPicker')}
-            title={t('closeBookPicker')}
-            type="button"
-            onClick={onClose}
-          >
-            <X aria-hidden="true" size={16} strokeWidth={1.8} />
-          </button>
-        </header>
-        <div {...stylex.props(noteEditorDialogStyles.bookPickerBody)}>
-          {mode === 'rebind'
-            ? <p {...stylex.props(noteEditorDialogStyles.bookPickerWarning)}>{t('rebindBookWarning')}</p>
-            : null}
-          <label {...stylex.props(noteEditorDialogStyles.bookPickerSearch)}>
-            <Search aria-hidden="true" size={15} strokeWidth={1.8} />
-            <input
-              {...stylex.props(noteEditorDialogStyles.bookPickerSearchInput)}
-              aria-label={t('searchBooks')}
-              placeholder={t('searchBooks')}
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-            />
-          </label>
-          {booksQuery.isPending
-            ? <p {...stylex.props(noteEditorDialogStyles.bookPickerStatus)} role="status">{t('loadingBooks')}</p>
-            : booksQuery.error
-              ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{t('couldNotLoadBooks')}</p>
-              : filteredBooks.length === 0
-                ? <p {...stylex.props(noteEditorDialogStyles.bookPickerStatus)}>{t('noReadableBooks')}</p>
-                : (
-                    <div {...stylex.props(noteEditorDialogStyles.bookPickerList)} role="listbox" aria-label={t('searchBooks')}>
-                      {filteredBooks.map((option) => {
-                        const key = `${option.source.id}:${option.publication.id}`
-                        const formatsForOption = shelfReadingAcquisitions(option.publication)
-                        return (
-                          <button
-                            key={key}
-                            {...stylex.props(
-                              noteEditorDialogStyles.bookPickerOption,
-                              selectedKey === key && noteEditorDialogStyles.bookPickerOptionSelected,
-                            )}
-                            aria-selected={selectedKey === key}
-                            role="option"
-                            type="button"
-                            onClick={() => {
-                              const matchingFormat = formatsForOption.find(
-                                acquisition => requiredFormat === undefined || acquisition.format === requiredFormat,
-                              )
-                              setSelectedKey(key)
-                              setSelectedFormat(matchingFormat === undefined ? null : matchingFormat.format)
-                              setError(null)
-                            }}
-                          >
-                            <span {...stylex.props(noteEditorDialogStyles.bookPickerOptionText)}>
-                              <strong {...stylex.props(noteEditorDialogStyles.bookPickerOptionTitle)}>{option.publication.title}</strong>
-                              <span {...stylex.props(noteEditorDialogStyles.bookPickerOptionDetail)}>{option.source.name}</span>
-                            </span>
-                            <span {...stylex.props(noteEditorDialogStyles.bookPickerFormatList)}>
-                              {formatsForOption.map(acquisition => readingFormatDisplayName(acquisition.format)).join(' · ')}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-          {selectedOption && formats.length > 0
-            ? (
-                <label {...stylex.props(noteEditorDialogStyles.bookPickerFormatField)}>
-                  <span>{t('bookFormat')}</span>
-                  <select
-                    {...stylex.props(noteEditorDialogStyles.bookPickerFormatSelect)}
-                    value={activeFormat ?? ''}
-                    onChange={event => setSelectedFormat(event.target.value as ShelfReadingFormat)}
-                  >
-                    {formats.map(acquisition => (
-                      <option key={acquisition.format} value={acquisition.format}>
-                        {readingFormatDisplayName(acquisition.format)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )
-            : null}
-          {error
-            ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{error}</p>
-            : null}
-        </div>
-        <footer {...stylex.props(noteEditorDialogStyles.bookPickerFooter)}>
-          <button
-            {...stylex.props(noteEditorDialogStyles.bookPickerCancel)}
-            disabled={submitting}
-            type="button"
-            onClick={onClose}
-          >
-            {t('cancel')}
-          </button>
-          <button
-            {...stylex.props(noteEditorDialogStyles.bookPickerCreate)}
-            disabled={submitting || selectedOption === undefined || activeFormat === null}
-            type="button"
-            onClick={() => void submit()}
-          >
-            {submitting
-              ? mode === 'rebind' ? t('rebindingBook') : t('addingBook')
-              : mode === 'rebind' ? t('rebindBook') : t('addBook')}
-          </button>
-        </footer>
-      </section>
-    </div>
+    <Dialog.Root
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open)
+          onClose()
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay variant="note" />
+        <Dialog.Content
+          aria-describedby="book-topic-picker-description"
+          aria-labelledby="book-topic-picker-title"
+          asChild
+          variant="wide"
+          xstyle={noteEditorDialogStyles.bookPickerDialog}
+        >
+          <section>
+            <header {...stylex.props(noteEditorDialogStyles.bookPickerHeader)}>
+              <div>
+                <h1 id="book-topic-picker-title" {...stylex.props(noteEditorDialogStyles.bookPickerTitle)}>
+                  {mode === 'rebind' ? t('rebindBook') : t('addBook')}
+                </h1>
+                <p id="book-topic-picker-description" {...stylex.props(noteEditorDialogStyles.bookPickerDescription)}>
+                  {mode === 'rebind' ? t('rebindBookDescription') : t('addBookDescription')}
+                </p>
+              </div>
+              <Dialog.Close asChild>
+                <button {...stylex.props(noteEditorDialogStyles.inspectorCloseButton)} aria-label={t('closeBookPicker')} title={t('closeBookPicker')} type="button">
+                  <X aria-hidden="true" size={16} strokeWidth={1.8} />
+                </button>
+              </Dialog.Close>
+            </header>
+            <div {...stylex.props(noteEditorDialogStyles.bookPickerBody)}>
+              {mode === 'rebind'
+                ? <p {...stylex.props(noteEditorDialogStyles.bookPickerWarning)}>{t('rebindBookWarning')}</p>
+                : null}
+              <label {...stylex.props(noteEditorDialogStyles.bookPickerSearch)}>
+                <Search aria-hidden="true" size={15} strokeWidth={1.8} />
+                <TextField
+                  aria-label={t('searchBooks')}
+                  placeholder={t('searchBooks')}
+                  xstyle={noteEditorDialogStyles.bookPickerSearchInput}
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                />
+              </label>
+              {booksQuery.isPending
+                ? <p {...stylex.props(noteEditorDialogStyles.bookPickerStatus)} role="status">{t('loadingBooks')}</p>
+                : booksQuery.error
+                  ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{t('couldNotLoadBooks')}</p>
+                  : filteredBooks.length === 0
+                    ? <p {...stylex.props(noteEditorDialogStyles.bookPickerStatus)}>{t('noReadableBooks')}</p>
+                    : (
+                        <div {...stylex.props(noteEditorDialogStyles.bookPickerList)} role="listbox" aria-label={t('searchBooks')}>
+                          {filteredBooks.map((option) => {
+                            const key = `${option.source.id}:${option.publication.id}`
+                            const formatsForOption = shelfReadingAcquisitions(option.publication)
+                            return (
+                              <button
+                                key={key}
+                                {...stylex.props(
+                                  noteEditorDialogStyles.bookPickerOption,
+                                  selectedKey === key && noteEditorDialogStyles.bookPickerOptionSelected,
+                                )}
+                                aria-selected={selectedKey === key}
+                                role="option"
+                                type="button"
+                                onClick={() => {
+                                  const matchingFormat = formatsForOption.find(
+                                    acquisition => requiredFormat === undefined || acquisition.format === requiredFormat,
+                                  )
+                                  setSelectedKey(key)
+                                  setSelectedFormat(matchingFormat === undefined ? null : matchingFormat.format)
+                                  setError(null)
+                                }}
+                              >
+                                <span {...stylex.props(noteEditorDialogStyles.bookPickerOptionText)}>
+                                  <strong {...stylex.props(noteEditorDialogStyles.bookPickerOptionTitle)}>{option.publication.title}</strong>
+                                  <span {...stylex.props(noteEditorDialogStyles.bookPickerOptionDetail)}>{option.source.name}</span>
+                                </span>
+                                <span {...stylex.props(noteEditorDialogStyles.bookPickerFormatList)}>
+                                  {formatsForOption.map(acquisition => readingFormatDisplayName(acquisition.format)).join(' · ')}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+              {selectedOption && formats.length > 0
+                ? (
+                    <label {...stylex.props(noteEditorDialogStyles.bookPickerFormatField)}>
+                      <span>{t('bookFormat')}</span>
+                      <select
+                        {...stylex.props(noteEditorDialogStyles.bookPickerFormatSelect)}
+                        value={activeFormat ?? ''}
+                        onChange={event => setSelectedFormat(event.target.value as ShelfReadingFormat)}
+                      >
+                        {formats.map(acquisition => (
+                          <option key={acquisition.format} value={acquisition.format}>
+                            {readingFormatDisplayName(acquisition.format)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )
+                : null}
+              {error
+                ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{error}</p>
+                : null}
+            </div>
+            <footer {...stylex.props(noteEditorDialogStyles.bookPickerFooter)}>
+              <Dialog.Close asChild>
+                <button {...stylex.props(noteEditorDialogStyles.bookPickerCancel)} disabled={submitting} type="button">{t('cancel')}</button>
+              </Dialog.Close>
+              <button
+                {...stylex.props(noteEditorDialogStyles.bookPickerCreate)}
+                disabled={submitting || selectedOption === undefined || activeFormat === null}
+                type="button"
+                onClick={() => void submit()}
+              >
+                {submitting
+                  ? mode === 'rebind' ? t('rebindingBook') : t('addingBook')
+                  : mode === 'rebind' ? t('rebindBook') : t('addBook')}
+              </button>
+            </footer>
+          </section>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 
@@ -294,65 +297,58 @@ export function EntryCreationDialog({
   }
 
   return (
-    <div
-      {...stylex.props(noteEditorDialogStyles.bookPickerOverlay)}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.preventDefault()
+    <Dialog.Root
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open)
           onClose()
-        }
       }}
     >
-      <form
-        {...stylex.props(noteEditorDialogStyles.entryCreationDialog)}
-        aria-labelledby="entry-creation-title"
-        aria-modal="true"
-        role="dialog"
-        onSubmit={submit}
-      >
-        <header {...stylex.props(noteEditorDialogStyles.bookPickerHeader)}>
-          <h1 id="entry-creation-title" {...stylex.props(noteEditorDialogStyles.bookPickerTitle)}>{title}</h1>
-          <button
-            {...stylex.props(noteEditorDialogStyles.inspectorCloseButton)}
-            aria-label={t('closeEntryDialog')}
-            title={t('closeEntryDialog')}
-            type="button"
-            onClick={onClose}
-          >
-            <X aria-hidden="true" size={16} strokeWidth={1.8} />
-          </button>
-        </header>
-        <div {...stylex.props(noteEditorDialogStyles.entryCreationBody)}>
-          <label {...stylex.props(noteEditorDialogStyles.entryCreationField)}>
-            <span>{fieldLabel}</span>
-            <input
-              {...stylex.props(noteEditorDialogStyles.entryCreationInput)}
-              autoFocus
-              required
-              value={label}
-              onChange={(event) => {
-                setLabel(event.target.value)
-                setError(null)
-              }}
-            />
-          </label>
-          {error
-            ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{error}</p>
-            : null}
-        </div>
-        <footer {...stylex.props(noteEditorDialogStyles.bookPickerFooter)}>
-          <button {...stylex.props(noteEditorDialogStyles.bookPickerCancel)} type="button" onClick={onClose}>
-            {t('cancel')}
-          </button>
-          <button
-            {...stylex.props(noteEditorDialogStyles.bookPickerCreate)}
-            disabled={label.trim().length === 0}
-            type="submit"
-          >
-            {t('create')}
-          </button>
-        </footer>
-      </form>
-    </div>
+      <Dialog.Portal>
+        <Dialog.Overlay variant="note" />
+        <Dialog.Content aria-labelledby="entry-creation-title" asChild variant="compact" xstyle={noteEditorDialogStyles.entryCreationDialog}>
+          <form onSubmit={submit}>
+            <header {...stylex.props(noteEditorDialogStyles.bookPickerHeader)}>
+              <h1 id="entry-creation-title" {...stylex.props(noteEditorDialogStyles.bookPickerTitle)}>{title}</h1>
+              <Dialog.Close asChild>
+                <button {...stylex.props(noteEditorDialogStyles.inspectorCloseButton)} aria-label={t('closeEntryDialog')} title={t('closeEntryDialog')} type="button">
+                  <X aria-hidden="true" size={16} strokeWidth={1.8} />
+                </button>
+              </Dialog.Close>
+            </header>
+            <div {...stylex.props(noteEditorDialogStyles.entryCreationBody)}>
+              <label {...stylex.props(noteEditorDialogStyles.entryCreationField)}>
+                <span>{fieldLabel}</span>
+                <TextField
+                  autoFocus
+                  required
+                  value={label}
+                  xstyle={noteEditorDialogStyles.entryCreationInput}
+                  onChange={(event) => {
+                    setLabel(event.target.value)
+                    setError(null)
+                  }}
+                />
+              </label>
+              {error
+                ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{error}</p>
+                : null}
+            </div>
+            <footer {...stylex.props(noteEditorDialogStyles.bookPickerFooter)}>
+              <Dialog.Close asChild>
+                <button {...stylex.props(noteEditorDialogStyles.bookPickerCancel)} type="button">{t('cancel')}</button>
+              </Dialog.Close>
+              <button
+                {...stylex.props(noteEditorDialogStyles.bookPickerCreate)}
+                disabled={label.trim().length === 0}
+                type="submit"
+              >
+                {t('create')}
+              </button>
+            </footer>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

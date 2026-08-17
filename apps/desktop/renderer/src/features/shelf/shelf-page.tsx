@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import type { ShelfCatalog } from './shelf-catalog'
 import type { ShelfSourceManagementHandle } from './source/shelf-source-management'
+import { DropdownMenu } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import {
   AlertCircle,
@@ -17,7 +18,6 @@ import {
 import {
   startTransition,
   useDeferredValue,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -180,7 +180,6 @@ export function ShelfPage({
   usePageTitlebar(titlebar)
   const scrollElementRef = useRef<HTMLDivElement>(null)
   const sourceManagementRef = useRef<ShelfSourceManagementHandle>(null)
-  const sourceMenuRef = useRef<HTMLDivElement>(null)
   const sourceTriggerRef = useRef<HTMLButtonElement>(null)
   const [sourceMenuOpen, setSourceMenuOpen] = useState(false)
   const searchQuery = routeSearch.q ?? ''
@@ -193,25 +192,6 @@ export function ShelfPage({
       : t('shelfUpdatedAt', {
           time: shelfRelativeUpdateTime(catalog.refreshedAt, i18n.resolvedLanguage ?? i18n.language),
         })
-
-  useEffect(() => {
-    if (!sourceMenuOpen)
-      return
-    const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !sourceMenuRef.current?.contains(event.target))
-        setSourceMenuOpen(false)
-    }
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape')
-        setSourceMenuOpen(false)
-    }
-    window.addEventListener('pointerdown', closeOutside)
-    window.addEventListener('keydown', closeWithEscape)
-    return () => {
-      window.removeEventListener('pointerdown', closeOutside)
-      window.removeEventListener('keydown', closeWithEscape)
-    }
-  }, [sourceMenuOpen])
 
   const scrollToTop = () => scrollElementRef.current?.scrollTo({ behavior: 'auto', top: 0 })
   const selectSource = (sourceId: string | null) => {
@@ -237,36 +217,40 @@ export function ShelfPage({
         ? (
             <div {...stylex.props(shelfPageStyles.toolbarWrap)}>
               <div {...stylex.props(shelfPageStyles.toolbar)}>
-                <div ref={sourceMenuRef} {...stylex.props(shelfPageStyles.sourceSwitcher)}>
-                  <button
-                    ref={sourceTriggerRef}
-                    {...stylex.props(shelfPageStyles.sourceTrigger)}
-                    aria-expanded={sourceMenuOpen}
-                    aria-haspopup="menu"
-                    type="button"
-                    onClick={() => setSourceMenuOpen(open => !open)}
-                  >
-                    <span {...stylex.props(shelfPageStyles.sourceTriggerIcon)} aria-hidden="true">
-                      {catalog.selectedSource ? <Globe2 size={16} strokeWidth={1.8} /> : <LibraryBig size={16} strokeWidth={1.8} />}
-                    </span>
-                    <span {...stylex.props(shelfPageStyles.sourceTriggerLabel)}>{catalog.selectedSource?.name ?? t('shelfAllSources')}</span>
-                    <ChevronDown size={14} strokeWidth={1.9} aria-hidden="true" />
-                  </button>
-                  <ShelfSourceMenu
-                    open={sourceMenuOpen}
-                    selectedSourceId={catalog.activeSourceId}
-                    sources={catalog.sources}
-                    onClose={() => {
-                      setSourceMenuOpen(false)
+                <DropdownMenu.Root
+                  open={sourceMenuOpen}
+                  onOpenChange={(open) => {
+                    setSourceMenuOpen(open)
+                    if (!open)
                       requestAnimationFrame(() => sourceTriggerRef.current?.focus())
-                    }}
-                    onManage={() => {
-                      setSourceMenuOpen(false)
-                      sourceManagementRef.current?.openManagerAfterMenu()
-                    }}
-                    onSelect={selectSource}
-                  />
-                </div>
+                  }}
+                >
+                  <div {...stylex.props(shelfPageStyles.sourceSwitcher)}>
+                    <DropdownMenu.Trigger asChild>
+                      <button ref={sourceTriggerRef} {...stylex.props(shelfPageStyles.sourceTrigger)} type="button">
+                        <span {...stylex.props(shelfPageStyles.sourceTriggerIcon)} aria-hidden="true">
+                          {catalog.selectedSource ? <Globe2 size={16} strokeWidth={1.8} /> : <LibraryBig size={16} strokeWidth={1.8} />}
+                        </span>
+                        <span {...stylex.props(shelfPageStyles.sourceTriggerLabel)}>{catalog.selectedSource?.name ?? t('shelfAllSources')}</span>
+                        <ChevronDown size={14} strokeWidth={1.9} aria-hidden="true" />
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <ShelfSourceMenu
+                      open={sourceMenuOpen}
+                      selectedSourceId={catalog.activeSourceId}
+                      sources={catalog.sources}
+                      onClose={() => {
+                        setSourceMenuOpen(false)
+                        requestAnimationFrame(() => sourceTriggerRef.current?.focus())
+                      }}
+                      onManage={() => {
+                        setSourceMenuOpen(false)
+                        sourceManagementRef.current?.openManagerAfterMenu()
+                      }}
+                      onSelect={selectSource}
+                    />
+                  </div>
+                </DropdownMenu.Root>
                 <div {...stylex.props(shelfPageStyles.toolbarTrailing)}>
                   <label {...stylex.props(shelfPageStyles.searchBox)}>
                     <Search size={15} strokeWidth={1.8} aria-hidden="true" />

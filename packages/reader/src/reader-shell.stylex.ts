@@ -122,6 +122,7 @@ export const readerShellStyles = stylex.create({
     position: 'absolute',
     top: 0,
     left: 0,
+    gap: 0,
     pointerEvents: 'auto',
   },
   actions: {
@@ -135,6 +136,7 @@ export const readerShellStyles = stylex.create({
     position: 'absolute',
     top: 0,
     right: 0,
+    gap: 0,
     pointerEvents: 'auto',
   },
   actionsWindowWithSidebarActions: {
@@ -150,32 +152,6 @@ export const readerShellStyles = stylex.create({
     top: 10,
     right: 14,
     pointerEvents: 'auto',
-  },
-  windowControlGroup: {
-    height: 36,
-    gap: 0,
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.82)',
-      '@media (prefers-contrast: more)': 'rgba(35, 39, 46, 0.82)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 1,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.08)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(240, 242, 246)',
-      '@media (prefers-contrast: more)': 'rgb(248, 249, 251)',
-    },
-    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.04) 38%, rgba(156, 166, 182, 0.08) 68%, rgba(255, 255, 255, 0.14) 100%)',
-    backdropFilter: {
-      'default': 'blur(16px) saturate(180%) brightness(1.03)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: {
-      'default': '0 4px 12px rgba(24, 30, 40, 0.10), 0 0 0 0.5px rgba(56, 64, 77, 0.16), inset 0 1px rgba(255, 255, 255, 0.90), inset 0 -1px rgba(70, 79, 93, 0.16), inset 1px 0 rgba(255, 255, 255, 0.42), inset -1px 0 rgba(70, 79, 93, 0.08)',
-      '@media (prefers-contrast: more)': '0 4px 12px rgba(22, 27, 35, 0.16), 0 0 0 1px rgba(35, 39, 46, 0.48), inset 0 1px rgba(255, 255, 255, 0.92)',
-    },
   },
   button: {
     position: 'relative',

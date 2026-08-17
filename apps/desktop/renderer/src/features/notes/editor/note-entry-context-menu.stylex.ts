@@ -6,20 +6,8 @@ export const noteEntryContextMenuStyles = stylex.create({
     position: 'fixed',
     zIndex: 70,
     width: 168,
-    borderColor: 'rgba(48, 51, 58, 0.16)',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 4,
-    backgroundColor: {
-      'default': 'rgba(250, 251, 253, 0.94)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 253)',
-    },
-    backdropFilter: {
-      'default': 'blur(18px) saturate(160%)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 12px 28px rgba(28, 34, 44, 0.18), 0 2px 6px rgba(28, 34, 44, 0.1)',
+    overflowX: 'visible',
+    overflowY: 'visible',
   },
   entryContextSubmenuTrigger: {
     position: 'relative',

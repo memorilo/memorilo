@@ -2,31 +2,6 @@ import * as stylex from '@stylexjs/stylex'
 import { shelfTheme } from '../shelf-shared.stylex'
 
 export const shelfSourceRemoveStyles = stylex.create({
-  confirmSheet: {
-    position: 'relative',
-    display: 'flex',
-    width: 'min(390px, calc(100vw - 48px))',
-    alignItems: 'center',
-    flexDirection: 'column',
-    borderColor: 'rgba(255, 255, 255, 0.84)',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 22,
-    paddingTop: 25,
-    paddingRight: 25,
-    paddingBottom: 22,
-    paddingLeft: 25,
-    backgroundColor: {
-      'default': 'rgba(248, 248, 250, 0.86)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(249, 249, 250)',
-    },
-    backdropFilter: {
-      'default': 'blur(42px) saturate(180%)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 34px 90px rgba(23, 28, 36, 0.28), 0 8px 24px rgba(23, 28, 36, 0.13), inset 0 1px rgba(255, 255, 255, 0.95)',
-    textAlign: 'center',
-  },
   destructiveGlyph: {
     display: 'grid',
     width: 46,

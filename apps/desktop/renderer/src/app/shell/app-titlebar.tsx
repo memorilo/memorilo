@@ -1,15 +1,9 @@
-import type { TFunction } from 'i18next'
 import type { PageTitlebarOptions } from '../../shared/page-titlebar'
+import { ButtonGroup, EditableTitle } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useState } from 'react'
 
 import { useTranslation } from 'react-i18next'
 import { PageTitlebarButton } from '../../shared/page-titlebar-button'
@@ -29,143 +23,6 @@ const navigationSpring = {
 
 function historyIndex(): number {
   return router.history.location.state.__TSR_index
-}
-
-function EditableTitle({
-  onRename,
-  t,
-  title,
-}: {
-  onRename: (title: string) => Promise<{ error?: string } | void>
-  t: TFunction
-  title: string
-}) {
-  const [draft, setDraft] = useState(title)
-  const [editing, setEditing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const savingRef = useRef(false)
-
-  useLayoutEffect(() => {
-    if (!editing)
-      return
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [editing])
-
-  const cancel = useCallback(() => {
-    if (savingRef.current)
-      return
-    setDraft(title)
-    setError(null)
-    setEditing(false)
-  }, [title])
-
-  const commit = useCallback(async () => {
-    if (savingRef.current)
-      return
-    const normalized = draft.trim()
-    if (normalized.length === 0) {
-      setError(t('noteTitleCannotBeEmpty'))
-      inputRef.current?.focus()
-      inputRef.current?.select()
-      return
-    }
-    if (normalized === title) {
-      setDraft(normalized)
-      setError(null)
-      setEditing(false)
-      return
-    }
-
-    savingRef.current = true
-    setSaving(true)
-    setError(null)
-    try {
-      const result = await onRename(normalized)
-      if (result?.error) {
-        setError(result.error)
-        requestAnimationFrame(() => {
-          inputRef.current?.focus()
-          inputRef.current?.select()
-        })
-        return
-      }
-      setDraft(normalized)
-      setEditing(false)
-    }
-    catch {
-      setError(t('couldNotRename'))
-      requestAnimationFrame(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      })
-    }
-    finally {
-      savingRef.current = false
-      setSaving(false)
-    }
-  }, [draft, onRename, t, title])
-
-  if (editing) {
-    return (
-      <>
-        <input
-          ref={inputRef}
-          {...stylex.props(appTitlebarStyles.titleInput)}
-          aria-busy={saving}
-          aria-invalid={error !== null}
-          aria-label={error ?? t('noteTitle')}
-          data-window-no-drag=""
-          readOnly={saving}
-          required
-          title={error ?? t('renameNote')}
-          value={draft}
-          onBlur={() => {
-            if (savingRef.current)
-              return
-            if (draft.trim().length === 0)
-              cancel()
-            else
-              void commit()
-          }}
-          onChange={(event) => {
-            setDraft(event.target.value)
-            if (event.target.value.trim().length > 0)
-              setError(null)
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              void commit()
-            }
-            else if (event.key === 'Escape') {
-              event.preventDefault()
-              cancel()
-            }
-          }}
-        />
-        {error
-          ? <span {...stylex.props(appTitlebarStyles.visuallyHidden)} role="status">{error}</span>
-          : null}
-      </>
-    )
-  }
-
-  return (
-    <button
-      {...stylex.props(appTitlebarStyles.titleButton)}
-      aria-label={t('renameNoteFor', { title })}
-      data-window-no-drag=""
-      title={t('renameNote')}
-      type="button"
-      onClick={() => setEditing(true)}
-    >
-      <span {...stylex.props(appTitlebarStyles.titleText)}>{title}</span>
-      <Pencil {...stylex.props(appTitlebarStyles.renameIcon)} aria-hidden="true" strokeWidth={1.8} />
-    </button>
-  )
 }
 
 export function AppTitlebar({
@@ -210,31 +67,30 @@ export function AppTitlebar({
     >
       {page?.navigation !== 'hidden'
         ? (
-            <motion.div
-              {...stylex.props(appTitlebarStyles.navigationGroup)}
-              animate={{ left: navigationOffset }}
-              aria-label={t('pageNavigation')}
-              initial={false}
-              role="group"
-              transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
-            >
-              <PageTitlebarButton
-                disabled={!canGoBack}
-                label={t('back')}
-                title={canGoBack ? t('back') : t('noPreviousPage')}
-                onClick={() => router.history.back()}
+            <ButtonGroup asChild variant="glass" aria-label={t('pageNavigation')} xstyle={appTitlebarStyles.navigationGroup}>
+              <motion.div
+                animate={{ left: navigationOffset }}
+                initial={false}
+                transition={shouldReduceMotion ? { duration: 0 } : navigationSpring}
               >
-                <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
-              </PageTitlebarButton>
-              <PageTitlebarButton
-                disabled={!canGoForward}
-                label={t('forward')}
-                title={canGoForward ? t('forward') : t('noNextPage')}
-                onClick={() => router.history.forward()}
-              >
-                <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
-              </PageTitlebarButton>
-            </motion.div>
+                <PageTitlebarButton
+                  disabled={!canGoBack}
+                  label={t('back')}
+                  title={canGoBack ? t('back') : t('noPreviousPage')}
+                  onClick={() => router.history.back()}
+                >
+                  <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.9} />
+                </PageTitlebarButton>
+                <PageTitlebarButton
+                  disabled={!canGoForward}
+                  label={t('forward')}
+                  title={canGoForward ? t('forward') : t('noNextPage')}
+                  onClick={() => router.history.forward()}
+                >
+                  <ChevronRight aria-hidden="true" size={18} strokeWidth={1.9} />
+                </PageTitlebarButton>
+              </motion.div>
+            </ButtonGroup>
           )
         : null}
       {page?.leading
@@ -260,7 +116,28 @@ export function AppTitlebar({
             >
               {page?.title
                 ? page.onRenameTitle
-                  ? <EditableTitle key={page.title} onRename={page.onRenameTitle} t={t} title={page.title} />
+                  ? (
+                      <EditableTitle.Root
+                        key={page.title}
+                        value={page.title}
+                        validate={value => value.length === 0 ? t('noteTitleCannotBeEmpty') : null}
+                        getSubmitError={() => t('couldNotRename')}
+                        onSubmit={page.onRenameTitle}
+                      >
+                        <EditableTitle.Trigger
+                          aria-label={t('renameNoteFor', { title: page.title })}
+                          data-window-no-drag=""
+                          title={t('renameNote')}
+                        >
+                          <EditableTitle.Text>{page.title}</EditableTitle.Text>
+                          <EditableTitle.Icon asChild>
+                            <Pencil aria-hidden="true" strokeWidth={1.8} />
+                          </EditableTitle.Icon>
+                        </EditableTitle.Trigger>
+                        <EditableTitle.Input aria-label={t('noteTitle')} data-window-no-drag="" title={t('renameNote')} />
+                        <EditableTitle.Error />
+                      </EditableTitle.Root>
+                    )
                   : (
                       <div {...stylex.props(appTitlebarStyles.staticTitle)}>
                         <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
@@ -272,26 +149,28 @@ export function AppTitlebar({
         : null}
       {page?.trailing
         ? (
-            <div
-              {...stylex.props(
+            <ButtonGroup
+              data-window-no-drag=""
+              variant="glass"
+              xstyle={[
                 appTitlebarStyles.navigationGroup,
                 appTitlebarStyles.trailingGroup,
                 page.sidebarAction !== undefined && appTitlebarStyles.trailingGroupWithSidebarAction,
-              )}
-              data-window-no-drag=""
+              ]}
             >
               {page.trailing}
-            </div>
+            </ButtonGroup>
           )
         : null}
       {page?.sidebarAction
         ? (
-            <div
-              {...stylex.props(appTitlebarStyles.navigationGroup, appTitlebarStyles.sidebarActionGroup)}
+            <ButtonGroup
               data-window-no-drag=""
+              variant="glass"
+              xstyle={[appTitlebarStyles.navigationGroup, appTitlebarStyles.sidebarActionGroup]}
             >
               {page.sidebarAction}
-            </div>
+            </ButtonGroup>
           )
         : null}
     </header>

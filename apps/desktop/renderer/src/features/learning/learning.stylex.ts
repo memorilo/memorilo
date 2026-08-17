@@ -8,41 +8,14 @@ const colors = {
 
 export const learningRouteStyles = stylex.create({
   startReviewButton: {
-    display: 'inline-flex',
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 0,
-    borderRadius: 15,
+    width: 'auto',
+    flex: '0 0 auto',
     paddingRight: 11,
     paddingLeft: 10,
-    backgroundColor: {
-      'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.3)',
-      ':active': 'rgba(58, 66, 78, 0.14)',
-    },
-    boxShadow: {
-      'default': 'none',
-      ':focus-visible': `0 0 0 2px ${colors.focus}`,
-    },
     color: 'rgb(0, 94, 196)',
-    cursor: 'default',
     fontSize: 11,
     fontWeight: 640,
     letterSpacing: 0,
-    outline: 'none',
-    textDecoration: 'none',
-    transform: {
-      'default': 'scale(1)',
-      ':active': 'scale(0.96)',
-    },
-    transitionDuration: {
-      'default': '100ms',
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    transitionProperty: 'background-color, box-shadow, transform',
-    transitionTimingFunction: 'ease-out',
   },
   page: {
     position: 'relative',

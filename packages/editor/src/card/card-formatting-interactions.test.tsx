@@ -78,13 +78,14 @@ describe('card authoring interactions', () => {
 
     await userEvent.click(openOptions)
     const listAnswer = await rendered.findByRole('button', { name: 'List answer' })
-    const basicDirection = rendered.getByRole('button', { name: 'Basic direction' })
-    const reverseDirection = rendered.getByRole('button', { name: 'Reverse direction' })
+    const basicDirection = rendered.getByRole('radio', { name: 'Basic direction' })
+    const reverseDirection = rendered.getByRole('radio', { name: 'Reverse direction' })
     expect(rendered.getByRole('toolbar', { name: 'Card options' })).toBeVisible()
     expect(rendered.queryByRole('button', { name: 'Preview' })).toBeNull()
     expect(rendered.queryByTestId('inline-menu-main')).toBeNull()
-    expect(basicDirection).toHaveAttribute('aria-pressed', 'true')
-    expect(reverseDirection).toHaveAttribute('aria-pressed', 'false')
+    expect(listAnswer).toHaveAttribute('aria-pressed', 'false')
+    expect(basicDirection).toHaveAttribute('aria-checked', 'true')
+    expect(reverseDirection).toHaveAttribute('aria-checked', 'false')
     expect(getComputedStyle(basicDirection).boxShadow).toContain('inset')
     expect(Number.parseInt(getComputedStyle(basicDirection).fontWeight, 10)).toBeGreaterThan(
       Number.parseInt(getComputedStyle(reverseDirection).fontWeight, 10),

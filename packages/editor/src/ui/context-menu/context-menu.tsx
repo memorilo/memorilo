@@ -7,6 +7,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { OutlineRuntime } from '../../common/outline-runtime'
 import type { EditorAction } from '../editor-actions/index.ts'
 import type { ContextMenuPoint } from './context-menu-interactions'
+import { ContextMenu as PublicContextMenu } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import {
   ChevronRight,
@@ -28,7 +29,6 @@ import { createPortal } from 'react-dom'
 
 import { useTranslation } from 'react-i18next'
 import { getEditorActions } from '../editor-actions/index.ts'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { ContextMenuItem, ContextStyleMenu, ImageInsertPanel } from './context-menu-elements'
 import {
   blockIdFromContextTarget,
@@ -163,48 +163,6 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
     }
   }, [styleMenuOpen])
 
-  useEffect(() => {
-    if (!menuPoint)
-      return
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (
-        target instanceof Node
-        && !menuRef.current?.contains(target)
-        && !styleMenuRef.current?.contains(target)
-      ) {
-        closeMenu()
-      }
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (styleMenuOpen) {
-          closeStyleMenu()
-        }
-        else {
-          closeMenu()
-          editor.focus()
-        }
-      }
-      else if (event.key === 'Tab') {
-        closeMenu()
-      }
-    }
-    const handleViewportChange = () => closeMenu()
-
-    window.addEventListener('pointerdown', handlePointerDown, true)
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('resize', handleViewportChange)
-    document.addEventListener('scroll', handleViewportChange, true)
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown, true)
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('resize', handleViewportChange)
-      document.removeEventListener('scroll', handleViewportChange, true)
-    }
-  }, [editor, menuPoint, styleMenuOpen])
-
   if (!menuPoint && !imagePoint)
     return null
 
@@ -212,133 +170,157 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
     <>
       {menuPoint
         ? (
-            <div
-              ref={menuRef}
-              {...stylex.props(floatingSurfaceStyles.surface, contextMenuStyles.popup)}
-              aria-label={t('ui.editorActions')}
-              role="menu"
-              tabIndex={-1}
-              onKeyDown={handleMainMenuKeyDown}
-            >
-              <ContextMenuItem
-                disabled={!hasSelection || !canWriteClipboard}
-                icon={<Scissors aria-hidden="true" size={16} />}
-                label={t('ui.cut')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => handleClipboardAction('Cut', () => cutSelection(editor))}
-                shortcut={`${primaryModifier}X`}
-              />
-              <ContextMenuItem
-                disabled={!hasSelection || !canWriteClipboard}
-                icon={<Copy aria-hidden="true" size={16} />}
-                label={t('ui.copy')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => handleClipboardAction('Copy', () => copySelection(editor))}
-                shortcut={`${primaryModifier}C`}
-              />
-              <ContextMenuItem
-                disabled={!canReadClipboard}
-                icon={<ClipboardPaste aria-hidden="true" size={16} />}
-                label={t('ui.paste')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => handleClipboardAction('Paste', () => pasteClipboard(editor))}
-                shortcut={`${primaryModifier}V`}
-              />
-
-              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
-
-              <ContextMenuItem
-                icon={<TextSelect aria-hidden="true" size={16} />}
-                label={t('ui.selectAll')}
-                onMouseEnter={() => setStyleMenuOpen(false)}
-                onSelect={() => {
-                  editor.view.dispatch(
-                    editor.state.tr.setSelection(new AllSelection(editor.state.doc)),
-                  )
+            <PublicContextMenu.Root
+              open
+              position={menuPoint}
+              onEscapeKeyDown={(event) => {
+                if (styleMenuOpen) {
+                  event.preventDefault()
+                  closeStyleMenu()
+                }
+              }}
+              onOpenChange={(open) => {
+                if (!open) {
                   closeMenu()
                   editor.focus()
-                }}
-                shortcut={`${primaryModifier}A`}
-              />
+                }
+              }}
+              onPointerDownOutside={(event) => {
+                if (event.target instanceof Node && styleMenuRef.current?.contains(event.target))
+                  event.preventDefault()
+              }}
+            >
+              <PublicContextMenu.Portal>
+                <PublicContextMenu.Content asChild>
+                  <div
+                    ref={menuRef}
+                    aria-label={t('ui.editorActions')}
+                    role="menu"
+                    tabIndex={-1}
+                    onKeyDown={handleMainMenuKeyDown}
+                  >
+                    <ContextMenuItem
+                      disabled={!hasSelection || !canWriteClipboard}
+                      icon={<Scissors aria-hidden="true" size={16} />}
+                      label={t('ui.cut')}
+                      onMouseEnter={() => setStyleMenuOpen(false)}
+                      onSelect={() => handleClipboardAction('Cut', () => cutSelection(editor))}
+                      shortcut={`${primaryModifier}X`}
+                    />
+                    <ContextMenuItem
+                      disabled={!hasSelection || !canWriteClipboard}
+                      icon={<Copy aria-hidden="true" size={16} />}
+                      label={t('ui.copy')}
+                      onMouseEnter={() => setStyleMenuOpen(false)}
+                      onSelect={() => handleClipboardAction('Copy', () => copySelection(editor))}
+                      shortcut={`${primaryModifier}C`}
+                    />
+                    <ContextMenuItem
+                      disabled={!canReadClipboard}
+                      icon={<ClipboardPaste aria-hidden="true" size={16} />}
+                      label={t('ui.paste')}
+                      onMouseEnter={() => setStyleMenuOpen(false)}
+                      onSelect={() => handleClipboardAction('Paste', () => pasteClipboard(editor))}
+                      shortcut={`${primaryModifier}V`}
+                    />
 
-              {outlineCollapseBlockIds.length > 0
-                ? (
-                    <>
-                      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
-                      <ContextMenuItem
-                        icon={shouldCollapseOutlineBlocks
-                          ? <ChevronsUp aria-hidden="true" size={16} />
-                          : <ChevronsDown aria-hidden="true" size={16} />}
-                        label={shouldCollapseOutlineBlocks ? t('ui.collapse') : t('ui.expand')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => {
-                          outlineRuntime.toggleCollapsed(outlineCollapseBlockIds)
-                          closeMenu()
-                          editor.focus()
-                        }}
+                    <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+
+                    <ContextMenuItem
+                      icon={<TextSelect aria-hidden="true" size={16} />}
+                      label={t('ui.selectAll')}
+                      onMouseEnter={() => setStyleMenuOpen(false)}
+                      onSelect={() => {
+                        editor.view.dispatch(
+                          editor.state.tr.setSelection(new AllSelection(editor.state.doc)),
+                        )
+                        closeMenu()
+                        editor.focus()
+                      }}
+                      shortcut={`${primaryModifier}A`}
+                    />
+
+                    {outlineCollapseBlockIds.length > 0
+                      ? (
+                          <>
+                            <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+                            <ContextMenuItem
+                              icon={shouldCollapseOutlineBlocks
+                                ? <ChevronsUp aria-hidden="true" size={16} />
+                                : <ChevronsDown aria-hidden="true" size={16} />}
+                              label={shouldCollapseOutlineBlocks ? t('ui.collapse') : t('ui.expand')}
+                              onMouseEnter={() => setStyleMenuOpen(false)}
+                              onSelect={() => {
+                                outlineRuntime.toggleCollapsed(outlineCollapseBlockIds)
+                                closeMenu()
+                                editor.focus()
+                              }}
+                            />
+                          </>
+                        )
+                      : null}
+
+                    <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+
+                    <ContextMenuItem
+                      buttonRef={styleTriggerRef}
+                      expanded={styleMenuOpen}
+                      hasSubmenu
+                      icon={<Pilcrow aria-hidden="true" size={16} />}
+                      label={t('ui.style')}
+                      open={styleMenuOpen}
+                      onMouseEnter={() => openStyleMenu(false)}
+                      onSelect={() => openStyleMenu(true)}
+                      trailing={<ChevronRight aria-hidden="true" size={15} />}
+                    />
+
+                    {!hasSelection
+                      ? (
+                          <>
+                            <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
+
+                            <ContextMenuItem
+                              action={actions.insert.table}
+                              icon={<Table2 aria-hidden="true" size={16} />}
+                              label={t('ui.insertTable')}
+                              onMouseEnter={() => setStyleMenuOpen(false)}
+                              onSelect={() => runAction(editor, actions.insert.table, closeMenu)}
+                            />
+                            <ContextMenuItem
+                              action={actions.insert.divider}
+                              icon={<Minus aria-hidden="true" size={16} />}
+                              label={t('ui.insertDivider')}
+                              onMouseEnter={() => setStyleMenuOpen(false)}
+                              onSelect={() => runAction(editor, actions.insert.divider, closeMenu)}
+                            />
+                            <ContextMenuItem
+                              disabled={!actions.insert.image.canExec}
+                              icon={<ImagePlus aria-hidden="true" size={16} />}
+                              label={t('ui.insertImageELLIPSIS')}
+                              onMouseEnter={() => setStyleMenuOpen(false)}
+                              onSelect={() => {
+                                setImagePoint(menuPoint)
+                                closeMenu()
+                              }}
+                            />
+                          </>
+                        )
+                      : null}
+                  </div>
+                </PublicContextMenu.Content>
+
+                {styleMenuOpen
+                  ? (
+                      <ContextStyleMenu
+                        actions={actions.block}
+                        menuRef={styleMenuRef}
+                        onKeyDown={handleStyleMenuKeyDown}
+                        onRun={action => runAction(editor, action, closeMenu)}
                       />
-                    </>
-                  )
-                : null}
-
-              <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
-
-              <ContextMenuItem
-                buttonRef={styleTriggerRef}
-                expanded={styleMenuOpen}
-                hasSubmenu
-                icon={<Pilcrow aria-hidden="true" size={16} />}
-                label={t('ui.style')}
-                open={styleMenuOpen}
-                onMouseEnter={() => openStyleMenu(false)}
-                onSelect={() => openStyleMenu(true)}
-                trailing={<ChevronRight aria-hidden="true" size={15} />}
-              />
-
-              {!hasSelection
-                ? (
-                    <>
-                      <div {...stylex.props(contextMenuStyles.separator)} role="separator" />
-
-                      <ContextMenuItem
-                        action={actions.insert.table}
-                        icon={<Table2 aria-hidden="true" size={16} />}
-                        label={t('ui.insertTable')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => runAction(editor, actions.insert.table, closeMenu)}
-                      />
-                      <ContextMenuItem
-                        action={actions.insert.divider}
-                        icon={<Minus aria-hidden="true" size={16} />}
-                        label={t('ui.insertDivider')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => runAction(editor, actions.insert.divider, closeMenu)}
-                      />
-                      <ContextMenuItem
-                        disabled={!actions.insert.image.canExec}
-                        icon={<ImagePlus aria-hidden="true" size={16} />}
-                        label={t('ui.insertImageELLIPSIS')}
-                        onMouseEnter={() => setStyleMenuOpen(false)}
-                        onSelect={() => {
-                          setImagePoint(menuPoint)
-                          closeMenu()
-                        }}
-                      />
-                    </>
-                  )
-                : null}
-            </div>
-          )
-        : null}
-
-      {menuPoint && styleMenuOpen
-        ? (
-            <ContextStyleMenu
-              actions={actions.block}
-              menuRef={styleMenuRef}
-              onKeyDown={handleStyleMenuKeyDown}
-              onRun={action => runAction(editor, action, closeMenu)}
-            />
+                    )
+                  : null}
+              </PublicContextMenu.Portal>
+            </PublicContextMenu.Root>
           )
         : null}
 

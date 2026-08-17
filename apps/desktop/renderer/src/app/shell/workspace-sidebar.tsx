@@ -2,6 +2,7 @@ import type { DesktopFavoriteNoteItem, DesktopRecentNoteItem } from '@memorilo/d
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { DesktopClientError } from '../../shared/effect-query'
+import { Sidebar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -98,14 +99,10 @@ function estimateSourceRowSize() {
 function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentProps) {
   return (
     <>
-      <Icon
-        {...stylex.props(workspaceSidebarStyles.sourceIcon, selected && workspaceSidebarStyles.sourceIconSelected)}
-        aria-hidden="true"
-        strokeWidth={1.8}
-      />
-      <span {...stylex.props(workspaceSidebarStyles.sourceLabel, selected && workspaceSidebarStyles.sourceLabelSelected)}>
-        {label}
-      </span>
+      <Sidebar.ItemIcon active={selected}>
+        <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
+      </Sidebar.ItemIcon>
+      <Sidebar.ItemLabel active={selected}>{label}</Sidebar.ItemLabel>
     </>
   )
 }
@@ -113,43 +110,46 @@ function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentPro
 function SourceItem({ destination, icon, label }: SourceItemProps) {
   if (destination.kind === 'journal') {
     return (
-      <Link
-        {...stylex.props(workspaceSidebarStyles.sourceItem)}
-        activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
-        search={{ date: destination.journalDate }}
-        title={label}
-        to="/journals"
-      >
-        {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
-      </Link>
+      <Sidebar.Item asChild>
+        <Link
+          activeProps={{ 'data-state': 'active' }}
+          search={{ date: destination.journalDate }}
+          title={label}
+          to="/journals"
+        >
+          {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
+        </Link>
+      </Sidebar.Item>
     )
   }
 
   if (destination.kind === 'note') {
     return (
-      <Link
-        {...stylex.props(workspaceSidebarStyles.sourceItem)}
-        activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
-        params={{ noteId: destination.noteId, topicId: destination.topicId }}
-        preload="intent"
-        title={label}
-        to="/note/$noteId/$topicId"
-      >
-        {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
-      </Link>
+      <Sidebar.Item asChild>
+        <Link
+          activeProps={{ 'data-state': 'active' }}
+          params={{ noteId: destination.noteId, topicId: destination.topicId }}
+          preload="intent"
+          title={label}
+          to="/note/$noteId/$topicId"
+        >
+          {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
+        </Link>
+      </Sidebar.Item>
     )
   }
 
   return (
-    <Link
-      {...stylex.props(workspaceSidebarStyles.sourceItem)}
-      activeOptions={{ exact: destination.to !== '/learning' }}
-      activeProps={stylex.props(workspaceSidebarStyles.sourceItemSelected)}
-      preload="intent"
-      to={destination.to}
-    >
-      {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
-    </Link>
+    <Sidebar.Item asChild>
+      <Link
+        activeOptions={{ exact: destination.to !== '/learning' }}
+        activeProps={{ 'data-state': 'active' }}
+        preload="intent"
+        to={destination.to}
+      >
+        {({ isActive }) => <SourceItemContent icon={icon} label={label} selected={isActive} />}
+      </Link>
+    </Sidebar.Item>
   )
 }
 
@@ -226,7 +226,7 @@ function SourceGroup({
   const transition = shouldReduceMotion ? { duration: 0 } : disclosureSpring
 
   return (
-    <section {...stylex.props(workspaceSidebarStyles.sourceGroup)}>
+    <Sidebar.Group>
       <button
         id={headingId}
         {...stylex.props(workspaceSidebarStyles.groupHeading)}
@@ -265,7 +265,7 @@ function SourceGroup({
             )
           : null}
       </AnimatePresence>
-    </section>
+    </Sidebar.Group>
   )
 }
 
@@ -293,21 +293,21 @@ export function WorkspaceSidebarMotion({
     <>
       {sidebarMounted
         ? (
-            <motion.aside
-              {...stylex.props(workspaceSidebarStyles.sidebar)}
-              animate={visible
-                ? { marginLeft: 8, opacity: 1, width: 248, x: 0 }
-                : { marginLeft: 0, opacity: 0, width: 0, x: -18 }}
-              aria-label={t('sidebarLabel')}
-              initial={false}
-              onAnimationComplete={(definition) => {
-                if (typeof definition === 'object' && !Array.isArray(definition) && definition.width === 0)
-                  setSidebarMounted(false)
-              }}
-              transition={transition}
-            >
-              {children}
-            </motion.aside>
+            <Sidebar.Root asChild aria-label={t('sidebarLabel')} variant="workspace">
+              <motion.aside
+                animate={visible
+                  ? { marginLeft: 8, opacity: 1, width: 248, x: 0 }
+                  : { marginLeft: 0, opacity: 0, width: 0, x: -18 }}
+                initial={false}
+                onAnimationComplete={(definition) => {
+                  if (typeof definition === 'object' && !Array.isArray(definition) && definition.width === 0)
+                    setSidebarMounted(false)
+                }}
+                transition={transition}
+              >
+                {children}
+              </motion.aside>
+            </Sidebar.Root>
           )
         : null}
       <motion.button
@@ -353,13 +353,15 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
 
   return (
     <WorkspaceSidebarMotion compactCollapsed={compactCollapsed} visible={visible} onToggle={onToggle}>
-      <nav {...stylex.props(workspaceSidebarStyles.content)}>
-        <section {...stylex.props(workspaceSidebarStyles.sourceGroup)}>
-          <h2 {...stylex.props(workspaceSidebarStyles.navigationHeading)}>{t('navigation')}</h2>
+      <Sidebar.Navigation>
+        <Sidebar.Group>
+          <Sidebar.Header asChild>
+            <h2>{t('navigation')}</h2>
+          </Sidebar.Header>
           <div {...stylex.props(workspaceSidebarStyles.sourceList)}>
             {navigationItems(t, configuration.learning.enabled).map(item => <SourceItem key={item.label} {...item} />)}
           </div>
-        </section>
+        </Sidebar.Group>
         <SourceGroup
           emptyLabel={favoritesQuery.isError ? t('favoritesEmptyError') : t('favoritesEmpty')}
           items={favoriteItems}
@@ -374,7 +376,7 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
           pending={recentQuery.isPending}
           t={t}
         />
-      </nav>
+      </Sidebar.Navigation>
     </WorkspaceSidebarMotion>
   )
 }

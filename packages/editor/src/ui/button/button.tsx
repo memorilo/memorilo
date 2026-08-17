@@ -1,9 +1,9 @@
 'use client'
 
 import type { MouseEventHandler, ReactNode } from 'react'
+import { Button as PublicButton } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { TooltipPopup, TooltipPositioner, TooltipRoot, TooltipTrigger } from 'prosekit/react/tooltip'
-
 import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { buttonStyles } from './button.stylex'
 
@@ -17,11 +17,12 @@ export default function Button(props: {
   return (
     <TooltipRoot>
       <TooltipTrigger {...stylex.props(buttonStyles.tooltipTrigger)}>
-        <button
-          {...stylex.props(buttonStyles.action, props.pressed && buttonStyles.pressed)}
+        <PublicButton
           data-state={props.pressed ? 'on' : 'off'}
           disabled={props.disabled}
-          type="button"
+          pressed={props.pressed}
+          variant="icon"
+          xstyle={[buttonStyles.action, props.pressed && buttonStyles.pressed]}
           onClick={props.onClick}
           onMouseDown={(event) => {
             // Prevent the editor from being blurred when the button is clicked
@@ -30,7 +31,7 @@ export default function Button(props: {
         >
           {props.children}
           {props.tooltip ? <span {...stylex.props(buttonStyles.visuallyHidden)}>{props.tooltip}</span> : null}
-        </button>
+        </PublicButton>
       </TooltipTrigger>
       {props.tooltip
         ? (

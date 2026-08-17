@@ -62,6 +62,7 @@ export const learningOptimizerSharedStyles = stylex.create({
     display: 'inline-flex',
     minWidth: 0,
     height: 28,
+    minHeight: 28,
     flex: '0 0 auto',
     alignItems: 'center',
     justifyContent: 'center',
@@ -139,43 +140,8 @@ export const learningOptimizerSharedStyles = stylex.create({
     fontSize: 11,
     letterSpacing: 0,
   },
-  dialog: {
-    'width': 'min(410px, calc(100vw - 40px))',
-    'maxWidth': 'none',
-    'overflow': 'visible',
-    'borderWidth': 0,
-    'padding': 0,
-    'backgroundColor': 'transparent',
-    'color': optimizerTheme.text,
-    'outline': 'none',
-    '::backdrop': {
-      backgroundColor: 'rgba(29, 33, 40, 0.2)',
-      backdropFilter: {
-        'default': 'saturate(115%) brightness(0.98)',
-        '@media (prefers-reduced-transparency: reduce)': 'none',
-      },
-    },
-  },
   dialogSurface: {
-    width: '100%',
     overflow: 'hidden',
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.82)',
-      '@media (prefers-contrast: more)': 'rgba(46, 51, 59, 0.5)',
-    },
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 14,
-    backgroundColor: {
-      'default': 'rgba(250, 250, 251, 0.9)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 250, 251)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
-    },
-    backdropFilter: {
-      'default': 'saturate(150%) contrast(1.035) brightness(1.015)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 22px 54px rgba(29, 35, 45, 0.2), 0 4px 12px rgba(29, 35, 45, 0.11), inset 0 1px rgba(255, 255, 255, 0.96)',
     transformOrigin: '50% 35%',
   },
   dialogHeader: {

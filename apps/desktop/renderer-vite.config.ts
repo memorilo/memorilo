@@ -39,7 +39,7 @@ function localeHmr(): Plugin {
 
 const stylexOptions: NonNullable<Parameters<typeof stylex>[0]> & { externalPackages: string[] } = {
   cssInjectionTarget: fileName => fileName.includes('renderer-global'),
-  externalPackages: ['@memorilo/config', '@memorilo/editor'],
+  externalPackages: ['@memorilo/config', '@memorilo/editor', '@memorilo/ui'],
   unstable_moduleResolution: { type: 'commonJS' },
   useCSSLayers: true,
 }

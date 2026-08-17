@@ -1,3 +1,4 @@
+import { Button, ButtonGroup } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { DatabaseBackup, FileOutput, LoaderCircle, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
@@ -52,30 +53,30 @@ export function DatabaseSettings() {
 
   return (
     <div>
-      <div {...stylex.props(styles.actions)}>
-        <button
-          {...stylex.props(styles.button)}
+      <ButtonGroup xstyle={styles.actions}>
+        <Button
           disabled={pending !== null || !desktopAvailable}
-          type="button"
+          variant="plain"
+          xstyle={styles.button}
           onClick={() => void exportDatabase()}
         >
           {pending === 'export'
             ? <LoaderCircle size={15} strokeWidth={2} />
             : <FileOutput size={15} strokeWidth={2} />}
           <span>{t('exportDatabase')}</span>
-        </button>
-        <button
-          {...stylex.props(styles.button)}
+        </Button>
+        <Button
           disabled={pending !== null || !desktopAvailable}
-          type="button"
+          variant="plain"
+          xstyle={styles.button}
           onClick={() => void restoreDatabase()}
         >
           {pending === 'restore'
             ? <LoaderCircle size={15} strokeWidth={2} />
             : <RotateCcw size={15} strokeWidth={2} />}
           <span>{t('restoreDatabase')}</span>
-        </button>
-      </div>
+        </Button>
+      </ButtonGroup>
       {status
         ? (
             <p {...stylex.props(styles.status)} role="status">

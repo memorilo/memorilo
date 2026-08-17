@@ -2,9 +2,9 @@
 
 import type { TFunction } from 'i18next'
 import type { EditorAction } from '../editor-actions/index.ts'
+import { DropdownMenu, Button as PublicButton } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Check, ChevronDown } from 'lucide-react'
-import { MenuItem, MenuPopup, MenuPositioner, MenuRoot, MenuTrigger } from 'prosekit/react/menu'
 import { useTranslation } from 'react-i18next'
 
 import { buttonStyles } from '../button/button.stylex'
@@ -50,41 +50,39 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
   ]
 
   return (
-    <MenuRoot>
-      <MenuTrigger {...stylex.props(inlineMenuStyles.headingTrigger)}>
-        <button
-          {...stylex.props(buttonStyles.action, inlineMenuStyles.headingButton)}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <PublicButton
           aria-label={t('ui.textStyle')}
-          type="button"
+          variant="icon"
+          xstyle={[buttonStyles.action, inlineMenuStyles.headingButton]}
           onMouseDown={event => event.preventDefault()}
         >
           <span>{getCurrentLabel(actions, t)}</span>
           <ChevronDown aria-hidden="true" size={14} />
-        </button>
-      </MenuTrigger>
-      <MenuPositioner {...stylex.props(floatingSurfaceStyles.positioner)} placement="bottom-start">
-        <MenuPopup
-          {...stylex.props(
-            floatingSurfaceStyles.motion,
-            floatingSurfaceStyles.surface,
-            inlineMenuStyles.headingPopup,
-          )}
+        </PublicButton>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="start" asChild variant="editor" xstyle={inlineMenuStyles.headingPopup}>
+        <div
+          {...stylex.props(floatingSurfaceStyles.motion)}
           aria-label={t('ui.textStyle')}
           onMouseDown={event => event.preventDefault()}
         >
           {items.map(({ action, label }) => (
-            <MenuItem
+            <DropdownMenu.Item
               key={label}
-              {...stylex.props(inlineMenuStyles.headingItem)}
+              asChild
               disabled={!action.canExec}
-              onSelect={action.run}
+              onSelect={() => action.run()}
             >
-              <span>{label}</span>
-              {action.active ? <Check aria-hidden="true" size={16} /> : null}
-            </MenuItem>
+              <button {...stylex.props(inlineMenuStyles.headingItem)} type="button">
+                <span>{label}</span>
+                {action.active ? <Check aria-hidden="true" size={16} /> : null}
+              </button>
+            </DropdownMenu.Item>
           ))}
-        </MenuPopup>
-      </MenuPositioner>
-    </MenuRoot>
+        </div>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   )
 }

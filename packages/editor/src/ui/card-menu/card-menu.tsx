@@ -7,6 +7,7 @@ import type { CardExtension } from '../../card/card-extension'
 import type { CardDelimiterAttrs, EditorCardProjection } from '../../card/card-model'
 import type { CardSurfaceSide } from '../../card/card-surface'
 import type { EditorTopicDocument } from '../../note/editor-note'
+import { SegmentedControl } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Eye, X } from 'lucide-react'
 import { NodeSelection } from 'prosekit/pm/state'
@@ -403,11 +404,19 @@ export default function CardMenu({ adapters, topic }: {
     >
       <div {...stylex.props(cardMenuStyles.row)}>
         <span {...stylex.props(cardMenuStyles.label)}>{t('ui.direction')}</span>
-        <div {...stylex.props(cardMenuStyles.group)} aria-label={t('ui.cardDirection')} role="group">
-          <CardMenuButton label={t('ui.basicDirection')} selected={selected.delimiter.attrs.direction === 'forward'} onClick={() => runDirectionCommand('forward')}>→</CardMenuButton>
-          <CardMenuButton label={t('ui.reverseDirection')} selected={selected.delimiter.attrs.direction === 'backward'} onClick={() => runDirectionCommand('backward')}>←</CardMenuButton>
-          <CardMenuButton label={t('ui.bidirectional')} selected={selected.delimiter.attrs.direction === 'both'} onClick={() => runDirectionCommand('both')}>↔</CardMenuButton>
-        </div>
+        <SegmentedControl.Root
+          aria-label={t('ui.cardDirection')}
+          value={selected.delimiter.attrs.direction}
+          xstyle={cardMenuStyles.group}
+          onValueChange={(value) => {
+            if (value === 'forward' || value === 'backward' || value === 'both')
+              runDirectionCommand(value)
+          }}
+        >
+          <SegmentedControl.Item aria-label={t('ui.basicDirection')} value="forward" xstyle={[cardMenuStyles.button, selected.delimiter.attrs.direction === 'forward' && cardMenuStyles.selected]} onMouseDown={event => event.preventDefault()}>→</SegmentedControl.Item>
+          <SegmentedControl.Item aria-label={t('ui.reverseDirection')} value="backward" xstyle={[cardMenuStyles.button, selected.delimiter.attrs.direction === 'backward' && cardMenuStyles.selected]} onMouseDown={event => event.preventDefault()}>←</SegmentedControl.Item>
+          <SegmentedControl.Item aria-label={t('ui.bidirectional')} value="both" xstyle={[cardMenuStyles.button, selected.delimiter.attrs.direction === 'both' && cardMenuStyles.selected]} onMouseDown={event => event.preventDefault()}>↔</SegmentedControl.Item>
+        </SegmentedControl.Root>
       </div>
       <div {...stylex.props(cardMenuStyles.row)}>
         <span {...stylex.props(cardMenuStyles.label)}>{t('ui.multiLine')}</span>
