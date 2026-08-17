@@ -78,6 +78,8 @@
   ,"repeatIntervalError": "Repeat interval must be an integer from 1 to 999"
   ,"repeatCalendarError": "Choose a calendar subscription for this repeat rule"
   ,"repeatWeekdayError": "Choose at least one weekday"
+  ,"loadingCalendars": "Loading calendars…"
+  ,"couldNotLoadCalendars": "Couldn’t load calendars: {{message}}"
   ,"skipThis": "Skip this occurrence"
   ,"onlyThis": "Edit this occurrence"
   ,"onlyThisText": "This text"

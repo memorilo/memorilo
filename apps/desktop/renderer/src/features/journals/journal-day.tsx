@@ -112,6 +112,7 @@ export function JournalDay({
           adapters={adapters}
           note={session.opened.note}
           outline={{ outdentBehavior: configuration.outdentBehavior }}
+          taskDate={summary.journalDate}
         />
       </>
     )

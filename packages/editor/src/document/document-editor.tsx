@@ -11,6 +11,7 @@ export function DocumentEditor({
   mode,
   readOnly,
   session,
+  taskDate,
 }: {
   children?: ReactNode
   embedded: boolean
@@ -18,6 +19,7 @@ export function DocumentEditor({
   mode: EditorModeValue
   readOnly: boolean
   session: EditorSession
+  taskDate?: string
 }) {
   return (
     <EditorCanvas
@@ -27,6 +29,7 @@ export function DocumentEditor({
       modeControls={children}
       readOnly={readOnly}
       session={session}
+      taskDate={taskDate}
     />
   )
 }

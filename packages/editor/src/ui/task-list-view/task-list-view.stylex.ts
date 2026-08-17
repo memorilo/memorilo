@@ -64,9 +64,6 @@ export const taskStyles = stylex.create({
     animationTimingFunction: 'ease-in-out',
   },
   time: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
     display: 'inline-flex',
     alignItems: 'center',
     height: '1lh',
@@ -79,5 +76,15 @@ export const taskStyles = stylex.create({
   },
   timeDoing: {
     color: tokens.accent,
+  },
+  meta: {
+    position: 'absolute',
+    top: -3,
+    right: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 26,
+    userSelect: 'none',
   },
 })

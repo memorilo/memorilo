@@ -1,10 +1,12 @@
 import type { NodeViewConstructor } from 'prosekit/pm/view'
 import * as stylex from '@stylexjs/stylex'
 import i18next from 'i18next'
-import { Check } from 'lucide'
+import { Check, MoreHorizontal } from 'lucide'
 import { DOMSerializer } from 'prosekit/pm/model'
 import { createListNodeView } from 'prosemirror-flat-list'
 
+import { buttonStyles } from '../button/button.stylex'
+import { taskMenuStyles } from '../task-menu/editor-task-menu.stylex'
 import { taskStyles } from './task-list-view.stylex'
 import { effectiveStatus, formatDuration, nextClickStatus, totalElapsed, transitionAttrs } from './task-status'
 
@@ -31,6 +33,10 @@ function taskStatusLabel(status: ReturnType<typeof effectiveStatus>) {
     ns: 'editor',
     status: i18next.t(statusKey, { ns: 'editor' }),
   })
+}
+
+function taskActionsLabel() {
+  return i18next.t('taskActions', { ns: 'todo' })
 }
 
 function createTaskControl(status: ReturnType<typeof effectiveStatus>) {
@@ -93,7 +99,29 @@ export const createTaskListView: NodeViewConstructor = (initialNode, view, getPo
     stylex.props(taskStyles.time, status === 'doing' && taskStyles.timeDoing),
     'task-time',
   )
-  contentDOM.before(time)
+  const meta = document.createElement('span')
+  meta.contentEditable = 'false'
+  applyStylex(meta, stylex.props(taskStyles.meta))
+  meta.append(time)
+
+  const menuButton = document.createElement('button')
+  if (view.editable) {
+    menuButton.type = 'button'
+    menuButton.contentEditable = 'false'
+    menuButton.dataset.taskMenuTrigger = ''
+    menuButton.dataset.visible = 'false'
+    menuButton.setAttribute('aria-expanded', 'false')
+    menuButton.setAttribute('aria-haspopup', 'dialog')
+    menuButton.setAttribute('aria-label', taskActionsLabel())
+    menuButton.title = taskActionsLabel()
+    applyStylex(menuButton, stylex.props(buttonStyles.action, taskMenuStyles.trigger))
+    const [tag, attrs, children] = MoreHorizontal
+    const icon = createIcon([tag, { ...attrs, 'width': 16, 'height': 16, 'stroke-width': 1.8 }, children])
+    icon.setAttribute('aria-hidden', 'true')
+    menuButton.append(icon)
+    meta.append(menuButton)
+  }
+  contentDOM.before(meta)
 
   let node = initialNode
   const renderTime = () => {
@@ -127,10 +155,34 @@ export const createTaskListView: NodeViewConstructor = (initialNode, view, getPo
 
   const renderTranslation = () => {
     button.setAttribute('aria-label', taskStatusLabel(effectiveStatus(node.attrs)))
+    if (view.editable) {
+      menuButton.setAttribute('aria-label', taskActionsLabel())
+      menuButton.title = taskActionsLabel()
+    }
   }
+  const showMenuButton = () => {
+    if (view.editable)
+      menuButton.dataset.visible = 'true'
+  }
+  const hideMenuButton = () => {
+    if (!view.editable
+      || menuButton.getAttribute('aria-expanded') === 'true'
+      || document.activeElement === menuButton) {
+      return
+    }
+    menuButton.dataset.visible = 'false'
+  }
+  const onTaskFocusOut = () => queueMicrotask(hideMenuButton)
   i18next.on('languageChanged', renderTranslation)
   button.addEventListener('mousedown', onMouseDown)
   button.addEventListener('click', onClick)
+  if (view.editable) {
+    menuButton.addEventListener('mousedown', onMouseDown)
+    dom.addEventListener('mouseenter', showMenuButton)
+    dom.addEventListener('mouseleave', hideMenuButton)
+    dom.addEventListener('focusin', showMenuButton)
+    dom.addEventListener('focusout', onTaskFocusOut)
+  }
 
   const nested = initialNode.firstChild?.type === initialNode.type
   const singleChild = initialNode.childCount === 1
@@ -150,6 +202,7 @@ export const createTaskListView: NodeViewConstructor = (initialNode, view, getPo
       renderTranslation()
       return true
     },
+    ignoreMutation: mutation => meta.contains(mutation.target),
     destroy: () => {
       i18next.off('languageChanged', renderTranslation)
       if (timer !== null)
@@ -158,6 +211,13 @@ export const createTaskListView: NodeViewConstructor = (initialNode, view, getPo
         window.clearTimeout(missingStartTimer)
       button.removeEventListener('mousedown', onMouseDown)
       button.removeEventListener('click', onClick)
+      if (view.editable) {
+        menuButton.removeEventListener('mousedown', onMouseDown)
+        dom.removeEventListener('mouseenter', showMenuButton)
+        dom.removeEventListener('mouseleave', hideMenuButton)
+        dom.removeEventListener('focusin', showMenuButton)
+        dom.removeEventListener('focusout', onTaskFocusOut)
+      }
     },
   }
 }

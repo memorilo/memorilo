@@ -17,6 +17,7 @@ import { InlineMenu } from '../ui/inline-menu'
 import { SlashMenu } from '../ui/slash-menu'
 import { TableHandle } from '../ui/table-handle'
 import { TagMenu } from '../ui/tag-menu'
+import { EditorTaskMenu } from '../ui/task-menu/editor-task-menu'
 import { editorCanvasStyles } from './editor-canvas.stylex'
 
 const CardMenu = lazy(async () => {
@@ -95,6 +96,7 @@ export function EditorCanvas({
   modeControls,
   readOnly,
   session,
+  taskDate,
 }: {
   embedded: boolean
   focusBlockId?: string
@@ -102,6 +104,7 @@ export function EditorCanvas({
   modeControls?: ReactNode
   readOnly: boolean
   session: EditorSession
+  taskDate?: string
 }) {
   const { configured, editor } = session
   const { t } = useTranslation('editor')
@@ -146,6 +149,7 @@ export function EditorCanvas({
               : (
                   <>
                     <ContextMenu outlineRuntime={session.outlineRuntime} uploader={configured.uploader} />
+                    <EditorTaskMenu adapters={session.adapters} taskDate={taskDate} />
                     <InlineMenu learningEnabled={session.learningEnabled} />
                     {session.learningEnabled
                       ? (
