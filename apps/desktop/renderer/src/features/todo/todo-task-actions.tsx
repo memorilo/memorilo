@@ -7,6 +7,7 @@ import { nextTodoOccurrenceDate, taskOccurrenceDate } from './todo-model'
 import { todoTaskActionStyles as styles } from './todo-task-actions.stylex'
 
 interface TodoTaskActionsProps {
+  compact?: boolean
   calendarEvents: readonly DesktopTodoCalendarEvent[]
   onUpdateTask: (input: {
     blockId: string
@@ -23,7 +24,7 @@ interface TodoTaskActionsProps {
   task: DesktopTodoTask
 }
 
-export function TodoTaskActions({ calendarEvents, onUpdateTask, t, task }: TodoTaskActionsProps) {
+export function TodoTaskActions({ calendarEvents, compact = false, onUpdateTask, t, task }: TodoTaskActionsProps) {
   const [interval, setInterval] = useState(String(task.repeatRule?.interval ?? 1))
   const [unit, setUnit] = useState<DesktopTodoRepeatRule['unit']>(task.repeatRule?.unit ?? 'day')
   const [mode, setMode] = useState<DesktopTodoRepeatRule['mode']>(task.repeatRule?.mode ?? 'due')
@@ -88,10 +89,10 @@ export function TodoTaskActions({ calendarEvents, onUpdateTask, t, task }: TodoT
 
   return (
     <details {...stylex.props(styles.shell)}>
-      <summary {...stylex.props(styles.summary)} aria-label={t('taskActions')} title={t('taskActions')}>
+      <summary {...stylex.props(styles.summary, compact && styles.summaryCompact)} aria-label={t('taskActions')} title={t('taskActions')}>
         <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
       </summary>
-      <div {...stylex.props(styles.menu)} role="menu">
+      <div {...stylex.props(styles.menu, compact && styles.menuCompact)} role="menu">
         <strong {...stylex.props(styles.heading)}>{t('repeatSettings')}</strong>
         <label {...stylex.props(styles.field)}>
           {t('repeatEvery')}
