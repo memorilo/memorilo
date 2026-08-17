@@ -13,6 +13,7 @@ import type {
   TopicSearchHit,
 } from './editor-storage-contracts'
 import type { EmbeddingModel } from './embedding-model'
+import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
 import { EditorEmbeddingIndex } from './editor-embedding-index'
 import { fuseTopicBlockSearchResults, mergeNoteSearchResults } from './editor-search-ranking'
 import {
@@ -107,13 +108,20 @@ function toTopicSearchHit(row: TopicSearchRow, match: Exclude<NoteSearchMatch, '
 
 export class EditorSearch {
   private readonly embeddingIndex: EditorEmbeddingIndex
+  private readonly embeddingOperations = createOperationSupervisor('Editor embedding indexing', {
+    closedError: () => new Error('Editor storage is closed'),
+  })
 
   constructor(
     private readonly database: EditorStorageDatabase,
     embeddingModel: EmbeddingModel,
     private readonly runOperation: StorageOperationRunner,
   ) {
-    this.embeddingIndex = new EditorEmbeddingIndex(database, embeddingModel)
+    this.embeddingIndex = new EditorEmbeddingIndex(database, embeddingModel, runOperation)
+  }
+
+  close(): Promise<void> {
+    return this.embeddingOperations.close()
   }
 
   async getTopicBlock(input: GetTopicBlockInput): Promise<StoredTopicBlock | null> {
@@ -141,7 +149,7 @@ export class EditorSearch {
   }
 
   async indexPendingEmbeddings(input: IndexPendingEmbeddingsInput = {}): Promise<IndexPendingEmbeddingsResult> {
-    return this.runOperation(() => this.embeddingIndex.indexPendingEmbeddings(input))
+    return this.embeddingOperations.run(() => this.embeddingIndex.indexPendingEmbeddings(input))
   }
 
   async searchNotes(input: SearchNotesInput): Promise<readonly NoteSearchHit[]> {
