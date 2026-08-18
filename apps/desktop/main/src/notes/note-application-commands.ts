@@ -19,8 +19,8 @@ import type { NoteAuthoritativeRuntime } from './note-authoritative-runtime'
 import { randomUUID } from 'node:crypto'
 import { assertJournalDate, DuplicateNoteTitleError } from '@memorilo/editor-storage'
 import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
-import { parseTaskDueDate, parseTaskRepeatRule } from '@memorilo/editor/schema'
-import { nextTaskOccurrenceDate, planTaskAction, taskRepeatBaseDate } from '@memorilo/editor/task'
+import { parseTaskDueDate, parseTaskRepeatRule, transitionTaskAttrs } from '@memorilo/editor/schema'
+import { nextTaskOccurrenceDate, planTaskAction, taskRepeatBaseDate, taskRepeatContinuesOn } from '@memorilo/editor/task'
 import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { NoteRevisionConflictError } from './note-application-contracts'
@@ -61,6 +61,7 @@ function recurrenceCalendarRange(date: JournalDate): { from: JournalDate, throug
 
 function recurrenceNeedsCalendar(rule: TaskRepeatRule): boolean {
   return rule.unit === 'holiday'
+    || rule.skipHolidays === true
     || (rule.holidayPolicy !== undefined && rule.holidayPolicy !== 'allow')
 }
 
@@ -124,6 +125,24 @@ export function createNoteApplicationCommands({
       ? await storage.todoCalendars.listEvents(recurrenceCalendarRange(baseDate))
       : []
     const nextDueDate = nextTaskOccurrenceDate(baseDate, repeatRule, calendarEvents)
+    if (!taskRepeatContinuesOn(nextDueDate, repeatRule)) {
+      const sourceVersion = current.note.getVersion()
+      current.note.applyTopicBlockEdits({
+        edits: [{
+          attributes: {
+            ...source.attrs,
+            ...transitionTaskAttrs(sourceAttrs, 'done'),
+            repeatRule: null,
+          },
+          blockId: sourceBlock.id,
+          operation: 'update-block-attributes',
+        }],
+        topicId,
+      })
+      await current.note.validateTopic(topicId)
+      await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] })
+      return
+    }
     const placement = planRecurringTaskPlacement({
       action: recurringTaskCompletionAction(),
       generateId: randomUUID,

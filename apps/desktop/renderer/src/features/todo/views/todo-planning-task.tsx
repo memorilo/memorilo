@@ -4,6 +4,8 @@ import * as stylex from '@stylexjs/stylex'
 import { Circle, CircleCheck, CircleDotDashed } from 'lucide-react'
 import { formatTaskDuration, taskElapsedMs } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
+import { TodoTaskMetadata } from '../todo-task-metadata'
+import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
 import { todoPlanningTaskStyles as styles } from './todo-planning-task.stylex'
 
 function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
@@ -20,6 +22,7 @@ function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
 export function TodoPlanningTask({
   calendarEvents,
   calendarSubscriptions,
+  locale,
   now,
   onOpenTask,
   onUpdateTask,
@@ -28,6 +31,7 @@ export function TodoPlanningTask({
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
+  locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
@@ -44,15 +48,20 @@ export function TodoPlanningTask({
         type="button"
         onClick={() => void onOpenTask(task)}
       >
-        <TaskStatusIcon status={task.status} />
+        <TodoTaskOccurrenceActions
+          calendarEvents={calendarEvents}
+          onUpdateTask={onUpdateTask}
+          t={t}
+          task={task}
+          triggerContent={<TaskStatusIcon status={task.status} />}
+        />
         <span {...stylex.props(styles.content)}>
           <span {...stylex.props(styles.title, task.status === 'done' && styles.done)}>{task.text}</span>
           <span {...stylex.props(styles.meta)}>{t('source', { note: task.noteTitle, topic: task.topicTitle })}</span>
         </span>
-        <span {...stylex.props(styles.elapsed)} title={t('elapsed', { duration: elapsed })}>{elapsed}</span>
       </button>
       <div {...stylex.props(styles.actions)}>
-        <TodoTaskActions calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} onUpdateTask={onUpdateTask} t={t} task={task} />
+        <TodoTaskActions calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} onUpdateTask={onUpdateTask} t={t} task={task} triggerContent={<TodoTaskMetadata compact dueDate={task.dueDate} dueTime={task.dueTime} endAt={task.endAt} elapsed={elapsed} locale={locale} now={now} startAt={task.startAt} t={t} />} />
       </div>
     </div>
   )

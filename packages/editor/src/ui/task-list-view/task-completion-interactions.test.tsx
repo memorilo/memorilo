@@ -81,13 +81,15 @@ describe('recurring task completion entry points', () => {
     expect(completeRecurring).toHaveBeenCalledOnce()
   })
 
-  it('uses the recurring completion adapter from the task menu', async () => {
+  it('uses the recurring completion adapter from the task status context menu', async () => {
     const completeRecurring = vi.fn(async () => undefined)
     const rendered = renderRecurringTask(completeRecurring)
     await rendered.findByText('Recurring task')
 
-    await userEvent.hover(page.getByText('Recurring task', { exact: true }))
-    fireEvent.click(rendered.getByLabelText('Task actions'))
+    const status = rendered.container.querySelector<HTMLButtonElement>('button[data-status="doing"]')
+    if (!status)
+      throw new Error('Recurring task status button was not rendered')
+    fireEvent.contextMenu(status)
     fireEvent.click(await rendered.findByRole('button', { name: 'Complete and schedule next' }))
 
     await waitFor(() => expect(completeRecurring).toHaveBeenCalledWith({ blockId: 'recurring-task' }))

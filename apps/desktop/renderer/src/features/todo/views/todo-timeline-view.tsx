@@ -79,6 +79,7 @@ function TimelineGroup({
             calendarEvents={calendarEvents}
             calendarSubscriptions={calendarSubscriptions}
             key={todoTaskKey(task)}
+            locale={locale}
             now={now}
             onOpenTask={onOpenTask}
             onUpdateTask={onUpdateTask}
@@ -159,6 +160,7 @@ export function TodoTimelineView({
                   calendarEvents={calendarEvents}
                   calendarSubscriptions={calendarSubscriptions}
                   key={todoTaskKey(task)}
+                  locale={locale}
                   now={now}
                   onOpenTask={onOpenTask}
                   onUpdateTask={onUpdateTask}

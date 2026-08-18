@@ -12,6 +12,7 @@ import type {
   ListTodoTasksInput,
   TodoCalendarEvent,
   TodoCalendarSubscription,
+  TodoReminder,
   TodoRepeatRule,
   TodoTask,
   TodoTaskPage,
@@ -134,6 +135,7 @@ export type GetNextDesktopReviewItemInput = Omit<ListLearningQueueInput, 'limit'
 export type DesktopTodoTaskStatus = TodoTaskStatus
 export type DesktopTodoTask = TodoTask
 export type DesktopTodoTaskPage = TodoTaskPage
+export type DesktopTodoReminder = TodoReminder
 export type DesktopTodoRepeatRule = TodoRepeatRule
 export type DesktopTodoCalendarEvent = TodoCalendarEvent
 export type DesktopTodoCalendarSubscription = TodoCalendarSubscription
@@ -142,11 +144,16 @@ export type ListDesktopTodoTasksInput = ListTodoTasksInput
 export interface UpdateDesktopTodoTaskInput {
   blockId: string
   dueDate?: string | null
+  dueTime?: string | null
+  endAt?: string | null
   nextDueDate?: string | null
   noteId: string
   onlyThis?: boolean
+  reminderMinutes?: number | null
+  reminders?: readonly DesktopTodoReminder[] | null
   repeatRule?: DesktopTodoRepeatRule | null
   status?: DesktopTodoTaskStatus
+  startAt?: string | null
   text?: string
   topicId: string
 }

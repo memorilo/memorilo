@@ -1,21 +1,45 @@
+import type { Dayjs } from 'dayjs'
 import type { TFunction } from 'i18next'
 import type { CSSProperties, Ref } from 'react'
-import type { TaskRepeatRule, TaskStatus } from '../schema/task-schema'
+import type { TaskReminder, TaskRepeatRule, TaskStatus } from '../schema/task-schema'
 import type { TaskActionUpdate } from './task-action-model'
 import type { TaskCalendarEvent, TaskCalendarSubscription } from './task-calendar'
+import type { TaskRepeatPickerMode } from './task-repeat-picker'
+import { autoUpdate, FloatingPortal, offset, shift, size, useFloating } from '@floating-ui/react'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
-import { useId, useState } from 'react'
+import {
+  Bell,
+  CalendarPlus2,
+  CalendarX2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Moon,
+  Repeat2,
+  Sun,
+  Sunrise,
+} from 'lucide-react'
+import { useId, useMemo, useState } from 'react'
 import { buttonStyles } from '../ui/button/button.stylex'
 import { floatingSurfaceStyles } from '../ui/floating-surface/floating-surface.stylex'
 import { formControlStyles } from '../ui/form-controls/form-controls.stylex'
 import { taskActionPanelStyles as styles } from './task-action-panel.stylex'
-import { nextTaskOccurrenceDate, taskRepeatBaseDate } from './task-recurrence'
+import { previewTaskRecurrenceDates } from './task-recurrence'
+import { taskReminderLabel } from './task-reminder'
+import { TaskReminderPicker } from './task-reminder-picker'
+import { TaskRepeatPicker } from './task-repeat-picker'
+import { TaskTimePicker } from './task-time-picker'
 
 export interface TaskActionTask {
   dueDate: string | null
+  dueTime: string | null
+  endAt: string | null
   occurrenceDate: string
+  reminderMinutes: number | null
+  reminders: readonly TaskReminder[] | null
   repeatRule: TaskRepeatRule | null
+  startAt: string | null
   status: TaskStatus
   text: string
 }
@@ -25,7 +49,6 @@ export interface TaskActionPanelProps {
   calendarEvents: readonly TaskCalendarEvent[]
   calendarLoading?: boolean
   calendarSubscriptions: readonly TaskCalendarSubscription[]
-  editText?: boolean
   id?: string
   panelRef?: Ref<HTMLDivElement>
   style?: CSSProperties
@@ -46,12 +69,61 @@ const weekdayOptions = [
   { id: 6, labelKey: 'weekdaySaturday' },
 ] as const
 
+const quickDateOptions = [
+  { icon: Sun, key: 'today' },
+  { icon: Sunrise, key: 'tomorrow' },
+  { icon: CalendarPlus2, key: 'nextWeek' },
+  { icon: Moon, key: 'tonight' },
+  { icon: CalendarX2, key: 'noDate' },
+] as const
+
+function monthDays(month: Dayjs): readonly Dayjs[] {
+  const start = month.startOf('month').startOf('week')
+  return Array.from({ length: 42 }, (_, index) => start.add(index, 'day'))
+}
+
+function dateTimeValue(date: string, time: string): string {
+  return `${date}T${time}`
+}
+
+function translationLocale(t: TFunction): string | undefined {
+  const locale = (t as TFunction & { lng?: unknown }).lng
+  return typeof locale === 'string' ? locale : undefined
+}
+
+function isChinaRegion(t: TFunction): boolean {
+  const locale = translationLocale(t) ?? ''
+  const systemLocale = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().locale : ''
+  return /(?:^|[-_])CN(?:[-_]|$)/u.test(locale) || /(?:^|[-_])CN(?:[-_]|$)/u.test(systemLocale)
+}
+
+function repeatSummary(rule: TaskRepeatRule | null, t: TFunction): string {
+  if (!rule)
+    return t('repeatNone')
+  const unit = t(`repeat${rule.unit.slice(0, 1).toUpperCase()}${rule.unit.slice(1)}`)
+  const interval = rule.interval === 1 ? unit : `${rule.interval} ${unit}`
+  return rule.endDate ? `${interval} · ${t('repeatUntilShort', { date: rule.endDate })}` : interval
+}
+
+function taskReminders(task: TaskActionTask): readonly TaskReminder[] {
+  if (task.reminders !== null)
+    return task.reminders
+  return task.reminderMinutes === null ? [] : [{ kind: 'offset', minutes: task.reminderMinutes }]
+}
+
+function reminderSummary(reminders: readonly TaskReminder[], t: TFunction): string {
+  if (reminders.length === 0)
+    return t('reminderNone')
+  if (reminders.length === 1)
+    return taskReminderLabel(reminders[0]!, t)
+  return t('reminderCount', { count: reminders.length })
+}
+
 export function TaskActionPanel({
   calendarError = null,
   calendarEvents,
   calendarLoading = false,
   calendarSubscriptions,
-  editText = true,
   id,
   onUpdate,
   onUpdated,
@@ -62,33 +134,71 @@ export function TaskActionPanel({
   visible = true,
 }: TaskActionPanelProps) {
   const headingId = useId()
-  const initialCalendarId = task.repeatRule?.calendarId
-    ?? calendarSubscriptions.find(subscription => subscription.enabled)?.id
-    ?? ''
-  const [interval, setInterval] = useState(String(task.repeatRule?.interval ?? 1))
-  const [unit, setUnit] = useState<TaskRepeatRule['unit']>(task.repeatRule?.unit ?? 'day')
-  const [mode, setMode] = useState<TaskRepeatRule['mode']>(task.repeatRule?.mode ?? 'due')
-  const [holidayPolicy, setHolidayPolicy] = useState<TaskRepeatRule['holidayPolicy']>(task.repeatRule?.holidayPolicy ?? 'allow')
-  const [calendarId, setCalendarId] = useState(initialCalendarId)
-  const [weekdays, setWeekdays] = useState<readonly number[]>(() => task.repeatRule?.weekdays?.length
-    ? [...new Set(task.repeatRule.weekdays)].sort((left, right) => left - right)
-    : [dayjs(task.occurrenceDate).day()])
-  const [dueDate, setDueDate] = useState(task.dueDate ?? task.occurrenceDate)
-  const [text, setText] = useState(task.text)
+  const baseDate = task.dueDate ?? task.occurrenceDate
+  const [mode, setMode] = useState<'date' | 'span'>(() => task.startAt !== null || task.endAt !== null ? 'span' : 'date')
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => task.dueDate ?? task.occurrenceDate)
+  const [activeMonth, setActiveMonth] = useState(() => dayjs(task.dueDate ?? task.occurrenceDate).startOf('month'))
+  const [dueTime, setDueTime] = useState(() => task.dueTime ?? '')
+  const [startAt, setStartAt] = useState(() => task.startAt ?? dateTimeValue(baseDate, '09:00'))
+  const [endAt, setEndAt] = useState(() => task.endAt ?? dateTimeValue(baseDate, '10:00'))
+  const [reminders, setReminders] = useState<readonly TaskReminder[]>(() => taskReminders(task))
+  const [repeatOpen, setRepeatOpen] = useState(() => task.repeatRule !== null)
+  const [repeatPickerOpen, setRepeatPickerOpen] = useState(false)
+  const [timePickerOpen, setTimePickerOpen] = useState(false)
+  const [reminderPickerOpen, setReminderPickerOpen] = useState(false)
+  const [repeatPickerMode, setRepeatPickerMode] = useState<TaskRepeatPickerMode>('presets')
+  const [repeatDraft, setRepeatDraft] = useState<TaskRepeatRule>(() => task.repeatRule ?? {
+    interval: 1,
+    mode: 'due',
+    unit: 'day',
+    weekdays: [dayjs(task.occurrenceDate).day()],
+  })
+  const [repeatSnapshot, setRepeatSnapshot] = useState<TaskRepeatRule | null>(() => task.repeatRule)
   const [error, setError] = useState<string | null>(null)
   const [updating, setUpdating] = useState(false)
-  const selectedCalendarId = calendarId.length > 0
-    ? calendarId
+  const days = useMemo(() => monthDays(activeMonth), [activeMonth])
+  const selectedCalendarId = (repeatDraft.calendarId ?? '').length > 0
+    ? repeatDraft.calendarId ?? ''
     : calendarSubscriptions.find(subscription => subscription.enabled)?.id ?? ''
-  const needsCalendar = unit === 'holiday' || holidayPolicy !== 'allow'
-  const repeatRule: TaskRepeatRule = {
+  const needsCalendar = repeatDraft.unit === 'holiday'
+    || repeatDraft.skipHolidays === true
+    || (repeatDraft.holidayPolicy !== undefined && repeatDraft.holidayPolicy !== 'allow')
+  const repeatRule = useMemo<TaskRepeatRule>(() => ({
+    ...repeatDraft,
     ...(needsCalendar && selectedCalendarId.length > 0 ? { calendarId: selectedCalendarId } : {}),
-    ...(unit === 'holiday' ? {} : { holidayPolicy }),
-    interval: Number(interval),
-    mode,
-    unit,
-    ...(unit === 'week' ? { weekdays } : {}),
-  }
+  }), [needsCalendar, repeatDraft, selectedCalendarId])
+  const { refs, floatingStyles } = useFloating({
+    open: repeatPickerOpen,
+    onOpenChange: setRepeatPickerOpen,
+    placement: 'bottom-start',
+    middleware: [
+      offset(8),
+      shift({ padding: 8 }),
+      size({ apply({ availableHeight, elements }) { Object.assign(elements.floating.style, { maxHeight: `${Math.max(0, availableHeight)}px` }) } }),
+    ],
+    whileElementsMounted: autoUpdate,
+  })
+  const { refs: timeRefs, floatingStyles: timeFloatingStyles } = useFloating({
+    open: timePickerOpen,
+    onOpenChange: setTimePickerOpen,
+    placement: 'bottom-start',
+    middleware: [offset(6), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+  const { refs: reminderRefs, floatingStyles: reminderFloatingStyles } = useFloating({
+    open: reminderPickerOpen,
+    onOpenChange: setReminderPickerOpen,
+    placement: 'bottom-start',
+    middleware: [offset(6), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+  const previewDates = useMemo(() => repeatOpen
+    ? previewTaskRecurrenceDates(selectedDate ?? baseDate, repeatRule, {
+        calendarEvents,
+        from: activeMonth.startOf('month').format('YYYY-MM-DD'),
+        through: activeMonth.endOf('month').format('YYYY-MM-DD'),
+      })
+    : [], [activeMonth, baseDate, calendarEvents, repeatOpen, repeatRule, selectedDate])
 
   const update = async (input: TaskActionUpdate) => {
     setError(null)
@@ -104,68 +214,101 @@ export function TaskActionPanel({
       setUpdating(false)
     }
   }
-  const saveRepeat = () => {
-    if (!Number.isSafeInteger(repeatRule.interval) || repeatRule.interval < 1 || repeatRule.interval > 999) {
-      setError(t('repeatIntervalError'))
-      return
+
+  const scheduleUpdate = (): TaskActionUpdate => {
+    if (mode === 'span') {
+      if (startAt.length === 0 || endAt.length === 0 || endAt <= startAt)
+        throw new RangeError(t('timeSpanError'))
+      return {
+        dueDate: startAt.slice(0, 10),
+        dueTime: null,
+        endAt,
+        reminders,
+        startAt,
+      }
     }
-    if (needsCalendar && selectedCalendarId.length === 0) {
-      setError(t('repeatCalendarError'))
-      return
+    return {
+      dueDate: selectedDate,
+      dueTime: selectedDate === null || dueTime.length === 0 ? null : dueTime,
+      endAt: null,
+      reminders,
+      startAt: null,
     }
-    if (unit === 'week' && weekdays.length === 0) {
-      setError(t('repeatWeekdayError'))
-      return
-    }
-    void update({ dueDate, repeatRule })
   }
-  const runOccurrenceAction = (action: () => TaskActionUpdate) => {
+
+  const save = () => {
     try {
-      void update(action())
+      const schedule = scheduleUpdate()
+      const repeat = repeatOpen ? repeatRule : null
+      if (repeatOpen) {
+        if (!Number.isSafeInteger(repeatRule.interval) || repeatRule.interval < 1 || repeatRule.interval > 999) {
+          setError(t('repeatIntervalError'))
+          return
+        }
+        if (needsCalendar && selectedCalendarId.length === 0) {
+          setError(t('repeatCalendarError'))
+          return
+        }
+        if (repeatRule.unit === 'week' && (repeatRule.weekdays?.length ?? 0) === 0) {
+          setError(t('repeatWeekdayError'))
+          return
+        }
+        if (repeatRule.mode === 'custom' && (repeatRule.anchorDate === undefined || repeatRule.anchorDate < baseDate)) {
+          setError(t('repeatCustomDateError'))
+          return
+        }
+        if (repeatRule.endDate !== undefined && selectedDate !== null && repeatRule.endDate < selectedDate) {
+          setError(t('repeatEndDateError'))
+          return
+        }
+      }
+      void update({ ...schedule, repeatRule: repeat })
     }
     catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
   }
-  const skip = () => runOccurrenceAction(() => {
-    if (!task.repeatRule)
-      throw new Error('Skipping an occurrence requires a repeat rule')
-    return {
-      dueDate: nextTaskOccurrenceDate(task.occurrenceDate, task.repeatRule, calendarEvents),
-      repeatRule: task.repeatRule,
-    }
-  })
-  const complete = () => runOccurrenceAction(() => {
-    if (!task.repeatRule)
-      throw new Error('Completing an occurrence requires a repeat rule')
-    const completedOn = dayjs().format('YYYY-MM-DD')
-    const baseDate = taskRepeatBaseDate(task.occurrenceDate, task.repeatRule, completedOn)
-    return {
-      nextDueDate: nextTaskOccurrenceDate(baseDate, task.repeatRule, calendarEvents),
-      status: 'done',
-    }
-  })
-  const onlyThis = () => runOccurrenceAction(() => {
-    if (!task.repeatRule)
-      throw new Error('Editing one occurrence requires a repeat rule')
-    return {
-      dueDate,
-      nextDueDate: nextTaskOccurrenceDate(task.occurrenceDate, task.repeatRule, calendarEvents),
-      onlyThis: true,
-      ...(editText ? { text } : {}),
-    }
-  })
-  const toggleWeekday = (weekday: number) => {
-    setWeekdays((current) => {
-      if (!current.includes(weekday))
-        return [...current, weekday].sort((left, right) => left - right)
-      if (current.length === 1)
-        return current
-      return current.filter(item => item !== weekday)
+
+  const clear = () => {
+    void update({
+      dueDate: null,
+      dueTime: null,
+      endAt: null,
+      reminderMinutes: null,
+      reminders: null,
+      repeatRule: null,
+      startAt: null,
     })
   }
-  const missingSelectedCalendar = selectedCalendarId.length > 0
-    && !calendarSubscriptions.some(subscription => subscription.id === selectedCalendarId)
+
+  const selectDate = (date: string | null) => {
+    setSelectedDate(date)
+    if (date !== null)
+      setActiveMonth(dayjs(date).startOf('month'))
+    if (mode === 'span' && date !== null) {
+      setStartAt(current => `${date}T${current.slice(11)}`)
+      setEndAt(current => `${date}T${current.slice(11)}`)
+    }
+  }
+
+  const quickDate = (key: (typeof quickDateOptions)[number]['key']) => {
+    const today = dayjs().startOf('day')
+    if (key === 'noDate') {
+      selectDate(null)
+      setDueTime('')
+      return
+    }
+    const date = key === 'today'
+      ? today
+      : key === 'tomorrow'
+        ? today.add(1, 'day')
+        : key === 'nextWeek'
+          ? today.add(1, 'week').startOf('week').add(1, 'day')
+          : today
+    selectDate(date.format('YYYY-MM-DD'))
+    if (key === 'tonight')
+      setDueTime('20:00')
+  }
 
   return (
     <div
@@ -176,114 +319,211 @@ export function TaskActionPanel({
       role="dialog"
       style={{ ...style, visibility: visible ? 'visible' : 'hidden' }}
     >
-      <strong id={headingId} {...stylex.props(styles.heading)}>{t('repeatSettings')}</strong>
-      <label {...stylex.props(styles.field)}>
-        {t('repeatEvery')}
-        <input {...stylex.props(formControlStyles.textInput, styles.input)} disabled={updating} min={1} max={999} type="number" value={interval} onChange={event => setInterval(event.target.value)} />
-      </label>
-      <label {...stylex.props(styles.field)}>
-        {t('repeatUnit')}
-        <select {...stylex.props(formControlStyles.textInput, styles.select)} disabled={updating} value={unit} onChange={event => setUnit(event.target.value as TaskRepeatRule['unit'])}>
-          <option value="day">{t('repeatDay')}</option>
-          <option value="week">{t('repeatWeek')}</option>
-          <option value="month">{t('repeatMonth')}</option>
-          <option value="year">{t('repeatYear')}</option>
-          <option value="holiday">{t('repeatHoliday')}</option>
-        </select>
-      </label>
-      {unit === 'week'
+      <strong id={headingId} {...stylex.props(styles.heading)}>{t('scheduleSettings')}</strong>
+      <div {...stylex.props(styles.segmented)} role="tablist" aria-label={t('scheduleMode')}>
+        <button
+          {...stylex.props(styles.segment, mode === 'date' && styles.segmentSelected)}
+          aria-selected={mode === 'date'}
+          role="tab"
+          type="button"
+          onClick={() => {
+            setMode('date')
+            setTimePickerOpen(false)
+            setReminderPickerOpen(false)
+            setRepeatPickerOpen(false)
+          }}
+        >
+          {t('scheduleDate')}
+        </button>
+        <button
+          {...stylex.props(styles.segment, mode === 'span' && styles.segmentSelected)}
+          aria-selected={mode === 'span'}
+          role="tab"
+          type="button"
+          onClick={() => {
+            setMode('span')
+            setTimePickerOpen(false)
+            setReminderPickerOpen(false)
+            setRepeatPickerOpen(false)
+          }}
+        >
+          {t('scheduleSpan')}
+        </button>
+      </div>
+
+      {mode === 'date'
         ? (
-            <div {...stylex.props(styles.weekdayField)}>
-              <span {...stylex.props(styles.weekdayLabel)}>{t('repeatOn')}</span>
-              <div {...stylex.props(styles.weekdayControl)} aria-label={t('repeatOn')} role="group">
-                {weekdayOptions.map(weekday => (
-                  <button
-                    key={weekday.id}
-                    {...stylex.props(buttonStyles.action, styles.weekdayButton, weekdays.includes(weekday.id) && styles.weekdayButtonSelected)}
-                    aria-pressed={weekdays.includes(weekday.id)}
-                    disabled={updating}
-                    title={t(weekday.labelKey)}
-                    type="button"
-                    onClick={() => toggleWeekday(weekday.id)}
-                  >
-                    {t(weekday.labelKey)}
+            <>
+              <div {...stylex.props(styles.quickDates)}>
+                {quickDateOptions.map(({ icon: Icon, key }) => (
+                  <button key={key} {...stylex.props(styles.quickDate)} aria-label={t(`quickDate${key.slice(0, 1).toUpperCase()}${key.slice(1)}`)} title={t(`quickDate${key.slice(0, 1).toUpperCase()}${key.slice(1)}`)} type="button" onClick={() => quickDate(key)}>
+                    <Icon aria-hidden="true" size={16} strokeWidth={1.7} />
                   </button>
                 ))}
               </div>
-            </div>
-          )
-        : null}
-      <label {...stylex.props(styles.field)}>
-        {t('repeatMode')}
-        <select {...stylex.props(formControlStyles.textInput, styles.select)} disabled={updating} value={mode} onChange={event => setMode(event.target.value as TaskRepeatRule['mode'])}>
-          <option value="due">{t('repeatDue')}</option>
-          <option value="completion">{t('repeatCompletion')}</option>
-        </select>
-      </label>
-      {unit !== 'holiday'
-        ? (
-            <label {...stylex.props(styles.field)}>
-              {t('holidayPolicy')}
-              <select {...stylex.props(formControlStyles.textInput, styles.select)} disabled={updating} value={holidayPolicy} onChange={event => setHolidayPolicy(event.target.value as TaskRepeatRule['holidayPolicy'])}>
-                <option value="allow">{t('holidayAllow')}</option>
-                <option value="skip">{t('holidaySkip')}</option>
-                <option value="next-workday">{t('holidayNextWorkday')}</option>
-              </select>
-            </label>
-          )
-        : null}
-      {needsCalendar
-        ? (
-            <label {...stylex.props(styles.field)}>
-              {t('repeatCalendar')}
-              <select
-                {...stylex.props(formControlStyles.textInput, styles.select, styles.selectWide)}
-                disabled={updating || calendarLoading}
-                value={selectedCalendarId}
-                onChange={event => setCalendarId(event.target.value)}
-              >
-                {selectedCalendarId.length === 0
-                  ? <option value="">{calendarLoading ? t('loadingCalendars') : t('selectCalendar')}</option>
-                  : null}
-                {missingSelectedCalendar ? <option value={selectedCalendarId}>{t('missingCalendar', { id: selectedCalendarId })}</option> : null}
-                {calendarSubscriptions.map(subscription => (
-                  <option key={subscription.id} disabled={!subscription.enabled && subscription.id !== selectedCalendarId} value={subscription.id}>
-                    {subscription.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )
-        : null}
-      <label {...stylex.props(styles.field)}>
-        {t('repeatStartDate')}
-        <input {...stylex.props(formControlStyles.textInput, styles.input, styles.dateInput)} disabled={updating} type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} />
-      </label>
-      <button {...stylex.props(formControlStyles.primaryButton, styles.action, styles.primaryAction)} disabled={updating} type="button" onClick={saveRepeat}>{t('saveRepeat')}</button>
-      {task.repeatRule
-        ? (
-            <>
-              <div {...stylex.props(styles.divider)} />
-              {editText
-                ? (
-                    <label {...stylex.props(styles.field)}>
-                      {t('onlyThisText')}
-                      <input {...stylex.props(formControlStyles.textInput, styles.textInput)} disabled={updating} value={text} onChange={event => setText(event.target.value)} />
-                    </label>
+              <div {...stylex.props(styles.monthHeader)}>
+                <button {...stylex.props(styles.iconButton)} aria-label={t('previousMonth')} title={t('previousMonth')} type="button" onClick={() => setActiveMonth(current => current.subtract(1, 'month'))}><ChevronLeft aria-hidden="true" size={15} /></button>
+                <span>{new Intl.DateTimeFormat(translationLocale(t), { month: 'long', year: 'numeric' }).format(activeMonth.toDate())}</span>
+                <button {...stylex.props(styles.iconButton)} aria-label={t('nextMonth')} title={t('nextMonth')} type="button" onClick={() => setActiveMonth(current => current.add(1, 'month'))}><ChevronRight aria-hidden="true" size={15} /></button>
+              </div>
+              <div {...stylex.props(styles.weekdays)} aria-hidden="true">
+                {weekdayOptions.map(day => <span key={day.id}>{t(day.labelKey)}</span>)}
+              </div>
+              <div {...stylex.props(styles.calendarGrid)} role="grid" aria-label={t('scheduleDate')}>
+                {days.map((day) => {
+                  const date = day.format('YYYY-MM-DD')
+                  const inMonth = day.month() === activeMonth.month()
+                  const selected = date === selectedDate
+                  const preview = previewDates.includes(date)
+                  return (
+                    <button key={date} {...stylex.props(styles.dayButton, !inMonth && styles.dayButtonMuted, preview && styles.dayButtonPreview, selected && styles.dayButtonSelected)} aria-label={date} aria-pressed={selected} type="button" onClick={() => selectDate(date)}>{day.date()}</button>
                   )
-                : null}
-              <button {...stylex.props(buttonStyles.action, styles.action)} disabled={updating} type="button" onClick={skip}>{t('skipThis')}</button>
-              <button {...stylex.props(buttonStyles.action, styles.action)} disabled={updating} type="button" onClick={onlyThis}>{t('onlyThis')}</button>
-              <button {...stylex.props(formControlStyles.primaryButton, styles.action, styles.primaryAction)} disabled={updating} type="button" onClick={complete}>{t('completeAndRepeat')}</button>
+                })}
+              </div>
             </>
           )
+        : (
+            <div {...stylex.props(styles.spanFields)}>
+              <label {...stylex.props(styles.field)}>
+                {t('spanStart')}
+                <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="datetime-local" value={startAt} onChange={event => setStartAt(event.target.value)} />
+              </label>
+              <label {...stylex.props(styles.field)}>
+                {t('spanEnd')}
+                <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="datetime-local" value={endAt} onChange={event => setEndAt(event.target.value)} />
+              </label>
+            </div>
+          )}
+
+      <button
+        ref={timeRefs.setReference}
+        {...stylex.props(styles.settingRow)}
+        disabled={updating || (mode === 'date' && selectedDate === null)}
+        type="button"
+        onClick={() => {
+          if (mode === 'span') {
+            setMode('date')
+            setTimePickerOpen(false)
+            setReminderPickerOpen(false)
+            setRepeatPickerOpen(false)
+            return
+          }
+          setRepeatPickerOpen(false)
+          setTimePickerOpen(current => !current)
+        }}
+      >
+        <Clock3 aria-hidden="true" size={15} strokeWidth={1.7} />
+        <span>{t('time')}</span>
+        <span {...stylex.props(styles.settingValue)}>{mode === 'span' ? `${startAt.slice(11)} – ${endAt.slice(11)}` : dueTime || t('notSet')}</span>
+        <ChevronRight aria-hidden="true" size={14} />
+      </button>
+      {timePickerOpen && mode === 'date'
+        ? (
+            <FloatingPortal>
+              <TaskTimePicker
+                floatingStyle={timeFloatingStyles}
+                floatingOwnerId={id}
+                onChange={setDueTime}
+                onClear={() => setDueTime('')}
+                onClose={() => setTimePickerOpen(false)}
+                onFloatingRef={timeRefs.setFloating}
+                t={t}
+                value={dueTime}
+              />
+            </FloatingPortal>
+          )
         : null}
-      {calendarError !== null
-        ? <span {...stylex.props(styles.error)} role="alert">{t('couldNotLoadCalendars', { message: calendarError })}</span>
-        : calendarLoading
-          ? <span {...stylex.props(styles.status)} role="status">{t('loadingCalendars')}</span>
-          : null}
+      <button
+        ref={reminderRefs.setReference}
+        {...stylex.props(styles.settingRow, reminders.length > 0 && styles.settingRowSelected)}
+        disabled={updating}
+        type="button"
+        onClick={() => {
+          setTimePickerOpen(false)
+          setRepeatPickerOpen(false)
+          setReminderPickerOpen(current => !current)
+        }}
+      >
+        <Bell aria-hidden="true" size={15} strokeWidth={1.7} />
+        <span>{t('reminder')}</span>
+        <span {...stylex.props(styles.settingValue)}>{reminderSummary(reminders, t)}</span>
+        <ChevronRight aria-hidden="true" size={14} />
+      </button>
+      {reminderPickerOpen
+        ? (
+            <FloatingPortal>
+              <TaskReminderPicker
+                floatingOwnerId={id}
+                floatingStyle={reminderFloatingStyles}
+                onChange={setReminders}
+                onClear={() => setReminders([])}
+                onClose={() => setReminderPickerOpen(false)}
+                onFloatingRef={reminderRefs.setFloating}
+                reminders={reminders}
+                t={t}
+              />
+            </FloatingPortal>
+          )
+        : null}
+      <button
+        ref={refs.setReference}
+        {...stylex.props(styles.settingRow, repeatOpen && styles.settingRowSelected)}
+        disabled={updating}
+        type="button"
+        onClick={() => {
+          setTimePickerOpen(false)
+          setReminderPickerOpen(false)
+          setRepeatSnapshot(repeatOpen ? repeatRule : null)
+          setRepeatPickerMode('presets')
+          setRepeatPickerOpen(true)
+        }}
+      >
+        <Repeat2 aria-hidden="true" size={15} strokeWidth={1.7} />
+        <span>{t('repeat')}</span>
+        <span {...stylex.props(styles.settingValue)}>{repeatOpen ? repeatSummary(repeatRule, t) : t('repeatNone')}</span>
+        <ChevronRight aria-hidden="true" size={14} />
+      </button>
+      {repeatPickerOpen
+        ? (
+            <FloatingPortal>
+              <TaskRepeatPicker
+                baseDate={selectedDate ?? baseDate}
+                calendarEvents={calendarEvents}
+                calendarSubscriptions={calendarSubscriptions}
+                chinaRegion={isChinaRegion(t)}
+                draft={repeatRule}
+                floatingStyle={floatingStyles}
+                floatingOwnerId={id}
+                locale={translationLocale(t)}
+                mode={repeatPickerMode}
+                onCancel={() => {
+                  if (repeatSnapshot !== null)
+                    setRepeatDraft(repeatSnapshot)
+                  setRepeatOpen(repeatSnapshot !== null)
+                  setRepeatPickerOpen(false)
+                }}
+                onChange={(next) => {
+                  setRepeatDraft(next)
+                  setRepeatOpen(true)
+                }}
+                onClose={() => setRepeatPickerOpen(false)}
+                onDisable={() => {
+                  setRepeatOpen(false)
+                  setRepeatPickerOpen(false)
+                }}
+                onEditCustom={() => setRepeatPickerMode('custom')}
+                onFloatingRef={refs.setFloating}
+                t={t}
+              />
+            </FloatingPortal>
+          )
+        : null}
+      {calendarError !== null ? <span {...stylex.props(styles.error)} role="alert">{t('couldNotLoadCalendars', { message: calendarError })}</span> : calendarLoading ? <span {...stylex.props(styles.status)} role="status">{t('loadingCalendars')}</span> : null}
       {error !== null ? <span {...stylex.props(styles.error)} role="alert">{error}</span> : null}
+      <div {...stylex.props(styles.footer)}>
+        <button {...stylex.props(buttonStyles.action, styles.footerButton)} disabled={updating} type="button" onClick={clear}>{t('clearSchedule')}</button>
+        <button {...stylex.props(formControlStyles.primaryButton, styles.footerButton, styles.primaryAction)} disabled={updating} type="button" onClick={save}>{t('confirmSchedule')}</button>
+      </div>
     </div>
   )
 }

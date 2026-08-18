@@ -124,7 +124,7 @@ export const todoBoardViewStyles = stylex.create({
     paddingTop: 10,
     paddingRight: 40,
     paddingBottom: 10,
-    paddingLeft: 10,
+    paddingLeft: 36,
     backgroundColor: {
       'default': 'rgba(255, 255, 255, 0.78)',
       ':hover': 'rgba(255, 255, 255, 0.94)',
@@ -162,6 +162,12 @@ export const todoBoardViewStyles = stylex.create({
     position: 'absolute',
     top: 6,
     right: 6,
+  },
+  cardOccurrence: {
+    position: 'absolute',
+    zIndex: 1,
+    top: 9,
+    left: 8,
   },
   cardText: {
     overflow: 'hidden',

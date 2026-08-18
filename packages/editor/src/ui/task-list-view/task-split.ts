@@ -52,7 +52,12 @@ function initializeTaskAt(transaction: Transaction, position: number): boolean {
     ...node.attrs,
     ...EMPTY_TASK_ATTRS,
     dueDate: null,
+    dueTime: null,
+    endAt: null,
+    reminderMinutes: null,
+    reminders: null,
     repeatRule: null,
+    startAt: null,
   })
   return true
 }

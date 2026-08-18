@@ -71,6 +71,7 @@ export type {
   StoredTopicBlock,
   TodoCalendarEvent,
   TodoCalendarSubscription,
+  TodoReminder,
   TodoRepeatRule,
   TodoTask,
   TodoTaskPage,

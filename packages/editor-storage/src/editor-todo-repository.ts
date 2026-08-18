@@ -2,6 +2,7 @@ import type { EditorStorageDatabase, StorageOperationRunner } from './database-d
 import type {
   EditorTodoStorage,
   ListTodoTasksInput,
+  TodoReminder,
   TodoRepeatRule,
   TodoTask,
   TodoTaskPage,
@@ -12,6 +13,8 @@ import { resolveLimit } from './editor-storage-shared'
 interface TodoTaskRow {
   block_id: string
   due_date: string | null
+  due_time: string | null
+  end_at: string | null
   elapsed_ms: number | null
   journal_date: string | null
   note_id: string
@@ -19,6 +22,9 @@ interface TodoTaskRow {
   note_title: string
   parent_block_id: string | null
   repeat_rule: string | null
+  reminder_minutes: number | null
+  reminders: string | null
+  start_at: string | null
   started_at: number | null
   status: string | null
   text: string
@@ -58,6 +64,44 @@ function readFiniteNumber(value: number | null, name: string, allowNull: boolean
   return value
 }
 
+function readReminders(value: string | null, blockId: string): readonly TodoReminder[] | null {
+  if (value === null)
+    return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  }
+  catch (error) {
+    throw new TypeError(`Stored Todo task ${blockId} has invalid reminders`, { cause: error })
+  }
+  if (!Array.isArray(parsed) || parsed.length > 8)
+    throw new TypeError(`Stored Todo task ${blockId} has invalid reminders`)
+  const reminders: TodoReminder[] = []
+  for (const item of parsed) {
+    if (typeof item !== 'object' || item === null)
+      throw new TypeError(`Stored Todo task ${blockId} has invalid reminders`)
+    const candidate = item as Record<string, unknown>
+    if (candidate.kind === 'offset'
+      && typeof candidate.minutes === 'number'
+      && Number.isSafeInteger(candidate.minutes)
+      && candidate.minutes >= 0
+      && candidate.minutes <= 10080) {
+      reminders.push({ kind: 'offset', minutes: candidate.minutes })
+      continue
+    }
+    if (candidate.kind === 'time'
+      && typeof candidate.time === 'string'
+      && /^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(candidate.time)) {
+      reminders.push({ kind: 'time', time: candidate.time })
+      continue
+    }
+    throw new TypeError(`Stored Todo task ${blockId} has invalid reminders`)
+  }
+  if (new Set(reminders.map(reminder => JSON.stringify(reminder))).size !== reminders.length)
+    throw new TypeError(`Stored Todo task ${blockId} has duplicate reminders`)
+  return reminders
+}
+
 function toTodoTask(row: TodoTaskRow): TodoTask {
   if (row.status !== 'todo' && row.status !== 'doing' && row.status !== 'done')
     throw new TypeError(`Stored Todo task ${row.block_id} has an invalid status`)
@@ -70,6 +114,16 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
   const dueDate = row.due_date === null ? null : row.due_date
   if (dueDate !== null && !/^\d{4}-\d{2}-\d{2}$/u.test(dueDate))
     throw new TypeError(`Stored Todo task ${row.block_id} has an invalid due date`)
+  if (row.due_time !== null && !/^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(row.due_time))
+    throw new TypeError(`Stored Todo task ${row.block_id} has an invalid due time`)
+  if (row.start_at !== null && !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/u.test(row.start_at))
+    throw new TypeError(`Stored Todo task ${row.block_id} has an invalid start time`)
+  if (row.end_at !== null && !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/u.test(row.end_at))
+    throw new TypeError(`Stored Todo task ${row.block_id} has an invalid end time`)
+  if (row.reminder_minutes !== null
+    && (!Number.isSafeInteger(row.reminder_minutes) || row.reminder_minutes < 0 || row.reminder_minutes > 10080)) {
+    throw new TypeError(`Stored Todo task ${row.block_id} has an invalid reminder`)
+  }
   let repeatRule: TodoRepeatRule | null = null
   if (row.repeat_rule !== null) {
     let parsed: unknown
@@ -82,8 +136,8 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     if (parsed === null || typeof parsed !== 'object')
       throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat metadata`)
     const candidate = parsed as Record<string, unknown>
-    if ((candidate.mode !== 'due' && candidate.mode !== 'completion')
-      || (candidate.unit !== 'day' && candidate.unit !== 'week' && candidate.unit !== 'month' && candidate.unit !== 'year' && candidate.unit !== 'holiday')
+    if ((candidate.mode !== 'due' && candidate.mode !== 'completion' && candidate.mode !== 'custom')
+      || (candidate.unit !== 'day' && candidate.unit !== 'week' && candidate.unit !== 'month' && candidate.unit !== 'year' && candidate.unit !== 'holiday' && candidate.unit !== 'lunar')
       || typeof candidate.interval !== 'number'
       || !Number.isSafeInteger(candidate.interval)
       || candidate.interval < 1
@@ -92,6 +146,12 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     }
     if (candidate.calendarId !== undefined && (typeof candidate.calendarId !== 'string' || candidate.calendarId.length === 0))
       throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat calendar`)
+    if (candidate.anchorDate !== undefined && (typeof candidate.anchorDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(candidate.anchorDate)))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat anchor date`)
+    if (candidate.mode === 'custom' && candidate.anchorDate === undefined)
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid custom repeat anchor date`)
+    if (candidate.endDate !== undefined && (typeof candidate.endDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(candidate.endDate)))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat end date`)
     if (candidate.holidayPolicy !== undefined
       && candidate.holidayPolicy !== 'allow'
       && candidate.holidayPolicy !== 'skip'
@@ -103,7 +163,38 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
         || candidate.weekdays.some(day => typeof day !== 'number' || !Number.isInteger(day) || day < 0 || day > 6))) {
       throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat weekdays`)
     }
-    if ((candidate.unit === 'holiday' || (candidate.holidayPolicy !== undefined && candidate.holidayPolicy !== 'allow'))
+    if (candidate.monthMode !== undefined && candidate.monthMode !== 'date' && candidate.monthMode !== 'weekday' && candidate.monthMode !== 'workday')
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat month mode`)
+    if (candidate.yearMode !== undefined && candidate.yearMode !== 'date' && candidate.yearMode !== 'weekday')
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat year mode`)
+    const validOrdinal = (value: unknown): boolean => value === -1 || value === 1 || value === 2 || value === 3 || value === 4 || value === 5
+    if (candidate.monthOrdinal !== undefined && !validOrdinal(candidate.monthOrdinal))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat month ordinal`)
+    if (candidate.yearOrdinal !== undefined && !validOrdinal(candidate.yearOrdinal))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat year ordinal`)
+    const validDay = (value: unknown): boolean => value === 'last' || (typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= 31)
+    if (candidate.monthDay !== undefined && !validDay(candidate.monthDay))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat month day`)
+    if (candidate.yearDay !== undefined && !validDay(candidate.yearDay))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat year day`)
+    const validMonth = (value: unknown): boolean => typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= 12
+    if (candidate.yearMonth !== undefined && !validMonth(candidate.yearMonth))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat year month`)
+    if (candidate.lunarMonth !== undefined && !validMonth(candidate.lunarMonth))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat lunar month`)
+    if (candidate.lunarDay !== undefined && (typeof candidate.lunarDay !== 'number' || !Number.isSafeInteger(candidate.lunarDay) || candidate.lunarDay < 1 || candidate.lunarDay > 30))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat lunar day`)
+    if (candidate.unit === 'lunar' && (candidate.lunarMonth === undefined || candidate.lunarDay === undefined))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid lunar repeat date`)
+    if (candidate.monthWeekday !== undefined && (typeof candidate.monthWeekday !== 'number' || !Number.isInteger(candidate.monthWeekday) || candidate.monthWeekday < 0 || candidate.monthWeekday > 6))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat month weekday`)
+    if (candidate.yearWeekday !== undefined && (typeof candidate.yearWeekday !== 'number' || !Number.isInteger(candidate.yearWeekday) || candidate.yearWeekday < 0 || candidate.yearWeekday > 6))
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat year weekday`)
+    if (candidate.skipHolidays !== undefined && typeof candidate.skipHolidays !== 'boolean')
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat holiday skip`)
+    if (candidate.skipWeekends !== undefined && typeof candidate.skipWeekends !== 'boolean')
+      throw new TypeError(`Stored Todo task ${row.block_id} has invalid repeat weekend skip`)
+    if ((candidate.unit === 'holiday' || candidate.skipHolidays === true || (candidate.holidayPolicy !== undefined && candidate.holidayPolicy !== 'allow'))
       && typeof candidate.calendarId !== 'string') {
       throw new TypeError(`Stored Todo task ${row.block_id} has invalid holiday repeat calendar`)
     }
@@ -112,6 +203,8 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
   return {
     blockId: row.block_id,
     dueDate,
+    dueTime: row.due_time,
+    endAt: row.end_at,
     elapsedMs: readFiniteNumber(row.elapsed_ms, 'elapsedMs', false),
     journalDate: row.journal_date,
     noteId: row.note_id,
@@ -119,6 +212,9 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     noteTitle: row.note_title,
     parentId: row.parent_block_id,
     repeatRule,
+    reminderMinutes: row.reminder_minutes,
+    reminders: readReminders(row.reminders, row.block_id),
+    startAt: row.start_at,
     startedAt: readFiniteNumber(row.started_at, 'startedAt', true),
     status: row.status,
     text: row.text,
@@ -154,10 +250,15 @@ export class EditorTodoRepository implements EditorTodoStorage {
           block.parent_block_id,
           block.text,
           json_extract(block.attributes_json, '$.dueDate') AS due_date,
+          json_extract(block.attributes_json, '$.dueTime') AS due_time,
+          json_extract(block.attributes_json, '$.endAt') AS end_at,
           json_extract(block.attributes_json, '$.elapsedMs') AS elapsed_ms,
           json_extract(block.attributes_json, '$.startedAt') AS started_at,
           json_extract(block.attributes_json, '$.status') AS status,
           json_extract(block.attributes_json, '$.repeatRule') AS repeat_rule,
+          json_extract(block.attributes_json, '$.reminderMinutes') AS reminder_minutes,
+          json_extract(block.attributes_json, '$.reminders') AS reminders,
+          json_extract(block.attributes_json, '$.startAt') AS start_at,
           journal.journal_date,
           note.id AS note_id,
           CASE WHEN favorite.note_row_id IS NULL THEN 0 ELSE 1 END AS note_favorite,

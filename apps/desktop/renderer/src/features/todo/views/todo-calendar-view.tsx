@@ -2,17 +2,20 @@ import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, Desktop
 import type { DesktopWeekStart } from '@memorilo/desktop-config'
 import type { Dayjs } from 'dayjs'
 import type { TFunction } from 'i18next'
+import { previewTaskRecurrenceDates } from '@memorilo/editor/task'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { groupTodoTasksByDate, todoTaskKey } from '../todo-model'
+import { taskPlanningDate, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
+import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
 import { todoCalendarViewStyles as styles } from './todo-calendar-view.stylex'
 import { todoPlanningViewStyles as planningStyles } from './todo-planning-view.stylex'
 
 type CalendarItem
   = | { event: DesktopTodoCalendarEvent, kind: 'event' }
+    | { date: string, kind: 'prediction', task: DesktopTodoTask }
     | { kind: 'task', task: DesktopTodoTask }
 
 function formatDate(date: Dayjs, locale: string): string {
@@ -41,9 +44,11 @@ function calendarDays(month: Dayjs, weekStart: DesktopWeekStart): readonly Dayjs
 }
 
 function calendarItemKey(item: CalendarItem): string {
-  return item.kind === 'task'
-    ? todoTaskKey(item.task)
-    : `${item.event.subscriptionId}:${item.event.uid}:${item.event.startDate}`
+  if (item.kind === 'task')
+    return todoTaskKey(item.task)
+  if (item.kind === 'prediction')
+    return `${todoTaskKey(item.task)}:prediction:${item.date}`
+  return `${item.event.subscriptionId}:${item.event.uid}:${item.event.startDate}`
 }
 
 function PeriodButton({
@@ -96,18 +101,26 @@ function CalendarTaskItem({
         type="button"
         onClick={() => void onOpenTask(task)}
       >
-        <span
-          {...stylex.props(
-            styles.taskStatus,
-            task.status === 'doing' && styles.taskStatusDoing,
-            task.status === 'done' && styles.taskStatusDone,
+        <TodoTaskOccurrenceActions
+          calendarEvents={calendarEvents}
+          onUpdateTask={onUpdateTask}
+          t={t}
+          task={task}
+          triggerContent={(
+            <span
+              {...stylex.props(
+                styles.taskStatus,
+                task.status === 'doing' && styles.taskStatusDoing,
+                task.status === 'done' && styles.taskStatusDone,
+              )}
+              aria-hidden="true"
+            />
           )}
-          aria-hidden="true"
         />
         <span {...stylex.props(styles.taskText, task.status === 'done' && styles.taskTextDone)}>{task.text}</span>
       </button>
       <div {...stylex.props(styles.taskActions)}>
-        <TodoTaskActions compact calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onUpdateTask={onUpdateTask} t={t} task={task} />
+        <TodoTaskActions compact calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onUpdateTask={onUpdateTask} t={t} task={task} triggerContent={<span>{task.startAt?.slice(11) ?? task.dueTime ?? ''}</span>} />
       </div>
     </div>
   )
@@ -122,6 +135,17 @@ function CalendarEventItem({ event }: { event: DesktopTodoCalendarEvent }) {
       <span {...stylex.props(styles.eventAccent)} aria-hidden="true" />
       <span {...stylex.props(styles.eventText)}>{event.title}</span>
       <span {...stylex.props(styles.eventSource)}>{event.subscriptionTitle}</span>
+    </div>
+  )
+}
+
+function CalendarPredictionItem({ task, t }: { task: DesktopTodoTask, t: TFunction }) {
+  return (
+    <div {...stylex.props(styles.predictionShell)} title={t('repeatPrediction', { task: task.text })}>
+      <div {...stylex.props(styles.predictionPreview)}>
+        <span {...stylex.props(styles.predictionStatus)} aria-hidden="true" />
+        <span {...stylex.props(styles.predictionText)}>{task.text}</span>
+      </div>
     </div>
   )
 }
@@ -145,6 +169,8 @@ function CalendarItemRow({
 }) {
   if (item.kind === 'event')
     return <CalendarEventItem event={item.event} />
+  if (item.kind === 'prediction')
+    return <CalendarPredictionItem t={t} task={item.task} />
   return <CalendarTaskItem calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
 }
 
@@ -172,7 +198,32 @@ export function TodoCalendarView({
   const today = dayjs(now).startOf('day')
   const [activeMonth, setActiveMonth] = useState(() => today.startOf('month'))
   const [selectedDate, setSelectedDate] = useState(() => today.format('YYYY-MM-DD'))
-  const grouped = useMemo(() => groupTodoTasksByDate(tasks), [tasks])
+  const days = useMemo(() => calendarDays(activeMonth, weekStart), [activeMonth, weekStart])
+  const grouped = useMemo(() => {
+    const result = new Map<string, CalendarItem[]>()
+    const add = (date: string, item: CalendarItem) => {
+      const current = result.get(date)
+      if (current)
+        current.push(item)
+      else
+        result.set(date, [item])
+    }
+    for (const task of tasks) {
+      const date = taskPlanningDate(task)
+      if (date !== null)
+        add(date, { kind: 'task', task })
+      if (!task.repeatRule || date === null)
+        continue
+      const previewDates = previewTaskRecurrenceDates(date, task.repeatRule, {
+        calendarEvents,
+        from: days[0]?.format('YYYY-MM-DD') ?? activeMonth.startOf('month').format('YYYY-MM-DD'),
+        through: days.at(-1)?.format('YYYY-MM-DD') ?? activeMonth.endOf('month').format('YYYY-MM-DD'),
+      })
+      for (const previewDate of previewDates)
+        add(previewDate, { date: previewDate, kind: 'prediction', task })
+    }
+    return result
+  }, [activeMonth, calendarEvents, days, tasks])
   const eventsByDate = useMemo(() => {
     const groupedEvents = new Map<string, DesktopTodoCalendarEvent[]>()
     for (const event of calendarEvents) {
@@ -184,7 +235,6 @@ export function TodoCalendarView({
     }
     return groupedEvents
   }, [calendarEvents])
-  const days = useMemo(() => calendarDays(activeMonth, weekStart), [activeMonth, weekStart])
   const labels = weekdayLabels(locale, weekStart)
 
   const selectMonth = (month: Dayjs) => {
@@ -228,10 +278,10 @@ export function TodoCalendarView({
             <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(activeMonth, locale)}>
               {days.map((date, dayIndex) => {
                 const dateKey = date.format('YYYY-MM-DD')
-                const dateTasks = grouped.get(dateKey) ?? []
+                const dateItems = grouped.get(dateKey) ?? []
                 const dateEvents = eventsByDate.get(dateKey) ?? []
                 const items: readonly CalendarItem[] = [
-                  ...dateTasks.map(task => ({ kind: 'task' as const, task })),
+                  ...dateItems,
                   ...dateEvents.map(event => ({ event, kind: 'event' as const })),
                 ]
                 const visibleItems = items.slice(0, 3)
@@ -243,7 +293,7 @@ export function TodoCalendarView({
                   <div
                     key={dateKey}
                     {...stylex.props(styles.cell, !inMonth && styles.cellNeighbor)}
-                    aria-label={t('calendarDay', { date: formatDate(date, locale), count: dateTasks.length + dateEvents.length })}
+                    aria-label={t('calendarDay', { date: formatDate(date, locale), count: items.length })}
                     aria-selected={isSelected}
                     role="gridcell"
                   >

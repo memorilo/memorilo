@@ -1,0 +1,48 @@
+import type { TFunction } from 'i18next'
+import type { CSSProperties } from 'react'
+import * as stylex from '@stylexjs/stylex'
+import { X } from 'lucide-react'
+import { buttonStyles } from '../ui/button/button.stylex'
+import { formControlStyles } from '../ui/form-controls/form-controls.stylex'
+import { taskTimePickerStyles as styles } from './task-time-picker.stylex'
+
+export interface TaskTimePickerProps {
+  floatingStyle: CSSProperties
+  floatingOwnerId?: string
+  onChange: (value: string) => void
+  onClear: () => void
+  onClose: () => void
+  onFloatingRef: (element: HTMLDivElement | null) => void
+  t: TFunction
+  value: string
+}
+
+export function TaskTimePicker({
+  floatingStyle,
+  floatingOwnerId,
+  onChange,
+  onClear,
+  onClose,
+  onFloatingRef,
+  t,
+  value,
+}: TaskTimePickerProps) {
+  return (
+    <div ref={onFloatingRef} {...stylex.props(styles.popover)} data-task-action-floating-owner={floatingOwnerId} style={floatingStyle} role="dialog" aria-label={t('time')}>
+      <div {...stylex.props(styles.heading)}>
+        <span>{t('time')}</span>
+        <button {...stylex.props(buttonStyles.action, styles.closeButton)} aria-label={t('close')} title={t('close')} type="button" onClick={onClose}>
+          <X aria-hidden="true" size={14} strokeWidth={1.9} />
+        </button>
+      </div>
+      <input
+        {...stylex.props(formControlStyles.textInput, styles.input)}
+        aria-label={t('time')}
+        type="time"
+        value={value}
+        onChange={event => onChange(event.target.value)}
+      />
+      <button {...stylex.props(buttonStyles.action, styles.clearButton)} type="button" onClick={onClear}>{t('clearTime')}</button>
+    </div>
+  )
+}
