@@ -12,13 +12,15 @@ import { TextSelection } from 'prosekit/pm/state'
 import { useEditor } from 'prosekit/react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { parseTaskDueDate, parseTaskRepeatRule } from '../../schema'
+import { parseTaskDateTime, parseTaskDueDate, parseTaskReminderMinutes, parseTaskReminders, parseTaskRepeatRule, parseTaskTime } from '../../schema'
 import { planTaskAction } from '../../task/task-action-model'
 import { TaskActionPanel } from '../../task/task-action-panel'
+import { TaskOccurrencePanel } from '../../task/task-occurrence-panel'
 import { floatingTransformOrigin } from '../floating-surface/floating-position'
 
 interface TaskMenuTarget {
   blockId: string
+  kind: 'occurrence' | 'schedule'
   trigger: HTMLButtonElement
 }
 
@@ -45,6 +47,21 @@ function taskNodeAt(editor: Editor<BasicExtension>, blockId: string, defaultDate
     const repeatRule = node.attrs.repeatRule === null ? null : parseTaskRepeatRule(node.attrs.repeatRule)
     if (node.attrs.repeatRule !== null && repeatRule === null)
       throw new TypeError(`Task ${blockId} has an invalid repeat rule`)
+    const dueTime = node.attrs.dueTime === null ? null : parseTaskTime(node.attrs.dueTime)
+    if (node.attrs.dueTime !== null && dueTime === null)
+      throw new TypeError(`Task ${blockId} has an invalid due time`)
+    const startAt = node.attrs.startAt === null ? null : parseTaskDateTime(node.attrs.startAt)
+    if (node.attrs.startAt !== null && startAt === null)
+      throw new TypeError(`Task ${blockId} has an invalid start time`)
+    const endAt = node.attrs.endAt === null ? null : parseTaskDateTime(node.attrs.endAt)
+    if (node.attrs.endAt !== null && endAt === null)
+      throw new TypeError(`Task ${blockId} has an invalid end time`)
+    const reminderMinutes = node.attrs.reminderMinutes === null ? null : parseTaskReminderMinutes(node.attrs.reminderMinutes)
+    if (node.attrs.reminderMinutes !== null && reminderMinutes === null)
+      throw new TypeError(`Task ${blockId} has an invalid reminder`)
+    const reminders = node.attrs.reminders === null ? null : parseTaskReminders(node.attrs.reminders)
+    if (node.attrs.reminders !== null && reminders === null)
+      throw new TypeError(`Task ${blockId} has invalid reminders`)
     if (node.attrs.status !== 'todo' && node.attrs.status !== 'doing' && node.attrs.status !== 'done')
       throw new TypeError(`Task ${blockId} has an invalid status`)
     const text = node.firstChild?.textContent ?? ''
@@ -53,9 +70,14 @@ function taskNodeAt(editor: Editor<BasicExtension>, blockId: string, defaultDate
       position,
       task: {
         dueDate,
+        dueTime,
+        endAt,
         occurrenceDate: dueDate ?? defaultDate,
+        reminderMinutes,
+        reminders,
         repeatRule,
         status: node.attrs.status,
+        startAt,
         text,
       },
       text,
@@ -120,13 +142,19 @@ function applyTaskAction(
   editor.view.dispatch(transaction.scrollIntoView())
 }
 
-function taskTriggerFromTarget(target: EventTarget | null, editor: Editor<BasicExtension>): HTMLButtonElement | null {
+function taskTriggerFromTarget(target: EventTarget | null, editor: Editor<BasicExtension>, selector: string): HTMLButtonElement | null {
   if (!(target instanceof Element))
     return null
-  const trigger = target.closest<HTMLButtonElement>('[data-task-menu-trigger]')
+  const trigger = target.closest<HTMLButtonElement>(selector)
   if (!(trigger instanceof HTMLButtonElement) || !editor.view.dom.contains(trigger))
     return null
   return trigger
+}
+
+function eventBelongsToNestedTaskAction(event: Event, ownerId: string): boolean {
+  return event.composedPath().some((target) => {
+    return target instanceof HTMLElement && target.dataset.taskActionFloatingOwner === ownerId
+  })
 }
 
 export function EditorTaskMenu({ adapters, taskDate }: {
@@ -165,7 +193,7 @@ export function EditorTaskMenu({ adapters, taskDate }: {
       }),
     ],
     open: target !== null,
-    placement: 'bottom-end',
+    placement: target?.kind === 'occurrence' ? 'bottom-start' : 'bottom-end',
     strategy: 'fixed',
     transform: false,
     whileElementsMounted: autoUpdate,
@@ -222,7 +250,7 @@ export function EditorTaskMenu({ adapters, taskDate }: {
   useEffect(() => {
     const editorElement = editor.view.dom
     const handleClick = (event: MouseEvent) => {
-      const trigger = taskTriggerFromTarget(event.target, editor)
+      const trigger = taskTriggerFromTarget(event.target, editor, '[data-task-menu-trigger]')
       if (!trigger)
         return
       const block = trigger.closest<HTMLElement>('[data-block-id]')
@@ -236,10 +264,32 @@ export function EditorTaskMenu({ adapters, taskDate }: {
         return
       }
       loadCalendars()
-      setTriggerOpen({ blockId, trigger })
+      setTriggerOpen({ blockId, kind: 'schedule', trigger })
     }
     editorElement.addEventListener('click', handleClick)
-    return () => editorElement.removeEventListener('click', handleClick)
+    const handleContextMenu = (event: MouseEvent) => {
+      const trigger = taskTriggerFromTarget(event.target, editor, '[data-task-occurrence-trigger]')
+      if (!trigger)
+        return
+      const block = trigger.closest<HTMLElement>('[data-block-id]')
+      const blockId = block?.dataset.blockId
+      if (!blockId)
+        throw new Error('Recurring task trigger is missing its block id')
+      event.preventDefault()
+      event.stopPropagation()
+      if (targetRef.current?.trigger === trigger) {
+        setTriggerOpen(null)
+        editor.view.focus()
+        return
+      }
+      loadCalendars()
+      setTriggerOpen({ blockId, kind: 'occurrence', trigger })
+    }
+    editorElement.addEventListener('contextmenu', handleContextMenu)
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+      editorElement.removeEventListener('contextmenu', handleContextMenu)
+    }
   }, [editor, loadCalendars, setTriggerOpen])
 
   useEffect(() => {
@@ -260,7 +310,9 @@ export function EditorTaskMenu({ adapters, taskDate }: {
     const handlePointerDown = (event: PointerEvent) => {
       const eventTarget = event.target
       if (eventTarget instanceof Node
-        && (target.trigger.contains(eventTarget) || panelRef.current?.contains(eventTarget))) {
+        && (target.trigger.contains(eventTarget)
+          || panelRef.current?.contains(eventTarget)
+          || eventBelongsToNestedTaskAction(event, menuId))) {
         return
       }
       close(false)
@@ -271,7 +323,14 @@ export function EditorTaskMenu({ adapters, taskDate }: {
       event.preventDefault()
       close(true)
     }
-    const handleViewportChange = () => close(false)
+    const handleViewportChange = (event: Event) => {
+      const eventTarget = event.target
+      if (eventTarget instanceof Node
+        && (panelRef.current?.contains(eventTarget) || eventBelongsToNestedTaskAction(event, menuId))) {
+        return
+      }
+      close(false)
+    }
     window.addEventListener('pointerdown', handlePointerDown, true)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('resize', handleViewportChange)
@@ -282,7 +341,7 @@ export function EditorTaskMenu({ adapters, taskDate }: {
       window.removeEventListener('resize', handleViewportChange)
       document.removeEventListener('scroll', handleViewportChange, true)
     }
-  }, [setTriggerOpen, target])
+  }, [menuId, setTriggerOpen, target])
 
   useLayoutEffect(() => {
     if (!target || !isPositioned || !panelRef.current)
@@ -298,32 +357,58 @@ export function EditorTaskMenu({ adapters, taskDate }: {
 
   return (
     <FloatingPortal>
-      <TaskActionPanel
-        key={`${target.blockId}:${task.dueDate ?? ''}:${JSON.stringify(task.repeatRule)}`}
-        calendarError={calendarError}
-        calendarEvents={snapshot.events}
-        calendarLoading={calendarLoading}
-        calendarSubscriptions={snapshot.subscriptions}
-        editText={false}
-        id={menuId}
-        panelRef={floatingRef}
-        style={{
-          ...floatingStyles,
-          transformOrigin: floatingTransformOrigin(placement),
-        }}
-        t={t}
-        task={task}
-        visible={isPositioned}
-        onUpdate={(input) => {
-          if (input.status === 'done' && task.repeatRule && adapters.taskActions)
-            return adapters.taskActions.completeRecurring({ blockId: target.blockId })
-          applyTaskAction(editor, target.blockId, defaultDate, input)
-        }}
-        onUpdated={() => {
-          setTriggerOpen(null)
-          editor.view.focus()
-        }}
-      />
+      {target.kind === 'schedule'
+        ? (
+            <TaskActionPanel
+              key={`${target.blockId}:${task.dueDate ?? ''}:${task.dueTime ?? ''}:${task.startAt ?? ''}:${task.endAt ?? ''}:${task.reminderMinutes ?? ''}:${JSON.stringify(task.reminders)}:${JSON.stringify(task.repeatRule)}`}
+              calendarError={calendarError}
+              calendarEvents={snapshot.events}
+              calendarLoading={calendarLoading}
+              calendarSubscriptions={snapshot.subscriptions}
+              id={menuId}
+              panelRef={floatingRef}
+              style={{
+                ...floatingStyles,
+                transformOrigin: floatingTransformOrigin(placement),
+              }}
+              t={t}
+              task={task}
+              visible={isPositioned}
+              onUpdate={(input) => {
+                if (input.status === 'done' && task.repeatRule && adapters.taskActions)
+                  return adapters.taskActions.completeRecurring({ blockId: target.blockId })
+                applyTaskAction(editor, target.blockId, defaultDate, input)
+              }}
+              onUpdated={() => {
+                setTriggerOpen(null)
+                editor.view.focus()
+              }}
+            />
+          )
+        : (
+            <TaskOccurrencePanel
+              key={`${target.blockId}:${task.dueDate ?? ''}:${JSON.stringify(task.repeatRule)}:${task.text}`}
+              calendarEvents={snapshot.events}
+              id={menuId}
+              panelRef={floatingRef}
+              style={{
+                ...floatingStyles,
+                transformOrigin: floatingTransformOrigin(placement),
+              }}
+              t={t}
+              task={task}
+              visible={isPositioned}
+              onUpdate={(input) => {
+                if (input.status === 'done' && task.repeatRule && adapters.taskActions)
+                  return adapters.taskActions.completeRecurring({ blockId: target.blockId })
+                applyTaskAction(editor, target.blockId, defaultDate, input)
+              }}
+              onUpdated={() => {
+                setTriggerOpen(null)
+                editor.view.focus()
+              }}
+            />
+          )}
     </FloatingPortal>
   )
 }

@@ -18,4 +18,11 @@ export {
   planRecurringTaskOccurrences,
   resetTaskForNextOccurrence,
 } from './task-completion'
-export { nextTaskOccurrenceDate, taskRepeatBaseDate } from './task-recurrence'
+export {
+  lunarDateForGregorian,
+  nextTaskOccurrenceDate,
+  previewTaskRecurrenceDates,
+  taskRepeatBaseDate,
+  taskRepeatContinuesOn,
+} from './task-recurrence'
+export type { TaskRecurrencePreviewOptions } from './task-recurrence'

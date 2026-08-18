@@ -4,6 +4,8 @@ import * as stylex from '@stylexjs/stylex'
 import { Circle, CircleCheck, CircleDotDashed } from 'lucide-react'
 import { formatTaskDuration, groupTodoTasks, taskElapsedMs, todoStatuses, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
+import { TodoTaskMetadata } from '../todo-task-metadata'
+import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
 import { todoBoardViewStyles as styles } from './todo-board-view.stylex'
 
 function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
@@ -32,6 +34,7 @@ export function TodoBoardView({
   calendarEvents,
   calendarSubscriptions,
   isFetchingMore,
+  locale,
   now,
   onOpenTask,
   onUpdateTask,
@@ -41,6 +44,7 @@ export function TodoBoardView({
   calendarEvents: readonly DesktopTodoCalendarEvent[]
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   isFetchingMore: boolean
+  locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
@@ -69,6 +73,15 @@ export function TodoBoardView({
                       const elapsed = formatTaskDuration(taskElapsedMs(task, now))
                       return (
                         <div {...stylex.props(styles.cardShell)} key={todoTaskKey(task)}>
+                          <div {...stylex.props(styles.cardOccurrence)}>
+                            <TodoTaskOccurrenceActions
+                              calendarEvents={calendarEvents}
+                              onUpdateTask={onUpdateTask}
+                              t={t}
+                              task={task}
+                              triggerContent={<TaskStatusIcon status={task.status} />}
+                            />
+                          </div>
                           <button
                             {...stylex.props(styles.card)}
                             aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
@@ -79,12 +92,11 @@ export function TodoBoardView({
                             <span {...stylex.props(styles.cardText, task.status === 'done' && styles.taskDone)}>{task.text}</span>
                             <span {...stylex.props(styles.cardSource)}>{t('source', { note: task.noteTitle, topic: task.topicTitle })}</span>
                             <span {...stylex.props(styles.cardFooter)}>
-                              <span>{t('elapsed', { duration: elapsed })}</span>
                               <span aria-hidden="true">›</span>
                             </span>
                           </button>
                           <div {...stylex.props(styles.cardActions)}>
-                            <TodoTaskActions calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} onUpdateTask={onUpdateTask} t={t} task={task} />
+                            <TodoTaskActions calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} onUpdateTask={onUpdateTask} t={t} task={task} triggerContent={<TodoTaskMetadata compact dueDate={task.dueDate} dueTime={task.dueTime} endAt={task.endAt} elapsed={elapsed} locale={locale} now={now} startAt={task.startAt} t={t} />} />
                           </div>
                         </div>
                       )

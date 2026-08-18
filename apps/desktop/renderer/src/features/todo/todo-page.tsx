@@ -200,6 +200,7 @@ export function TodoPage({
         hasNextPage={Boolean(tasksQuery.hasNextPage)}
         isFetchNextPageError={tasksQuery.isFetchNextPageError}
         isFetchingNextPage={tasksQuery.isFetchingNextPage}
+        locale={i18n.language}
         now={now}
         onFetchNextPage={loadNextPage}
         onOpenTask={onOpenTask}
@@ -216,6 +217,7 @@ export function TodoPage({
         calendarEvents={calendarEvents}
         calendarSubscriptions={calendarSubscriptions}
         isFetchingMore={tasksQuery.isFetchingNextPage}
+        locale={i18n.language}
         now={now}
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
@@ -258,6 +260,7 @@ export function TodoPage({
       <TodoQuadrantView
         calendarEvents={calendarEvents}
         calendarSubscriptions={calendarSubscriptions}
+        locale={i18n.language}
         now={now}
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}

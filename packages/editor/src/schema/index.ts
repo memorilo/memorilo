@@ -1,5 +1,14 @@
-export type { TaskRepeatRule, TaskStatus, TaskTimingAttrs } from './task-schema'
-export { parseTaskDueDate, parseTaskRepeatRule, readTaskStatus, transitionTaskAttrs } from './task-schema'
+export type { TaskReminder, TaskRepeatRule, TaskScheduleAttrs, TaskStatus, TaskTimingAttrs } from './task-schema'
+export {
+  parseTaskDateTime,
+  parseTaskDueDate,
+  parseTaskReminderMinutes,
+  parseTaskReminders,
+  parseTaskRepeatRule,
+  parseTaskTime,
+  readTaskStatus,
+  transitionTaskAttrs,
+} from './task-schema'
 export type {
   LoroBookTopic,
   LoroImageOcclusionTopic,

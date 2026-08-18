@@ -410,17 +410,40 @@ export interface StoredTopicBlock extends TopicBlockProjection {
 
 export type TodoTaskStatus = 'todo' | 'doing' | 'done'
 
-export type TodoRepeatMode = 'due' | 'completion'
-export type TodoRepeatUnit = 'day' | 'week' | 'month' | 'year' | 'holiday'
+export type TodoReminder
+  = | { kind: 'offset', minutes: number }
+    | { kind: 'time', time: string }
+
+export type TodoRepeatMode = 'due' | 'completion' | 'custom'
+export type TodoRepeatUnit = 'day' | 'week' | 'month' | 'year' | 'holiday' | 'lunar'
 export type TodoRepeatHolidayPolicy = 'allow' | 'skip' | 'next-workday'
+export type TodoRepeatMonthMode = 'date' | 'weekday' | 'workday'
+export type TodoRepeatYearMode = 'date' | 'weekday'
+export type TodoRepeatOrdinal = -1 | 1 | 2 | 3 | 4 | 5
+export type TodoRepeatDayOfMonth = number | 'last'
 
 export interface TodoRepeatRule {
+  anchorDate?: JournalDate
   calendarId?: string
+  endDate?: JournalDate
   holidayPolicy?: TodoRepeatHolidayPolicy
   interval: number
+  lunarDay?: number
+  lunarMonth?: number
   mode: TodoRepeatMode
+  monthDay?: TodoRepeatDayOfMonth
+  monthMode?: TodoRepeatMonthMode
+  monthOrdinal?: TodoRepeatOrdinal
+  monthWeekday?: number
+  skipHolidays?: boolean
+  skipWeekends?: boolean
   unit: TodoRepeatUnit
   weekdays?: readonly number[]
+  yearDay?: TodoRepeatDayOfMonth
+  yearMode?: TodoRepeatYearMode
+  yearMonth?: number
+  yearOrdinal?: TodoRepeatOrdinal
+  yearWeekday?: number
 }
 
 export interface ListTodoTasksInput {
@@ -432,8 +455,13 @@ export interface ListTodoTasksInput {
 export interface UpdateTodoTaskInput {
   blockId: string
   dueDate?: JournalDate | null
+  dueTime?: string | null
+  endAt?: string | null
   noteId: string
+  reminderMinutes?: number | null
+  reminders?: readonly TodoReminder[] | null
   repeatRule?: TodoRepeatRule | null
+  startAt?: string | null
   status?: TodoTaskStatus
   text?: string
   topicId: string
@@ -442,6 +470,8 @@ export interface UpdateTodoTaskInput {
 export interface TodoTask {
   blockId: string
   dueDate: JournalDate | null
+  dueTime: string | null
+  endAt: string | null
   elapsedMs: number
   journalDate: JournalDate | null
   noteId: string
@@ -449,6 +479,9 @@ export interface TodoTask {
   noteTitle: string
   parentId: string | null
   repeatRule: TodoRepeatRule | null
+  reminderMinutes: number | null
+  reminders: readonly TodoReminder[] | null
+  startAt: string | null
   startedAt: number | null
   status: TodoTaskStatus
   text: string

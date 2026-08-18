@@ -91,6 +91,18 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
     marker.classList.remove('list-marker-click-target')
     const status = effectiveStatus(initialNode.attrs)
     const button = createTaskControl(status)
+    const markOccurrenceTrigger = (attrs: Record<string, unknown>) => {
+      const repeatRule = parseTaskRepeatRule(attrs.repeatRule)
+      if (view.editable && repeatRule) {
+        button.dataset.taskOccurrenceTrigger = ''
+        button.setAttribute('aria-haspopup', 'dialog')
+      }
+      else {
+        delete button.dataset.taskOccurrenceTrigger
+        button.removeAttribute('aria-haspopup')
+      }
+    }
+    markOccurrenceTrigger(initialNode.attrs)
     marker.replaceChildren(button)
 
     const time = document.createElement('span')
@@ -146,7 +158,10 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
           view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...currentNode.attrs, ...attrs }))
         }, 0)
       : null
-    const onMouseDown = (event: MouseEvent) => event.preventDefault()
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.button === 0)
+        event.preventDefault()
+    }
     const onClick = (event: MouseEvent) => {
       event.preventDefault()
       const pos = getPos()
@@ -177,6 +192,7 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
 
     const renderTranslation = () => {
       button.setAttribute('aria-label', taskStatusLabel(effectiveStatus(node.attrs)))
+      markOccurrenceTrigger(node.attrs)
       if (view.editable) {
         menuButton.setAttribute('aria-label', taskActionsLabel())
         menuButton.title = taskActionsLabel()

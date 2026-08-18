@@ -38,4 +38,18 @@ export const todoTaskActionStyles = stylex.create({
     },
     color: 'rgba(18, 64, 111, 0.58)',
   },
+  scheduleSummary: {
+    width: 'auto',
+    minWidth: 0,
+    maxWidth: 220,
+    height: 'auto',
+    minHeight: 28,
+    justifyContent: 'flex-end',
+    paddingInline: 4,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(255, 255, 255, 0.62)',
+      ':active': 'rgba(225, 230, 238, 0.78)',
+    },
+  },
 })

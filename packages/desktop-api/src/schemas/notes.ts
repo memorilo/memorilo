@@ -33,6 +33,14 @@ export const JournalDateSchema: EffectSchema.Codec<JournalDate> = Schema.String.
   Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/u),
 )
 
+export const TaskTimeSchema = Schema.String.check(Schema.isPattern(/^(?:[01]\d|2[0-3]):[0-5]\d$/u))
+export const TaskDateTimeSchema = Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/u))
+export const TaskReminderMinutesSchema = Schema.Int.check(Schema.isBetween({ maximum: 10080, minimum: 0 }))
+export const TaskReminderSchema = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal('offset'), minutes: TaskReminderMinutesSchema }),
+  Schema.Struct({ kind: Schema.Literal('time'), time: TaskTimeSchema }),
+])
+
 const DesktopNoteBaseFields = {
   createdAt: Schema.Number,
   favorite: Schema.Boolean,
@@ -186,6 +194,8 @@ export const DesktopTopicBlockSearchHitsSchema: EffectSchema.Codec<readonly Desk
 export const DesktopTodoTaskSchema: EffectSchema.Codec<DesktopTodoTask> = Schema.Struct({
   blockId: Schema.NonEmptyString,
   dueDate: nullable(JournalDateSchema),
+  dueTime: nullable(TaskTimeSchema),
+  endAt: nullable(TaskDateTimeSchema),
   elapsedMs: NonNegativeIntegerSchema,
   journalDate: nullable(JournalDateSchema),
   noteId: Schema.NonEmptyString,
@@ -193,13 +203,31 @@ export const DesktopTodoTaskSchema: EffectSchema.Codec<DesktopTodoTask> = Schema
   noteTitle: Schema.String,
   parentId: nullable(Schema.NonEmptyString),
   repeatRule: nullable(Schema.Struct({
+    anchorDate: Schema.optionalKey(JournalDateSchema),
     calendarId: Schema.optionalKey(Schema.NonEmptyString),
+    endDate: Schema.optionalKey(JournalDateSchema),
     holidayPolicy: Schema.optionalKey(Schema.Literals(['allow', 'skip', 'next-workday'])),
     interval: PositiveIntegerSchema,
-    mode: Schema.Literals(['due', 'completion']),
-    unit: Schema.Literals(['day', 'week', 'month', 'year', 'holiday']),
+    lunarDay: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ maximum: 30, minimum: 1 }))),
+    lunarMonth: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 1 }))),
+    mode: Schema.Literals(['due', 'completion', 'custom']),
+    monthDay: Schema.optionalKey(Schema.Union([Schema.Literal('last'), Schema.Int.check(Schema.isBetween({ maximum: 31, minimum: 1 }))])),
+    monthMode: Schema.optionalKey(Schema.Literals(['date', 'weekday', 'workday'])),
+    monthOrdinal: Schema.optionalKey(Schema.Literals([-1, 1, 2, 3, 4, 5])),
+    monthWeekday: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 0 }))),
+    skipHolidays: Schema.optionalKey(Schema.Boolean),
+    skipWeekends: Schema.optionalKey(Schema.Boolean),
+    unit: Schema.Literals(['day', 'week', 'month', 'year', 'holiday', 'lunar']),
     weekdays: Schema.optionalKey(Schema.Array(Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 0 })))),
+    yearDay: Schema.optionalKey(Schema.Union([Schema.Literal('last'), Schema.Int.check(Schema.isBetween({ maximum: 31, minimum: 1 }))])),
+    yearMode: Schema.optionalKey(Schema.Literals(['date', 'weekday'])),
+    yearMonth: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 1 }))),
+    yearOrdinal: Schema.optionalKey(Schema.Literals([-1, 1, 2, 3, 4, 5])),
+    yearWeekday: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 0 }))),
   }) as EffectSchema.Codec<DesktopTodoRepeatRule | null>),
+  reminderMinutes: nullable(TaskReminderMinutesSchema),
+  reminders: nullable(Schema.Array(TaskReminderSchema)),
+  startAt: nullable(TaskDateTimeSchema),
   startedAt: nullable(NonNegativeIntegerSchema),
   status: Schema.Literals(['todo', 'doing', 'done']),
   text: Schema.String,

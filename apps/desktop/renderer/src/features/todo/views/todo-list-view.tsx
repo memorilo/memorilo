@@ -6,6 +6,8 @@ import { Circle, CircleCheck, CircleDotDashed, LoaderCircle } from 'lucide-react
 import { useCallback, useEffect, useRef } from 'react'
 import { formatTaskDuration, taskElapsedMs, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
+import { TodoTaskMetadata } from '../todo-task-metadata'
+import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
 import { todoListViewStyles as styles } from './todo-list-view.stylex'
 
 const rowHeight = 58
@@ -42,6 +44,7 @@ export function TodoListView({
   hasNextPage,
   isFetchNextPageError,
   isFetchingNextPage,
+  locale,
   now,
   onFetchNextPage,
   onOpenTask,
@@ -55,6 +58,7 @@ export function TodoListView({
   hasNextPage: boolean
   isFetchNextPageError: boolean
   isFetchingNextPage: boolean
+  locale: string
   now: number
   onFetchNextPage: () => Promise<unknown>
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
@@ -157,9 +161,13 @@ export function TodoListView({
                   type="button"
                   onClick={() => void onOpenTask(task)}
                 >
-                  <span title={statusLabel(task.status, t)}>
-                    <TaskStatusIcon status={task.status} />
-                  </span>
+                  <TodoTaskOccurrenceActions
+                    calendarEvents={calendarEvents}
+                    onUpdateTask={onUpdateTask}
+                    t={t}
+                    task={task}
+                    triggerContent={<span title={statusLabel(task.status, t)}><TaskStatusIcon status={task.status} /></span>}
+                  />
                   <span {...stylex.props(styles.taskContent)}>
                     <span {...stylex.props(styles.taskText, task.status === 'done' && styles.taskDone)}>
                       {task.text}
@@ -168,13 +176,11 @@ export function TodoListView({
                       {t('source', { note: task.noteTitle, topic: task.topicTitle })}
                     </span>
                   </span>
-                  <span {...stylex.props(styles.elapsed)} title={t('elapsed', { duration: elapsed })}>
-                    {elapsed}
-                  </span>
                 </button>
                 <TodoTaskActions
                   calendarEvents={calendarEvents}
                   calendarSubscriptions={calendarSubscriptions}
+                  triggerContent={<TodoTaskMetadata dueDate={task.dueDate} dueTime={task.dueTime} endAt={task.endAt} elapsed={elapsed} locale={locale} now={now} startAt={task.startAt} t={t} />}
                   onUpdateTask={onUpdateTask}
                   t={t}
                   task={task}

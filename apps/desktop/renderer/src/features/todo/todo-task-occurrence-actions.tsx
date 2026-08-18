@@ -1,69 +1,53 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask } from '@memorilo/desktop-api'
-import type { TaskActionUpdate } from '@memorilo/editor/task'
+import type { DesktopTodoCalendarEvent, DesktopTodoTask } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
-import type { TodoTaskUpdateInput } from './todo-task-occurrence-actions'
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import { autoUpdate, flip, FloatingPortal, offset, shift, size, useFloating, useMergeRefs } from '@floating-ui/react'
-import { TaskActionPanel } from '@memorilo/editor/task-ui'
+import { TaskOccurrencePanel } from '@memorilo/editor/task-ui'
 import * as stylex from '@stylexjs/stylex'
-import { MoreHorizontal } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { floatingTransformOrigin } from '../../shared/floating-ui'
 import { taskOccurrenceDate } from './todo-model'
-import { todoTaskActionStyles as styles } from './todo-task-actions.stylex'
+import { todoTaskOccurrenceActionStyles as styles } from './todo-task-occurrence-actions.stylex'
 
-interface TodoTaskActionsProps {
-  compact?: boolean
-  compactAlignment?: 'left' | 'right'
-  triggerContent?: ReactNode
+export interface TodoTaskUpdateInput {
+  blockId: string
+  dueDate?: string | null
+  dueTime?: string | null
+  endAt?: string | null
+  nextDueDate?: string | null
+  noteId: string
+  onlyThis?: boolean
+  reminderMinutes?: number | null
+  reminders?: DesktopTodoTask['reminders']
+  repeatRule?: DesktopTodoTask['repeatRule']
+  startAt?: string | null
+  status?: DesktopTodoTask['status']
+  text?: string
+  topicId: string
+}
+
+interface TodoTaskOccurrenceActionsProps {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
-  calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   onUpdateTask: (input: TodoTaskUpdateInput) => Promise<void>
   t: TFunction
   task: DesktopTodoTask
+  triggerContent: ReactNode
 }
 
-const menuGap = 4
+const menuGap = 5
 const viewportInset = 8
 
-function eventBelongsToNestedTaskAction(event: Event, ownerId: string): boolean {
-  return event.composedPath().some((target) => {
-    return target instanceof HTMLElement && target.dataset.taskActionFloatingOwner === ownerId
-  })
-}
-
-function taskActionRevision(task: DesktopTodoTask, calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]): string {
-  return JSON.stringify([
-    task.blockId,
-    task.dueDate,
-    task.dueTime,
-    task.endAt,
-    task.reminderMinutes,
-    task.reminders,
-    task.repeatRule,
-    task.startAt,
-    task.text,
-    calendarSubscriptions.map(subscription => [subscription.id, subscription.enabled]),
-  ])
-}
-
-function TodoTaskActionsForm({
+export function TodoTaskOccurrenceActions({
   calendarEvents,
-  calendarSubscriptions,
-  compact = false,
-  compactAlignment = 'right',
-  triggerContent,
   onUpdateTask,
   t,
   task,
-}: TodoTaskActionsProps) {
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  triggerContent,
+}: TodoTaskOccurrenceActionsProps) {
+  const triggerRef = useRef<HTMLSpanElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
   const [open, setOpen] = useState(false)
-  const preferredPlacement = compact
-    ? compactAlignment === 'left' ? 'top-start' : 'top-end'
-    : 'bottom-end'
   const {
     floatingStyles,
     isPositioned,
@@ -82,7 +66,7 @@ function TodoTaskActionsForm({
       }),
     ],
     open,
-    placement: preferredPlacement,
+    placement: 'bottom-start',
     strategy: 'fixed',
     transform: false,
     whileElementsMounted: autoUpdate,
@@ -94,12 +78,6 @@ function TodoTaskActionsForm({
     if (restoreFocus)
       triggerRef.current?.focus()
   }
-  const update = (input: TaskActionUpdate) => onUpdateTask({
-    ...input,
-    blockId: task.blockId,
-    noteId: task.noteId,
-    topicId: task.topicId,
-  })
 
   useEffect(() => {
     if (!open)
@@ -107,9 +85,7 @@ function TodoTaskActionsForm({
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target
       if (target instanceof Node
-        && (triggerRef.current?.contains(target)
-          || panelRef.current?.contains(target)
-          || eventBelongsToNestedTaskAction(event, menuId))) {
+        && (triggerRef.current?.contains(target) || panelRef.current?.contains(target))) {
         return
       }
       close(false)
@@ -126,29 +102,45 @@ function TodoTaskActionsForm({
       window.removeEventListener('pointerdown', handlePointerDown, true)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [menuId, open])
+  }, [open])
+
+  const openFromContext = (event: ReactMouseEvent<HTMLSpanElement>) => {
+    if (!task.repeatRule)
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    setOpen(current => !current)
+  }
+
+  const openFromKeyboard = (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+    if (!task.repeatRule || (event.key !== 'ContextMenu' && !(event.key === 'F10' && event.shiftKey)))
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    setOpen(true)
+  }
 
   return (
-    <div {...stylex.props(styles.shell)}>
-      <button
+    <>
+      <span
         ref={referenceRef}
-        {...stylex.props(styles.summary, compact && styles.summaryCompact, triggerContent !== undefined ? styles.scheduleSummary : null)}
-        aria-controls={menuId}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={triggerContent ? t('scheduleSettings') : t('taskActions')}
-        title={triggerContent ? t('scheduleSettings') : t('taskActions')}
-        type="button"
-        onClick={() => setOpen(current => !current)}
+        {...stylex.props(styles.shell, !task.repeatRule && styles.inactive)}
+        aria-expanded={task.repeatRule ? open : undefined}
+        aria-haspopup={task.repeatRule ? 'dialog' : undefined}
+        aria-label={task.repeatRule ? t('occurrenceActions') : undefined}
+        role={task.repeatRule ? 'button' : undefined}
+        tabIndex={task.repeatRule ? 0 : -1}
+        onContextMenu={openFromContext}
+        onKeyDown={openFromKeyboard}
       >
-        {triggerContent ?? <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />}
-      </button>
-      {open
+        {triggerContent}
+      </span>
+      {open && task.repeatRule
         ? (
             <FloatingPortal>
-              <TaskActionPanel
+              <TaskOccurrencePanel
+                key={`${task.blockId}:${task.dueDate ?? ''}:${JSON.stringify(task.repeatRule)}:${task.text}`}
                 calendarEvents={calendarEvents}
-                calendarSubscriptions={calendarSubscriptions}
                 id={menuId}
                 panelRef={floatingRef}
                 style={{
@@ -164,21 +156,22 @@ function TodoTaskActionsForm({
                   reminderMinutes: task.reminderMinutes,
                   reminders: task.reminders,
                   repeatRule: task.repeatRule,
-                  status: task.status,
                   startAt: task.startAt,
+                  status: task.status,
                   text: task.text,
                 }}
                 visible={isPositioned}
-                onUpdate={update}
+                onUpdate={input => onUpdateTask({
+                  ...input,
+                  blockId: task.blockId,
+                  noteId: task.noteId,
+                  topicId: task.topicId,
+                })}
                 onUpdated={() => close(true)}
               />
             </FloatingPortal>
           )
         : null}
-    </div>
+    </>
   )
-}
-
-export function TodoTaskActions(props: TodoTaskActionsProps) {
-  return <TodoTaskActionsForm key={taskActionRevision(props.task, props.calendarSubscriptions)} {...props} />
 }

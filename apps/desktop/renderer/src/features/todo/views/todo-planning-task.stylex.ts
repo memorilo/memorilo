@@ -104,15 +104,6 @@ export const todoPlanningTaskStyles = stylex.create({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  elapsed: {
-    flex: '0 0 auto',
-    color: colors.textMuted,
-    fontSize: 10,
-    fontVariantNumeric: 'tabular-nums',
-    fontWeight: 600,
-    lineHeight: '15px',
-    whiteSpace: 'nowrap',
-  },
   done: {
     color: colors.textMuted,
     textDecorationLine: 'line-through',

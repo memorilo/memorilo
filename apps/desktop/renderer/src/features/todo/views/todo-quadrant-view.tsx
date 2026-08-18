@@ -19,6 +19,7 @@ const quadrantDefinitions: readonly { id: TodoQuadrant, labelKey: string, signal
 export function TodoQuadrantView({
   calendarEvents,
   calendarSubscriptions,
+  locale,
   now,
   onOpenTask,
   onUpdateTask,
@@ -27,6 +28,7 @@ export function TodoQuadrantView({
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
+  locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
@@ -83,6 +85,7 @@ export function TodoQuadrantView({
                         calendarEvents={calendarEvents}
                         calendarSubscriptions={calendarSubscriptions}
                         key={todoTaskKey(task)}
+                        locale={locale}
                         now={now}
                         onOpenTask={onOpenTask}
                         onUpdateTask={onUpdateTask}

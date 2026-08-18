@@ -83,6 +83,35 @@ export function formatTaskDuration(milliseconds: number): string {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
 }
 
+function taskDateValue(date: string): Date {
+  const value = dayjs(date)
+  if (!value.isValid() || value.format('YYYY-MM-DD') !== date)
+    throw new TypeError(`Todo date must be a valid ISO date: ${date}`)
+  return value.startOf('day').toDate()
+}
+
+export type TodoTaskDueState = 'overdue' | 'upcoming'
+
+export function taskDueState(dueDate: string, now: number): TodoTaskDueState {
+  if (!Number.isFinite(now))
+    throw new TypeError('Todo clock must be a finite number')
+  const due = taskDateValue(dueDate)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  return due.getTime() < today.getTime() ? 'overdue' : 'upcoming'
+}
+
+export function formatTaskDueDate(dueDate: string, locale: string, now: number): string {
+  const due = taskDateValue(dueDate)
+  const today = new Date(now)
+  const options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    ...(due.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+  }
+  return new Intl.DateTimeFormat(locale, options).format(due)
+}
+
 export function groupTodoTasks(tasks: readonly DesktopTodoTask[]): Readonly<Record<DesktopTodoTaskStatus, readonly DesktopTodoTask[]>> {
   const grouped: Record<DesktopTodoTaskStatus, DesktopTodoTask[]> = {
     doing: [],
