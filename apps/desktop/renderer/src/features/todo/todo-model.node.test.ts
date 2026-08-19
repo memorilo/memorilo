@@ -15,9 +15,9 @@ describe('todo list timing', () => {
 
   it('groups board tasks by persisted status without changing order', () => {
     const grouped = groupTodoTasks([
-      { blockId: 'done-1', dueDate: null, dueTime: null, endAt: null, elapsedMs: 1, journalDate: null, noteFavorite: false, noteId: 'n', noteTitle: 'N', parentId: null, reminderMinutes: null, reminders: null, repeatRule: null, startAt: null, startedAt: null, status: 'done', text: 'First', topicId: 't', topicTitle: 'T' },
-      { blockId: 'todo-1', dueDate: null, dueTime: null, endAt: null, elapsedMs: 2, journalDate: null, noteFavorite: false, noteId: 'n', noteTitle: 'N', parentId: null, reminderMinutes: null, reminders: null, repeatRule: null, startAt: null, startedAt: null, status: 'todo', text: 'Second', topicId: 't', topicTitle: 'T' },
-      { blockId: 'done-2', dueDate: null, dueTime: null, endAt: null, elapsedMs: 3, journalDate: null, noteFavorite: false, noteId: 'n', noteTitle: 'N', parentId: null, reminderMinutes: null, reminders: null, repeatRule: null, startAt: null, startedAt: null, status: 'done', text: 'Third', topicId: 't', topicTitle: 'T' },
+      { allDay: false, blockId: 'done-1', dueDate: null, dueTime: null, endAt: null, elapsedMs: 1, journalDate: null, noteFavorite: false, noteId: 'n', noteTitle: 'N', parentId: null, reminderMinutes: null, reminders: null, repeatRule: null, startAt: null, startedAt: null, status: 'done', text: 'First', topicId: 't', topicTitle: 'T' },
+      { allDay: false, blockId: 'todo-1', dueDate: null, dueTime: null, endAt: null, elapsedMs: 2, journalDate: null, noteFavorite: false, noteId: 'n', noteTitle: 'N', parentId: null, reminderMinutes: null, reminders: null, repeatRule: null, startAt: null, startedAt: null, status: 'todo', text: 'Second', topicId: 't', topicTitle: 'T' },
+      { allDay: false, blockId: 'done-2', dueDate: null, dueTime: null, endAt: null, elapsedMs: 3, journalDate: null, noteFavorite: false, noteId: 'n', noteTitle: 'N', parentId: null, reminderMinutes: null, reminders: null, repeatRule: null, startAt: null, startedAt: null, status: 'done', text: 'Third', topicId: 't', topicTitle: 'T' },
     ])
     expect(grouped.todo.map(task => task.blockId)).toEqual(['todo-1'])
     expect(grouped.doing).toEqual([])

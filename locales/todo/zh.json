@@ -90,6 +90,7 @@
   ,"repeatUntilShort": "直到 {{date}}"
   ,"repeatEndDateError": "结束日期不能早于任务日期"
   ,"timeSpanError": "结束时间必须晚于开始时间"
+  ,"allDay": "全天"
   ,"clearSchedule": "清除"
   ,"confirmSchedule": "确定"
   ,"repeatSettings": "重复设置"

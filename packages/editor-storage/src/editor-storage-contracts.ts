@@ -453,6 +453,7 @@ export interface ListTodoTasksInput {
 }
 
 export interface UpdateTodoTaskInput {
+  allDay?: boolean
   blockId: string
   dueDate?: JournalDate | null
   dueTime?: string | null
@@ -468,6 +469,7 @@ export interface UpdateTodoTaskInput {
 }
 
 export interface TodoTask {
+  allDay: boolean
   blockId: string
   dueDate: JournalDate | null
   dueTime: string | null

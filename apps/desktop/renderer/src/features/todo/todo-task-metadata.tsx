@@ -4,6 +4,7 @@ import { formatTaskDueDate, taskDueState } from './todo-model'
 import { todoTaskMetadataStyles as styles } from './todo-task-metadata.stylex'
 
 export function TodoTaskMetadata({
+  allDay = false,
   compact = false,
   dueDate,
   dueTime,
@@ -14,6 +15,7 @@ export function TodoTaskMetadata({
   startAt,
   t,
 }: {
+  allDay?: boolean
   compact?: boolean
   dueDate: string | null
   dueTime: string | null
@@ -27,7 +29,7 @@ export function TodoTaskMetadata({
   const scheduleDate = dueDate ?? (startAt === null ? null : startAt.slice(0, 10))
   const dueState = scheduleDate === null ? null : taskDueState(scheduleDate, now)
   const formattedDueDate = scheduleDate === null ? null : formatTaskDueDate(scheduleDate, locale, now)
-  const scheduleTime = startAt !== null && endAt !== null
+  const scheduleTime = !allDay && startAt !== null && endAt !== null
     ? `${startAt.slice(11)}–${endAt.slice(11)}`
     : dueTime
   const dueLabel = formattedDueDate === null

@@ -90,6 +90,7 @@
   ,"repeatUntilShort": "until {{date}}"
   ,"repeatEndDateError": "The repeat end date must be on or after the task date"
   ,"timeSpanError": "The end time must be after the start time"
+  ,"allDay": "All day"
   ,"clearSchedule": "Clear"
   ,"confirmSchedule": "Done"
   ,"repeatSettings": "Repeat settings"

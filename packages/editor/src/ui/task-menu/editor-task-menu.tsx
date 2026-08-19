@@ -44,6 +44,8 @@ function taskNodeAt(editor: Editor<BasicExtension>, blockId: string, defaultDate
     const dueDate = node.attrs.dueDate === null ? null : parseTaskDueDate(node.attrs.dueDate)
     if (node.attrs.dueDate !== null && dueDate === null)
       throw new TypeError(`Task ${blockId} has an invalid due date`)
+    if (node.attrs.allDay !== true && node.attrs.allDay !== false && node.attrs.allDay !== undefined)
+      throw new TypeError(`Task ${blockId} has an invalid all-day flag`)
     const repeatRule = node.attrs.repeatRule === null ? null : parseTaskRepeatRule(node.attrs.repeatRule)
     if (node.attrs.repeatRule !== null && repeatRule === null)
       throw new TypeError(`Task ${blockId} has an invalid repeat rule`)
@@ -69,6 +71,7 @@ function taskNodeAt(editor: Editor<BasicExtension>, blockId: string, defaultDate
       node,
       position,
       task: {
+        allDay: node.attrs.allDay === true,
         dueDate,
         dueTime,
         endAt,
@@ -323,23 +326,14 @@ export function EditorTaskMenu({ adapters, taskDate }: {
       event.preventDefault()
       close(true)
     }
-    const handleViewportChange = (event: Event) => {
-      const eventTarget = event.target
-      if (eventTarget instanceof Node
-        && (panelRef.current?.contains(eventTarget) || eventBelongsToNestedTaskAction(event, menuId))) {
-        return
-      }
-      close(false)
-    }
+    const handleViewportChange = () => close(false)
     window.addEventListener('pointerdown', handlePointerDown, true)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('resize', handleViewportChange)
-    document.addEventListener('scroll', handleViewportChange, true)
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown, true)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('resize', handleViewportChange)
-      document.removeEventListener('scroll', handleViewportChange, true)
     }
   }, [menuId, setTriggerOpen, target])
 
@@ -360,7 +354,7 @@ export function EditorTaskMenu({ adapters, taskDate }: {
       {target.kind === 'schedule'
         ? (
             <TaskActionPanel
-              key={`${target.blockId}:${task.dueDate ?? ''}:${task.dueTime ?? ''}:${task.startAt ?? ''}:${task.endAt ?? ''}:${task.reminderMinutes ?? ''}:${JSON.stringify(task.reminders)}:${JSON.stringify(task.repeatRule)}`}
+              key={`${target.blockId}:${task.allDay}:${task.dueDate ?? ''}:${task.dueTime ?? ''}:${task.startAt ?? ''}:${task.endAt ?? ''}:${task.reminderMinutes ?? ''}:${JSON.stringify(task.reminders)}:${JSON.stringify(task.repeatRule)}`}
               calendarError={calendarError}
               calendarEvents={snapshot.events}
               calendarLoading={calendarLoading}

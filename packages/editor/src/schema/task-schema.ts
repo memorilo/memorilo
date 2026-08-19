@@ -11,6 +11,7 @@ export interface TaskTimingAttrs {
 }
 
 export interface TaskScheduleAttrs {
+  allDay: boolean
   dueTime: string | null
   endAt: string | null
   reminderMinutes: number | null
@@ -328,6 +329,14 @@ export function defineTaskAttrs(): Extension {
       splittable: false,
       toDOM: value => (value ? ['data-task-due-date', value] : null),
       parseDOM: element => parseTaskDueDate(element.getAttribute('data-task-due-date')),
+    }),
+    defineNodeAttr<'list', 'allDay', boolean>({
+      type: 'list',
+      attr: 'allDay',
+      default: false,
+      splittable: false,
+      toDOM: value => (value ? ['data-task-all-day', 'true'] : null),
+      parseDOM: element => element.getAttribute('data-task-all-day') === 'true',
     }),
     defineNodeAttr<'list', 'dueTime', string | null>({
       type: 'list',

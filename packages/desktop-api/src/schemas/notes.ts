@@ -192,6 +192,7 @@ export const DesktopTopicBlockSearchHitsSchema: EffectSchema.Codec<readonly Desk
 )
 
 export const DesktopTodoTaskSchema: EffectSchema.Codec<DesktopTodoTask> = Schema.Struct({
+  allDay: Schema.Boolean,
   blockId: Schema.NonEmptyString,
   dueDate: nullable(JournalDateSchema),
   dueTime: nullable(TaskTimeSchema),

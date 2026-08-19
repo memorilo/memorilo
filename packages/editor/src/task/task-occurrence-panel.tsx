@@ -84,6 +84,7 @@ export function TaskOccurrencePanel({
       throw new Error('Editing one occurrence requires a repeat rule')
     return {
       dueDate: task.dueDate ?? task.occurrenceDate,
+      allDay: task.allDay,
       dueTime: task.dueTime,
       endAt: task.endAt,
       nextDueDate: nextTaskOccurrenceDate(task.occurrenceDate, task.repeatRule, calendarEvents),
