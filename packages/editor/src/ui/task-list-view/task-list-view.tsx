@@ -116,6 +116,7 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
     )
     const meta = document.createElement('span')
     meta.contentEditable = 'false'
+    meta.dataset.taskMeta = ''
     applyStylex(meta, stylex.props(taskStyles.meta))
     meta.append(time)
 

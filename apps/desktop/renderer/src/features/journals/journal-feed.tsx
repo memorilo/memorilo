@@ -30,6 +30,8 @@ export interface JournalFeedHandle {
 
 interface JournalFeedProps {
   cache: EditorNoteSessionCache
+  focusBlockId?: string
+  focusJournalDate?: JournalDate
   hasNextPage: boolean
   isFetchNextPageError: boolean
   isFetchingNextPage: boolean
@@ -66,6 +68,8 @@ function captureJournalScrollAnchor(scrollElement: HTMLElement): JournalScrollAn
 
 export function JournalFeed({
   cache,
+  focusBlockId,
+  focusJournalDate,
   hasNextPage,
   isFetchNextPageError,
   isFetchingNextPage,
@@ -239,6 +243,7 @@ export function JournalFeed({
                 <JournalDay
                   cache={cache}
                   first={virtualItem.index === 0}
+                  focusBlockId={item.journalDate === focusJournalDate ? focusBlockId : undefined}
                   summary={item}
                   today={today}
                   onJournalSaved={onJournalSaved}

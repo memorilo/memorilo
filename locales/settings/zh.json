@@ -60,6 +60,8 @@
   "todoEnabledDescription": "显示 Todo 聚合页面；关闭后，编辑器中的 Todo 块仍可正常使用。",
   "autoCompleteParentTasks": "自动完成父 Todo",
   "autoCompleteParentTasksDescription": "所有直接子 Todo 完成后自动完成父 Todo；子任务重新打开时恢复为待办。",
+  "keepTodoDetailOpen": "保留任务详情",
+  "keepTodoDetailOpenDescription": "任务修改后离开当前 Todo 视图时，继续显示已选中的任务详情。",
   "recurringTaskCompletionAction": "重复任务完成后",
   "recurringTaskCompletionActionDescription": "选择完成记录与下一次任务的保存位置。",
   "recurringTaskArchiveCompletedToToday": "完成记录归入今日日记",

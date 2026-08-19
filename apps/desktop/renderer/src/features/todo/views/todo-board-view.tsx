@@ -36,8 +36,9 @@ export function TodoBoardView({
   isFetchingMore,
   locale,
   now,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
   tasks,
 }: {
@@ -46,8 +47,9 @@ export function TodoBoardView({
   isFetchingMore: boolean
   locale: string
   now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
   tasks: readonly DesktopTodoTask[]
 }) {
@@ -71,6 +73,7 @@ export function TodoBoardView({
                   ? <p {...stylex.props(styles.columnEmpty)}>{t('noTasksInColumn')}</p>
                   : columnTasks.map((task) => {
                       const elapsed = formatTaskDuration(taskElapsedMs(task, now))
+                      const selected = todoTaskKey(task) === selectedTaskKey
                       return (
                         <div {...stylex.props(styles.cardShell)} key={todoTaskKey(task)}>
                           <div {...stylex.props(styles.cardOccurrence)}>
@@ -83,11 +86,12 @@ export function TodoBoardView({
                             />
                           </div>
                           <button
-                            {...stylex.props(styles.card)}
-                            aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
-                            title={t('openTask', { note: task.noteTitle, task: task.text })}
+                            {...stylex.props(styles.card, selected && styles.cardSelected)}
+                            aria-label={t('selectTask', { note: task.noteTitle, task: task.text })}
+                            aria-pressed={selected}
+                            title={t('selectTask', { note: task.noteTitle, task: task.text })}
                             type="button"
-                            onClick={() => void onOpenTask(task)}
+                            onClick={() => void onSelectTask(task)}
                           >
                             <span {...stylex.props(styles.cardText, task.status === 'done' && styles.taskDone)}>{task.text}</span>
                             <span {...stylex.props(styles.cardSource)}>{t('source', { note: task.noteTitle, topic: task.topicTitle })}</span>

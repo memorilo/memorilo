@@ -21,8 +21,9 @@ export function TodoQuadrantView({
   calendarSubscriptions,
   locale,
   now,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
   tasks,
 }: {
@@ -30,8 +31,9 @@ export function TodoQuadrantView({
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   locale: string
   now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
   tasks: readonly DesktopTodoTask[]
 }) {
@@ -89,8 +91,9 @@ export function TodoQuadrantView({
                         key={todoTaskKey(task)}
                         locale={locale}
                         now={now}
-                        onOpenTask={onOpenTask}
+                        onSelectTask={onSelectTask}
                         onUpdateTask={onUpdateTask}
+                        selected={todoTaskKey(task) === selectedTaskKey}
                         t={t}
                         task={task}
                       />

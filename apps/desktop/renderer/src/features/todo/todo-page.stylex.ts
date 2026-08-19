@@ -16,6 +16,7 @@ const loadingRotation = stylex.keyframes({
 
 export const todoPageStyles = stylex.create({
   page: {
+    position: 'relative',
     display: 'flex',
     width: '100%',
     height: '100%',

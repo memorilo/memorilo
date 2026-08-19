@@ -23,6 +23,7 @@ import { journalsPageStyles as journalRouteStyles } from './journals-page.stylex
 interface JournalDayProps {
   cache: EditorNoteSessionCache
   first: boolean
+  focusBlockId?: string
   onJournalSaved: () => void
   summary: DesktopJournalSummary
   today: JournalDate
@@ -44,6 +45,7 @@ function resolveStoredJournalTopic(
 export function JournalDay({
   cache,
   first,
+  focusBlockId,
   onJournalSaved,
   summary,
   today,
@@ -117,6 +119,7 @@ export function JournalDay({
           : null}
         <JournalEditor
           adapters={adapters}
+          focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
           note={session.opened.note}
           outline={{ outdentBehavior: configuration.outdentBehavior }}
           taskDate={summary.journalDate}

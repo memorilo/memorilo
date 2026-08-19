@@ -50,6 +50,7 @@ function configuration(language: Language): Record<string, unknown> {
     tiffConversionFormat: 'webp',
     todo: {
       enabled: true,
+      keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today',
     },
     weekStart: 'sunday',

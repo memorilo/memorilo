@@ -60,6 +60,7 @@ export interface DesktopMcpConfiguration {
 export interface DesktopTodoConfiguration {
   autoCompleteParentTasks: boolean
   enabled: boolean
+  keepDetailOpenWhenTaskLeavesView: boolean
   recurringTaskCompletionAction: DesktopRecurringTaskCompletionAction
 }
 

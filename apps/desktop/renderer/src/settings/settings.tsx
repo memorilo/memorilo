@@ -160,6 +160,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('todoEnabled')
     case 'todo.autoCompleteParentTasks':
       return t('autoCompleteParentTasks')
+    case 'todo.keepDetailOpenWhenTaskLeavesView':
+      return t('keepTodoDetailOpen')
     case 'todo.recurringTaskCompletionAction':
       return t('recurringTaskCompletionAction')
     case 'mcp.port':
@@ -235,6 +237,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('todoEnabledDescription')
     case 'todo.autoCompleteParentTasks':
       return t('autoCompleteParentTasksDescription')
+    case 'todo.keepDetailOpenWhenTaskLeavesView':
+      return t('keepTodoDetailOpenDescription')
     case 'todo.recurringTaskCompletionAction':
       return t('recurringTaskCompletionActionDescription')
     case 'mcp.port':

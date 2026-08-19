@@ -73,6 +73,8 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
     tiffConversionFormat: 'webp',
     todo: {
       enabled: true,
+      keepDetailOpenWhenTaskLeavesView: true,
+      recurringTaskCompletionAction: 'archive-completed-to-today',
     },
     weekStart: 'sunday',
   }

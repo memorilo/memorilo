@@ -1,0 +1,266 @@
+import * as stylex from '@stylexjs/stylex'
+import inject from '@stylexjs/stylex/lib/stylex-inject'
+
+inject({
+  ltr: '[data-todo-detail-editor] [data-editor-content] { min-height: 100%; padding: 20px 22px 48px; }',
+  priority: 1,
+})
+
+inject({
+  ltr: '[data-todo-detail-editor] [data-outline-focus-root] > .list-content > :first-child { font-size: 20px; font-weight: 650; line-height: 28px; }',
+  priority: 1,
+})
+
+const colors = {
+  focus: 'rgba(0, 122, 255, 0.86)',
+  text: 'rgba(28, 28, 30, 0.92)',
+  textMuted: 'rgba(60, 60, 67, 0.72)',
+  textQuiet: 'rgba(60, 60, 67, 0.52)',
+} as const
+
+const loadingRotation = stylex.keyframes({
+  to: { transform: 'rotate(360deg)' },
+})
+
+export const todoDetailSidebarStyles = stylex.create({
+  sidebar: {
+    position: {
+      'default': 'relative',
+      '@media (max-width: 1180px)': 'absolute',
+    },
+    zIndex: 4,
+    top: {
+      'default': 'auto',
+      '@media (max-width: 1180px)': 56,
+    },
+    right: {
+      'default': 'auto',
+      '@media (max-width: 1180px)': 0,
+    },
+    bottom: {
+      'default': 'auto',
+      '@media (max-width: 1180px)': 0,
+    },
+    display: 'flex',
+    width: 392,
+    maxWidth: 'calc(100vw - 72px)',
+    minWidth: 0,
+    minHeight: 0,
+    overflow: 'hidden',
+    flex: '0 0 auto',
+    flexDirection: 'column',
+    borderLeftColor: {
+      'default': 'rgba(60, 60, 67, 0.16)',
+      '@media (prefers-contrast: more)': 'rgba(0, 0, 0, 0.42)',
+    },
+    borderLeftStyle: 'solid',
+    borderLeftWidth: 1,
+    backgroundColor: {
+      'default': 'rgba(255, 255, 255, 0.96)',
+      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+    },
+    boxShadow: {
+      'default': '-14px 0 30px rgba(28, 28, 30, 0.08), inset 1px 0 rgba(255, 255, 255, 0.9)',
+      '@media (prefers-contrast: more)': '-1px 0 rgba(0, 0, 0, 0.18)',
+    },
+    color: colors.text,
+  },
+  header: {
+    display: 'flex',
+    minHeight: 52,
+    flex: '0 0 52px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderBottomColor: 'rgba(60, 60, 67, 0.12)',
+    borderBottomStyle: 'solid',
+    borderBottomWidth: 1,
+    paddingRight: 14,
+    paddingLeft: 18,
+  },
+  headerControls: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusButton: {
+    display: 'grid',
+    width: 28,
+    height: 28,
+    flex: '0 0 28px',
+    placeItems: 'center',
+    borderColor: 'transparent',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 999,
+    padding: 0,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(60, 60, 67, 0.08)',
+      ':active': 'rgba(60, 60, 67, 0.14)',
+    },
+    color: colors.textQuiet,
+    cursor: 'default',
+    outline: 'none',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.94)',
+    },
+    transitionDuration: {
+      'default': '100ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'background-color, box-shadow, transform',
+    transitionTimingFunction: 'ease-out',
+  },
+  statusDoing: {
+    borderColor: 'rgba(214, 127, 16, 0.28)',
+    color: 'rgb(194, 107, 5)',
+  },
+  statusDone: {
+    borderColor: 'rgba(42, 145, 87, 0.28)',
+    color: 'rgb(42, 145, 87)',
+  },
+  statusIcon: {
+    width: 17,
+    height: 17,
+  },
+  scheduleLabel: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 6,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontVariantNumeric: 'tabular-nums',
+    fontWeight: 560,
+    lineHeight: '16px',
+  },
+  scheduleIcon: {
+    width: 14,
+    height: 14,
+    flex: '0 0 14px',
+  },
+  scheduleText: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  closeButton: {
+    display: 'grid',
+    width: 28,
+    height: 28,
+    flex: '0 0 28px',
+    placeItems: 'center',
+    borderWidth: 0,
+    borderRadius: 7,
+    padding: 0,
+    backgroundColor: {
+      'default': 'transparent',
+      ':hover': 'rgba(118, 118, 128, 0.09)',
+      ':active': 'rgba(118, 118, 128, 0.16)',
+    },
+    color: colors.textMuted,
+    cursor: 'default',
+    outline: 'none',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+  },
+  editorRegion: {
+    display: 'flex',
+    minWidth: 0,
+    minHeight: 0,
+    overflowY: 'auto',
+    flex: 1,
+    flexDirection: 'column',
+    backgroundColor: 'rgb(250, 250, 252)',
+    overscrollBehavior: 'contain',
+  },
+  editor: {
+    display: 'flex',
+    minHeight: '100%',
+    flexDirection: 'column',
+  },
+  status: {
+    display: 'flex',
+    minHeight: 180,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 24,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: '18px',
+    textAlign: 'center',
+  },
+  statusError: {
+    color: 'rgb(151, 45, 45)',
+  },
+  loadingIcon: {
+    width: 16,
+    height: 16,
+    animationDuration: '850ms',
+    animationIterationCount: 'infinite',
+    animationName: loadingRotation,
+    animationTimingFunction: 'linear',
+  },
+  alert: {
+    margin: '10px 14px 0',
+    borderRadius: 6,
+    padding: '8px 10px',
+    backgroundColor: 'rgba(184, 54, 54, 0.08)',
+    color: 'rgb(151, 45, 45)',
+    fontSize: 11,
+    lineHeight: '16px',
+  },
+  footer: {
+    display: 'flex',
+    minHeight: 48,
+    flex: '0 0 48px',
+    alignItems: 'center',
+    borderTopColor: 'rgba(60, 60, 67, 0.12)',
+    borderTopStyle: 'solid',
+    borderTopWidth: 1,
+    paddingRight: 18,
+    paddingLeft: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+  },
+  noteLink: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 6,
+    padding: '5px 7px',
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: 560,
+    lineHeight: '16px',
+    outline: 'none',
+    textDecoration: 'none',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
+    },
+  },
+  noteIcon: {
+    width: 14,
+    height: 14,
+    flex: '0 0 14px',
+    color: colors.textQuiet,
+  },
+  noteText: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+})

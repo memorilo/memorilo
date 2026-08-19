@@ -90,6 +90,7 @@ function UploadStatus() {
 }
 
 export function EditorCanvas({
+  blockHandles = true,
   embedded,
   focusBlockId,
   mode,
@@ -98,6 +99,7 @@ export function EditorCanvas({
   session,
   taskDate,
 }: {
+  blockHandles?: boolean
   embedded: boolean
   focusBlockId?: string
   mode: EditorModeValue
@@ -161,7 +163,7 @@ export function EditorCanvas({
                       : null}
                     <SlashMenu learningEnabled={session.learningEnabled} />
                     <TagMenu runtime={configured.tagRuntime} />
-                    <BlockHandle mode={mode} session={session} />
+                    {blockHandles ? <BlockHandle mode={mode} session={session} /> : null}
                     <TableHandle />
                     <DropIndicator />
                   </>

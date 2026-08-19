@@ -24,8 +24,9 @@ export function TodoPlanningTask({
   calendarSubscriptions,
   locale,
   now,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selected,
   t,
   task,
 }: {
@@ -33,8 +34,9 @@ export function TodoPlanningTask({
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   locale: string
   now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selected: boolean
   t: TFunction
   task: DesktopTodoTask
 }) {
@@ -42,11 +44,12 @@ export function TodoPlanningTask({
   return (
     <div {...stylex.props(styles.shell)}>
       <button
-        {...stylex.props(styles.task)}
-        aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
-        title={t('openTask', { note: task.noteTitle, task: task.text })}
+        {...stylex.props(styles.task, selected && styles.taskSelected)}
+        aria-label={t('selectTask', { note: task.noteTitle, task: task.text })}
+        aria-pressed={selected}
+        title={t('selectTask', { note: task.noteTitle, task: task.text })}
         type="button"
-        onClick={() => void onOpenTask(task)}
+        onClick={() => void onSelectTask(task)}
       >
         <TodoTaskOccurrenceActions
           calendarEvents={calendarEvents}

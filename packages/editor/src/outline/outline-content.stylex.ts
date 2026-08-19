@@ -13,6 +13,7 @@ const outlineContentRules = [
   '[data-editor-mode=\'outline\'] [data-outline-focus-ancestor] { margin-left: 0; }',
   '[data-editor-mode=\'outline\'] [data-outline-focus-ancestor] > .list-marker, [data-editor-mode=\'outline\'] [data-outline-focus-ancestor] > .list-content > :first-child { display: none; }',
   '[data-editor-mode=\'outline\'] [data-outline-focus-root] { margin-left: 0; }',
+  '[data-editor-mode=\'outline\'][data-editor-outline-focus-presentation=\'content-only\'] [data-outline-focus-root] > .list-marker, [data-editor-mode=\'outline\'][data-editor-outline-focus-presentation=\'content-only\'] [data-outline-focus-root] > [data-task-meta] { display: none !important; }',
   '[data-editor-mode=\'outline\'] [data-block-id] > .list-marker { min-width: 1.25rem; min-height: 1.25rem; cursor: pointer; }',
 ]
 

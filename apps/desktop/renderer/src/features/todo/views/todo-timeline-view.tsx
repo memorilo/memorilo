@@ -98,8 +98,9 @@ function ScheduleEntry({
   item,
   locale,
   now,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
@@ -107,8 +108,9 @@ function ScheduleEntry({
   item: ScheduleItem
   locale: string
   now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
 }) {
   const timeLabel = item.startMinutes === null
@@ -124,7 +126,7 @@ function ScheduleEntry({
         {item.kind === 'event' && item.event
           ? <TodoCalendarEventItem event={item.event} locale={locale} variant="timeline" />
           : item.task
-            ? <TodoPlanningTask calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} locale={locale} now={now} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
+            ? <TodoPlanningTask calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} locale={locale} now={now} onSelectTask={onSelectTask} onUpdateTask={onUpdateTask} selected={todoTaskKey(item.task) === selectedTaskKey} t={t} task={item.task} />
             : null}
       </div>
     </div>
@@ -139,8 +141,9 @@ function ScheduleGroup({
   isToday,
   locale,
   now,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
   tasks,
 }: {
@@ -151,8 +154,9 @@ function ScheduleGroup({
   isToday: boolean
   locale: string
   now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
   tasks: readonly DesktopTodoTask[]
 }) {
@@ -177,8 +181,9 @@ function ScheduleGroup({
             key={item.kind === 'task' && item.task ? todoTaskKey(item.task) : `${item.event?.subscriptionId}:${item.event?.uid}:${item.event?.startDate}:${index}`}
             locale={locale}
             now={now}
-            onOpenTask={onOpenTask}
+            onSelectTask={onSelectTask}
             onUpdateTask={onUpdateTask}
+            selectedTaskKey={selectedTaskKey}
             t={t}
           />
         ))}
@@ -196,8 +201,9 @@ export function TodoTimelineView({
   locale,
   now,
   onFetchNextPage,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
   tasks,
 }: {
@@ -209,8 +215,9 @@ export function TodoTimelineView({
   locale: string
   now: number
   onFetchNextPage?: () => Promise<unknown>
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
   tasks: readonly DesktopTodoTask[]
 }) {
@@ -305,8 +312,9 @@ export function TodoTimelineView({
                   isToday={group.date === today.format('YYYY-MM-DD')}
                   locale={locale}
                   now={now}
-                  onOpenTask={onOpenTask}
+                  onSelectTask={onSelectTask}
                   onUpdateTask={onUpdateTask}
+                  selectedTaskKey={selectedTaskKey}
                   t={t}
                   tasks={group.tasks}
                 />
@@ -325,8 +333,9 @@ export function TodoTimelineView({
                   key={todoTaskKey(task)}
                   locale={locale}
                   now={now}
-                  onOpenTask={onOpenTask}
+                  onSelectTask={onSelectTask}
                   onUpdateTask={onUpdateTask}
+                  selected={todoTaskKey(task) === selectedTaskKey}
                   t={t}
                   task={task}
                 />

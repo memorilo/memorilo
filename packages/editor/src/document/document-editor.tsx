@@ -5,6 +5,7 @@ import { EditorCanvas } from '../common/editor-canvas'
 import './document-content.stylex'
 
 export function DocumentEditor({
+  blockHandles,
   children,
   embedded,
   focusBlockId,
@@ -14,6 +15,7 @@ export function DocumentEditor({
   taskDate,
 }: {
   children?: ReactNode
+  blockHandles?: boolean
   embedded: boolean
   focusBlockId?: string
   mode: EditorModeValue
@@ -24,6 +26,7 @@ export function DocumentEditor({
   return (
     <EditorCanvas
       embedded={embedded}
+      blockHandles={blockHandles}
       focusBlockId={focusBlockId}
       mode={mode}
       modeControls={children}

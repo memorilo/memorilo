@@ -157,6 +157,11 @@ export const todoBoardViewStyles = stylex.create({
     transitionProperty: 'background-color, box-shadow, transform',
     transitionTimingFunction: 'ease-out',
   },
+  cardSelected: {
+    borderColor: 'rgba(0, 113, 227, 0.3)',
+    backgroundColor: 'rgba(241, 247, 255, 0.96)',
+    boxShadow: '0 7px 18px rgba(28, 28, 30, 0.1), 0 0 0 1px rgba(0, 113, 227, 0.14), inset 0 1px rgba(255, 255, 255, 0.98)',
+  },
   cardShell: {
     position: 'relative',
     width: '100%',

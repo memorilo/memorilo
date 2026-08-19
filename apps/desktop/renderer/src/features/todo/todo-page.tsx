@@ -16,7 +16,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
@@ -26,6 +26,8 @@ import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 import { TodoListSidebar } from './todo-list-sidebar'
 import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskQueryOptions, todoTasksForView } from './todo-model'
+import { TodoDetailSidebar } from './todo-detail-sidebar'
+import { todoTaskKey } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
 import { TodoBoardView } from './views/todo-board-view'
 import { TodoCalendarView } from './views/todo-calendar-view'
@@ -46,6 +48,51 @@ const listSidebarSpring = {
   type: 'spring',
   visualDuration: 0.32,
 } as const
+
+type SelectedTaskAction
+  = | { task: DesktopTodoTask, type: 'select' }
+    | { task: DesktopTodoTask, type: 'sync' }
+    | { type: 'close' }
+    | { input: UpdateDesktopTodoTaskInput, type: 'update' }
+
+function selectedTaskReducer(
+  current: DesktopTodoTask | null,
+  action: SelectedTaskAction,
+): DesktopTodoTask | null {
+  if (action.type === 'close')
+    return null
+  if (action.type === 'select' || action.type === 'sync')
+    return current === action.task ? current : action.task
+  if (current === null
+    || current.blockId !== action.input.blockId
+    || current.noteId !== action.input.noteId
+    || current.topicId !== action.input.topicId) {
+    return current
+  }
+
+  const next = { ...current }
+  if (action.input.allDay !== undefined)
+    next.allDay = action.input.allDay
+  if (action.input.dueDate !== undefined)
+    next.dueDate = action.input.dueDate
+  if (action.input.dueTime !== undefined)
+    next.dueTime = action.input.dueTime
+  if (action.input.endAt !== undefined)
+    next.endAt = action.input.endAt
+  if (action.input.reminderMinutes !== undefined)
+    next.reminderMinutes = action.input.reminderMinutes
+  if (action.input.reminders !== undefined)
+    next.reminders = action.input.reminders
+  if (action.input.repeatRule !== undefined)
+    next.repeatRule = action.input.repeatRule
+  if (action.input.startAt !== undefined)
+    next.startAt = action.input.startAt
+  if (action.input.status !== undefined)
+    next.status = action.input.status
+  if (action.input.text !== undefined)
+    next.text = action.input.text
+  return next
+}
 
 function viewLabel(view: TodoView, t: TFunction): string {
   const option = viewOptions.find(item => item.id === view)
@@ -125,13 +172,11 @@ function TodoStatus({
 }
 
 export function TodoPage({
-  onOpenTask,
   onSelectionChange,
   onViewChange,
   selection,
   view,
 }: {
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onSelectionChange: (selection: TodoListSelection) => Promise<void> | void
   onViewChange: (view: TodoView) => Promise<void> | void
   selection: TodoListSelection
@@ -152,7 +197,9 @@ export function TodoPage({
   const calendarSubscriptions = calendarQuery.data?.subscriptions ?? []
   const hasRunningTasks = viewTasks.some(task => task.status === 'doing' && task.startedAt !== null)
   const [now, setNow] = useState(() => Date.now())
+  const [selectedTask, dispatchSelectedTask] = useReducer(selectedTaskReducer, null)
   const [selectedDate, setSelectedDate] = useState(() => dayjs(now).format('YYYY-MM-DD'))
+  const selectedTaskKey = selectedTask === null ? null : todoTaskKey(selectedTask)
   const selectedDateEvents = useMemo(() => calendarEvents.filter(event => (
     event.startDate <= selectedDate && (event.endDate ?? event.startDate) >= selectedDate
   )), [calendarEvents, selectedDate])
@@ -174,9 +221,12 @@ export function TodoPage({
   }), [queryClient])
   const updateTodoTask = useCallback(async (input: UpdateDesktopTodoTaskInput) => {
     await desktopRequests.updateTodoTask(input)
+    dispatchSelectedTask({ input, type: 'update' })
     await queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
     await calendarQuery.refetch()
   }, [calendarQuery, queryClient])
+  const selectTask = useCallback((task: DesktopTodoTask) => dispatchSelectedTask({ task, type: 'select' }), [])
+  const closeTaskDetail = useCallback(() => dispatchSelectedTask({ type: 'close' }), [])
   const loadNextPage = useCallback(async () => {
     await fetchNextPage()
   }, [fetchNextPage])
@@ -201,7 +251,23 @@ export function TodoPage({
   }, [queryClient])
 
   useEffect(() => {
-    if (!tasksQuery.hasNextPage
+    if (selectedTaskKey === null)
+      return
+    const freshTask = tasks.find(task => todoTaskKey(task) === selectedTaskKey)
+    if (freshTask) {
+      dispatchSelectedTask({ task: freshTask, type: 'sync' })
+      return
+    }
+    if (!configuration.todo.keepDetailOpenWhenTaskLeavesView
+      && tasksQuery.data !== undefined
+      && !tasksQuery.isFetching) {
+      dispatchSelectedTask({ type: 'close' })
+    }
+  }, [configuration.todo.keepDetailOpenWhenTaskLeavesView, selectedTaskKey, tasks, tasksQuery.data, tasksQuery.isFetching])
+
+  useEffect(() => {
+    if (view === 'list'
+      || !tasksQuery.hasNextPage
       || tasksQuery.isFetchingNextPage
       || tasksQuery.isFetchNextPageError) {
       return
@@ -212,6 +278,7 @@ export function TodoPage({
     tasksQuery.hasNextPage,
     tasksQuery.isFetchNextPageError,
     tasksQuery.isFetchingNextPage,
+    view,
   ])
 
   const titlebar = useMemo(() => ({
@@ -255,10 +322,11 @@ export function TodoPage({
         calendarSubscriptions={calendarSubscriptions}
         locale={i18n.language}
         now={now}
-        onOpenTask={onOpenTask}
+        onSelectTask={selectTask}
         onSelectedDateChange={setSelectedDate}
         onUpdateTask={updateTodoTask}
         selectedDate={selectedDate}
+        selectedTaskKey={selectedTaskKey}
         t={t}
         tasks={viewTasks}
         weekStart={configuration.weekStart}
@@ -284,10 +352,11 @@ export function TodoPage({
                 locale={i18n.language}
                 now={now}
                 onFetchNextPage={loadNextPage}
-                onOpenTask={onOpenTask}
+                onSelectTask={selectTask}
                 onUpdateTask={updateTodoTask}
                 resetKey={todoListSelectionKey(selection)}
                 selectedDateEvents={selectedDateEvents}
+                selectedTaskKey={selectedTaskKey}
                 t={t}
                 tasks={visibleListTasks}
               />
@@ -359,10 +428,11 @@ export function TodoPage({
         isFetchingMore={tasksQuery.isFetchingNextPage}
         locale={i18n.language}
         now={now}
-        onOpenTask={onOpenTask}
+        onSelectTask={selectTask}
         onUpdateTask={updateTodoTask}
         t={t}
         tasks={viewTasks}
+        selectedTaskKey={selectedTaskKey}
       />
     )
   }
@@ -377,10 +447,11 @@ export function TodoPage({
         locale={i18n.language}
         now={now}
         onFetchNextPage={loadNextPage}
-        onOpenTask={onOpenTask}
+        onSelectTask={selectTask}
         onUpdateTask={updateTodoTask}
         t={t}
         tasks={viewTasks}
+        selectedTaskKey={selectedTaskKey}
       />
     )
   }
@@ -391,10 +462,11 @@ export function TodoPage({
         calendarSubscriptions={calendarSubscriptions}
         locale={i18n.language}
         now={now}
-        onOpenTask={onOpenTask}
+        onSelectTask={selectTask}
         onUpdateTask={updateTodoTask}
         t={t}
         tasks={viewTasks}
+        selectedTaskKey={selectedTaskKey}
       />
     )
   }
@@ -404,6 +476,13 @@ export function TodoPage({
       <section {...stylex.props(todoPageStyles.content)} aria-label={viewLabel(view, t)}>
         <div {...stylex.props(todoPageStyles.viewRegion)}>{viewContent}</div>
       </section>
+      <TodoDetailSidebar
+        calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
+        onClose={closeTaskDetail}
+        onUpdateTask={updateTodoTask}
+        task={selectedTask}
+      />
     </main>
   )
 }

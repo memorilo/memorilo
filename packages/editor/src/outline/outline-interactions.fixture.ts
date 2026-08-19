@@ -70,9 +70,21 @@ export const outlineBodyCases: Array<{ body: NodeJSON, name: string, selector: s
 ]
 
 export function block(id: string, children: NodeJSON[] = [], kind = 'outline'): NodeJSON {
+  const attrs = kind === 'task'
+    ? {
+        blockId: id,
+        checked: false,
+        collapsed: false,
+        elapsedMs: 0,
+        kind,
+        order: null,
+        startedAt: null,
+        status: 'todo',
+      }
+    : { blockId: id, checked: false, collapsed: false, kind, order: null }
   return {
     type: 'list',
-    attrs: { blockId: id, checked: false, collapsed: false, kind, order: null },
+    attrs,
     content: [
       { type: 'paragraph', content: [{ type: 'text', text: id }] },
       ...children,

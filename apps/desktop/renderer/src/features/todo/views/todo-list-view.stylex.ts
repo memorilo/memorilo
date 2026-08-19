@@ -128,6 +128,10 @@ export const todoListViewStyles = stylex.create({
     transitionProperty: 'background-color, box-shadow, transform',
     transitionTimingFunction: 'ease-out',
   },
+  rowButtonSelected: {
+    backgroundColor: 'rgba(0, 113, 227, 0.1)',
+    boxShadow: 'inset 0 0 0 1px rgba(0, 113, 227, 0.16)',
+  },
   calendarEventButton: {
     color: colors.text,
   },

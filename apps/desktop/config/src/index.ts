@@ -90,6 +90,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   todo: Schema.Struct({
     autoCompleteParentTasks: Schema.Boolean,
     enabled: Schema.Boolean,
+    keepDetailOpenWhenTaskLeavesView: Schema.Boolean,
     recurringTaskCompletionAction: Schema.Literals([
       'archive-completed-to-today',
       'move-next-to-today',
@@ -140,6 +141,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     todo: {
       autoCompleteParentTasks: true,
       enabled: true,
+      keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today' as const,
     },
     weekStart: 'sunday' as const,
@@ -192,6 +194,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
       label: 'Enable Todo workspace',
       path: 'todo.enabled',
+    }, {
+      control: 'toggle',
+      description: 'Keep the selected task open when a change removes it from the current Todo view.',
+      label: 'Keep task details open',
+      path: 'todo.keepDetailOpenWhenTaskLeavesView',
     }, {
       control: 'select',
       description: 'Choose where the completed occurrence and the next task are placed.',

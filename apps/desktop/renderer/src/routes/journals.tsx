@@ -9,6 +9,6 @@ export const Route = createFileRoute('/journals')({
 })
 
 function JournalsRoute() {
-  const { date } = Route.useSearch()
-  return <JournalsPage requestedDate={date} />
+  const { date, focus } = Route.useSearch()
+  return <JournalsPage requestedDate={date} requestedFocus={focus} />
 }

@@ -259,27 +259,31 @@ function CalendarTaskItem({
   calendarEvents,
   calendarSubscriptions,
   compactAlignment,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
   task,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   compactAlignment: 'left' | 'right'
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
   task: DesktopTodoTask
 }) {
+  const selected = todoTaskKey(task) === selectedTaskKey
   return (
     <div {...stylex.props(styles.taskShell)}>
       <button
-        {...stylex.props(styles.taskButton)}
-        aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
-        title={t('openTask', { note: task.noteTitle, task: task.text })}
+        {...stylex.props(styles.taskButton, selected && styles.taskButtonSelected)}
+        aria-label={t('selectTask', { note: task.noteTitle, task: task.text })}
+        aria-pressed={selected}
+        title={t('selectTask', { note: task.noteTitle, task: task.text })}
         type="button"
-        onClick={() => void onOpenTask(task)}
+        onClick={() => void onSelectTask(task)}
       >
         <TodoTaskOccurrenceActions
           calendarEvents={calendarEvents}
@@ -323,8 +327,9 @@ function CalendarItemRow({
   compactAlignment,
   item,
   locale,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
+  selectedTaskKey,
   t,
 }: {
   calendarEvents: readonly DesktopTodoCalendarEvent[]
@@ -332,15 +337,16 @@ function CalendarItemRow({
   compactAlignment: 'left' | 'right'
   item: CalendarItem
   locale: string
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedTaskKey: string | null
   t: TFunction
 }) {
   if (item.kind === 'event')
     return <TodoCalendarEventItem event={item.event} locale={locale} variant="calendar" />
   if (item.kind === 'prediction')
     return <CalendarPredictionItem t={t} task={item.task} />
-  return <CalendarTaskItem calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
+  return <CalendarTaskItem calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onSelectTask={onSelectTask} onUpdateTask={onUpdateTask} selectedTaskKey={selectedTaskKey} t={t} task={item.task} />
 }
 
 export function TodoCalendarView({
@@ -348,10 +354,11 @@ export function TodoCalendarView({
   calendarSubscriptions,
   locale,
   now,
-  onOpenTask,
+  onSelectTask,
   onSelectedDateChange,
   onUpdateTask,
   selectedDate,
+  selectedTaskKey,
   t,
   tasks,
   weekStart,
@@ -360,10 +367,11 @@ export function TodoCalendarView({
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   locale: string
   now: number
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onSelectedDateChange: (date: string) => void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
   selectedDate: string
+  selectedTaskKey: string | null
   t: TFunction
   tasks: readonly DesktopTodoTask[]
   weekStart: DesktopWeekStart
@@ -544,8 +552,9 @@ export function TodoCalendarView({
                             item={item}
                             key={calendarItemKey(item)}
                             locale={locale}
-                            onOpenTask={onOpenTask}
+                            onSelectTask={onSelectTask}
                             onUpdateTask={onUpdateTask}
+                            selectedTaskKey={selectedTaskKey}
                             t={t}
                           />
                         ))}
@@ -563,8 +572,9 @@ export function TodoCalendarView({
                                     item={item}
                                     key={calendarItemKey(item)}
                                     locale={locale}
-                                    onOpenTask={onOpenTask}
+                                    onSelectTask={onSelectTask}
                                     onUpdateTask={onUpdateTask}
+                                    selectedTaskKey={selectedTaskKey}
                                     t={t}
                                   />
                                 ))}
@@ -596,8 +606,9 @@ export function TodoCalendarView({
                               calendarEvents={calendarEvents}
                               calendarSubscriptions={calendarSubscriptions}
                               compactAlignment={compactAlignment}
-                              onOpenTask={onOpenTask}
+                              onSelectTask={onSelectTask}
                               onUpdateTask={onUpdateTask}
+                              selectedTaskKey={selectedTaskKey}
                               t={t}
                               task={segment.item.task}
                             />

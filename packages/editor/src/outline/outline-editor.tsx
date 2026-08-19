@@ -62,6 +62,7 @@ export function OutlineEditor({
   const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot)
   const { t } = useTranslation('editor')
   const controlledFocus = Boolean(options && Object.prototype.hasOwnProperty.call(options, 'focus'))
+  const showFocusNavigation = options?.focusPresentation !== 'content-only'
   const onFocusChange = options?.onFocusChange
   const focusCollapsed = snapshot.focusBlockId !== null
     && snapshot.collapsedBlockIds.includes(snapshot.focusBlockId)
@@ -159,7 +160,7 @@ export function OutlineEditor({
   return (
     <>
       <style ref={markerStylesRef} data-outline-marker-alignment="" />
-      {snapshot.focusBlockId && !readOnly
+      {snapshot.focusBlockId && !readOnly && showFocusNavigation
         ? (
             <div {...stylex.props(outlineEditorStyles.focusNavigation)}>
               <button

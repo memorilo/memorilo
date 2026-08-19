@@ -87,10 +87,6 @@ function TodoRoute() {
             ...(nextView === 'list' ? {} : { view: nextView }),
           },
         })}
-        onOpenTask={task => navigate({
-          params: { noteId: task.noteId, topicId: task.topicId },
-          to: '/note/$noteId/$topicId',
-        })}
       />
     </Suspense>
   )

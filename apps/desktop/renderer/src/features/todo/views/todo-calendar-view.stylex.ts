@@ -296,6 +296,10 @@ export const todoCalendarViewStyles = stylex.create({
     transitionProperty: 'background-color, box-shadow',
     transitionTimingFunction: 'ease-out',
   },
+  taskButtonSelected: {
+    backgroundColor: 'rgba(0, 122, 255, 0.2)',
+    boxShadow: 'inset 0 0 0 1px rgba(0, 113, 227, 0.22)',
+  },
   taskStatus: {
     width: 6,
     height: 6,

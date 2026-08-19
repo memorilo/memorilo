@@ -70,10 +70,11 @@ export function TodoListView({
   locale,
   now,
   onFetchNextPage,
-  onOpenTask,
+  onSelectTask,
   onUpdateTask,
   resetKey,
   selectedDateEvents,
+  selectedTaskKey,
   t,
   tasks,
 }: {
@@ -85,10 +86,11 @@ export function TodoListView({
   locale: string
   now: number
   onFetchNextPage: () => Promise<unknown>
-  onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
   resetKey: string
   selectedDateEvents: readonly DesktopTodoCalendarEvent[]
+  selectedTaskKey: string | null
   t: TFunction
   tasks: readonly DesktopTodoTask[]
 }) {
@@ -200,6 +202,7 @@ export function TodoListView({
             const elapsed = formatTaskDuration(taskElapsedMs(task, now))
             const hasChildren = visibleTask.hasChildren
             const isCollapsed = collapsedKeys.has(todoTaskKey(task))
+            const selected = todoTaskKey(task) === selectedTaskKey
             return (
               <li
                 key={todoTaskKey(task)}
@@ -231,11 +234,12 @@ export function TodoListView({
                         />
                       )}
                   <button
-                    {...stylex.props(styles.rowButton)}
-                    aria-label={t('openTask', { note: task.noteTitle, task: task.text })}
-                    title={t('openTask', { note: task.noteTitle, task: task.text })}
+                    {...stylex.props(styles.rowButton, selected && styles.rowButtonSelected)}
+                    aria-label={t('selectTask', { note: task.noteTitle, task: task.text })}
+                    aria-pressed={selected}
+                    title={t('selectTask', { note: task.noteTitle, task: task.text })}
                     type="button"
-                    onClick={() => void onOpenTask(task)}
+                    onClick={() => void onSelectTask(task)}
                   >
                     <TodoTaskOccurrenceActions
                       calendarEvents={calendarEvents}
