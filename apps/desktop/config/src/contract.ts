@@ -58,6 +58,7 @@ export interface DesktopMcpConfiguration {
 }
 
 export interface DesktopTodoConfiguration {
+  autoCompleteParentTasks: boolean
   enabled: boolean
   recurringTaskCompletionAction: DesktopRecurringTaskCompletionAction
 }

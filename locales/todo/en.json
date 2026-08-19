@@ -62,6 +62,8 @@
   "quadrantNotImportantUrgent": "Not important, urgent",
   "quadrantNotImportantNotUrgent": "Not important, not urgent",
   "noTasksInQuadrant": "No tasks"
+  ,"expandSubtasks": "Expand subtasks"
+  ,"collapseSubtasks": "Collapse subtasks"
   ,"taskActions": "Task actions"
   ,"scheduleSettings": "Schedule"
   ,"scheduleMode": "Schedule mode"

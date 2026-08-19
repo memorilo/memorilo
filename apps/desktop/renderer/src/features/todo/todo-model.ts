@@ -32,12 +32,63 @@ export interface TodoListSummary {
 
 export type TodoQuadrant = 'importantUrgent' | 'importantNotUrgent' | 'notImportantUrgent' | 'notImportantNotUrgent'
 
+export interface TodoTaskTreeNode {
+  children: readonly TodoTaskTreeNode[]
+  task: DesktopTodoTask
+}
+
 export const todoStatuses: readonly DesktopTodoTaskStatus[] = ['todo', 'doing', 'done']
 
 export const todoTaskPageSize = 100
 
 export function todoTaskKey(task: Pick<DesktopTodoTask, 'blockId' | 'noteId' | 'topicId'>): string {
   return `${task.noteId}\0${task.topicId}\0${task.blockId}`
+}
+
+function todoTaskParentId(task: DesktopTodoTask): string | null {
+  return 'todoParentId' in task ? task.todoParentId ?? null : task.parentId
+}
+
+function todoTaskParentKey(task: DesktopTodoTask): string | null {
+  const parentId = todoTaskParentId(task)
+  return parentId === null ? null : `${task.noteId}\0${task.topicId}\0${parentId}`
+}
+
+/** Subtasks belong exclusively to the list tree; other views show top-level Todos. */
+export function todoTasksForView(tasks: readonly DesktopTodoTask[], view: TodoView): readonly DesktopTodoTask[] {
+  return view === 'list' ? tasks : tasks.filter(task => todoTaskParentId(task) === null)
+}
+
+/** Projects the persisted block tree into a Todo-only tree for the list view. */
+export function buildTodoTaskTree(tasks: readonly DesktopTodoTask[]): readonly TodoTaskTreeNode[] {
+  const nodes = tasks.map(task => ({ children: [] as TodoTaskTreeNode[], task }))
+  const byKey = new Map(nodes.map(node => [todoTaskKey(node.task), node]))
+  const roots: TodoTaskTreeNode[] = []
+  for (const node of nodes) {
+    const parentKey = todoTaskParentKey(node.task)
+    const parent = parentKey === null ? undefined : byKey.get(parentKey)
+    if (!parent || parent === node)
+      roots.push(node)
+    else
+      parent.children.push(node)
+  }
+  return roots
+}
+
+export function flattenTodoTaskTree(
+  roots: readonly TodoTaskTreeNode[],
+  collapsedKeys: ReadonlySet<string>,
+): readonly { depth: number, hasChildren: boolean, task: DesktopTodoTask }[] {
+  const flattened: { depth: number, hasChildren: boolean, task: DesktopTodoTask }[] = []
+  const visit = (nodes: readonly TodoTaskTreeNode[], depth: number): void => {
+    for (const node of nodes) {
+      flattened.push({ depth, hasChildren: node.children.length > 0, task: node.task })
+      if (node.children.length > 0 && !collapsedKeys.has(todoTaskKey(node.task)))
+        visit(node.children, depth + 1)
+    }
+  }
+  visit(roots, 0)
+  return flattened
 }
 
 /** Keep the source order for active tasks while placing completed tasks last. */

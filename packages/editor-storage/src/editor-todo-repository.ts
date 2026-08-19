@@ -32,6 +32,7 @@ interface TodoTaskRow {
   topic_id: string
   topic_title: string
   task_row_id: number
+  todo_parent_id: string | null
 }
 
 interface EditorTodoRepositoryOptions {
@@ -215,6 +216,7 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     noteFavorite: row.note_favorite === 1,
     noteTitle: row.note_title,
     parentId: row.parent_block_id,
+    todoParentId: row.todo_parent_id,
     repeatRule,
     reminderMinutes: row.reminder_minutes,
     reminders: readReminders(row.reminders, row.block_id),
@@ -248,10 +250,37 @@ export class EditorTodoRepository implements EditorTodoStorage {
 
     return this.#options.runOperation(async () => {
       const rows = await this.#options.database.all<TodoTaskRow>(`
+        WITH RECURSIVE task_parents (note_row_id, topic_id, task_block_id, ancestor_id, todo_parent_id) AS (
+          SELECT block.note_row_id, block.topic_id, block.block_id, block.parent_block_id, NULL
+          FROM topic_blocks AS block
+          WHERE block.kind = 'task'
+          UNION ALL
+          SELECT parents.note_row_id,
+            parents.topic_id,
+            parents.task_block_id,
+            parent.parent_block_id,
+            CASE WHEN parent.kind = 'task' THEN parent.block_id ELSE NULL END
+          FROM task_parents AS parents
+          INNER JOIN topic_blocks AS parent
+            ON parent.note_row_id = parents.note_row_id
+            AND parent.topic_id = parents.topic_id
+            AND parent.block_id = parents.ancestor_id
+          WHERE parents.ancestor_id IS NOT NULL
+            AND parents.todo_parent_id IS NULL
+        )
         SELECT
           block.row_id AS task_row_id,
           block.block_id,
           block.parent_block_id,
+          (
+            SELECT parents.todo_parent_id
+            FROM task_parents AS parents
+            WHERE parents.note_row_id = block.note_row_id
+              AND parents.topic_id = block.topic_id
+              AND parents.task_block_id = block.block_id
+              AND parents.todo_parent_id IS NOT NULL
+            LIMIT 1
+          ) AS todo_parent_id,
           block.text,
           json_extract(block.attributes_json, '$.dueDate') AS due_date,
           COALESCE(json_extract(block.attributes_json, '$.allDay'), 0) AS all_day,

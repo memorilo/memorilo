@@ -58,6 +58,8 @@
   "learningEnabledDescription": "Enable flashcards, cloze authoring, FSRS scheduling, learning pages, and image occlusion.",
   "todoEnabled": "Enable Todo workspace",
   "todoEnabledDescription": "Show the Todo workspace without changing Todo blocks inside the editor.",
+  "autoCompleteParentTasks": "Auto-complete parent Todos",
+  "autoCompleteParentTasksDescription": "Complete a parent Todo when all direct Todo children are complete, and reopen it when one is reopened.",
   "recurringTaskCompletionAction": "After completing a recurring task",
   "recurringTaskCompletionActionDescription": "Choose where the completed occurrence and the next task are placed.",
   "recurringTaskArchiveCompletedToToday": "Archive in today's Journal",

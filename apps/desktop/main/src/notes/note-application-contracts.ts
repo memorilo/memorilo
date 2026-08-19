@@ -42,6 +42,7 @@ export interface ListJournalDatesInput {
 }
 
 export interface NoteApplicationServiceOptions {
+  autoCompleteTodoParents?: () => boolean
   defaultNoteLearningEnabled?: () => boolean
   now?: () => Date
   recurringTaskCompletionAction?: () => RecurringTaskCompletionAction

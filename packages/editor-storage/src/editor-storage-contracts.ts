@@ -480,6 +480,8 @@ export interface TodoTask {
   noteFavorite: boolean
   noteTitle: string
   parentId: string | null
+  /** The nearest Todo ancestor, skipping non-Todo blocks. */
+  todoParentId?: string | null
   repeatRule: TodoRepeatRule | null
   reminderMinutes: number | null
   reminders: readonly TodoReminder[] | null

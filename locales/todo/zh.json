@@ -62,6 +62,8 @@
   "quadrantNotImportantUrgent": "不重要但紧急",
   "quadrantNotImportantNotUrgent": "不重要且不紧急",
   "noTasksInQuadrant": "暂无任务"
+  ,"expandSubtasks": "展开子任务"
+  ,"collapseSubtasks": "收起子任务"
   ,"taskActions": "任务操作"
   ,"scheduleSettings": "时间安排"
   ,"scheduleMode": "安排模式"

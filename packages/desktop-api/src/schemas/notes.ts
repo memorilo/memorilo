@@ -203,6 +203,7 @@ export const DesktopTodoTaskSchema: EffectSchema.Codec<DesktopTodoTask> = Schema
   noteFavorite: Schema.Boolean,
   noteTitle: Schema.String,
   parentId: nullable(Schema.NonEmptyString),
+  todoParentId: Schema.optionalKey(nullable(Schema.NonEmptyString)),
   repeatRule: nullable(Schema.Struct({
     anchorDate: Schema.optionalKey(JournalDateSchema),
     calendarId: Schema.optionalKey(Schema.NonEmptyString),

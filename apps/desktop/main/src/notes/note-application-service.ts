@@ -56,10 +56,12 @@ export function createNoteApplicationService(
   activeReadings?: ActiveReadingRegistry,
 ) {
   const today = (): JournalDate => localJournalDate(options.now?.() ?? new Date())
+  const autoCompleteTodoParents = options.autoCompleteTodoParents ?? (() => true)
   const defaultNoteLearningEnabled = options.defaultNoteLearningEnabled ?? (() => true)
   const recurringTaskCompletionAction = options.recurringTaskCompletionAction ?? (() => 'archive-completed-to-today' as const)
   const runtime = createNoteAuthoritativeRuntime({
     activeReadings,
+    autoCompleteTodoParents,
     defaultNoteLearningEnabled,
     onExternalUpdate,
     storage,

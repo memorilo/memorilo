@@ -86,6 +86,7 @@ describe('desktop MCP configuration', () => {
     })).toEqual({
       ...current,
       todo: {
+        autoCompleteParentTasks: true,
         enabled: false,
         recurringTaskCompletionAction: 'archive-completed-to-today',
       },

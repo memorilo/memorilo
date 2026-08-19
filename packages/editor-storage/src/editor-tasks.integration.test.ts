@@ -112,6 +112,69 @@ describe('todo task projection', () => {
     expect(doing.items.map(task => task.blockId)).toEqual(['doing-task'])
   })
 
+  it('projects the nearest Todo ancestor while skipping non-Todo blocks', async () => {
+    const storage = await createStorage()
+    const note = await storage.notes.createNote({ title: 'Nested Project' })
+    await saveTasks(storage, note, [
+      {
+        attributes: { elapsedMs: 0, startedAt: null, status: 'todo' },
+        id: 'root-task',
+        kind: 'task',
+        ordinal: 0,
+        parentId: null,
+        text: 'Root task',
+      },
+      {
+        attributes: { collapsed: false },
+        id: 'root-outline',
+        kind: 'outline',
+        ordinal: 0,
+        parentId: 'root-task',
+        text: 'Intermediate outline',
+      },
+      {
+        attributes: { elapsedMs: 0, startedAt: null, status: 'todo' },
+        id: 'nested-task',
+        kind: 'task',
+        ordinal: 0,
+        parentId: 'root-outline',
+        text: 'Nested task',
+      },
+      {
+        attributes: { elapsedMs: 0, startedAt: null, status: 'todo' },
+        id: 'grandchild-task',
+        kind: 'task',
+        ordinal: 0,
+        parentId: 'nested-task',
+        text: 'Grandchild task',
+      },
+      {
+        attributes: { collapsed: false },
+        id: 'standalone-outline',
+        kind: 'outline',
+        ordinal: 1,
+        parentId: null,
+        text: 'Standalone outline',
+      },
+      {
+        attributes: { elapsedMs: 0, startedAt: null, status: 'todo' },
+        id: 'standalone-task',
+        kind: 'task',
+        ordinal: 0,
+        parentId: 'standalone-outline',
+        text: 'Standalone task',
+      },
+    ])
+
+    const tasks = await storage.tasks.list()
+    expect(Object.fromEntries(tasks.items.map(task => [task.blockId, task.todoParentId]))).toEqual({
+      'grandchild-task': 'nested-task',
+      'nested-task': 'root-task',
+      'root-task': null,
+      'standalone-task': null,
+    })
+  })
+
   it('refreshes the task projection when a CRDT-backed block is removed', async () => {
     const storage = await createStorage()
     const note = await storage.notes.createNote({ title: 'Mutable Project' })

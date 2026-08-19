@@ -58,6 +58,8 @@
   "learningEnabledDescription": "启用卡片、挖空、FSRS 排程、学习页和图片遮罩。",
   "todoEnabled": "启用 Todo 工作区",
   "todoEnabledDescription": "显示 Todo 聚合页面；关闭后，编辑器中的 Todo 块仍可正常使用。",
+  "autoCompleteParentTasks": "自动完成父 Todo",
+  "autoCompleteParentTasksDescription": "所有直接子 Todo 完成后自动完成父 Todo；子任务重新打开时恢复为待办。",
   "recurringTaskCompletionAction": "重复任务完成后",
   "recurringTaskCompletionActionDescription": "选择完成记录与下一次任务的保存位置。",
   "recurringTaskArchiveCompletedToToday": "完成记录归入今日日记",

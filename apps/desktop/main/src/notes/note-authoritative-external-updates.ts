@@ -18,9 +18,11 @@ import {
   protectedReadingEntryIds,
 } from './note-entry-protection'
 import { projectNoteLearningCards } from './note-learning-cards'
+import { reconcileTodoParentStatusesInNote } from './todo-parent-status'
 
 interface NoteAuthoritativeExternalUpdatesDependencies {
   activeReadings?: ActiveReadingRegistry
+  autoCompleteTodoParents: () => boolean
   cache: NoteAuthoritativeCache
   onExternalUpdate?: (update: { noteId: string, update: Uint8Array, updatedAt: number }) => void
   open: (noteId: string) => Promise<AuthoritativeNote>
@@ -30,6 +32,7 @@ interface NoteAuthoritativeExternalUpdatesDependencies {
 
 export function createNoteAuthoritativeExternalUpdates({
   activeReadings,
+  autoCompleteTodoParents,
   cache,
   onExternalUpdate,
   open,
@@ -49,7 +52,7 @@ export function createNoteAuthoritativeExternalUpdates({
     const changed = { entriesChanged: false, metadataChanged: false, topicIds: new Set<string>() }
 
     return yield* Effect.gen(function* () {
-      const projectedEntries = yield* Effect.try({
+      let projectedEntries = yield* Effect.try({
         catch: toError,
         try: () => {
           input.updates.forEach(update => mergeMutation(changed, current.note.importUpdates(update)))
@@ -58,6 +61,17 @@ export function createNoteAuthoritativeExternalUpdates({
           return entries
         },
       })
+      const importedVersion = current.note.getVersion()
+      let autoUpdate: Uint8Array | null = null
+      if (autoCompleteTodoParents() && reconcileTodoParentStatusesInNote(current.note)) {
+        autoUpdate = current.note.exportUpdates(importedVersion)
+        projectedEntries = current.note.getEntries()
+        for (const entry of projectedEntries) {
+          if (entry.kind === 'topic')
+            changed.topicIds.add(entry.id)
+        }
+      }
+      const updates = autoUpdate === null ? input.updates : [...input.updates, autoUpdate]
       yield* Effect.forEach(
         projectedEntries,
         entry => entry.kind === 'topic' ? current.note.validateTopic(entry.id) : Effect.void,
@@ -101,7 +115,7 @@ export function createNoteAuthoritativeExternalUpdates({
           spreadsheets: projection.spreadsheets,
           ...(changed.metadataChanged || projection.journalTopic !== null ? { title: current.note.getTitle() } : {}),
           topics: projection.topics,
-          updates: input.updates,
+          updates,
         }),
       })
       current.latestSequence = receipt.latestSequence
@@ -111,7 +125,7 @@ export function createNoteAuthoritativeExternalUpdates({
       if (acceptedHashes.size > 0)
         scheduleIndex(current.note.id)
       if (onExternalUpdate) {
-        for (const update of input.updates) {
+        for (const update of updates) {
           const hash = updateHash(update)
           if (!acceptedHashes.delete(hash))
             continue

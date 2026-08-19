@@ -25,7 +25,7 @@ import { PageTitlebarButton } from '../../shared/page-titlebar-button'
 import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 import { TodoListSidebar } from './todo-list-sidebar'
-import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskQueryOptions } from './todo-model'
+import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskQueryOptions, todoTasksForView } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
 import { TodoBoardView } from './views/todo-board-view'
 import { TodoCalendarView } from './views/todo-calendar-view'
@@ -147,9 +147,10 @@ export function TodoPage({
   const tasks = useMemo(() => sortTodoTasks(tasksQuery.data
     ? tasksQuery.data.pages.flatMap(page => [...page.items])
     : []), [tasksQuery.data])
+  const viewTasks = useMemo(() => todoTasksForView(tasks, view), [tasks, view])
   const calendarEvents = useMemo(() => calendarQuery.data?.events ?? [], [calendarQuery.data?.events])
   const calendarSubscriptions = calendarQuery.data?.subscriptions ?? []
-  const hasRunningTasks = tasks.some(task => task.status === 'doing' && task.startedAt !== null)
+  const hasRunningTasks = viewTasks.some(task => task.status === 'doing' && task.startedAt !== null)
   const [now, setNow] = useState(() => Date.now())
   const [selectedDate, setSelectedDate] = useState(() => dayjs(now).format('YYYY-MM-DD'))
   const selectedDateEvents = useMemo(() => calendarEvents.filter(event => (
@@ -259,7 +260,7 @@ export function TodoPage({
         onUpdateTask={updateTodoTask}
         selectedDate={selectedDate}
         t={t}
-        tasks={tasks}
+        tasks={viewTasks}
         weekStart={configuration.weekStart}
       />
     )
@@ -361,7 +362,7 @@ export function TodoPage({
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
         t={t}
-        tasks={tasks}
+        tasks={viewTasks}
       />
     )
   }
@@ -379,7 +380,7 @@ export function TodoPage({
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
         t={t}
-        tasks={tasks}
+        tasks={viewTasks}
       />
     )
   }
@@ -393,7 +394,7 @@ export function TodoPage({
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
         t={t}
-        tasks={tasks}
+        tasks={viewTasks}
       />
     )
   }

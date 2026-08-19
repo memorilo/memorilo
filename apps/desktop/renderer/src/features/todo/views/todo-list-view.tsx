@@ -3,10 +3,10 @@ import type { TFunction } from 'i18next'
 import type { CSSProperties } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Circle, CircleCheck, CircleDotDashed, LoaderCircle } from 'lucide-react'
-import { useCallback, useEffect, useRef } from 'react'
+import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleDotDashed, LoaderCircle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { todoCalendarColor } from '../../../shared/todo-calendar-color'
-import { formatTaskDuration, taskElapsedMs, todoTaskKey } from '../todo-model'
+import { buildTodoTaskTree, flattenTodoTaskTree, formatTaskDuration, taskElapsedMs, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskMetadata } from '../todo-task-metadata'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
@@ -93,16 +93,20 @@ export function TodoListView({
   tasks: readonly DesktopTodoTask[]
 }) {
   const scrollElementRef = useRef<HTMLDivElement>(null)
-  const virtualCount = tasks.length + (hasNextPage ? 1 : 0)
+  const [collapsedKeys, setCollapsedKeys] = useState<ReadonlySet<string>>(() => new Set())
+  const tree = useMemo(() => buildTodoTaskTree(tasks), [tasks])
+  const visibleTasks = useMemo(() => flattenTodoTaskTree(tree, collapsedKeys), [collapsedKeys, tree])
+  const virtualCount = visibleTasks.length + (hasNextPage ? 1 : 0)
   const calendarEventOffset = selectedDateEvents.length * rowHeight
   const getVirtualRowKey = useCallback((index: number) => {
-    const task = tasks[index]
+    const visibleTask = visibleTasks[index]
+    const task = visibleTask?.task
     if (task)
       return todoTaskKey(task)
-    if (index === tasks.length && hasNextPage)
+    if (index === visibleTasks.length && hasNextPage)
       return 'load-next-todo-page'
     throw new RangeError(`Virtual Todo row ${index} is outside the list`)
-  }, [hasNextPage, tasks])
+  }, [hasNextPage, visibleTasks])
   const rowVirtualizer = useVirtualizer({
     count: virtualCount,
     estimateSize: estimateRowSize,
@@ -121,7 +125,7 @@ export function TodoListView({
 
   useEffect(() => {
     if (!lastVirtualRow
-      || lastVirtualRow.index !== tasks.length
+      || lastVirtualRow.index !== visibleTasks.length
       || !hasNextPage
       || isFetchingNextPage
       || isFetchNextPageError) {
@@ -134,8 +138,20 @@ export function TodoListView({
     isFetchNextPageError,
     lastVirtualRow,
     onFetchNextPage,
-    tasks.length,
+    visibleTasks.length,
   ])
+
+  const toggleCollapsed = useCallback((task: DesktopTodoTask) => {
+    const key = todoTaskKey(task)
+    setCollapsedKeys((previous) => {
+      const next = new Set(previous)
+      if (next.has(key))
+        next.delete(key)
+      else
+        next.add(key)
+      return next
+    })
+  }, [])
 
   return (
     <div {...stylex.props(styles.root)}>
@@ -153,9 +169,10 @@ export function TodoListView({
             />
           ))}
           {virtualRows.map((virtualRow) => {
-            const task = tasks[virtualRow.index]
+            const visibleTask = visibleTasks[virtualRow.index]
+            const task = visibleTask?.task
             if (!task) {
-              if (virtualRow.index !== tasks.length || !hasNextPage)
+              if (virtualRow.index !== visibleTasks.length || !hasNextPage)
                 throw new RangeError(`Virtual Todo row ${virtualRow.index} is outside the list`)
               return (
                 <li
@@ -181,6 +198,8 @@ export function TodoListView({
               )
             }
             const elapsed = formatTaskDuration(taskElapsedMs(task, now))
+            const hasChildren = visibleTask.hasChildren
+            const isCollapsed = collapsedKeys.has(todoTaskKey(task))
             return (
               <li
                 key={todoTaskKey(task)}
@@ -188,6 +207,29 @@ export function TodoListView({
                 style={{ transform: `translateY(${calendarEventOffset + virtualRow.start}px)` }}
               >
                 <div {...stylex.props(styles.rowShell)}>
+                  {hasChildren
+                    ? (
+                        <button
+                          {...stylex.props(styles.treeToggle)}
+                          style={{ marginLeft: visibleTask.depth * 20 }}
+                          aria-expanded={!isCollapsed}
+                          aria-label={isCollapsed ? t('expandSubtasks') : t('collapseSubtasks')}
+                          title={isCollapsed ? t('expandSubtasks') : t('collapseSubtasks')}
+                          type="button"
+                          onClick={() => toggleCollapsed(task)}
+                        >
+                          {isCollapsed
+                            ? <ChevronRight aria-hidden="true" size={16} strokeWidth={1.8} />
+                            : <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />}
+                        </button>
+                      )
+                    : (
+                        <span
+                          {...stylex.props(styles.treeTogglePlaceholder)}
+                          style={{ marginLeft: visibleTask.depth * 20 }}
+                          aria-hidden="true"
+                        />
+                      )}
                   <button
                     {...stylex.props(styles.rowButton)}
                     aria-label={t('openTask', { note: task.noteTitle, task: task.text })}

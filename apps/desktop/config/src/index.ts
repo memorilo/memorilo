@@ -88,6 +88,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
+    autoCompleteParentTasks: Schema.Boolean,
     enabled: Schema.Boolean,
     recurringTaskCompletionAction: Schema.Literals([
       'archive-completed-to-today',
@@ -137,6 +138,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
     todo: {
+      autoCompleteParentTasks: true,
       enabled: true,
       recurringTaskCompletionAction: 'archive-completed-to-today' as const,
     },
@@ -181,6 +183,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
     label: 'General',
   }, {
     fields: [{
+      control: 'toggle',
+      description: 'Complete a Todo parent when all of its direct Todo children are complete, and reopen it when one is reopened.',
+      label: 'Auto-complete parent Todos',
+      path: 'todo.autoCompleteParentTasks',
+    }, {
       control: 'toggle',
       description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
       label: 'Enable Todo workspace',
@@ -478,7 +485,20 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
       ...record,
       todo: {
         ...todo,
+        autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
         recurringTaskCompletionAction: desktopConfigurationDefinition.defaults.todo.recurringTaskCompletionAction,
+      },
+    }
+  }
+  if (typeof todo === 'object'
+    && todo !== null
+    && !Array.isArray(todo)
+    && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
+    return {
+      ...record,
+      todo: {
+        ...todo,
+        autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
