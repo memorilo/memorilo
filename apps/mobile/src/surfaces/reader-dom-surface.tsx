@@ -11,6 +11,7 @@ import type {
 import type { DOMProps } from 'expo/dom'
 import type {
   BoundReaderSurfaceDocument,
+  InitializeBookReaderNoteInput,
   LegacyReaderSurfaceDocument,
   ReaderSurfaceCommand,
   ReaderSurfaceCommandResult,
@@ -54,9 +55,41 @@ export interface ReaderDomSurfaceProps extends ReaderSurfaceFunctions {
 }
 
 const saveDelayMilliseconds = 350
+const initializeBookNoteMessage = 'memorilo.reader.initialize-book-note'
+
+interface ExpoFileSystemBridge {
+  readAsStringAsync: (
+    uri: string,
+    options: { encoding: 'base64', length: number, position: number },
+  ) => Promise<string>
+}
+
+interface ExpoDomWebViewBridge {
+  expoModulesProxy?: {
+    ExponentFileSystem?: ExpoFileSystemBridge
+  }
+}
+
+function requireFileSystemBridge(): ExpoFileSystemBridge {
+  const bridge = (globalThis as typeof globalThis & {
+    ExpoDomWebView?: ExpoDomWebViewBridge
+  }).ExpoDomWebView?.expoModulesProxy?.ExponentFileSystem
+  if (!bridge)
+    throw new Error('The native Reader file bridge is unavailable')
+  return bridge
+}
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
+}
+
+function requestBookNoteInitialization(input: InitializeBookReaderNoteInput): void {
+  const bridge = (globalThis as typeof globalThis & {
+    ReactNativeWebView?: { postMessage: (message: string) => void }
+  }).ReactNativeWebView
+  if (!bridge)
+    throw new Error('The native Reader message bridge is unavailable')
+  bridge.postMessage(JSON.stringify({ data: input, type: initializeBookNoteMessage }))
 }
 
 function openEditorNote(document: BoundReaderSurfaceDocument): EditorNote {
@@ -81,36 +114,39 @@ function resolveBookTopicId(note: EditorNote, document: ReaderSurfaceDocument): 
 
 function useReaderSource(
   document: ReaderSurfaceDocument,
-  readRange: ReaderSurfaceFunctions['readRange'],
 ): ReaderSource {
-  const callback = useRef(readRange)
-  callback.current = readRange
   return useMemo<ReaderSource>(() => ({
     byteLength: document.byteLength,
     format: document.format,
     name: document.name,
-    read: async (offset, length) => decodeBinary(await callback.current({
-      length,
-      offset,
-      readingId: document.readingId,
-    })),
-  }), [document.byteLength, document.format, document.name, document.readingId])
+    read: async (offset, length) => {
+      if (!Number.isSafeInteger(offset) || offset < 0)
+        throw new RangeError('Reading range offset must be a non-negative safe integer')
+      if (!Number.isSafeInteger(length) || length < 0)
+        throw new RangeError('Reading range length must be a non-negative safe integer')
+      if (offset + length > document.byteLength)
+        throw new RangeError(`Reading range exceeds ${document.name}`)
+      return decodeBinary(await requireFileSystemBridge().readAsStringAsync(document.fileUri, {
+        encoding: 'base64',
+        length,
+        position: offset,
+      }))
+    },
+  }), [document.byteLength, document.fileUri, document.format, document.name])
 }
 
 function LegacyReader({
   command,
   document,
   onCommandResult,
-  readRange,
   saveState,
 }: {
   command?: ReaderSurfaceCommand | null
   document: LegacyReaderSurfaceDocument
   onCommandResult: (result: ReaderSurfaceCommandResult) => void
-  readRange: ReaderSurfaceFunctions['readRange']
   saveState: ReaderSurfaceFunctions['saveState']
 }) {
-  const source = useReaderSource(document, readRange)
+  const source = useReaderSource(document)
   const annotationsRef = useRef(document.annotations)
   const positionRef = useRef<ReaderPosition | null>(document.position)
   const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve())
@@ -161,7 +197,6 @@ function BoundReader({
   onCommandResult,
   onOpenTopic,
   readImageSize,
-  readRange,
   resolveAsset,
   saveImage,
   saveNote,
@@ -173,12 +208,11 @@ function BoundReader({
   onCommandResult: (result: ReaderSurfaceCommandResult) => void
   onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
   readImageSize: ReaderSurfaceFunctions['readImageSize']
-  readRange: ReaderSurfaceFunctions['readRange']
   resolveAsset: ReaderSurfaceFunctions['resolveAsset']
   saveImage: ReaderSurfaceFunctions['saveImage']
   saveNote: ReaderSurfaceFunctions['saveNote']
 }) {
-  const source = useReaderSource(document, readRange)
+  const source = useReaderSource(document)
   const topicId = resolveBookTopicId(note, document)
   const readerSession = useMemo(() => createBoundReaderSession(note, topicId), [note, topicId])
   const { bookTopic } = readerSession
@@ -381,68 +415,57 @@ function RestoredBookReader({
   onCommandResult: (result: ReaderSurfaceCommandResult) => void
   onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
 }) {
-  const note = useMemo(() => openEditorNote(document), [document])
+  const revision = `${document.note.id}:${document.note.checkpointSequence}:${document.note.latestSequence}`
+  const openedRef = useRef<{ note: EditorNote, revision: string } | null>(null)
+  if (openedRef.current?.revision !== revision)
+    openedRef.current = { note: openEditorNote(document), revision }
+  const note = openedRef.current.note
   return <BoundReader command={command} document={document} note={note} onCommandResult={onCommandResult} onOpenTopic={onOpenTopic} {...functions} />
 }
 
 function InitializedBookReader({
-  command,
   document,
-  initializeBookNote,
-  onCommandResult,
-  onOpenTopic,
-  ...functions
 }: ReaderSurfaceFunctions & {
   command?: ReaderSurfaceCommand | null
   document: UnboundReaderSurfaceDocument
   onCommandResult: (result: ReaderSurfaceCommandResult) => void
   onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
 }) {
-  const created = useMemo(() => createBookEditorNote({
-    book: document.book,
-    id: crypto.randomUUID(),
-    learningEnabled: true,
-    noteTitle: document.noteTitle,
-    topicTitle: document.name,
-  }), [document])
-  const [ready, setReady] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const initializationRef = useRef<{ key: string, promise: Promise<void> } | null>(null)
+  const createdRef = useRef<{
+    created: ReturnType<typeof createBookEditorNote>
+    readingId: string
+  } | null>(null)
+  if (createdRef.current?.readingId !== document.readingId) {
+    createdRef.current = {
+      created: createBookEditorNote({
+        book: document.book,
+        id: crypto.randomUUID(),
+        learningEnabled: true,
+        noteTitle: document.noteTitle,
+        topicTitle: document.name,
+      }),
+      readingId: document.readingId,
+    }
+  }
+  const created = createdRef.current.created
+  const initializationRef = useRef<string | null>(null)
 
   useEffect(() => {
-    let active = true
     const key = `${created.note.id}:${document.readingId}`
-    const initialization = initializationRef.current?.key === key
-      ? initializationRef.current.promise
-      : initializeBookNote({
-          ...projectEditorNoteStorage(created.note),
-          noteId: created.note.id,
-          readingId: document.readingId,
-          snapshot: encodeBinary(created.note.exportSnapshot()),
-          title: created.note.getTitle(),
-          topicId: created.topicId,
-        })
-    initializationRef.current = { key, promise: initialization }
-    void initialization.then(
-      () => {
-        if (active)
-          setReady(true)
-      },
-      (failure: unknown) => {
-        if (active)
-          setError(toError(failure))
-      },
-    )
-    return () => {
-      active = false
-    }
-  }, [created, document.readingId, initializeBookNote])
+    if (initializationRef.current === key)
+      return
+    initializationRef.current = key
+    requestBookNoteInitialization({
+      ...projectEditorNoteStorage(created.note),
+      noteId: created.note.id,
+      readingId: document.readingId,
+      snapshot: encodeBinary(created.note.exportSnapshot()),
+      title: created.note.getTitle(),
+      topicId: created.topicId,
+    })
+  }, [created, document.readingId])
 
-  if (error)
-    return <div {...stylex.props(styles.alert)} role="alert">{error.message}</div>
-  if (!ready)
-    return <div aria-busy="true" />
-  return <BoundReader command={command} document={document} note={created.note} onCommandResult={onCommandResult} onOpenTopic={onOpenTopic} {...functions} />
+  return <div aria-busy="true" />
 }
 
 export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
@@ -470,7 +493,6 @@ export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
                 command={props.command}
                 document={props.document}
                 onCommandResult={props.onCommandResult}
-                readRange={props.readRange}
                 saveState={props.saveState}
               />
             )
@@ -480,9 +502,7 @@ export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
                   captureReaderRegion={props.captureReaderRegion}
                   command={props.command}
                   document={props.document}
-                  initializeBookNote={props.initializeBookNote}
                   readImageSize={props.readImageSize}
-                  readRange={props.readRange}
                   resolveAsset={props.resolveAsset}
                   saveImage={props.saveImage}
                   saveNote={props.saveNote}
@@ -496,9 +516,7 @@ export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
                   captureReaderRegion={props.captureReaderRegion}
                   command={props.command}
                   document={props.document}
-                  initializeBookNote={props.initializeBookNote}
                   readImageSize={props.readImageSize}
-                  readRange={props.readRange}
                   resolveAsset={props.resolveAsset}
                   saveImage={props.saveImage}
                   saveNote={props.saveNote}

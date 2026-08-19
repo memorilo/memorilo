@@ -16,7 +16,7 @@ import type { MobileReading } from '@/files/mobile-reading-library'
 import { sameBookFile } from '@memorilo/reading-model'
 import { File } from 'expo-file-system'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Image, StyleSheet, Text, View } from 'react-native'
 import { captureRef, releaseCapture } from 'react-native-view-shot'
 import { useMobileLanguage } from '@/application/mobile-language-hook'
@@ -36,9 +36,7 @@ interface PendingReaderCommand {
   resolve: () => void
 }
 
-const dom: DOMProps = {
-  style: { flex: 1 },
-}
+const initializeBookNoteMessage = 'memorilo.reader.initialize-book-note'
 
 const styles = StyleSheet.create({
   centered: {
@@ -96,6 +94,7 @@ async function loadSurfaceDocument(
 ): Promise<ReaderSurfaceDocument> {
   const base = {
     byteLength: reading.byteLength,
+    fileUri: reading.uri,
     format: reading.format,
     name: reading.name,
     originalName: reading.originalName,
@@ -150,6 +149,21 @@ function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
 
+function isInitializeBookReaderNoteInput(value: unknown): value is InitializeBookReaderNoteInput {
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    return false
+  const input = value as Record<string, unknown>
+  return typeof input.noteId === 'string'
+    && typeof input.readingId === 'string'
+    && typeof input.snapshot === 'string'
+    && typeof input.title === 'string'
+    && typeof input.topicId === 'string'
+    && Array.isArray(input.entries)
+    && Array.isArray(input.learningCards)
+    && Array.isArray(input.spreadsheets)
+    && Array.isArray(input.topics)
+}
+
 function readNativeImageSize(source: string): Promise<ReaderImageSize> {
   return new Promise((resolve, reject) => {
     Image.getSize(source, (width, height) => {
@@ -179,6 +193,9 @@ export function ReaderDomHost({ onOpenTopic, reading, runtime }: ReaderDomHostPr
   const nextCommandId = useRef(1)
   const pendingCommand = useRef<PendingReaderCommand | null>(null)
   const commandQueue = useRef<Promise<void>>(Promise.resolve())
+  const activeReadingId = useRef(reading.id)
+  const initializations = useRef(new Map<string, Promise<void>>())
+  activeReadingId.current = reading.id
 
   useEffect(() => {
     runtime.readings.beginSession(reading.id)
@@ -246,10 +263,6 @@ export function ReaderDomHost({ onOpenTopic, reading, runtime }: ReaderDomHostPr
     }
   }, [reading, runtime])
 
-  const readRange = useCallback(async (input: { length: number, offset: number, readingId: string }) => (
-    encodeBinary(await runtime.readings.readRange(input.readingId, input.offset, input.length))
-  ), [runtime])
-
   const saveState = useCallback((input: Parameters<typeof runtime.readings.saveState>[0]) => (
     runtime.readings.saveState(input)
   ), [runtime])
@@ -266,25 +279,61 @@ export function ReaderDomHost({ onOpenTopic, reading, runtime }: ReaderDomHostPr
     })
   }, [runtime])
 
-  const initializeBookNote = useCallback(async (input: InitializeBookReaderNoteInput): Promise<void> => {
-    const retained = await runtime.readings.retainInLibrary(input.readingId)
-    if (!retained)
-      throw new Error(`Reading file ${input.readingId} is no longer available`)
-    await runtime.editor.notes.createInitializedNote({
-      entries: input.entries,
-      id: input.noteId,
-      learningCards: input.learningCards,
-      snapshot: decodeBinary(input.snapshot),
-      spreadsheets: input.spreadsheets,
-      title: input.title,
-      topics: input.topics,
-    })
-    await runtime.readings.bindContext({
-      noteId: input.noteId,
-      readingId: input.readingId,
-      topicId: input.topicId,
+  const initializeBookNote = useCallback((input: InitializeBookReaderNoteInput): void => {
+    const key = `${input.readingId}:${input.noteId}`
+    if (initializations.current.has(key))
+      return
+    const initialization = (async () => {
+      const retained = await runtime.readings.retainInLibrary(input.readingId)
+      if (!retained)
+        throw new Error(`Reading file ${input.readingId} is no longer available`)
+      await runtime.editor.notes.createInitializedNote({
+        entries: input.entries,
+        id: input.noteId,
+        learningCards: input.learningCards,
+        snapshot: decodeBinary(input.snapshot),
+        spreadsheets: input.spreadsheets,
+        title: input.title,
+        topics: input.topics,
+      })
+      await runtime.readings.bindContext({
+        noteId: input.noteId,
+        readingId: input.readingId,
+        topicId: input.topicId,
+      })
+      const loaded = await loadSurfaceDocument(runtime, runtime.readings.get(input.readingId))
+      if (activeReadingId.current === input.readingId)
+        setDocument(loaded)
+    })()
+    initializations.current.set(key, initialization)
+    void initialization.catch((failure: unknown) => {
+      if (activeReadingId.current === input.readingId)
+        setError(toError(failure))
+    }).finally(() => {
+      initializations.current.delete(key)
     })
   }, [runtime])
+
+  const readerDom = useMemo<DOMProps>(() => ({
+    style: { flex: 1 },
+    unstable_useExpoModulesBridge: true,
+    onMessage: (event) => {
+      try {
+        const message: unknown = JSON.parse(event.nativeEvent.data)
+        if (message === null || typeof message !== 'object' || Array.isArray(message))
+          return
+        const { data, type } = message as Record<string, unknown>
+        if (type !== initializeBookNoteMessage)
+          return
+        if (!isInitializeBookReaderNoteInput(data))
+          throw new TypeError('Reader Book Note initialization message is invalid')
+        initializeBookNote(data)
+      }
+      catch (failure) {
+        setError(toError(failure))
+      }
+    },
+  }), [initializeBookNote])
 
   const resolveAsset = useCallback((source: string) => runtime.assets.resolve(source), [runtime])
   const saveImage = useCallback(async (input: SaveReaderImageInput) => (
@@ -374,11 +423,9 @@ export function ReaderDomHost({ onOpenTopic, reading, runtime }: ReaderDomHostPr
         captureReaderRegion={captureReaderRegion}
         command={command}
         document={document}
-        dom={dom}
-        initializeBookNote={initializeBookNote}
+        dom={readerDom}
         language={language}
         readImageSize={readImageSize}
-        readRange={readRange}
         resolveAsset={resolveAsset}
         saveImage={saveImage}
         saveNote={saveNote}

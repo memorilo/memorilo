@@ -10,6 +10,7 @@ import type { PdfRangeReader } from './pdf-range-reader'
 import {
   createResourceScope,
 } from '@memorilo/effect-lifecycle'
+import * as pdfJsModule from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { interruptPromise } from '../interrupt-promise'
 import { toReaderError } from '../reader-adapter'
 import { createPdfRangeReader } from './pdf-range-reader'
@@ -70,7 +71,7 @@ export async function openPdfDocumentSession(
     },
   ))
   const createRangeReader = dependencies.createRangeReader ?? createPdfRangeReader
-  const loadPdfJs = dependencies.loadPdfJs ?? (() => import('pdfjs-dist'))
+  const loadPdfJs = dependencies.loadPdfJs ?? (() => Promise.resolve(pdfJsModule))
   const scope = createResourceScope('PDF document session')
   const reportError = (error: unknown): void => {
     try {

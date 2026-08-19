@@ -30,11 +30,15 @@ function textOffset(article: HTMLElement, container: Node, offset: number): numb
 
 function textOffsetAtPoint(article: HTMLElement, x: number, y: number): number | null {
   const document = article.ownerDocument
-  const caret = document.caretPositionFromPoint(x, y)
+  const caret = typeof document.caretPositionFromPoint === 'function'
+    ? document.caretPositionFromPoint(x, y)
+    : null
   if (caret && article.contains(caret.offsetNode))
     return textOffset(article, caret.offsetNode, caret.offset)
 
-  const range = document.caretRangeFromPoint(x, y)
+  const range = typeof document.caretRangeFromPoint === 'function'
+    ? document.caretRangeFromPoint(x, y)
+    : null
   if (range && article.contains(range.startContainer))
     return textOffset(article, range.startContainer, range.startOffset)
   return null

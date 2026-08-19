@@ -5,6 +5,7 @@ import type { EditorSurfaceSession } from './editor-surface-contract'
 
 interface ReaderSurfaceDocumentBase {
   byteLength: number
+  fileUri: string
   format: ReadingFormat
   name: string
   originalName: string
@@ -33,12 +34,6 @@ export type ReaderSurfaceDocument
   = | BoundReaderSurfaceDocument
     | LegacyReaderSurfaceDocument
     | UnboundReaderSurfaceDocument
-
-export interface ReadReaderRangeInput {
-  length: number
-  offset: number
-  readingId: string
-}
 
 export interface SaveReaderStateInput {
   annotations: readonly ReaderAnnotation[]
@@ -94,8 +89,6 @@ export interface ReaderSurfaceCommandResult {
 
 export interface ReaderSurfaceFunctions {
   captureReaderRegion: (input: ReaderCaptureRegionInput) => Promise<string>
-  initializeBookNote: (input: InitializeBookReaderNoteInput) => Promise<void>
-  readRange: (input: ReadReaderRangeInput) => Promise<string>
   readImageSize: (source: string) => Promise<ReaderImageSize>
   resolveAsset: (source: string) => Promise<string>
   saveImage: (input: SaveReaderImageInput) => Promise<SavedReaderImage>

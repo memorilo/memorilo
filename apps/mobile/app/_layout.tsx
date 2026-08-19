@@ -14,7 +14,9 @@ export default function RootLayout() {
         <MobileLanguageProvider>
           <MobileRuntimeProvider>
             <StatusBar style="auto" />
-            <Stack screenOptions={{ contentStyle: { backgroundColor: colors.background }, headerShown: false }} />
+            <Stack screenOptions={{ contentStyle: { backgroundColor: colors.background }, headerShown: false }}>
+              <Stack.Screen name="reader/[readingId]" dangerouslySingular={() => 'reader'} />
+            </Stack>
           </MobileRuntimeProvider>
         </MobileLanguageProvider>
       </MobileAppearanceProvider>

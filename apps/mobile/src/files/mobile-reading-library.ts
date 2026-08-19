@@ -571,10 +571,12 @@ export class MobileReadingLibrary {
       const directory = input.retention === 'cache' ? this.#cache : this.#library
       const file = new File(directory, reading.fileName)
       const part = new File(directory, `.${reading.fileName}.${crypto.randomUUID()}.part`)
+      let moved = false
       part.create({ intermediates: true })
       try {
         part.write(input.bytes)
         await part.move(file, { overwrite: true })
+        moved = true
         if (input.retention === 'cache')
           this.#cacheReadings = [...this.#cacheReadings, reading]
         else
@@ -590,7 +592,7 @@ export class MobileReadingLibrary {
         }
       }
       finally {
-        if (part.exists)
+        if (!moved && part.exists)
           part.delete()
       }
       if (input.retention === 'cache') {
@@ -635,9 +637,11 @@ export class MobileReadingLibrary {
       const directory = input.retention === 'cache' ? this.#cache : this.#library
       const file = new File(directory, reading.fileName)
       const part = new File(directory, `.${reading.fileName}.${crypto.randomUUID()}.part`)
+      let moved = false
       try {
         await input.source.copy(part, { overwrite: true })
         await part.move(file, { overwrite: true })
+        moved = true
         if (input.retention === 'cache')
           this.#cacheReadings = [...this.#cacheReadings, reading]
         else
@@ -653,7 +657,7 @@ export class MobileReadingLibrary {
         }
       }
       finally {
-        if (part.exists)
+        if (!moved && part.exists)
           part.delete()
       }
       return this.#public(reading, input.retention, file)
@@ -787,6 +791,7 @@ export class MobileReadingLibrary {
     const directory = location === 'cache' ? this.#cache : this.#library
     const manifest = location === 'cache' ? this.#cacheManifest : this.#libraryManifest
     const temporary = new File(directory, `.manifest.${crypto.randomUUID()}.tmp`)
+    let moved = false
     temporary.create({ intermediates: true })
     try {
       temporary.write(JSON.stringify({
@@ -794,9 +799,10 @@ export class MobileReadingLibrary {
         schemaVersion: manifestSchemaVersion,
       } satisfies ReadingManifest))
       await temporary.move(manifest, { overwrite: true })
+      moved = true
     }
     finally {
-      if (temporary.exists)
+      if (!moved && temporary.exists)
         temporary.delete()
     }
   }
