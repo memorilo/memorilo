@@ -11,6 +11,7 @@ import { todoTaskOccurrenceActionStyles as styles } from './todo-task-occurrence
 
 export interface TodoTaskUpdateInput {
   blockId: string
+  allDay?: boolean
   dueDate?: string | null
   dueTime?: string | null
   endAt?: string | null
@@ -139,7 +140,7 @@ export function TodoTaskOccurrenceActions({
         ? (
             <FloatingPortal>
               <TaskOccurrencePanel
-                key={`${task.blockId}:${task.dueDate ?? ''}:${JSON.stringify(task.repeatRule)}:${task.text}`}
+                key={`${task.blockId}:${task.allDay}:${task.dueDate ?? ''}:${JSON.stringify(task.repeatRule)}:${task.text}`}
                 calendarEvents={calendarEvents}
                 id={menuId}
                 panelRef={floatingRef}
@@ -149,6 +150,7 @@ export function TodoTaskOccurrenceActions({
                 }}
                 t={t}
                 task={{
+                  allDay: task.allDay,
                   dueDate: task.dueDate,
                   dueTime: task.dueTime,
                   endAt: task.endAt,

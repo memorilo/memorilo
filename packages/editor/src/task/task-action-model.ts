@@ -3,6 +3,7 @@ import { parseTaskDateTime, parseTaskDueDate, parseTaskReminderMinutes, parseTas
 import { resetTaskForNextOccurrence } from './task-completion'
 
 export interface TaskActionUpdate {
+  allDay?: boolean
   dueDate?: string | null
   dueTime?: string | null
   endAt?: string | null
@@ -88,6 +89,8 @@ export function planTaskAction(
   input: TaskActionUpdate,
 ): TaskActionPlan {
   const dueDate = input.dueDate === undefined ? undefined : taskDate(input.dueDate, 'Task due date')
+  if (input.allDay !== undefined && typeof input.allDay !== 'boolean')
+    throw new TypeError('Task all-day flag must be a boolean')
   const dueTime = input.dueTime === undefined ? undefined : taskTime(input.dueTime, 'Task due time')
   const startAt = input.startAt === undefined ? undefined : taskDateTime(input.startAt, 'Task start time')
   const endAt = input.endAt === undefined ? undefined : taskDateTime(input.endAt, 'Task end time')
@@ -105,6 +108,7 @@ export function planTaskAction(
 
   const nextAttrs = {
     ...sourceAttrs,
+    ...(input.allDay === undefined ? {} : { allDay: input.allDay }),
     ...(dueDate === undefined ? {} : { dueDate }),
     ...(dueTime === undefined ? {} : { dueTime }),
     ...(startAt === undefined ? {} : { startAt }),
@@ -141,6 +145,7 @@ export function planTaskAction(
         attrs: {
           ...resetTaskForNextOccurrence({
             ...sourceAttrs,
+            allDay: nextAttrs.allDay,
             dueTime: nextAttrs.dueTime,
             endAt: nextAttrs.endAt,
             reminderMinutes: nextAttrs.reminderMinutes,

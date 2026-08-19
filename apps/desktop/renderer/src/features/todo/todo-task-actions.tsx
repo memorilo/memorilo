@@ -35,6 +35,7 @@ function eventBelongsToNestedTaskAction(event: Event, ownerId: string): boolean 
 function taskActionRevision(task: DesktopTodoTask, calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]): string {
   return JSON.stringify([
     task.blockId,
+    task.allDay,
     task.dueDate,
     task.dueTime,
     task.endAt,
@@ -157,6 +158,7 @@ function TodoTaskActionsForm({
                 }}
                 t={t}
                 task={{
+                  allDay: task.allDay,
                   dueDate: task.dueDate,
                   dueTime: task.dueTime,
                   endAt: task.endAt,

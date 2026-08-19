@@ -142,6 +142,7 @@ export type DesktopTodoCalendarSubscription = TodoCalendarSubscription
 export type ListDesktopTodoTasksInput = ListTodoTasksInput
 
 export interface UpdateDesktopTodoTaskInput {
+  allDay?: boolean
   blockId: string
   dueDate?: string | null
   dueTime?: string | null

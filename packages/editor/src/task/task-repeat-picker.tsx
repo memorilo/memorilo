@@ -478,6 +478,24 @@ export function TaskRepeatPicker({
               </label>
             )
           : null}
+        {normalized.unit !== 'lunar'
+          ? (
+              <label {...stylex.props(styles.field)}>
+                <span>{t('holidayPolicy')}</span>
+                <Select
+                  value={normalized.holidayPolicy ?? 'allow'}
+                  onChange={value => patchRule({
+                    holidayPolicy: value as TaskRepeatRule['holidayPolicy'],
+                    ...(value !== 'allow' && selectedCalendarId.length > 0 ? { calendarId: selectedCalendarId } : {}),
+                  })}
+                >
+                  <option value="allow">{t('holidayAllow')}</option>
+                  <option value="skip">{t('holidaySkip')}</option>
+                  <option value="next-workday">{t('holidayNextWorkday')}</option>
+                </Select>
+              </label>
+            )
+          : null}
         {normalized.unit !== 'holiday' && normalized.unit !== 'lunar'
           ? (
               <>

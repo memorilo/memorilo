@@ -83,12 +83,10 @@ function nextWeeklyOccurrence(current: Dayjs, interval: number, weekdays: readon
   if (selected.length === 0)
     return current.add(interval, 'week')
   const weekStart = current.startOf('week')
-  if (interval === 1) {
-    for (const weekday of selected) {
-      const candidate = weekStart.add(weekday, 'day')
-      if (candidate.isAfter(current, 'day'))
-        return candidate
-    }
+  for (const weekday of selected) {
+    const candidate = weekStart.add(weekday, 'day')
+    if (candidate.isAfter(current, 'day'))
+      return candidate
   }
   return weekStart.add(interval, 'week').add(selected[0] ?? 0, 'day')
 }

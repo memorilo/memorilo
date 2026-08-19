@@ -11,6 +11,7 @@ import type {
 import { resolveLimit } from './editor-storage-shared'
 
 interface TodoTaskRow {
+  all_day: number | null
   block_id: string
   due_date: string | null
   due_time: string | null
@@ -109,6 +110,8 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     throw new TypeError(`Stored Todo task ${row.block_id} has an invalid identity`)
   if (row.note_favorite !== 0 && row.note_favorite !== 1)
     throw new TypeError(`Stored Todo task ${row.block_id} has an invalid note favorite flag`)
+  if (row.all_day !== null && row.all_day !== 0 && row.all_day !== 1)
+    throw new TypeError(`Stored Todo task ${row.block_id} has an invalid all-day flag`)
   if (row.journal_date !== null && !/^\d{4}-\d{2}-\d{2}$/u.test(row.journal_date))
     throw new TypeError(`Stored Todo task ${row.block_id} has an invalid journal date`)
   const dueDate = row.due_date === null ? null : row.due_date
@@ -201,6 +204,7 @@ function toTodoTask(row: TodoTaskRow): TodoTask {
     repeatRule = structuredClone(candidate) as unknown as TodoRepeatRule
   }
   return {
+    allDay: row.all_day === 1,
     blockId: row.block_id,
     dueDate,
     dueTime: row.due_time,
@@ -250,6 +254,7 @@ export class EditorTodoRepository implements EditorTodoStorage {
           block.parent_block_id,
           block.text,
           json_extract(block.attributes_json, '$.dueDate') AS due_date,
+          COALESCE(json_extract(block.attributes_json, '$.allDay'), 0) AS all_day,
           json_extract(block.attributes_json, '$.dueTime') AS due_time,
           json_extract(block.attributes_json, '$.endAt') AS end_at,
           json_extract(block.attributes_json, '$.elapsedMs') AS elapsed_ms,

@@ -5,9 +5,10 @@ import type { TaskReminder, TaskRepeatRule, TaskStatus } from '../schema/task-sc
 import type { TaskActionUpdate } from './task-action-model'
 import type { TaskCalendarEvent, TaskCalendarSubscription } from './task-calendar'
 import type { TaskRepeatPickerMode } from './task-repeat-picker'
-import { autoUpdate, FloatingPortal, offset, shift, size, useFloating } from '@floating-ui/react'
+import { autoUpdate, flip, FloatingPortal, offset, shift, size, useFloating } from '@floating-ui/react'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
+import i18next from 'i18next'
 import {
   Bell,
   CalendarPlus2,
@@ -32,6 +33,7 @@ import { TaskRepeatPicker } from './task-repeat-picker'
 import { TaskTimePicker } from './task-time-picker'
 
 export interface TaskActionTask {
+  allDay: boolean
   dueDate: string | null
   dueTime: string | null
   endAt: string | null
@@ -86,15 +88,16 @@ function dateTimeValue(date: string, time: string): string {
   return `${date}T${time}`
 }
 
-function translationLocale(t: TFunction): string | undefined {
-  const locale = (t as TFunction & { lng?: unknown }).lng
-  return typeof locale === 'string' ? locale : undefined
+function translationLocale(): string | undefined {
+  return i18next.resolvedLanguage ?? i18next.language
 }
 
-function isChinaRegion(t: TFunction): boolean {
-  const locale = translationLocale(t) ?? ''
+function isChinaRegion(): boolean {
+  const locale = translationLocale() ?? ''
   const systemLocale = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().locale : ''
-  return /(?:^|[-_])CN(?:[-_]|$)/u.test(locale) || /(?:^|[-_])CN(?:[-_]|$)/u.test(systemLocale)
+  return /^zh(?:[-_]|$)/iu.test(locale)
+    || /(?:^|[-_])CN(?:[-_]|$)/u.test(locale)
+    || /(?:^|[-_])CN(?:[-_]|$)/u.test(systemLocale)
 }
 
 function repeatSummary(rule: TaskRepeatRule | null, t: TFunction): string {
@@ -136,11 +139,14 @@ export function TaskActionPanel({
   const headingId = useId()
   const baseDate = task.dueDate ?? task.occurrenceDate
   const [mode, setMode] = useState<'date' | 'span'>(() => task.startAt !== null || task.endAt !== null ? 'span' : 'date')
+  const [allDay, setAllDay] = useState(() => task.allDay)
   const [selectedDate, setSelectedDate] = useState<string | null>(() => task.dueDate ?? task.occurrenceDate)
   const [activeMonth, setActiveMonth] = useState(() => dayjs(task.dueDate ?? task.occurrenceDate).startOf('month'))
   const [dueTime, setDueTime] = useState(() => task.dueTime ?? '')
   const [startAt, setStartAt] = useState(() => task.startAt ?? dateTimeValue(baseDate, '09:00'))
   const [endAt, setEndAt] = useState(() => task.endAt ?? dateTimeValue(baseDate, '10:00'))
+  const [allDayStartDate, setAllDayStartDate] = useState(() => task.startAt?.slice(0, 10) ?? baseDate)
+  const [allDayEndDate, setAllDayEndDate] = useState(() => task.endAt?.slice(0, 10) ?? baseDate)
   const [reminders, setReminders] = useState<readonly TaskReminder[]>(() => taskReminders(task))
   const [repeatOpen, setRepeatOpen] = useState(() => task.repeatRule !== null)
   const [repeatPickerOpen, setRepeatPickerOpen] = useState(false)
@@ -173,6 +179,7 @@ export function TaskActionPanel({
     placement: 'bottom-start',
     middleware: [
       offset(8),
+      flip({ padding: 8 }),
       shift({ padding: 8 }),
       size({ apply({ availableHeight, elements }) { Object.assign(elements.floating.style, { maxHeight: `${Math.max(0, availableHeight)}px` }) } }),
     ],
@@ -217,17 +224,21 @@ export function TaskActionPanel({
 
   const scheduleUpdate = (): TaskActionUpdate => {
     if (mode === 'span') {
-      if (startAt.length === 0 || endAt.length === 0 || endAt <= startAt)
+      const effectiveStart = allDay ? dateTimeValue(allDayStartDate, startAt.slice(11) || '09:00') : startAt
+      const effectiveEnd = allDay ? dateTimeValue(allDayEndDate, endAt.slice(11) || '10:00') : endAt
+      if (effectiveStart.length === 0 || effectiveEnd.length === 0 || effectiveEnd <= effectiveStart)
         throw new RangeError(t('timeSpanError'))
       return {
-        dueDate: startAt.slice(0, 10),
+        allDay,
+        dueDate: effectiveStart.slice(0, 10),
         dueTime: null,
-        endAt,
+        endAt: effectiveEnd,
         reminders,
-        startAt,
+        startAt: effectiveStart,
       }
     }
     return {
+      allDay: false,
       dueDate: selectedDate,
       dueTime: selectedDate === null || dueTime.length === 0 ? null : dueTime,
       endAt: null,
@@ -272,6 +283,7 @@ export function TaskActionPanel({
   const clear = () => {
     void update({
       dueDate: null,
+      allDay: false,
       dueTime: null,
       endAt: null,
       reminderMinutes: null,
@@ -288,6 +300,8 @@ export function TaskActionPanel({
     if (mode === 'span' && date !== null) {
       setStartAt(current => `${date}T${current.slice(11)}`)
       setEndAt(current => `${date}T${current.slice(11)}`)
+      setAllDayStartDate(date)
+      setAllDayEndDate(date)
     }
   }
 
@@ -363,7 +377,7 @@ export function TaskActionPanel({
               </div>
               <div {...stylex.props(styles.monthHeader)}>
                 <button {...stylex.props(styles.iconButton)} aria-label={t('previousMonth')} title={t('previousMonth')} type="button" onClick={() => setActiveMonth(current => current.subtract(1, 'month'))}><ChevronLeft aria-hidden="true" size={15} /></button>
-                <span>{new Intl.DateTimeFormat(translationLocale(t), { month: 'long', year: 'numeric' }).format(activeMonth.toDate())}</span>
+                <span>{new Intl.DateTimeFormat(translationLocale(), { month: 'long', year: 'numeric' }).format(activeMonth.toDate())}</span>
                 <button {...stylex.props(styles.iconButton)} aria-label={t('nextMonth')} title={t('nextMonth')} type="button" onClick={() => setActiveMonth(current => current.add(1, 'month'))}><ChevronRight aria-hidden="true" size={15} /></button>
               </div>
               <div {...stylex.props(styles.weekdays)} aria-hidden="true">
@@ -384,14 +398,45 @@ export function TaskActionPanel({
           )
         : (
             <div {...stylex.props(styles.spanFields)}>
-              <label {...stylex.props(styles.field)}>
-                {t('spanStart')}
-                <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="datetime-local" value={startAt} onChange={event => setStartAt(event.target.value)} />
-              </label>
-              <label {...stylex.props(styles.field)}>
-                {t('spanEnd')}
-                <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="datetime-local" value={endAt} onChange={event => setEndAt(event.target.value)} />
-              </label>
+              <div {...stylex.props(styles.allDayRow)}>
+                <span>{t('allDay')}</span>
+                <button
+                  aria-checked={allDay}
+                  aria-label={t('allDay')}
+                  {...stylex.props(styles.allDaySwitch, allDay && styles.allDaySwitchOn)}
+                  disabled={updating}
+                  role="switch"
+                  type="button"
+                  onClick={() => setAllDay(current => !current)}
+                >
+                  <span {...stylex.props(styles.allDayThumb, allDay && styles.allDayThumbOn)} />
+                </button>
+              </div>
+              {allDay
+                ? (
+                    <>
+                      <label {...stylex.props(styles.field)}>
+                        {t('spanStart')}
+                        <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="date" value={allDayStartDate} onChange={event => setAllDayStartDate(event.target.value)} />
+                      </label>
+                      <label {...stylex.props(styles.field)}>
+                        {t('spanEnd')}
+                        <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="date" value={allDayEndDate} onChange={event => setAllDayEndDate(event.target.value)} />
+                      </label>
+                    </>
+                  )
+                : (
+                    <>
+                      <label {...stylex.props(styles.field)}>
+                        {t('spanStart')}
+                        <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="datetime-local" value={startAt} onChange={event => setStartAt(event.target.value)} />
+                      </label>
+                      <label {...stylex.props(styles.field)}>
+                        {t('spanEnd')}
+                        <input {...stylex.props(formControlStyles.textInput, styles.dateTimeInput)} disabled={updating} type="datetime-local" value={endAt} onChange={event => setEndAt(event.target.value)} />
+                      </label>
+                    </>
+                  )}
             </div>
           )}
 
@@ -414,7 +459,7 @@ export function TaskActionPanel({
       >
         <Clock3 aria-hidden="true" size={15} strokeWidth={1.7} />
         <span>{t('time')}</span>
-        <span {...stylex.props(styles.settingValue)}>{mode === 'span' ? `${startAt.slice(11)} – ${endAt.slice(11)}` : dueTime || t('notSet')}</span>
+        <span {...stylex.props(styles.settingValue)}>{mode === 'span' ? (allDay ? t('allDay') : `${startAt.slice(11)} – ${endAt.slice(11)}`) : dueTime || t('notSet')}</span>
         <ChevronRight aria-hidden="true" size={14} />
       </button>
       {timePickerOpen && mode === 'date'
@@ -490,11 +535,11 @@ export function TaskActionPanel({
                 baseDate={selectedDate ?? baseDate}
                 calendarEvents={calendarEvents}
                 calendarSubscriptions={calendarSubscriptions}
-                chinaRegion={isChinaRegion(t)}
+                chinaRegion={isChinaRegion()}
                 draft={repeatRule}
                 floatingStyle={floatingStyles}
                 floatingOwnerId={id}
-                locale={translationLocale(t)}
+                locale={translationLocale()}
                 mode={repeatPickerMode}
                 onCancel={() => {
                   if (repeatSnapshot !== null)

@@ -180,7 +180,7 @@ export function TodoListView({
                 <TodoTaskActions
                   calendarEvents={calendarEvents}
                   calendarSubscriptions={calendarSubscriptions}
-                  triggerContent={<TodoTaskMetadata dueDate={task.dueDate} dueTime={task.dueTime} endAt={task.endAt} elapsed={elapsed} locale={locale} now={now} startAt={task.startAt} t={t} />}
+                  triggerContent={<TodoTaskMetadata allDay={task.allDay} dueDate={task.dueDate} dueTime={task.dueTime} endAt={task.endAt} elapsed={elapsed} locale={locale} now={now} startAt={task.startAt} t={t} />}
                   onUpdateTask={onUpdateTask}
                   t={t}
                   task={task}

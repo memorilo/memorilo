@@ -326,6 +326,7 @@ export const desktopOperationSchemas = {
     })]), DesktopTodoCalendarSubscriptionSchema),
     updateTodoTask: operation(Schema.Tuple([Schema.Struct({
       blockId: Schema.NonEmptyString,
+      allDay: Schema.optionalKey(Schema.Boolean),
       dueDate: Schema.optionalKey(nullable(JournalDateSchema)),
       dueTime: Schema.optionalKey(nullable(TaskTimeSchema)),
       endAt: Schema.optionalKey(nullable(TaskDateTimeSchema)),

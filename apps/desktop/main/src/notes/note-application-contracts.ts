@@ -86,6 +86,7 @@ export interface SaveNoteUpdatesInput {
 }
 
 export interface UpdateTodoTaskInput {
+  allDay?: boolean
   blockId: string
   dueDate?: JournalDate | null
   dueTime?: string | null

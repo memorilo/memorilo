@@ -120,7 +120,7 @@ function CalendarTaskItem({
         <span {...stylex.props(styles.taskText, task.status === 'done' && styles.taskTextDone)}>{task.text}</span>
       </button>
       <div {...stylex.props(styles.taskActions)}>
-        <TodoTaskActions compact calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onUpdateTask={onUpdateTask} t={t} task={task} triggerContent={<span>{task.startAt?.slice(11) ?? task.dueTime ?? ''}</span>} />
+        <TodoTaskActions compact calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onUpdateTask={onUpdateTask} t={t} task={task} triggerContent={<span>{task.allDay ? t('allDay') : task.startAt?.slice(11) ?? task.dueTime ?? ''}</span>} />
       </div>
     </div>
   )
