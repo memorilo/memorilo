@@ -8,8 +8,27 @@ import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { loadTodoCalendarSnapshot, todoCalendarAutoRefreshIntervalMs } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 
-export type TodoFilter = 'all' | DesktopTodoTaskStatus
 export type TodoView = 'list' | 'board' | 'timeline' | 'calendar' | 'quadrant'
+
+export const todoListScopeIds = ['all', 'today', 'tomorrow', 'overdue', 'next7', 'undated', 'todo', 'doing', 'done'] as const
+
+export type TodoListScopeId = typeof todoListScopeIds[number]
+
+export type TodoListSelection
+  = | { kind: 'note', noteId: string }
+    | { id: TodoListScopeId, kind: 'scope' }
+
+export interface TodoListNoteSummary {
+  count: number
+  favorite: boolean
+  noteId: string
+  title: string
+}
+
+export interface TodoListSummary {
+  counts: Readonly<Record<TodoListScopeId, number>>
+  notes: readonly TodoListNoteSummary[]
+}
 
 export type TodoQuadrant = 'importantUrgent' | 'importantNotUrgent' | 'notImportantUrgent' | 'notImportantNotUrgent'
 
@@ -26,7 +45,7 @@ export function sortTodoTasks(tasks: readonly DesktopTodoTask[]): readonly Deskt
   return [...tasks].sort((left, right) => Number(left.status === 'done') - Number(right.status === 'done'))
 }
 
-export function todoTaskQueryOptions(filter: TodoFilter) {
+export function todoTaskQueryOptions() {
   return desktopEffectQuery.infiniteQueryOptions<
     DesktopTodoTaskPage,
     DesktopClientError,
@@ -40,11 +59,18 @@ export function todoTaskQueryOptions(filter: TodoFilter) {
       desktopRequests.listTodoTasks({
         ...(pageParam === null ? {} : { cursor: pageParam }),
         limit: todoTaskPageSize,
-        ...(filter === 'all' ? {} : { status: filter }),
       })
     )),
-    queryKey: todoQueryKeys.list(filter),
+    queryKey: todoQueryKeys.list('all'),
   })
+}
+
+export function isTodoListScopeId(value: unknown): value is TodoListScopeId {
+  return typeof value === 'string' && (todoListScopeIds as readonly string[]).includes(value)
+}
+
+export function todoListSelectionKey(selection: TodoListSelection): string {
+  return selection.kind === 'note' ? `note:${selection.noteId}` : `scope:${selection.id}`
 }
 
 export function todoCalendarQueryOptions() {
@@ -130,6 +156,80 @@ export function taskPlanningDate(task: Pick<DesktopTodoTask, 'dueDate' | 'journa
   if (task.startedAt === null)
     return null
   return dayjs(task.startedAt).format('YYYY-MM-DD')
+}
+
+function taskMatchesListScope(task: DesktopTodoTask, scope: TodoListScopeId, today: string): boolean {
+  const active = task.status !== 'done'
+  const date = taskPlanningDate(task)
+  switch (scope) {
+    case 'all':
+      return active
+    case 'today':
+      return active && date === today
+    case 'tomorrow':
+      return active && date === dayjs(today).add(1, 'day').format('YYYY-MM-DD')
+    case 'overdue':
+      return active && date !== null && date < today
+    case 'next7': {
+      const lastDay = dayjs(today).add(6, 'day').format('YYYY-MM-DD')
+      return active && date !== null && date >= today && date <= lastDay
+    }
+    case 'undated':
+      return active && date === null
+    case 'todo':
+    case 'doing':
+    case 'done':
+      return task.status === scope
+  }
+}
+
+export function filterTodoListTasks(
+  tasks: readonly DesktopTodoTask[],
+  selection: TodoListSelection,
+  today: string,
+): readonly DesktopTodoTask[] {
+  if (selection.kind === 'note')
+    return tasks.filter(task => task.status !== 'done' && task.noteId === selection.noteId)
+  return tasks.filter(task => taskMatchesListScope(task, selection.id, today))
+}
+
+export function summarizeTodoListTasks(tasks: readonly DesktopTodoTask[], today: string): TodoListSummary {
+  const counts: Record<TodoListScopeId, number> = {
+    all: 0,
+    doing: 0,
+    done: 0,
+    next7: 0,
+    overdue: 0,
+    today: 0,
+    todo: 0,
+    tomorrow: 0,
+    undated: 0,
+  }
+  const notes = new Map<string, TodoListNoteSummary>()
+
+  for (const task of tasks) {
+    for (const scope of todoListScopeIds) {
+      if (taskMatchesListScope(task, scope, today))
+        counts[scope] += 1
+    }
+    if (task.status === 'done')
+      continue
+    const note = notes.get(task.noteId)
+    if (note) {
+      note.count += 1
+      note.favorite ||= task.noteFavorite
+    }
+    else {
+      notes.set(task.noteId, {
+        count: 1,
+        favorite: task.noteFavorite,
+        noteId: task.noteId,
+        title: task.noteTitle,
+      })
+    }
+  }
+
+  return { counts, notes: [...notes.values()] }
 }
 
 export function taskOccurrenceDate(task: Pick<DesktopTodoTask, 'dueDate' | 'journalDate' | 'startedAt'>, today = dayjs().format('YYYY-MM-DD')): string {

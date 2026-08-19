@@ -1,6 +1,6 @@
 import type { DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
-import type { TodoFilter, TodoView } from './todo-model'
+import type { TodoListSelection, TodoView } from './todo-model'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -12,29 +12,26 @@ import {
   List,
   ListTodo,
   LoaderCircle,
+  PanelLeft,
   TriangleAlert,
 } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { usePageTitlebar } from '../../shared/page-titlebar'
+import { PageTitlebarButton } from '../../shared/page-titlebar-button'
 import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
-import { sortTodoTasks, todoCalendarQueryOptions, todoTaskQueryOptions } from './todo-model'
+import { TodoListSidebar } from './todo-list-sidebar'
+import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskQueryOptions } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
 import { TodoBoardView } from './views/todo-board-view'
 import { TodoCalendarView } from './views/todo-calendar-view'
 import { TodoListView } from './views/todo-list-view'
 import { TodoQuadrantView } from './views/todo-quadrant-view'
 import { TodoTimelineView } from './views/todo-timeline-view'
-
-const filters: readonly { id: TodoFilter, labelKey: string }[] = [
-  { id: 'all', labelKey: 'filterAll' },
-  { id: 'todo', labelKey: 'statusTodo' },
-  { id: 'doing', labelKey: 'statusDoing' },
-  { id: 'done', labelKey: 'statusDone' },
-]
 
 const viewOptions: readonly { descriptionKey: string, id: TodoView, labelKey: string }[] = [
   { descriptionKey: 'switchToList', id: 'list', labelKey: 'listView' },
@@ -44,11 +41,42 @@ const viewOptions: readonly { descriptionKey: string, id: TodoView, labelKey: st
   { descriptionKey: 'switchToQuadrant', id: 'quadrant', labelKey: 'quadrantView' },
 ]
 
+const listSidebarSpring = {
+  bounce: 0,
+  type: 'spring',
+  visualDuration: 0.32,
+} as const
+
 function viewLabel(view: TodoView, t: TFunction): string {
   const option = viewOptions.find(item => item.id === view)
   if (!option)
     throw new Error(`Unknown Todo view: ${view}`)
   return t(option.labelKey)
+}
+
+function selectionLabel(selection: TodoListSelection, tasks: readonly DesktopTodoTask[], t: TFunction): string {
+  if (selection.kind === 'note')
+    return tasks.find(task => task.noteId === selection.noteId)?.noteTitle ?? t('sidebarNotes')
+  switch (selection.id) {
+    case 'all':
+      return t('sidebarAll')
+    case 'today':
+      return t('sidebarToday')
+    case 'tomorrow':
+      return t('sidebarTomorrow')
+    case 'overdue':
+      return t('sidebarOverdue')
+    case 'next7':
+      return t('sidebarNext7')
+    case 'undated':
+      return t('sidebarUndated')
+    case 'todo':
+      return t('statusTodo')
+    case 'doing':
+      return t('statusDoing')
+    case 'done':
+      return t('statusDone')
+  }
 }
 
 function ViewIcon({ view }: { view: TodoView }) {
@@ -97,23 +125,24 @@ function TodoStatus({
 }
 
 export function TodoPage({
-  filter,
-  onFilterChange,
   onOpenTask,
+  onSelectionChange,
   onViewChange,
+  selection,
   view,
 }: {
-  filter: TodoFilter
-  onFilterChange: (filter: TodoFilter) => Promise<void> | void
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectionChange: (selection: TodoListSelection) => Promise<void> | void
   onViewChange: (view: TodoView) => Promise<void> | void
+  selection: TodoListSelection
   view: TodoView
 }) {
   const { i18n, t } = useTranslation('todo')
   const configuration = useDesktopConfiguration()
   const queryClient = useQueryClient()
-  const tasksQuery = useInfiniteQuery(todoTaskQueryOptions(filter))
+  const tasksQuery = useInfiniteQuery(todoTaskQueryOptions())
   const calendarQuery = useQuery(todoCalendarQueryOptions())
+  const shouldReduceMotion = useReducedMotion()
   const { fetchNextPage } = tasksQuery
   const tasks = useMemo(() => sortTodoTasks(tasksQuery.data
     ? tasksQuery.data.pages.flatMap(page => [...page.items])
@@ -131,6 +160,14 @@ export function TodoPage({
     : view === 'quadrant' || view === 'board'
       ? []
       : calendarEvents
+  const [listSidebarVisible, setListSidebarVisible] = useState(true)
+  const today = dayjs(now).format('YYYY-MM-DD')
+  const listSummary = useMemo(() => summarizeTodoListTasks(tasks, today), [tasks, today])
+  const visibleListTasks = useMemo(
+    () => filterTodoListTasks(tasks, selection, today),
+    [selection, tasks, today],
+  )
+  const currentSelectionLabel = selectionLabel(selection, tasks, t)
   useEffect(() => subscribeTodoCalendarSnapshot((next) => {
     queryClient.setQueryData(todoQueryKeys.calendars, next)
   }), [queryClient])
@@ -142,6 +179,11 @@ export function TodoPage({
   const loadNextPage = useCallback(async () => {
     await fetchNextPage()
   }, [fetchNextPage])
+  const selectListScope = useCallback(async (nextSelection: TodoListSelection) => {
+    await onSelectionChange(nextSelection)
+    if (window.matchMedia('(max-width: 980px)').matches)
+      setListSidebarVisible(false)
+  }, [onSelectionChange])
 
   useEffect(() => {
     if (!hasRunningTasks)
@@ -158,8 +200,7 @@ export function TodoPage({
   }, [queryClient])
 
   useEffect(() => {
-    if (view === 'list'
-      || !tasksQuery.hasNextPage
+    if (!tasksQuery.hasNextPage
       || tasksQuery.isFetchingNextPage
       || tasksQuery.isFetchNextPageError) {
       return
@@ -170,10 +211,19 @@ export function TodoPage({
     tasksQuery.hasNextPage,
     tasksQuery.isFetchNextPageError,
     tasksQuery.isFetchingNextPage,
-    view,
   ])
 
   const titlebar = useMemo(() => ({
+    leading: view === 'list'
+      ? (
+          <PageTitlebarButton
+            label={listSidebarVisible ? t('hideListSidebar') : t('showListSidebar')}
+            onClick={() => setListSidebarVisible(current => !current)}
+          >
+            <PanelLeft aria-hidden="true" size={17} strokeWidth={1.8} />
+          </PageTitlebarButton>
+        )
+      : undefined,
     title: t('title'),
     trailingAppearance: 'plain' as const,
     trailing: (
@@ -193,7 +243,7 @@ export function TodoPage({
         ))}
       </div>
     ),
-  }), [onViewChange, t, view])
+  }), [listSidebarVisible, onViewChange, t, view])
   usePageTitlebar(titlebar)
 
   let viewContent
@@ -214,34 +264,91 @@ export function TodoPage({
       />
     )
   }
+  else if (view === 'list') {
+    const listPending = tasksQuery.isPending || (visibleListTasks.length === 0 && Boolean(tasksQuery.hasNextPage) && !tasksQuery.isFetchNextPageError)
+    const listError = (tasksQuery.isError && tasks.length === 0) || (visibleListTasks.length === 0 && tasksQuery.isFetchNextPageError)
+    const listBody = listPending
+      ? <TodoStatus kind="loading" onRetry={tasksQuery.refetch} t={t} />
+      : listError
+        ? <TodoStatus kind="error" onRetry={tasks.length === 0 ? tasksQuery.refetch : loadNextPage} t={t} />
+        : visibleListTasks.length === 0
+          ? <TodoStatus kind="empty" onRetry={tasksQuery.refetch} t={t} />
+          : (
+              <TodoListView
+                calendarEvents={calendarEvents}
+                calendarSubscriptions={calendarSubscriptions}
+                hasNextPage={Boolean(tasksQuery.hasNextPage)}
+                isFetchNextPageError={tasksQuery.isFetchNextPageError}
+                isFetchingNextPage={tasksQuery.isFetchingNextPage}
+                locale={i18n.language}
+                now={now}
+                onFetchNextPage={loadNextPage}
+                onOpenTask={onOpenTask}
+                onUpdateTask={updateTodoTask}
+                resetKey={todoListSelectionKey(selection)}
+                selectedDateEvents={selectedDateEvents}
+                t={t}
+                tasks={visibleListTasks}
+              />
+            )
+
+    viewContent = (
+      <div {...stylex.props(todoPageStyles.listLayout)}>
+        <AnimatePresence initial={false}>
+          {listSidebarVisible
+            ? (
+                <>
+                  <motion.button
+                    {...stylex.props(todoPageStyles.listSidebarScrim)}
+                    animate={{ opacity: 1 }}
+                    aria-label={t('hideListSidebar')}
+                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0 }}
+                    key="todo-list-sidebar-scrim"
+                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.16 }}
+                    type="button"
+                    onClick={() => setListSidebarVisible(false)}
+                  />
+                  <motion.aside
+                    {...stylex.props(todoPageStyles.listSidebarMotion)}
+                    animate={{ opacity: 1, width: 224, x: 0 }}
+                    exit={{ opacity: 0, width: 0, x: -12 }}
+                    initial={{ opacity: 0, width: 0, x: -12 }}
+                    key="todo-list-sidebar"
+                    transition={shouldReduceMotion ? { duration: 0 } : listSidebarSpring}
+                  >
+                    <TodoListSidebar
+                      locale={i18n.language}
+                      selection={selection}
+                      summary={listSummary}
+                      t={t}
+                      onSelectionChange={selectListScope}
+                    />
+                  </motion.aside>
+                </>
+              )
+            : null}
+        </AnimatePresence>
+        <div {...stylex.props(todoPageStyles.listMain)}>
+          <div {...stylex.props(todoPageStyles.controls)}>
+            <h2 {...stylex.props(todoPageStyles.listTitle)}>{currentSelectionLabel}</h2>
+            <p {...stylex.props(todoPageStyles.count)} aria-live="polite">
+              {tasksQuery.hasNextPage || tasksQuery.isFetchingNextPage
+                ? <LoaderCircle {...stylex.props(todoPageStyles.countLoadingIcon, todoPageStyles.loadingIcon)} aria-hidden="true" strokeWidth={1.8} />
+                : null}
+              <span>{t('taskCount', { count: visibleListTasks.length })}</span>
+            </p>
+          </div>
+          <div {...stylex.props(todoPageStyles.viewRegion)}>{listBody}</div>
+        </div>
+      </div>
+    )
+  }
   else if (tasksQuery.isPending && visibleCalendarEvents.length === 0) {
     viewContent = <TodoStatus kind="loading" onRetry={tasksQuery.refetch} t={t} />
   }
   else if (tasksQuery.isError && tasks.length === 0 && visibleCalendarEvents.length === 0) {
     viewContent = <TodoStatus kind="error" onRetry={tasksQuery.refetch} t={t} />
-  }
-  else if (view === 'list' && tasks.length === 0 && selectedDateEvents.length === 0) {
-    viewContent = <TodoStatus kind="empty" onRetry={tasksQuery.refetch} t={t} />
-  }
-  else if (view === 'list') {
-    viewContent = (
-      <TodoListView
-        calendarEvents={calendarEvents}
-        calendarSubscriptions={calendarSubscriptions}
-        hasNextPage={Boolean(tasksQuery.hasNextPage)}
-        isFetchNextPageError={tasksQuery.isFetchNextPageError}
-        isFetchingNextPage={tasksQuery.isFetchingNextPage}
-        locale={i18n.language}
-        now={now}
-        onFetchNextPage={loadNextPage}
-        onOpenTask={onOpenTask}
-        onUpdateTask={updateTodoTask}
-        resetKey={filter}
-        selectedDateEvents={selectedDateEvents}
-        t={t}
-        tasks={tasks}
-      />
-    )
   }
   else if (view === 'board') {
     viewContent = (
@@ -294,26 +401,6 @@ export function TodoPage({
   return (
     <main {...stylex.props(todoPageStyles.page)} aria-label={t('title')}>
       <section {...stylex.props(todoPageStyles.content)} aria-label={viewLabel(view, t)}>
-        {view === 'list' && (
-          <div {...stylex.props(todoPageStyles.controls)}>
-            <div {...stylex.props(todoPageStyles.filterList)} aria-label={t('filterLabel')} role="group">
-              {filters.map(item => (
-                <button
-                  key={item.id}
-                  {...stylex.props(todoPageStyles.filter, filter === item.id && todoPageStyles.filterSelected)}
-                  aria-pressed={filter === item.id}
-                  type="button"
-                  onClick={() => void onFilterChange(item.id)}
-                >
-                  {t(item.labelKey)}
-                </button>
-              ))}
-            </div>
-            <p {...stylex.props(todoPageStyles.count)} aria-live="polite">
-              {t('taskCount', { count: tasks.length })}
-            </p>
-          </div>
-        )}
         <div {...stylex.props(todoPageStyles.viewRegion)}>{viewContent}</div>
       </section>
     </main>
