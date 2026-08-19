@@ -8,10 +8,10 @@ import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { todoCalendarColor } from '../../../shared/todo-calendar-color'
 import { taskPlanningDate, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
+import { TodoCalendarEventItem } from './todo-calendar-event'
 import { todoCalendarViewStyles as styles } from './todo-calendar-view.stylex'
 import { todoPlanningViewStyles as planningStyles } from './todo-planning-view.stylex'
 
@@ -19,6 +19,23 @@ type CalendarItem
   = | { event: DesktopTodoCalendarEvent, kind: 'event' }
     | { date: string, kind: 'prediction', task: DesktopTodoTask }
     | { kind: 'task', task: DesktopTodoTask }
+
+type CalendarSpanItem
+  = | { endDate: string, event: DesktopTodoCalendarEvent, key: string, kind: 'event', startDate: string }
+    | { endDate: string, key: string, kind: 'task', startDate: string, task: DesktopTodoTask }
+
+interface CalendarSpanSegment {
+  columnEnd: number
+  columnStart: number
+  item: CalendarSpanItem
+  lane: number
+  week: number
+}
+
+interface CalendarEventLayout {
+  singles: readonly DesktopTodoCalendarEvent[]
+  spans: readonly CalendarSpanItem[]
+}
 
 function formatDate(date: Dayjs, locale: string): string {
   return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', weekday: 'short' }).format(date.toDate())
@@ -51,6 +68,148 @@ function calendarItemKey(item: CalendarItem): string {
   if (item.kind === 'prediction')
     return `${todoTaskKey(item.task)}:prediction:${item.date}`
   return `${item.event.subscriptionId}:${item.event.uid}:${item.event.startDate}`
+}
+
+function taskSpan(task: DesktopTodoTask): CalendarSpanItem | null {
+  if (task.startAt === null || task.endAt === null)
+    return null
+  const startDate = task.startAt.slice(0, 10)
+  const endDate = task.endAt.slice(0, 10)
+  if (endDate <= startDate)
+    return null
+  return {
+    endDate,
+    key: todoTaskKey(task),
+    kind: 'task',
+    startDate,
+    task,
+  }
+}
+
+function calendarEventLayout(events: readonly DesktopTodoCalendarEvent[]): CalendarEventLayout {
+  const grouped = new Map<string, DesktopTodoCalendarEvent[]>()
+  for (const event of events) {
+    const groupKey = `${event.subscriptionId}\0${event.title}`
+    const current = grouped.get(groupKey)
+    if (current)
+      current.push(event)
+    else
+      grouped.set(groupKey, [event])
+  }
+
+  const singles: DesktopTodoCalendarEvent[] = []
+  const spans: CalendarSpanItem[] = []
+  for (const group of grouped.values()) {
+    group.sort((left, right) => left.startDate.localeCompare(right.startDate) || (left.endDate ?? left.startDate).localeCompare(right.endDate ?? right.startDate))
+    let cluster: DesktopTodoCalendarEvent[] = []
+    let clusterStart = ''
+    let clusterEnd = ''
+    const flush = () => {
+      if (cluster.length === 0)
+        return
+      if (clusterEnd > clusterStart) {
+        const event = cluster[0]
+        if (!event)
+          throw new Error('Calendar event cluster lost its representative')
+        spans.push({
+          endDate: clusterEnd,
+          event: { ...event, endDate: clusterEnd, startDate: clusterStart },
+          key: `${event.subscriptionId}:${event.title}:${clusterStart}:${clusterEnd}`,
+          kind: 'event',
+          startDate: clusterStart,
+        })
+      }
+      else {
+        singles.push(...cluster)
+      }
+      cluster = []
+      clusterStart = ''
+      clusterEnd = ''
+    }
+
+    for (const event of group) {
+      const eventEnd = event.endDate ?? event.startDate
+      if (cluster.length === 0) {
+        cluster = [event]
+        clusterStart = event.startDate
+        clusterEnd = eventEnd
+        continue
+      }
+      if (!dayjs(event.startDate).isAfter(dayjs(clusterEnd).add(1, 'day'), 'day')) {
+        cluster.push(event)
+        if (eventEnd > clusterEnd)
+          clusterEnd = eventEnd
+        continue
+      }
+      flush()
+      cluster = [event]
+      clusterStart = event.startDate
+      clusterEnd = eventEnd
+    }
+    flush()
+  }
+  return { singles, spans }
+}
+
+function buildSpanSegments(items: readonly CalendarSpanItem[], days: readonly Dayjs[]): {
+  laneCounts: readonly number[]
+  segments: readonly CalendarSpanSegment[]
+  spansByDate: ReadonlyMap<string, number>
+} {
+  const firstDay = days[0]
+  const lastDay = days.at(-1)
+  if (!firstDay || !lastDay)
+    return { laneCounts: [], segments: [], spansByDate: new Map() }
+
+  const segmentsByWeek = Array.from({ length: 6 }, () => [] as Omit<CalendarSpanSegment, 'lane'>[])
+  const spansByDate = new Map<string, number>()
+  for (const item of items) {
+    const itemStart = dayjs(item.startDate)
+    const itemEnd = dayjs(item.endDate)
+    const visibleStart = itemStart.isBefore(firstDay, 'day') ? firstDay : itemStart
+    const visibleEnd = itemEnd.isAfter(lastDay, 'day') ? lastDay : itemEnd
+    if (visibleEnd.isBefore(visibleStart, 'day'))
+      continue
+
+    let coveredDate = visibleStart
+    while (!coveredDate.isAfter(visibleEnd, 'day')) {
+      const dateKey = coveredDate.format('YYYY-MM-DD')
+      spansByDate.set(dateKey, (spansByDate.get(dateKey) ?? 0) + 1)
+      coveredDate = coveredDate.add(1, 'day')
+    }
+
+    const startOffset = visibleStart.diff(firstDay, 'day')
+    const endOffset = visibleEnd.diff(firstDay, 'day')
+    const firstWeek = Math.floor(startOffset / 7)
+    const lastWeek = Math.floor(endOffset / 7)
+    for (let week = firstWeek; week <= lastWeek; week += 1) {
+      const weekStartOffset = week * 7
+      const segmentStart = Math.max(startOffset, weekStartOffset)
+      const segmentEnd = Math.min(endOffset, weekStartOffset + 6)
+      segmentsByWeek[week]?.push({
+        columnEnd: segmentEnd - weekStartOffset + 2,
+        columnStart: segmentStart - weekStartOffset + 1,
+        item,
+        week,
+      })
+    }
+  }
+
+  const laneCounts = Array.from({ length: 6 }, () => 0)
+  const segments: CalendarSpanSegment[] = []
+  for (const [week, weekSegments] of segmentsByWeek.entries()) {
+    const laneEnds: number[] = []
+    weekSegments.sort((left, right) => left.columnStart - right.columnStart || right.columnEnd - left.columnEnd || left.item.key.localeCompare(right.item.key))
+    for (const segment of weekSegments) {
+      let lane = laneEnds.findIndex(end => end < segment.columnStart)
+      if (lane === -1)
+        lane = laneEnds.length
+      laneEnds[lane] = segment.columnEnd - 1
+      segments.push({ ...segment, lane })
+    }
+    laneCounts[week] = laneEnds.length
+  }
+  return { laneCounts, segments, spansByDate }
 }
 
 function PeriodButton({
@@ -128,23 +287,6 @@ function CalendarTaskItem({
   )
 }
 
-function CalendarEventItem({ event }: { event: DesktopTodoCalendarEvent }) {
-  const colorStyle = {
-    '--todo-calendar-color': todoCalendarColor(event.subscriptionId),
-  } as CSSProperties
-  return (
-    <div
-      {...stylex.props(styles.eventPreview)}
-      style={colorStyle}
-      title={`${event.title} - ${event.subscriptionTitle}`}
-    >
-      <span {...stylex.props(styles.eventAccent)} aria-hidden="true" />
-      <span {...stylex.props(styles.eventText)}>{event.title}</span>
-      <span {...stylex.props(styles.eventSource)}>{event.subscriptionTitle}</span>
-    </div>
-  )
-}
-
 function CalendarPredictionItem({ task, t }: { task: DesktopTodoTask, t: TFunction }) {
   return (
     <div {...stylex.props(styles.predictionShell)} title={t('repeatPrediction', { task: task.text })}>
@@ -161,6 +303,7 @@ function CalendarItemRow({
   calendarSubscriptions,
   compactAlignment,
   item,
+  locale,
   onOpenTask,
   onUpdateTask,
   t,
@@ -169,12 +312,13 @@ function CalendarItemRow({
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   compactAlignment: 'left' | 'right'
   item: CalendarItem
+  locale: string
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
   t: TFunction
 }) {
   if (item.kind === 'event')
-    return <CalendarEventItem event={item.event} />
+    return <TodoCalendarEventItem event={item.event} locale={locale} variant="calendar" />
   if (item.kind === 'prediction')
     return <CalendarPredictionItem t={t} task={item.task} />
   return <CalendarTaskItem calendarEvents={calendarEvents} calendarSubscriptions={calendarSubscriptions} compactAlignment={compactAlignment} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} t={t} task={item.task} />
@@ -186,7 +330,9 @@ export function TodoCalendarView({
   locale,
   now,
   onOpenTask,
+  onSelectedDateChange,
   onUpdateTask,
+  selectedDate,
   t,
   tasks,
   weekStart,
@@ -196,15 +342,17 @@ export function TodoCalendarView({
   locale: string
   now: number
   onOpenTask: (task: DesktopTodoTask) => Promise<void> | void
+  onSelectedDateChange: (date: string) => void
   onUpdateTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  selectedDate: string
   t: TFunction
   tasks: readonly DesktopTodoTask[]
   weekStart: DesktopWeekStart
 }) {
   const today = dayjs(now).startOf('day')
-  const [activeMonth, setActiveMonth] = useState(() => today.startOf('month'))
-  const [selectedDate, setSelectedDate] = useState(() => today.format('YYYY-MM-DD'))
+  const [activeMonth, setActiveMonth] = useState(() => dayjs(selectedDate).startOf('month'))
   const days = useMemo(() => calendarDays(activeMonth, weekStart), [activeMonth, weekStart])
+  const eventLayout = useMemo(() => calendarEventLayout(calendarEvents), [calendarEvents])
   const grouped = useMemo(() => {
     const result = new Map<string, CalendarItem[]>()
     const add = (date: string, item: CalendarItem) => {
@@ -216,7 +364,7 @@ export function TodoCalendarView({
     }
     for (const task of tasks) {
       const date = taskPlanningDate(task)
-      if (date !== null)
+      if (date !== null && taskSpan(task) === null)
         add(date, { kind: 'task', task })
       if (!task.repeatRule || date === null)
         continue
@@ -230,32 +378,30 @@ export function TodoCalendarView({
     }
     return result
   }, [activeMonth, calendarEvents, days, tasks])
+  const spanLayout = useMemo(() => buildSpanSegments([
+    ...eventLayout.spans,
+    ...tasks.map(taskSpan).filter((item): item is CalendarSpanItem => item !== null),
+  ], days), [days, eventLayout.spans, tasks])
   const eventsByDate = useMemo(() => {
     const groupedEvents = new Map<string, DesktopTodoCalendarEvent[]>()
-    for (const event of calendarEvents) {
-      let date = dayjs(event.startDate)
-      const through = dayjs(event.endDate ?? event.startDate)
-      while (!date.isAfter(through, 'day')) {
-        const dateKey = date.format('YYYY-MM-DD')
-        const current = groupedEvents.get(dateKey)
-        if (current)
-          current.push(event)
-        else
-          groupedEvents.set(dateKey, [event])
-        date = date.add(1, 'day')
-      }
+    for (const event of eventLayout.singles) {
+      const current = groupedEvents.get(event.startDate)
+      if (current)
+        current.push(event)
+      else
+        groupedEvents.set(event.startDate, [event])
     }
     return groupedEvents
-  }, [calendarEvents])
+  }, [eventLayout.singles])
   const labels = weekdayLabels(locale, weekStart)
 
   const selectMonth = (month: Dayjs) => {
     setActiveMonth(month)
-    setSelectedDate(month.startOf('month').format('YYYY-MM-DD'))
+    onSelectedDateChange(month.startOf('month').format('YYYY-MM-DD'))
   }
 
   const chooseDate = (date: Dayjs) => {
-    setSelectedDate(date.format('YYYY-MM-DD'))
+    onSelectedDateChange(date.format('YYYY-MM-DD'))
     if (!date.isSame(activeMonth, 'month'))
       setActiveMonth(date.startOf('month'))
   }
@@ -263,22 +409,22 @@ export function TodoCalendarView({
   return (
     <div {...stylex.props(planningStyles.root)}>
       <div {...stylex.props(styles.toolbar)}>
-        <h1 {...stylex.props(styles.monthTitle)}>{formatMonth(activeMonth, locale)}</h1>
-        <div {...stylex.props(planningStyles.toolbarActions)}>
+        <div {...stylex.props(styles.toolbarLeading)}>
+          <button
+            {...stylex.props(styles.todayButton)}
+            type="button"
+            onClick={() => {
+              setActiveMonth(today.startOf('month'))
+              onSelectedDateChange(today.format('YYYY-MM-DD'))
+            }}
+          >
+            {t('today')}
+          </button>
           <div {...stylex.props(styles.navigationControl)}>
             <PeriodButton direction="previous" label={t('previousMonth')} onClick={() => selectMonth(activeMonth.subtract(1, 'month'))} />
-            <button
-              {...stylex.props(styles.todayButton)}
-              type="button"
-              onClick={() => {
-                setActiveMonth(today.startOf('month'))
-                setSelectedDate(today.format('YYYY-MM-DD'))
-              }}
-            >
-              {t('today')}
-            </button>
             <PeriodButton direction="next" label={t('nextMonth')} onClick={() => selectMonth(activeMonth.add(1, 'month'))} />
           </div>
+          <h1 {...stylex.props(styles.monthTitle)}>{formatMonth(activeMonth, locale)}</h1>
         </div>
       </div>
       <div {...stylex.props(styles.layout)}>
@@ -301,13 +447,16 @@ export function TodoCalendarView({
                 const isToday = dateKey === today.format('YYYY-MM-DD')
                 const isSelected = dateKey === selectedDate
                 const compactAlignment = dayIndex % 7 < 2 ? 'left' : 'right'
+                const week = Math.floor(dayIndex / 7)
+                const itemCount = items.length + (spanLayout.spansByDate.get(dateKey) ?? 0)
                 return (
                   <div
                     key={dateKey}
                     {...stylex.props(styles.cell, !inMonth && styles.cellNeighbor)}
-                    aria-label={t('calendarDay', { date: formatDate(date, locale), count: items.length })}
+                    aria-label={t('calendarDay', { date: formatDate(date, locale), count: itemCount })}
                     aria-selected={isSelected}
                     role="gridcell"
+                    style={{ gridColumn: dayIndex % 7 + 1, gridRow: week + 1 }}
                   >
                     <button
                       {...stylex.props(
@@ -322,7 +471,7 @@ export function TodoCalendarView({
                     >
                       {date.date()}
                     </button>
-                    <div {...stylex.props(styles.taskList)}>
+                    <div {...stylex.props(styles.taskList)} style={{ paddingTop: (spanLayout.laneCounts[week] ?? 0) * 22 }}>
                       {visibleItems.map(item => (
                         <CalendarItemRow
                           calendarEvents={calendarEvents}
@@ -330,6 +479,7 @@ export function TodoCalendarView({
                           compactAlignment={compactAlignment}
                           item={item}
                           key={calendarItemKey(item)}
+                          locale={locale}
                           onOpenTask={onOpenTask}
                           onUpdateTask={onUpdateTask}
                           t={t}
@@ -348,6 +498,7 @@ export function TodoCalendarView({
                                   compactAlignment={compactAlignment}
                                   item={item}
                                   key={calendarItemKey(item)}
+                                  locale={locale}
                                   onOpenTask={onOpenTask}
                                   onUpdateTask={onUpdateTask}
                                   t={t}
@@ -358,6 +509,35 @@ export function TodoCalendarView({
                         </details>
                       )}
                     </div>
+                  </div>
+                )
+              })}
+              {spanLayout.segments.map((segment) => {
+                const segmentStyle = {
+                  gridColumn: `${segment.columnStart} / ${segment.columnEnd}`,
+                  gridRow: segment.week + 1,
+                  marginTop: 34 + segment.lane * 22,
+                } satisfies CSSProperties
+                const compactAlignment = segment.columnStart < 3 ? 'left' : 'right'
+                return (
+                  <div
+                    key={`${segment.item.key}:${segment.week}`}
+                    {...stylex.props(styles.spanSegment)}
+                    style={segmentStyle}
+                  >
+                    {segment.item.kind === 'event'
+                      ? <TodoCalendarEventItem event={segment.item.event} locale={locale} variant="calendar" />
+                      : (
+                          <CalendarTaskItem
+                            calendarEvents={calendarEvents}
+                            calendarSubscriptions={calendarSubscriptions}
+                            compactAlignment={compactAlignment}
+                            onOpenTask={onOpenTask}
+                            onUpdateTask={onUpdateTask}
+                            t={t}
+                            task={segment.item.task}
+                          />
+                        )}
                   </div>
                 )
               })}

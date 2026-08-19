@@ -13,10 +13,23 @@ const loadingRotation = stylex.keyframes({
 })
 
 export const todoListViewStyles = stylex.create({
+  root: {
+    display: 'flex',
+    width: '100%',
+    minWidth: 0,
+    minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+    gap: 10,
+    overflow: 'hidden',
+    padding: '10px 14px 0',
+    boxSizing: 'border-box',
+  },
   viewport: {
     width: '100%',
     minWidth: 0,
     minHeight: 0,
+    flex: 1,
     overflowX: 'auto',
     overflowY: 'auto',
     overscrollBehavior: 'contain',
@@ -81,6 +94,16 @@ export const todoListViewStyles = stylex.create({
     },
     transitionProperty: 'background-color, box-shadow, transform',
     transitionTimingFunction: 'ease-out',
+  },
+  calendarEventButton: {
+    color: colors.text,
+  },
+  calendarEventDot: {
+    width: 9,
+    height: 9,
+    justifySelf: 'center',
+    borderRadius: 5,
+    backgroundColor: 'var(--todo-calendar-color)',
   },
   statusIcon: {
     width: 19,

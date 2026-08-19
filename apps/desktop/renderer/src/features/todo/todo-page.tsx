@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import type { TodoFilter, TodoView } from './todo-model'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import dayjs from 'dayjs'
 import {
   CalendarDays,
   ChartNoAxesGantt,
@@ -117,10 +118,19 @@ export function TodoPage({
   const tasks = useMemo(() => tasksQuery.data
     ? tasksQuery.data.pages.flatMap(page => [...page.items])
     : [], [tasksQuery.data])
-  const calendarEvents = calendarQuery.data?.events ?? []
+  const calendarEvents = useMemo(() => calendarQuery.data?.events ?? [], [calendarQuery.data?.events])
   const calendarSubscriptions = calendarQuery.data?.subscriptions ?? []
   const hasRunningTasks = tasks.some(task => task.status === 'doing' && task.startedAt !== null)
   const [now, setNow] = useState(() => Date.now())
+  const [selectedDate, setSelectedDate] = useState(() => dayjs(now).format('YYYY-MM-DD'))
+  const selectedDateEvents = useMemo(() => calendarEvents.filter(event => (
+    event.startDate <= selectedDate && (event.endDate ?? event.startDate) >= selectedDate
+  )), [calendarEvents, selectedDate])
+  const visibleCalendarEvents = view === 'list'
+    ? selectedDateEvents
+    : view === 'quadrant' || view === 'board'
+      ? []
+      : calendarEvents
   useEffect(() => subscribeTodoCalendarSnapshot((next) => {
     queryClient.setQueryData(todoQueryKeys.calendars, next)
   }), [queryClient])
@@ -187,13 +197,30 @@ export function TodoPage({
   usePageTitlebar(titlebar)
 
   let viewContent
-  if (tasksQuery.isPending) {
+  if (view === 'calendar') {
+    viewContent = (
+      <TodoCalendarView
+        calendarEvents={calendarEvents}
+        calendarSubscriptions={calendarSubscriptions}
+        locale={i18n.language}
+        now={now}
+        onOpenTask={onOpenTask}
+        onSelectedDateChange={setSelectedDate}
+        onUpdateTask={updateTodoTask}
+        selectedDate={selectedDate}
+        t={t}
+        tasks={tasks}
+        weekStart={configuration.weekStart}
+      />
+    )
+  }
+  else if (tasksQuery.isPending && visibleCalendarEvents.length === 0) {
     viewContent = <TodoStatus kind="loading" onRetry={tasksQuery.refetch} t={t} />
   }
-  else if (tasksQuery.isError && tasks.length === 0) {
+  else if (tasksQuery.isError && tasks.length === 0 && visibleCalendarEvents.length === 0) {
     viewContent = <TodoStatus kind="error" onRetry={tasksQuery.refetch} t={t} />
   }
-  else if (tasks.length === 0) {
+  else if (view === 'list' && tasks.length === 0 && selectedDateEvents.length === 0) {
     viewContent = <TodoStatus kind="empty" onRetry={tasksQuery.refetch} t={t} />
   }
   else if (view === 'list') {
@@ -210,6 +237,7 @@ export function TodoPage({
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
         resetKey={filter}
+        selectedDateEvents={selectedDateEvents}
         t={t}
         tasks={tasks}
       />
@@ -241,21 +269,6 @@ export function TodoPage({
         onUpdateTask={updateTodoTask}
         t={t}
         tasks={tasks}
-      />
-    )
-  }
-  else if (view === 'calendar') {
-    viewContent = (
-      <TodoCalendarView
-        calendarEvents={calendarEvents}
-        calendarSubscriptions={calendarSubscriptions}
-        locale={i18n.language}
-        now={now}
-        onOpenTask={onOpenTask}
-        onUpdateTask={updateTodoTask}
-        t={t}
-        tasks={tasks}
-        weekStart={configuration.weekStart}
       />
     )
   }
