@@ -21,6 +21,11 @@ export function todoTaskKey(task: Pick<DesktopTodoTask, 'blockId' | 'noteId' | '
   return `${task.noteId}\0${task.topicId}\0${task.blockId}`
 }
 
+/** Keep the source order for active tasks while placing completed tasks last. */
+export function sortTodoTasks(tasks: readonly DesktopTodoTask[]): readonly DesktopTodoTask[] {
+  return [...tasks].sort((left, right) => Number(left.status === 'done') - Number(right.status === 'done'))
+}
+
 export function todoTaskQueryOptions(filter: TodoFilter) {
   return desktopEffectQuery.infiniteQueryOptions<
     DesktopTodoTaskPage,
@@ -159,6 +164,8 @@ export function groupTodoTasksByDate(tasks: readonly DesktopTodoTask[]): Readonl
     else
       grouped.set(date, [task])
   }
+  for (const [date, dateTasks] of grouped)
+    grouped.set(date, [...sortTodoTasks(dateTasks)])
   return grouped
 }
 

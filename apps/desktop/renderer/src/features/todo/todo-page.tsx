@@ -21,7 +21,7 @@ import { desktopRequests } from '../../shared/desktop-requests'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
-import { todoCalendarQueryOptions, todoTaskQueryOptions } from './todo-model'
+import { sortTodoTasks, todoCalendarQueryOptions, todoTaskQueryOptions } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
 import { TodoBoardView } from './views/todo-board-view'
 import { TodoCalendarView } from './views/todo-calendar-view'
@@ -115,9 +115,9 @@ export function TodoPage({
   const tasksQuery = useInfiniteQuery(todoTaskQueryOptions(filter))
   const calendarQuery = useQuery(todoCalendarQueryOptions())
   const { fetchNextPage } = tasksQuery
-  const tasks = useMemo(() => tasksQuery.data
+  const tasks = useMemo(() => sortTodoTasks(tasksQuery.data
     ? tasksQuery.data.pages.flatMap(page => [...page.items])
-    : [], [tasksQuery.data])
+    : []), [tasksQuery.data])
   const calendarEvents = useMemo(() => calendarQuery.data?.events ?? [], [calendarQuery.data?.events])
   const calendarSubscriptions = calendarQuery.data?.subscriptions ?? []
   const hasRunningTasks = tasks.some(task => task.status === 'doing' && task.startedAt !== null)

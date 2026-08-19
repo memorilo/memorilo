@@ -78,6 +78,14 @@ function calendarItemKey(item: CalendarItem): string {
   return `${item.event.subscriptionId}:${item.event.uid}:${item.event.startDate}`
 }
 
+function calendarItemDoneRank(item: CalendarItem): number {
+  return item.kind === 'task' && item.task.status === 'done' ? 1 : 0
+}
+
+function calendarSpanDoneRank(item: CalendarSpanItem): number {
+  return item.kind === 'task' && item.task.status === 'done' ? 1 : 0
+}
+
 function taskSpan(task: DesktopTodoTask): CalendarSpanItem | null {
   if (task.startAt === null || task.endAt === null)
     return null
@@ -207,7 +215,10 @@ function buildSpanSegments(items: readonly CalendarSpanItem[], days: readonly Da
   const segments: CalendarSpanSegment[] = []
   for (const [week, weekSegments] of segmentsByWeek.entries()) {
     const laneEnds: number[] = []
-    weekSegments.sort((left, right) => left.columnStart - right.columnStart || right.columnEnd - left.columnEnd || left.item.key.localeCompare(right.item.key))
+    weekSegments.sort((left, right) => left.columnStart - right.columnStart
+      || calendarSpanDoneRank(left.item) - calendarSpanDoneRank(right.item)
+      || right.columnEnd - left.columnEnd
+      || left.item.key.localeCompare(right.item.key))
     for (const segment of weekSegments) {
       let lane = laneEnds.findIndex(end => end < segment.columnStart)
       if (lane === -1)
@@ -494,7 +505,7 @@ export function TodoCalendarView({
                   const items: readonly CalendarItem[] = [
                     ...dateItems,
                     ...dateEvents.map(event => ({ event, kind: 'event' as const })),
-                  ]
+                  ].sort((left, right) => calendarItemDoneRank(left) - calendarItemDoneRank(right))
                   const visibleItems = items.slice(0, 3)
                   const inMonth = date.isSame(monthView.month, 'month')
                   const isToday = dateKey === today.format('YYYY-MM-DD')

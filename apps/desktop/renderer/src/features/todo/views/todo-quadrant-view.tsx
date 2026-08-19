@@ -4,7 +4,7 @@ import type { TodoQuadrant } from '../todo-model'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { useMemo } from 'react'
-import { classifyTodoQuadrant, todoTaskKey } from '../todo-model'
+import { classifyTodoQuadrant, sortTodoTasks, todoTaskKey } from '../todo-model'
 import { TodoPlanningTask } from './todo-planning-task'
 import { todoPlanningViewStyles as planningStyles } from './todo-planning-view.stylex'
 import { todoQuadrantViewStyles as styles } from './todo-quadrant-view.stylex'
@@ -45,6 +45,8 @@ export function TodoQuadrantView({
     }
     for (const task of tasks)
       result[classifyTodoQuadrant(task, today)].push(task)
+    for (const quadrant of Object.keys(result) as TodoQuadrant[])
+      result[quadrant] = [...sortTodoTasks(result[quadrant])]
     return result
   }, [tasks, today])
 
