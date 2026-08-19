@@ -1,3 +1,5 @@
+export { BoundReaderSurface } from './bound-reader-surface'
+export type { BoundReaderSurfaceProps } from './bound-reader-surface'
 export {
   prepareReaderAnnotationTopicsForDeletion,
   readerAnnotationDependents,

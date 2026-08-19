@@ -23,6 +23,14 @@ function sassLoadDirectories(root) {
 }
 
 const excalidrawRoot = path.resolve(workspaceRoot, 'packages/excalidraw')
+const mobileI18nextEntry = require.resolve('i18next', { paths: [projectRoot] })
+const mobileReactI18nextEntry = require.resolve('react-i18next', { paths: [projectRoot] })
+const expoRoot = path.dirname(require.resolve('expo/package.json', { paths: [projectRoot] }))
+// Expo's winter URL polyfill and the FSRS package both expose ESM entries.
+// Pin the executable CommonJS entries so Metro's native and DOM graphs share
+// the same runtime implementation while explicit `?url` imports remain assets.
+const whatwgUrlMinimumEntry = require.resolve('whatwg-url-minimum', { paths: [expoRoot] })
+const tsFsrsEntry = require.resolve('ts-fsrs', { paths: [path.resolve(workspaceRoot, 'packages/srs')] })
 process.env.SASS_PATH = [
   ...(process.env.SASS_PATH ? process.env.SASS_PATH.split(path.delimiter) : []),
   ...sassLoadDirectories(excalidrawRoot),
@@ -31,22 +39,45 @@ process.env.SASS_PATH = [
 
 config.watchFolders = [workspaceRoot]
 config.transformerPath = path.resolve(projectRoot, 'metro-transformer.cjs')
-config.resolver.assetExts = [...config.resolver.assetExts, 'onnx', 'bin', 'wasm', 'woff', 'woff2']
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs']
+config.resolver.assetExts = config.resolver.assetExts
+  .filter(extension => extension !== 'mjs')
+  .concat('onnx', 'bin', 'wasm', 'woff', 'woff2')
 const portableSrsEntry = path.resolve(workspaceRoot, 'packages/srs/src/portable.ts')
+const browserSrsEntry = path.resolve(workspaceRoot, 'packages/srs/src/browser.ts')
+const optimizerWasmEntry = require.resolve(
+  '@open-spaced-repetition/binding-wasm32-wasi/fsrs-binding.wasm32-wasi.wasm',
+  { paths: [projectRoot] },
+)
+const optimizerWorkerEntry = require.resolve(
+  '@open-spaced-repetition/binding-wasm32-wasi/wasi-worker-browser.mjs',
+  { paths: [projectRoot] },
+)
 const defaultResolveRequest = config.resolver.resolveRequest
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'i18next')
+    return { filePath: mobileI18nextEntry, type: 'sourceFile' }
+  if (moduleName === 'react-i18next')
+    return { filePath: mobileReactI18nextEntry, type: 'sourceFile' }
+  if (moduleName === 'whatwg-url-minimum')
+    return { filePath: whatwgUrlMinimumEntry, type: 'sourceFile' }
+  if (moduleName === 'ts-fsrs')
+    return { filePath: tsFsrsEntry, type: 'sourceFile' }
   if (moduleName === '@memorilo/srs') {
-    return { filePath: portableSrsEntry, type: 'sourceFile' }
+    return { filePath: platform === 'web' ? browserSrsEntry : portableSrsEntry, type: 'sourceFile' }
   }
-  // Expo DOM runs in a browser WebView. The default Loro bundler entry loads
-  // a sibling .wasm URL, which Metro serves as the development HTML shell.
-  // The base64 entry keeps the exact same API while embedding the WASM bytes.
-  if (moduleName === 'loro-crdt' && platform === 'web') {
+  if (moduleName === '@open-spaced-repetition/binding-wasm32-wasi/fsrs-binding.wasm32-wasi.wasm?url')
+    return { filePaths: [optimizerWasmEntry], type: 'assetFiles' }
+  if (moduleName === '@open-spaced-repetition/binding-wasm32-wasi/wasi-worker-browser.mjs?url')
+    return { filePaths: [optimizerWorkerEntry], type: 'assetFiles' }
+  // Expo DOM surfaces need the browser-compatible WASM entry, while Hermes
+  // has no WebAssembly runtime and must use Loro's React Native binding.
+  if (moduleName === 'loro-crdt') {
     return defaultResolveRequest
-      ? defaultResolveRequest(context, 'loro-crdt/base64', platform)
-      : context.resolveRequest(context, 'loro-crdt/base64', platform)
+      ? defaultResolveRequest(context, platform === 'web' ? 'loro-crdt/base64' : 'loro-react-native', platform)
+      : context.resolveRequest(context, platform === 'web' ? 'loro-crdt/base64' : 'loro-react-native', platform)
   }
-  const resolvedModuleName = moduleName.endsWith('.wasm?url')
+  const resolvedModuleName = moduleName.endsWith('?url')
     ? moduleName.slice(0, -'?url'.length)
     : moduleName
   return defaultResolveRequest

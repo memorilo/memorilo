@@ -6,8 +6,9 @@ import type {
   LearningReviewProjection,
   PreparedLearningReview,
 } from '@memorilo/application/learning-review'
+import type { SupportedLanguage } from '@memorilo/config'
 import type { EditorNote } from '@memorilo/editor'
-import type { ReviewRating } from '@memorilo/editor-storage'
+import type { LearningQueueMode, ReviewRating } from '@memorilo/editor-storage'
 import type { DOMProps } from 'expo/dom'
 import type { LearningReviewSeed, LearningSurfaceFunctions } from './learning-surface-contract'
 import {
@@ -24,13 +25,19 @@ import * as stylex from '@stylexjs/stylex'
 import i18next from 'i18next'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
+import { ensureDomRuntimePolyfills } from './dom-runtime-polyfills'
 import { decodeBinary } from './editor-surface-contract'
 import { initEditorSurfaceI18n } from './editor-surface-i18n'
 import { learningCardDomStyles as styles } from './learning-card-dom-surface.stylex'
 import { loadMobileDomFonts } from './mobile-dom-fonts'
 
+ensureDomRuntimePolyfills()
+
 export interface LearningCardDomSurfaceProps extends LearningSurfaceFunctions {
   dom?: DOMProps
+  initialMode?: LearningQueueMode
+  language: SupportedLanguage
+  showModeControls?: boolean
 }
 
 interface ActiveView {
@@ -84,36 +91,37 @@ function resolveSeed(seed: LearningReviewSeed): ResolvedSeed {
   }
 }
 
-function intervalLabel(milliseconds: number): string {
+function intervalLabel(milliseconds: number, translate: (key: string, options?: Record<string, unknown>) => string): string {
   const seconds = Math.max(0, Math.round(milliseconds / 1000))
   if (seconds < 60)
-    return `${seconds}s`
+    return translate('intervalSeconds', { count: seconds })
   const minutes = Math.round(seconds / 60)
   if (minutes < 60)
-    return `${minutes}m`
+    return translate('intervalMinutesShort', { count: minutes })
   const hours = Math.round(minutes / 60)
   if (hours < 24)
-    return `${hours}h`
+    return translate('intervalHoursShort', { count: hours })
   const days = Math.round(hours / 24)
   if (days < 30)
-    return `${days}d`
+    return translate('intervalDaysShort', { count: days })
   const months = Math.round(days / 30)
   if (months < 12)
-    return `${months}mo`
-  return `${Math.round(months / 12)}y`
+    return translate('intervalMonthsShort', { count: months })
+  return translate('intervalYearsShort', { count: Math.round(months / 12) })
 }
 
 function CardMaterial({ active, note, onToggleForgotten, projection }: ActiveView & {
   onToggleForgotten: (itemBlockId: string) => void
   projection: LearningReviewProjection
 }) {
+  const translate = (key: string, options?: Record<string, unknown>) => i18next.t(key, { ns: 'learning', ...options })
   return (
     <ReviewCardSource
       adapters={demoEditorAdapters}
       card={active.item.card}
       itemSelection={projection.supportsForgottenSelection
         ? {
-            label: (_itemBlockId, selected) => selected ? 'Mark remembered' : 'Mark forgotten',
+            label: (_itemBlockId, selected) => selected ? translate('markRemembered') : translate('markForgotten'),
             onToggle: onToggleForgotten,
             selectedItemBlockIds: [...active.forgottenItemBlockIds],
           }
@@ -137,7 +145,7 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
   }), [])
   const [i18nReady, setI18nReady] = useState(false)
   const [startupError, setStartupError] = useState<Error | null>(null)
-  const [mode, setMode] = useState<'mixed' | 'new' | 'review'>('mixed')
+  const [mode, setMode] = useState<LearningQueueMode>(props.initialMode ?? 'mixed')
   const [view, setView] = useState<View>({ status: 'loading' })
   const [prepared, setPrepared] = useState<ReadonlyMap<string, PreparedLearningReview> | null>(null)
   const [history, setHistory] = useState<readonly ReviewHistoryEntry[]>([])
@@ -146,11 +154,12 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
   const preparationRevision = useRef(0)
   const preparationRequest = useRef(0)
   const loadRequest = useRef(0)
+  const translate = useCallback((key: string, options?: Record<string, unknown>) => i18next.t(key, { ns: 'learning', ...options }), [])
 
   useEffect(() => {
     let active = true
     void Promise.all([
-      initEditorSurfaceI18n(i18next),
+      initEditorSurfaceI18n(i18next, props.language),
       loadMobileDomFonts(),
     ]).then(
       () => {
@@ -165,7 +174,7 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
     return () => {
       active = false
     }
-  }, [])
+  }, [props.language])
 
   const prepare = useCallback((active: ActiveLearningReview) => {
     const request = model.preparation(active, preparationRevision.current)
@@ -299,24 +308,26 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
   if (startupError)
     return <main {...stylex.props(styles.root)}><p {...stylex.props(styles.actionError)} role="alert">{startupError.message}</p></main>
   if (!i18nReady)
-    return <div {...stylex.props(styles.status)} aria-busy="true">Loading review...</div>
+    return <div {...stylex.props(styles.status)} aria-busy="true">{translate('reviewLoading')}</div>
 
-  const modeButtons = (
-    <div {...stylex.props(styles.modes)} role="tablist" aria-label="Review queue">
-      {(['mixed', 'new', 'review'] as const).map(candidate => (
-        <button
-          key={candidate}
-          {...stylex.props(styles.modeButton, candidate === mode && styles.modeButtonSelected)}
-          aria-selected={candidate === mode}
-          role="tab"
-          type="button"
-          onClick={() => setMode(candidate)}
-        >
-          {candidate === 'mixed' ? 'All' : candidate === 'new' ? 'New' : 'Review'}
-        </button>
-      ))}
-    </div>
-  )
+  const modeButtons = props.showModeControls === false
+    ? null
+    : (
+        <div {...stylex.props(styles.modes)} role="tablist" aria-label={translate('learningQueue')}>
+          {(['mixed', 'new', 'review'] as const).map(candidate => (
+            <button
+              key={candidate}
+              {...stylex.props(styles.modeButton, candidate === mode && styles.modeButtonSelected)}
+              aria-selected={candidate === mode}
+              role="tab"
+              type="button"
+              onClick={() => setMode(candidate)}
+            >
+              {candidate === 'mixed' ? translate('queueAll') : candidate === 'new' ? translate('queueNew') : translate('queueReview')}
+            </button>
+          ))}
+        </div>
+      )
   const activeProjection = view.status === 'active' ? model.project(view.active) : null
 
   return (
@@ -334,13 +345,13 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
           {modeButtons}
         </header>
         {view.status === 'loading'
-          ? <div {...stylex.props(styles.status)} aria-busy="true">Loading next Card...</div>
+          ? <div {...stylex.props(styles.status)} aria-busy="true">{translate('loadingNextCard')}</div>
           : view.status === 'error'
             ? (
                 <div {...stylex.props(styles.completion)}>
                   <div>
                     <p {...stylex.props(styles.actionError)} role="alert">{view.error.message}</p>
-                    <button {...stylex.props(styles.secondaryButton)} type="button" onClick={() => void loadNext()}>Retry</button>
+                    <button {...stylex.props(styles.secondaryButton)} type="button" onClick={() => void loadNext()}>{translate('retryShort')}</button>
                   </div>
                 </div>
               )
@@ -348,9 +359,9 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
               ? (
                   <div {...stylex.props(styles.completion)}>
                     <div>
-                      <h1 {...stylex.props(styles.completionTitle)}>Review complete</h1>
+                      <h1 {...stylex.props(styles.completionTitle)}>{translate('reviewCompleteShort')}</h1>
                       {history.length > 0
-                        ? <button {...stylex.props(styles.secondaryButton)} disabled={actionPending} type="button" onClick={() => void undo()}>Undo last rating</button>
+                        ? <button {...stylex.props(styles.secondaryButton)} disabled={actionPending} type="button" onClick={() => void undo()}>{translate('undoLastRating')}</button>
                         : null}
                     </div>
                   </div>
@@ -370,11 +381,11 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
                       {!view.active.revealed
                         ? (
                             <button {...stylex.props(styles.showAnswerButton)} disabled={actionPending} type="button" onClick={reveal}>
-                              Show answer
+                              {translate('showAnswerShort')}
                             </button>
                           )
                         : (
-                            <div {...stylex.props(styles.ratingGrid)} aria-label="Rate Card" role="group">
+                            <div {...stylex.props(styles.ratingGrid)} aria-label={translate('rateCardShort')} role="group">
                               {ratings.map((rating) => {
                                 const intervals = prepared
                                   ? model.ratingIntervals(view.active, prepared, rating)
@@ -388,9 +399,9 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
                                     onClick={() => void rate(rating)}
                                   >
                                     <span {...stylex.props(styles.ratingInterval)}>
-                                      {intervals ? intervalLabel(intervals.maximum) : '...'}
+                                      {intervals ? intervalLabel(intervals.maximum, translate) : '...'}
                                     </span>
-                                    <span {...stylex.props(styles.ratingLabel)}>{rating}</span>
+                                    <span {...stylex.props(styles.ratingLabel)}>{translate(`rating.${rating}`)}</span>
                                   </button>
                                 )
                               })}
@@ -398,12 +409,12 @@ export default function LearningCardDomSurface(props: LearningCardDomSurfaceProp
                           )}
                       <div {...stylex.props(styles.secondaryActions)}>
                         <button {...stylex.props(styles.secondaryButton)} disabled={history.length === 0 || actionPending} type="button" onClick={() => void undo()}>
-                          Undo
+                          {translate('undoLastRating')}
                         </button>
                         {view.active.item.card.kind !== 'image-occlusion'
                           ? (
                               <button {...stylex.props(styles.secondaryButton)} disabled={actionPending} type="button" onClick={toggleSource}>
-                                {view.active.sourceVisible ? 'Show Card' : 'Show Source'}
+                                {view.active.sourceVisible ? translate('showCardShort') : translate('showSourceShort')}
                               </button>
                             )
                           : null}

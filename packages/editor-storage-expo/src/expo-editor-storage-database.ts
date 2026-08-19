@@ -19,6 +19,17 @@ interface CompileOptionRow {
   compile_options: string
 }
 
+interface SqliteVersionRow {
+  sqlite_version: string
+}
+
+export interface ExpoSqliteCapabilities {
+  fts5: true
+  fts5Trigram: true
+  sqliteVec: true
+  sqliteVersion: string
+}
+
 function normalizeParameter(value: DatabaseValue): ExpoDatabaseParameter {
   if (typeof value !== 'bigint')
     return value
@@ -55,9 +66,12 @@ export class ExpoEditorStorageDatabase implements EditorStorageDatabase {
 
   async batch(commands: readonly DatabaseCommand[]): Promise<void> {
     this.#assertOpen()
-    await this.#database.withExclusiveTransactionAsync(async (transaction) => {
+    // `withExclusiveTransactionAsync` opens a separate SQLite connection. Expo's
+    // loadable extensions, including sqlite-vec, are registered per connection,
+    // so use the primary connection for transactions touching virtual tables.
+    await this.#database.withTransactionAsync(async () => {
       for (const command of commands)
-        await transaction.runAsync(command.sql, normalizeParameters(command.parameters ?? []))
+        await this.#database.runAsync(command.sql, normalizeParameters(command.parameters ?? []))
     })
   }
 
@@ -97,7 +111,7 @@ export async function registerBundledExpoSqliteExtensions(database: SQLiteDataba
   await database.loadExtensionAsync(extension.libPath, extension.entryPoint ?? undefined)
 }
 
-export async function verifyExpoSqliteCapabilities(database: EditorStorageDatabase): Promise<void> {
+export async function verifyExpoSqliteCapabilities(database: EditorStorageDatabase): Promise<ExpoSqliteCapabilities> {
   const compileOptions = await database.all<CompileOptionRow>('PRAGMA compile_options')
   if (!compileOptions.some(row => row.compile_options === 'ENABLE_FTS5'))
     throw new Error('Expo SQLite was built without FTS5 support')
@@ -115,6 +129,15 @@ export async function verifyExpoSqliteCapabilities(database: EditorStorageDataba
     );
     DROP TABLE temp.memorilo_vec0_probe;
   `)
+  const version = await database.get<SqliteVersionRow>('SELECT sqlite_version() AS sqlite_version')
+  if (!version || typeof version.sqlite_version !== 'string' || version.sqlite_version.length === 0)
+    throw new Error('Expo SQLite did not report its SQLite version')
+  return {
+    fts5: true,
+    fts5Trigram: true,
+    sqliteVec: true,
+    sqliteVersion: version.sqlite_version,
+  }
 }
 
 export async function openExpoEditorStorageDatabase(

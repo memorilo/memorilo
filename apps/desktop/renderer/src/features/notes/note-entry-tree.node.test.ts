@@ -1,6 +1,6 @@
 import type { FolderSnapshot, NoteEntrySnapshot, RegularTopicSnapshot } from '@memorilo/editor'
+import { projectVisibleNoteEntries } from '@memorilo/editor/note'
 import { describe, expect, it } from 'vitest'
-import { projectVisibleNoteEntries } from './note-entry-tree'
 
 function folder(id: string, parentId: string | null = null): FolderSnapshot {
   return { id, kind: 'folder', name: id, ordinal: 0, parentId }

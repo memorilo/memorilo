@@ -1,5 +1,6 @@
 import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from '../database-driver'
 import type { LearningCardReconciliationInput } from './learning-card-reconciliation'
+import type { FsrsParameterOptimizer } from './learning-optimizer-repository'
 import type {
   LearningCardStorage,
   LearningMaintenanceStorage,
@@ -14,6 +15,7 @@ import {
   defaultLearningPracticeConfiguration,
   defaultOptimizerConfiguration,
   FSRSVersion,
+  optimizeFsrsParameters,
 } from '@memorilo/srs'
 import { v7 as createUuidV7 } from 'uuid'
 import { LearningCardRepository } from './learning-card-repository'
@@ -49,6 +51,7 @@ export class SqliteLearningStorage implements LearningStorage {
     database: EditorStorageDatabase,
     configuration: () => LearningPracticeConfiguration,
     runOperation: StorageOperationRunner,
+    optimizer?: FsrsParameterOptimizer,
   ) {
     this.maintenance = new LearningMaintenanceRepository({
       database,
@@ -70,6 +73,7 @@ export class SqliteLearningStorage implements LearningStorage {
       catalog: optimizerCatalog,
       database,
       history: reviewHistory,
+      optimizeFsrsParameters: optimizer ?? optimizeFsrsParameters,
       runOperation,
     })
     this.queue = new LearningQueueRepository({
@@ -90,6 +94,7 @@ export class SqliteLearningStorage implements LearningStorage {
     database: EditorStorageDatabase,
     runOperation: StorageOperationRunner,
     configuration: () => LearningPracticeConfiguration = defaultLearningPracticeConfiguration,
+    optimizeFsrsParameters?: FsrsParameterOptimizer,
   ): Promise<SqliteLearningStorage> {
     await database.exec(learningSchema)
     const schemaState = await database.get<LearningSchemaStateRow>(
@@ -126,7 +131,7 @@ export class SqliteLearningStorage implements LearningStorage {
         sql: 'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, ?) ON CONFLICT(singleton) DO NOTHING',
       },
     ])
-    return new SqliteLearningStorage(database, configuration, runOperation)
+    return new SqliteLearningStorage(database, configuration, runOperation, optimizeFsrsParameters)
   }
 
   planCardReconciliation(input: LearningCardReconciliationInput): Promise<readonly DatabaseCommand[]> {

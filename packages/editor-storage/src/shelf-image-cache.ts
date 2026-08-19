@@ -22,6 +22,16 @@ interface ShelfImageRow {
   url: string
 }
 
+interface ShelfImageCacheStatisticsRow {
+  byte_size: number
+  entry_count: number
+}
+
+export interface ShelfImageCacheStatistics {
+  byteSize: number
+  entryCount: number
+}
+
 const imageCacheSchema = `
   CREATE TABLE IF NOT EXISTS shelf_assets (
     source_id TEXT NOT NULL,
@@ -110,6 +120,30 @@ export class SqliteShelfImageCache implements ShelfImageCache {
 
   close(): Promise<void> {
     return this.#operations.close()
+  }
+
+  async clear(): Promise<void> {
+    return this.#run(async () => {
+      await this.#database.batch([
+        { sql: 'DELETE FROM shelf_image_cache_entries' },
+        { sql: 'DELETE FROM shelf_assets' },
+      ])
+      await this.#database.exec('VACUUM')
+    })
+  }
+
+  async getStatistics(): Promise<ShelfImageCacheStatistics> {
+    return this.#run(async () => {
+      const row = await this.#database.get<ShelfImageCacheStatisticsRow>(`
+        SELECT COUNT(*) AS entry_count, COALESCE(SUM(byte_size), 0) AS byte_size
+        FROM shelf_image_cache_entries
+      `)
+      if (!row || !Number.isSafeInteger(row.entry_count) || row.entry_count < 0)
+        throw new Error('Shelf image cache did not report a valid entry count')
+      if (!Number.isSafeInteger(row.byte_size) || row.byte_size < 0)
+        throw new Error('Shelf image cache did not report a valid byte size')
+      return { byteSize: row.byte_size, entryCount: row.entry_count }
+    })
   }
 
   async deleteSource(sourceId: string): Promise<void> {

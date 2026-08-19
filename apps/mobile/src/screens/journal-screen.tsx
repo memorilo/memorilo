@@ -3,6 +3,7 @@ import type { MobileRuntime } from '@/application/mobile-runtime'
 import type { EditorDomHostHandle } from '@/surfaces/editor-dom-host'
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
   FlatList,
@@ -14,10 +15,12 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { journalDateValue, localJournalDate, shiftJournalDate } from '@/application/journal-date'
+import { useMobileLanguage } from '@/application/mobile-language-hook'
 import { useMobileRuntimeState } from '@/application/mobile-runtime-state'
 import { EditorDomHost } from '@/surfaces/editor-dom-host'
+import { EmptyState } from '@/ui/empty-state'
 import { GlassHeader } from '@/ui/glass-header'
-import { GlassSurface } from '@/ui/liquid-glass'
+import { IconButton } from '@/ui/icon-button'
 import { colors } from '@/ui/theme'
 
 function toError(error: unknown): Error {
@@ -25,23 +28,6 @@ function toError(error: unknown): Error {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
-    alignItems: 'center',
-    backgroundColor: colors.glassStrong,
-    borderColor: colors.glassBorder,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
-  },
-  actionButtonDisabled: {
-    opacity: 0.32,
-  },
-  actionButtonPressed: {
-    backgroundColor: colors.accentSoft,
-    transform: [{ scale: 0.95 }],
-  },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -77,25 +63,14 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   historyRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.44)',
-    borderColor: colors.glassBorder,
-    borderRadius: 17,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 10,
-    minHeight: 64,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 72,
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
   historyRowPressed: {
-    backgroundColor: colors.accentSoft,
-    transform: [{ scale: 0.985 }],
-  },
-  historyEmptySurface: {
-    alignItems: 'center',
-    maxWidth: 340,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    width: '100%',
+    backgroundColor: colors.surfacePressed,
   },
   historyTitle: {
     color: colors.text,
@@ -108,8 +83,8 @@ const styles = StyleSheet.create({
   },
   todayButton: {
     alignSelf: 'center',
-    backgroundColor: colors.glassStrong,
-    borderColor: colors.glassBorder,
+    backgroundColor: colors.controlFill,
+    borderColor: colors.controlStroke,
     borderRadius: 15,
     borderWidth: StyleSheet.hairlineWidth,
     marginTop: 10,
@@ -127,6 +102,8 @@ const styles = StyleSheet.create({
 })
 
 function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
+  const { language } = useMobileLanguage()
+  const { t } = useTranslation('app')
   const today = useMemo(() => localJournalDate(), [])
   const editorRef = useRef<EditorDomHostHandle>(null)
   const [journalDate, setJournalDate] = useState(today)
@@ -136,11 +113,11 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const displayDate = useMemo(() => new Intl.DateTimeFormat(undefined, {
+  const displayDate = useMemo(() => new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
     day: 'numeric',
-    month: 'long',
-    weekday: 'long',
-  }).format(journalDateValue(journalDate)), [journalDate])
+    month: 'short',
+    weekday: 'short',
+  }).format(journalDateValue(journalDate)), [journalDate, language])
 
   const changeDate = useCallback(async (nextDate: string) => {
     if (nextDate > today)
@@ -181,48 +158,41 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
     <SafeAreaView style={styles.root}>
       <GlassHeader
         leading={(
-          <Pressable
-            accessibilityLabel="Previous day"
+          <IconButton
+            accessibilityLabel={t('mobilePreviousDay')}
             disabled={busy}
-            hitSlop={8}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={() => void changeDate(shiftJournalDate(journalDate, -1))}
           >
             <Ionicons color={colors.text} name="chevron-back" size={21} />
-          </Pressable>
+          </IconButton>
         )}
         subtitle={journalDate}
         title={displayDate}
         trailing={(
           <>
-            <Pressable
-              accessibilityLabel="Open Journal history"
-              hitSlop={8}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+            <IconButton
+              accessibilityLabel={t('mobileOpenJournalHistory')}
               onPress={() => void showHistory()}
             >
               <Ionicons color={colors.text} name="calendar-outline" size={20} />
-            </Pressable>
+            </IconButton>
             {journalDate === today
               ? (
-                  <Pressable
-                    accessibilityLabel="Next day unavailable"
+                  <IconButton
+                    accessibilityLabel={t('mobileNextDayUnavailable')}
                     disabled
-                    style={[styles.actionButton, styles.actionButtonDisabled]}
                   >
                     <Ionicons color={colors.muted} name="chevron-forward" size={21} />
-                  </Pressable>
+                  </IconButton>
                 )
               : (
-                  <Pressable
-                    accessibilityLabel="Next day"
+                  <IconButton
+                    accessibilityLabel={t('mobileNextDay')}
                     disabled={busy}
-                    hitSlop={8}
-                    style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
                     onPress={() => void changeDate(shiftJournalDate(journalDate, 1))}
                   >
                     <Ionicons color={colors.text} name="chevron-forward" size={21} />
-                  </Pressable>
+                  </IconButton>
                 )}
           </>
         )}
@@ -230,12 +200,12 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
       {journalDate !== today
         ? (
             <Pressable
-              accessibilityLabel="Go to today's Journal"
+              accessibilityLabel={t('mobileGoToToday')}
               disabled={busy}
               style={({ pressed }) => [styles.todayButton, pressed && styles.todayButtonPressed]}
               onPress={() => void changeDate(today)}
             >
-              <Text style={styles.todayButtonText}>Today</Text>
+              <Text style={styles.todayButtonText}>{t('today')}</Text>
             </Pressable>
           )
         : null}
@@ -252,16 +222,14 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
       <Modal animationType="slide" visible={historyVisible} onRequestClose={() => setHistoryVisible(false)}>
         <SafeAreaView style={styles.root}>
           <GlassHeader
-            title="Journal History"
+            title={t('mobileJournalHistory')}
             trailing={(
-              <Pressable
-                accessibilityLabel="Close Journal history"
-                hitSlop={8}
-                style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+              <IconButton
+                accessibilityLabel={t('mobileCloseJournalHistory')}
                 onPress={() => setHistoryVisible(false)}
               >
                 <Ionicons color={colors.text} name="close" size={23} />
-              </Pressable>
+              </IconButton>
             )}
           />
           {historyLoading
@@ -277,10 +245,10 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
                   keyExtractor={item => item.noteId}
                   ListEmptyComponent={(
                     <View style={styles.centered}>
-                      <GlassSurface style={styles.historyEmptySurface}>
-                        <Ionicons color={colors.accent} name="calendar-outline" size={28} />
-                        <Text style={styles.dateLabel}>No earlier Journals</Text>
-                      </GlassSurface>
+                      <EmptyState
+                        icon={<Ionicons color={colors.accent} name="calendar-outline" size={28} />}
+                        title={t('mobileNoEarlierJournals')}
+                      />
                     </View>
                   )}
                   renderItem={({ item }) => (
@@ -289,7 +257,7 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
                       onPress={() => void changeDate(item.journalDate)}
                     >
                       <Text style={styles.historyTitle}>
-                        {new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(journalDateValue(item.journalDate))}
+                        {new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', { dateStyle: 'full' }).format(journalDateValue(item.journalDate))}
                       </Text>
                     </Pressable>
                   )}
@@ -302,19 +270,20 @@ function JournalWorkspace({ runtime }: { runtime: MobileRuntime }) {
 }
 
 export function JournalScreen() {
+  const { t } = useTranslation('app')
   const runtimeState = useMobileRuntimeState()
   if (runtimeState.status === 'loading') {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
-        <Text style={styles.dateMetadata}>Opening local database</Text>
+        <Text style={styles.dateMetadata}>{t('mobileOpeningDatabase')}</Text>
       </SafeAreaView>
     )
   }
   if (runtimeState.status === 'error') {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.dateLabel}>Startup failed</Text>
+        <Text style={styles.dateLabel}>{t('mobileStartupFailed')}</Text>
         <Text selectable style={styles.error}>{runtimeState.error.message}</Text>
       </SafeAreaView>
     )

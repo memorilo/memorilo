@@ -1,4 +1,5 @@
 import type { EditorNoteStorageProjection } from '@memorilo/application/note-storage'
+import type { DeleteNoteEntryStrategy, NoteEntrySnapshot } from '@memorilo/editor/note'
 
 export interface EditorSurfaceSession {
   checkpointSequence: number
@@ -21,6 +22,16 @@ export interface SaveEditorSurfaceReceipt {
   updatedAt: number
 }
 
+export interface SaveEditorImageInput {
+  data: string
+  fileName: string
+  mimeType: string
+}
+
+export interface SavedEditorImage {
+  src: string
+}
+
 export interface CheckpointEditorSurfaceInput {
   noteId: string
   snapshot: string
@@ -33,18 +44,53 @@ export interface OpenJournalSurfaceInput extends EditorNoteStorageProjection {
   snapshot: string
 }
 
-export type EditorSurfaceCommand = {
-  id: number
+export type EditorSurfaceEntryType = 'folder' | 'spreadsheet' | 'topic' | 'whiteboard'
+
+export interface EditorSurfaceStructure {
+  entries: readonly NoteEntrySnapshot[]
+  selectedTopicId: string | null
+}
+
+export type EditorSurfaceCommandInput = {
   type: 'flush'
 } | {
-  id: number
   title: string
   type: 'rename-note'
+} | {
+  type: 'refresh-structure'
+} | {
+  topicId: string
+  type: 'open-topic'
+} | {
+  entryType: EditorSurfaceEntryType
+  label: string
+  parentId: string | null
+  type: 'create-entry'
+} | {
+  entryId: string
+  label: string
+  type: 'rename-entry'
+} | {
+  entryId: string
+  index?: number
+  parentId: string | null
+  type: 'move-entry'
+} | {
+  entryId: string
+  strategy: DeleteNoteEntryStrategy
+  type: 'delete-entry'
 }
+
+type WithCommandId<Command> = Command extends EditorSurfaceCommandInput
+  ? Command & { id: number }
+  : never
+
+export type EditorSurfaceCommand = WithCommandId<EditorSurfaceCommandInput>
 
 export interface EditorSurfaceCommandResult {
   commandId: number
   error?: string
+  structure?: EditorSurfaceStructure
   title?: string
 }
 

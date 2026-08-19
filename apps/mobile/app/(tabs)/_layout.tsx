@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Tabs } from 'expo-router'
+import { useTranslation } from 'react-i18next'
 import { StyleSheet } from 'react-native'
 import { LiquidGlass } from '@/ui/liquid-glass'
 import { colors } from '@/ui/theme'
@@ -9,6 +10,7 @@ const tabIcons = {
   learning: 'sparkles-outline',
   notes: 'document-text-outline',
   shelf: 'library-outline',
+  settings: 'settings-outline',
 } as const
 
 const styles = StyleSheet.create({
@@ -43,6 +45,7 @@ function GlassTabBarBackground() {
 }
 
 export default function TabsLayout() {
+  const { t } = useTranslation(['app', 'pages', 'settings'])
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -59,10 +62,11 @@ export default function TabsLayout() {
         tabBarStyle: styles.tabBar,
       })}
     >
-      <Tabs.Screen name="notes" options={{ title: 'Notes' }} />
-      <Tabs.Screen name="journal" options={{ title: 'Journal' }} />
-      <Tabs.Screen name="learning" options={{ title: 'Learning' }} />
-      <Tabs.Screen name="shelf" options={{ title: 'Shelf' }} />
+      <Tabs.Screen name="notes" options={{ title: t('notes', { ns: 'pages' }) }} />
+      <Tabs.Screen name="journal" options={{ title: t('journals', { ns: 'app' }) }} />
+      <Tabs.Screen name="learning" options={{ title: t('learning', { ns: 'app' }) }} />
+      <Tabs.Screen name="shelf" options={{ title: t('shelf', { ns: 'app' }) }} />
+      <Tabs.Screen name="settings" options={{ title: t('title', { ns: 'settings' }) }} />
     </Tabs>
   )
 }

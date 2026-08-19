@@ -138,18 +138,22 @@ export function EditorCanvas({
     <>
       {readOnly ? null : <div data-editor-mode-controls="">{modeControls}</div>}
       <ProseKit editor={editor}>
-        <div {...stylex.props(
+        <div
+          {...stylex.props(
           editorCanvasStyles.viewport,
           embedded && editorCanvasStyles.viewportEmbedded,
           embedded && modePicker && editorCanvasStyles.viewportEmbeddedEmpty,
-        )}
+          )}
+          data-editor-viewport=""
         >
           <UploadStatus />
-          <div {...stylex.props(
+          <div
+            {...stylex.props(
             editorCanvasStyles.scrolling,
             embedded && editorCanvasStyles.scrollingEmbedded,
             embedded && modePicker && editorCanvasStyles.scrollingEmbeddedEmpty,
-          )}
+            )}
+            data-editor-scroller=""
           >
             {editing ? null : modePicker?.(beginEditing)}
             <div

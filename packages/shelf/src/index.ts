@@ -47,6 +47,9 @@ export {
 } from './reading'
 export type { ShelfReadingAcquisition } from './reading'
 export {
+  createShelfReadingId,
+} from './reading-id'
+export {
   fetchShelfAsset,
   fetchShelfPage,
   fetchShelfPublication,

@@ -4,3 +4,6 @@ export {
   prepareMainDatabase,
   UnsupportedDatabaseGenerationError,
 } from './database-lifecycle'
+export { inspectMainDatabaseSchema } from './schema-inspection'
+export { serializeMainDatabaseSchemaInspection } from './schema-inspection'
+export type { MainDatabaseSchemaInspection, MainDatabaseSchemaObject } from './schema-inspection'

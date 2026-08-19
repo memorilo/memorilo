@@ -1,15 +1,22 @@
 import * as stylex from '@stylexjs/stylex'
 
+const colors = {
+  alertBackground: '#F8E4DE',
+  alertBorder: '#E7B7A8',
+  alertText: '#B3261E',
+  background: '#FFFFFF',
+} as const
+
 export const readerDomSurfaceStyles = stylex.create({
   alert: {
     flexShrink: 0,
-    borderBottomColor: '#f0c7c2',
+    borderBottomColor: colors.alertBorder,
     borderBottomStyle: 'solid',
     borderBottomWidth: 1,
     paddingBlock: 8,
     paddingInline: 12,
-    backgroundColor: '#fff1f0',
-    color: '#9f1c1c',
+    backgroundColor: colors.alertBackground,
+    color: colors.alertText,
     fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 13,
     lineHeight: '18px',
@@ -21,6 +28,6 @@ export const readerDomSurfaceStyles = stylex.create({
     minWidth: 0,
     minHeight: 0,
     flexDirection: 'column',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
 })

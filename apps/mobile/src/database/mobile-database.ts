@@ -4,10 +4,13 @@ import {
   registerBundledExpoSqliteExtensions,
 } from '@memorilo/editor-storage-expo'
 import { prepareMainDatabase } from '@memorilo/editor-storage/database'
+import { applyPendingMobileDatabaseImport } from './mobile-database-transfer'
 
-const mobileDatabaseName = 'memorilo.sqlite'
+export const mobileDatabaseName = 'memorilo.sqlite'
+export const mobileShelfImageCacheDatabaseName = 'memorilo-shelf-images.sqlite'
 
 export async function openMobileDatabase(): Promise<ExpoEditorStorageDatabase> {
+  await applyPendingMobileDatabaseImport()
   const database = await openExpoEditorStorageDatabase({
     databaseName: mobileDatabaseName,
     registerExtensions: registerBundledExpoSqliteExtensions,
@@ -20,4 +23,12 @@ export async function openMobileDatabase(): Promise<ExpoEditorStorageDatabase> {
     await database.close()
     throw error
   }
+}
+
+/** Shelf cover bytes are a cache and must not add objects to the canonical main database. */
+export function openMobileShelfImageCacheDatabase(): Promise<ExpoEditorStorageDatabase> {
+  return openExpoEditorStorageDatabase({
+    databaseName: mobileShelfImageCacheDatabaseName,
+    registerExtensions: registerBundledExpoSqliteExtensions,
+  })
 }

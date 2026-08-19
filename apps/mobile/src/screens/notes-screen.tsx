@@ -1,8 +1,11 @@
 import type { NoteSummary } from '@memorilo/editor-storage'
 import type { MobileRuntime } from '@/application/mobile-runtime'
 import type { EditorDomHostHandle } from '@/surfaces/editor-dom-host'
+import type { EditorSurfaceStructure } from '@/surfaces/editor-surface-contract'
 import { Ionicons } from '@expo/vector-icons'
+import { useLocalSearchParams, useNavigation } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
   FlatList,
@@ -15,10 +18,16 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { localJournalDate } from '@/application/journal-date'
+import { useMobileLanguage } from '@/application/mobile-language-hook'
 import { useMobileRuntimeState } from '@/application/mobile-runtime-state'
+import { NoteStructureSheet } from '@/features/notes/note-structure-sheet'
 import { EditorDomHost } from '@/surfaces/editor-dom-host'
+import { ActionButton } from '@/ui/action-button'
+import { EmptyState } from '@/ui/empty-state'
 import { GlassHeader } from '@/ui/glass-header'
-import { GlassSurface, LiquidGlassInput } from '@/ui/liquid-glass'
+import { IconButton } from '@/ui/icon-button'
+import { GlassSurface } from '@/ui/liquid-glass'
+import { TextField } from '@/ui/text-field'
 import { colors } from '@/ui/theme'
 
 const iconSize = 21
@@ -40,20 +49,6 @@ function nextUntitledTitle(notes: readonly NoteSummary[]): string {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
-    alignItems: 'center',
-    backgroundColor: colors.glassStrong,
-    borderColor: colors.glassBorder,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
-  },
-  actionButtonPressed: {
-    backgroundColor: colors.accentSoft,
-    transform: [{ scale: 0.95 }],
-  },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -62,32 +57,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 28,
   },
-  editor: {
-    backgroundColor: colors.surface,
+  editorCanvas: {
+    backgroundColor: colors.background,
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  editorHeader: {
+    left: 0,
+    marginTop: 4,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 2,
+  },
+  editorScreen: {
     flex: 1,
+    minHeight: 0,
+    position: 'relative',
+  },
+  errorOverlay: {
+    left: 16,
+    position: 'absolute',
+    right: 16,
+    top: 136,
   },
   emptyDescription: {
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
-  },
-  emptyIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.accentSoft,
-    borderRadius: 18,
-    height: 58,
-    justifyContent: 'center',
-    marginBottom: 4,
-    width: 58,
-  },
-  emptySurface: {
-    alignItems: 'center',
-    gap: 10,
-    maxWidth: 360,
-    paddingHorizontal: 28,
-    paddingVertical: 30,
-    width: '100%',
   },
   emptyTitle: {
     color: colors.text,
@@ -106,27 +107,6 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
     paddingHorizontal: 16,
   },
-  modalAction: {
-    alignItems: 'center',
-    borderRadius: 7,
-    minHeight: 42,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  modalActionPrimary: {
-    backgroundColor: colors.accent,
-  },
-  modalActionSecondary: {
-    backgroundColor: colors.accentSoft,
-  },
-  modalActionText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  modalActionTextPrimary: {
-    color: '#FFFFFF',
-  },
   modalActions: {
     flexDirection: 'row',
     gap: 10,
@@ -144,9 +124,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   modalInput: {
-    borderColor: colors.border,
-    borderRadius: 7,
-    borderWidth: 1,
+    backgroundColor: colors.controlFill,
+    borderColor: colors.controlStroke,
+    borderRadius: 13,
+    borderWidth: StyleSheet.hairlineWidth,
     color: colors.text,
     fontSize: 16,
     minHeight: 46,
@@ -154,7 +135,7 @@ const styles = StyleSheet.create({
   },
   modalRoot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(23, 26, 24, 0.34)',
+    backgroundColor: colors.scrim,
     flex: 1,
     justifyContent: 'center',
     padding: 24,
@@ -171,18 +152,14 @@ const styles = StyleSheet.create({
   },
   noteRow: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.44)',
-    borderColor: colors.glassBorder,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    marginBottom: 10,
-    minHeight: 68,
+    minHeight: 76,
     paddingHorizontal: 12,
   },
   noteRowPressed: {
-    backgroundColor: colors.accentSoft,
-    transform: [{ scale: 0.985 }],
+    backgroundColor: colors.surfacePressed,
   },
   noteText: {
     flex: 1,
@@ -208,17 +185,41 @@ const styles = StyleSheet.create({
   },
 })
 
-function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
+function NotesWorkspace({
+  requestedNoteId,
+  requestedTopicId,
+  runtime,
+}: {
+  requestedNoteId: string | null
+  requestedTopicId: string | null
+  runtime: MobileRuntime
+}) {
+  const { language } = useMobileLanguage()
+  const { t } = useTranslation('pages')
+  const navigation = useNavigation()
   const editorRef = useRef<EditorDomHostHandle>(null)
   const [notes, setNotes] = useState<readonly NoteSummary[]>([])
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(requestedNoteId)
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [editorReady, setEditorReady] = useState(false)
   const [renameVisible, setRenameVisible] = useState(false)
   const [renameTitle, setRenameTitle] = useState('')
   const [renameError, setRenameError] = useState<string | null>(null)
+  const [structure, setStructure] = useState<EditorSurfaceStructure | null>(null)
+  const [structureVisible, setStructureVisible] = useState(false)
+  const requestedTopicOpened = useRef<string | null>(null)
+
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: selectedNoteId === null ? undefined : { display: 'none' },
+    })
+    return () => {
+      navigation.setOptions({ tabBarStyle: undefined })
+    }
+  }, [navigation, selectedNoteId])
 
   const loadNotes = useCallback(async () => {
     const page = await runtime.editor.notes.listNotes({
@@ -249,6 +250,16 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
     }
   }, [loadNotes])
 
+  useEffect(() => {
+    if (!editorReady || requestedTopicId === null || selectedNoteId !== requestedNoteId || !editorRef.current)
+      return
+    const key = `${selectedNoteId}:${requestedTopicId}`
+    if (requestedTopicOpened.current === key)
+      return
+    requestedTopicOpened.current = key
+    void editorRef.current.openTopic(requestedTopicId).then(setStructure).catch((failure: unknown) => setError(toError(failure)))
+  }, [editorReady, requestedNoteId, requestedTopicId, selectedNoteId])
+
   const selectedNote = notes.find(note => note.id === selectedNoteId) ?? null
   const visibleNotes = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase()
@@ -262,6 +273,8 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
     setError(null)
     try {
       await editorRef.current?.flush()
+      setEditorReady(false)
+      setStructure(null)
       setSelectedNoteId(noteId)
     }
     catch (failure) {
@@ -277,6 +290,7 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
     setError(null)
     try {
       await editorRef.current?.flush()
+      setEditorReady(false)
       const created = await runtime.editor.notes.createNote({ title: nextUntitledTitle(notes) })
       await loadNotes()
       setSelectedNoteId(created.id)
@@ -295,6 +309,9 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
     try {
       await editorRef.current?.flush()
       await loadNotes()
+      setEditorReady(false)
+      setStructure(null)
+      setStructureVisible(false)
       setSelectedNoteId(null)
     }
     catch (failure) {
@@ -304,6 +321,25 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
       setBusy(false)
     }
   }, [loadNotes])
+
+  const openStructure = useCallback(async () => {
+    const editor = editorRef.current
+    if (!editor)
+      return
+    setBusy(true)
+    setError(null)
+    try {
+      const nextStructure = await editor.refreshStructure()
+      setStructure(nextStructure)
+      setStructureVisible(true)
+    }
+    catch (failure) {
+      setError(toError(failure))
+    }
+    finally {
+      setBusy(false)
+    }
+  }, [])
 
   const toggleFavorite = useCallback(async (note: NoteSummary) => {
     setError(null)
@@ -332,7 +368,7 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
   const submitRename = useCallback(async () => {
     const title = renameTitle.trim()
     if (title.length === 0) {
-      setRenameError('A Note title cannot be empty.')
+      setRenameError(t('mobileNoteTitleEmpty'))
       return
     }
     setBusy(true)
@@ -348,71 +384,123 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
     finally {
       setBusy(false)
     }
-  }, [renameTitle, selectedNoteId])
+  }, [renameTitle, selectedNoteId, t])
 
   if (selectedNoteId !== null) {
-    const title = selectedNote?.title ?? 'Note'
+    const title = selectedNote?.title ?? t('mobileNotesTitle')
     return (
       <SafeAreaView style={styles.root}>
-        <GlassHeader
-          leading={(
-            <Pressable
-              accessibilityLabel="Back to Notes"
-              disabled={busy}
-              hitSlop={8}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
-              onPress={() => void closeEditor()}
-            >
-              <Ionicons color={colors.text} name="chevron-back" size={iconSize} />
-            </Pressable>
-          )}
-          title={title}
-          trailing={(
-            <>
-              <Pressable
-                accessibilityLabel={selectedNote?.favorite ? 'Remove from favorites' : 'Add to favorites'}
-                disabled={busy || !selectedNote}
-                hitSlop={8}
-                style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
-                onPress={() => selectedNote && void toggleFavorite(selectedNote)}
+        <View style={styles.editorScreen}>
+          <View style={styles.editorCanvas}>
+            <EditorDomHost
+              key={selectedNoteId}
+              ref={editorRef}
+              kind="note"
+              noteId={selectedNoteId}
+              runtime={runtime}
+              immersive
+              onReady={() => setEditorReady(true)}
+              onStructureChanged={setStructure}
+              onTitleChanged={(nextTitle) => {
+                setNotes(current => current.map(note => note.id === selectedNoteId
+                  ? { ...note, title: nextTitle }
+                  : note))
+              }}
+            />
+          </View>
+          <GlassHeader
+            leading={(
+              <IconButton
+                accessibilityLabel={t('mobileBackToNotes')}
+                disabled={busy}
+                onPress={() => void closeEditor()}
               >
-                <Ionicons
-                  color={selectedNote?.favorite ? colors.accent : colors.muted}
-                  name={selectedNote?.favorite ? 'star' : 'star-outline'}
-                  size={iconSize}
-                />
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Rename Note"
-                disabled={busy || !selectedNote}
-                hitSlop={8}
-                style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
-                onPress={showRename}
-              >
-                <Ionicons color={colors.text} name="pencil-outline" size={iconSize} />
-              </Pressable>
-            </>
-          )}
-        />
-        {error ? <Text selectable style={styles.error}>{error.message}</Text> : null}
-        <View style={styles.editor}>
-          <EditorDomHost
-            key={selectedNoteId}
-            ref={editorRef}
-            kind="note"
-            noteId={selectedNoteId}
-            runtime={runtime}
-            onTitleChanged={(nextTitle) => {
-              setNotes(current => current.map(note => note.id === selectedNoteId
-                ? { ...note, title: nextTitle }
-                : note))
-            }}
+                <Ionicons color={colors.text} name="chevron-back" size={iconSize} />
+              </IconButton>
+            )}
+            style={styles.editorHeader}
+            title={title}
+            trailing={(
+              <>
+                <IconButton
+                  accessibilityLabel={t('mobileNoteStructure')}
+                  disabled={busy || !editorReady}
+                  onPress={() => void openStructure()}
+                >
+                  <Ionicons color={colors.text} name="list-outline" size={iconSize} />
+                </IconButton>
+                <IconButton
+                  accessibilityLabel={selectedNote?.favorite ? t('mobileRemoveFavorite') : t('mobileAddFavorite')}
+                  disabled={busy || !selectedNote}
+                  onPress={() => selectedNote && void toggleFavorite(selectedNote)}
+                >
+                  <Ionicons
+                    color={selectedNote?.favorite ? colors.accent : colors.muted}
+                    name={selectedNote?.favorite ? 'star' : 'star-outline'}
+                    size={iconSize}
+                  />
+                </IconButton>
+                <IconButton
+                  accessibilityLabel={t('mobileRenameNote')}
+                  disabled={busy || !editorReady || !selectedNote}
+                  onPress={showRename}
+                >
+                  <Ionicons color={colors.text} name="pencil-outline" size={iconSize} />
+                </IconButton>
+              </>
+            )}
           />
+          {error ? <Text selectable style={[styles.error, styles.errorOverlay]}>{error.message}</Text> : null}
         </View>
+        <NoteStructureSheet
+          structure={structure}
+          visible={structureVisible}
+          onClose={() => setStructureVisible(false)}
+          onCreateEntry={async (input) => {
+            const editor = editorRef.current
+            if (!editor)
+              throw new Error('Editor is unavailable')
+            const next = await editor.createEntry(input)
+            setStructure(next)
+            return next
+          }}
+          onDeleteEntry={async (input) => {
+            const editor = editorRef.current
+            if (!editor)
+              throw new Error('Editor is unavailable')
+            const next = await editor.deleteEntry(input)
+            setStructure(next)
+            return next
+          }}
+          onMoveEntry={async (input) => {
+            const editor = editorRef.current
+            if (!editor)
+              throw new Error('Editor is unavailable')
+            const next = await editor.moveEntry(input)
+            setStructure(next)
+            return next
+          }}
+          onOpenTopic={async (topicId) => {
+            const editor = editorRef.current
+            if (!editor)
+              throw new Error('Editor is unavailable')
+            const next = await editor.openTopic(topicId)
+            setStructure(next)
+            return next
+          }}
+          onRenameEntry={async (entryId, label) => {
+            const editor = editorRef.current
+            if (!editor)
+              throw new Error('Editor is unavailable')
+            const next = await editor.renameEntry(entryId, label)
+            setStructure(next)
+            return next
+          }}
+        />
         <Modal animationType="fade" transparent visible={renameVisible} onRequestClose={() => setRenameVisible(false)}>
           <View style={styles.modalRoot}>
             <GlassSurface style={styles.modalBody}>
-              <Text style={styles.modalTitle}>Rename Note</Text>
+              <Text style={styles.modalTitle}>{t('mobileRenameNote')}</Text>
               <TextInput
                 autoFocus
                 maxLength={200}
@@ -425,20 +513,17 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
               />
               {renameError ? <Text selectable style={styles.modalError}>{renameError}</Text> : null}
               <View style={styles.modalActions}>
-                <Pressable
+                <ActionButton
                   disabled={busy}
-                  style={[styles.modalAction, styles.modalActionSecondary]}
+                  label={t('mobileCancel')}
                   onPress={() => setRenameVisible(false)}
-                >
-                  <Text style={styles.modalActionText}>Cancel</Text>
-                </Pressable>
-                <Pressable
+                />
+                <ActionButton
                   disabled={busy}
-                  style={[styles.modalAction, styles.modalActionPrimary]}
+                  label={t('mobileRename')}
+                  tone="primary"
                   onPress={() => void submitRename()}
-                >
-                  <Text style={[styles.modalActionText, styles.modalActionTextPrimary]}>Rename</Text>
-                </Pressable>
+                />
               </View>
             </GlassSurface>
           </View>
@@ -450,27 +535,26 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
   return (
     <SafeAreaView style={styles.root}>
       <GlassHeader
-        subtitle={notes.length === 1 ? '1 local note' : `${notes.length} local notes`}
-        title="Notes"
+        subtitle={t('mobileLocalNote', { count: notes.length })}
+        title={t('mobileNotesTitle')}
         trailing={(
-          <Pressable
-            accessibilityLabel="Create Note"
+          <IconButton
+            accessibilityLabel={t('mobileCreateNote')}
             disabled={busy}
-            hitSlop={8}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
             onPress={() => void createNote()}
           >
             {busy
               ? <ActivityIndicator color={colors.accent} />
               : <Ionicons color={colors.accent} name="add" size={25} />}
-          </Pressable>
+          </IconButton>
         )}
       />
-      <LiquidGlassInput
-        accessibilityLabel="Search Notes"
+      <TextField
+        accessibilityLabel={t('mobileSearchNotes')}
         clearButtonMode="while-editing"
         containerStyle={styles.searchShell}
-        placeholder="Search Notes"
+        leading={<Ionicons color={colors.muted} name="search-outline" size={19} />}
+        placeholder={t('mobileSearchNotes')}
         returnKeyType="search"
         style={styles.search}
         value={query}
@@ -490,33 +574,27 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
               keyExtractor={note => note.id}
               ListEmptyComponent={(
                 <View style={styles.centered}>
-                  <GlassSurface style={styles.emptySurface}>
-                    <View style={styles.emptyIcon}>
-                      <Ionicons color={colors.accent} name="document-text-outline" size={28} />
-                    </View>
-                    <Text style={styles.emptyTitle}>{query ? 'No matching Notes' : 'No Notes yet'}</Text>
-                    <Text style={styles.emptyDescription}>
-                      {query ? 'Try another title.' : 'Create a Note to start writing.'}
-                    </Text>
-                  </GlassSurface>
+                  <EmptyState
+                    description={query ? t('mobileTryAnotherTitle') : t('mobileCreateNoteDescription')}
+                    icon={<Ionicons color={colors.accent} name="document-text-outline" size={28} />}
+                    title={query ? t('mobileNoMatchingNotes') : t('mobileNoNotesYet')}
+                  />
                 </View>
               )}
               renderItem={({ item }) => (
                 <Pressable
-                  accessibilityLabel={`Open ${item.title}`}
+                  accessibilityLabel={t('mobileOpenNote', { title: item.title })}
                   style={({ pressed }) => [styles.noteRow, pressed && styles.noteRowPressed]}
                   onPress={() => void openNote(item.id)}
                 >
                   <View style={styles.noteText}>
                     <Text numberOfLines={1} style={styles.noteTitle}>{item.title}</Text>
                     <Text style={styles.noteMetadata}>
-                      {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(item.updatedAt)}
+                      {new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', { dateStyle: 'medium' }).format(item.updatedAt)}
                     </Text>
                   </View>
-                  <Pressable
-                    accessibilityLabel={item.favorite ? 'Remove from favorites' : 'Add to favorites'}
-                    hitSlop={8}
-                    style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                  <IconButton
+                    accessibilityLabel={item.favorite ? t('mobileRemoveFavorite') : t('mobileAddFavorite')}
                     onPress={(event) => {
                       event.stopPropagation()
                       void toggleFavorite(item)
@@ -527,7 +605,7 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
                       name={item.favorite ? 'star' : 'star-outline'}
                       size={19}
                     />
-                  </Pressable>
+                  </IconButton>
                 </Pressable>
               )}
             />
@@ -537,22 +615,33 @@ function NotesWorkspace({ runtime }: { runtime: MobileRuntime }) {
 }
 
 export function NotesScreen() {
+  const { t } = useTranslation('pages')
+  const params = useLocalSearchParams<{ noteId?: string, topicId?: string }>()
+  const requestedNoteId = typeof params.noteId === 'string' ? params.noteId : null
+  const requestedTopicId = typeof params.topicId === 'string' ? params.topicId : null
   const runtimeState = useMobileRuntimeState()
   if (runtimeState.status === 'loading') {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
-        <Text style={styles.emptyDescription}>Opening local database</Text>
+        <Text style={styles.emptyDescription}>{t('mobileOpeningDatabase')}</Text>
       </SafeAreaView>
     )
   }
   if (runtimeState.status === 'error') {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.emptyTitle}>Startup failed</Text>
+        <Text style={styles.emptyTitle}>{t('mobileStartupFailed')}</Text>
         <Text selectable style={styles.error}>{runtimeState.error.message}</Text>
       </SafeAreaView>
     )
   }
-  return <NotesWorkspace runtime={runtimeState.runtime} />
+  return (
+    <NotesWorkspace
+      key={requestedNoteId ?? 'notes'}
+      requestedNoteId={requestedNoteId}
+      requestedTopicId={requestedTopicId}
+      runtime={runtimeState.runtime}
+    />
+  )
 }

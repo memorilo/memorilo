@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react'
 import type { MobileRuntime } from './mobile-runtime'
 import type { MobileRuntimeState } from './mobile-runtime-state'
 import { useEffect, useMemo, useState } from 'react'
+import { FsrsOptimizerDomHost } from '../surfaces/fsrs-optimizer-dom-host'
 import { openMobileRuntime } from './mobile-runtime'
 import { MobileRuntimeContext } from './mobile-runtime-state'
 
@@ -40,5 +41,10 @@ export function MobileRuntimeProvider({ children }: PropsWithChildren) {
   }, [])
 
   const value = useMemo(() => state, [state])
-  return <MobileRuntimeContext value={value}>{children}</MobileRuntimeContext>
+  return (
+    <MobileRuntimeContext value={value}>
+      <FsrsOptimizerDomHost />
+      {children}
+    </MobileRuntimeContext>
+  )
 }

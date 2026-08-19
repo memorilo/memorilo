@@ -1,5 +1,6 @@
 import type { MobileSurfaceKind, SurfaceToHostMessage } from '@/surfaces/bridge-contract'
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useMobileRuntimeState } from '@/application/mobile-runtime-state'
@@ -68,6 +69,7 @@ const styles = StyleSheet.create({
 })
 
 export function WorkspaceScreen({ kind, title }: WorkspaceScreenProps) {
+  const { t } = useTranslation('pages')
   const runtimeState = useMobileRuntimeState()
   const [surfaceError, setSurfaceError] = useState<string | null>(null)
   const onSurfaceMessage = useCallback((message: SurfaceToHostMessage) => {
@@ -79,7 +81,7 @@ export function WorkspaceScreen({ kind, title }: WorkspaceScreenProps) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
-        <Text style={styles.status}>Opening local database</Text>
+        <Text style={styles.status}>{t('mobileOpeningDatabase')}</Text>
       </SafeAreaView>
     )
   }
@@ -88,7 +90,7 @@ export function WorkspaceScreen({ kind, title }: WorkspaceScreenProps) {
     return (
       <SafeAreaView style={styles.centered}>
         <View style={styles.errorMark} />
-        <Text style={styles.errorTitle}>Startup failed</Text>
+        <Text style={styles.errorTitle}>{t('mobileStartupFailed')}</Text>
         <Text selectable style={styles.errorMessage}>{runtimeState.error.message}</Text>
       </SafeAreaView>
     )
@@ -101,7 +103,7 @@ export function WorkspaceScreen({ kind, title }: WorkspaceScreenProps) {
       <GlassHeader
         subtitle={databaseLabel}
         title={title}
-        trailing={<View accessibilityLabel="Native storage ready" style={styles.readyIndicator} />}
+        trailing={<View accessibilityLabel={t('mobileStorageReady')} style={styles.readyIndicator} />}
       />
       {surfaceError
         ? <Text selectable style={styles.inlineError}>{surfaceError}</Text>

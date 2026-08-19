@@ -1,14 +1,16 @@
-import type { StoredNote } from '@memorilo/editor-storage'
+import type { LearningQueueMode, StoredNote } from '@memorilo/editor-storage'
 import type { DOMProps } from 'expo/dom'
 import type { EditorSurfaceSession } from './editor-surface-contract'
 import type { LearningReviewSeed } from './learning-surface-contract'
 import type { MobileRuntime } from '@/application/mobile-runtime'
 import { useCallback } from 'react'
 import { StyleSheet, View } from 'react-native'
+import { useMobileLanguage } from '@/application/mobile-language-hook'
 import { encodeBinary } from './editor-surface-contract'
 import LearningCardDomSurface from './learning-card-dom-surface'
 
 export interface LearningCardDomHostProps {
+  mode?: LearningQueueMode
   runtime: MobileRuntime
 }
 
@@ -33,7 +35,8 @@ const styles = StyleSheet.create({
   },
 })
 
-export function LearningCardDomHost({ runtime }: LearningCardDomHostProps) {
+export function LearningCardDomHost({ mode = 'mixed', runtime }: LearningCardDomHostProps) {
+  const { language } = useMobileLanguage()
   const loadNext = useCallback(async (mode: 'mixed' | 'new' | 'review'): Promise<LearningReviewSeed | null> => {
     const [queue] = await runtime.editor.learning.queue.list({ limit: 1, mode, now: Date.now() })
     if (!queue)
@@ -65,10 +68,13 @@ export function LearningCardDomHost({ runtime }: LearningCardDomHostProps) {
     <View style={styles.root}>
       <LearningCardDomSurface
         dom={dom}
+        initialMode={mode}
+        language={language}
         loadNext={loadNext}
         prepareReview={prepareReview}
         rateMultiLineCard={rateMultiLineCard}
         rateTarget={rateTarget}
+        showModeControls={false}
         undoMany={undoMany}
       />
     </View>

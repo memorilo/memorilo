@@ -2,14 +2,12 @@ import type { DesktopBookTopicReadingContext, DesktopNoteExternalUpdate } from '
 import type {
   ReaderAnnotation,
   ReaderAnnotationTopicCreateInput,
-  ReaderImageOcclusionOverlay,
   ReaderPosition,
   ReaderSource,
 } from '@memorilo/editor/reader'
 import type { ReaderCaptureRegion } from './reader-capture'
-import { createEditorNote, Editor } from '@memorilo/editor'
-import { WindowReader } from '@memorilo/editor/reader'
-import { PanelRight } from 'lucide-react'
+import { createBoundReaderSession } from '@memorilo/application/bound-reader'
+import { BoundReaderSurface, createEditorNote } from '@memorilo/editor'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
@@ -17,7 +15,6 @@ import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { desktopEditorAdapters } from '../notes/editor/note-editor-session'
 import { useNoteFavorite } from '../notes/note-favorite'
-import { NoteInspectorContent } from '../notes/note-inspector'
 import { NoteInspectorActions } from '../notes/note-inspector-actions'
 import { useNoteInspectorEntries } from '../notes/note-inspector-state'
 import { applyExternalNoteUpdate } from '../notes/note-runtime'
@@ -26,7 +23,6 @@ import { boundReaderPresentation } from './bound-reader-presentation'
 import {
   prepareReaderAnnotationTopicsForDeletion,
   readerAnnotationDependents,
-  reconciledReaderAnnotations,
 } from './reader-annotation-bindings'
 import { createReaderAnnotationTopic } from './reader-annotation-topics'
 import { captureReaderAnnotationRegion } from './reader-capture'
@@ -59,7 +55,11 @@ export function BoundShelfReader({
     getPendingChanges().forEach(change => restored.importUpdates(change.update))
     return restored
   }, [context.note.id, context.note.snapshot, context.note.title, getPendingChanges])
-  const bookTopic = useMemo(() => note.getBookTopic(context.topicId), [context.topicId, note])
+  const readerSession = useMemo(
+    () => createBoundReaderSession(note, context.topicId, initialPosition),
+    [context.topicId, initialPosition, note],
+  )
+  const { bookTopic } = readerSession
   const applyTaskExternal = useCallback(
     (external: DesktopNoteExternalUpdate) => applyExternalNoteUpdate(note, external) !== null,
     [note],
@@ -73,13 +73,9 @@ export function BoundShelfReader({
     }),
     [applyTaskExternal, configuration.networkImagePasteBehavior, context.note.id, context.topicId, flushNotePersistence],
   )
-  const initialReadingState = useRef(bookTopic.getReadingState()).current
-  const initialReaderPosition = useRef(initialReadingState.position ?? initialPosition).current
-  const initialAnnotations = useRef(reconciledReaderAnnotations(
-    note,
-    context.topicId,
-    initialReadingState.annotations,
-  )).current
+  const initialReadingState = useRef(readerSession.initialReadingState).current
+  const initialReaderPosition = useRef(readerSession.initialPosition).current
+  const initialAnnotations = useRef(readerSession.initialAnnotations).current
   const initialReconciliationAppliedRef = useRef(false)
   const [annotations, setAnnotations] = useState(initialAnnotations)
   const [entries, setEntries] = useState(() => note.getEntries())
@@ -92,36 +88,14 @@ export function BoundShelfReader({
   })
 
   const syncNoteProjection = useCallback(() => {
-    const next = bookTopic.getReadingState()
-    const nextAnnotations = reconciledReaderAnnotations(note, context.topicId, next.annotations)
+    const next = readerSession.project()
     positionRef.current = next.position
-    annotationsRef.current = nextAnnotations
-    setAnnotations(nextAnnotations)
-    setEntries(note.getEntries())
-    if (nextAnnotations !== next.annotations)
-      bookTopic.setAnnotations(nextAnnotations)
-  }, [bookTopic, context.topicId, note])
-  const imageOcclusionOverlays = useMemo<readonly ReaderImageOcclusionOverlay[]>(() => {
-    if (!configuration.learning.enabled)
-      return []
-    return annotations.flatMap((annotation) => {
-      if (annotation.anchors[0].type !== 'region')
-        return []
-      const topic = note.findImageOcclusionTopic({
-        annotationId: annotation.id,
-        kind: 'reader-region',
-        topicId: context.topicId,
-      })
-      if (!topic)
-        return []
-      const state = topic.getState()
-      return [{
-        annotationId: annotation.id,
-        image: state.image,
-        shapes: state.shapes,
-      }]
-    })
-  }, [annotations, configuration.learning.enabled, context.topicId, note])
+    annotationsRef.current = next.annotations
+    setAnnotations(next.annotations)
+    setEntries(next.entries)
+    if (next.annotations !== next.readingState.annotations)
+      bookTopic.setAnnotations(next.annotations)
+  }, [bookTopic, readerSession])
   const handleNoteChange = useCallback((change: { noteId: string, update: Uint8Array }) => {
     enqueue(change)
     syncNoteProjection()
@@ -210,51 +184,33 @@ export function BoundShelfReader({
     await onOpenTopic(topicId)
   }, [captureAnnotationRegion, configuration.learning.enabled, context.topicId, note, onOpenTopic, t])
   return (
-    <WindowReader
+    <BoundReaderSurface
+      adapters={editorAdapters}
       annotationCopyBookTitle={presentation.annotationCopyBookTitle}
       annotationCopyFormat={configuration.readerAnnotationCopyFormat}
       annotationEditingEnabled
       annotations={annotations}
       arrowKeyPageTurning={configuration.readerArrowKeyPageTurning}
-      imageOcclusionOverlays={configuration.learning.enabled ? imageOcclusionOverlays : undefined}
-      auxiliarySidebar={{
-        content: (
-          <NoteInspectorContent
-            collapsedEntryIds={collapsedEntryIds}
-            currentTopicId={context.topicId}
-            entries={entries}
-            learningEnabled={configuration.learning.enabled}
-            note={note}
-            noteId={note.id}
-            onToggleEntry={toggleEntry}
-            showTitle={false}
-          />
-        ),
-        icon: <PanelRight aria-hidden="true" size={14} strokeWidth={1.8} />,
-        label: t('noteTitle'),
-      }}
+      auxiliarySidebarLabel={t('noteTitle')}
+      chrome="window"
+      collapsedEntryIds={collapsedEntryIds}
+      currentTopicId={context.topicId}
+      entries={entries}
+      imageOcclusionEnabled={configuration.learning.enabled}
       initialPosition={initialReaderPosition}
       initialPresentationMode={configuration.readerEpubPresentationMode}
-      pageMode={configuration.readerPageMode}
       initialAnnotationId={initialAnnotationId}
+      learningEnabled={configuration.learning.enabled}
+      note={note}
+      onOpenTopic={(topicId) => {
+        void onOpenTopic(topicId)
+      }}
+      pageMode={configuration.readerPageMode}
       onCreateAnnotationTopic={createAnnotationTopic}
       onPrepareAnnotationDeletion={prepareAnnotationDeletion}
       onGetAnnotationDependents={getAnnotationDependents}
       onOpenReaderRegionImageOcclusion={configuration.learning.enabled ? openImageOcclusion : undefined}
-      renderAnnotationEditor={({ annotation, readOnly }) => {
-        if (!annotation.annotationTopicId)
-          throw new Error(`Reader annotation ${annotation.id} has no Topic Editor binding`)
-        return (
-          <Editor
-            adapters={editorAdapters}
-            layout="embedded"
-            learningEnabled={configuration.learning.enabled}
-            outline={{ outdentBehavior: configuration.outdentBehavior }}
-            readOnly={readOnly}
-            topic={note.getTopic(annotation.annotationTopicId)}
-          />
-        )
-      }}
+      outline={{ outdentBehavior: configuration.outdentBehavior }}
       sidebarActions={({ active, toggle }) => (
         <NoteInspectorActions
           favorite={favorite}
@@ -267,6 +223,7 @@ export function BoundShelfReader({
       source={source}
       title={presentation.title}
       onAnnotationsChange={onAnnotationsChange}
+      onToggleEntry={toggleEntry}
       onPositionChange={onPositionChange}
     />
   )

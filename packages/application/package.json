@@ -7,7 +7,12 @@
     ".": "./src/index.ts",
     "./learning-review": "./src/learning-review.ts",
     "./note-card-projection": "./src/note-card-projection.ts",
-    "./note-storage": "./src/note-storage.ts"
+    "./asset-uri": "./src/asset-uri.ts",
+    "./note-storage": "./src/note-storage.ts",
+    "./reader-annotation-topics": "./src/reader-annotation-topics.ts",
+    "./reader-capture": "./src/reader-capture.ts",
+    "./reader-image-occlusion": "./src/reader-image-occlusion.ts",
+    "./bound-reader": "./src/bound-reader.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
@@ -18,6 +23,9 @@
   "dependencies": {
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
-    "@memorilo/spreadsheet": "workspace:*"
+    "@memorilo/reading-model": "workspace:*",
+    "@memorilo/shelf": "workspace:*",
+    "@memorilo/spreadsheet": "workspace:*",
+    "effect": "4.0.0-beta.23"
   }
 }

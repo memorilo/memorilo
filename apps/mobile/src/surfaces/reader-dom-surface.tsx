@@ -1,30 +1,56 @@
 'use dom'
 
+import type { SupportedLanguage } from '@memorilo/config'
 import type { EditorNote } from '@memorilo/editor/note'
-import type { ReaderAnnotation, ReaderPosition, ReaderSource } from '@memorilo/editor/reader'
+import type {
+  ReaderAnnotation,
+  ReaderAnnotationTopicCreateInput,
+  ReaderPosition,
+  ReaderSource,
+} from '@memorilo/editor/reader'
 import type { DOMProps } from 'expo/dom'
 import type {
   BoundReaderSurfaceDocument,
   LegacyReaderSurfaceDocument,
+  ReaderSurfaceCommand,
+  ReaderSurfaceCommandResult,
   ReaderSurfaceDocument,
   ReaderSurfaceFunctions,
+  ReaderSurfaceTopicInput,
   UnboundReaderSurfaceDocument,
 } from './reader-surface-contract'
 import { createBookEditorNote } from '@memorilo/application'
+import { createBoundReaderSession } from '@memorilo/application/bound-reader'
 import { projectEditorNoteStorage } from '@memorilo/application/note-storage'
-import { createEditorNote } from '@memorilo/editor'
-import { Reader, reconciledReaderAnnotations } from '@memorilo/editor/reader'
+import { createReaderAnnotationTopic } from '@memorilo/application/reader-annotation-topics'
+import { captureReaderAnnotationRegion } from '@memorilo/application/reader-capture'
+import { openReaderRegionImageOcclusion } from '@memorilo/application/reader-image-occlusion'
+import { BoundReaderSurface, createEditorNote } from '@memorilo/editor'
+import {
+  prepareReaderAnnotationTopicsForDeletion,
+  Reader,
+  readerAnnotationDependents,
+} from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import i18next from 'i18next'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
+import { ensureDomRuntimePolyfills } from './dom-runtime-polyfills'
 import { decodeBinary, encodeBinary } from './editor-surface-contract'
 import { initEditorSurfaceI18n } from './editor-surface-i18n'
+import { MobileAssetSourceRewriter } from './mobile-asset-source-rewriter'
+import { createMobileEditorAdapters } from './mobile-editor-adapters'
 import { readerDomSurfaceStyles as styles } from './reader-dom-surface.stylex'
 
+ensureDomRuntimePolyfills()
+
 export interface ReaderDomSurfaceProps extends ReaderSurfaceFunctions {
+  command?: ReaderSurfaceCommand | null
   document: ReaderSurfaceDocument
   dom?: DOMProps
+  language: SupportedLanguage
+  onCommandResult: (result: ReaderSurfaceCommandResult) => void
+  onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
 }
 
 const saveDelayMilliseconds = 350
@@ -72,22 +98,42 @@ function useReaderSource(
 }
 
 function LegacyReader({
+  command,
   document,
+  onCommandResult,
   readRange,
   saveState,
 }: {
+  command?: ReaderSurfaceCommand | null
   document: LegacyReaderSurfaceDocument
+  onCommandResult: (result: ReaderSurfaceCommandResult) => void
   readRange: ReaderSurfaceFunctions['readRange']
   saveState: ReaderSurfaceFunctions['saveState']
 }) {
   const source = useReaderSource(document, readRange)
   const annotationsRef = useRef(document.annotations)
   const positionRef = useRef<ReaderPosition | null>(document.position)
-  const persist = useCallback(() => saveState({
-    annotations: annotationsRef.current,
-    position: positionRef.current,
-    readingId: document.readingId,
-  }), [document.readingId, saveState])
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const persistenceResultRef = useRef<Promise<void>>(Promise.resolve())
+  const persist = useCallback(() => {
+    const input = {
+      annotations: annotationsRef.current,
+      position: positionRef.current,
+      readingId: document.readingId,
+    }
+    const result = persistenceQueueRef.current.then(() => saveState(input))
+    persistenceResultRef.current = result
+    persistenceQueueRef.current = result.catch(() => undefined)
+    return result
+  }, [document.readingId, saveState])
+  useEffect(() => {
+    if (!command)
+      return
+    void persistenceResultRef.current.then(
+      () => onCommandResult({ commandId: command.id }),
+      (failure: unknown) => onCommandResult({ commandId: command.id, error: toError(failure).message }),
+    )
+  }, [command, onCommandResult])
   return (
     <Reader
       annotationEditingEnabled
@@ -108,30 +154,45 @@ function LegacyReader({
 }
 
 function BoundReader({
+  captureReaderRegion,
+  command,
   document,
   note,
+  onCommandResult,
+  onOpenTopic,
+  readImageSize,
   readRange,
+  resolveAsset,
+  saveImage,
   saveNote,
 }: {
+  captureReaderRegion: ReaderSurfaceFunctions['captureReaderRegion']
+  command?: ReaderSurfaceCommand | null
   document: ReaderSurfaceDocument
   note: EditorNote
+  onCommandResult: (result: ReaderSurfaceCommandResult) => void
+  onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
+  readImageSize: ReaderSurfaceFunctions['readImageSize']
   readRange: ReaderSurfaceFunctions['readRange']
+  resolveAsset: ReaderSurfaceFunctions['resolveAsset']
+  saveImage: ReaderSurfaceFunctions['saveImage']
   saveNote: ReaderSurfaceFunctions['saveNote']
 }) {
   const source = useReaderSource(document, readRange)
   const topicId = resolveBookTopicId(note, document)
-  const bookTopic = useMemo(() => note.getBookTopic(topicId), [note, topicId])
-  const initialState = useRef(bookTopic.getReadingState()).current
-  const initialAnnotations = useRef(reconciledReaderAnnotations(
-    note,
-    topicId,
-    initialState.annotations,
-  )).current
+  const readerSession = useMemo(() => createBoundReaderSession(note, topicId), [note, topicId])
+  const { bookTopic } = readerSession
+  const initialState = useRef(readerSession.initialReadingState).current
+  const initialAnnotations = useRef(readerSession.initialAnnotations).current
   const [annotations, setAnnotations] = useState(initialAnnotations)
+  const [, setNoteVersion] = useState(0)
   const [persistenceError, setPersistenceError] = useState<Error | null>(null)
   const annotationsRef = useRef(initialAnnotations)
   const positionRef = useRef(initialState.position)
   const saveNoteRef = useRef(saveNote)
+  const flushRef = useRef<() => Promise<void>>(async () => undefined)
+  const editorAdapters = useMemo(() => createMobileEditorAdapters(saveImage), [saveImage])
+  const learningEnabled = note.getLearningEnabled()
   saveNoteRef.current = saveNote
 
   useEffect(() => {
@@ -174,6 +235,7 @@ function BoundReader({
       })
       return drain
     }
+    flushRef.current = flush
 
     const schedule = (): void => {
       if (timer !== null)
@@ -182,13 +244,13 @@ function BoundReader({
     }
 
     const syncProjection = (): void => {
-      const next = bookTopic.getReadingState()
-      const nextAnnotations = reconciledReaderAnnotations(note, topicId, next.annotations)
+      const next = readerSession.project()
       positionRef.current = next.position
-      annotationsRef.current = nextAnnotations
-      setAnnotations(nextAnnotations)
-      if (nextAnnotations !== next.annotations)
-        bookTopic.setAnnotations(nextAnnotations)
+      annotationsRef.current = next.annotations
+      setAnnotations(next.annotations)
+      setNoteVersion(version => version + 1)
+      if (next.annotations !== next.readingState.annotations)
+        bookTopic.setAnnotations(next.annotations)
     }
 
     const unsubscribe = note.subscribe((change) => {
@@ -205,8 +267,18 @@ function BoundReader({
       if (timer !== null)
         window.clearTimeout(timer)
       void flush().catch(() => undefined)
+      flushRef.current = async () => undefined
     }
-  }, [bookTopic, initialAnnotations, initialState.annotations, note, topicId])
+  }, [bookTopic, initialAnnotations, initialState.annotations, note, readerSession, topicId])
+
+  useEffect(() => {
+    if (!command)
+      return
+    void flushRef.current().then(
+      () => onCommandResult({ commandId: command.id }),
+      (failure: unknown) => onCommandResult({ commandId: command.id, error: toError(failure).message }),
+    )
+  }, [command, onCommandResult])
 
   const onPositionChange = useCallback((position: ReaderPosition) => {
     if (JSON.stringify(position) !== JSON.stringify(positionRef.current))
@@ -216,16 +288,78 @@ function BoundReader({
     if (JSON.stringify(next) !== JSON.stringify(annotationsRef.current))
       bookTopic.setAnnotations(next)
   }, [bookTopic])
+  const captureAnnotationRegion = useCallback((region: Parameters<typeof captureReaderAnnotationRegion>[0]['region']) => (
+    captureReaderAnnotationRegion({
+      captureReaderRegion: async current => decodeBinary(await captureReaderRegion(current)),
+      region,
+    })
+  ), [captureReaderRegion])
+  const createAnnotationTopic = useCallback((input: ReaderAnnotationTopicCreateInput, signal: AbortSignal) => (
+    createReaderAnnotationTopic({
+      bookTopicId: topicId,
+      captureReaderRegion: captureAnnotationRegion,
+      createTopic: note.createTopic,
+      input,
+      saveImage: async image => saveImage({
+        data: encodeBinary(image.data),
+        fileName: image.fileName,
+        mimeType: image.mimeType,
+      }),
+      signal,
+      viewport: { height: window.innerHeight, width: window.innerWidth },
+    })
+  ), [captureAnnotationRegion, note, saveImage, topicId])
+  const getAnnotationDependents = useCallback(
+    (annotation: ReaderAnnotation) => readerAnnotationDependents(note, topicId, annotation),
+    [note, topicId],
+  )
+  const prepareAnnotationDeletion = useCallback(async (annotation: ReaderAnnotation) => {
+    prepareReaderAnnotationTopicsForDeletion(note, topicId, annotation)
+  }, [note, topicId])
+  const openImageOcclusion = useCallback(async (
+    input: ReaderAnnotationTopicCreateInput,
+    signal: AbortSignal,
+  ) => {
+    if (!learningEnabled)
+      throw new Error('Learning features are disabled')
+    await openReaderRegionImageOcclusion({
+      bookTopicId: topicId,
+      captureReaderRegion: captureAnnotationRegion,
+      input,
+      note,
+      readImageSize,
+      saveImage: async image => saveImage({
+        data: encodeBinary(image.data),
+        fileName: image.fileName,
+        mimeType: image.mimeType,
+      }),
+      signal,
+      title: i18next.t('imageOcclusion.defaultTitle', { ns: 'editor' }),
+      viewport: { height: window.innerHeight, width: window.innerWidth },
+    })
+  }, [captureAnnotationRegion, learningEnabled, note, readImageSize, saveImage, topicId])
 
   return (
     <>
+      <MobileAssetSourceRewriter resolveAsset={resolveAsset} />
       {persistenceError
         ? <div {...stylex.props(styles.alert)} role="alert">{persistenceError.message}</div>
         : null}
-      <Reader
+      <BoundReaderSurface
+        adapters={editorAdapters}
+        annotationCopyBookTitle={document.name}
         annotationEditingEnabled
         annotations={annotations}
-        initialPosition={initialState.position}
+        currentTopicId={topicId}
+        imageOcclusionEnabled={learningEnabled}
+        initialPosition={readerSession.initialPosition}
+        learningEnabled={learningEnabled}
+        note={note}
+        onCreateAnnotationTopic={createAnnotationTopic}
+        onGetAnnotationDependents={getAnnotationDependents}
+        onOpenReaderRegionImageOcclusion={learningEnabled ? openImageOcclusion : undefined}
+        onOpenTopic={topicId => onOpenTopic?.({ noteId: note.id, topicId })}
+        onPrepareAnnotationDeletion={prepareAnnotationDeletion}
         source={source}
         title={document.name}
         onAnnotationsChange={onAnnotationsChange}
@@ -236,40 +370,36 @@ function BoundReader({
 }
 
 function RestoredBookReader({
+  command,
   document,
-  readRange,
-  saveNote,
-}: {
+  onCommandResult,
+  onOpenTopic,
+  ...functions
+}: ReaderSurfaceFunctions & {
+  command?: ReaderSurfaceCommand | null
   document: BoundReaderSurfaceDocument
-  readRange: ReaderSurfaceFunctions['readRange']
-  saveNote: ReaderSurfaceFunctions['saveNote']
+  onCommandResult: (result: ReaderSurfaceCommandResult) => void
+  onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
 }) {
   const note = useMemo(() => openEditorNote(document), [document])
-  return <BoundReader document={document} note={note} readRange={readRange} saveNote={saveNote} />
+  return <BoundReader command={command} document={document} note={note} onCommandResult={onCommandResult} onOpenTopic={onOpenTopic} {...functions} />
 }
 
 function InitializedBookReader({
+  command,
   document,
   initializeBookNote,
-  readRange,
-  saveNote,
-}: {
+  onCommandResult,
+  onOpenTopic,
+  ...functions
+}: ReaderSurfaceFunctions & {
+  command?: ReaderSurfaceCommand | null
   document: UnboundReaderSurfaceDocument
-  initializeBookNote: ReaderSurfaceFunctions['initializeBookNote']
-  readRange: ReaderSurfaceFunctions['readRange']
-  saveNote: ReaderSurfaceFunctions['saveNote']
+  onCommandResult: (result: ReaderSurfaceCommandResult) => void
+  onOpenTopic?: (input: ReaderSurfaceTopicInput) => void
 }) {
   const created = useMemo(() => createBookEditorNote({
-    book: {
-      book: { authors: [], title: document.name },
-      file: {
-        byteLength: document.byteLength,
-        format: document.format,
-        originalName: document.originalName,
-        sha256: document.sha256,
-      },
-      retrievalHints: [{ kind: 'local', readingId: document.readingId }],
-    },
+    book: document.book,
     id: crypto.randomUUID(),
     learningEnabled: true,
     noteTitle: document.noteTitle,
@@ -277,17 +407,23 @@ function InitializedBookReader({
   }), [document])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const initializationRef = useRef<{ key: string, promise: Promise<void> } | null>(null)
 
   useEffect(() => {
     let active = true
-    void initializeBookNote({
-      ...projectEditorNoteStorage(created.note),
-      noteId: created.note.id,
-      readingId: document.readingId,
-      snapshot: encodeBinary(created.note.exportSnapshot()),
-      title: created.note.getTitle(),
-      topicId: created.topicId,
-    }).then(
+    const key = `${created.note.id}:${document.readingId}`
+    const initialization = initializationRef.current?.key === key
+      ? initializationRef.current.promise
+      : initializeBookNote({
+          ...projectEditorNoteStorage(created.note),
+          noteId: created.note.id,
+          readingId: document.readingId,
+          snapshot: encodeBinary(created.note.exportSnapshot()),
+          title: created.note.getTitle(),
+          topicId: created.topicId,
+        })
+    initializationRef.current = { key, promise: initialization }
+    void initialization.then(
       () => {
         if (active)
           setReady(true)
@@ -306,7 +442,7 @@ function InitializedBookReader({
     return <div {...stylex.props(styles.alert)} role="alert">{error.message}</div>
   if (!ready)
     return <div aria-busy="true" />
-  return <BoundReader document={document} note={created.note} readRange={readRange} saveNote={saveNote} />
+  return <BoundReader command={command} document={document} note={created.note} onCommandResult={onCommandResult} onOpenTopic={onOpenTopic} {...functions} />
 }
 
 export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
@@ -314,14 +450,14 @@ export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
 
   useEffect(() => {
     let active = true
-    void initEditorSurfaceI18n(i18next).then(() => {
+    void initEditorSurfaceI18n(i18next, props.language).then(() => {
       if (active)
         setI18nReady(true)
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [props.language])
 
   if (!i18nReady)
     return null
@@ -331,7 +467,9 @@ export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
         {props.document.kind === 'legacy'
           ? (
               <LegacyReader
+                command={props.command}
                 document={props.document}
+                onCommandResult={props.onCommandResult}
                 readRange={props.readRange}
                 saveState={props.saveState}
               />
@@ -339,17 +477,34 @@ export default function ReaderDomSurface(props: ReaderDomSurfaceProps) {
           : props.document.kind === 'bound'
             ? (
                 <RestoredBookReader
+                  captureReaderRegion={props.captureReaderRegion}
+                  command={props.command}
                   document={props.document}
+                  initializeBookNote={props.initializeBookNote}
+                  readImageSize={props.readImageSize}
                   readRange={props.readRange}
+                  resolveAsset={props.resolveAsset}
+                  saveImage={props.saveImage}
                   saveNote={props.saveNote}
+                  onCommandResult={props.onCommandResult}
+                  onOpenTopic={props.onOpenTopic}
+                  saveState={props.saveState}
                 />
               )
             : (
                 <InitializedBookReader
+                  captureReaderRegion={props.captureReaderRegion}
+                  command={props.command}
                   document={props.document}
                   initializeBookNote={props.initializeBookNote}
+                  readImageSize={props.readImageSize}
                   readRange={props.readRange}
+                  resolveAsset={props.resolveAsset}
+                  saveImage={props.saveImage}
                   saveNote={props.saveNote}
+                  onCommandResult={props.onCommandResult}
+                  onOpenTopic={props.onOpenTopic}
+                  saveState={props.saveState}
                 />
               )}
       </main>

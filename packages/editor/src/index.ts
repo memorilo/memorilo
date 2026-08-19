@@ -170,6 +170,8 @@ export {
   createWhiteboardLibraryDocument,
   whiteboardLibrarySchemaVersion,
 } from './note/whiteboard-library-document'
+export { BoundReaderSurface } from './reader/bound-reader-surface'
+export type { BoundReaderSurfaceProps } from './reader/bound-reader-surface'
 export type {
   LoroBookTopic,
   LoroImageOcclusionTopic,
@@ -197,6 +199,10 @@ export {
   validateLoroTopic,
 } from './schema'
 export { SpreadsheetEditor } from './spreadsheet/spreadsheet-editor'
+export type { EditorModeControlProps } from './ui/editor-mode-control/editor-mode-control'
+export { EditorModeControl } from './ui/editor-mode-control/editor-mode-control'
+export type { NoteStructureInspectorProps } from './ui/note-structure-inspector/note-structure-inspector'
+export { NoteStructureInspector } from './ui/note-structure-inspector/note-structure-inspector'
 export type {
   WhiteboardEditorProps,
   WhiteboardLibraryPersistenceAdapter,

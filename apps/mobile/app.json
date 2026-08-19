@@ -14,7 +14,7 @@
     "android": {
       "package": "com.memorilo.app",
       "adaptiveIcon": {
-        "backgroundColor": "#F5F7F4"
+        "backgroundColor": "#FFFFFF"
       }
     },
     "plugins": [

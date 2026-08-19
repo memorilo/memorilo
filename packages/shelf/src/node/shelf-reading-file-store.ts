@@ -22,6 +22,8 @@ import {
   readStoredReadingRange,
 } from './reading-directory'
 
+export { createShelfReadingId } from '../reading-id'
+
 const defaultMaximumBookCacheBytes = 256 * 1024 * 1024
 const invalidFileNameCharacters = /[<>:"/\\|?*]/gu
 const readingIdPattern = /^[a-f0-9]{64}$/u
@@ -149,24 +151,6 @@ function publicFile(located: LocatedStoredDocument): ShelfReadingFile {
     },
     location: located.location,
   }
-}
-
-export function createShelfReadingId(
-  sourceId: string,
-  publicationId: string,
-  format: ShelfReadingFormat,
-): string {
-  assertNonEmpty(sourceId, 'Shelf source id')
-  assertNonEmpty(publicationId, 'Shelf publication id')
-  assertReadingFormat(format)
-  return createHash('sha256')
-    .update('memorilo-shelf-reading-v1\0')
-    .update(sourceId)
-    .update('\0')
-    .update(publicationId)
-    .update('\0')
-    .update(format)
-    .digest('hex')
 }
 
 /** Owns admission, recovery, cache retention, and file handles for Shelf readings. */

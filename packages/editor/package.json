@@ -8,6 +8,7 @@
     "./card": "./src/card/index.ts",
     "./dom-assets": "./src/dom-assets.ts",
     "./note": "./src/note/index.ts",
+    "./note-tree": "./src/note/note-entry-tree.ts",
     "./reader": "./src/reader/index.ts",
     "./schema": "./src/schema/index.ts"
   },

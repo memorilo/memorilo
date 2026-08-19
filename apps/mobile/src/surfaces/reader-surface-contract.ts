@@ -1,6 +1,6 @@
 import type { EditorNoteStorageProjection } from '@memorilo/application/note-storage'
 import type { ReaderAnnotation, ReaderPosition } from '@memorilo/editor/reader'
-import type { ReadingFormat } from '@memorilo/reading-model'
+import type { BookFileBinding, ReadingFormat } from '@memorilo/reading-model'
 import type { EditorSurfaceSession } from './editor-surface-contract'
 
 interface ReaderSurfaceDocumentBase {
@@ -18,9 +18,9 @@ export interface BoundReaderSurfaceDocument extends ReaderSurfaceDocumentBase {
 }
 
 export interface UnboundReaderSurfaceDocument extends ReaderSurfaceDocumentBase {
+  book: BookFileBinding
   kind: 'unbound'
   noteTitle: string
-  sha256: string
 }
 
 export interface LegacyReaderSurfaceDocument extends ReaderSurfaceDocumentBase {
@@ -46,6 +46,28 @@ export interface SaveReaderStateInput {
   readingId: string
 }
 
+export interface ReaderCaptureRegionInput {
+  height: number
+  width: number
+  x: number
+  y: number
+}
+
+export interface SaveReaderImageInput {
+  data: string
+  fileName: string
+  mimeType: string
+}
+
+export interface SavedReaderImage {
+  src: string
+}
+
+export interface ReaderImageSize {
+  height: number
+  width: number
+}
+
 export interface InitializeBookReaderNoteInput extends EditorNoteStorageProjection {
   noteId: string
   readingId: string
@@ -60,9 +82,28 @@ export interface SaveReaderNoteInput extends EditorNoteStorageProjection {
   updates: readonly string[]
 }
 
+export interface ReaderSurfaceCommand {
+  id: number
+  type: 'flush'
+}
+
+export interface ReaderSurfaceCommandResult {
+  commandId: number
+  error?: string
+}
+
 export interface ReaderSurfaceFunctions {
+  captureReaderRegion: (input: ReaderCaptureRegionInput) => Promise<string>
   initializeBookNote: (input: InitializeBookReaderNoteInput) => Promise<void>
   readRange: (input: ReadReaderRangeInput) => Promise<string>
+  readImageSize: (source: string) => Promise<ReaderImageSize>
+  resolveAsset: (source: string) => Promise<string>
+  saveImage: (input: SaveReaderImageInput) => Promise<SavedReaderImage>
   saveNote: (input: SaveReaderNoteInput) => Promise<void>
   saveState: (input: SaveReaderStateInput) => Promise<void>
+}
+
+export interface ReaderSurfaceTopicInput {
+  noteId: string
+  topicId: string
 }

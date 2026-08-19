@@ -1,3 +1,4 @@
+export { assetSource, parseAssetFileName } from './asset-uri'
 export { createLearningReviewRatingModel, resolveLearningReviewItem } from './learning-review'
 export type {
   ActivateLearningReviewOptions,
@@ -25,3 +26,10 @@ export {
   toStoredTopic,
 } from './note-storage'
 export type { EditorNoteStorageProjection } from './note-storage'
+export {
+  normalizeShelfSourceUrl,
+  ShelfCatalogApplication,
+  ShelfSourceApplication,
+  toPublicShelfSource,
+} from './shelf'
+export type { ShelfApplicationDependencies, ShelfCredentialAccess } from './shelf'

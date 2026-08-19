@@ -91,7 +91,13 @@ export type {
 } from './editor-storage-contracts'
 export { DuplicateNoteTitleError } from './editor-storage-contracts'
 export type { EmbeddingModel } from './embedding-model'
-export { defaultLearningPracticeConfiguration, GLOBAL_OPTIMIZER_ID, SqliteLearningStorage } from './learning'
+export {
+  defaultLearningPracticeConfiguration,
+  GLOBAL_OPTIMIZER_ID,
+  SqliteLearningStorage,
+  validateLearningPracticeConfiguration,
+} from './learning'
+export type { FsrsParameterOptimizer } from './learning'
 export type {
   AcknowledgeLearningSyncInput,
   AssignNoteOptimizerInput,
@@ -144,7 +150,10 @@ export type {
   UndoLearningReviewInput,
   UndoLearningReviewsInput,
 } from './learning'
-export type { SqliteShelfImageCacheOptions } from './shelf-image-cache'
+export { inspectMainDatabaseSchema } from './schema-inspection'
+export { serializeMainDatabaseSchemaInspection } from './schema-inspection'
+export type { MainDatabaseSchemaInspection, MainDatabaseSchemaObject } from './schema-inspection'
+export type { ShelfImageCacheStatistics, SqliteShelfImageCacheOptions } from './shelf-image-cache'
 export { SqliteShelfImageCache } from './shelf-image-cache'
 export type { SqliteShelfStorageOptions } from './shelf-storage'
 export { SqliteShelfStorage } from './shelf-storage'

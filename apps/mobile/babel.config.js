@@ -10,7 +10,12 @@ module.exports = function configureBabel(api) {
         runtimeInjection: true,
         unstable_moduleResolution: { type: 'commonJS' },
       },
+    ], require.resolve('./babel-plugins/expo-dom-import-meta-env.cjs')],
+    presets: [[
+      'babel-preset-expo',
+      {
+        web: { transformImportMeta: true },
+      },
     ]],
-    presets: ['babel-preset-expo'],
   }
 }

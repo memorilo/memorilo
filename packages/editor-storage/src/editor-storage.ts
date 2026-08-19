@@ -120,6 +120,7 @@ export class SqliteEditorStorage implements EditorStorage {
         options.database,
         runOperation,
         options.learningConfiguration,
+        options.optimizeFsrsParameters,
       ))
       const storage = new SqliteEditorStorage(
         options,

@@ -11,7 +11,7 @@ import type {
 import type { ComponentProps } from 'react'
 import type { PaletteCommand } from '../../../shared/command-palette'
 import type { EditorNoteSessionOpened, TopicValidationError } from './note-editor-session'
-import { Editor, EditorMode, projectCardTopicCards, SpreadsheetEditor, useEditorTopicMode } from '@memorilo/editor'
+import { Editor, EditorMode, EditorModeControl, projectCardTopicCards, SpreadsheetEditor, useEditorTopicMode } from '@memorilo/editor'
 import { readerAnnotationLabel } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { AlignLeft, Copy, ListTree } from 'lucide-react'
@@ -413,6 +413,7 @@ export function NoteEditorView({
                     {configuration.learning.enabled && cardSource !== undefined
                       ? <CardTopicPreview cards={cardTopicCards} />
                       : null}
+                    <EditorModeControl topic={editorTopic} />
                     <Editor
                       adapters={editorAdapters}
                       cardPreviewDisabled={currentEntry.topicType === 'regular'}

@@ -3,6 +3,7 @@ import type { BookFileBinding, BookFileDescriptor } from '@memorilo/reading-mode
 import type { EditorStorageDatabase } from './database-driver'
 import type { EmbeddingModel } from './embedding-model'
 import type {
+  FsrsParameterOptimizer,
   LearningPracticeConfiguration,
   LearningStorage,
   LearningTopicCardProjection,
@@ -663,4 +664,6 @@ export interface SqliteEditorStorageOptions {
   operationSupervisor?: OperationSupervisor
   embeddingModel: EmbeddingModel
   learningConfiguration?: () => LearningPracticeConfiguration
+  /** Runtime-specific implementation for the expensive FSRS fitting step. */
+  optimizeFsrsParameters?: FsrsParameterOptimizer
 }

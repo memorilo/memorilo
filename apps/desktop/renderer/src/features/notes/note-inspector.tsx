@@ -1,12 +1,12 @@
 import type { BookTopicSnapshot, CardTopicSource, EditorNote, NoteEntrySnapshot } from '@memorilo/editor'
 import type { MouseEvent as ReactMouseEvent } from 'react'
+import { projectVisibleNoteEntries } from '@memorilo/editor/note'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
 import { BookOpen, Brackets, ChevronRight, CreditCard, FileText, Folder, FolderOpen, Highlighter, Link2, ListChecks, ListOrdered, PenLine, ScanLine, Table2, Unlink } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { projectVisibleNoteEntries } from './note-entry-tree'
 import { noteInspectorStyles } from './note-inspector.stylex'
 
 const inspectorSpring = {

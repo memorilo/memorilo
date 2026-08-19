@@ -1,6 +1,6 @@
-import type { NoteEntrySnapshot } from '@memorilo/editor'
+import type { NoteEntrySnapshot } from './editor-note'
 
-interface VisibleNoteEntry {
+export interface VisibleNoteEntry {
   depth: number
   entry: NoteEntrySnapshot
   hasChildren: boolean

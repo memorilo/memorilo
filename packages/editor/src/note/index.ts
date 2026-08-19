@@ -57,6 +57,8 @@ export type { ResolveJournalTopicOptions } from './journal-note'
 export { resolveJournalTopic } from './journal-note'
 export type { EditorNoteIdentity } from './journal-note-identity'
 export { journalDateFromNoteId, journalNoteId } from './journal-note-identity'
+export type { VisibleNoteEntry } from './note-entry-tree'
+export { projectVisibleNoteEntries } from './note-entry-tree'
 export type { TopicBlockProjection } from './topic-projection'
 export { hasTopicUserContent } from './topic-user-content'
 export type {

@@ -1,3 +1,4 @@
+export type { FsrsParameterOptimizer } from './learning-optimizer-repository'
 export { SqliteLearningStorage } from './learning-storage'
 export { GLOBAL_OPTIMIZER_ID } from './schema'
 export type {

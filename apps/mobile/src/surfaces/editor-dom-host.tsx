@@ -4,9 +4,13 @@ import type { Ref } from 'react'
 import type {
   CheckpointEditorSurfaceInput,
   EditorSurfaceCommand,
+  EditorSurfaceCommandInput,
   EditorSurfaceCommandResult,
+  EditorSurfaceEntryType,
   EditorSurfaceSession,
+  EditorSurfaceStructure,
   OpenJournalSurfaceInput,
+  SaveEditorImageInput,
   SaveEditorSurfaceInput,
   SaveEditorSurfaceReceipt,
 } from './editor-surface-contract'
@@ -18,13 +22,18 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
+import { useMobileLanguage } from '@/application/mobile-language-hook'
 import { colors } from '@/ui/theme'
 import EditorDomSurface from './editor-dom-surface'
 import { decodeBinary, encodeBinary } from './editor-surface-contract'
 
 interface EditorDomHostBaseProps {
+  immersive?: boolean
+  onReady?: () => void
   onSaved?: () => void
+  onStructureChanged?: (structure: EditorSurfaceStructure) => void
   onTitleChanged?: (title: string) => void
   ref?: Ref<EditorDomHostHandle>
   runtime: MobileRuntime
@@ -43,14 +52,24 @@ interface JournalEditorDomHostProps extends EditorDomHostBaseProps {
 export type EditorDomHostProps = JournalEditorDomHostProps | NoteEditorDomHostProps
 
 export interface EditorDomHostHandle {
+  createEntry: (input: {
+    entryType: EditorSurfaceEntryType
+    label: string
+    parentId: string | null
+  }) => Promise<EditorSurfaceStructure>
+  deleteEntry: (input: Omit<Extract<EditorSurfaceCommandInput, { type: 'delete-entry' }>, 'type'>) => Promise<EditorSurfaceStructure>
   flush: () => Promise<void>
+  moveEntry: (input: Omit<Extract<EditorSurfaceCommandInput, { type: 'move-entry' }>, 'type'>) => Promise<EditorSurfaceStructure>
+  openTopic: (topicId: string) => Promise<EditorSurfaceStructure>
+  refreshStructure: () => Promise<EditorSurfaceStructure>
+  renameEntry: (entryId: string, label: string) => Promise<EditorSurfaceStructure>
   renameNote: (title: string) => Promise<void>
 }
 
 interface PendingCommand {
   id: number
   reject: (error: Error) => void
-  resolve: () => void
+  resolve: (result: EditorSurfaceCommandResult) => void
 }
 
 function toSurfaceSession(note: StoredNote): EditorSurfaceSession {
@@ -65,6 +84,24 @@ function toSurfaceSession(note: StoredNote): EditorSurfaceSession {
 }
 
 const dom: DOMProps = {
+  containerStyle: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  style: { flex: 1 },
+}
+
+const immersiveDom: DOMProps = {
+  containerStyle: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 72,
+  },
   style: { flex: 1 },
 }
 
@@ -84,6 +121,18 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
+    height: '100%',
+    minHeight: 0,
+  },
+  surfaceLoading: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
 })
 
@@ -92,14 +141,19 @@ function toError(error: unknown): Error {
 }
 
 export function EditorDomHost(props: EditorDomHostProps) {
-  const { onSaved, onTitleChanged, runtime } = props
+  const { t } = useTranslation('editor')
+  const { immersive = false, onReady, onSaved, onStructureChanged, onTitleChanged, runtime } = props
+  const { language } = useMobileLanguage()
   const noteId = props.kind === 'note' ? props.noteId : null
   const [session, setSession] = useState<EditorSurfaceSession | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const [command, setCommand] = useState<EditorSurfaceCommand | null>(null)
+  const [surfaceReady, setSurfaceReady] = useState(false)
   const nextCommandId = useRef(1)
   const pendingCommand = useRef<PendingCommand | null>(null)
-  const commandQueue = useRef<Promise<void>>(Promise.resolve())
+  const commandQueue = useRef<Promise<EditorSurfaceCommandResult>>(Promise.resolve({ commandId: 0 }))
+  const surfaceError = useRef<Error | null>(null)
+  const surfaceReadyRef = useRef(false)
 
   useEffect(() => {
     if (noteId === null)
@@ -120,26 +174,52 @@ export function EditorDomHost(props: EditorDomHostProps) {
     }
   }, [noteId, runtime])
 
-  const issueCommand = useCallback((input: { type: 'flush' } | { title: string, type: 'rename-note' }) => {
+  const issueCommand = useCallback((input: EditorSurfaceCommandInput): Promise<EditorSurfaceCommandResult> => {
+    if (surfaceError.current)
+      throw surfaceError.current
+    if (!surfaceReadyRef.current) {
+      if (input.type === 'flush')
+        return Promise.resolve({ commandId: 0 })
+      throw new Error('Editor is still loading')
+    }
     if (pendingCommand.current)
       throw new Error('An Editor command is already running')
     const id = nextCommandId.current++
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<EditorSurfaceCommandResult>((resolve, reject) => {
       pendingCommand.current = { id, reject, resolve }
       setCommand({ ...input, id })
     })
   }, [])
 
-  const enqueueCommand = useCallback((input: { type: 'flush' } | { title: string, type: 'rename-note' }) => {
+  const enqueueCommand = useCallback((input: EditorSurfaceCommandInput) => {
     const result = commandQueue.current.then(() => issueCommand(input))
-    commandQueue.current = result.catch(() => undefined)
+    commandQueue.current = result.catch(() => ({ commandId: 0 }))
     return result
   }, [issueCommand])
 
+  const enqueueStructureCommand = useCallback(async (
+    input: Exclude<EditorSurfaceCommandInput, { type: 'flush' } | { type: 'rename-note' }>,
+  ): Promise<EditorSurfaceStructure> => {
+    const result = await enqueueCommand(input)
+    if (!result.structure)
+      throw new Error(`Editor command ${input.type} did not return Note structure`)
+    return result.structure
+  }, [enqueueCommand])
+
   useImperativeHandle(props.ref, () => ({
-    flush: () => enqueueCommand({ type: 'flush' }),
-    renameNote: title => enqueueCommand({ title, type: 'rename-note' }),
-  }), [enqueueCommand])
+    createEntry: input => enqueueStructureCommand({ ...input, type: 'create-entry' }),
+    deleteEntry: input => enqueueStructureCommand({ ...input, type: 'delete-entry' }),
+    flush: async () => {
+      await enqueueCommand({ type: 'flush' })
+    },
+    moveEntry: input => enqueueStructureCommand({ ...input, type: 'move-entry' }),
+    openTopic: topicId => enqueueStructureCommand({ topicId, type: 'open-topic' }),
+    refreshStructure: () => enqueueStructureCommand({ type: 'refresh-structure' }),
+    renameEntry: (entryId, label) => enqueueStructureCommand({ entryId, label, type: 'rename-entry' }),
+    renameNote: async (title) => {
+      await enqueueCommand({ title, type: 'rename-note' })
+    },
+  }), [enqueueCommand, enqueueStructureCommand])
 
   useEffect(() => {
     // React Native AppState returns a subscription whose remove method is called below.
@@ -168,8 +248,24 @@ export function EditorDomHost(props: EditorDomHostProps) {
     }
     if (result.title !== undefined)
       onTitleChanged?.(result.title)
-    pending.resolve()
-  }, [onTitleChanged])
+    if (result.structure !== undefined)
+      onStructureChanged?.(result.structure)
+    pending.resolve(result)
+  }, [onStructureChanged, onTitleChanged])
+
+  const onSurfaceError = useCallback((message: string) => {
+    const failure = new Error(message)
+    surfaceError.current = failure
+    setError(failure)
+  }, [])
+
+  const onSurfaceReady = useCallback((structure: EditorSurfaceStructure | null) => {
+    surfaceReadyRef.current = true
+    setSurfaceReady(true)
+    onReady?.()
+    if (structure)
+      onStructureChanged?.(structure)
+  }, [onReady, onStructureChanged])
 
   const saveNote = useCallback(async (
     input: SaveEditorSurfaceInput,
@@ -215,6 +311,15 @@ export function EditorDomHost(props: EditorDomHostProps) {
     await runtime.editor.notes.recordNoteOpened(input)
   }, [runtime])
 
+  const resolveAsset = useCallback((source: string) => runtime.assets.resolve(source), [runtime])
+  const saveImage = useCallback(async (input: SaveEditorImageInput) => (
+    runtime.assets.saveImage({
+      data: decodeBinary(input.data),
+      fileName: input.fileName,
+      mimeType: input.mimeType,
+    })
+  ), [runtime])
+
   if (error) {
     return (
       <View style={styles.centered}>
@@ -237,12 +342,18 @@ export function EditorDomHost(props: EditorDomHostProps) {
             <EditorDomSurface
               checkpointNote={checkpointNote}
               command={command}
-              dom={dom}
+              dom={immersive ? immersiveDom : dom}
+              immersive={immersive}
               journalDate={props.journalDate}
               kind="journal"
+              language={language}
               onCommandResult={onCommandResult}
+              onSurfaceError={onSurfaceError}
+              onSurfaceReady={onSurfaceReady}
               onTopicOpened={onTopicOpened}
               openJournal={openJournal}
+              resolveAsset={resolveAsset}
+              saveImage={saveImage}
               saveNote={saveNote}
             />
           )
@@ -250,14 +361,31 @@ export function EditorDomHost(props: EditorDomHostProps) {
             <EditorDomSurface
               checkpointNote={checkpointNote}
               command={command}
-              dom={dom}
+              dom={immersive ? immersiveDom : dom}
+              immersive={immersive}
               kind="note"
+              language={language}
               onCommandResult={onCommandResult}
+              onSurfaceError={onSurfaceError}
+              onSurfaceReady={onSurfaceReady}
               onTopicOpened={onTopicOpened}
+              resolveAsset={resolveAsset}
+              saveImage={saveImage}
               saveNote={saveNote}
               session={session!}
             />
           )}
+      {!surfaceReady
+        ? (
+            <View
+              accessibilityLabel={t('loadingEditor')}
+              accessibilityRole="progressbar"
+              style={styles.surfaceLoading}
+            >
+              <ActivityIndicator color={colors.accent} />
+            </View>
+          )
+        : null}
     </View>
   )
 }
