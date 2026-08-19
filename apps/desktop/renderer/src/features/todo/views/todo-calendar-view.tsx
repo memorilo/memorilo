@@ -7,7 +7,7 @@ import { previewTaskRecurrenceDates } from '@memorilo/editor/task'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { taskPlanningDate, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
@@ -35,6 +35,14 @@ interface CalendarSpanSegment {
 interface CalendarEventLayout {
   singles: readonly DesktopTodoCalendarEvent[]
   spans: readonly CalendarSpanItem[]
+}
+
+interface CalendarMonthView {
+  days: readonly Dayjs[]
+  eventsByDate: ReadonlyMap<string, readonly DesktopTodoCalendarEvent[]>
+  grouped: ReadonlyMap<string, readonly CalendarItem[]>
+  month: Dayjs
+  spanLayout: ReturnType<typeof buildSpanSegments>
 }
 
 function formatDate(date: Dayjs, locale: string): string {
@@ -351,49 +359,89 @@ export function TodoCalendarView({
 }) {
   const today = dayjs(now).startOf('day')
   const [activeMonth, setActiveMonth] = useState(() => dayjs(selectedDate).startOf('month'))
-  const days = useMemo(() => calendarDays(activeMonth, weekStart), [activeMonth, weekStart])
-  const eventLayout = useMemo(() => calendarEventLayout(calendarEvents), [calendarEvents])
-  const grouped = useMemo(() => {
-    const result = new Map<string, CalendarItem[]>()
-    const add = (date: string, item: CalendarItem) => {
-      const current = result.get(date)
-      if (current)
-        current.push(item)
-      else
-        result.set(date, [item])
-    }
-    for (const task of tasks) {
-      const date = taskPlanningDate(task)
-      if (date !== null && taskSpan(task) === null)
-        add(date, { kind: 'task', task })
-      if (!task.repeatRule || date === null)
-        continue
-      const previewDates = previewTaskRecurrenceDates(date, task.repeatRule, {
-        calendarEvents,
-        from: days[0]?.format('YYYY-MM-DD') ?? activeMonth.startOf('month').format('YYYY-MM-DD'),
-        through: days.at(-1)?.format('YYYY-MM-DD') ?? activeMonth.endOf('month').format('YYYY-MM-DD'),
-      })
-      for (const previewDate of previewDates)
-        add(previewDate, { date: previewDate, kind: 'prediction', task })
-    }
-    return result
-  }, [activeMonth, calendarEvents, days, tasks])
-  const spanLayout = useMemo(() => buildSpanSegments([
-    ...eventLayout.spans,
-    ...tasks.map(taskSpan).filter((item): item is CalendarSpanItem => item !== null),
-  ], days), [days, eventLayout.spans, tasks])
-  const eventsByDate = useMemo(() => {
-    const groupedEvents = new Map<string, DesktopTodoCalendarEvent[]>()
-    for (const event of eventLayout.singles) {
-      const current = groupedEvents.get(event.startDate)
-      if (current)
-        current.push(event)
-      else
-        groupedEvents.set(event.startDate, [event])
-    }
-    return groupedEvents
-  }, [eventLayout.singles])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const monthViews = useMemo<readonly CalendarMonthView[]>(() => {
+    const eventLayout = calendarEventLayout(calendarEvents)
+    return [-1, 0, 1].map((offset) => {
+      const month = activeMonth.add(offset, 'month')
+      const days = calendarDays(month, weekStart)
+      const grouped = new Map<string, CalendarItem[]>()
+      const add = (date: string, item: CalendarItem) => {
+        const current = grouped.get(date)
+        if (current)
+          current.push(item)
+        else
+          grouped.set(date, [item])
+      }
+      for (const task of tasks) {
+        const date = taskPlanningDate(task)
+        if (date !== null && taskSpan(task) === null)
+          add(date, { kind: 'task', task })
+        if (!task.repeatRule || date === null)
+          continue
+        const previewDates = previewTaskRecurrenceDates(date, task.repeatRule, {
+          calendarEvents,
+          from: days[0]?.format('YYYY-MM-DD') ?? month.startOf('month').format('YYYY-MM-DD'),
+          through: days.at(-1)?.format('YYYY-MM-DD') ?? month.endOf('month').format('YYYY-MM-DD'),
+        })
+        for (const previewDate of previewDates)
+          add(previewDate, { date: previewDate, kind: 'prediction', task })
+      }
+      const spanLayout = buildSpanSegments([
+        ...eventLayout.spans,
+        ...tasks.map(taskSpan).filter((item): item is CalendarSpanItem => item !== null),
+      ], days)
+      const eventsByDate = new Map<string, DesktopTodoCalendarEvent[]>()
+      for (const event of eventLayout.singles) {
+        const current = eventsByDate.get(event.startDate)
+        if (current)
+          current.push(event)
+        else
+          eventsByDate.set(event.startDate, [event])
+      }
+      return { days, eventsByDate, grouped, month, spanLayout }
+    })
+  }, [activeMonth, calendarEvents, tasks, weekStart])
   const labels = weekdayLabels(locale, weekStart)
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current
+    const middleMonth = container?.querySelector<HTMLElement>('[data-calendar-month="current"]')
+    if (!container || !middleMonth)
+      return
+    container.scrollTo({ top: middleMonth.offsetTop, behavior: 'auto' })
+  }, [activeMonth])
+
+  useEffect(() => () => {
+    if (scrollSettleTimerRef.current)
+      clearTimeout(scrollSettleTimerRef.current)
+  }, [])
+
+  const settleScroll = () => {
+    const container = scrollRef.current
+    if (!container)
+      return
+    const panels = Array.from(container.querySelectorAll<HTMLElement>('[data-calendar-month]'))
+    const nearestIndex = panels.reduce((best, panel, index) => {
+      const bestDistance = Math.abs((panels[best]?.offsetTop ?? 0) - container.scrollTop)
+      const distance = Math.abs(panel.offsetTop - container.scrollTop)
+      return distance < bestDistance ? index : best
+    }, 1)
+    if (nearestIndex !== 1) {
+      const nextMonth = activeMonth.add(nearestIndex - 1, 'month')
+      setActiveMonth(nextMonth)
+    }
+  }
+
+  const handleScroll = () => {
+    if (scrollSettleTimerRef.current)
+      clearTimeout(scrollSettleTimerRef.current)
+    scrollSettleTimerRef.current = setTimeout(() => {
+      scrollSettleTimerRef.current = null
+      settleScroll()
+    }, 90)
+  }
 
   const selectMonth = (month: Dayjs) => {
     setActiveMonth(month)
@@ -428,121 +476,127 @@ export function TodoCalendarView({
         </div>
       </div>
       <div {...stylex.props(styles.layout)}>
-        <section {...stylex.props(styles.surface)} aria-label={t('calendarView')}>
-          <div {...stylex.props(styles.root)}>
-            <div {...stylex.props(styles.weekdays)} aria-hidden="true">
-              {labels.map(item => <span key={item.key} {...stylex.props(styles.weekday)}>{item.label}</span>)}
-            </div>
-            <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(activeMonth, locale)}>
-              {days.map((date, dayIndex) => {
-                const dateKey = date.format('YYYY-MM-DD')
-                const dateItems = grouped.get(dateKey) ?? []
-                const dateEvents = eventsByDate.get(dateKey) ?? []
-                const items: readonly CalendarItem[] = [
-                  ...dateItems,
-                  ...dateEvents.map(event => ({ event, kind: 'event' as const })),
-                ]
-                const visibleItems = items.slice(0, 3)
-                const inMonth = date.isSame(activeMonth, 'month')
-                const isToday = dateKey === today.format('YYYY-MM-DD')
-                const isSelected = dateKey === selectedDate
-                const compactAlignment = dayIndex % 7 < 2 ? 'left' : 'right'
-                const week = Math.floor(dayIndex / 7)
-                const itemCount = items.length + (spanLayout.spansByDate.get(dateKey) ?? 0)
-                return (
-                  <div
-                    key={dateKey}
-                    {...stylex.props(styles.cell, !inMonth && styles.cellNeighbor)}
-                    aria-label={t('calendarDay', { date: formatDate(date, locale), count: itemCount })}
-                    aria-selected={isSelected}
-                    role="gridcell"
-                    style={{ gridColumn: dayIndex % 7 + 1, gridRow: week + 1 }}
-                  >
-                    <button
-                      {...stylex.props(
-                        styles.dayButton,
-                        !inMonth && styles.dayButtonNeighbor,
-                        isSelected && styles.dayButtonSelected,
-                        isToday && styles.dayButtonToday,
-                      )}
-                      aria-label={formatDate(date, locale)}
-                      type="button"
-                      onClick={() => chooseDate(date)}
+        <section ref={scrollRef} {...stylex.props(styles.surface)} aria-label={t('calendarView')} onScroll={handleScroll}>
+          {monthViews.map((monthView, monthIndex) => (
+            <div
+              key={monthView.month.format('YYYY-MM')}
+              {...stylex.props(styles.monthPanel)}
+              data-calendar-month={monthIndex === 1 ? 'current' : monthView.month.format('YYYY-MM')}
+            >
+              <div {...stylex.props(styles.weekdays)} aria-hidden="true">
+                {labels.map(item => <span key={item.key} {...stylex.props(styles.weekday)}>{item.label}</span>)}
+              </div>
+              <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(monthView.month, locale)}>
+                {monthView.days.map((date, dayIndex) => {
+                  const dateKey = date.format('YYYY-MM-DD')
+                  const dateItems = monthView.grouped.get(dateKey) ?? []
+                  const dateEvents = monthView.eventsByDate.get(dateKey) ?? []
+                  const items: readonly CalendarItem[] = [
+                    ...dateItems,
+                    ...dateEvents.map(event => ({ event, kind: 'event' as const })),
+                  ]
+                  const visibleItems = items.slice(0, 3)
+                  const inMonth = date.isSame(monthView.month, 'month')
+                  const isToday = dateKey === today.format('YYYY-MM-DD')
+                  const isSelected = dateKey === selectedDate
+                  const compactAlignment = dayIndex % 7 < 2 ? 'left' : 'right'
+                  const week = Math.floor(dayIndex / 7)
+                  const itemCount = items.length + (monthView.spanLayout.spansByDate.get(dateKey) ?? 0)
+                  return (
+                    <div
+                      key={dateKey}
+                      {...stylex.props(styles.cell, !inMonth && styles.cellNeighbor)}
+                      aria-label={t('calendarDay', { date: formatDate(date, locale), count: itemCount })}
+                      aria-selected={isSelected}
+                      role="gridcell"
+                      style={{ gridColumn: dayIndex % 7 + 1, gridRow: week + 1 }}
                     >
-                      {date.date()}
-                    </button>
-                    <div {...stylex.props(styles.taskList)} style={{ paddingTop: (spanLayout.laneCounts[week] ?? 0) * 22 }}>
-                      {visibleItems.map(item => (
-                        <CalendarItemRow
-                          calendarEvents={calendarEvents}
-                          calendarSubscriptions={calendarSubscriptions}
-                          compactAlignment={compactAlignment}
-                          item={item}
-                          key={calendarItemKey(item)}
-                          locale={locale}
-                          onOpenTask={onOpenTask}
-                          onUpdateTask={onUpdateTask}
-                          t={t}
-                        />
-                      ))}
-                      {items.length > 3 && (
-                        <details {...stylex.props(styles.overflow)}>
-                          <summary {...stylex.props(styles.taskMore)}>{t('moreTasks', { count: items.length - 3 })}</summary>
-                          <div {...stylex.props(styles.overflowPopover)}>
-                            <strong {...stylex.props(styles.overflowTitle)}>{formatDate(date, locale)}</strong>
-                            <div {...stylex.props(styles.overflowList)}>
-                              {items.map(item => (
-                                <CalendarItemRow
-                                  calendarEvents={calendarEvents}
-                                  calendarSubscriptions={calendarSubscriptions}
-                                  compactAlignment={compactAlignment}
-                                  item={item}
-                                  key={calendarItemKey(item)}
-                                  locale={locale}
-                                  onOpenTask={onOpenTask}
-                                  onUpdateTask={onUpdateTask}
-                                  t={t}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </details>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-              {spanLayout.segments.map((segment) => {
-                const segmentStyle = {
-                  gridColumn: `${segment.columnStart} / ${segment.columnEnd}`,
-                  gridRow: segment.week + 1,
-                  marginTop: 34 + segment.lane * 22,
-                } satisfies CSSProperties
-                const compactAlignment = segment.columnStart < 3 ? 'left' : 'right'
-                return (
-                  <div
-                    key={`${segment.item.key}:${segment.week}`}
-                    {...stylex.props(styles.spanSegment)}
-                    style={segmentStyle}
-                  >
-                    {segment.item.kind === 'event'
-                      ? <TodoCalendarEventItem event={segment.item.event} locale={locale} variant="calendar" />
-                      : (
-                          <CalendarTaskItem
+                      <button
+                        {...stylex.props(
+                          styles.dayButton,
+                          !inMonth && styles.dayButtonNeighbor,
+                          isSelected && styles.dayButtonSelected,
+                          isToday && styles.dayButtonToday,
+                        )}
+                        aria-label={formatDate(date, locale)}
+                        type="button"
+                        onClick={() => chooseDate(date)}
+                      >
+                        {date.date()}
+                      </button>
+                      <div {...stylex.props(styles.taskList)} style={{ paddingTop: (monthView.spanLayout.laneCounts[week] ?? 0) * 22 }}>
+                        {visibleItems.map(item => (
+                          <CalendarItemRow
                             calendarEvents={calendarEvents}
                             calendarSubscriptions={calendarSubscriptions}
                             compactAlignment={compactAlignment}
+                            item={item}
+                            key={calendarItemKey(item)}
+                            locale={locale}
                             onOpenTask={onOpenTask}
                             onUpdateTask={onUpdateTask}
                             t={t}
-                            task={segment.item.task}
                           />
+                        ))}
+                        {items.length > 3 && (
+                          <details {...stylex.props(styles.overflow)}>
+                            <summary {...stylex.props(styles.taskMore)}>{t('moreTasks', { count: items.length - 3 })}</summary>
+                            <div {...stylex.props(styles.overflowPopover)}>
+                              <strong {...stylex.props(styles.overflowTitle)}>{formatDate(date, locale)}</strong>
+                              <div {...stylex.props(styles.overflowList)}>
+                                {items.map(item => (
+                                  <CalendarItemRow
+                                    calendarEvents={calendarEvents}
+                                    calendarSubscriptions={calendarSubscriptions}
+                                    compactAlignment={compactAlignment}
+                                    item={item}
+                                    key={calendarItemKey(item)}
+                                    locale={locale}
+                                    onOpenTask={onOpenTask}
+                                    onUpdateTask={onUpdateTask}
+                                    t={t}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </details>
                         )}
-                  </div>
-                )
-              })}
+                      </div>
+                    </div>
+                  )
+                })}
+                {monthView.spanLayout.segments.map((segment) => {
+                  const segmentStyle = {
+                    gridColumn: `${segment.columnStart} / ${segment.columnEnd}`,
+                    gridRow: segment.week + 1,
+                    marginTop: 34 + segment.lane * 22,
+                  } satisfies CSSProperties
+                  const compactAlignment = segment.columnStart < 3 ? 'left' : 'right'
+                  return (
+                    <div
+                      key={`${segment.item.key}:${segment.week}`}
+                      {...stylex.props(styles.spanSegment)}
+                      style={segmentStyle}
+                    >
+                      {segment.item.kind === 'event'
+                        ? <TodoCalendarEventItem event={segment.item.event} locale={locale} variant="calendar" />
+                        : (
+                            <CalendarTaskItem
+                              calendarEvents={calendarEvents}
+                              calendarSubscriptions={calendarSubscriptions}
+                              compactAlignment={compactAlignment}
+                              onOpenTask={onOpenTask}
+                              onUpdateTask={onUpdateTask}
+                              t={t}
+                              task={segment.item.task}
+                            />
+                          )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          ))}
         </section>
       </div>
     </div>
