@@ -5,8 +5,8 @@ import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import {
+  CalendarClock,
   CalendarDays,
-  ChartNoAxesGantt,
   Columns3,
   Grid2X2,
   List,
@@ -58,7 +58,7 @@ function ViewIcon({ view }: { view: TodoView }) {
     case 'board':
       return <Columns3 aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'timeline':
-      return <ChartNoAxesGantt aria-hidden="true" size={14} strokeWidth={1.8} />
+      return <CalendarClock aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'calendar':
       return <CalendarDays aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'quadrant':
@@ -263,8 +263,12 @@ export function TodoPage({
       <TodoTimelineView
         calendarEvents={calendarEvents}
         calendarSubscriptions={calendarSubscriptions}
+        hasNextPage={Boolean(tasksQuery.hasNextPage)}
+        isFetchNextPageError={tasksQuery.isFetchNextPageError}
+        isFetchingNextPage={tasksQuery.isFetchingNextPage}
         locale={i18n.language}
         now={now}
+        onFetchNextPage={loadNextPage}
         onOpenTask={onOpenTask}
         onUpdateTask={updateTodoTask}
         t={t}
