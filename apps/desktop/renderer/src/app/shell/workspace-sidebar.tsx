@@ -151,7 +151,7 @@ function SourceItem({ destination, icon, label, onBeforeNavigate }: SourceItemPr
   return (
     <Sidebar.Item asChild>
       <Link
-        activeOptions={{ exact: destination.to !== '/learning' }}
+        activeOptions={{ exact: destination.to !== '/learning', includeSearch: false }}
         activeProps={{ 'data-state': 'active' }}
         onClick={onBeforeNavigate}
         preload="intent"

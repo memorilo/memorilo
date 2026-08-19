@@ -106,14 +106,9 @@ function createCycleTaskCommand(taskActions?: EditorTaskActionAdapter): Command 
       }
 
       const status = effectiveStatus(node.attrs)
-      if (status === 'done') {
-        // Completed task cycles back to a plain block.
-        return createTaskToggleCommand()(state, dispatch, view)
-      }
-
-      const next = status === 'todo' ? 'doing' : 'done'
+      const repeatRule = parseTaskRepeatRule(node.attrs.repeatRule)
       const blockId = node.attrs.blockId
-      if (next === 'done' && parseTaskRepeatRule(node.attrs.repeatRule) !== null && taskActions) {
+      if (status !== 'todo' && repeatRule !== null && taskActions) {
         if (typeof blockId !== 'string' || blockId.length === 0)
           throw new Error('Recurring task completion requires a Block id')
         if (dispatch) {
@@ -123,6 +118,12 @@ function createCycleTaskCommand(taskActions?: EditorTaskActionAdapter): Command 
         }
         return true
       }
+      if (status === 'done') {
+        // Completed task cycles back to a plain block.
+        return createTaskToggleCommand()(state, dispatch, view)
+      }
+
+      const next = status === 'todo' ? 'doing' : 'done'
       if (dispatch) {
         const pos = $from.before(depth)
         const attrs = transitionAttrs(node.attrs, next)

@@ -517,7 +517,7 @@ export interface DesktopApi {
   refreshTodoCalendar: (id: string) => Promise<DesktopTodoCalendarSubscription>
   removeTodoCalendar: (id: string) => Promise<void>
   subscribeTodoCalendar: (input: SubscribeDesktopTodoCalendarInput) => Promise<DesktopTodoCalendarSubscription>
-  updateTodoTask: (input: UpdateDesktopTodoTaskInput) => Promise<void>
+  updateTodoTask: (input: UpdateDesktopTodoTaskInput) => Promise<DesktopNoteExternalUpdate>
   learning: DesktopLearningApi
   listShelfSources: () => Promise<readonly ShelfSource[]>
   openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>

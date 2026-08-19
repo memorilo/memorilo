@@ -1,7 +1,7 @@
 import type * as stylex from '@stylexjs/stylex'
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactElement, ReactNode, Ref } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, Ref } from 'react'
 import * as stylexRuntime from '@stylexjs/stylex'
-import { Children, createContext, use } from 'react'
+import { createContext, use } from 'react'
 import { sidebarStyles } from './sidebar.stylex'
 import { Slot } from './slot'
 
@@ -35,7 +35,7 @@ function SidebarRoot({ asChild = false, children, ref: forwardedRef, variant, xs
   return (
     <SidebarContext value={variant}>
       {asChild
-        ? <Slot {...rootProps}>{Children.only(children) as ReactElement}</Slot>
+        ? <Slot {...rootProps}>{children}</Slot>
         : <aside {...rootProps}>{children}</aside>}
     </SidebarContext>
   )
@@ -49,7 +49,7 @@ function SidebarHeader({ asChild = false, children, xstyle, ...props }: Omit<HTM
   const variant = useSidebarVariant()
   const styles = stylexRuntime.props(variant === 'workspace' ? sidebarStyles.workspaceHeader : sidebarStyles.settingsHeader, xstyle)
   return asChild
-    ? <Slot {...props} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...props} {...styles}>{children}</Slot>
     : <div {...props} {...styles}>{children}</div>
 }
 
@@ -61,7 +61,7 @@ function SidebarNavigation({ asChild = false, children, xstyle, ...props }: Omit
   const variant = useSidebarVariant()
   const styles = stylexRuntime.props(variant === 'workspace' ? sidebarStyles.workspaceNavigation : sidebarStyles.settingsNavigation, xstyle)
   return asChild
-    ? <Slot {...props} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...props} {...styles}>{children}</Slot>
     : <nav {...props} {...styles}>{children}</nav>
 }
 
@@ -73,13 +73,13 @@ function SidebarGroup({ asChild = false, children, xstyle, ...props }: Omit<HTML
   useSidebarVariant()
   const styles = stylexRuntime.props(sidebarStyles.group, xstyle)
   return asChild
-    ? <Slot {...props} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...props} {...styles}>{children}</Slot>
     : <section {...props} {...styles}>{children}</section>
 }
 
 interface SidebarItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'style'> {
   asChild?: boolean
-  children: ReactElement | ReactNode
+  children: ReactNode
   xstyle?: stylex.StyleXStyles
 }
 
@@ -91,11 +91,9 @@ function SidebarItem({ asChild = false, children, type = 'button', xstyle, ...pr
     xstyle,
   )
   if (asChild) {
-    if (!children || typeof children !== 'object')
-      throw new TypeError('Sidebar.Item with asChild requires one React element')
     return (
       <Slot {...props} {...styleProps} data-ui="sidebar-item">
-        {children as ReactElement}
+        {children}
       </Slot>
     )
   }

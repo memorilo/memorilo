@@ -7,6 +7,7 @@ import type {
   CreateBookNoteInput,
   CreateBookNoteResult,
   CreateNoteInput,
+  NoteExternalUpdate,
   OpenJournalInput,
   RebindBookTopicInput,
   RenameNoteInput,
@@ -65,6 +66,18 @@ function recurrenceNeedsCalendar(rule: TaskRepeatRule): boolean {
     || (rule.holidayPolicy !== undefined && rule.holidayPolicy !== 'allow')
 }
 
+function toNoteExternalUpdate(result: {
+  noteId: string
+  update: Uint8Array
+  updatedAt: number
+}): NoteExternalUpdate {
+  return {
+    noteId: result.noteId,
+    update: result.update,
+    updatedAt: result.updatedAt,
+  }
+}
+
 export function createNoteApplicationCommands({
   defaultNoteLearningEnabled,
   recurringTaskCompletionAction,
@@ -106,7 +119,7 @@ export function createNoteApplicationCommands({
     source: NodeJSON,
     sourceBlock: TopicBlockProjection,
     topicId: string,
-  ): Promise<void> => {
+  ): Promise<NoteExternalUpdate> => {
     const sourceAttrs = source.attrs ?? {}
     const repeatRule = parseTaskRepeatRule(sourceAttrs.repeatRule)
     if (repeatRule === null)
@@ -140,8 +153,7 @@ export function createNoteApplicationCommands({
         topicId,
       })
       await current.note.validateTopic(topicId)
-      await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] })
-      return
+      return toNoteExternalUpdate(await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] }))
     }
     const placement = planRecurringTaskPlacement({
       action: recurringTaskCompletionAction(),
@@ -189,8 +201,7 @@ export function createNoteApplicationCommands({
           topicId,
         })
         await current.note.validateTopic(topicId)
-        await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] })
-        return
+        return toNoteExternalUpdate(await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] }))
       }
 
       current.note.applyTopicBlockEdits({ edits: placement.sourceEdits, topicId })
@@ -207,7 +218,7 @@ export function createNoteApplicationCommands({
         // The stored source still contains the full occurrence until the target copy is durable.
         await runtime.persistLocalMutation(target, targetVersion, { broadcast: true, topicIds: [targetTopicId] })
       }
-      await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] })
+      return toNoteExternalUpdate(await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topicId] }))
     }
     catch (error) {
       runtime.invalidate(current.note.id)
@@ -232,8 +243,7 @@ export function createNoteApplicationCommands({
     if (!input.onlyThis
       && input.status === 'done'
       && parseTaskRepeatRule(sourceAttrs.repeatRule) !== null) {
-      await completeRecurringTask(current, source, sourceBlock, input.topicId)
-      return
+      return completeRecurringTask(current, source, sourceBlock, input.topicId)
     }
     const plan = planTaskAction(sourceAttrs, sourceBlock.text, input)
     const edits: TopicBlockEdit[] = []
@@ -260,7 +270,7 @@ export function createNoteApplicationCommands({
     try {
       current.note.applyTopicBlockEdits({ edits, topicId: input.topicId })
       await current.note.validateTopic(input.topicId)
-      await runtime.persistLocalMutation(current, version, { broadcast: true, topicIds: [input.topicId] })
+      return toNoteExternalUpdate(await runtime.persistLocalMutation(current, version, { broadcast: true, topicIds: [input.topicId] }))
     }
     catch (error) {
       runtime.invalidate(input.noteId)

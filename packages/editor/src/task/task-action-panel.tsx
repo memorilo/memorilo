@@ -146,31 +146,31 @@ export function TaskActionPanel({
   const [allDayStartDate, setAllDayStartDate] = useState(() => task.startAt?.slice(0, 10) ?? baseDate)
   const [allDayEndDate, setAllDayEndDate] = useState(() => task.endAt?.slice(0, 10) ?? baseDate)
   const [reminders, setReminders] = useState<readonly TaskReminder[]>(() => taskReminders(task))
-  const [repeatOpen, setRepeatOpen] = useState(() => task.repeatRule !== null)
   const [repeatPickerOpen, setRepeatPickerOpen] = useState(false)
   const [timePickerOpen, setTimePickerOpen] = useState(false)
   const [reminderPickerOpen, setReminderPickerOpen] = useState(false)
   const [repeatPickerMode, setRepeatPickerMode] = useState<TaskRepeatPickerMode>('presets')
-  const [repeatDraft, setRepeatDraft] = useState<TaskRepeatRule>(() => task.repeatRule ?? {
-    interval: 1,
-    mode: 'due',
-    unit: 'day',
-    weekdays: [dayjs(task.occurrenceDate).day()],
-  })
+  const [repeatDraft, setRepeatDraft] = useState<TaskRepeatRule | null>(() => task.repeatRule)
   const [repeatSnapshot, setRepeatSnapshot] = useState<TaskRepeatRule | null>(() => task.repeatRule)
   const [error, setError] = useState<string | null>(null)
   const [updating, setUpdating] = useState(false)
   const days = useMemo(() => monthDays(activeMonth), [activeMonth])
-  const selectedCalendarId = (repeatDraft.calendarId ?? '').length > 0
-    ? repeatDraft.calendarId ?? ''
+  const repeatTemplate = useMemo<TaskRepeatRule>(() => repeatDraft ?? ({
+    interval: 1,
+    mode: 'due',
+    unit: 'day',
+    weekdays: [dayjs(task.occurrenceDate).day()],
+  }), [repeatDraft, task.occurrenceDate])
+  const selectedCalendarId = (repeatTemplate.calendarId ?? '').length > 0
+    ? repeatTemplate.calendarId ?? ''
     : calendarSubscriptions.find(subscription => subscription.enabled)?.id ?? ''
-  const needsCalendar = repeatDraft.unit === 'holiday'
-    || repeatDraft.skipHolidays === true
-    || (repeatDraft.holidayPolicy !== undefined && repeatDraft.holidayPolicy !== 'allow')
+  const needsCalendar = repeatTemplate.unit === 'holiday'
+    || repeatTemplate.skipHolidays === true
+    || (repeatTemplate.holidayPolicy !== undefined && repeatTemplate.holidayPolicy !== 'allow')
   const repeatRule = useMemo<TaskRepeatRule>(() => ({
-    ...repeatDraft,
+    ...repeatTemplate,
     ...(needsCalendar && selectedCalendarId.length > 0 ? { calendarId: selectedCalendarId } : {}),
-  }), [needsCalendar, repeatDraft, selectedCalendarId])
+  }), [needsCalendar, repeatTemplate, selectedCalendarId])
   const { refs, floatingStyles } = useFloating({
     open: repeatPickerOpen,
     onOpenChange: setRepeatPickerOpen,
@@ -197,13 +197,13 @@ export function TaskActionPanel({
     middleware: [offset(6), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   })
-  const previewDates = useMemo(() => repeatOpen
+  const previewDates = useMemo(() => repeatDraft !== null
     ? previewTaskRecurrenceDates(selectedDate ?? baseDate, repeatRule, {
         calendarEvents,
         from: activeMonth.startOf('month').format('YYYY-MM-DD'),
         through: activeMonth.endOf('month').format('YYYY-MM-DD'),
       })
-    : [], [activeMonth, baseDate, calendarEvents, repeatOpen, repeatRule, selectedDate])
+    : [], [activeMonth, baseDate, calendarEvents, repeatDraft, repeatRule, selectedDate])
 
   const update = async (input: TaskActionUpdate) => {
     setError(null)
@@ -248,8 +248,8 @@ export function TaskActionPanel({
   const save = () => {
     try {
       const schedule = scheduleUpdate()
-      const repeat = repeatOpen ? repeatRule : null
-      if (repeatOpen) {
+      const repeat = repeatDraft === null ? null : repeatRule
+      if (repeatDraft !== null) {
         if (!Number.isSafeInteger(repeatRule.interval) || repeatRule.interval < 1 || repeatRule.interval > 999) {
           setError(t('repeatIntervalError'))
           return
@@ -510,20 +510,20 @@ export function TaskActionPanel({
         : null}
       <button
         ref={refs.setReference}
-        {...stylex.props(styles.settingRow, repeatOpen && styles.settingRowSelected)}
+        {...stylex.props(styles.settingRow, repeatDraft !== null && styles.settingRowSelected)}
         disabled={updating}
         type="button"
         onClick={() => {
           setTimePickerOpen(false)
           setReminderPickerOpen(false)
-          setRepeatSnapshot(repeatOpen ? repeatRule : null)
+          setRepeatSnapshot(repeatDraft === null ? null : repeatRule)
           setRepeatPickerMode('presets')
           setRepeatPickerOpen(true)
         }}
       >
         <Repeat2 aria-hidden="true" size={15} strokeWidth={1.7} />
         <span>{t('repeat')}</span>
-        <span {...stylex.props(styles.settingValue)}>{repeatOpen ? repeatSummary(repeatRule, t) : t('repeatNone')}</span>
+        <span {...stylex.props(styles.settingValue)}>{repeatDraft === null ? t('repeatNone') : repeatSummary(repeatRule, t)}</span>
         <ChevronRight aria-hidden="true" size={14} />
       </button>
       {repeatPickerOpen
@@ -534,24 +534,21 @@ export function TaskActionPanel({
                 calendarEvents={calendarEvents}
                 calendarSubscriptions={calendarSubscriptions}
                 chinaRegion={isChinaRegion()}
-                draft={repeatRule}
+                draft={repeatDraft === null ? null : repeatRule}
                 floatingStyle={floatingStyles}
                 floatingOwnerId={id}
                 locale={translationLocale()}
                 mode={repeatPickerMode}
                 onCancel={() => {
-                  if (repeatSnapshot !== null)
-                    setRepeatDraft(repeatSnapshot)
-                  setRepeatOpen(repeatSnapshot !== null)
+                  setRepeatDraft(repeatSnapshot)
                   setRepeatPickerOpen(false)
                 }}
                 onChange={(next) => {
                   setRepeatDraft(next)
-                  setRepeatOpen(true)
                 }}
                 onClose={() => setRepeatPickerOpen(false)}
                 onDisable={() => {
-                  setRepeatOpen(false)
+                  setRepeatDraft(null)
                   setRepeatPickerOpen(false)
                 }}
                 onEditCustom={() => setRepeatPickerMode('custom')}

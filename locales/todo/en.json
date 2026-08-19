@@ -4,6 +4,7 @@
   "boardView": "Board",
   "timelineView": "Timeline",
   "calendarView": "Calendar",
+  "calendarEvents": "Calendar events",
   "quadrantView": "Quadrants",
   "viewLabel": "Todo views",
   "switchToBoard": "Switch to board view",

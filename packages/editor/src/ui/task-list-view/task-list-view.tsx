@@ -168,9 +168,9 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
       if (typeof pos !== 'number')
         return
 
-      const nextStatus = nextClickStatus(effectiveStatus(node.attrs))
+      const currentStatus = effectiveStatus(node.attrs)
       const blockId = node.attrs.blockId
-      if (nextStatus === 'done' && parseTaskRepeatRule(node.attrs.repeatRule) !== null && taskActions) {
+      if (currentStatus !== 'todo' && parseTaskRepeatRule(node.attrs.repeatRule) !== null && taskActions) {
         if (typeof blockId !== 'string' || blockId.length === 0)
           throw new Error('Recurring task completion requires a Block id')
         if (completionPending)
@@ -186,6 +186,7 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
         return
       }
 
+      const nextStatus = nextClickStatus(currentStatus)
       const attrs = transitionAttrs(node.attrs, nextStatus)
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attrs }))
     }

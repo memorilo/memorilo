@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { groupTodoTasksByDate, taskPlanningDate, todoTaskKey } from '../todo-model'
+import { TodoCalendarEventItem } from './todo-calendar-event'
 import { TodoPlanningTask } from './todo-planning-task'
 import { todoPlanningViewStyles as planningStyles } from './todo-planning-view.stylex'
 import { todoTimelineViewStyles as styles } from './todo-timeline-view.stylex'
@@ -46,6 +47,7 @@ function TimelineGroup({
   calendarEvents,
   calendarSubscriptions,
   date,
+  events,
   isToday,
   locale,
   now,
@@ -57,6 +59,7 @@ function TimelineGroup({
   calendarEvents: readonly DesktopTodoCalendarEvent[]
   calendarSubscriptions: readonly DesktopTodoCalendarSubscription[]
   date: Dayjs
+  events: readonly DesktopTodoCalendarEvent[]
   isToday: boolean
   locale: string
   now: number
@@ -74,6 +77,7 @@ function TimelineGroup({
         <span {...stylex.props(styles.dot, isToday && styles.dateToday)} aria-hidden="true" />
       </div>
       <div {...stylex.props(styles.items)}>
+        {events.map(event => <TodoCalendarEventItem event={event} key={`${event.subscriptionId}:${event.uid}:${event.startDate}`} locale={locale} variant="timeline" />)}
         {tasks.map(task => (
           <TodoPlanningTask
             calendarEvents={calendarEvents}
@@ -114,9 +118,30 @@ export function TodoTimelineView({
   const today = dayjs(now).startOf('day')
   const [activeMonth, setActiveMonth] = useState(() => today.startOf('month'))
   const grouped = useMemo(() => groupTodoTasksByDate(tasks), [tasks])
+  const eventsByDate = useMemo(() => {
+    const result = new Map<string, DesktopTodoCalendarEvent[]>()
+    for (const event of calendarEvents) {
+      let date = dayjs(event.startDate)
+      const through = dayjs(event.endDate ?? event.startDate)
+      while (!date.isAfter(through, 'day')) {
+        const key = date.format('YYYY-MM-DD')
+        const current = result.get(key)
+        if (current)
+          current.push(event)
+        else
+          result.set(key, [event])
+        date = date.add(1, 'day')
+      }
+    }
+    return result
+  }, [calendarEvents])
   const monthGroups = useMemo(() => [...grouped.entries()]
     .filter(([date]) => dayjs(date).isSame(activeMonth, 'month'))
-    .sort(([left], [right]) => left.localeCompare(right)), [activeMonth, grouped])
+    .map(([date, dateTasks]) => [date, dateTasks, eventsByDate.get(date) ?? []] as const)
+    .concat([...eventsByDate.entries()]
+      .filter(([date]) => dayjs(date).isSame(activeMonth, 'month') && !grouped.has(date))
+      .map(([date, dateEvents]) => [date, [], dateEvents] as const))
+    .sort(([left], [right]) => left.localeCompare(right)), [activeMonth, eventsByDate, grouped])
   const unscheduled = useMemo(() => tasks.filter(task => taskPlanningDate(task) === null), [tasks])
 
   return (
@@ -136,12 +161,13 @@ export function TodoTimelineView({
         </div>
       </div>
       <div {...stylex.props(styles.viewport)}>
-        {monthGroups.map(([date, dateTasks]) => (
+        {monthGroups.map(([date, dateTasks, dateEvents]) => (
           <TimelineGroup
             calendarEvents={calendarEvents}
             calendarSubscriptions={calendarSubscriptions}
             key={date}
             date={dayjs(date)}
+            events={dateEvents}
             isToday={date === today.format('YYYY-MM-DD')}
             locale={locale}
             now={now}

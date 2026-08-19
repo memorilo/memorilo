@@ -1,4 +1,7 @@
 import type {
+  DesktopNoteExternalUpdate,
+} from '@memorilo/desktop-api'
+import type {
   EditorImageOcclusionIntegration,
   EditorImageOcclusionTopicDocument,
   EditorNote,
@@ -48,6 +51,7 @@ function isImageOcclusionTopic(
 }
 
 export interface NoteEditorViewProps {
+  applyExternal: (external: DesktopNoteExternalUpdate) => boolean
   collapsedEntryIds: ReadonlySet<string>
   favoritePending: boolean
   focusBlockId?: string
@@ -67,6 +71,7 @@ export interface NoteEditorViewProps {
 }
 
 export function NoteEditorView({
+  applyExternal,
   collapsedEntryIds,
   favoritePending,
   focusBlockId,
@@ -92,11 +97,12 @@ export function NoteEditorView({
   const flushNotePersistence = useFlushNotePersistence()
   const editorAdapters = useMemo(
     () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      applyExternal,
       flush: flushNotePersistence,
       noteId: opened.note.id,
       topicId: opened.topic.topicId,
     }),
-    [configuration.networkImagePasteBehavior, flushNotePersistence, opened.note.id, opened.topic.topicId],
+    [applyExternal, configuration.networkImagePasteBehavior, flushNotePersistence, opened.note.id, opened.topic.topicId],
   )
   const currentEntry = opened.entries.find(entry => entry.id === opened.topic.topicId)
   if (!currentEntry || currentEntry.kind !== 'topic')

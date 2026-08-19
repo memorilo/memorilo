@@ -4,6 +4,7 @@
   "boardView": "看板",
   "timelineView": "时间线",
   "calendarView": "日历",
+  "calendarEvents": "日历事件",
   "quadrantView": "四象限",
   "viewLabel": "Todo 视图",
   "switchToBoard": "切换到看板视图",

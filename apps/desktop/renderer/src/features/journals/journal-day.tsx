@@ -69,11 +69,12 @@ export function JournalDay({
   const flushNotePersistence = useFlushNotePersistence()
   const adapters = useMemo(
     () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      applyExternal: session.applyExternal,
       flush: flushNotePersistence,
       noteId: summary.noteId,
       topicId: summary.topicId,
     }),
-    [configuration.networkImagePasteBehavior, flushNotePersistence, summary.noteId, summary.topicId],
+    [configuration.networkImagePasteBehavior, flushNotePersistence, session.applyExternal, summary.noteId, summary.topicId],
   )
 
   let editorContent

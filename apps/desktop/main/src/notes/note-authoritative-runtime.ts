@@ -55,7 +55,7 @@ export interface NoteAuthoritativeRuntime {
     current: AuthoritativeNote,
     version: readonly EditorNoteVersion[],
     options: PersistLocalMutationOptions,
-  ) => Promise<{ revision: string, updatedAt: number }>
+  ) => Promise<{ noteId: string, revision: string, update: Uint8Array, updatedAt: number }>
   prunePastEmptyJournals: () => Promise<Awaited<ReturnType<EditorStorage['journals']['prunePastEmpty']>>>
   run: <Result>(operation: () => Promise<Result>) => Promise<Result>
   runEffect: <Result, Failure>(operation: Effect.Effect<Result, Failure>) => Promise<Result>
@@ -153,7 +153,12 @@ export function createNoteAuthoritativeRuntime(
         console.error(`Failed to broadcast persisted update for Note ${current.note.id}`, error)
       }
     }
-    return { revision: noteRevision(current.note.getVersion()), updatedAt: current.updatedAt }
+    return {
+      noteId: current.note.id,
+      revision: noteRevision(current.note.getVersion()),
+      update,
+      updatedAt: current.updatedAt,
+    }
   }
 
   const applyExternalUpdates = createNoteAuthoritativeExternalUpdates({

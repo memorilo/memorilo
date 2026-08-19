@@ -26,7 +26,7 @@ export interface TaskRepeatPickerProps {
   calendarEvents: readonly TaskCalendarEvent[]
   calendarSubscriptions: readonly TaskCalendarSubscription[]
   chinaRegion: boolean
-  draft: TaskRepeatRule
+  draft: TaskRepeatRule | null
   locale?: string
   mode: TaskRepeatPickerMode
   floatingOwnerId?: string
@@ -220,7 +220,12 @@ export function TaskRepeatPicker({
   onFloatingRef,
   t,
 }: TaskRepeatPickerProps) {
-  const normalized = withDefaults(draft, baseDate)
+  const normalized = withDefaults(draft ?? {
+    interval: 1,
+    mode: 'due',
+    unit: 'day',
+    weekdays: [dayjs(baseDate).day()],
+  }, baseDate)
   const [activeMonth, setActiveMonth] = useState(() => dayjs(normalized.anchorDate ?? baseDate).startOf('month'))
   const activeDays = useMemo(() => monthDays(activeMonth), [activeMonth])
   const previewDates = useMemo(() => previewTaskRecurrenceDates(baseDate, normalized, {
@@ -255,13 +260,14 @@ export function TaskRepeatPicker({
         <div {...stylex.props(styles.presetList)}>
           <button {...stylex.props(styles.preset)} type="button" onClick={onDisable}>
             <span>{t('repeatNone')}</span>
+            <span {...stylex.props(styles.presetSummary)}>{draft === null ? <Check aria-hidden="true" size={15} strokeWidth={2.1} /> : null}</span>
           </button>
           {presets.map((preset) => {
-            const selected = preset.id === 'custom'
+            const selected = draft !== null && (preset.id === 'custom'
               ? normalized.mode === 'custom'
               : preset.id === 'workday'
                 ? normalized.unit === 'day' && normalized.skipWeekends === true
-                : isPreset(normalized, preset.id)
+                : isPreset(normalized, preset.id))
             return (
               <button
                 key={preset.id}

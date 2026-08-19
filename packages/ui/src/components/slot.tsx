@@ -1,5 +1,5 @@
-import type { CSSProperties, HTMLAttributes, ReactElement, Ref } from 'react'
-import { Children, cloneElement } from 'react'
+import type { CSSProperties, HTMLAttributes, ReactElement, ReactNode, Ref } from 'react'
+import { cloneElement, isValidElement } from 'react'
 
 type SlotElementProps = Record<string, unknown> & {
   className?: string
@@ -8,7 +8,7 @@ type SlotElementProps = Record<string, unknown> & {
 }
 
 export interface SlotProps extends HTMLAttributes<HTMLElement> {
-  children: ReactElement
+  children: ReactNode
   ref?: Ref<HTMLElement>
 }
 
@@ -65,9 +65,12 @@ function mergeProps(slotProps: Record<string, unknown>, childProps: SlotElementP
 }
 
 export function Slot({ children, ref: forwardedRef, ...props }: SlotProps) {
-  // A single child is the Radix-style asChild contract: it preserves the child's DOM node.
-  const child = Children.only(children) as ReactElement<SlotElementProps>
+  if (!isValidElement<SlotElementProps>(children))
+    throw new TypeError('Slot requires one React element child')
+  const child = children as ReactElement<SlotElementProps>
   const mergedProps = mergeProps({ ...props, ref: forwardedRef }, child.props)
 
+  // cloneElement is the core of the asChild contract: merge behavior without another DOM node.
+  // eslint-disable-next-line react/no-clone-element
   return cloneElement(child, mergedProps)
 }

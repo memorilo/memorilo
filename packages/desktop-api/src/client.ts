@@ -173,10 +173,7 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
       return undefined
     },
     subscribeTodoCalendar: input => rpc('notes', 'subscribeTodoCalendar', input),
-    updateTodoTask: async (input) => {
-      await rpc('notes', 'updateTodoTask', input)
-      return undefined
-    },
+    updateTodoTask: input => rpc('notes', 'updateTodoTask', input),
     learning,
     listShelfSources: () => rpc('shelf', 'listSources'),
     openJournal: input => input === undefined

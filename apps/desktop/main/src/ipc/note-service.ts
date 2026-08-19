@@ -44,7 +44,7 @@ export function createNoteHandlers(
       return calendars.subscribe(input)
     },
     updateTodoTask(input: Parameters<NoteApplicationService['updateTodoTask']>[0]) {
-      return application.updateTodoTask(input).then(() => null)
+      return application.updateTodoTask(input)
     },
     openMostRecentNote() {
       return application.openMostRecentNote()

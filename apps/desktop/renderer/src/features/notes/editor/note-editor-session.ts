@@ -1,4 +1,4 @@
-import type { DesktopNote } from '@memorilo/desktop-api'
+import type { DesktopNote, DesktopNoteExternalUpdate } from '@memorilo/desktop-api'
 import type { EditorNote } from '@memorilo/editor'
 import type { EditorNoteSessionCache } from '../note-runtime'
 import type {
@@ -25,6 +25,7 @@ export type {
 } from './note-editor-session-runtime'
 
 export interface EditorNoteSession<TStored extends DesktopNote = DesktopNote> {
+  applyExternal: (external: DesktopNoteExternalUpdate) => boolean
   loadError: string | null
   opened: EditorNoteSessionOpened<TStored> | null
   saveError: string | null
@@ -63,6 +64,7 @@ function errorMessage(error: unknown | null): string | null {
 }
 
 interface DesktopEditorTaskContext {
+  applyExternal: (external: DesktopNoteExternalUpdate) => boolean
   flush: () => Promise<void>
   noteId: string
   topicId: string
@@ -82,12 +84,13 @@ export function desktopEditorAdapters(
           taskActions: {
             completeRecurring: async ({ blockId }: { blockId: string }) => {
               await taskContext.flush()
-              await desktopRequests.updateTodoTask({
+              const external = await desktopRequests.updateTodoTask({
                 blockId,
                 noteId: taskContext.noteId,
                 status: 'done',
                 topicId: taskContext.topicId,
               })
+              taskContext.applyExternal(external)
             },
           },
         }),
@@ -280,8 +283,13 @@ export function useEditorNoteSession<TStored extends DesktopNote>({
     expectedNote: EditorNote,
     patch: EditorStoredNotePatch<TStored>,
   ): boolean => runtimeRef.current?.updateStored(expectedNote, patch) ?? false, [])
+  const applyExternal = useCallback(
+    (external: DesktopNoteExternalUpdate): boolean => runtimeRef.current?.applyExternal(external) ?? false,
+    [],
+  )
 
   return {
+    applyExternal,
     loadError,
     opened,
     saveError: errorMessage(persistenceError),

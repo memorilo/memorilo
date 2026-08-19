@@ -49,6 +49,7 @@ import {
   DesktopFavoriteNotesSchema,
   DesktopJournalNoteSchema,
   DesktopJournalPageSchema,
+  DesktopNoteExternalUpdateSchema,
   DesktopNoteFavoriteStateSchema,
   DesktopNotePageSchema,
   DesktopNoteSchema,
@@ -362,7 +363,7 @@ export const desktopOperationSchemas = {
       startAt: Schema.optionalKey(nullable(TaskDateTimeSchema)),
       text: Schema.optionalKey(Schema.String),
       topicId: Schema.NonEmptyString,
-    })]), NullResultSchema),
+    })]), DesktopNoteExternalUpdateSchema),
     openMostRecentNote: operation(EmptyArgumentsSchema, DesktopNoteSchema),
     recordNoteOpened: operation(Schema.Tuple([Schema.Struct({
       noteId: Schema.NonEmptyString,

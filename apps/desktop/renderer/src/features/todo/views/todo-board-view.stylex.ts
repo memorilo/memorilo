@@ -9,9 +9,13 @@ const colors = {
 
 export const todoBoardViewStyles = stylex.create({
   viewport: {
+    display: 'flex',
     width: '100%',
     minWidth: 0,
     minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+    gap: 12,
     overflowX: 'auto',
     overflowY: 'auto',
     padding: 14,

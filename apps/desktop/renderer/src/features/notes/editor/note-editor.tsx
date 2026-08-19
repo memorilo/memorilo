@@ -181,6 +181,7 @@ export function NoteEditor({
   return (
     <>
       <NoteEditorView
+        applyExternal={session.applyExternal}
         collapsedEntryIds={collapsedEntryIds}
         favoritePending={metadata.favoritePending}
         focusBlockId={focusBlockId}

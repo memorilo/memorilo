@@ -1,7 +1,7 @@
 import type * as stylex from '@stylexjs/stylex'
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactElement, ReactNode, Ref } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, Ref } from 'react'
 import * as stylexRuntime from '@stylexjs/stylex'
-import { Children, createContext, use, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, use, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useControllableState } from '../hooks/use-controllable-state'
 import { menuStyles } from './menu.stylex'
@@ -115,8 +115,8 @@ function DropdownMenuTrigger({ asChild = false, children, ...props }: Omit<Butto
     'type': 'button' as const,
   }
   if (asChild)
-    return <Slot {...triggerProps}>{Children.only(children) as ReactElement}</Slot>
-  return <button {...triggerProps}>{children}</button>
+    return <Slot {...triggerProps}>{children}</Slot>
+  return <button {...triggerProps} type="button">{children}</button>
 }
 
 function DropdownMenuPortal({ children, forceMount = false }: { children?: ReactNode, forceMount?: boolean }) {
@@ -245,7 +245,7 @@ function DropdownMenuContent({ align = 'start', asChild = false, children, force
         : menuStyles.defaultContent
   const styles = stylexRuntime.props(menuStyles.content, variantStyle, xstyle)
   return asChild
-    ? <Slot {...contentProps} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...contentProps} {...styles}>{children}</Slot>
     : <div {...contentProps} {...styles}>{children}</div>
 }
 
@@ -275,8 +275,8 @@ function DropdownMenuItem({ asChild = false, children, disabled = false, onSelec
   }
   const styles = stylexRuntime.props(menuStyles.item, xstyle)
   return asChild
-    ? <Slot {...itemProps} {...styles}>{Children.only(children) as ReactElement}</Slot>
-    : <button {...itemProps} {...styles}>{children}</button>
+    ? <Slot {...itemProps} {...styles}>{children}</Slot>
+    : <button {...itemProps} {...styles} type="button">{children}</button>
 }
 
 const MenuRadioGroupContext = createContext<{ onValueChange: (value: string) => void, value: string } | null>(null)

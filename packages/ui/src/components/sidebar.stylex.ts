@@ -150,6 +150,8 @@ export const sidebarStyles = stylex.create({
       ':hover': 'rgba(255, 255, 255, 0.32)',
       ':active': 'rgba(80, 91, 108, 0.14)',
       ':is([data-state="active"])': 'rgba(0, 113, 227, 0.9)',
+      ':is([data-state="active"]):hover': 'rgba(0, 105, 218, 0.94)',
+      ':is([data-state="active"]):active': 'rgba(0, 96, 201, 0.96)',
     },
     borderColor: {
       'default': 'transparent',
