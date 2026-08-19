@@ -10,7 +10,7 @@ export const todoTaskOccurrenceActionStyles = stylex.create({
     'justifyContent': 'center',
     'borderRadius': 10,
     'color': 'inherit',
-    'cursor': 'context-menu',
+    'cursor': 'pointer',
     'outline': 'none',
     'transitionDuration': {
       'default': '100ms',
@@ -27,16 +27,6 @@ export const todoTaskOccurrenceActionStyles = stylex.create({
     },
     ':focus-visible': {
       boxShadow: '0 0 0 2px rgba(41, 97, 194, 0.85)',
-    },
-  },
-  inactive: {
-    'cursor': 'default',
-    ':hover': {
-      backgroundColor: 'transparent',
-    },
-    ':active': {
-      transform: 'none',
-      backgroundColor: 'transparent',
     },
   },
 })

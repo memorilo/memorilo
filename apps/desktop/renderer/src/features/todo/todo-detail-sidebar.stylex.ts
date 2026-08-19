@@ -2,7 +2,7 @@ import * as stylex from '@stylexjs/stylex'
 import inject from '@stylexjs/stylex/lib/stylex-inject'
 
 inject({
-  ltr: '[data-todo-detail-editor] [data-editor-content] { min-height: 100%; padding: 20px 22px 48px; }',
+  ltr: '[data-todo-detail-editor] [data-editor-layout=\'embedded\'], [data-todo-detail-editor] [data-editor-layout=\'embedded\'] > div, [data-todo-detail-editor] [data-editor-layout=\'embedded\'] > div > div { flex: 1; min-height: 0; } [data-todo-detail-editor] [data-editor-content] { min-height: 100%; padding: 20px 22px 48px; }',
   priority: 1,
 })
 
@@ -181,7 +181,7 @@ export const todoDetailSidebarStyles = stylex.create({
     overflowY: 'auto',
     flex: 1,
     flexDirection: 'column',
-    backgroundColor: 'rgb(250, 250, 252)',
+    backgroundColor: 'rgb(255, 255, 255)',
     overscrollBehavior: 'contain',
   },
   editor: {

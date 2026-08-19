@@ -209,7 +209,7 @@ export function TodoListView({
                 {...stylex.props(styles.row)}
                 style={{ transform: `translateY(${calendarEventOffset + virtualRow.start}px)` }}
               >
-                <div {...stylex.props(styles.rowShell)}>
+                <div {...stylex.props(styles.rowShell, selected && styles.rowShellSelected)}>
                   {hasChildren
                     ? (
                         <button

@@ -91,6 +91,11 @@ export const todoListViewStyles = stylex.create({
     width: 28,
     flex: '0 0 28px',
   },
+  rowShellSelected: {
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 113, 227, 0.1)',
+    boxShadow: 'inset 0 0 0 1px rgba(0, 113, 227, 0.16)',
+  },
   rowButton: {
     display: 'grid',
     width: 'auto',
@@ -129,8 +134,8 @@ export const todoListViewStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   rowButtonSelected: {
-    backgroundColor: 'rgba(0, 113, 227, 0.1)',
-    boxShadow: 'inset 0 0 0 1px rgba(0, 113, 227, 0.16)',
+    backgroundColor: 'transparent',
+    boxShadow: 'none',
   },
   calendarEventButton: {
     color: colors.text,

@@ -190,6 +190,32 @@ describe('outline interactions', () => {
     })
   })
 
+  it('hides task controls on ancestors of a focused task', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={{
+          type: 'doc',
+          content: [
+            block('Task root', [block('Task child')], 'task'),
+          ],
+        }}
+        outline={{ focus: { blockId: 'Task child' }, focusPresentation: 'content-only' }}
+      />,
+    )
+
+    await waitFor(() => expect(blockElement(rendered.container, 'Task child')).toHaveAttribute('data-outline-focus-root'))
+
+    const ancestor = blockElement(rendered.container, 'Task root')
+    const ancestorMarker = ancestor.querySelector<HTMLElement>(':scope > .list-marker')
+    const ancestorMeta = ancestor.querySelector<HTMLElement>(':scope > [data-task-meta]')
+    if (!ancestorMarker || !ancestorMeta)
+      throw new Error('Ancestor task controls were not rendered')
+    expect(getComputedStyle(ancestorMarker).display).toBe('none')
+    expect(getComputedStyle(ancestorMeta).display).toBe('none')
+  })
+
   it('keeps collapse state local and restores it after switching modes', async () => {
     const onDocumentChange = vi.fn()
     const rendered = render(

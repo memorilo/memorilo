@@ -1,10 +1,11 @@
-import type { DesktopTodoCalendarEvent, DesktopTodoTask } from '@memorilo/desktop-api'
+import type { DesktopTodoCalendarEvent, DesktopTodoTask, DesktopTodoTaskStatus } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import { autoUpdate, flip, FloatingPortal, offset, shift, size, useFloating, useMergeRefs } from '@floating-ui/react'
 import { TaskOccurrencePanel } from '@memorilo/editor/task-ui'
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useId, useRef, useState } from 'react'
+import { toast } from 'react-toastify/unstyled'
 import { floatingTransformOrigin } from '../../shared/floating-ui'
 import { taskOccurrenceDate } from './todo-model'
 import { todoTaskOccurrenceActionStyles as styles } from './todo-task-occurrence-actions.stylex'
@@ -38,6 +39,28 @@ interface TodoTaskOccurrenceActionsProps {
 const menuGap = 5
 const viewportInset = 8
 
+function nextStatus(status: DesktopTodoTaskStatus): DesktopTodoTaskStatus {
+  switch (status) {
+    case 'todo':
+      return 'doing'
+    case 'doing':
+      return 'done'
+    case 'done':
+      return 'todo'
+  }
+}
+
+function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
+  switch (status) {
+    case 'todo':
+      return t('statusTodo')
+    case 'doing':
+      return t('statusDoing')
+    case 'done':
+      return t('statusDone')
+  }
+}
+
 export function TodoTaskOccurrenceActions({
   calendarEvents,
   onUpdateTask,
@@ -49,6 +72,7 @@ export function TodoTaskOccurrenceActions({
   const panelRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
   const [open, setOpen] = useState(false)
+  const [statusUpdating, setStatusUpdating] = useState(false)
   const {
     floatingStyles,
     isPositioned,
@@ -121,18 +145,64 @@ export function TodoTaskOccurrenceActions({
     setOpen(true)
   }
 
+  const changeStatus = async () => {
+    if (statusUpdating)
+      return
+    setStatusUpdating(true)
+    try {
+      await onUpdateTask({
+        blockId: task.blockId,
+        noteId: task.noteId,
+        status: nextStatus(task.status),
+        topicId: task.topicId,
+      })
+    }
+    catch (error) {
+      toast.error(t('couldNotUpdateTask', {
+        message: error instanceof Error ? error.message : String(error),
+      }))
+    }
+    finally {
+      setStatusUpdating(false)
+    }
+  }
+
+  const handleStatusClick = (event: ReactMouseEvent<HTMLSpanElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    void changeStatus()
+  }
+
+  const handleStatusKeyDown = (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ')
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    void changeStatus()
+  }
+
   return (
     <>
       <span
         ref={referenceRef}
-        {...stylex.props(styles.shell, !task.repeatRule && styles.inactive)}
+        {...stylex.props(styles.shell)}
         aria-expanded={task.repeatRule ? open : undefined}
         aria-haspopup={task.repeatRule ? 'dialog' : undefined}
-        aria-label={task.repeatRule ? t('occurrenceActions') : undefined}
-        role={task.repeatRule ? 'button' : undefined}
-        tabIndex={task.repeatRule ? 0 : -1}
+        aria-label={t('changeTaskStatus', {
+          current: statusLabel(task.status, t),
+          next: statusLabel(nextStatus(task.status), t),
+        })}
+        aria-disabled={statusUpdating ? 'true' : undefined}
+        role="button"
+        tabIndex={0}
+        onClick={handleStatusClick}
         onContextMenu={openFromContext}
-        onKeyDown={openFromKeyboard}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ')
+            handleStatusKeyDown(event)
+          else
+            openFromKeyboard(event)
+        }}
       >
         {triggerContent}
       </span>
