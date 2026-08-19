@@ -136,7 +136,9 @@ export function TaskActionPanel({
   const baseDate = task.dueDate ?? task.occurrenceDate
   const [mode, setMode] = useState<'date' | 'span'>(() => task.startAt !== null || task.endAt !== null ? 'span' : 'date')
   const [allDay, setAllDay] = useState(() => task.allDay)
-  const [selectedDate, setSelectedDate] = useState<string | null>(() => task.dueDate ?? task.occurrenceDate)
+  // Keep the fallback occurrence date for calendar/repeat calculations, but do
+  // not turn it into an explicit due date until the user selects one.
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => task.dueDate)
   const [activeMonth, setActiveMonth] = useState(() => dayjs(task.dueDate ?? task.occurrenceDate).startOf('month'))
   const [dueTime, setDueTime] = useState(() => task.dueTime ?? '')
   const [startAt, setStartAt] = useState(() => task.startAt ?? dateTimeValue(baseDate, '09:00'))
