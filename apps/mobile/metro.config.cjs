@@ -23,6 +23,7 @@ function sassLoadDirectories(root) {
 }
 
 const excalidrawRoot = path.resolve(workspaceRoot, 'packages/excalidraw')
+const srsRoot = path.resolve(workspaceRoot, 'packages/srs')
 const mobileI18nextEntry = require.resolve('i18next', { paths: [projectRoot] })
 const mobileReactI18nextEntry = require.resolve('react-i18next', { paths: [projectRoot] })
 const expoRoot = path.dirname(require.resolve('expo/package.json', { paths: [projectRoot] }))
@@ -30,7 +31,7 @@ const expoRoot = path.dirname(require.resolve('expo/package.json', { paths: [pro
 // Pin the executable CommonJS entries so Metro's native and DOM graphs share
 // the same runtime implementation while explicit `?url` imports remain assets.
 const whatwgUrlMinimumEntry = require.resolve('whatwg-url-minimum', { paths: [expoRoot] })
-const tsFsrsEntry = require.resolve('ts-fsrs', { paths: [path.resolve(workspaceRoot, 'packages/srs')] })
+const tsFsrsEntry = require.resolve('ts-fsrs', { paths: [srsRoot] })
 process.env.SASS_PATH = [
   ...(process.env.SASS_PATH ? process.env.SASS_PATH.split(path.delimiter) : []),
   ...sassLoadDirectories(excalidrawRoot),
@@ -47,11 +48,11 @@ const portableSrsEntry = path.resolve(workspaceRoot, 'packages/srs/src/portable.
 const browserSrsEntry = path.resolve(workspaceRoot, 'packages/srs/src/browser.ts')
 const optimizerWasmEntry = require.resolve(
   '@open-spaced-repetition/binding-wasm32-wasi/fsrs-binding.wasm32-wasi.wasm',
-  { paths: [projectRoot] },
+  { paths: [srsRoot] },
 )
 const optimizerWorkerEntry = require.resolve(
   '@open-spaced-repetition/binding-wasm32-wasi/wasi-worker-browser.mjs',
-  { paths: [projectRoot] },
+  { paths: [srsRoot] },
 )
 const defaultResolveRequest = config.resolver.resolveRequest
 config.resolver.resolveRequest = (context, moduleName, platform) => {
