@@ -1,4 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
+import inject from '@stylexjs/stylex/lib/stylex-inject'
 
 const tokens = {
   accent: 'oklch(0.623 0.214 259.815)',
@@ -11,6 +12,11 @@ const pulse = stylex.keyframes({
   '0%': { opacity: 0.45, transform: 'scale(0.8)' },
   '50%': { opacity: 1, transform: 'scale(1)' },
   '100%': { opacity: 0.45, transform: 'scale(0.8)' },
+})
+
+inject({
+  ltr: `[data-list-kind='task'][data-task-status='done'] > .list-content > :first-child { color: ${tokens.muted}; text-decoration-line: line-through; }`,
+  priority: 1,
 })
 
 export const taskStyles = stylex.create({
