@@ -88,6 +88,14 @@ _Avoid_: Reader ID, reading session
 A content node inside a Topic.
 _Avoid_: NoteEntry, Topic node
 
+**Todo**:
+A Block that represents an actionable item with a Todo lifecycle status.
+_Avoid_: Task Block, checkbox Block
+
+**Subtask**:
+A Todo that has another Todo anywhere in its Block ancestor chain. Its parent in the Todo-only hierarchy is the nearest Todo ancestor.
+_Avoid_: Child Todo, nested Todo
+
 **CardTopic**:
 A RegularTopic created from one Card authoring source and placed directly below its source Topic. It owns the learnable Card projection and may either remain linked to its source or become independently editable.
 _Avoid_: Card, hidden Card, Card Definition
