@@ -1,5 +1,6 @@
 import type { DesktopTodoCalendarSubscription } from '@memorilo/desktop-api'
 import type { CSSProperties, FormEvent } from 'react'
+import { Dialog } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { LockKeyhole, Minus, Plus, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -14,6 +15,61 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function AddCalendarDialog({
+  error,
+  submitting,
+  title,
+  url,
+  onClose,
+  onSubmit,
+  onTitleChange,
+  onUrlChange,
+}: {
+  error: string | null
+  submitting: boolean
+  title: string
+  url: string
+  onClose: () => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onTitleChange: (value: string) => void
+  onUrlChange: (value: string) => void
+}) {
+  const { t } = useTranslation('settings')
+
+  return (
+    <Dialog.Root open onOpenChange={(open) => {
+      if (!open)
+        onClose()
+    }}>
+      <Dialog.Portal>
+        <Dialog.Overlay />
+        <Dialog.Content aria-label={t('calendarAdd')}>
+          <form {...stylex.props(styles.dialogForm)} onSubmit={onSubmit}>
+            <Dialog.Header>
+              <Dialog.Title>{t('calendarAdd')}</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Body>
+              <label {...stylex.props(styles.field)}>
+                <span>{t('calendarTitle')}</span>
+                <input {...stylex.props(styles.input)} autoFocus disabled={submitting} required value={title} onChange={event => onTitleChange(event.target.value)} />
+              </label>
+              <label {...stylex.props(styles.field)}>
+                <span>{t('calendarUrl')}</span>
+                <input {...stylex.props(styles.input)} disabled={submitting} placeholder="webcal://" required type="url" value={url} onChange={event => onUrlChange(event.target.value)} />
+              </label>
+              {error !== null ? <p {...stylex.props(styles.dialogError)} role="alert">{t('calendarOperationFailed', { message: error })}</p> : null}
+            </Dialog.Body>
+            <Dialog.Footer>
+              <button {...stylex.props(styles.secondaryButton)} disabled={submitting} type="button" onClick={onClose}>{t('cancel')}</button>
+              <button {...stylex.props(styles.primaryButton)} disabled={submitting || title.trim().length === 0 || url.trim().length === 0} type="submit">{t('calendarAdd')}</button>
+            </Dialog.Footer>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
 export function CalendarSettings() {
   const { i18n, t } = useTranslation('settings')
   const [subscriptions, setSubscriptions] = useState<readonly DesktopTodoCalendarSubscription[]>([])
@@ -24,6 +80,7 @@ export function CalendarSettings() {
   const [loading, setLoading] = useState(() => typeof window.desktop !== 'undefined')
   const [operation, setOperation] = useState<'add' | 'refresh' | 'remove' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
   const selected = useMemo(
     () => subscriptions.find(subscription => subscription.id === selectedId) ?? null,
     [selectedId, subscriptions],
@@ -67,7 +124,7 @@ export function CalendarSettings() {
     event.preventDefault()
     if (operation !== null)
       return
-    setError(null)
+    setAddError(null)
     setOperation('add')
     try {
       const subscription = await desktopRequests.subscribeTodoCalendar({ title, url })
@@ -78,11 +135,20 @@ export function CalendarSettings() {
       setUrl('')
     }
     catch (cause) {
-      setError(errorMessage(cause))
+      setAddError(errorMessage(cause))
     }
     finally {
       setOperation(null)
     }
+  }
+
+  const closeAddDialog = () => {
+    if (operation === 'add')
+      return
+    setAdding(false)
+    setAddError(null)
+    setTitle('')
+    setUrl('')
   }
 
   const refreshSelected = async () => {
@@ -164,12 +230,13 @@ export function CalendarSettings() {
         </div>
         <div {...stylex.props(styles.toolbar)}>
           <button
-            {...stylex.props(styles.toolButton, adding && styles.toolButtonSelected)}
+            {...stylex.props(styles.toolButton)}
             aria-label={t('calendarAdd')}
             title={t('calendarAdd')}
             type="button"
             onClick={() => {
-              setAdding(current => !current)
+              setAdding(true)
+              setAddError(null)
               setError(null)
             }}
           >
@@ -200,20 +267,16 @@ export function CalendarSettings() {
       </div>
       {adding
         ? (
-            <form {...stylex.props(styles.addForm)} onSubmit={event => void addSubscription(event)}>
-              <label {...stylex.props(styles.field)}>
-                <span>{t('calendarTitle')}</span>
-                <input {...stylex.props(styles.input)} autoFocus disabled={operation !== null} required value={title} onChange={event => setTitle(event.target.value)} />
-              </label>
-              <label {...stylex.props(styles.field)}>
-                <span>{t('calendarUrl')}</span>
-                <input {...stylex.props(styles.input)} disabled={operation !== null} placeholder="webcal://" required type="url" value={url} onChange={event => setUrl(event.target.value)} />
-              </label>
-              <div {...stylex.props(styles.formActions)}>
-                <button {...stylex.props(styles.secondaryButton)} disabled={operation !== null} type="button" onClick={() => setAdding(false)}>{t('cancel')}</button>
-                <button {...stylex.props(styles.primaryButton)} disabled={operation !== null || title.trim().length === 0 || url.trim().length === 0} type="submit">{t('calendarAdd')}</button>
-              </div>
-            </form>
+            <AddCalendarDialog
+              error={addError}
+              submitting={operation === 'add'}
+              title={title}
+              url={url}
+              onClose={closeAddDialog}
+              onSubmit={event => void addSubscription(event)}
+              onTitleChange={setTitle}
+              onUrlChange={setUrl}
+            />
           )
         : null}
       {error !== null ? <p {...stylex.props(styles.error)} role="alert">{t('calendarOperationFailed', { message: error })}</p> : null}

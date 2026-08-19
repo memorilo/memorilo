@@ -5,7 +5,7 @@ import type {
   LearningOptimizerWorkflow,
   OptimizerRecord,
 } from './learning-optimizer-workflow'
-import { Button } from '@memorilo/ui'
+import { Button, Dialog } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -29,7 +29,6 @@ import {
   useLearningOptimizerWorkflow,
 } from './learning-optimizer-lifecycle'
 import { learningOptimizerPanelStyles as styles } from './learning-optimizer-panel.stylex'
-import { LearningOptimizerDialog } from './learning-optimizer-runtime'
 import { learningOptimizerSharedStyles as sharedStyles } from './learning-optimizer-shared.stylex'
 
 function OptimizerListRow({
@@ -152,39 +151,47 @@ function CreateOptimizerDialog({
   }
 
   return (
-    <LearningOptimizerDialog label={t('newOptimizerTitle')} onClose={close}>
-      <form onSubmit={create}>
-        <header {...stylex.props(sharedStyles.dialogHeader)}>
-          <h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('newOptimizerTitle')}</h2>
-          <Button aria-label={t('close')} disabled={creating} variant="toolbar" xstyle={sharedStyles.dialogClose} onClick={onClose}>
-            <X aria-hidden="true" size={15} />
-          </Button>
-        </header>
-        <div {...stylex.props(sharedStyles.dialogBody)}>
-          <label {...stylex.props(styles.dialogField)}>
-            <span>{t('optimizerName')}</span>
-            <input autoFocus {...stylex.props(sharedStyles.input)} disabled={creating} value={createName} onChange={event => setCreateName(event.target.value)} />
-          </label>
-          {error
-            ? <div {...stylex.props(sharedStyles.feedback, sharedStyles.feedbackError)} role="alert">{error}</div>
-            : null}
-          <label {...stylex.props(styles.dialogField)}>
-            <span>{t('configurationSource')}</span>
-            <select {...stylex.props(sharedStyles.input)} disabled={creating} value={createSource} onChange={event => setCreateSource(workflow.parseConfigurationSource(event.target.value))}>
-              <option value="global">{t('currentGlobal')}</option>
-              <option value="factory">{t('factoryDefaults')}</option>
-            </select>
-          </label>
-        </div>
-        <footer {...stylex.props(sharedStyles.dialogActions)}>
-          <Button disabled={creating} variant="plain" xstyle={sharedStyles.actionButton} onClick={onClose}>{t('cancel')}</Button>
-          <Button disabled={creating || createName.trim().length === 0} type="submit" variant="plain" xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}>
-            {creating ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : null}
-            <span>{creating ? t('creating') : t('create')}</span>
-          </Button>
-        </footer>
-      </form>
-    </LearningOptimizerDialog>
+    <Dialog.Root open onOpenChange={(open) => {
+      if (!open)
+        close()
+    }}>
+      <Dialog.Portal>
+        <Dialog.Overlay />
+        <Dialog.Content aria-label={t('newOptimizerTitle')}>
+          <form onSubmit={create}>
+            <Dialog.Header>
+              <Dialog.Title>{t('newOptimizerTitle')}</Dialog.Title>
+              <Dialog.Close asChild>
+                <Button aria-label={t('close')} disabled={creating} variant="toolbar"><X aria-hidden="true" size={15} /></Button>
+              </Dialog.Close>
+            </Dialog.Header>
+            <Dialog.Body>
+              <label {...stylex.props(styles.dialogField)}>
+                <span>{t('optimizerName')}</span>
+                <input autoFocus {...stylex.props(sharedStyles.input)} disabled={creating} value={createName} onChange={event => setCreateName(event.target.value)} />
+              </label>
+              {error
+                ? <div {...stylex.props(sharedStyles.feedback, sharedStyles.feedbackError)} role="alert">{error}</div>
+                : null}
+              <label {...stylex.props(styles.dialogField)}>
+                <span>{t('configurationSource')}</span>
+                <select {...stylex.props(sharedStyles.input)} disabled={creating} value={createSource} onChange={event => setCreateSource(workflow.parseConfigurationSource(event.target.value))}>
+                  <option value="global">{t('currentGlobal')}</option>
+                  <option value="factory">{t('factoryDefaults')}</option>
+                </select>
+              </label>
+            </Dialog.Body>
+            <Dialog.Footer>
+              <Button disabled={creating} variant="plain" xstyle={sharedStyles.actionButton} onClick={onClose}>{t('cancel')}</Button>
+              <Button disabled={creating || createName.trim().length === 0} type="submit" variant="plain" xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}>
+                {creating ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : null}
+                <span>{creating ? t('creating') : t('create')}</span>
+              </Button>
+            </Dialog.Footer>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 
