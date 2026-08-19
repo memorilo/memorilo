@@ -23,3 +23,5 @@ onlyBuiltDependencies:
   - esbuild
   - onnxruntime-node
   - sharp
+patchedDependencies:
+  loro-react-native@1.10.3: patches/loro-react-native@1.10.3.patch
