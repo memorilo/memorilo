@@ -550,14 +550,6 @@ export const taskActionPanelStyles = stylex.create({
       '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
     },
   },
-  status: {
-    color: {
-      'default': 'rgba(48, 52, 59, 0.62)',
-      '@media (prefers-color-scheme: dark)': 'rgba(235, 237, 242, 0.62)',
-    },
-    fontSize: 11,
-    lineHeight: '15px',
-  },
   error: {
     color: {
       'default': 'rgb(170, 72, 62)',

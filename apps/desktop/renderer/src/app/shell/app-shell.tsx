@@ -10,6 +10,7 @@ import { CommandPalette } from '../command-palette/command-palette'
 import { appShellStyles } from './app-shell.stylex'
 import { AppTitlebar } from './app-titlebar'
 import { AppToastContainer } from './app-toast'
+import { TodoCalendarBootstrap } from './todo-calendar-bootstrap'
 import { WorkspaceSidebar } from './workspace-sidebar'
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             sidebarVisible={sidebarVisible}
             onToggleSidebar={toggleSidebar}
           />
+          <TodoCalendarBootstrap />
           <AppToastContainer />
         </div>
       </CommandPaletteCommandsContext>

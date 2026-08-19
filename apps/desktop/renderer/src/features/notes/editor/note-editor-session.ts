@@ -10,11 +10,11 @@ import type {
 } from './note-editor-session-runtime'
 import { demoEditorAdapters } from '@memorilo/editor'
 import { createLatestOperationSupervisor } from '@memorilo/effect-lifecycle'
-import dayjs from 'dayjs'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
+import { loadTodoCalendarSnapshot } from '../../../shared/todo-calendar-cache'
 import { useNotePersistence } from '../persistence/note-persistence-hooks'
 import { EditorNoteSessionRuntime, toEditorNoteError } from './note-editor-session-runtime'
 
@@ -92,17 +92,7 @@ export function desktopEditorAdapters(
           },
         }),
     taskCalendar: {
-      load: async () => {
-        const year = dayjs().year()
-        const [events, subscriptions] = await Promise.all([
-          desktopRequests.listTodoCalendarEvents({
-            from: `${year - 1}-01-01`,
-            through: `${year + 5}-12-31`,
-          }),
-          desktopRequests.listTodoCalendarSubscriptions(),
-        ])
-        return { events, subscriptions }
-      },
+      load: loadTodoCalendarSnapshot,
     },
     uploadImage: async ({ file, onProgress }: Parameters<typeof demoEditorAdapters.uploadImage>[0]) => {
       const total = Math.max(file.size, 1)

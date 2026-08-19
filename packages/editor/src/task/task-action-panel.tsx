@@ -47,9 +47,7 @@ export interface TaskActionTask {
 }
 
 export interface TaskActionPanelProps {
-  calendarError?: string | null
   calendarEvents: readonly TaskCalendarEvent[]
-  calendarLoading?: boolean
   calendarSubscriptions: readonly TaskCalendarSubscription[]
   id?: string
   panelRef?: Ref<HTMLDivElement>
@@ -123,9 +121,7 @@ function reminderSummary(reminders: readonly TaskReminder[], t: TFunction): stri
 }
 
 export function TaskActionPanel({
-  calendarError = null,
   calendarEvents,
-  calendarLoading = false,
   calendarSubscriptions,
   id,
   onUpdate,
@@ -563,7 +559,6 @@ export function TaskActionPanel({
             </FloatingPortal>
           )
         : null}
-      {calendarError !== null ? <span {...stylex.props(styles.error)} role="alert">{t('couldNotLoadCalendars', { message: calendarError })}</span> : calendarLoading ? <span {...stylex.props(styles.status)} role="status">{t('loadingCalendars')}</span> : null}
       {error !== null ? <span {...stylex.props(styles.error)} role="alert">{error}</span> : null}
       <div {...stylex.props(styles.footer)}>
         <button {...stylex.props(buttonStyles.action, styles.footerButton)} disabled={updating} type="button" onClick={clear}>{t('clearSchedule')}</button>

@@ -173,8 +173,6 @@ export function EditorTaskMenu({ adapters, taskDate }: {
   const targetRef = useRef<TaskMenuTarget | null>(null)
   const [target, setTarget] = useState<TaskMenuTarget | null>(null)
   const [calendarSnapshot, setCalendarSnapshot] = useState<TaskCalendarSnapshot | null>(null)
-  const [calendarLoading, setCalendarLoading] = useState(false)
-  const [calendarError, setCalendarError] = useState<string | null>(null)
   const defaultDate = taskDate === undefined ? dayjs().format('YYYY-MM-DD') : parseTaskDueDate(taskDate)
   if (defaultDate === null)
     throw new TypeError('Editor taskDate must use YYYY-MM-DD format')
@@ -210,22 +208,15 @@ export function EditorTaskMenu({ adapters, taskDate }: {
       setCalendarSnapshot(emptyCalendarSnapshot)
       return
     }
-    setCalendarLoading(true)
-    setCalendarError(null)
     const operation = Promise.resolve()
       .then(() => adapter.load())
       .then((snapshot) => {
         if (mountedRef.current)
           setCalendarSnapshot(snapshot)
       })
-      .catch((cause) => {
-        if (mountedRef.current)
-          setCalendarError(cause instanceof Error ? cause.message : String(cause))
-      })
+      .catch(() => undefined)
       .finally(() => {
         calendarLoadRef.current = null
-        if (mountedRef.current)
-          setCalendarLoading(false)
       })
     calendarLoadRef.current = operation
   }, [adapters.taskCalendar, calendarSnapshot])
@@ -355,9 +346,7 @@ export function EditorTaskMenu({ adapters, taskDate }: {
         ? (
             <TaskActionPanel
               key={`${target.blockId}:${task.allDay}:${task.dueDate ?? ''}:${task.dueTime ?? ''}:${task.startAt ?? ''}:${task.endAt ?? ''}:${task.reminderMinutes ?? ''}:${JSON.stringify(task.reminders)}:${JSON.stringify(task.repeatRule)}`}
-              calendarError={calendarError}
               calendarEvents={snapshot.events}
-              calendarLoading={calendarLoading}
               calendarSubscriptions={snapshot.subscriptions}
               id={menuId}
               panelRef={floatingRef}

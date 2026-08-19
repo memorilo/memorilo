@@ -5,6 +5,7 @@ import { nextTaskOccurrenceDate, taskRepeatBaseDate as repeatBaseDate } from '@m
 import dayjs from 'dayjs'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
+import { loadTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 
 export type TodoFilter = 'all' | DesktopTodoTaskStatus
@@ -46,15 +47,7 @@ export function todoCalendarQueryOptions() {
     events: readonly DesktopTodoCalendarEvent[]
     subscriptions: readonly DesktopTodoCalendarSubscription[]
   }, DesktopClientError, never>({
-    queryFn: () => desktopEffect('notes.listTodoCalendarEvents', async () => {
-      const subscriptions = await desktopRequests.listTodoCalendarSubscriptions()
-      const year = dayjs().year()
-      const events = await desktopRequests.listTodoCalendarEvents({
-        from: `${year - 1}-01-01`,
-        through: `${year + 5}-12-31`,
-      })
-      return { events, subscriptions }
-    }),
+    queryFn: () => desktopEffect('notes.listTodoCalendarEvents', loadTodoCalendarSnapshot),
     queryKey: todoQueryKeys.calendars,
   })
 }
