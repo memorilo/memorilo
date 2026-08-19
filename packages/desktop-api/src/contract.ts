@@ -138,7 +138,9 @@ export type DesktopTodoTaskPage = TodoTaskPage
 export type DesktopTodoReminder = TodoReminder
 export type DesktopTodoRepeatRule = TodoRepeatRule
 export type DesktopTodoCalendarEvent = TodoCalendarEvent
-export type DesktopTodoCalendarSubscription = TodoCalendarSubscription
+export interface DesktopTodoCalendarSubscription extends TodoCalendarSubscription {
+  builtIn: boolean
+}
 export type ListDesktopTodoTasksInput = ListTodoTasksInput
 
 export interface UpdateDesktopTodoTaskInput {

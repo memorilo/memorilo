@@ -115,6 +115,17 @@ export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
     })
   }
 
+  readonly markFetched = (id: string, fetchedAt: number): Promise<void> => {
+    if (id.length === 0)
+      throw new TypeError('Calendar subscription id must not be empty')
+    if (!Number.isSafeInteger(fetchedAt) || fetchedAt < 0)
+      throw new RangeError('Calendar subscription fetchedAt must be a non-negative safe integer')
+    return this.#options.runOperation(() => this.#options.database.run(
+      'UPDATE todo_calendar_subscriptions SET fetched_at = ? WHERE id = ?',
+      [fetchedAt, id],
+    ))
+  }
+
   readonly remove = (id: string): Promise<void> => {
     if (id.length === 0)
       throw new TypeError('Calendar subscription id must not be empty')

@@ -5,18 +5,19 @@ import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { Sidebar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, GraduationCap, HardDrive, NotebookPen, Plug, Settings2 } from 'lucide-react'
+import { BookOpen, CalendarDays, GraduationCap, HardDrive, NotebookPen, Plug, Settings2 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useDesktopConfiguration } from '../shared/configuration'
 import { AssetSettings } from './asset-settings'
+import { CalendarSettings } from './calendar-settings'
 import { DatabaseSettings } from './database-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
-type SettingsCategoryId = 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading'
-type SourceSectionId = 'anki' | 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading'
+type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading'
+type SourceSectionId = 'anki' | 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'todo'
 
 interface SettingsCategoryDefinition {
   readonly id: SettingsCategoryId
@@ -26,6 +27,7 @@ interface SettingsCategoryDefinition {
 
 const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
   { id: 'general', sectionIds: ['general'] },
+  { id: 'calendar', sectionIds: ['todo'], showSectionHeadings: true },
   { id: 'editor', sectionIds: ['editor'] },
   { id: 'reading', sectionIds: ['reading'] },
   { id: 'learning', sectionIds: ['learning', 'goals', 'flashcards', 'anki'], showSectionHeadings: true },
@@ -36,6 +38,7 @@ const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
 const learningDetailSectionIds: readonly SourceSectionId[] = ['anki', 'flashcards', 'goals']
 
 const categoryIcons = {
+  calendar: CalendarDays,
   editor: NotebookPen,
   general: Settings2,
   learning: GraduationCap,
@@ -46,6 +49,8 @@ const categoryIcons = {
 
 function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): string {
   switch (categoryId) {
+    case 'calendar':
+      return t('calendarSection')
     case 'general':
       return t('generalSection')
     case 'editor':
@@ -63,6 +68,8 @@ function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): s
 
 function translateCategoryDescription(categoryId: SettingsCategoryId, t: TFunction): string {
   switch (categoryId) {
+    case 'calendar':
+      return t('calendarDescription')
     case 'general':
       return t('generalDescription')
     case 'editor':
@@ -100,6 +107,8 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('readingSection')
     case 'mcp':
       return t('mcpSection')
+    case 'todo':
+      return t('todoSection')
     default:
       return sectionId
   }
@@ -488,6 +497,7 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
                     />
                     {section.id === 'images' ? <AssetSettings /> : null}
                     {section.id === 'backup' ? <DatabaseSettings /> : null}
+                    {section.id === 'todo' ? <CalendarSettings /> : null}
                   </Fragment>
                 ))}
               </motion.div>

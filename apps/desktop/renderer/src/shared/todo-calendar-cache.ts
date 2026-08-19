@@ -7,8 +7,11 @@ export interface TodoCalendarSnapshot {
   subscriptions: readonly DesktopTodoCalendarSubscription[]
 }
 
+export const todoCalendarAutoRefreshIntervalMs = 6 * 60 * 60 * 1_000
+
 let snapshot: TodoCalendarSnapshot | null = null
 let loading: Promise<TodoCalendarSnapshot> | null = null
+const listeners = new Set<(snapshot: TodoCalendarSnapshot) => void>()
 
 export function hasTodoCalendarSnapshot(): boolean {
   return snapshot !== null
@@ -29,6 +32,8 @@ export function loadTodoCalendarSnapshot(): Promise<TodoCalendarSnapshot> {
       })
       const nextSnapshot = { events, subscriptions }
       snapshot = nextSnapshot
+      for (const listener of listeners)
+        listener(nextSnapshot)
       return nextSnapshot
     })
     .finally(() => {
@@ -36,4 +41,16 @@ export function loadTodoCalendarSnapshot(): Promise<TodoCalendarSnapshot> {
     })
 
   return loading
+}
+
+export function reloadTodoCalendarSnapshot(): Promise<TodoCalendarSnapshot> {
+  snapshot = null
+  return loadTodoCalendarSnapshot()
+}
+
+export function subscribeTodoCalendarSnapshot(
+  listener: (snapshot: TodoCalendarSnapshot) => void,
+): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
 }

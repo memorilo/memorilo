@@ -2,31 +2,38 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 import { useDesktopConfiguration } from '../../shared/configuration'
-import { hasTodoCalendarSnapshot, loadTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
+import {
+  hasTodoCalendarSnapshot,
+  loadTodoCalendarSnapshot,
+  reloadTodoCalendarSnapshot,
+  todoCalendarAutoRefreshIntervalMs,
+} from '../../shared/todo-calendar-cache'
 
 export function TodoCalendarBootstrap() {
   const configuration = useDesktopConfiguration()
   const { t } = useTranslation('todo')
 
   useEffect(() => {
-    if (!configuration.todo.enabled || hasTodoCalendarSnapshot())
+    if (!configuration.todo.enabled)
       return
 
-    const toastId = toast.loading(t('loadingCalendars'), {
-      autoClose: false,
-      closeButton: false,
-      closeOnClick: false,
-      draggable: false,
-    })
     let active = true
+    const toastId = hasTodoCalendarSnapshot()
+      ? null
+      : toast.loading(t('loadingCalendars'), {
+          autoClose: false,
+          closeButton: false,
+          closeOnClick: false,
+          draggable: false,
+        })
 
     void loadTodoCalendarSnapshot()
       .then(() => {
-        if (active)
+        if (active && toastId !== null)
           toast.dismiss(toastId)
       })
       .catch((cause: unknown) => {
-        if (!active)
+        if (!active || toastId === null)
           return
         toast.update(toastId, {
           autoClose: false,
@@ -39,9 +46,20 @@ export function TodoCalendarBootstrap() {
         })
       })
 
+    const refresh = () => {
+      void reloadTodoCalendarSnapshot().catch((error: unknown) => {
+        console.error('Failed to automatically refresh Todo calendars', error)
+      })
+    }
+    const timer = window.setInterval(refresh, todoCalendarAutoRefreshIntervalMs)
+    window.addEventListener('focus', refresh)
+
     return () => {
       active = false
-      toast.dismiss(toastId)
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+      if (toastId !== null)
+        toast.dismiss(toastId)
     }
   }, [configuration.todo.enabled, t])
 

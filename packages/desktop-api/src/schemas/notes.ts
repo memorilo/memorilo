@@ -242,6 +242,7 @@ export const DesktopTodoTaskPageSchema: EffectSchema.Codec<DesktopTodoTaskPage> 
 })
 
 export const DesktopTodoCalendarSubscriptionSchema: EffectSchema.Codec<DesktopTodoCalendarSubscription> = Schema.Struct({
+  builtIn: Schema.Boolean,
   enabled: Schema.Boolean,
   etag: nullable(Schema.String),
   fetchedAt: nullable(NonNegativeIntegerSchema),

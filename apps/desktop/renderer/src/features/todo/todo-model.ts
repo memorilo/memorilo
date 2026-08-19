@@ -5,7 +5,7 @@ import { nextTaskOccurrenceDate, taskRepeatBaseDate as repeatBaseDate } from '@m
 import dayjs from 'dayjs'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
-import { loadTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
+import { loadTodoCalendarSnapshot, todoCalendarAutoRefreshIntervalMs } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 
 export type TodoFilter = 'all' | DesktopTodoTaskStatus
@@ -49,6 +49,7 @@ export function todoCalendarQueryOptions() {
   }, DesktopClientError, never>({
     queryFn: () => desktopEffect('notes.listTodoCalendarEvents', loadTodoCalendarSnapshot),
     queryKey: todoQueryKeys.calendars,
+    refetchInterval: todoCalendarAutoRefreshIntervalMs,
   })
 }
 

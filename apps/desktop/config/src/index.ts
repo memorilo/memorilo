@@ -176,29 +176,31 @@ export const desktopConfigurationDefinition = defineConfiguration({
         label: 'Enable learning for new Notes',
         path: 'defaultNoteLearningEnabled',
       },
-      {
-        control: 'toggle',
-        description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
-        label: 'Enable Todo workspace',
-        path: 'todo.enabled',
-      },
-      {
-        control: 'select',
-        description: 'Choose where the completed occurrence and the next task are placed.',
-        label: 'After completing a recurring task',
-        options: [
-          { label: 'Archive in today\'s Journal', value: 'archive-completed-to-today' },
-          { label: 'Next to today\'s Journal', value: 'move-next-to-today' },
-          { label: 'Next to due-date Journal', value: 'move-next-to-due-date' },
-          { label: 'Completion under next', value: 'nest-completed-under-next' },
-          { label: 'Next after completion', value: 'place-next-after-completed' },
-          { label: 'Replace with next', value: 'replace-completed' },
-        ],
-        path: 'todo.recurringTaskCompletionAction',
-      },
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
+      label: 'Enable Todo workspace',
+      path: 'todo.enabled',
+    }, {
+      control: 'select',
+      description: 'Choose where the completed occurrence and the next task are placed.',
+      label: 'After completing a recurring task',
+      options: [
+        { label: 'Archive in today\'s Journal', value: 'archive-completed-to-today' },
+        { label: 'Next to today\'s Journal', value: 'move-next-to-today' },
+        { label: 'Next to due-date Journal', value: 'move-next-to-due-date' },
+        { label: 'Completion under next', value: 'nest-completed-under-next' },
+        { label: 'Next after completion', value: 'place-next-after-completed' },
+        { label: 'Replace with next', value: 'replace-completed' },
+      ],
+      path: 'todo.recurringTaskCompletionAction',
+    }],
+    id: 'todo',
+    label: 'Todo',
   }, {
     fields: [{
       control: 'toggle',

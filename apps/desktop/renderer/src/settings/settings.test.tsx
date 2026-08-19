@@ -26,13 +26,17 @@ describe('settings renderer', () => {
       '简体中文',
     ])
     expect(rendered.getByRole('switch', { name: 'Reduce motion' })).toHaveAttribute('aria-checked', 'false')
+    expect(rendered.getByRole('radio', { name: 'Sunday' })).toBeChecked()
+    fireEvent.click(rendered.getByRole('radio', { name: 'Monday' }))
+    await waitFor(() => expect(store.getSnapshot().weekStart).toBe('monday'))
+
+    fireEvent.click(rendered.getByRole('button', { name: 'Calendar' }))
+    expect(await rendered.findByRole('heading', { name: 'Calendar' })).toBeInTheDocument()
+    expect(rendered.getByRole('switch', { name: 'Enable Todo workspace' })).toHaveAttribute('aria-checked', 'true')
     const recurringTaskCompletion = rendered.getByRole('combobox', { name: 'After completing a recurring task' })
     expect(recurringTaskCompletion).toHaveValue('archive-completed-to-today')
     fireEvent.change(recurringTaskCompletion, { target: { value: 'move-next-to-due-date' } })
     await waitFor(() => expect(store.getSnapshot().todo.recurringTaskCompletionAction).toBe('move-next-to-due-date'))
-    expect(rendered.getByRole('radio', { name: 'Sunday' })).toBeChecked()
-    fireEvent.click(rendered.getByRole('radio', { name: 'Monday' }))
-    await waitFor(() => expect(store.getSnapshot().weekStart).toBe('monday'))
 
     fireEvent.click(rendered.getByRole('button', { name: 'Notes & Editor' }))
     expect(await rendered.findByRole('heading', { name: 'Notes & Editor' })).toBeInTheDocument()

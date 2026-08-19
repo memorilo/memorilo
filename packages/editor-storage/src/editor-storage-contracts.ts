@@ -538,6 +538,7 @@ export interface EditorTodoCalendarStorage {
   listEvents: (input: { from: JournalDate, through: JournalDate }) => Promise<readonly TodoCalendarEvent[]>
   listSubscriptions: () => Promise<readonly TodoCalendarSubscription[]>
   ensureSubscription: (input: EnsureTodoCalendarSubscriptionInput) => Promise<void>
+  markFetched: (id: string, fetchedAt: number) => Promise<void>
   remove: (id: string) => Promise<void>
   saveSnapshot: (input: SaveTodoCalendarSnapshotInput) => Promise<void>
 }

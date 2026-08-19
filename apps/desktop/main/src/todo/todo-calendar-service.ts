@@ -1,4 +1,7 @@
 import type {
+  DesktopTodoCalendarSubscription,
+} from '@memorilo/desktop-api'
+import type {
   EditorStorage,
   JournalDate,
   TodoCalendarEvent,
@@ -11,6 +14,8 @@ export const defaultChinaHolidayCalendar = {
   title: '中国节假日',
   url: 'webcal://p10-calendars.icloud.com/holiday/CN_zh.ics',
 } as const
+
+const automaticRefreshIntervalMs = 6 * 60 * 60 * 1_000
 
 interface IcsProperty {
   name: string
@@ -29,10 +34,10 @@ interface ParsedIcsEvent {
 
 export interface TodoCalendarService {
   listEvents: (input: { from: JournalDate, through: JournalDate }) => Promise<readonly TodoCalendarEvent[]>
-  listSubscriptions: () => Promise<readonly TodoCalendarSubscription[]>
-  refresh: (id: string) => Promise<TodoCalendarSubscription>
+  listSubscriptions: () => Promise<readonly DesktopTodoCalendarSubscription[]>
+  refresh: (id: string) => Promise<DesktopTodoCalendarSubscription>
   remove: (id: string) => Promise<void>
-  subscribe: (input: { title: string, url: string }) => Promise<TodoCalendarSubscription>
+  subscribe: (input: { title: string, url: string }) => Promise<DesktopTodoCalendarSubscription>
 }
 
 function isChinaLocale(language: string): boolean {
@@ -144,13 +149,18 @@ function parseEvents(text: string, range: { from: JournalDate, through: JournalD
       return
     const recurrence = current.recurrence
     const exclusions = new Set(current.exclusions ?? [])
+    const durationDays = current.endDate === null || current.endDate === undefined
+      ? null
+      : Math.max(0, Math.round((dateToUtc(current.endDate).getTime() - dateToUtc(current.startDate).getTime()) / 86_400_000))
     let date = current.startDate
     let occurrence = 0
     const max = Math.min(recurrence?.count ?? 256, 2048)
     while (occurrence < max && date <= range.through) {
       if (date >= range.from && !exclusions.has(date)) {
         events.push({
-          endDate: current.endDate ?? null,
+          endDate: durationDays === null
+            ? null
+            : utcToDate(new Date(dateToUtc(date).getTime() + durationDays * 86_400_000)),
           startDate: date,
           title: current.title,
           uid: `${current.uid}:${date}`,
@@ -213,70 +223,104 @@ function hash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
+function toDesktopSubscription(subscription: TodoCalendarSubscription): DesktopTodoCalendarSubscription {
+  return {
+    ...subscription,
+    builtIn: subscription.id === defaultChinaHolidayCalendar.id,
+  }
+}
+
 export function createTodoCalendarService(
   storage: EditorStorage,
   language: () => string,
 ): TodoCalendarService {
+  let freshnessCheck: Promise<void> | null = null
   const ensureDefault = async (): Promise<void> => {
     if (isChinaLocale(language()))
       await storage.todoCalendars.ensureSubscription(defaultChinaHolidayCalendar)
   }
-  return {
-    async listEvents(input) {
+
+  const refresh = async (id: string): Promise<DesktopTodoCalendarSubscription> => {
+    const subscriptions = await storage.todoCalendars.listSubscriptions()
+    const subscription = subscriptions.find(item => item.id === id)
+    if (!subscription)
+      throw new Error(`Unknown ICS subscription ${id}`)
+    const response = await fetch(normalizeUrl(subscription.url), {
+      headers: {
+        ...(subscription.etag === null ? {} : { 'If-None-Match': subscription.etag }),
+        ...(subscription.lastModified === null ? {} : { 'If-Modified-Since': subscription.lastModified }),
+      },
+    })
+    const now = Date.now()
+    if (response.status === 304) {
+      await storage.todoCalendars.markFetched(id, now)
+      return toDesktopSubscription({ ...subscription, fetchedAt: now })
+    }
+    if (!response.ok)
+      throw new Error(`ICS subscription ${id} returned HTTP ${response.status}`)
+    const rawIcs = await response.text()
+    if (rawIcs.length > 5_000_000)
+      throw new RangeError(`ICS subscription ${id} exceeds the 5 MB limit`)
+    const from = utcToDate(new Date(Date.UTC(new Date().getUTCFullYear() - 1, 0, 1)))
+    const through = utcToDate(new Date(Date.UTC(new Date().getUTCFullYear() + 5, 11, 31)))
+    await storage.todoCalendars.saveSnapshot({
+      etag: response.headers.get('etag'),
+      events: parseEvents(rawIcs, { from, through }),
+      fetchedAt: now,
+      id: subscription.id,
+      lastModified: response.headers.get('last-modified'),
+      rawIcs,
+      title: subscription.title,
+      url: subscription.url,
+      version: hash(rawIcs),
+    })
+    const refreshed = await storage.todoCalendars.listSubscriptions()
+    const result = refreshed.find(item => item.id === id)
+    if (!result)
+      throw new Error(`ICS subscription ${id} disappeared after refresh`)
+    return toDesktopSubscription(result)
+  }
+
+  const ensureFresh = (): Promise<void> => {
+    if (freshnessCheck !== null)
+      return freshnessCheck
+    freshnessCheck = (async () => {
       await ensureDefault()
       const subscriptions = await storage.todoCalendars.listSubscriptions()
-      const pendingDefault = subscriptions.find(subscription => subscription.id === defaultChinaHolidayCalendar.id && subscription.fetchedAt === null)
-      if (pendingDefault)
-        await this.refresh(pendingDefault.id)
+      const staleBefore = Date.now() - automaticRefreshIntervalMs
+      for (const subscription of subscriptions) {
+        if (!subscription.enabled || (subscription.fetchedAt !== null && subscription.fetchedAt > staleBefore))
+          continue
+        try {
+          await refresh(subscription.id)
+        }
+        catch (error) {
+          if (subscription.fetchedAt === null)
+            throw error
+          console.error(`Failed to automatically refresh ICS subscription ${subscription.id}`, error)
+        }
+      }
+    })().finally(() => {
+      freshnessCheck = null
+    })
+    return freshnessCheck
+  }
+
+  return {
+    async listEvents(input) {
+      await ensureFresh()
       return storage.todoCalendars.listEvents(input)
     },
     async listSubscriptions() {
-      await ensureDefault()
-      const subscriptions = await storage.todoCalendars.listSubscriptions()
-      const pendingDefault = subscriptions.find(subscription => subscription.id === defaultChinaHolidayCalendar.id && subscription.fetchedAt === null)
-      if (pendingDefault)
-        await this.refresh(pendingDefault.id)
-      return storage.todoCalendars.listSubscriptions()
+      await ensureFresh()
+      return (await storage.todoCalendars.listSubscriptions()).map(toDesktopSubscription)
     },
-    async refresh(id) {
-      const subscriptions = await storage.todoCalendars.listSubscriptions()
-      const subscription = subscriptions.find(item => item.id === id)
-      if (!subscription)
-        throw new Error(`Unknown ICS subscription ${id}`)
-      const response = await fetch(normalizeUrl(subscription.url), {
-        headers: {
-          ...(subscription.etag === null ? {} : { 'If-None-Match': subscription.etag }),
-          ...(subscription.lastModified === null ? {} : { 'If-Modified-Since': subscription.lastModified }),
-        },
-      })
-      if (response.status === 304)
-        return subscription
-      if (!response.ok)
-        throw new Error(`ICS subscription ${id} returned HTTP ${response.status}`)
-      const rawIcs = await response.text()
-      if (rawIcs.length > 5_000_000)
-        throw new RangeError(`ICS subscription ${id} exceeds the 5 MB limit`)
-      const now = Date.now()
-      const from = utcToDate(new Date(Date.UTC(new Date().getUTCFullYear() - 1, 0, 1)))
-      const through = utcToDate(new Date(Date.UTC(new Date().getUTCFullYear() + 5, 11, 31)))
-      await storage.todoCalendars.saveSnapshot({
-        etag: response.headers.get('etag'),
-        events: parseEvents(rawIcs, { from, through }),
-        fetchedAt: now,
-        id: subscription.id,
-        lastModified: response.headers.get('last-modified'),
-        rawIcs,
-        title: subscription.title,
-        url: subscription.url,
-        version: hash(rawIcs),
-      })
-      const refreshed = await storage.todoCalendars.listSubscriptions()
-      const result = refreshed.find(item => item.id === id)
-      if (!result)
-        throw new Error(`ICS subscription ${id} disappeared after refresh`)
-      return result
+    refresh,
+    async remove(id) {
+      if (id === defaultChinaHolidayCalendar.id)
+        throw new Error('Built-in calendar subscriptions cannot be removed')
+      await storage.todoCalendars.remove(id)
     },
-    remove: id => storage.todoCalendars.remove(id),
     async subscribe(input) {
       const title = input.title.trim()
       if (title.length === 0)
@@ -284,7 +328,7 @@ export function createTodoCalendarService(
       const url = normalizeUrl(input.url)
       const id = randomUUID()
       await storage.todoCalendars.ensureSubscription({ id, title, url })
-      return this.refresh(id)
+      return refresh(id)
     },
   }
 }

@@ -2,11 +2,13 @@ import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, Desktop
 import type { DesktopWeekStart } from '@memorilo/desktop-config'
 import type { Dayjs } from 'dayjs'
 import type { TFunction } from 'i18next'
+import type { CSSProperties } from 'react'
 import { previewTaskRecurrenceDates } from '@memorilo/editor/task'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { todoCalendarColor } from '../../../shared/todo-calendar-color'
 import { taskPlanningDate, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
@@ -127,9 +129,13 @@ function CalendarTaskItem({
 }
 
 function CalendarEventItem({ event }: { event: DesktopTodoCalendarEvent }) {
+  const colorStyle = {
+    '--todo-calendar-color': todoCalendarColor(event.subscriptionId),
+  } as CSSProperties
   return (
     <div
       {...stylex.props(styles.eventPreview)}
+      style={colorStyle}
       title={`${event.title} - ${event.subscriptionTitle}`}
     >
       <span {...stylex.props(styles.eventAccent)} aria-hidden="true" />
@@ -227,11 +233,17 @@ export function TodoCalendarView({
   const eventsByDate = useMemo(() => {
     const groupedEvents = new Map<string, DesktopTodoCalendarEvent[]>()
     for (const event of calendarEvents) {
-      const current = groupedEvents.get(event.startDate)
-      if (current)
-        current.push(event)
-      else
-        groupedEvents.set(event.startDate, [event])
+      let date = dayjs(event.startDate)
+      const through = dayjs(event.endDate ?? event.startDate)
+      while (!date.isAfter(through, 'day')) {
+        const dateKey = date.format('YYYY-MM-DD')
+        const current = groupedEvents.get(dateKey)
+        if (current)
+          current.push(event)
+        else
+          groupedEvents.set(dateKey, [event])
+        date = date.add(1, 'day')
+      }
     }
     return groupedEvents
   }, [calendarEvents])

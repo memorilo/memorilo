@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { usePageTitlebar } from '../../shared/page-titlebar'
+import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 import { todoCalendarQueryOptions, todoTaskQueryOptions } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
@@ -120,6 +121,9 @@ export function TodoPage({
   const calendarSubscriptions = calendarQuery.data?.subscriptions ?? []
   const hasRunningTasks = tasks.some(task => task.status === 'doing' && task.startedAt !== null)
   const [now, setNow] = useState(() => Date.now())
+  useEffect(() => subscribeTodoCalendarSnapshot((next) => {
+    queryClient.setQueryData(todoQueryKeys.calendars, next)
+  }), [queryClient])
   const updateTodoTask = useCallback(async (input: UpdateDesktopTodoTaskInput) => {
     await desktopRequests.updateTodoTask(input)
     await queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
