@@ -151,10 +151,13 @@ function CreateOptimizerDialog({
   }
 
   return (
-    <Dialog.Root open onOpenChange={(open) => {
-      if (!open)
-        close()
-    }}>
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open)
+          close()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay />
         <Dialog.Content aria-label={t('newOptimizerTitle')}>

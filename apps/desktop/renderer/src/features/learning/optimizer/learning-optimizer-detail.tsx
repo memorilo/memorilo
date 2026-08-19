@@ -218,10 +218,13 @@ function LearningOptimizerDetailSession({
 
         {dialog === 'optimize'
           ? (
-              <Dialog.Root open onOpenChange={(open) => {
-                if (!open)
-                  closeDialog()
-              }}>
+              <Dialog.Root
+                open
+                onOpenChange={(open) => {
+                  if (!open)
+                    closeDialog()
+                }}
+              >
                 <Dialog.Portal>
                   <Dialog.Overlay />
                   <Dialog.Content aria-label={t('optimizeTitle', { name: selectedOptimizer.name })}>
@@ -269,10 +272,13 @@ function LearningOptimizerDetailSession({
 
         {dialog === 'reset'
           ? (
-              <Dialog.Root open onOpenChange={(open) => {
-                if (!open)
-                  closeDialog()
-              }}>
+              <Dialog.Root
+                open
+                onOpenChange={(open) => {
+                  if (!open)
+                    closeDialog()
+                }}
+              >
                 <Dialog.Portal>
                   <Dialog.Overlay />
                   <Dialog.Content aria-label={t('restoreTitle')}>
@@ -313,10 +319,13 @@ function LearningOptimizerDetailSession({
 
         {dialog === 'delete'
           ? (
-              <Dialog.Root open onOpenChange={(open) => {
-                if (!open)
-                  closeDialog()
-              }}>
+              <Dialog.Root
+                open
+                onOpenChange={(open) => {
+                  if (!open)
+                    closeDialog()
+                }}
+              >
                 <Dialog.Portal>
                   <Dialog.Overlay />
                   <Dialog.Content aria-label={t('deleteTitle', { name: selectedOptimizer.name })}>

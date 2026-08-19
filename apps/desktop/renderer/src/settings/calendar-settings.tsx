@@ -37,10 +37,13 @@ function AddCalendarDialog({
   const { t } = useTranslation('settings')
 
   return (
-    <Dialog.Root open onOpenChange={(open) => {
-      if (!open)
-        onClose()
-    }}>
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open)
+          onClose()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay />
         <Dialog.Content aria-label={t('calendarAdd')}>
