@@ -45,9 +45,9 @@ function dateFromEvent(event: { id: string, start: Date | null, end: Date | null
     blockId: event.id,
     dueDate: start.format('YYYY-MM-DD'),
     dueTime: event.allDay ? null : start.format('HH:mm'),
-    endAt: event.allDay || end === null ? null : end.format('YYYY-MM-DDTHH:mm:ss'),
+    endAt: event.allDay || end === null ? null : end.format('YYYY-MM-DDTHH:mm'),
     noteId: '',
-    startAt: event.allDay ? null : start.format('YYYY-MM-DDTHH:mm:ss'),
+    startAt: event.allDay ? null : start.format('YYYY-MM-DDTHH:mm'),
     text: undefined,
     topicId: '',
   }
@@ -125,8 +125,8 @@ export function TodoTimeGridView({
       allDay: info.allDay,
       dueDate: start.format('YYYY-MM-DD'),
       dueTime: info.allDay ? null : start.format('HH:mm'),
-      endAt: end?.format('YYYY-MM-DDTHH:mm:ss') ?? null,
-      startAt: info.allDay ? null : start.format('YYYY-MM-DDTHH:mm:ss'),
+      endAt: end?.format('YYYY-MM-DDTHH:mm') ?? null,
+      startAt: info.allDay ? null : start.format('YYYY-MM-DDTHH:mm'),
       text: '',
     })
   }
