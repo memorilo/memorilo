@@ -90,12 +90,13 @@ async function createNoteWithNestedTodo(page: Page, noteTitle: string): Promise<
   await page.keyboard.press('Enter')
   await page.keyboard.insertText('/todo')
   await page.getByRole('option', { name: /^Task list/ }).click()
+  await expect(page.locator('[data-list-kind="task"]')).toHaveCount(1, { timeout: 15_000 })
   await page.keyboard.insertText('Todo detail root')
   await page.keyboard.press('Enter')
   await page.keyboard.press('Tab')
   await page.keyboard.insertText('Todo detail child')
-  await expect(page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail root' })).toHaveCount(1)
-  await expect(page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail child' })).toHaveCount(1)
+  await expect(page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail root' })).toHaveCount(1, { timeout: 15_000 })
+  await expect(page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail child' })).toHaveCount(1, { timeout: 15_000 })
 }
 
 function blockByText(root: Locator, text: string): Locator {
@@ -171,6 +172,53 @@ test.describe('Todo detail sidebar', () => {
       await expect(page.getByRole('textbox', { name: 'Editor content' })).toContainText('Todo detail root edited')
       await expect(page.getByRole('textbox', { name: 'Editor content' })).toContainText('Todo detail child edited')
       await expect(focusedRoot).toHaveAttribute('data-task-status', 'doing')
+    }
+    finally {
+      await closeApplication(context)
+    }
+  })
+
+  test('syncs subtask edits from the detail sidebar to the Todo list and source Note', async () => {
+    const context = await launchApplication()
+    try {
+      const page = await context.application.firstWindow()
+      await createNoteWithNestedTodo(page, 'Todo subtask detail E2E')
+
+      const childInNote = page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail child' }).locator('..').locator('..')
+      const childBlockId = await childInNote.getAttribute('data-block-id')
+      if (!childBlockId)
+        throw new Error('Todo child is missing a block id')
+
+      await page.getByRole('link', { name: 'Todo', exact: true }).click()
+      await expect.poll(() => page.evaluate(() => globalThis.location.hash)).toMatch(/^#\/todo(?:\?|$)/)
+      await page.getByRole('button', { name: /Show details for Todo detail child/ }).click()
+
+      const sidebar = page.getByRole('complementary', { name: 'Task details' })
+      await expect(sidebar).toBeVisible()
+      const detailEditor = sidebar.locator('[data-todo-detail-editor]')
+      await expect(detailEditor.locator('[data-outline-focus-root]')).toHaveAttribute('data-block-id', childBlockId)
+      await expect(blockByText(detailEditor, 'Todo detail child')).toBeVisible()
+      await expect(blockByText(detailEditor, 'Todo detail root')).toHaveAttribute('data-outline-focus-ancestor', '')
+
+      const childParagraph = blockByText(detailEditor, 'Todo detail child').locator(':scope > .list-content > p')
+      await childParagraph.selectText()
+      await page.keyboard.insertText('Todo detail child edited from sidebar')
+      await expect(detailEditor).toContainText('Todo detail child edited from sidebar')
+
+      await sidebar.getByRole('button', { name: 'Close task details' }).click()
+      await expect(page.getByRole('button', { name: /Show details for Todo detail child edited from sidebar/ })).toBeVisible()
+
+      await page.getByRole('button', { name: /Show details for Todo detail child edited from sidebar/ }).click()
+      const reopenedSidebar = page.getByRole('complementary', { name: 'Task details' })
+      await reopenedSidebar.getByRole('button', { name: 'Change status from Todo to In Progress' }).click()
+      await expect(reopenedSidebar.getByRole('button', { name: 'Change status from In Progress to Done' })).toBeVisible()
+
+      await reopenedSidebar.getByRole('link', { name: 'Todo subtask detail E2E' }).click()
+      await expect.poll(() => page.evaluate(() => globalThis.location.hash)).toMatch(/^#\/note\/[^/]+\/[^/?]+\?focus=/)
+      const focusedChild = page.locator(`[data-block-id="${childBlockId}"]`)
+      await expect(focusedChild).toHaveAttribute('data-task-status', 'doing')
+      await expect(focusedChild).toContainText('Todo detail child edited from sidebar')
+      await expect(page.getByRole('textbox', { name: 'Editor content' })).toContainText('Todo detail root')
     }
     finally {
       await closeApplication(context)
