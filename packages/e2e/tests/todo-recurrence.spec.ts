@@ -49,9 +49,13 @@ function configuration(language: Language): Record<string, unknown> {
     reduceMotion: true,
     tiffConversionFormat: 'webp',
     todo: {
+      autoCompleteParentTasks: true,
+      blankTaskDurationMinutes: 0,
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today',
+      timelineWorkdayEndHour: 21,
+      timelineWorkdayStartHour: 7,
     },
     weekStart: 'sunday',
   }

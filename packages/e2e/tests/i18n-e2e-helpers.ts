@@ -72,9 +72,13 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
     reduceMotion: false,
     tiffConversionFormat: 'webp',
     todo: {
+      autoCompleteParentTasks: true,
+      blankTaskDurationMinutes: 0,
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today',
+      timelineWorkdayEndHour: 21,
+      timelineWorkdayStartHour: 7,
     },
     weekStart: 'sunday',
   }

@@ -44,9 +44,13 @@ function configuration(): Record<string, unknown> {
     reduceMotion: true,
     tiffConversionFormat: 'webp',
     todo: {
+      autoCompleteParentTasks: true,
+      blankTaskDurationMinutes: 0,
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today',
+      timelineWorkdayEndHour: 21,
+      timelineWorkdayStartHour: 7,
     },
     weekStart: 'sunday',
   }
@@ -86,13 +90,18 @@ async function createNoteWithNestedTodo(page: Page, noteTitle: string): Promise<
   const editor = page.getByRole('textbox', { name: 'Editor content' })
   await expect(editor.locator('h1').first()).toHaveText(noteTitle)
   await editor.locator('h1').first().click()
-  await page.keyboard.press('End')
+  await page.keyboard.press('Meta+ArrowDown')
   await page.keyboard.press('Enter')
   await page.keyboard.insertText('/todo')
   await page.getByRole('option', { name: /^Task list/ }).click()
   await expect(page.locator('[data-list-kind="task"]')).toHaveCount(1, { timeout: 15_000 })
+  const firstTaskParagraph = page.locator('[data-list-kind="task"] > .list-content > p').first()
+  await expect(firstTaskParagraph).toBeVisible({ timeout: 15_000 })
+  await firstTaskParagraph.click()
   await page.keyboard.insertText('Todo detail root')
+  await expect(page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail root' })).toHaveCount(1, { timeout: 15_000 })
   await page.keyboard.press('Enter')
+  await expect(page.locator('[data-list-kind="task"]')).toHaveCount(2, { timeout: 15_000 })
   await page.keyboard.press('Tab')
   await page.keyboard.insertText('Todo detail child')
   await expect(page.locator('[data-list-kind="task"] > .list-content > p').filter({ hasText: 'Todo detail root' })).toHaveCount(1, { timeout: 15_000 })
@@ -151,7 +160,8 @@ test.describe('Todo detail sidebar', () => {
       const schedule = page.getByRole('dialog', { name: 'Schedule' })
       await expect(schedule).toBeVisible()
       await schedule.getByRole('button', { name: 'Tomorrow', exact: true }).click()
-      await schedule.getByRole('button', { name: /^Time/ }).click()
+      await expect(schedule.getByRole('button', { name: /^Time/ })).toBeVisible()
+      await schedule.getByRole('button', { name: /^Time/ }).click({ force: true })
       const timePicker = page.getByRole('dialog', { name: 'Time' })
       await timePicker.getByLabel('Time').fill('13:30')
       await schedule.getByRole('button', { name: 'Done', exact: true }).click({ force: true })
