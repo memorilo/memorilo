@@ -370,7 +370,9 @@ export function createNoteApplicationCommands({
     createNote: (input?: CreateNoteInput) => serialize(async () => {
       const note = createEditorNote({
         id: randomUUID(),
-        ...(input?.initialHeading === undefined ? {} : { initialTopicHeading: input.initialHeading }),
+        ...(input?.initialTopic === undefined
+          ? input?.initialHeading === undefined ? {} : { initialTopicHeading: input.initialHeading }
+          : { initialTopic: input.initialTopic as unknown as Parameters<typeof createEditorNote>[0]['initialTopic'] }),
         learningEnabled: defaultNoteLearningEnabled(),
         ...(input?.title === undefined ? {} : { title: input.title }),
       })

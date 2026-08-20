@@ -94,6 +94,20 @@
   "entryNameRequired": "Enter a name before creating this item.",
   "closeEntryDialog": "Close",
   "create": "Create",
+  "importMarkdown": "Import Markdown",
+  "markdownImport": {
+    "title": "Import Markdown",
+    "close": "Close Markdown import",
+    "noteTitle": "Note title",
+    "topicTitle": "Topic title",
+    "flavor": "Markdown flavor",
+    "mapTasks": "Map task lists to Todos",
+    "warnings": "{{count}} import warning(s)",
+    "lineWarning": "Line {{line}}: {{message}}",
+    "titleRequired": "Enter both a Note and Topic title.",
+    "importing": "Importing…",
+    "import": "Import"
+  },
   "imageOcclusion": {
     "defaultTitle": "Image Occlusion",
     "readerRegionSource": "Reader region snapshot",

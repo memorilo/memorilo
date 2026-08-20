@@ -2,6 +2,7 @@ import type { Schema as EffectSchema } from 'effect'
 import type {
   CaptureDesktopReaderRegionInput,
   CreateDesktopBookContextResult,
+  CreateDesktopTopicInput,
   DesktopApi,
   DesktopAssetCheckResult,
   DesktopBookTopicContextSummary,
@@ -20,6 +21,7 @@ import {
   BookFileBindingSchema,
   BookReadingStateSchema,
   EmptyArgumentsSchema,
+  jsonValue,
   nullable,
   NullResultSchema,
   optionalArgument,
@@ -182,6 +184,12 @@ const OpenBookContextResultSchema: EffectSchema.Codec<OpenDesktopBookContextResu
   sessionId: Schema.NonEmptyString,
 })
 
+const CreateDesktopTopicInputSchema: EffectSchema.Codec<CreateDesktopTopicInput, unknown> = Schema.Struct({
+  initialContent: jsonValue<CreateDesktopTopicInput['initialContent']>(),
+  mode: Schema.Literals([0, 1]),
+  title: Schema.String,
+})
+
 const CaptureReaderRegionInputSchema: EffectSchema.Codec<CaptureDesktopReaderRegionInput> = Schema.Struct({
   height: PositiveIntegerSchema,
   width: PositiveIntegerSchema,
@@ -291,6 +299,7 @@ export const desktopOperationSchemas = {
   notes: {
     createNote: operation(optionalArgument(Schema.Struct({
       initialHeading: Schema.optionalKey(Schema.String),
+      initialTopic: Schema.optionalKey(CreateDesktopTopicInputSchema),
       title: Schema.optionalKey(Schema.String),
     })), DesktopNoteSchema),
     getNote: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DesktopNoteSchema),

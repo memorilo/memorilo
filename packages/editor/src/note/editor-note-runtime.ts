@@ -103,8 +103,13 @@ export class EditorNoteRuntime implements EditorNoteDocument {
     const doc = new LoroDoc()
     doc.configTextStyle({
       bold: { expand: 'after' },
+      code: { expand: 'none' },
       cloze: { expand: 'none' },
       inlineHighlight: { expand: 'both' },
+      italic: { expand: 'after' },
+      link: { expand: 'none' },
+      strike: { expand: 'after' },
+      underline: { expand: 'after' },
     })
 
     const hasSnapshot = options.snapshot !== null && options.snapshot !== undefined
