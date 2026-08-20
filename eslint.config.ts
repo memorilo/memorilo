@@ -36,4 +36,20 @@ export default antfu(
       }],
     },
   },
+  {
+    files: [
+      'packages/ui/src/components/context-menu.tsx',
+      'packages/ui/src/components/dialog.tsx',
+      'packages/ui/src/components/dropdown-menu.tsx',
+      'packages/ui/src/components/editable-title.tsx',
+      'packages/ui/src/components/segmented-control.tsx',
+      'packages/ui/src/components/sidebar.tsx',
+      'packages/ui/src/components/tabs.tsx',
+      'packages/ui/src/components/toolbar.tsx',
+    ],
+    rules: {
+      // These files intentionally expose React components through compound namespaces.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 )

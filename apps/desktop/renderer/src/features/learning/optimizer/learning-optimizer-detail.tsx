@@ -2,7 +2,7 @@ import type {
   LearningOptimizerWorkflow,
   OptimizerDraft,
 } from './learning-optimizer-workflow'
-import { Button, Switch } from '@memorilo/ui'
+import { Button, Dialog, Switch } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -20,7 +20,6 @@ import {
   optimizerErrorMessage,
   useLearningOptimizerWorkflow,
 } from './learning-optimizer-lifecycle'
-import { LearningOptimizerDialog } from './learning-optimizer-runtime'
 import { learningOptimizerSharedStyles as sharedStyles } from './learning-optimizer-shared.stylex'
 
 type DialogKind = 'delete' | 'optimize' | 'reset' | null
@@ -219,106 +218,141 @@ function LearningOptimizerDetailSession({
 
         {dialog === 'optimize'
           ? (
-              <LearningOptimizerDialog label={t('optimizeTitle', { name: selectedOptimizer.name })} onClose={closeDialog}>
-                <header {...stylex.props(sharedStyles.dialogHeader)}>
-                  <h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('optimizeTitle', { name: selectedOptimizer.isGlobal ? t('globalOptimizer') : selectedOptimizer.name })}</h2>
-                  <Button aria-label={t('close')} disabled={busy} variant="toolbar" xstyle={sharedStyles.dialogClose} onClick={closeDialog}><X aria-hidden="true" size={15} /></Button>
-                </header>
-                <div {...stylex.props(sharedStyles.dialogBody)}>
-                  <p {...stylex.props(styles.dialogDescription)}>{t('optimizeDescription')}</p>
-                  <p {...stylex.props(styles.dialogNote)}>{selectedRecord.noteCount === 0 ? t('optimizeNoNotes') : t('optimizeHistory', { count: selectedRecord.noteCount })}</p>
-                  <label {...stylex.props(styles.dialogSwitchRow)}>
-                    <span>
-                      <strong>{t('rescheduleNow')}</strong>
-                      <small>{t('rescheduleLaterDescription')}</small>
-                    </span>
-                    <Switch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy} variant="compact" onCheckedChange={setRescheduleNow} />
-                  </label>
-                </div>
-                <footer {...stylex.props(sharedStyles.dialogActions)}>
-                  <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
-                  <Button
-                    disabled={busy}
-                    variant="plain"
-                    xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}
-                    onClick={() => void runOperation('optimize', t('optimize'), async () => {
-                      const result = await workflow.optimize(selectedOptimizer.id, rescheduleNow)
-                      if (result.status === 'busy')
-                        return result
-                      clearDraft(selectedOptimizer.id)
-                      await refresh()
-                      return { message: t('optimized'), status: 'accepted' }
-                    })}
-                  >
-                    {busy ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : <Sparkles aria-hidden="true" size={14} />}
-                    <span>{busy ? t('optimizing') : t('optimize')}</span>
-                  </Button>
-                </footer>
-              </LearningOptimizerDialog>
+              <Dialog.Root
+                open
+                onOpenChange={(open) => {
+                  if (!open)
+                    closeDialog()
+                }}
+              >
+                <Dialog.Portal>
+                  <Dialog.Overlay />
+                  <Dialog.Content aria-label={t('optimizeTitle', { name: selectedOptimizer.name })}>
+                    <Dialog.Header>
+                      <Dialog.Title>{t('optimizeTitle', { name: selectedOptimizer.isGlobal ? t('globalOptimizer') : selectedOptimizer.name })}</Dialog.Title>
+                      <Dialog.Close asChild>
+                        <Button aria-label={t('close')} disabled={busy} variant="toolbar"><X aria-hidden="true" size={15} /></Button>
+                      </Dialog.Close>
+                    </Dialog.Header>
+                    <Dialog.Body>
+                      <p {...stylex.props(styles.dialogDescription)}>{t('optimizeDescription')}</p>
+                      <p {...stylex.props(styles.dialogNote)}>{selectedRecord.noteCount === 0 ? t('optimizeNoNotes') : t('optimizeHistory', { count: selectedRecord.noteCount })}</p>
+                      <label {...stylex.props(styles.dialogSwitchRow)}>
+                        <span>
+                          <strong>{t('rescheduleNow')}</strong>
+                          <small>{t('rescheduleLaterDescription')}</small>
+                        </span>
+                        <Switch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy} variant="compact" onCheckedChange={setRescheduleNow} />
+                      </label>
+                    </Dialog.Body>
+                    <Dialog.Footer>
+                      <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
+                      <Button
+                        disabled={busy}
+                        variant="plain"
+                        xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}
+                        onClick={() => void runOperation('optimize', t('optimize'), async () => {
+                          const result = await workflow.optimize(selectedOptimizer.id, rescheduleNow)
+                          if (result.status === 'busy')
+                            return result
+                          clearDraft(selectedOptimizer.id)
+                          await refresh()
+                          return { message: t('optimized'), status: 'accepted' }
+                        })}
+                      >
+                        {busy ? <LoaderCircle {...stylex.props(sharedStyles.spinner)} aria-hidden="true" size={14} /> : <Sparkles aria-hidden="true" size={14} />}
+                        <span>{busy ? t('optimizing') : t('optimize')}</span>
+                      </Button>
+                    </Dialog.Footer>
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
             )
           : null}
 
         {dialog === 'reset'
           ? (
-              <LearningOptimizerDialog label={t('restoreTitle')} onClose={closeDialog}>
-                <header {...stylex.props(sharedStyles.dialogHeader)}><h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('restoreTitle')}</h2></header>
-                <div {...stylex.props(sharedStyles.dialogBody)}>
-                  <p {...stylex.props(styles.dialogDescription)}>{t('restoreDescription')}</p>
-                  <label {...stylex.props(styles.dialogSwitchRow)}>
-                    <span>
-                      <strong>{t('rescheduleNow')}</strong>
-                      <small>{t('rescheduleLaterDescription')}</small>
-                    </span>
-                    <Switch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy} variant="compact" onCheckedChange={setRescheduleNow} />
-                  </label>
-                </div>
-                <footer {...stylex.props(sharedStyles.dialogActions)}>
-                  <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
-                  <Button
-                    disabled={busy}
-                    variant="plain"
-                    xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}
-                    onClick={() => void runOperation('reset', t('restoreDefaults'), async () => {
-                      const result = await workflow.reset(selectedOptimizer.id, rescheduleNow)
-                      if (result.status === 'busy')
-                        return result
-                      clearDraft(selectedOptimizer.id)
-                      await refresh()
-                      return { message: t('restored'), status: 'accepted' }
-                    })}
-                  >
-                    {t('confirm')}
-                  </Button>
-                </footer>
-              </LearningOptimizerDialog>
+              <Dialog.Root
+                open
+                onOpenChange={(open) => {
+                  if (!open)
+                    closeDialog()
+                }}
+              >
+                <Dialog.Portal>
+                  <Dialog.Overlay />
+                  <Dialog.Content aria-label={t('restoreTitle')}>
+                    <Dialog.Header><Dialog.Title>{t('restoreTitle')}</Dialog.Title></Dialog.Header>
+                    <Dialog.Body>
+                      <p {...stylex.props(styles.dialogDescription)}>{t('restoreDescription')}</p>
+                      <label {...stylex.props(styles.dialogSwitchRow)}>
+                        <span>
+                          <strong>{t('rescheduleNow')}</strong>
+                          <small>{t('rescheduleLaterDescription')}</small>
+                        </span>
+                        <Switch aria-label={t('rescheduleNow')} checked={rescheduleNow} disabled={busy} variant="compact" onCheckedChange={setRescheduleNow} />
+                      </label>
+                    </Dialog.Body>
+                    <Dialog.Footer>
+                      <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
+                      <Button
+                        disabled={busy}
+                        variant="plain"
+                        xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonStrong]}
+                        onClick={() => void runOperation('reset', t('restoreDefaults'), async () => {
+                          const result = await workflow.reset(selectedOptimizer.id, rescheduleNow)
+                          if (result.status === 'busy')
+                            return result
+                          clearDraft(selectedOptimizer.id)
+                          await refresh()
+                          return { message: t('restored'), status: 'accepted' }
+                        })}
+                      >
+                        {t('confirm')}
+                      </Button>
+                    </Dialog.Footer>
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
             )
           : null}
 
         {dialog === 'delete'
           ? (
-              <LearningOptimizerDialog label={t('deleteTitle', { name: selectedOptimizer.name })} onClose={closeDialog}>
-                <header {...stylex.props(sharedStyles.dialogHeader)}><h2 {...stylex.props(sharedStyles.dialogTitle)}>{t('deleteTitle', { name: selectedOptimizer.name })}</h2></header>
-                <div {...stylex.props(sharedStyles.dialogBody)}><p {...stylex.props(styles.dialogDescription)}>{t('deleteDescription', { count: selectedRecord.noteCount })}</p></div>
-                <footer {...stylex.props(sharedStyles.dialogActions)}>
-                  <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
-                  <Button
-                    disabled={busy}
-                    variant="plain"
-                    xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonDanger]}
-                    onClick={() => void runOperation('delete', t('deleteOptimizer'), async () => {
-                      const result = await workflow.archive(selectedOptimizer.id)
-                      if (result.status === 'busy')
-                        return result
-                      clearDraft(selectedOptimizer.id)
-                      await refresh()
-                      await onDeleted()
-                      return { message: t('deleted'), status: 'accepted' }
-                    })}
-                  >
-                    {t('deleteOptimizer')}
-                  </Button>
-                </footer>
-              </LearningOptimizerDialog>
+              <Dialog.Root
+                open
+                onOpenChange={(open) => {
+                  if (!open)
+                    closeDialog()
+                }}
+              >
+                <Dialog.Portal>
+                  <Dialog.Overlay />
+                  <Dialog.Content aria-label={t('deleteTitle', { name: selectedOptimizer.name })}>
+                    <Dialog.Header><Dialog.Title>{t('deleteTitle', { name: selectedOptimizer.name })}</Dialog.Title></Dialog.Header>
+                    <Dialog.Body><p {...stylex.props(styles.dialogDescription)}>{t('deleteDescription', { count: selectedRecord.noteCount })}</p></Dialog.Body>
+                    <Dialog.Footer>
+                      <Button disabled={busy} variant="plain" xstyle={sharedStyles.actionButton} onClick={closeDialog}>{t('cancel')}</Button>
+                      <Button
+                        disabled={busy}
+                        variant="plain"
+                        xstyle={[sharedStyles.actionButton, sharedStyles.actionButtonDanger]}
+                        onClick={() => void runOperation('delete', t('deleteOptimizer'), async () => {
+                          const result = await workflow.archive(selectedOptimizer.id)
+                          if (result.status === 'busy')
+                            return result
+                          clearDraft(selectedOptimizer.id)
+                          await refresh()
+                          await onDeleted()
+                          return { message: t('deleted'), status: 'accepted' }
+                        })}
+                      >
+                        {t('deleteOptimizer')}
+                      </Button>
+                    </Dialog.Footer>
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
             )
           : null}
       </div>

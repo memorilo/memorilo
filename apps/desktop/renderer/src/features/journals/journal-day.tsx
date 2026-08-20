@@ -16,12 +16,14 @@ import {
   desktopEditorAdapters,
   useEditorNoteSession,
 } from '../notes/editor/note-editor-session'
+import { useFlushNotePersistence } from '../notes/persistence/note-persistence-hooks'
 import { formatJournalHeading } from './journal-model'
 import { journalsPageStyles as journalRouteStyles } from './journals-page.stylex'
 
 interface JournalDayProps {
   cache: EditorNoteSessionCache
   first: boolean
+  focusBlockId?: string
   onJournalSaved: () => void
   summary: DesktopJournalSummary
   today: JournalDate
@@ -43,6 +45,7 @@ function resolveStoredJournalTopic(
 export function JournalDay({
   cache,
   first,
+  focusBlockId,
   onJournalSaved,
   summary,
   today,
@@ -65,9 +68,15 @@ export function JournalDay({
     resolveTopic: resolveStoredJournalTopic,
     topicKey: summary.topicId,
   })
+  const flushNotePersistence = useFlushNotePersistence()
   const adapters = useMemo(
-    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
-    [configuration.networkImagePasteBehavior],
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      applyExternal: session.applyExternal,
+      flush: flushNotePersistence,
+      noteId: summary.noteId,
+      topicId: summary.topicId,
+    }),
+    [configuration.networkImagePasteBehavior, flushNotePersistence, session.applyExternal, summary.noteId, summary.topicId],
   )
 
   let editorContent
@@ -110,8 +119,10 @@ export function JournalDay({
           : null}
         <JournalEditor
           adapters={adapters}
+          focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
           note={session.opened.note}
           outline={{ outdentBehavior: configuration.outdentBehavior }}
+          taskDate={summary.journalDate}
         />
       </>
     )

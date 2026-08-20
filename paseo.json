@@ -1,5 +1,5 @@
 {
   "worktree": {
-    "setup": "nix develop -c pnpm install"
+    "setup": "nix develop -c pnpm install && nix develop -c pnpm --filter @memorilo/desktop exec electron --version"
   }
 }

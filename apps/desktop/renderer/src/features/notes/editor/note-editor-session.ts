@@ -1,4 +1,4 @@
-import type { DesktopNote } from '@memorilo/desktop-api'
+import type { DesktopNote, DesktopNoteExternalUpdate } from '@memorilo/desktop-api'
 import type { EditorNote } from '@memorilo/editor'
 import type { EditorNoteSessionCache } from '../note-runtime'
 import type {
@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
+import { loadTodoCalendarSnapshot } from '../../../shared/todo-calendar-cache'
 import { useNotePersistence } from '../persistence/note-persistence-hooks'
 import { EditorNoteSessionRuntime, toEditorNoteError } from './note-editor-session-runtime'
 
@@ -24,6 +25,7 @@ export type {
 } from './note-editor-session-runtime'
 
 export interface EditorNoteSession<TStored extends DesktopNote = DesktopNote> {
+  applyExternal: (external: DesktopNoteExternalUpdate) => boolean
   loadError: string | null
   opened: EditorNoteSessionOpened<TStored> | null
   saveError: string | null
@@ -61,11 +63,40 @@ function errorMessage(error: unknown | null): string | null {
   return error === null ? null : toEditorNoteError(error).message
 }
 
-export function desktopEditorAdapters(networkImagePasteBehavior: 'download' | 'url') {
+interface DesktopEditorTaskContext {
+  applyExternal: (external: DesktopNoteExternalUpdate) => boolean
+  flush: () => Promise<void>
+  noteId: string
+  topicId: string
+}
+
+export function desktopEditorAdapters(
+  networkImagePasteBehavior: 'download' | 'url',
+  taskContext?: DesktopEditorTaskContext,
+) {
   return {
     ...demoEditorAdapters,
     importNetworkImage: async (source: string) => (await desktopRequests.importNetworkImage({ source })).src,
     networkImagePasteBehavior,
+    ...(taskContext === undefined
+      ? {}
+      : {
+          taskActions: {
+            completeRecurring: async ({ blockId }: { blockId: string }) => {
+              await taskContext.flush()
+              const external = await desktopRequests.updateTodoTask({
+                blockId,
+                noteId: taskContext.noteId,
+                status: 'done',
+                topicId: taskContext.topicId,
+              })
+              taskContext.applyExternal(external)
+            },
+          },
+        }),
+    taskCalendar: {
+      load: loadTodoCalendarSnapshot,
+    },
     uploadImage: async ({ file, onProgress }: Parameters<typeof demoEditorAdapters.uploadImage>[0]) => {
       const total = Math.max(file.size, 1)
       onProgress({ loaded: 0, total })
@@ -252,8 +283,13 @@ export function useEditorNoteSession<TStored extends DesktopNote>({
     expectedNote: EditorNote,
     patch: EditorStoredNotePatch<TStored>,
   ): boolean => runtimeRef.current?.updateStored(expectedNote, patch) ?? false, [])
+  const applyExternal = useCallback(
+    (external: DesktopNoteExternalUpdate): boolean => runtimeRef.current?.applyExternal(external) ?? false,
+    [],
+  )
 
   return {
+    applyExternal,
     loadError,
     opened,
     saveError: errorMessage(persistenceError),

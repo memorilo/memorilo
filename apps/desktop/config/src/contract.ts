@@ -9,6 +9,13 @@ export type DesktopReaderPageMode = 'continuous' | 'single-page'
 export type DesktopReaderAnnotationCopyFormat = 'text' | 'text-book' | 'text-book-location'
 export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
 export type DesktopWeekStart = 'monday' | 'sunday'
+export type DesktopRecurringTaskCompletionAction
+  = | 'archive-completed-to-today'
+    | 'move-next-to-today'
+    | 'move-next-to-due-date'
+    | 'nest-completed-under-next'
+    | 'place-next-after-completed'
+    | 'replace-completed'
 
 export interface DesktopAnkiConfiguration {
   apiKey: string
@@ -50,6 +57,16 @@ export interface DesktopMcpConfiguration {
   port: number
 }
 
+export interface DesktopTodoConfiguration {
+  autoCompleteParentTasks: boolean
+  blankTaskDurationMinutes: number
+  enabled: boolean
+  keepDetailOpenWhenTaskLeavesView: boolean
+  recurringTaskCompletionAction: DesktopRecurringTaskCompletionAction
+  timelineWorkdayEndHour: number
+  timelineWorkdayStartHour: number
+}
+
 export interface DesktopConfiguration {
   anki: DesktopAnkiConfiguration
   backup: DesktopBackupConfiguration
@@ -67,5 +84,6 @@ export interface DesktopConfiguration {
   readerPageMode: DesktopReaderPageMode
   reduceMotion: boolean
   tiffConversionFormat: DesktopTiffConversionFormat
+  todo: DesktopTodoConfiguration
   weekStart: DesktopWeekStart
 }

@@ -1,0 +1,127 @@
+import * as stylex from '@stylexjs/stylex'
+
+const colors = {
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
+} as const
+
+export const todoCalendarEventStyles = stylex.create({
+  strip: {
+    display: 'flex',
+    minWidth: 0,
+    flexDirection: 'column',
+    gap: 7,
+    padding: '0 0 2px',
+  },
+  stripHeader: {
+    display: 'flex',
+    minHeight: 22,
+    alignItems: 'baseline',
+    gap: 8,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: 650,
+  },
+  stripList: {
+    display: 'flex',
+    minWidth: 0,
+    gap: 6,
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    paddingBottom: 2,
+    scrollbarWidth: 'thin',
+  },
+  item: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 7,
+    overflow: 'hidden',
+    borderRadius: 5,
+    backgroundColor: 'color-mix(in srgb, var(--todo-calendar-color) 10%, transparent)',
+    color: colors.text,
+  },
+  stripItem: {
+    width: 250,
+    minHeight: 42,
+    flex: '0 0 250px',
+    padding: '7px 9px',
+  },
+  timelineItem: {
+    minHeight: 38,
+    padding: '6px 8px',
+  },
+  calendarItem: {
+    height: 20,
+    padding: '0 5px',
+    borderRadius: 4,
+    fontSize: 10,
+    fontWeight: 550,
+    lineHeight: '20px',
+  },
+  accent: {
+    width: 3,
+    height: 18,
+    flex: '0 0 auto',
+    borderRadius: 2,
+    backgroundColor: 'var(--todo-calendar-color)',
+  },
+  calendarAccent: {
+    height: 12,
+  },
+  content: {
+    display: 'flex',
+    minWidth: 0,
+    flex: 1,
+    flexDirection: 'column',
+    gap: 2,
+  },
+  calendarContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  title: {
+    minWidth: 0,
+    overflow: 'hidden',
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: '15px',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  calendarTitle: {
+    flex: 1,
+    fontSize: 10,
+    lineHeight: '20px',
+  },
+  source: {
+    minWidth: 0,
+    overflow: 'hidden',
+    color: colors.textQuiet,
+    fontSize: 9,
+    fontWeight: 500,
+    lineHeight: '13px',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  calendarSource: {
+    display: {
+      'default': 'block',
+      '@media (max-width: 1050px)': 'none',
+    },
+    maxWidth: '42%',
+    flex: '0 1 auto',
+    lineHeight: '20px',
+  },
+  date: {
+    flex: '0 0 auto',
+    color: colors.textMuted,
+    fontSize: 10,
+    fontVariantNumeric: 'tabular-nums',
+    fontWeight: 550,
+    lineHeight: '14px',
+  },
+})

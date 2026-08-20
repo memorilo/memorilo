@@ -117,7 +117,7 @@ export function createEditorExtension(
     defineCodeBlockView(),
     defineImageView(imageOcclusion),
     defineTagView(tagRuntime),
-    defineTaskListView(),
+    defineTaskListView(adapters.taskActions),
     defineImageUploadHandler({
       uploader,
       onError: ({ error }) => {

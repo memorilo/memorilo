@@ -1,0 +1,215 @@
+{
+  "title": "Todo",
+  "listView": "List",
+  "boardView": "Board",
+  "timelineView": "Timeline",
+  "agendaView": "Schedule",
+  "calendarView": "Calendar",
+  "calendarEvents": "Calendar events",
+  "quadrantView": "Quadrants",
+  "viewLabel": "Todo views",
+  "switchToBoard": "Switch to board view",
+  "switchToList": "Switch to list view",
+  "switchToTimeline": "Switch to timeline view",
+  "switchToAgenda": "Switch to schedule view",
+  "dayView": "Day",
+  "multiDayView": "Multi-day",
+  "weekView": "Week",
+  "multiWeekView": "Multi-week",
+  "timelineRange": "Timeline range",
+  "previousPeriod": "Previous period",
+  "nextPeriod": "Next period",
+  "allDay": "All day",
+  "switchToCalendar": "Switch to calendar view",
+  "switchToQuadrant": "Switch to quadrant view",
+  "filterLabel": "Task status",
+  "filterAll": "All",
+  "statusTodo": "Todo",
+  "statusDoing": "In Progress",
+  "statusDone": "Done",
+  "sidebarLabel": "Todo navigation",
+  "sidebarSmartViews": "Views",
+  "sidebarNotes": "Notes",
+  "sidebarStatus": "Status",
+  "sidebarAll": "All",
+  "sidebarToday": "Today",
+  "sidebarTomorrow": "Tomorrow",
+  "sidebarOverdue": "Overdue",
+  "sidebarNext7": "Next 7 Days",
+  "sidebarUndated": "No Date",
+  "sidebarNoNotes": "No Notes with tasks",
+  "showListSidebar": "Show Todo sidebar",
+  "hideListSidebar": "Hide Todo sidebar",
+  "taskCount_one": "{{count}} task",
+  "taskCount_other": "{{count}} tasks",
+  "loading": "Loading tasks",
+  "loadingMore": "Loading more tasks…",
+  "couldNotLoad": "Couldn’t load tasks",
+  "noTasks": "No tasks in this view",
+  "noTasksInColumn": "No tasks",
+  "tryAgain": "Try Again",
+  "openTask": "Open {{task}} in {{note}}",
+  "selectTask": "Show details for {{task}} in {{note}}",
+  "taskDetail": "Task details",
+  "closeTaskDetail": "Close task details",
+  "changeTaskStatus": "Change status from {{current}} to {{next}}",
+  "openSourceNote": "Open {{note}} and focus this task",
+  "openingTaskDetail": "Opening task details…",
+  "couldNotOpenTaskDetail": "Couldn’t open task details: {{message}}",
+  "couldNotSaveTaskDetail": "Couldn’t save task details: {{message}}",
+  "couldNotUpdateTask": "Couldn’t update task: {{message}}",
+  "source": "{{note}} · {{topic}}",
+  "elapsed": "{{duration}} elapsed",
+  "dueDate": "Due {{date}}",
+  "overdue": "Overdue · {{date}}",
+  "timelineSubtitle": "Plan your day by time",
+  "calendarSubtitle": "Tasks grouped by day",
+  "quadrantSubtitle": "Focus by importance and urgency",
+  "quadrantRule": "Important: favorite note · Urgent: today or overdue",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "today": "Today",
+  "unscheduled": "Unscheduled",
+  "noTasksInPeriod": "No tasks in this period",
+  "selectedDay": "Selected day",
+  "noTasksOnDay": "No tasks on this day",
+  "calendarDay_one": "{{date}}, {{count}} task",
+  "calendarDay_other": "{{date}}, {{count}} tasks",
+  "moreTasks": "+{{count}} more",
+  "quadrantImportantUrgent": "Important and urgent",
+  "quadrantImportantNotUrgent": "Important, not urgent",
+  "quadrantNotImportantUrgent": "Not important, urgent",
+  "quadrantNotImportantNotUrgent": "Not important, not urgent",
+  "noTasksInQuadrant": "No tasks"
+  ,"expandSubtasks": "Expand subtasks"
+  ,"collapseSubtasks": "Collapse subtasks"
+  ,"taskActions": "Task actions"
+  ,"scheduleSettings": "Schedule"
+  ,"scheduleMode": "Schedule mode"
+  ,"scheduleDate": "Date"
+  ,"scheduleSpan": "Time span"
+  ,"spanStart": "Starts"
+  ,"spanEnd": "Ends"
+  ,"quickDateToday": "Today"
+  ,"quickDateTomorrow": "Tomorrow"
+  ,"quickDateNextWeek": "Next week"
+  ,"quickDateTonight": "Tonight"
+  ,"quickDateNoDate": "No date"
+  ,"time": "Time"
+  ,"close": "Close"
+  ,"clearTime": "Clear time"
+  ,"notSet": "Not set"
+  ,"reminder": "Reminder"
+  ,"reminderNone": "None"
+  ,"reminderAtTime": "At time"
+  ,"reminderMinutesBefore_one": "{{count}} minute before"
+  ,"reminderMinutesBefore_other": "{{count}} minutes before"
+  ,"reminderHoursBefore_one": "{{count}} hour before"
+  ,"reminderHoursBefore_other": "{{count}} hours before"
+  ,"reminderDaysBefore_one": "{{count}} day before"
+  ,"reminderDaysBefore_other": "{{count}} days before"
+  ,"reminderSettings": "Reminders"
+  ,"reminderPresets": "Reminder options"
+  ,"reminderCustomTime": "Custom time"
+  ,"reminderAtCustomTime": "At {{time}}"
+  ,"reminderCount_one": "{{count}} reminder"
+  ,"reminderCount_other": "{{count}} reminders"
+  ,"addReminder": "Add reminder"
+  ,"removeReminder": "Remove {{time}} reminder"
+  ,"clearReminders": "Clear all reminders"
+  ,"repeat": "Repeat"
+  ,"repeatNone": "None"
+  ,"repeatEnd": "End repeat"
+  ,"repeatForever": "Forever"
+  ,"repeatEndOnDate": "On date"
+  ,"repeatUntilShort": "until {{date}}"
+  ,"repeatEndDateError": "The repeat end date must be on or after the task date"
+  ,"timeSpanError": "The end time must be after the start time"
+  ,"allDay": "All day"
+  ,"clearSchedule": "Clear"
+  ,"confirmSchedule": "Done"
+  ,"repeatSettings": "Repeat settings"
+  ,"repeatEvery": "Every"
+  ,"repeatUnit": "Unit"
+  ,"repeatDay": "day"
+  ,"repeatWeek": "week"
+  ,"repeatMonth": "month"
+  ,"repeatYear": "year"
+  ,"repeatHoliday": "legal holiday"
+  ,"repeatOn": "Repeat on"
+  ,"weekdaySunday": "Sun"
+  ,"weekdayMonday": "Mon"
+  ,"weekdayTuesday": "Tue"
+  ,"weekdayWednesday": "Wed"
+  ,"weekdayThursday": "Thu"
+  ,"weekdayFriday": "Fri"
+  ,"weekdaySaturday": "Sat"
+  ,"repeatMode": "Repeat timing"
+  ,"repeatDue": "Repeat on due date"
+  ,"repeatCompletion": "Repeat on completion"
+  ,"holidayPolicy": "Holiday policy"
+  ,"holidayAllow": "Keep date"
+  ,"holidaySkip": "Skip holiday"
+  ,"holidayNextWorkday": "Next workday"
+  ,"repeatCalendar": "Calendar"
+  ,"selectCalendar": "Select calendar"
+  ,"missingCalendar": "Missing: {{id}}"
+  ,"repeatStartDate": "Start date"
+  ,"saveRepeat": "Save repeat"
+  ,"repeatIntervalError": "Repeat interval must be an integer from 1 to 999"
+  ,"repeatCalendarError": "Choose a calendar subscription for this repeat rule"
+  ,"repeatWeekdayError": "Choose at least one weekday"
+  ,"loadingCalendars": "Loading calendars…"
+  ,"couldNotLoadCalendars": "Couldn’t load calendars: {{message}}"
+  ,"skipThis": "Skip this occurrence"
+  ,"onlyThis": "Edit this occurrence"
+  ,"onlyThisTaskText": "Text for this occurrence"
+  ,"occurrenceActions": "Recurring task actions"
+  ,"completeAndRepeat": "Complete and schedule next"
+  ,"calendarSubscriptions": "Calendar subscriptions"
+  ,"calendarItemCount_one": "{{count}} item"
+  ,"calendarItemCount_other": "{{count}} items"
+  ,"cancel": "Cancel"
+  ,"backToRepeatPresets": "Back to repeat options"
+  ,"repeatReference": "Repeat reference"
+  ,"repeatCustomDate": "On selected date"
+  ,"repeatLunar": "Lunar"
+  ,"repeatPresetDaily": "Daily"
+  ,"repeatPresetWeekly": "Weekly"
+  ,"repeatPresetMonthly": "Monthly"
+  ,"repeatPresetYearly": "Yearly"
+  ,"repeatPresetWorkdays": "Workdays"
+  ,"repeatPresetHolidays": "Holidays"
+  ,"repeatPresetLunar": "Lunar date"
+  ,"repeatPresetCustom": "Custom"
+  ,"repeatConfigure": "Configure"
+  ,"repeatMonthMode": "Monthly rule"
+  ,"repeatMonthByDate": "By date"
+  ,"repeatMonthByWeekday": "By weekday"
+  ,"repeatMonthByWorkday": "By workday"
+  ,"repeatYearMode": "Yearly rule"
+  ,"repeatYearByDate": "By date"
+  ,"repeatYearByWeekday": "By weekday"
+  ,"repeatDayOfMonth": "Day"
+  ,"repeatLastDay": "Last day"
+  ,"repeatOrdinal": "Occurrence"
+  ,"repeatWeekday": "Weekday"
+  ,"repeatWorkdayOrdinal": "Workday"
+  ,"repeatMonthOfYear": "Month"
+  ,"repeatLunarMonth": "Lunar month"
+  ,"repeatLunarDay": "Lunar day"
+  ,"repeatSkipHolidays": "Skip statutory holidays"
+  ,"repeatSkipWeekends": "Skip weekends"
+  ,"repeatCustomPreview": "Previewing future dates from {{date}}"
+  ,"repeatCustomDateError": "The selected date must be on or after the task date"
+  ,"repeatFirst": "First"
+  ,"repeatSecond": "Second"
+  ,"repeatThird": "Third"
+  ,"repeatFourth": "Fourth"
+  ,"repeatFifth": "Fifth"
+  ,"repeatLast": "Last"
+  ,"repeatOrdinalWeekday": "{{ordinal}} {{weekday}}"
+  ,"repeatOrdinalWorkday": "{{ordinal}} workday"
+  ,"monthNumber": "Month {{count}}"
+  ,"repeatPrediction": "Predicted occurrence of {{task}}"
+}

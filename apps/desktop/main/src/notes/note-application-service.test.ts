@@ -15,13 +15,27 @@ const embeddingModel: EmbeddingModel = {
 }
 
 const databases: BetterSqliteDatabase[] = []
+const storages: Awaited<ReturnType<typeof SqliteEditorStorage.open>>[] = []
+const applications: ReturnType<typeof createNoteApplicationService>[] = []
+
+async function openStorage(database: BetterSqliteDatabase) {
+  const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+  storages.push(storage)
+  return storage
+}
+
+function createApplication(...args: Parameters<typeof createNoteApplicationService>) {
+  const application = createNoteApplicationService(...args)
+  applications.push(application)
+  return application
+}
 
 async function createFixture() {
   const database = new BetterSqliteDatabase(':memory:')
   databases.push(database)
-  const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+  const storage = await openStorage(database)
   const onExternalUpdate = vi.fn()
-  const notes = createNoteApplicationService(storage, onExternalUpdate)
+  const notes = createApplication(storage, onExternalUpdate)
   const created = await notes.createNote({ initialHeading: 'Initial Topic', title: 'MCP Note' })
   const tree = await notes.getNoteTree({ noteId: created.id })
   const topic = tree.entries.find(entry => entry.kind === 'topic')
@@ -31,6 +45,8 @@ async function createFixture() {
 }
 
 afterEach(async () => {
+  await Promise.all(applications.splice(0).map(application => application.close()))
+  await Promise.all(storages.splice(0).map(storage => storage.close()))
   await Promise.all(databases.splice(0).map(database => database.close()))
   vi.restoreAllMocks()
 })
@@ -39,9 +55,9 @@ describe('application service for MCP Notes', () => {
   it('opens a newly created Journal without a post-commit favorite read', async () => {
     const database = new BetterSqliteDatabase(':memory:')
     databases.push(database)
-    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    const storage = await openStorage(database)
     const favorite = vi.spyOn(storage.notes, 'getNoteFavorite').mockRejectedValue(new Error('post-commit read failed'))
-    const notes = createNoteApplicationService(storage, undefined, {
+    const notes = createApplication(storage, undefined, {
       now: () => new Date('2026-08-08T12:00:00.000Z'),
     })
 
@@ -58,11 +74,11 @@ describe('application service for MCP Notes', () => {
   it('creates a regular Note through one initialized commit without a post-commit favorite read', async () => {
     const database = new BetterSqliteDatabase(':memory:')
     databases.push(database)
-    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
+    const storage = await openStorage(database)
     const createPlaceholder = vi.spyOn(storage.notes, 'createNote')
     const createInitialized = vi.spyOn(storage.notes, 'createInitializedNote')
     const favorite = vi.spyOn(storage.notes, 'getNoteFavorite').mockRejectedValue(new Error('post-commit read failed'))
-    const notes = createNoteApplicationService(storage)
+    const notes = createApplication(storage)
 
     const created = await notes.createNote({ initialHeading: 'Created atomically', title: 'Atomic Note' })
 
@@ -73,6 +89,42 @@ describe('application service for MCP Notes', () => {
     const stored = await storage.notes.getNote({ noteId: created.id })
     expect(stored.snapshot).toBeInstanceOf(Uint8Array)
     expect(stored.updates).toEqual([])
+  })
+
+  it('creates a timed Todo in a future Journal and returns its projected identity', async () => {
+    const database = new BetterSqliteDatabase(':memory:')
+    databases.push(database)
+    const storage = await openStorage(database)
+    const notes = createApplication(storage, undefined, {
+      now: () => new Date('2026-08-20T12:00:00.000Z'),
+    })
+
+    const created = await notes.createTodoTask({
+      allDay: false,
+      dueDate: '2026-08-23',
+      dueTime: '09:15',
+      endAt: '2026-08-23T10:00',
+      startAt: '2026-08-23T09:15',
+      text: '',
+    })
+
+    expect(created).toMatchObject({
+      allDay: false,
+      dueDate: '2026-08-23',
+      dueTime: '09:15',
+      endAt: '2026-08-23T10:00',
+      journalDate: '2026-08-23',
+      noteId: expect.any(String),
+      startAt: '2026-08-23T09:15',
+      status: 'todo',
+      text: '',
+      topicId: expect.any(String),
+    })
+    expect(created.blockId).not.toBe('')
+    await expect(storage.journals.getMetadata({ noteId: created.noteId })).resolves.toMatchObject({
+      journalDate: '2026-08-23',
+      noteId: created.noteId,
+    })
   })
 
   it('persists structured edits, updates projections, and broadcasts the exact Loro update', async () => {
@@ -113,7 +165,7 @@ describe('application service for MCP Notes', () => {
     const projected = await fixture.storage.search.getTopicBlock({ blockId, noteId: fixture.created.id, topicId: fixture.topic.id })
     expect(projected?.text).toBe('Edited through MCP')
 
-    const restoredService = createNoteApplicationService(fixture.storage)
+    const restoredService = createApplication(fixture.storage)
     const restored = await restoredService.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
     expect(restored.revision).toBe(receipt.revision)
     expect(restored.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Edited through MCP')
@@ -250,8 +302,8 @@ describe('application service for MCP Notes', () => {
   it('reloads a Reader region ImageOcclusionTopic, rates its Card, and schedules review', async () => {
     const database = new BetterSqliteDatabase(':memory:')
     databases.push(database)
-    const storage = await SqliteEditorStorage.open({ database, databaseOwnership: 'owned', embeddingModel })
-    const notes = createNoteApplicationService(storage)
+    const storage = await openStorage(database)
+    const notes = createApplication(storage)
     const book: BookFileBinding = {
       book: { authors: ['Author'], title: 'Reader publication' },
       file: {
@@ -313,7 +365,7 @@ describe('application service for MCP Notes', () => {
       updates: [renderer.exportUpdates(version)],
     })
 
-    const restoredNotes = createNoteApplicationService(storage)
+    const restoredNotes = createApplication(storage)
     const restoredTree = await restoredNotes.getNoteTree({ noteId: storedNote.id })
     expect(restoredTree.entries.find(entry => entry.id === occlusionTopicId)).toMatchObject({
       parentId: bookTopicId,
@@ -407,7 +459,7 @@ describe('application service for MCP Notes', () => {
     })
 
     expect(receipt.revision).not.toBe(before.revision)
-    const restored = await createNoteApplicationService(fixture.storage).getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
+    const restored = await createApplication(fixture.storage).getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })
     expect(restored.title).toBe('Persisted despite notification failure')
   })
 
@@ -557,7 +609,7 @@ describe('application service for MCP Notes', () => {
 
     expect(checkpoint).toHaveBeenCalledOnce()
     expect(checkpoint).toHaveBeenCalledWith(expect.objectContaining({ noteId: created[1]!.id }))
-    const restored = await createNoteApplicationService(fixture.storage).getNote({ noteId: created[1]!.id })
+    const restored = await createApplication(fixture.storage).getNote({ noteId: created[1]!.id })
     expect(restored.title).toBe('Least recently used and dirty')
   })
 
@@ -579,7 +631,7 @@ describe('application service for MCP Notes', () => {
 
     await fixture.notes.createNote({ title: 'Evict oldest' })
 
-    const restored = await createNoteApplicationService(fixture.storage).getNote({ noteId: fixture.created.id })
+    const restored = await createApplication(fixture.storage).getNote({ noteId: fixture.created.id })
     expect(restored.title).toBe('Durable update log title')
   })
 
@@ -600,7 +652,7 @@ describe('application service for MCP Notes', () => {
     const fixture = await createFixture()
     await fixture.notes.close()
     const onExternalUpdate = vi.fn()
-    const service = createNoteApplicationService(fixture.storage, onExternalUpdate)
+    const service = createApplication(fixture.storage, onExternalUpdate)
     const renderer = createEditorNote({ id: fixture.created.id, snapshot: fixture.created.snapshot })
     const version = renderer.getVersion()
     renderer.renameEntry(fixture.topic.id, 'One durable update')
@@ -643,7 +695,7 @@ describe('application service for MCP Notes', () => {
     releaseSave?.()
     await Promise.all([admitted, firstClose])
 
-    const restored = await createNoteApplicationService(fixture.storage).getTopic({
+    const restored = await createApplication(fixture.storage).getTopic({
       noteId: fixture.created.id,
       topicId: fixture.topic.id,
     })

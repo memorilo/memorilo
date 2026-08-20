@@ -143,6 +143,79 @@ describe('outline interactions', () => {
     expect(blockElement(rendered.container, 'B')).toHaveAttribute('hidden')
   })
 
+  it('edits a focused task and its children in content-only presentation', async () => {
+    const onDocumentChange = vi.fn()
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={{
+          type: 'doc',
+          content: [
+            block('Other block'),
+            block('Task root', [block('Task child')], 'task'),
+          ],
+        }}
+        outline={{ focus: { blockId: 'Task root' }, focusPresentation: 'content-only' }}
+        onDocumentChange={onDocumentChange}
+      />,
+    )
+
+    await waitFor(() => expect(blockElement(rendered.container, 'Task root')).toHaveAttribute('data-outline-focus-root'))
+    expect(rendered.getByRole('textbox', { name: 'Editor content' }).closest('[data-editor-mode]')).toHaveAttribute(
+      'data-editor-outline-focus-presentation',
+      'content-only',
+    )
+    expect(blockElement(rendered.container, 'Other block')).toHaveAttribute('hidden')
+    expect(blockElement(rendered.container, 'Task child')).not.toHaveAttribute('hidden')
+    expect(rendered.queryByRole('button', { name: 'Show all blocks' })).toBeNull()
+
+    const root = blockElement(rendered.container, 'Task root')
+    const rootMarker = root.querySelector<HTMLElement>(':scope > .list-marker')
+    const rootMeta = root.querySelector<HTMLElement>(':scope > [data-task-meta]')
+    if (!rootMarker || !rootMeta)
+      throw new Error('Focused task controls were not rendered')
+    expect(getComputedStyle(rootMarker).display).toBe('none')
+    expect(getComputedStyle(rootMeta).display).toBe('none')
+
+    await userEvent.click(paragraph(rendered.container, 'Task root'))
+    await userEvent.keyboard('{End} edited')
+    await userEvent.click(paragraph(rendered.container, 'Task child'))
+    await userEvent.keyboard('{End} edited')
+
+    await waitFor(() => {
+      expect(blockElement(rendered.container, 'Task root')).toHaveTextContent('Task root edited')
+      expect(blockElement(rendered.container, 'Task child')).toHaveTextContent('Task child edited')
+      expect(onDocumentChange).toHaveBeenCalled()
+    })
+  })
+
+  it('hides task controls on ancestors of a focused task', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={{
+          type: 'doc',
+          content: [
+            block('Task root', [block('Task child')], 'task'),
+          ],
+        }}
+        outline={{ focus: { blockId: 'Task child' }, focusPresentation: 'content-only' }}
+      />,
+    )
+
+    await waitFor(() => expect(blockElement(rendered.container, 'Task child')).toHaveAttribute('data-outline-focus-root'))
+
+    const ancestor = blockElement(rendered.container, 'Task root')
+    const ancestorMarker = ancestor.querySelector<HTMLElement>(':scope > .list-marker')
+    const ancestorMeta = ancestor.querySelector<HTMLElement>(':scope > [data-task-meta]')
+    if (!ancestorMarker || !ancestorMeta)
+      throw new Error('Ancestor task controls were not rendered')
+    expect(getComputedStyle(ancestorMarker).display).toBe('none')
+    expect(getComputedStyle(ancestorMeta).display).toBe('none')
+  })
+
   it('keeps collapse state local and restores it after switching modes', async () => {
     const onDocumentChange = vi.fn()
     const rendered = render(

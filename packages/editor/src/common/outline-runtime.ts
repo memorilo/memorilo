@@ -9,6 +9,7 @@ export interface OutlineOptions {
   defaultFocus?: OutlineFocusTarget | null
   defaultOutdentBehavior?: OutdentBehavior
   focus?: OutlineFocusTarget | null
+  focusPresentation?: 'content-only' | 'default'
   onFocusChange?: (focus: { blockId: string } | null) => void
   outdentBehavior?: OutdentBehavior
 }

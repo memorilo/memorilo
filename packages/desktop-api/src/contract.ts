@@ -5,7 +5,19 @@ import type {
   AnkiReviewerCard,
 } from '@memorilo/anki-connect/model'
 import type { DesktopConfiguration } from '@memorilo/desktop-config/contract'
-import type { LearningQueueItem, LearningStorage, ListLearningQueueInput } from '@memorilo/editor-storage'
+import type {
+  LearningQueueItem,
+  LearningStorage,
+  ListLearningQueueInput,
+  ListTodoTasksInput,
+  TodoCalendarEvent,
+  TodoCalendarSubscription,
+  TodoReminder,
+  TodoRepeatRule,
+  TodoTask,
+  TodoTaskPage,
+  TodoTaskStatus,
+} from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { WhiteboardLibraryItem } from '@memorilo/editor/note'
 import type { BookFileBinding, BookReadingState } from '@memorilo/reading-model'
@@ -119,6 +131,49 @@ export interface DesktopReviewItem {
 }
 
 export type GetNextDesktopReviewItemInput = Omit<ListLearningQueueInput, 'limit' | 'mode'>
+
+export type DesktopTodoTaskStatus = TodoTaskStatus
+export type DesktopTodoTask = TodoTask
+export type DesktopTodoTaskPage = TodoTaskPage
+export type DesktopTodoReminder = TodoReminder
+export type DesktopTodoRepeatRule = TodoRepeatRule
+export type DesktopTodoCalendarEvent = TodoCalendarEvent
+export interface DesktopTodoCalendarSubscription extends TodoCalendarSubscription {
+  builtIn: boolean
+}
+export type ListDesktopTodoTasksInput = ListTodoTasksInput
+
+export interface UpdateDesktopTodoTaskInput {
+  allDay?: boolean
+  blockId: string
+  dueDate?: string | null
+  dueTime?: string | null
+  endAt?: string | null
+  nextDueDate?: string | null
+  noteId: string
+  onlyThis?: boolean
+  reminderMinutes?: number | null
+  reminders?: readonly DesktopTodoReminder[] | null
+  repeatRule?: DesktopTodoRepeatRule | null
+  status?: DesktopTodoTaskStatus
+  startAt?: string | null
+  text?: string
+  topicId: string
+}
+
+export interface CreateDesktopTodoTaskInput {
+  allDay?: boolean
+  dueDate: string
+  dueTime?: string | null
+  endAt?: string | null
+  startAt?: string | null
+  text: string
+}
+
+export interface SubscribeDesktopTodoCalendarInput {
+  title: string
+  url: string
+}
 
 export interface RestoreDesktopReviewItemInput {
   cardId: string
@@ -465,6 +520,14 @@ export interface DesktopApi {
   listNotes: (input?: ListDesktopNotesInput) => Promise<DesktopNotePage>
   listPastJournals: (input?: ListDesktopPastJournalsInput) => Promise<DesktopJournalPage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
+  listTodoTasks: (input?: ListDesktopTodoTasksInput) => Promise<DesktopTodoTaskPage>
+  createTodoTask: (input: CreateDesktopTodoTaskInput) => Promise<DesktopTodoTask>
+  listTodoCalendarEvents: (input: { from: string, through: string }) => Promise<readonly DesktopTodoCalendarEvent[]>
+  listTodoCalendarSubscriptions: () => Promise<readonly DesktopTodoCalendarSubscription[]>
+  refreshTodoCalendar: (id: string) => Promise<DesktopTodoCalendarSubscription>
+  removeTodoCalendar: (id: string) => Promise<void>
+  subscribeTodoCalendar: (input: SubscribeDesktopTodoCalendarInput) => Promise<DesktopTodoCalendarSubscription>
+  updateTodoTask: (input: UpdateDesktopTodoTaskInput) => Promise<DesktopNoteExternalUpdate>
   learning: DesktopLearningApi
   listShelfSources: () => Promise<readonly ShelfSource[]>
   openJournal: (input?: OpenDesktopJournalInput) => Promise<DesktopJournalNote>

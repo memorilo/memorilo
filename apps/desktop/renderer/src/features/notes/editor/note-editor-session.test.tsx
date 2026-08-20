@@ -4,9 +4,10 @@ import { createEditorNote } from '@memorilo/editor'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
+import { desktopRequests } from '../../../shared/desktop-requests'
 import { NotePersistenceContext } from '../persistence/note-persistence-hooks'
 import { NotePersistenceManager } from '../persistence/note-persistence-manager'
-import { useEditorNoteSession } from './note-editor-session'
+import { desktopEditorAdapters, useEditorNoteSession } from './note-editor-session'
 
 function storedNote(id: string): { stored: DesktopRegularNote, topicId: string } {
   const note = createEditorNote({ id, title: id })
@@ -29,6 +30,46 @@ function storedNote(id: string): { stored: DesktopRegularNote, topicId: string }
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'desktop')
+  vi.restoreAllMocks()
+})
+
+it('flushes the active Note before completing a recurring task through the desktop API', async () => {
+  const calls: string[] = []
+  const external = {
+    noteId: 'recurring-note',
+    update: new Uint8Array([1, 2, 3]),
+    updatedAt: 2,
+  }
+  const flush = vi.fn(async () => {
+    calls.push('flush')
+  })
+  const updateTodoTask = vi.spyOn(desktopRequests, 'updateTodoTask').mockImplementation(async () => {
+    calls.push('updateTodoTask')
+    return external
+  })
+  const applyExternal = vi.fn(() => {
+    calls.push('applyExternal')
+    return true
+  })
+  const adapters = desktopEditorAdapters('url', {
+    applyExternal,
+    flush,
+    noteId: 'recurring-note',
+    topicId: 'recurring-topic',
+  })
+  if (!adapters.taskActions)
+    throw new Error('Desktop editor adapters did not expose recurring task actions')
+
+  await adapters.taskActions.completeRecurring({ blockId: 'recurring-task' })
+
+  expect(calls).toEqual(['flush', 'updateTodoTask', 'applyExternal'])
+  expect(applyExternal).toHaveBeenCalledWith(external)
+  expect(updateTodoTask).toHaveBeenCalledWith({
+    blockId: 'recurring-task',
+    noteId: 'recurring-note',
+    status: 'done',
+    topicId: 'recurring-topic',
+  })
 })
 
 it('keeps a superseded Note load from replacing or failing the current session', async () => {

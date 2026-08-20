@@ -71,6 +71,11 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
     readerPageMode: 'continuous',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
+    todo: {
+      enabled: true,
+      keepDetailOpenWhenTaskLeavesView: true,
+      recurringTaskCompletionAction: 'archive-completed-to-today',
+    },
     weekStart: 'sunday',
   }
 }

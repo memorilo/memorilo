@@ -1,7 +1,7 @@
 import type * as stylex from '@stylexjs/stylex'
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactElement, ReactNode, Ref } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, Ref } from 'react'
 import * as stylexRuntime from '@stylexjs/stylex'
-import { Children, createContext, use, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createContext, use, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useControllableState } from '../hooks/use-controllable-state'
 import { dialogStyles } from './dialog.stylex'
@@ -157,8 +157,8 @@ function DialogTrigger({ asChild = false, children, ...props }: Omit<ButtonHTMLA
     'type': 'button' as const,
   }
   if (asChild)
-    return <Slot {...triggerProps}>{Children.only(children) as ReactElement}</Slot>
-  return <button {...triggerProps}>{children}</button>
+    return <Slot {...triggerProps}>{children}</Slot>
+  return <button {...triggerProps} type="button">{children}</button>
 }
 
 function DialogPortal({ children, forceMount = false }: { children?: ReactNode, forceMount?: boolean }) {
@@ -200,7 +200,7 @@ function DialogOverlay({ asChild = false, children, forceMount = false, variant 
       : dialogStyles.defaultOverlay
   const styles = stylexRuntime.props(dialogStyles.overlay, variantStyle, xstyle)
   return asChild
-    ? <Slot {...overlayProps} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...overlayProps} {...styles}>{children}</Slot>
     : <div {...overlayProps} {...styles}>{children}</div>
 }
 
@@ -255,7 +255,7 @@ function DialogContent({ asChild = false, children, forceMount = false, position
             : undefined
   const styles = stylexRuntime.props(dialogStyles.content, position === 'custom' && dialogStyles.customContent, variantStyle, xstyle)
   return asChild
-    ? <Slot {...contentProps} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...contentProps} {...styles}>{children}</Slot>
     : <div {...contentProps} {...styles}>{children}</div>
 }
 
@@ -304,8 +304,8 @@ function DialogClose({ asChild = false, children, ...props }: Omit<ButtonHTMLAtt
     'type': 'button' as const,
   }
   if (asChild)
-    return <Slot {...closeProps}>{Children.only(children) as ReactElement}</Slot>
-  return <button {...closeProps} {...stylexRuntime.props(dialogStyles.close)}>{children}</button>
+    return <Slot {...closeProps}>{children}</Slot>
+  return <button {...closeProps} {...stylexRuntime.props(dialogStyles.close)} type="button">{children}</button>
 }
 
 function AlertDialogRoot(props: DialogRootProps) {

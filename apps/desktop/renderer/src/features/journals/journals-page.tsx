@@ -43,7 +43,13 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export function JournalsPage({ requestedDate }: { requestedDate?: JournalDate }) {
+export function JournalsPage({
+  requestedDate,
+  requestedFocus,
+}: {
+  requestedDate?: JournalDate
+  requestedFocus?: string
+}) {
   const { t } = useTranslation(['app', 'common'])
   const flushNotePersistence = useFlushNotePersistence()
   const queryClient = useQueryClient()
@@ -294,6 +300,8 @@ export function JournalsPage({ requestedDate }: { requestedDate?: JournalDate })
         isFetchNextPageError={pastQuery.isFetchNextPageError}
         isFetchingNextPage={pastQuery.isFetchingNextPage}
         items={feedItems}
+        focusBlockId={requestedFocus}
+        focusJournalDate={requestedDate}
         today={today.journalDate}
         onFetchNextPage={handleFetchNextPage}
         onJournalSaved={handleJournalSaved}

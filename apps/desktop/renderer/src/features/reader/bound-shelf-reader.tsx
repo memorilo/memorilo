@@ -1,4 +1,4 @@
-import type { DesktopBookTopicReadingContext } from '@memorilo/desktop-api'
+import type { DesktopBookTopicReadingContext, DesktopNoteExternalUpdate } from '@memorilo/desktop-api'
 import type {
   ReaderAnnotation,
   ReaderAnnotationTopicCreateInput,
@@ -20,7 +20,8 @@ import { useNoteFavorite } from '../notes/note-favorite'
 import { NoteInspectorContent } from '../notes/note-inspector'
 import { NoteInspectorActions } from '../notes/note-inspector-actions'
 import { useNoteInspectorEntries } from '../notes/note-inspector-state'
-import { useNotePersistence } from '../notes/persistence/note-persistence-hooks'
+import { applyExternalNoteUpdate } from '../notes/note-runtime'
+import { useFlushNotePersistence, useNotePersistence } from '../notes/persistence/note-persistence-hooks'
 import { boundReaderPresentation } from './bound-reader-presentation'
 import {
   prepareReaderAnnotationTopicsForDeletion,
@@ -46,6 +47,7 @@ export function BoundShelfReader({
   const configuration = useDesktopConfiguration()
   const { t } = useTranslation('editor')
   const { enqueue, getPendingChanges } = useNotePersistence(context.note.id)
+  const flushNotePersistence = useFlushNotePersistence()
   const { collapsedEntryIds, toggleEntry } = useNoteInspectorEntries(context.note.id)
   const { favorite, favoritePending, toggleFavorite } = useNoteFavorite(context.note)
   const note = useMemo(() => {
@@ -58,9 +60,18 @@ export function BoundShelfReader({
     return restored
   }, [context.note.id, context.note.snapshot, context.note.title, getPendingChanges])
   const bookTopic = useMemo(() => note.getBookTopic(context.topicId), [context.topicId, note])
+  const applyTaskExternal = useCallback(
+    (external: DesktopNoteExternalUpdate) => applyExternalNoteUpdate(note, external) !== null,
+    [note],
+  )
   const editorAdapters = useMemo(
-    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
-    [configuration.networkImagePasteBehavior],
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      applyExternal: applyTaskExternal,
+      flush: flushNotePersistence,
+      noteId: context.note.id,
+      topicId: context.topicId,
+    }),
+    [applyTaskExternal, configuration.networkImagePasteBehavior, context.note.id, context.topicId, flushNotePersistence],
   )
   const initialReadingState = useRef(bookTopic.getReadingState()).current
   const initialReaderPosition = useRef(initialReadingState.position ?? initialPosition).current

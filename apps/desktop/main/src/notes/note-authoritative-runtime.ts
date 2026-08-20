@@ -27,6 +27,7 @@ import {
   toStoredTopic,
 } from './note-authoritative-projection'
 import { projectNoteLearningCards } from './note-learning-cards'
+import { reconcileTodoParentStatusesInNote } from './todo-parent-status'
 
 const checkpointInterval = 32
 const noteCacheCapacity = 64
@@ -55,7 +56,7 @@ export interface NoteAuthoritativeRuntime {
     current: AuthoritativeNote,
     version: readonly EditorNoteVersion[],
     options: PersistLocalMutationOptions,
-  ) => Promise<{ revision: string, updatedAt: number }>
+  ) => Promise<{ noteId: string, revision: string, update: Uint8Array, updatedAt: number }>
   prunePastEmptyJournals: () => Promise<Awaited<ReturnType<EditorStorage['journals']['prunePastEmpty']>>>
   run: <Result>(operation: () => Promise<Result>) => Promise<Result>
   runEffect: <Result, Failure>(operation: Effect.Effect<Result, Failure>) => Promise<Result>
@@ -70,6 +71,7 @@ interface PersistLocalMutationOptions {
 
 interface CreateNoteAuthoritativeRuntimeOptions {
   activeReadings?: ActiveReadingRegistry
+  autoCompleteTodoParents?: () => boolean
   defaultNoteLearningEnabled: () => boolean
   onExternalUpdate?: (update: { noteId: string, update: Uint8Array, updatedAt: number }) => void
   storage: EditorStorage
@@ -86,7 +88,14 @@ async function indexNote(storage: EditorStorage, noteId: string): Promise<void> 
 export function createNoteAuthoritativeRuntime(
   options: CreateNoteAuthoritativeRuntimeOptions,
 ): NoteAuthoritativeRuntime {
-  const { activeReadings, defaultNoteLearningEnabled, onExternalUpdate, storage, today } = options
+  const {
+    activeReadings,
+    autoCompleteTodoParents = () => true,
+    defaultNoteLearningEnabled,
+    onExternalUpdate,
+    storage,
+    today,
+  } = options
   const cache = createNoteAuthoritativeCache({
     capacity: noteCacheCapacity,
     checkpointInterval,
@@ -115,6 +124,8 @@ export function createNoteAuthoritativeRuntime(
     version: readonly EditorNoteVersion[],
     persistOptions: PersistLocalMutationOptions,
   ) => {
+    if (autoCompleteTodoParents())
+      reconcileTodoParentStatusesInNote(current.note, persistOptions.topicIds)
     const journalTopic = current.journalDate === null
       ? null
       : resolveJournalTopic(current.note, { expectedNoteTitle: current.journalDate })
@@ -153,11 +164,17 @@ export function createNoteAuthoritativeRuntime(
         console.error(`Failed to broadcast persisted update for Note ${current.note.id}`, error)
       }
     }
-    return { revision: noteRevision(current.note.getVersion()), updatedAt: current.updatedAt }
+    return {
+      noteId: current.note.id,
+      revision: noteRevision(current.note.getVersion()),
+      update,
+      updatedAt: current.updatedAt,
+    }
   }
 
   const applyExternalUpdates = createNoteAuthoritativeExternalUpdates({
     activeReadings,
+    autoCompleteTodoParents,
     cache,
     onExternalUpdate,
     open,

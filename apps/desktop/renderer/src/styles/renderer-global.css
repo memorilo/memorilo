@@ -91,3 +91,70 @@ body[data-renderer="settings"] {
   padding: 1px;
   border-radius: 18px;
 }
+
+/* FullCalendar is a third-party surface; keep its grid aligned with the renderer chrome. */
+[data-todo-time-grid-view] {
+  --todo-task: rgb(0, 122, 255);
+  --todo-done: rgb(76, 130, 85);
+  --todo-calendar: rgb(183, 112, 55);
+  --fc-border-color: rgba(0, 122, 255, 0.12);
+  --fc-button-bg-color: transparent;
+  --fc-button-border-color: transparent;
+  --fc-button-hover-bg-color: rgba(0, 122, 255, 0.1);
+  --fc-button-hover-border-color: transparent;
+  --fc-button-active-bg-color: rgba(0, 122, 255, 0.16);
+  --fc-button-active-border-color: transparent;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(0, 122, 255, 0.028);
+  --fc-today-bg-color: rgba(0, 122, 255, 0.045);
+  --fc-now-indicator-color: rgb(212, 58, 55);
+  --fc-small-font-size: 11px;
+  font-size: 13px;
+}
+
+[data-todo-time-grid-calendar],
+[data-todo-time-grid-calendar] > .fc {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+[data-todo-time-grid-calendar] > .fc {
+  overflow: hidden;
+  color: rgba(43, 40, 68, 0.76);
+  font-family: inherit;
+  background: rgb(255, 255, 255);
+}
+
+[data-todo-time-grid-calendar] .fc-scrollgrid {
+  width: 100%;
+  overflow: hidden;
+  border-width: 0 0 1px;
+  background: rgb(255, 255, 255);
+}
+
+[data-todo-time-grid-calendar] .fc-timegrid-col,
+[data-todo-time-grid-calendar] .fc-timegrid-slot-lane {
+  background: rgb(255, 255, 255);
+}
+
+[data-todo-time-grid-calendar] .fc-col-header-cell-cushion,
+[data-todo-time-grid-calendar] .fc-timegrid-slot-label-cushion {
+  color: rgba(60, 60, 67, 0.7);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-todo-time-grid-calendar] .fc-timegrid-slot {
+  height: var(--todo-time-grid-slot-height, 1.7em);
+}
+
+[data-todo-time-grid-calendar] .fc-timegrid-axis {
+  width: 56px;
+}
+
+[data-todo-time-grid-calendar] .fc-timegrid-event {
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(54, 46, 84, 0.16), inset 0 1px rgba(255, 255, 255, 0.28);
+}

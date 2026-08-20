@@ -1,8 +1,10 @@
 import type { DesktopRequestHandlers } from '../desktop-request-handlers'
 import type { NoteApplicationService } from '../notes/note-application-service'
+import type { TodoCalendarService } from '../todo/todo-calendar-service'
 
 export function createNoteHandlers(
   application: NoteApplicationService,
+  calendars: TodoCalendarService,
 ): DesktopRequestHandlers['notes'] {
   return {
     createNote(input?: Parameters<NoteApplicationService['createNote']>[0]) {
@@ -22,6 +24,30 @@ export function createNoteHandlers(
     },
     listRecentNotes(input?: Parameters<NoteApplicationService['listRecentNotes']>[0]) {
       return application.listRecentNotes(input)
+    },
+    listTodoTasks(input?: Parameters<NoteApplicationService['listTodoTasks']>[0]) {
+      return application.listTodoTasks(input)
+    },
+    createTodoTask(input: Parameters<NoteApplicationService['createTodoTask']>[0]) {
+      return application.createTodoTask(input)
+    },
+    listTodoCalendarEvents(input: Parameters<TodoCalendarService['listEvents']>[0]) {
+      return calendars.listEvents(input)
+    },
+    listTodoCalendarSubscriptions() {
+      return calendars.listSubscriptions()
+    },
+    refreshTodoCalendar(id: Parameters<TodoCalendarService['refresh']>[0]) {
+      return calendars.refresh(id)
+    },
+    removeTodoCalendar(id: Parameters<TodoCalendarService['remove']>[0]) {
+      return calendars.remove(id).then(() => null)
+    },
+    subscribeTodoCalendar(input: Parameters<TodoCalendarService['subscribe']>[0]) {
+      return calendars.subscribe(input)
+    },
+    updateTodoTask(input: Parameters<NoteApplicationService['updateTodoTask']>[0]) {
+      return application.updateTodoTask(input)
     },
     openMostRecentNote() {
       return application.openMostRecentNote()

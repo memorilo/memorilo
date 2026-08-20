@@ -1,4 +1,7 @@
 import type {
+  DesktopNoteExternalUpdate,
+} from '@memorilo/desktop-api'
+import type {
   EditorImageOcclusionIntegration,
   EditorImageOcclusionTopicDocument,
   EditorNote,
@@ -21,6 +24,7 @@ import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { NoteInspector } from '../note-inspector'
 import { NoteInspectorActions } from '../note-inspector-actions'
 import { useNoteInspectorVisibility } from '../note-inspector-state'
+import { useFlushNotePersistence } from '../persistence/note-persistence-hooks'
 import { desktopEditorAdapters } from './note-editor-session'
 import { CardTopicPreview, ReaderSourceHeader } from './note-editor-topic-chrome'
 import { noteEditorStyles } from './note-editor.stylex'
@@ -47,6 +51,7 @@ function isImageOcclusionTopic(
 }
 
 export interface NoteEditorViewProps {
+  applyExternal: (external: DesktopNoteExternalUpdate) => boolean
   collapsedEntryIds: ReadonlySet<string>
   favoritePending: boolean
   focusBlockId?: string
@@ -66,6 +71,7 @@ export interface NoteEditorViewProps {
 }
 
 export function NoteEditorView({
+  applyExternal,
   collapsedEntryIds,
   favoritePending,
   focusBlockId,
@@ -88,9 +94,15 @@ export function NoteEditorView({
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
   const [inspectorVisible, setInspectorVisible] = useNoteInspectorVisibility()
   const configuration = useDesktopConfiguration()
+  const flushNotePersistence = useFlushNotePersistence()
   const editorAdapters = useMemo(
-    () => desktopEditorAdapters(configuration.networkImagePasteBehavior),
-    [configuration.networkImagePasteBehavior],
+    () => desktopEditorAdapters(configuration.networkImagePasteBehavior, {
+      applyExternal,
+      flush: flushNotePersistence,
+      noteId: opened.note.id,
+      topicId: opened.topic.topicId,
+    }),
+    [applyExternal, configuration.networkImagePasteBehavior, flushNotePersistence, opened.note.id, opened.topic.topicId],
   )
   const currentEntry = opened.entries.find(entry => entry.id === opened.topic.topicId)
   if (!currentEntry || currentEntry.kind !== 'topic')

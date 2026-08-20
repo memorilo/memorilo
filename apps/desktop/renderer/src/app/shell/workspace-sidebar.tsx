@@ -14,6 +14,7 @@ import {
   Clock3,
   Files,
   GraduationCap,
+  ListTodo,
   PanelLeft,
   Star,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatJournalHeading } from '../../features/journals/journal-model'
 
+import { useFlushNotePersistence } from '../../features/notes/persistence/note-persistence-hooks'
 import { noteQueryKeys } from '../../features/notes/query-keys'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
@@ -53,10 +55,11 @@ interface SourceItemProps {
     topicId: string
   } | {
     kind: 'route'
-    to: '/journals' | '/learning' | '/pages' | '/shelf'
+    to: '/journals' | '/learning' | '/pages' | '/shelf' | '/todo'
   }
   icon: LucideIcon
   label: string
+  onBeforeNavigate?: () => void
 }
 
 interface SourceItemContentProps {
@@ -65,12 +68,18 @@ interface SourceItemContentProps {
   selected: boolean
 }
 
-function navigationItems(t: (key: string) => string, learningEnabled: boolean): readonly SourceItemProps[] {
+function navigationItems(
+  t: (key: string) => string,
+  todoEnabled: boolean,
+  learningEnabled: boolean,
+): readonly SourceItemProps[] {
   const items: SourceItemProps[] = [
     { destination: { kind: 'route', to: '/journals' }, icon: CalendarDays, label: t('journals') },
     { destination: { kind: 'route', to: '/pages' }, icon: Files, label: t('pages') },
     { destination: { kind: 'route', to: '/shelf' }, icon: BookOpen, label: t('shelf') },
   ]
+  if (todoEnabled)
+    items.push({ destination: { kind: 'route', to: '/todo' }, icon: ListTodo, label: t('todo') })
   if (learningEnabled)
     items.push({ destination: { kind: 'route', to: '/learning' }, icon: GraduationCap, label: t('learning') })
   return items
@@ -107,7 +116,7 @@ function SourceItemContent({ icon: Icon, label, selected }: SourceItemContentPro
   )
 }
 
-function SourceItem({ destination, icon, label }: SourceItemProps) {
+function SourceItem({ destination, icon, label, onBeforeNavigate }: SourceItemProps) {
   if (destination.kind === 'journal') {
     return (
       <Sidebar.Item asChild>
@@ -142,8 +151,9 @@ function SourceItem({ destination, icon, label }: SourceItemProps) {
   return (
     <Sidebar.Item asChild>
       <Link
-        activeOptions={{ exact: destination.to !== '/learning' }}
+        activeOptions={{ exact: destination.to !== '/learning', includeSearch: false }}
         activeProps={{ 'data-state': 'active' }}
+        onClick={onBeforeNavigate}
         preload="intent"
         to={destination.to}
       >
@@ -334,8 +344,12 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
 }) {
   const { t } = useTranslation('app')
   const configuration = useDesktopConfiguration()
+  const flushNotePersistence = useFlushNotePersistence()
   const favoritesQuery = useQuery(favoriteNotesQueryOptions())
   const recentQuery = useQuery(recentNotesQueryOptions())
+  const flushBeforeTodoNavigation = useCallback(() => {
+    void flushNotePersistence().catch(error => console.error('Failed to flush pending Note updates before opening Todo', error))
+  }, [flushNotePersistence])
   const favoriteItems = (favoritesQuery.data ?? []).map(item => ({
     destination: item.kind === 'journal'
       ? { journalDate: item.journalDate, kind: 'journal' as const }
@@ -359,7 +373,15 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
             <h2>{t('navigation')}</h2>
           </Sidebar.Header>
           <div {...stylex.props(workspaceSidebarStyles.sourceList)}>
-            {navigationItems(t, configuration.learning.enabled).map(item => <SourceItem key={item.label} {...item} />)}
+            {navigationItems(t, configuration.todo.enabled, configuration.learning.enabled).map(item => (
+              <SourceItem
+                key={item.label}
+                {...item}
+                onBeforeNavigate={item.destination.kind === 'route' && item.destination.to === '/todo'
+                  ? flushBeforeTodoNavigation
+                  : undefined}
+              />
+            ))}
           </div>
         </Sidebar.Group>
         <SourceGroup

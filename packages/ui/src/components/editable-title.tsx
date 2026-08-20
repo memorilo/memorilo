@@ -1,7 +1,7 @@
 import type * as stylex from '@stylexjs/stylex'
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactElement, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import * as stylexRuntime from '@stylexjs/stylex'
-import { Children, createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { editableTitleStyles } from './editable-title.stylex'
 import { Slot } from './slot'
 
@@ -45,9 +45,12 @@ function EditableTitleRoot({ children, getSubmitError, onSubmit, validate, value
   const inputRef = useRef<HTMLInputElement>(null)
   const savingRef = useRef(false)
 
+  // External title updates must refresh the draft while the control is idle.
   useEffect(() => {
-    if (!editing)
+    if (!editing) {
+      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
       setDraft(value)
+    }
   }, [editing, value])
 
   useLayoutEffect(() => {
@@ -157,8 +160,8 @@ function EditableTitleTrigger({ asChild = false, children, xstyle, ...props }: O
   }
   const styles = stylexRuntime.props(editableTitleStyles.trigger, xstyle)
   return asChild
-    ? <Slot {...triggerProps} {...styles}>{Children.only(children) as ReactElement}</Slot>
-    : <button {...triggerProps} {...styles}>{children}</button>
+    ? <Slot {...triggerProps} {...styles}>{children}</Slot>
+    : <button {...triggerProps} {...styles} type="button">{children}</button>
 }
 
 function EditableTitleText({ children, xstyle, ...props }: Omit<HTMLAttributes<HTMLSpanElement>, 'className' | 'style'> & { children?: ReactNode, xstyle?: stylex.StyleXStyles }) {
@@ -170,7 +173,7 @@ function EditableTitleIcon({ asChild = false, children, xstyle, ...props }: Omit
   useEditableTitle()
   const styles = stylexRuntime.props(editableTitleStyles.icon, xstyle)
   return asChild
-    ? <Slot {...props} {...styles}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...props} {...styles}>{children}</Slot>
     : <span {...props} {...styles} data-ui="editable-title-icon">{children}</span>
 }
 
@@ -220,7 +223,7 @@ function EditableTitleInput({ asChild = false, xstyle, ...props }: Omit<InputHTM
   }
   const styles = stylexRuntime.props(editableTitleStyles.input, xstyle)
   return asChild
-    ? <Slot {...inputProps} {...styles}>{Children.only(props.children as ReactElement)}</Slot>
+    ? <Slot {...inputProps} {...styles}>{props.children}</Slot>
     : <input {...inputProps} {...styles} />
 }
 

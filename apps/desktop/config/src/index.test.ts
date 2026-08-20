@@ -27,6 +27,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     readerPageMode: 'continuous',
     reduceMotion: false,
     tiffConversionFormat: 'webp',
+    todo: desktopConfigurationDefinition.defaults.todo,
     weekStart: 'sunday',
   }
 }
@@ -63,8 +64,32 @@ describe('desktop MCP configuration', () => {
     expect(() => decode(configuration({ accessToken: token, enabled: true, port: 8765.5 }))).toThrow()
   })
 
-  it('does not change configurations when no migration steps are defined', () => {
+  it('does not change configurations that already include Todo settings', () => {
     const current = configuration({ accessToken: token, enabled: true, port: 9000 })
     expect(migrateDesktopConfiguration(current)).toBe(current)
+  })
+
+  it('enables the Todo workspace when migrating an older configuration', () => {
+    const current = configuration({ accessToken: '', enabled: false, port: 8765 })
+    const legacy = Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'todo'))
+    expect(migrateDesktopConfiguration(legacy)).toEqual({
+      ...legacy,
+      todo: desktopConfigurationDefinition.defaults.todo,
+    })
+  })
+
+  it('adds the default recurring-task completion action to existing Todo settings', () => {
+    const current = configuration({ accessToken: '', enabled: false, port: 8765 })
+    expect(migrateDesktopConfiguration({
+      ...current,
+      todo: { enabled: false },
+    })).toEqual({
+      ...current,
+      todo: {
+        autoCompleteParentTasks: true,
+        enabled: false,
+        recurringTaskCompletionAction: 'archive-completed-to-today',
+      },
+    })
   })
 })

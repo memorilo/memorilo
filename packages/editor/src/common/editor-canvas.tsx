@@ -17,6 +17,7 @@ import { InlineMenu } from '../ui/inline-menu'
 import { SlashMenu } from '../ui/slash-menu'
 import { TableHandle } from '../ui/table-handle'
 import { TagMenu } from '../ui/tag-menu'
+import { EditorTaskMenu } from '../ui/task-menu/editor-task-menu'
 import { editorCanvasStyles } from './editor-canvas.stylex'
 
 const CardMenu = lazy(async () => {
@@ -89,19 +90,23 @@ function UploadStatus() {
 }
 
 export function EditorCanvas({
+  blockHandles = true,
   embedded,
   focusBlockId,
   mode,
   modeControls,
   readOnly,
   session,
+  taskDate,
 }: {
+  blockHandles?: boolean
   embedded: boolean
   focusBlockId?: string
   mode: EditorModeValue
   modeControls?: ReactNode
   readOnly: boolean
   session: EditorSession
+  taskDate?: string
 }) {
   const { configured, editor } = session
   const { t } = useTranslation('editor')
@@ -146,6 +151,7 @@ export function EditorCanvas({
               : (
                   <>
                     <ContextMenu outlineRuntime={session.outlineRuntime} uploader={configured.uploader} />
+                    <EditorTaskMenu adapters={session.adapters} taskDate={taskDate} />
                     <InlineMenu learningEnabled={session.learningEnabled} />
                     {session.learningEnabled
                       ? (
@@ -157,7 +163,7 @@ export function EditorCanvas({
                       : null}
                     <SlashMenu learningEnabled={session.learningEnabled} />
                     <TagMenu runtime={configured.tagRuntime} />
-                    <BlockHandle mode={mode} session={session} />
+                    {blockHandles ? <BlockHandle mode={mode} session={session} /> : null}
                     <TableHandle />
                     <DropIndicator />
                   </>

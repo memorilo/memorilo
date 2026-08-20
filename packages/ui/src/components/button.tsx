@@ -1,7 +1,6 @@
 import type * as stylex from '@stylexjs/stylex'
-import type { ButtonHTMLAttributes, ReactElement, ReactNode, Ref } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import * as stylexRuntime from '@stylexjs/stylex'
-import { Children } from 'react'
 import { buttonStyles } from './button.stylex'
 import { Slot } from './slot'
 
@@ -39,7 +38,7 @@ export function Button({
   if (asChild) {
     return (
       <Slot {...rootProps} ref={ref as Ref<HTMLElement>}>
-        {Children.only(children) as ReactElement}
+        {children}
       </Slot>
     )
   }

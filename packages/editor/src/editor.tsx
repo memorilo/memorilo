@@ -34,6 +34,7 @@ interface EditorBaseProps {
   cardTopic?: boolean
   cardReview?: CardReviewOptions
   cards?: EditorCardIntegration
+  blockHandles?: boolean
   focus?: EditorFocusTarget
   imageOcclusion?: EditorImageOcclusionIntegration
   learningEnabled?: boolean
@@ -41,6 +42,8 @@ interface EditorBaseProps {
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
   readOnly?: boolean
+  /** Planning date used by tasks without an explicit due date, such as Journal tasks. */
+  taskDate?: string
 }
 
 export interface EditorFocusTarget {
@@ -182,6 +185,7 @@ export function Editor(props: EditorProps) {
         data-editor-layout={layout}
         data-editor-learning-disabled={!session.learningEnabled ? '' : undefined}
         data-editor-mode={editorModeName(mode)}
+        data-editor-outline-focus-presentation={props.outline?.focusPresentation}
         data-editor-readonly={props.readOnly ? '' : undefined}
         data-editor-card-preview-disabled={props.cardPreviewDisabled ? '' : undefined}
         data-editor-card-topic={props.cardTopic ? '' : undefined}
@@ -189,10 +193,12 @@ export function Editor(props: EditorProps) {
         <Suspense fallback={<div {...stylex.props(editorShellStyles.loading)} role="status">{t('ui.loadingEditorMode')}</div>}>
           <DocumentEditor
             embedded={embedded}
+            blockHandles={props.blockHandles}
             focusBlockId={props.focus?.blockId}
             mode={mode}
             readOnly={props.readOnly === true}
             session={session}
+            taskDate={props.taskDate}
           >
             {mode === EditorMode.Outline
               ? (

@@ -219,6 +219,21 @@ importers:
       '@excalidraw/excalidraw':
         specifier: workspace:*
         version: link:../../../packages/excalidraw
+      '@floating-ui/react':
+        specifier: ^0.27.20
+        version: 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@fullcalendar/core':
+        specifier: ^6.1.21
+        version: 6.1.21
+      '@fullcalendar/interaction':
+        specifier: ^6.1.21
+        version: 6.1.21(@fullcalendar/core@6.1.21)
+      '@fullcalendar/react':
+        specifier: ^6.1.21
+        version: 6.1.21(@fullcalendar/core@6.1.21)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@fullcalendar/timegrid':
+        specifier: ^6.1.21
+        version: 6.1.21(@fullcalendar/core@6.1.21)
       '@memorilo/anki-connect':
         specifier: workspace:*
         version: link:../../../packages/anki-connect
@@ -309,6 +324,9 @@ importers:
       react-toastify:
         specifier: ^11.1.0
         version: 11.1.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      uniqolor:
+        specifier: ^1.1.1
+        version: 1.1.1
     devDependencies:
       '@stylexjs/babel-plugin':
         specifier: 0.19.0
@@ -447,6 +465,9 @@ importers:
 
   packages/editor:
     dependencies:
+      '@floating-ui/react':
+        specifier: ^0.27.20
+        version: 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@memorilo/effect-lifecycle':
         specifier: workspace:*
         version: link:../effect-lifecycle
@@ -471,6 +492,9 @@ importers:
       beautiful-mermaid:
         specifier: ^1.1.3
         version: 1.1.3
+      dayjs:
+        specifier: ^1.11.21
+        version: 1.11.21
       effect:
         specifier: 4.0.0-beta.23
         version: 4.0.0-beta.23
@@ -492,9 +516,12 @@ importers:
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.8)
+      lunar-javascript:
+        specifier: ^1.7.7
+        version: 1.7.7
       prosekit:
         specifier: 0.21.4
-        version: 0.21.4(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.21.4(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(preact@10.12.1)(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       prosemirror-flat-list:
         specifier: 0.6.0
         version: 0.6.0
@@ -1696,8 +1723,39 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@floating-ui/react@0.27.20':
+    resolution: {integrity: sha512-CMqMy7OaXl9W0eq1Uy7L7i2Y/anPvHmFmESd2CEw0t5YvZhcVCeo4MBevAmswRllX7Y2dEidA4ozGPunLSTQpw==}
+    peerDependencies:
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
+
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fullcalendar/core@6.1.21':
+    resolution: {integrity: sha512-t3u/+sqh3Iq7TWtUnVLcGDUE6OWZh0UD3c04bI/l7lSLAgAKr3kngBmhHiQD1QXpwC8ZN5iNqG7a7gOVixhSKQ==}
+
+  '@fullcalendar/daygrid@6.1.21':
+    resolution: {integrity: sha512-QYb1y40RGYLlOxKpYWg8O+7njEnKnFG8Tt7qjnubJGR35s1phQg67E+81y2TyAbbm59p2JFOCXGDk9t6KDujIA==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.21
+
+  '@fullcalendar/interaction@6.1.21':
+    resolution: {integrity: sha512-WPYpqtljDWmU0Xm2cOtFrLlocgxv7cgkOppj34Q6OUUat8a6Cnd6kYo2JR+irP223PE5lBYHFNp1qh7SIpJc0w==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.21
+
+  '@fullcalendar/react@6.1.21':
+    resolution: {integrity: sha512-TLpmGUd5k/PMdCh8XbeFC9PW9wuGvMms1oCxWgXyjK3EFPXAAd0PLfcvwKdyxoAS5eK1E4RJFkjMHvsYHpimcg==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.21
+      react: ^16.7.0 || ^17 || ^18 || ^19
+      react-dom: ^16.7.0 || ^17 || ^18 || ^19
+
+  '@fullcalendar/timegrid@6.1.21':
+    resolution: {integrity: sha512-2DnShx/jallGmb8QCkr6pAOu/zuPhJrP7+uTrAtSnbqsX7GF3lTxqSeNGkTQwsgF5g/ia8udhQ+JNYaE+TN1cQ==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.21
 
   '@hono/node-server@2.0.12':
     resolution: {integrity: sha512-eWpQYr67tqJLeaSUl0Q+TquuYfUdTibpOJlUMV2FfUP7+KqCC5TufnwnlXL6mobZBJbGAYRd7ZvEBDCbLInjhg==}
@@ -3242,6 +3300,7 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@zag-js/dismissable@1.42.0':
     resolution: {integrity: sha512-Cx/FAQ2MuQy3kecdmswrFk94Zie1ieBa1Pnt/2ECI5FR914EJd3DwY9Krsmlrq4Z15Wm+pVtfLXgakDewVgsiQ==}
@@ -5287,6 +5346,9 @@ packages:
   lucide@0.468.0:
     resolution: {integrity: sha512-UFbgwji/ZnAV7iTTE4jujyTV7J95AILKyATDUrqOJrMcUGfXvGjw3c1mcuHZUX2oJfkrAGU9KoxkrLQk2jjtiA==}
 
+  lunar-javascript@1.7.7:
+    resolution: {integrity: sha512-u/KYiwPIBo/0bT+WWfU7qO1d+aqeB90Tuy4ErXenr2Gam0QcWeezUvtiOIyXR7HbVnW2I1DKfU0NBvzMZhbVQw==}
+
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
@@ -5930,6 +5992,9 @@ packages:
     resolution: {integrity: sha512-b9Eb8h2eVqNE8edvKdwqkrY6O7kAwmI8kcnBv1NScolYJbo59XUF0noFq+lxbC1yN20bmC0WBEbDC5H/7ASb0A==}
     engines: {node: '>=14.0.0'}
     hasBin: true
+
+  preact@10.12.1:
+    resolution: {integrity: sha512-l8386ixSsBdbreOAkqtrwqHwdvR35ID8c3rKPa8lCWuO86dBi32QWHV4vfsZK1utLLFMvw+Z5Ad4XLkZzchscg==}
 
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
@@ -6637,6 +6702,9 @@ packages:
     resolution: {integrity: sha512-eNRKgb3z66Yp3D2CixVujOUvXLFUTij/zVnV8KRyvFdQwpz7I5DS8UfRkTeLzb64u+dkzDSdelE24izu+zSSUg==}
     engines: {node: ^14.18.0 || >=16.0.0}
 
+  tabbable@6.5.0:
+    resolution: {integrity: sha512-wieBHXygIm7OyQOu5hQlkk62/WyCFYGlWg7L6/ZCUZwx0o398Zkn4pVmMyfYhfMG8kGrj/Krt8eIk6UKC6VzwA==}
+
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
     engines: {node: '>=20'}
@@ -6822,6 +6890,9 @@ packages:
   undici@7.28.0:
     resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
     engines: {node: '>=20.18.1'}
+
+  uniqolor@1.1.1:
+    resolution: {integrity: sha512-HUwezlXCwm5bzsEXW7AP7ybezH13uWENRgYT+3dOdhJPvpYucSqvIGckMiLn+Uy2j0NVf3fPp43uZ4aun3t4Ww==}
 
   unist-util-is@6.0.1:
     resolution: {integrity: sha512-LsiILbtBETkDz8I9p1dQ0uyRUWuaQzd/cuEeS1hoRSyW5E5XGmTzlwY1OrNzzakGowI9Dr/I8HVaw4hTtnxy8g==}
@@ -8001,7 +8072,38 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
 
+  '@floating-ui/react@0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@floating-ui/react-dom': 2.1.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@floating-ui/utils': 0.2.12
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      tabbable: 6.5.0
+
   '@floating-ui/utils@0.2.12': {}
+
+  '@fullcalendar/core@6.1.21':
+    dependencies:
+      preact: 10.12.1
+
+  '@fullcalendar/daygrid@6.1.21(@fullcalendar/core@6.1.21)':
+    dependencies:
+      '@fullcalendar/core': 6.1.21
+
+  '@fullcalendar/interaction@6.1.21(@fullcalendar/core@6.1.21)':
+    dependencies:
+      '@fullcalendar/core': 6.1.21
+
+  '@fullcalendar/react@6.1.21(@fullcalendar/core@6.1.21)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@fullcalendar/core': 6.1.21
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+
+  '@fullcalendar/timegrid@6.1.21(@fullcalendar/core@6.1.21)':
+    dependencies:
+      '@fullcalendar/core': 6.1.21
+      '@fullcalendar/daygrid': 6.1.21(@fullcalendar/core@6.1.21)
 
   '@hono/node-server@2.0.12(hono@4.12.33)':
     dependencies:
@@ -8467,13 +8569,15 @@ snapshots:
       prosemirror-transform: 1.12.0
       prosemirror-view: 1.42.1
 
-  '@prosekit/preact@0.7.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)':
+  '@prosekit/preact@0.7.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(preact@10.12.1)(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)':
     dependencies:
       '@prosekit/core': 0.12.3(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)
       '@prosekit/pm': 0.1.18
       '@prosekit/web': 0.8.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
       '@prosemirror-adapter/core': 0.5.4
-      '@prosemirror-adapter/preact': 0.5.4
+      '@prosemirror-adapter/preact': 0.5.4(preact@10.12.1)
+    optionalDependencies:
+      preact: 10.12.1
     transitivePeerDependencies:
       - '@lezer/common'
       - '@lezer/highlight'
@@ -8631,12 +8735,14 @@ snapshots:
       prosemirror-state: 1.4.4
       prosemirror-view: 1.42.1
 
-  '@prosemirror-adapter/preact@0.5.4':
+  '@prosemirror-adapter/preact@0.5.4(preact@10.12.1)':
     dependencies:
       '@prosemirror-adapter/core': 0.5.4
       prosemirror-model: 1.25.11
       prosemirror-state: 1.4.4
       prosemirror-view: 1.42.1
+    optionalDependencies:
+      preact: 10.12.1
 
   '@prosemirror-adapter/react@0.5.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
@@ -12011,6 +12117,8 @@ snapshots:
 
   lucide@0.468.0: {}
 
+  lunar-javascript@1.7.7: {}
+
   lz-string@1.5.0: {}
 
   magic-string@0.30.21:
@@ -12921,6 +13029,8 @@ snapshots:
       commander: 9.5.0
     optional: true
 
+  preact@10.12.1: {}
+
   prelude-ls@1.2.1: {}
 
   prettier@3.9.6: {}
@@ -12956,14 +13066,14 @@ snapshots:
 
   property-information@7.2.0: {}
 
-  prosekit@0.21.4(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  prosekit@0.21.4(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(preact@10.12.1)(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@prosekit/basic': 0.9.5(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
       '@prosekit/core': 0.12.3(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)
       '@prosekit/extensions': 0.17.4(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
       '@prosekit/lit': 0.6.7(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
       '@prosekit/pm': 0.1.18
-      '@prosekit/preact': 0.7.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
+      '@prosekit/preact': 0.7.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(preact@10.12.1)(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
       '@prosekit/react': 0.7.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@prosekit/solid': 0.7.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
       '@prosekit/svelte': 0.9.6(@shikijs/types@4.3.1)(@types/hast@3.0.5)(loro-crdt@1.13.8)(loro-prosemirror@0.4.3(loro-crdt@1.13.8))(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.42.1)
@@ -12972,6 +13082,7 @@ snapshots:
     optionalDependencies:
       loro-crdt: 1.13.8
       loro-prosemirror: 0.4.3(loro-crdt@1.13.8)
+      preact: 10.12.1
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
     transitivePeerDependencies:
@@ -13707,6 +13818,8 @@ snapshots:
     dependencies:
       '@pkgr/core': 0.3.6
 
+  tabbable@6.5.0: {}
+
   tagged-tag@1.0.0: {}
 
   tapable@2.3.3: {}
@@ -13895,6 +14008,8 @@ snapshots:
 
   undici@7.28.0:
     optional: true
+
+  uniqolor@1.1.1: {}
 
   unist-util-is@6.0.1:
     dependencies:

@@ -1,4 +1,4 @@
-import type { DatabaseCommand, EditorStorageDatabase } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
 import type {
   IndexPendingEmbeddingsInput,
   IndexPendingEmbeddingsResult,
@@ -42,25 +42,27 @@ export class EditorEmbeddingIndex {
   constructor(
     private readonly database: EditorStorageDatabase,
     private readonly embeddingModel: EmbeddingModel,
+    private readonly runOperation: StorageOperationRunner,
   ) {}
 
   async indexPendingEmbeddings(input: IndexPendingEmbeddingsInput = {}): Promise<IndexPendingEmbeddingsResult> {
     if (input.noteId !== undefined)
       assertNonEmpty(input.noteId, 'Note id')
     const limit = resolveLimit(input.limit, 32, 256)
-    const rows = await this.database.all<PendingEmbeddingRow>(`
-      SELECT b.row_id, b.note_row_id, b.text, b.content_hash
-      FROM topic_blocks b
-      JOIN notes n ON n.row_id = b.note_row_id
-      LEFT JOIN topic_block_embedding_state s ON s.block_row_id = b.row_id
-      WHERE (s.block_row_id IS NULL OR s.model_id <> ? OR s.content_hash <> b.content_hash)
-        AND (? IS NULL OR n.id = ?)
-      ORDER BY n.updated_at DESC, b.row_id ASC
-      LIMIT ?
-    `, [this.embeddingModel.id, input.noteId ?? null, input.noteId ?? null, limit])
+    const rows = await this.runOperation(() => this.database.all<PendingEmbeddingRow>(`
+        SELECT b.row_id, b.note_row_id, b.text, b.content_hash
+        FROM topic_blocks b
+        JOIN notes n ON n.row_id = b.note_row_id
+        LEFT JOIN topic_block_embedding_state s ON s.block_row_id = b.row_id
+        WHERE (s.block_row_id IS NULL OR s.model_id <> ? OR s.content_hash <> b.content_hash)
+          AND (? IS NULL OR n.id = ?)
+        ORDER BY n.updated_at DESC, b.row_id ASC
+        LIMIT ?
+      `, [this.embeddingModel.id, input.noteId ?? null, input.noteId ?? null, limit]))
     if (rows.length === 0)
       return { hasPending: false, indexed: 0 }
 
+    // Model inference can take seconds and must not retain the shared database permit.
     const vectors = await this.embeddingModel.embedDocuments(rows.map(row => row.text))
     if (vectors.length !== rows.length)
       throw new Error(`Embedding model ${this.embeddingModel.id} returned ${vectors.length} vectors for ${rows.length} Topic Blocks`)
@@ -93,12 +95,14 @@ export class EditorEmbeddingIndex {
         },
       )
     }
-    await this.database.batch(commands)
-    const [indexed, hasPending] = await Promise.all([
-      this.countCommittedEmbeddings(rows),
-      this.hasPendingEmbeddings(input.noteId),
-    ])
-    return { hasPending, indexed }
+    return this.runOperation(async () => {
+      await this.database.batch(commands)
+      const [indexed, hasPending] = await Promise.all([
+        this.countCommittedEmbeddings(rows),
+        this.hasPendingEmbeddings(input.noteId),
+      ])
+      return { hasPending, indexed }
+    })
   }
 
   async embedQuery(query: string): Promise<Uint8Array> {

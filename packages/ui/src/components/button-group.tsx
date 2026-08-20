@@ -1,7 +1,6 @@
 import type * as stylex from '@stylexjs/stylex'
-import type { HTMLAttributes, ReactElement, ReactNode, Ref } from 'react'
+import type { HTMLAttributes, ReactNode, Ref } from 'react'
 import * as stylexRuntime from '@stylexjs/stylex'
-import { Children } from 'react'
 import { buttonGroupStyles } from './button-group.stylex'
 import { Slot } from './slot'
 
@@ -25,6 +24,6 @@ export function ButtonGroup({ asChild = false, children, ref, variant = 'plain',
     ...stylexRuntime.props(buttonGroupStyles.base, buttonGroupStyles[variant], xstyle),
   }
   return asChild
-    ? <Slot {...rootProps}>{Children.only(children) as ReactElement}</Slot>
+    ? <Slot {...rootProps}>{children}</Slot>
     : <div {...rootProps}>{children}</div>
 }

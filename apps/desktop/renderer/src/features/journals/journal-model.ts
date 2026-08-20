@@ -10,6 +10,7 @@ const journalDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u
 
 export interface JournalSearch {
   date?: JournalDate
+  focus?: string
 }
 
 export function toJournalDate(date: Date): string {
@@ -48,12 +49,20 @@ export function formatJournalHeading(journalDate: string): string {
 }
 
 export function validateJournalSearch(search: Record<string, unknown>): JournalSearch {
-  if (search.date === undefined)
-    return {}
+  if (search.date === undefined) {
+    if (search.focus === undefined)
+      return {}
+    throw new TypeError('Journal focus requires a date search parameter')
+  }
   if (typeof search.date !== 'string')
     throw new TypeError('Journal date search parameter must be a string')
   fromJournalDate(search.date)
-  return { date: search.date }
+  if (search.focus !== undefined && (typeof search.focus !== 'string' || search.focus.trim().length === 0))
+    throw new TypeError('Journal focus must be a non-empty Block id')
+  return {
+    date: search.date,
+    ...(search.focus === undefined ? {} : { focus: search.focus }),
+  }
 }
 
 export function journalSummary(note: DesktopJournalNote): DesktopJournalSummary {

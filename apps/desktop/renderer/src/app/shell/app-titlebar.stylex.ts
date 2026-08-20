@@ -28,6 +28,14 @@ export const appTitlebarStyles = stylex.create({
   trailingGroup: {
     right: 14,
   },
+  trailingGroupPlain: {
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    backgroundImage: 'none',
+    backdropFilter: 'none',
+    boxShadow: 'none',
+  },
   trailingGroupWithSidebarAction: {
     right: 58,
   },

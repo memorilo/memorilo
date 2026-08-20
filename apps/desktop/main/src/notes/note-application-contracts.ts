@@ -1,6 +1,7 @@
-import type { JournalDate } from '@memorilo/editor-storage'
+import type { JournalDate, TodoReminder, TodoRepeatRule, TodoTaskStatus } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { TopicBlockEdit } from '@memorilo/editor/note'
+import type { RecurringTaskCompletionAction } from '@memorilo/editor/task'
 import type { BookFileBinding } from '@memorilo/reading-model'
 import type { BookTopicReadingContext } from './note-application-projection'
 
@@ -41,8 +42,10 @@ export interface ListJournalDatesInput {
 }
 
 export interface NoteApplicationServiceOptions {
+  autoCompleteTodoParents?: () => boolean
   defaultNoteLearningEnabled?: () => boolean
   now?: () => Date
+  recurringTaskCompletionAction?: () => RecurringTaskCompletionAction
 }
 
 export interface ApplyTopicEditsInput {
@@ -81,6 +84,33 @@ export interface NoteExternalUpdate {
 export interface SaveNoteUpdatesInput {
   noteId: string
   updates: readonly Uint8Array[]
+}
+
+export interface UpdateTodoTaskInput {
+  allDay?: boolean
+  blockId: string
+  dueDate?: JournalDate | null
+  dueTime?: string | null
+  endAt?: string | null
+  nextDueDate?: JournalDate | null
+  noteId: string
+  onlyThis?: boolean
+  reminderMinutes?: number | null
+  reminders?: readonly TodoReminder[] | null
+  repeatRule?: TodoRepeatRule | null
+  status?: TodoTaskStatus
+  startAt?: string | null
+  text?: string
+  topicId: string
+}
+
+export interface CreateTodoTaskInput {
+  allDay?: boolean
+  dueDate: JournalDate
+  dueTime?: string | null
+  endAt?: string | null
+  startAt?: string | null
+  text: string
 }
 
 export interface GetNoteCardProjectionInput {

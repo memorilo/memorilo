@@ -162,6 +162,19 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
     listRecentNotes: input => input === undefined
       ? rpc('notes', 'listRecentNotes')
       : rpc('notes', 'listRecentNotes', input),
+    listTodoTasks: input => input === undefined
+      ? rpc('notes', 'listTodoTasks')
+      : rpc('notes', 'listTodoTasks', input),
+    createTodoTask: input => rpc('notes', 'createTodoTask', input),
+    listTodoCalendarEvents: input => rpc('notes', 'listTodoCalendarEvents', input),
+    listTodoCalendarSubscriptions: () => rpc('notes', 'listTodoCalendarSubscriptions'),
+    refreshTodoCalendar: id => rpc('notes', 'refreshTodoCalendar', id),
+    removeTodoCalendar: async (id) => {
+      await rpc('notes', 'removeTodoCalendar', id)
+      return undefined
+    },
+    subscribeTodoCalendar: input => rpc('notes', 'subscribeTodoCalendar', input),
+    updateTodoTask: input => rpc('notes', 'updateTodoTask', input),
     learning,
     listShelfSources: () => rpc('shelf', 'listSources'),
     openJournal: input => input === undefined

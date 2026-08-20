@@ -155,6 +155,7 @@ export function AppTitlebar({
               xstyle={[
                 appTitlebarStyles.navigationGroup,
                 appTitlebarStyles.trailingGroup,
+                page.trailingAppearance === 'plain' && appTitlebarStyles.trailingGroupPlain,
                 page.sidebarAction !== undefined && appTitlebarStyles.trailingGroupWithSidebarAction,
               ]}
             >

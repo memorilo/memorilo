@@ -283,6 +283,51 @@ const schema = `
   CREATE INDEX IF NOT EXISTS topic_blocks_parent_order_idx
     ON topic_blocks(note_row_id, topic_id, parent_block_id, ordinal);
 
+  CREATE INDEX IF NOT EXISTS topic_blocks_task_feed_idx
+    ON topic_blocks(row_id DESC)
+    WHERE kind = 'task';
+
+  CREATE INDEX IF NOT EXISTS topic_blocks_task_status_idx
+    ON topic_blocks(json_extract(attributes_json, '$.status'), row_id DESC)
+    WHERE kind = 'task';
+
+  CREATE TABLE IF NOT EXISTS todo_calendar_subscriptions (
+    id TEXT PRIMARY KEY CHECK (length(trim(id)) > 0),
+    url TEXT NOT NULL UNIQUE CHECK (length(trim(url)) > 0),
+    title TEXT NOT NULL,
+    enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+    version TEXT,
+    fetched_at INTEGER,
+    etag TEXT,
+    last_modified TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS todo_calendar_versions (
+    subscription_id TEXT NOT NULL REFERENCES todo_calendar_subscriptions(id) ON DELETE CASCADE,
+    version TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL,
+    raw_ics TEXT NOT NULL,
+    PRIMARY KEY (subscription_id, version)
+  );
+
+  CREATE TABLE IF NOT EXISTS todo_calendar_events (
+    subscription_id TEXT NOT NULL,
+    version TEXT NOT NULL,
+    uid TEXT NOT NULL,
+    start_date TEXT NOT NULL CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    end_date TEXT CHECK (end_date IS NULL OR end_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    start_at TEXT,
+    end_at TEXT,
+    all_day INTEGER NOT NULL DEFAULT 1 CHECK (all_day IN (0, 1)),
+    title TEXT NOT NULL,
+    PRIMARY KEY (subscription_id, version, uid, start_date),
+    FOREIGN KEY (subscription_id, version)
+      REFERENCES todo_calendar_versions(subscription_id, version) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS todo_calendar_events_date_idx
+    ON todo_calendar_events(start_date, end_date);
+
   CREATE VIRTUAL TABLE IF NOT EXISTS topic_blocks_fts USING fts5(
     text,
     content='topic_blocks',

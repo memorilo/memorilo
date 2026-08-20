@@ -16,7 +16,9 @@ export type {
   DesktopReaderAnnotationCopyFormat,
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
+  DesktopRecurringTaskCompletionAction,
   DesktopTiffConversionFormat,
+  DesktopTodoConfiguration,
   DesktopWeekStart,
 } from './contract'
 export { desktopConfigurationChangedChannel } from './contract'
@@ -85,10 +87,28 @@ export const DesktopConfigurationSchema = Schema.Struct({
   readerPageMode: Schema.Literals(['continuous', 'single-page']),
   reduceMotion: Schema.Boolean,
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
+  todo: Schema.Struct({
+    autoCompleteParentTasks: Schema.Boolean,
+    blankTaskDurationMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_440, minimum: 0 })),
+    enabled: Schema.Boolean,
+    keepDetailOpenWhenTaskLeavesView: Schema.Boolean,
+    recurringTaskCompletionAction: Schema.Literals([
+      'archive-completed-to-today',
+      'move-next-to-today',
+      'move-next-to-due-date',
+      'nest-completed-under-next',
+      'place-next-after-completed',
+      'replace-completed',
+    ]),
+    timelineWorkdayEndHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 1 })),
+    timelineWorkdayStartHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 0 })),
+  }),
   weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
-  : undefined))
+  : configuration.todo.timelineWorkdayEndHour <= configuration.todo.timelineWorkdayStartHour
+    ? { message: 'Todo workday end must be later than its start', path: ['todo', 'timelineWorkdayEndHour'] }
+    : undefined))
 
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
@@ -123,6 +143,15 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerPageMode: 'continuous' as const,
     reduceMotion: false,
     tiffConversionFormat: 'webp' as const,
+    todo: {
+      autoCompleteParentTasks: true,
+      blankTaskDurationMinutes: 0,
+      enabled: true,
+      keepDetailOpenWhenTaskLeavesView: true,
+      recurringTaskCompletionAction: 'archive-completed-to-today' as const,
+      timelineWorkdayEndHour: 21,
+      timelineWorkdayStartHour: 7,
+    },
     weekStart: 'sunday' as const,
   },
   id: 'memorilo-desktop',
@@ -162,6 +191,65 @@ export const desktopConfigurationDefinition = defineConfiguration({
     ],
     id: 'general',
     label: 'General',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Complete a Todo parent when all of its direct Todo children are complete, and reopen it when one is reopened.',
+      label: 'Auto-complete parent Todos',
+      path: 'todo.autoCompleteParentTasks',
+    }, {
+      control: 'number',
+      description: 'Default duration for tasks created by clicking an empty timeline slot.',
+      label: 'Empty slot task duration',
+      max: 1_440,
+      min: 0,
+      path: 'todo.blankTaskDurationMinutes',
+      step: 5,
+      unit: 'minutes',
+    }, {
+      control: 'number',
+      description: 'First visible hour in the Todo timeline.',
+      label: 'Timeline workday starts at',
+      max: 23,
+      min: 0,
+      path: 'todo.timelineWorkdayStartHour',
+      step: 1,
+      unit: 'hour',
+    }, {
+      control: 'number',
+      description: 'Last visible hour in the Todo timeline.',
+      label: 'Timeline workday ends at',
+      max: 23,
+      min: 1,
+      path: 'todo.timelineWorkdayEndHour',
+      step: 1,
+      unit: 'hour',
+    }, {
+      control: 'toggle',
+      description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
+      label: 'Enable Todo workspace',
+      path: 'todo.enabled',
+    }, {
+      control: 'toggle',
+      description: 'Keep the selected task open when a change removes it from the current Todo view.',
+      label: 'Keep task details open',
+      path: 'todo.keepDetailOpenWhenTaskLeavesView',
+    }, {
+      control: 'select',
+      description: 'Choose where the completed occurrence and the next task are placed.',
+      label: 'After completing a recurring task',
+      options: [
+        { label: 'Archive in today\'s Journal', value: 'archive-completed-to-today' },
+        { label: 'Next to today\'s Journal', value: 'move-next-to-today' },
+        { label: 'Next to due-date Journal', value: 'move-next-to-due-date' },
+        { label: 'Completion under next', value: 'nest-completed-under-next' },
+        { label: 'Next after completion', value: 'place-next-after-completed' },
+        { label: 'Replace with next', value: 'replace-completed' },
+      ],
+      path: 'todo.recurringTaskCompletionAction',
+    }],
+    id: 'todo',
+    label: 'Todo',
   }, {
     fields: [{
       control: 'toggle',
@@ -421,5 +509,40 @@ export const desktopConfigurationDefinition = defineConfiguration({
 })
 
 export function migrateDesktopConfiguration(configuration: unknown): unknown {
-  return configuration
+  if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration))
+    return configuration
+  const record = configuration as Record<string, unknown>
+  if (!Object.hasOwn(record, 'todo')) {
+    return {
+      ...record,
+      todo: desktopConfigurationDefinition.defaults.todo,
+    }
+  }
+  const todo = record.todo
+  if (typeof todo === 'object'
+    && todo !== null
+    && !Array.isArray(todo)
+    && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
+    return {
+      ...record,
+      todo: {
+        ...todo,
+        autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
+        recurringTaskCompletionAction: desktopConfigurationDefinition.defaults.todo.recurringTaskCompletionAction,
+      },
+    }
+  }
+  if (typeof todo === 'object'
+    && todo !== null
+    && !Array.isArray(todo)
+    && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
+    return {
+      ...record,
+      todo: {
+        ...todo,
+        autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
+      },
+    }
+  }
+  return record
 }

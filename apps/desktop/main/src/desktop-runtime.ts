@@ -38,6 +38,7 @@ import {
   mainDatabasePath,
   shelfLibraryDirectory,
 } from './storage/workspace-paths'
+import { createTodoReminderScheduler } from './todo/todo-reminder-scheduler'
 import { WhiteboardLibraryApplication } from './whiteboard/whiteboard-library-application'
 import { createSettingsWindowController } from './windows/settings-window'
 
@@ -203,6 +204,11 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'editor storage',
     })
     const editorStorage = editor.resource
+    await scope.acquire({
+      acquire: () => createTodoReminderScheduler(editorStorage),
+      close: scheduler => scheduler.close(),
+      name: 'Todo reminder scheduler',
+    })
     const whiteboardLibrary = (await scope.acquire({
       acquire: () => WhiteboardLibraryApplication.open(editorStorage.userDocuments),
       close: application => application.close(),
@@ -261,7 +267,9 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         for (const window of BrowserWindow.getAllWindows())
           window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
       }, {
+        autoCompleteTodoParents: () => configurationStore.getSnapshot().todo.autoCompleteParentTasks,
         defaultNoteLearningEnabled: () => configurationStore.getSnapshot().defaultNoteLearningEnabled,
+        recurringTaskCompletionAction: () => configurationStore.getSnapshot().todo.recurringTaskCompletionAction,
       }, activeReadings),
       close: noteApplication => noteApplication.close(),
       name: 'Note application',

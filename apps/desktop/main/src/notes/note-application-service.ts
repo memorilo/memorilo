@@ -21,6 +21,7 @@ export type {
   CreateBookNoteInput,
   CreateBookNoteResult,
   CreateNoteInput,
+  CreateTodoTaskInput,
   GetNoteCardProjectionInput,
   ListJournalDatesInput,
   ListPastJournalsInput,
@@ -33,6 +34,7 @@ export type {
   RenameTopicInput,
   SaveNoteUpdatesInput,
   SetTopicModeInput,
+  UpdateTodoTaskInput,
 } from './note-application-contracts'
 export { ActiveReadingDeletionError } from './note-entry-protection'
 
@@ -55,9 +57,12 @@ export function createNoteApplicationService(
   activeReadings?: ActiveReadingRegistry,
 ) {
   const today = (): JournalDate => localJournalDate(options.now?.() ?? new Date())
+  const autoCompleteTodoParents = options.autoCompleteTodoParents ?? (() => true)
   const defaultNoteLearningEnabled = options.defaultNoteLearningEnabled ?? (() => true)
+  const recurringTaskCompletionAction = options.recurringTaskCompletionAction ?? (() => 'archive-completed-to-today' as const)
   const runtime = createNoteAuthoritativeRuntime({
     activeReadings,
+    autoCompleteTodoParents,
     defaultNoteLearningEnabled,
     onExternalUpdate,
     storage,
@@ -66,7 +71,7 @@ export function createNoteApplicationService(
   return {
     close: runtime.close,
     ...createNoteApplicationQueries({ runtime, storage, today }),
-    ...createNoteApplicationCommands({ defaultNoteLearningEnabled, runtime, storage, today }),
+    ...createNoteApplicationCommands({ defaultNoteLearningEnabled, recurringTaskCompletionAction, runtime, storage, today }),
   }
 }
 

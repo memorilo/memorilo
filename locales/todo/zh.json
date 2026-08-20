@@ -1,0 +1,215 @@
+{
+  "title": "Todo",
+  "listView": "列表",
+  "boardView": "看板",
+  "timelineView": "时间线",
+  "agendaView": "日程",
+  "calendarView": "日历",
+  "calendarEvents": "日历事件",
+  "quadrantView": "四象限",
+  "viewLabel": "Todo 视图",
+  "switchToBoard": "切换到看板视图",
+  "switchToList": "切换到列表视图",
+  "switchToTimeline": "切换到时间线视图",
+  "switchToAgenda": "切换到日程视图",
+  "dayView": "日",
+  "multiDayView": "多日",
+  "weekView": "周",
+  "multiWeekView": "多周",
+  "timelineRange": "时间线范围",
+  "previousPeriod": "上一个周期",
+  "nextPeriod": "下一个周期",
+  "allDay": "全天",
+  "switchToCalendar": "切换到日历视图",
+  "switchToQuadrant": "切换到四象限视图",
+  "filterLabel": "任务状态",
+  "filterAll": "全部",
+  "statusTodo": "待办",
+  "statusDoing": "进行中",
+  "statusDone": "已完成",
+  "sidebarLabel": "Todo 导航",
+  "sidebarSmartViews": "视图",
+  "sidebarNotes": "Notes",
+  "sidebarStatus": "状态",
+  "sidebarAll": "所有",
+  "sidebarToday": "今天",
+  "sidebarTomorrow": "明天",
+  "sidebarOverdue": "已过期",
+  "sidebarNext7": "最近 7 天",
+  "sidebarUndated": "无日期",
+  "sidebarNoNotes": "没有包含任务的 Note",
+  "showListSidebar": "显示 Todo 侧边栏",
+  "hideListSidebar": "隐藏 Todo 侧边栏",
+  "taskCount_one": "{{count}} 个任务",
+  "taskCount_other": "{{count}} 个任务",
+  "loading": "正在加载任务",
+  "loadingMore": "正在加载更多任务…",
+  "couldNotLoad": "无法加载任务",
+  "noTasks": "当前视图中没有任务",
+  "noTasksInColumn": "暂无任务",
+  "tryAgain": "重试",
+  "openTask": "在 {{note}} 中打开 {{task}}",
+  "selectTask": "显示 {{note}} 中 {{task}} 的详情",
+  "taskDetail": "任务详情",
+  "closeTaskDetail": "关闭任务详情",
+  "changeTaskStatus": "将状态从{{current}}切换为{{next}}",
+  "openSourceNote": "打开 {{note}} 并定位此任务",
+  "openingTaskDetail": "正在打开任务详情…",
+  "couldNotOpenTaskDetail": "无法打开任务详情：{{message}}",
+  "couldNotSaveTaskDetail": "无法保存任务详情：{{message}}",
+  "couldNotUpdateTask": "无法更新任务：{{message}}",
+  "source": "{{note}} · {{topic}}",
+  "elapsed": "已用时 {{duration}}",
+  "dueDate": "{{date}} 到期",
+  "overdue": "已逾期 · {{date}}",
+  "timelineSubtitle": "按时间安排每天的任务",
+  "calendarSubtitle": "按日期查看任务",
+  "quadrantSubtitle": "按重要性和紧急性聚焦",
+  "quadrantRule": "重要：收藏笔记 · 紧急：今天或已过期",
+  "previousMonth": "上个月",
+  "nextMonth": "下个月",
+  "today": "今天",
+  "unscheduled": "未安排日期",
+  "noTasksInPeriod": "这段时间没有任务",
+  "selectedDay": "选中的日期",
+  "noTasksOnDay": "这一天没有任务",
+  "calendarDay_one": "{{date}}，{{count}} 个任务",
+  "calendarDay_other": "{{date}}，{{count}} 个任务",
+  "moreTasks": "还有 {{count}} 个",
+  "quadrantImportantUrgent": "重要且紧急",
+  "quadrantImportantNotUrgent": "重要但不紧急",
+  "quadrantNotImportantUrgent": "不重要但紧急",
+  "quadrantNotImportantNotUrgent": "不重要且不紧急",
+  "noTasksInQuadrant": "暂无任务"
+  ,"expandSubtasks": "展开子任务"
+  ,"collapseSubtasks": "收起子任务"
+  ,"taskActions": "任务操作"
+  ,"scheduleSettings": "时间安排"
+  ,"scheduleMode": "安排模式"
+  ,"scheduleDate": "日期"
+  ,"scheduleSpan": "时段"
+  ,"spanStart": "开始"
+  ,"spanEnd": "结束"
+  ,"quickDateToday": "今天"
+  ,"quickDateTomorrow": "明天"
+  ,"quickDateNextWeek": "下周"
+  ,"quickDateTonight": "今晚"
+  ,"quickDateNoDate": "无日期"
+  ,"time": "时间"
+  ,"close": "关闭"
+  ,"clearTime": "清除时间"
+  ,"notSet": "未设置"
+  ,"reminder": "提醒"
+  ,"reminderNone": "不提醒"
+  ,"reminderAtTime": "到点提醒"
+  ,"reminderMinutesBefore_one": "提前 {{count}} 分钟"
+  ,"reminderMinutesBefore_other": "提前 {{count}} 分钟"
+  ,"reminderHoursBefore_one": "提前 {{count}} 小时"
+  ,"reminderHoursBefore_other": "提前 {{count}} 小时"
+  ,"reminderDaysBefore_one": "提前 {{count}} 天"
+  ,"reminderDaysBefore_other": "提前 {{count}} 天"
+  ,"reminderSettings": "提醒"
+  ,"reminderPresets": "提醒选项"
+  ,"reminderCustomTime": "自定义时间"
+  ,"reminderAtCustomTime": "{{time}} 提醒"
+  ,"reminderCount_one": "{{count}} 个提醒"
+  ,"reminderCount_other": "{{count}} 个提醒"
+  ,"addReminder": "添加提醒"
+  ,"removeReminder": "移除 {{time}} 的提醒"
+  ,"clearReminders": "清除全部提醒"
+  ,"repeat": "重复"
+  ,"repeatNone": "不重复"
+  ,"repeatEnd": "结束重复"
+  ,"repeatForever": "一直重复"
+  ,"repeatEndOnDate": "指定日期"
+  ,"repeatUntilShort": "直到 {{date}}"
+  ,"repeatEndDateError": "结束日期不能早于任务日期"
+  ,"timeSpanError": "结束时间必须晚于开始时间"
+  ,"allDay": "全天"
+  ,"clearSchedule": "清除"
+  ,"confirmSchedule": "确定"
+  ,"repeatSettings": "重复设置"
+  ,"repeatEvery": "每隔"
+  ,"repeatUnit": "单位"
+  ,"repeatDay": "天"
+  ,"repeatWeek": "周"
+  ,"repeatMonth": "月"
+  ,"repeatYear": "年"
+  ,"repeatHoliday": "法定节假日"
+  ,"repeatOn": "重复于"
+  ,"weekdaySunday": "日"
+  ,"weekdayMonday": "一"
+  ,"weekdayTuesday": "二"
+  ,"weekdayWednesday": "三"
+  ,"weekdayThursday": "四"
+  ,"weekdayFriday": "五"
+  ,"weekdaySaturday": "六"
+  ,"repeatMode": "重复时机"
+  ,"repeatDue": "到期重复"
+  ,"repeatCompletion": "完成重复"
+  ,"holidayPolicy": "节假日策略"
+  ,"holidayAllow": "照常"
+  ,"holidaySkip": "跳过节假日"
+  ,"holidayNextWorkday": "顺延到工作日"
+  ,"repeatCalendar": "日历"
+  ,"selectCalendar": "选择日历"
+  ,"missingCalendar": "已移除：{{id}}"
+  ,"repeatStartDate": "开始日期"
+  ,"saveRepeat": "保存重复"
+  ,"repeatIntervalError": "重复间隔必须是 1 到 999 的整数"
+  ,"repeatCalendarError": "请为此重复规则选择日历订阅"
+  ,"repeatWeekdayError": "请至少选择一个星期"
+  ,"loadingCalendars": "正在加载日历…"
+  ,"couldNotLoadCalendars": "无法加载日历：{{message}}"
+  ,"skipThis": "跳过本次"
+  ,"onlyThis": "仅修改本次"
+  ,"onlyThisTaskText": "本次任务内容"
+  ,"occurrenceActions": "重复任务操作"
+  ,"completeAndRepeat": "完成并安排下一次"
+  ,"calendarSubscriptions": "日历订阅"
+  ,"calendarItemCount_one": "{{count}} 项"
+  ,"calendarItemCount_other": "{{count}} 项"
+  ,"cancel": "取消"
+  ,"backToRepeatPresets": "返回重复选项"
+  ,"repeatReference": "重复参考日期"
+  ,"repeatCustomDate": "按自选日期"
+  ,"repeatLunar": "农历"
+  ,"repeatPresetDaily": "每天"
+  ,"repeatPresetWeekly": "每周"
+  ,"repeatPresetMonthly": "每月"
+  ,"repeatPresetYearly": "每年"
+  ,"repeatPresetWorkdays": "工作日"
+  ,"repeatPresetHolidays": "法定节假日"
+  ,"repeatPresetLunar": "农历日期"
+  ,"repeatPresetCustom": "自定义"
+  ,"repeatConfigure": "配置"
+  ,"repeatMonthMode": "月度规则"
+  ,"repeatMonthByDate": "按日期"
+  ,"repeatMonthByWeekday": "按星期"
+  ,"repeatMonthByWorkday": "按工作日"
+  ,"repeatYearMode": "年度规则"
+  ,"repeatYearByDate": "按日期"
+  ,"repeatYearByWeekday": "按星期"
+  ,"repeatDayOfMonth": "日期"
+  ,"repeatLastDay": "最后一天"
+  ,"repeatOrdinal": "第几个"
+  ,"repeatWeekday": "星期"
+  ,"repeatWorkdayOrdinal": "工作日序号"
+  ,"repeatMonthOfYear": "月份"
+  ,"repeatLunarMonth": "农历月"
+  ,"repeatLunarDay": "农历日"
+  ,"repeatSkipHolidays": "跳过法定节假日"
+  ,"repeatSkipWeekends": "跳过双休日"
+  ,"repeatCustomPreview": "从 {{date}} 开始预览后续日期"
+  ,"repeatCustomDateError": "自选日期必须不早于任务日期"
+  ,"repeatFirst": "第一个"
+  ,"repeatSecond": "第二个"
+  ,"repeatThird": "第三个"
+  ,"repeatFourth": "第四个"
+  ,"repeatFifth": "第五个"
+  ,"repeatLast": "最后一个"
+  ,"repeatOrdinalWeekday": "{{ordinal}}{{weekday}}"
+  ,"repeatOrdinalWorkday": "第{{ordinal}}个工作日"
+  ,"monthNumber": "{{count}}月"
+  ,"repeatPrediction": "重复任务“{{task}}”的预测日期"
+}
