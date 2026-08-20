@@ -33,6 +33,21 @@ describe('settings renderer', () => {
     fireEvent.click(rendered.getByRole('button', { name: 'Calendar' }))
     expect(await rendered.findByRole('heading', { name: 'Calendar' })).toBeInTheDocument()
     expect(rendered.getByRole('switch', { name: 'Enable Todo workspace' })).toHaveAttribute('aria-checked', 'true')
+    const blankTaskDuration = rendered.getByRole('spinbutton', { name: 'Empty slot task duration' })
+    const workdayStart = rendered.getByRole('spinbutton', { name: 'Timeline workday starts at' })
+    const workdayEnd = rendered.getByRole('spinbutton', { name: 'Timeline workday ends at' })
+    expect(blankTaskDuration).toHaveValue(0)
+    expect(workdayStart).toHaveValue(7)
+    expect(workdayEnd).toHaveValue(21)
+    fireEvent.change(blankTaskDuration, { target: { value: '45' } })
+    fireEvent.blur(blankTaskDuration)
+    await waitFor(() => expect(store.getSnapshot().todo.blankTaskDurationMinutes).toBe(45))
+    fireEvent.change(workdayStart, { target: { value: '8' } })
+    fireEvent.blur(workdayStart)
+    await waitFor(() => expect(store.getSnapshot().todo.timelineWorkdayStartHour).toBe(8))
+    fireEvent.change(workdayEnd, { target: { value: '19' } })
+    fireEvent.blur(workdayEnd)
+    await waitFor(() => expect(store.getSnapshot().todo.timelineWorkdayEndHour).toBe(19))
     const recurringTaskCompletion = rendered.getByRole('combobox', { name: 'After completing a recurring task' })
     expect(recurringTaskCompletion).toHaveValue('archive-completed-to-today')
     fireEvent.change(recurringTaskCompletion, { target: { value: 'move-next-to-due-date' } })
@@ -95,7 +110,10 @@ describe('settings renderer', () => {
         tiffConversionFormat: 'webp',
         todo: {
           ...desktopConfigurationDefinition.defaults.todo,
+          blankTaskDurationMinutes: 45,
           recurringTaskCompletionAction: 'move-next-to-due-date',
+          timelineWorkdayEndHour: 19,
+          timelineWorkdayStartHour: 8,
         },
         weekStart: 'monday',
       })
@@ -123,7 +141,10 @@ describe('settings renderer', () => {
         tiffConversionFormat: 'webp',
         todo: {
           ...desktopConfigurationDefinition.defaults.todo,
+          blankTaskDurationMinutes: 45,
           recurringTaskCompletionAction: 'move-next-to-due-date',
+          timelineWorkdayEndHour: 19,
+          timelineWorkdayStartHour: 8,
         },
         weekStart: 'monday',
       })

@@ -160,6 +160,12 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('todoEnabled')
     case 'todo.autoCompleteParentTasks':
       return t('autoCompleteParentTasks')
+    case 'todo.blankTaskDurationMinutes':
+      return t('blankTaskDurationMinutes')
+    case 'todo.timelineWorkdayStartHour':
+      return t('timelineWorkdayStartHour')
+    case 'todo.timelineWorkdayEndHour':
+      return t('timelineWorkdayEndHour')
     case 'todo.keepDetailOpenWhenTaskLeavesView':
       return t('keepTodoDetailOpen')
     case 'todo.recurringTaskCompletionAction':
@@ -237,6 +243,12 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('todoEnabledDescription')
     case 'todo.autoCompleteParentTasks':
       return t('autoCompleteParentTasksDescription')
+    case 'todo.blankTaskDurationMinutes':
+      return t('blankTaskDurationMinutesDescription')
+    case 'todo.timelineWorkdayStartHour':
+      return t('timelineWorkdayStartHourDescription')
+    case 'todo.timelineWorkdayEndHour':
+      return t('timelineWorkdayEndHourDescription')
     case 'todo.keepDetailOpenWhenTaskLeavesView':
       return t('keepTodoDetailOpenDescription')
     case 'todo.recurringTaskCompletionAction':

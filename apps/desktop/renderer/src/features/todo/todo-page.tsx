@@ -1,4 +1,4 @@
-import type { DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
+import type { CreateDesktopTodoTaskInput, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import type { TodoListSelection, TodoView } from './todo-model'
 import * as stylex from '@stylexjs/stylex'
@@ -24,20 +24,21 @@ import { usePageTitlebar } from '../../shared/page-titlebar'
 import { PageTitlebarButton } from '../../shared/page-titlebar-button'
 import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
-import { TodoListSidebar } from './todo-list-sidebar'
-import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskQueryOptions, todoTasksForView } from './todo-model'
 import { TodoDetailSidebar } from './todo-detail-sidebar'
-import { todoTaskKey } from './todo-model'
+import { TodoListSidebar } from './todo-list-sidebar'
+import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskKey, todoTaskQueryOptions, todoTasksForView } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
 import { TodoBoardView } from './views/todo-board-view'
 import { TodoCalendarView } from './views/todo-calendar-view'
 import { TodoListView } from './views/todo-list-view'
 import { TodoQuadrantView } from './views/todo-quadrant-view'
+import { TodoTimeGridView } from './views/todo-time-grid-view'
 import { TodoTimelineView } from './views/todo-timeline-view'
 
 const viewOptions: readonly { descriptionKey: string, id: TodoView, labelKey: string }[] = [
   { descriptionKey: 'switchToList', id: 'list', labelKey: 'listView' },
   { descriptionKey: 'switchToBoard', id: 'board', labelKey: 'boardView' },
+  { descriptionKey: 'switchToAgenda', id: 'agenda', labelKey: 'agendaView' },
   { descriptionKey: 'switchToTimeline', id: 'timeline', labelKey: 'timelineView' },
   { descriptionKey: 'switchToCalendar', id: 'calendar', labelKey: 'calendarView' },
   { descriptionKey: 'switchToQuadrant', id: 'quadrant', labelKey: 'quadrantView' },
@@ -134,6 +135,8 @@ function ViewIcon({ view }: { view: TodoView }) {
       return <Columns3 aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'timeline':
       return <CalendarClock aria-hidden="true" size={14} strokeWidth={1.8} />
+    case 'agenda':
+      return <CalendarClock aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'calendar':
       return <CalendarDays aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'quadrant':
@@ -225,6 +228,12 @@ export function TodoPage({
     await queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
     await calendarQuery.refetch()
   }, [calendarQuery, queryClient])
+  const createTodoTask = useCallback(async (input: CreateDesktopTodoTaskInput) => {
+    const task = await desktopRequests.createTodoTask(input)
+    dispatchSelectedTask({ task, type: 'select' })
+    await queryClient.invalidateQueries({ queryKey: todoQueryKeys.all })
+    return task
+  }, [queryClient])
   const selectTask = useCallback((task: DesktopTodoTask) => dispatchSelectedTask({ task, type: 'select' }), [])
   const closeTaskDetail = useCallback(() => dispatchSelectedTask({ type: 'close' }), [])
   const loadNextPage = useCallback(async () => {
@@ -436,7 +445,7 @@ export function TodoPage({
       />
     )
   }
-  else if (view === 'timeline') {
+  else if (view === 'agenda') {
     viewContent = (
       <TodoTimelineView
         calendarEvents={calendarEvents}
@@ -452,6 +461,21 @@ export function TodoPage({
         t={t}
         tasks={viewTasks}
         selectedTaskKey={selectedTaskKey}
+      />
+    )
+  }
+  else if (view === 'timeline') {
+    viewContent = (
+      <TodoTimeGridView
+        calendarEvents={calendarEvents}
+        locale={i18n.language}
+        now={now}
+        onCreateTask={createTodoTask}
+        onSelectTask={selectTask}
+        onUpdateTask={updateTodoTask}
+        settings={configuration.todo}
+        tasks={viewTasks}
+        weekStart={configuration.weekStart}
       />
     )
   }

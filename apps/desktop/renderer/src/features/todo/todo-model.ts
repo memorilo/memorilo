@@ -8,7 +8,7 @@ import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { loadTodoCalendarSnapshot, todoCalendarAutoRefreshIntervalMs } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 
-export type TodoView = 'list' | 'board' | 'timeline' | 'calendar' | 'quadrant'
+export type TodoView = 'list' | 'board' | 'agenda' | 'timeline' | 'calendar' | 'quadrant'
 
 export const todoListScopeIds = ['all', 'today', 'tomorrow', 'overdue', 'next7', 'undated', 'todo', 'doing', 'done'] as const
 

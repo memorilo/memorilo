@@ -165,6 +165,7 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
     listTodoTasks: input => input === undefined
       ? rpc('notes', 'listTodoTasks')
       : rpc('notes', 'listTodoTasks', input),
+    createTodoTask: input => rpc('notes', 'createTodoTask', input),
     listTodoCalendarEvents: input => rpc('notes', 'listTodoCalendarEvents', input),
     listTodoCalendarSubscriptions: () => rpc('notes', 'listTodoCalendarSubscriptions'),
     refreshTodoCalendar: id => rpc('notes', 'refreshTodoCalendar', id),

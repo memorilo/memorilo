@@ -91,6 +91,42 @@ describe('application service for MCP Notes', () => {
     expect(stored.updates).toEqual([])
   })
 
+  it('creates a timed Todo in a future Journal and returns its projected identity', async () => {
+    const database = new BetterSqliteDatabase(':memory:')
+    databases.push(database)
+    const storage = await openStorage(database)
+    const notes = createApplication(storage, undefined, {
+      now: () => new Date('2026-08-20T12:00:00.000Z'),
+    })
+
+    const created = await notes.createTodoTask({
+      allDay: false,
+      dueDate: '2026-08-23',
+      dueTime: '09:15',
+      endAt: '2026-08-23T10:00',
+      startAt: '2026-08-23T09:15',
+      text: '',
+    })
+
+    expect(created).toMatchObject({
+      allDay: false,
+      dueDate: '2026-08-23',
+      dueTime: '09:15',
+      endAt: '2026-08-23T10:00',
+      journalDate: '2026-08-23',
+      noteId: expect.any(String),
+      startAt: '2026-08-23T09:15',
+      status: 'todo',
+      text: '',
+      topicId: expect.any(String),
+    })
+    expect(created.blockId).not.toBe('')
+    await expect(storage.journals.getMetadata({ noteId: created.noteId })).resolves.toMatchObject({
+      journalDate: '2026-08-23',
+      noteId: created.noteId,
+    })
+  })
+
   it('persists structured edits, updates projections, and broadcasts the exact Loro update', async () => {
     const fixture = await createFixture()
     const before = await fixture.notes.getTopic({ noteId: fixture.created.id, topicId: fixture.topic.id })

@@ -7,6 +7,7 @@ import type {
   CreateBookNoteInput,
   CreateBookNoteResult,
   CreateNoteInput,
+  CreateTodoTaskInput,
   NoteExternalUpdate,
   OpenJournalInput,
   RebindBookTopicInput,
@@ -278,6 +279,53 @@ export function createNoteApplicationCommands({
     }
   })
 
+  const createTodoTask = (input: CreateTodoTaskInput) => serialize(async () => {
+    const opened = await runtime.openJournal(input.dueDate)
+    const current = opened.current
+    const topic = resolveJournalTopic(current.note, { expectedNoteTitle: input.dueDate })
+    const blockId = randomUUID()
+    const sourceVersion = current.note.getVersion()
+    const attrs = {
+      allDay: input.allDay ?? false,
+      blockId,
+      checked: false,
+      dueDate: input.dueDate,
+      dueTime: input.dueTime ?? null,
+      elapsedMs: 0,
+      endAt: input.endAt ?? null,
+      kind: 'task' as const,
+      repeatRule: null,
+      reminderMinutes: null,
+      reminders: null,
+      startAt: input.startAt ?? null,
+      startedAt: null,
+      status: 'todo' as const,
+    }
+    try {
+      current.note.applyTopicBlockEdits({
+        edits: [{
+          attributes: attrs,
+          blockId,
+          content: [paragraph(input.text)],
+          kind: 'task',
+          operation: 'insert-block',
+        }],
+        topicId: topic.topicId,
+      })
+      await current.note.validateTopic(topic.topicId)
+      await runtime.persistLocalMutation(current, sourceVersion, { broadcast: true, topicIds: [topic.topicId] })
+      const page = await storage.tasks.list({ limit: 100 })
+      const task = page.items.find(item => item.blockId === blockId)
+      if (!task)
+        throw new Error(`Created Todo task ${blockId} was not projected`)
+      return task
+    }
+    catch (error) {
+      runtime.invalidate(current.note.id)
+      throw error
+    }
+  })
+
   return {
     applyTopicEdits: (input: ApplyTopicEditsInput) => serializeEffect(Effect.gen(function* () {
       const current = yield* Effect.tryPromise({ catch: toError, try: () => runtime.open(input.noteId) })
@@ -405,6 +453,7 @@ export function createNoteApplicationCommands({
       }
     }),
     updateTodoTask,
+    createTodoTask,
   }
 }
 

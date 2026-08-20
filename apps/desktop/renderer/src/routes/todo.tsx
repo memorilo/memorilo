@@ -27,10 +27,11 @@ function validateTodoSearch(search: Record<string, unknown>): TodoSearch {
   if (search.view !== undefined
     && search.view !== 'list'
     && search.view !== 'board'
+    && search.view !== 'agenda'
     && search.view !== 'timeline'
     && search.view !== 'calendar'
     && search.view !== 'quadrant') {
-    throw new TypeError('Todo view must be list, board, timeline, calendar, or quadrant')
+    throw new TypeError('Todo view must be list, board, agenda, timeline, calendar, or quadrant')
   }
   if (search.scope !== undefined && !isTodoListScopeId(search.scope))
     throw new TypeError('Todo scope is invalid')

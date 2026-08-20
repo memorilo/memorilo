@@ -18,8 +18,11 @@ interface SubscriptionRow {
 }
 
 interface EventRow {
+  all_day: number
   end_date: string | null
+  end_at: string | null
   start_date: string
+  start_at: string | null
   subscription_id: string
   subscription_title: string
   title: string
@@ -58,8 +61,11 @@ function toEvent(row: EventRow): TodoCalendarEvent {
   if (row.end_date !== null)
     assertDate(row.end_date, `Calendar event ${row.uid} end date`)
   return {
+    allDay: row.all_day === 1,
     endDate: row.end_date,
+    endAt: row.end_at,
     startDate: row.start_date,
+    startAt: row.start_at,
     subscriptionId: row.subscription_id,
     subscriptionTitle: row.subscription_title,
     title: row.title,
@@ -100,7 +106,7 @@ export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
       throw new RangeError('Calendar event range start must not be after the end')
     return this.#options.runOperation(async () => {
       const rows = await this.#options.database.all<EventRow>(`
-        SELECT event.uid, event.start_date, event.end_date, event.title,
+        SELECT event.uid, event.start_date, event.end_date, event.start_at, event.end_at, event.all_day, event.title,
           event.subscription_id, subscription.title AS subscription_title
         FROM todo_calendar_events AS event
         INNER JOIN todo_calendar_subscriptions AS subscription
@@ -169,8 +175,8 @@ export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
         ON CONFLICT(subscription_id, version) DO UPDATE SET fetched_at = excluded.fetched_at, raw_ics = excluded.raw_ics
       ` },
       ...input.events.map(event => ({
-        parameters: [input.id, input.version, event.uid, event.startDate, event.endDate, event.title],
-        sql: 'INSERT INTO todo_calendar_events (subscription_id, version, uid, start_date, end_date, title) VALUES (?, ?, ?, ?, ?, ?)',
+        parameters: [input.id, input.version, event.uid, event.startDate, event.endDate, event.startAt ?? null, event.endAt ?? null, event.allDay === false ? 0 : 1, event.title],
+        sql: 'INSERT INTO todo_calendar_events (subscription_id, version, uid, start_date, end_date, start_at, end_at, all_day, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       })),
     ]))
   }

@@ -161,6 +161,15 @@ export interface UpdateDesktopTodoTaskInput {
   topicId: string
 }
 
+export interface CreateDesktopTodoTaskInput {
+  allDay?: boolean
+  dueDate: string
+  dueTime?: string | null
+  endAt?: string | null
+  startAt?: string | null
+  text: string
+}
+
 export interface SubscribeDesktopTodoCalendarInput {
   title: string
   url: string
@@ -512,6 +521,7 @@ export interface DesktopApi {
   listPastJournals: (input?: ListDesktopPastJournalsInput) => Promise<DesktopJournalPage>
   listRecentNotes: (input?: { limit?: number }) => Promise<readonly DesktopRecentNoteItem[]>
   listTodoTasks: (input?: ListDesktopTodoTasksInput) => Promise<DesktopTodoTaskPage>
+  createTodoTask: (input: CreateDesktopTodoTaskInput) => Promise<DesktopTodoTask>
   listTodoCalendarEvents: (input: { from: string, through: string }) => Promise<readonly DesktopTodoCalendarEvent[]>
   listTodoCalendarSubscriptions: () => Promise<readonly DesktopTodoCalendarSubscription[]>
   refreshTodoCalendar: (id: string) => Promise<DesktopTodoCalendarSubscription>

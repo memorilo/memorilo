@@ -28,6 +28,9 @@ export function createNoteHandlers(
     listTodoTasks(input?: Parameters<NoteApplicationService['listTodoTasks']>[0]) {
       return application.listTodoTasks(input)
     },
+    createTodoTask(input: Parameters<NoteApplicationService['createTodoTask']>[0]) {
+      return application.createTodoTask(input)
+    },
     listTodoCalendarEvents(input: Parameters<TodoCalendarService['listEvents']>[0]) {
       return calendars.listEvents(input)
     },

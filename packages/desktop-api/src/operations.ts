@@ -46,6 +46,7 @@ import {
   ReviewResultSchema,
 } from './schemas/learning'
 import {
+  CreateDesktopTodoTaskInputSchema,
   DesktopFavoriteNotesSchema,
   DesktopJournalNoteSchema,
   DesktopJournalPageSchema,
@@ -61,6 +62,7 @@ import {
   DesktopTodoCalendarSubscriptionSchema,
   DesktopTodoCalendarSubscriptionsSchema,
   DesktopTodoTaskPageSchema,
+  DesktopTodoTaskSchema,
   DesktopTopicBlockSearchHitsSchema,
   JournalDateSchema,
   PruneDesktopPastEmptyJournalsResultSchema,
@@ -314,6 +316,7 @@ export const desktopOperationSchemas = {
       limit: Schema.optionalKey(PositiveIntegerSchema),
       status: Schema.optionalKey(Schema.Literals(['todo', 'doing', 'done'])),
     })), DesktopTodoTaskPageSchema),
+    createTodoTask: operation(Schema.Tuple([CreateDesktopTodoTaskInputSchema]), DesktopTodoTaskSchema),
     listTodoCalendarEvents: operation(Schema.Tuple([Schema.Struct({
       from: JournalDateSchema,
       through: JournalDateSchema,

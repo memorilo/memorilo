@@ -89,6 +89,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
     autoCompleteParentTasks: Schema.Boolean,
+    blankTaskDurationMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_440, minimum: 0 })),
     enabled: Schema.Boolean,
     keepDetailOpenWhenTaskLeavesView: Schema.Boolean,
     recurringTaskCompletionAction: Schema.Literals([
@@ -99,11 +100,15 @@ export const DesktopConfigurationSchema = Schema.Struct({
       'place-next-after-completed',
       'replace-completed',
     ]),
+    timelineWorkdayEndHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 1 })),
+    timelineWorkdayStartHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 0 })),
   }),
   weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
-  : undefined))
+  : configuration.todo.timelineWorkdayEndHour <= configuration.todo.timelineWorkdayStartHour
+    ? { message: 'Todo workday end must be later than its start', path: ['todo', 'timelineWorkdayEndHour'] }
+    : undefined))
 
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
@@ -140,9 +145,12 @@ export const desktopConfigurationDefinition = defineConfiguration({
     tiffConversionFormat: 'webp' as const,
     todo: {
       autoCompleteParentTasks: true,
+      blankTaskDurationMinutes: 0,
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today' as const,
+      timelineWorkdayEndHour: 21,
+      timelineWorkdayStartHour: 7,
     },
     weekStart: 'sunday' as const,
   },
@@ -189,6 +197,33 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Complete a Todo parent when all of its direct Todo children are complete, and reopen it when one is reopened.',
       label: 'Auto-complete parent Todos',
       path: 'todo.autoCompleteParentTasks',
+    }, {
+      control: 'number',
+      description: 'Default duration for tasks created by clicking an empty timeline slot.',
+      label: 'Empty slot task duration',
+      max: 1_440,
+      min: 0,
+      path: 'todo.blankTaskDurationMinutes',
+      step: 5,
+      unit: 'minutes',
+    }, {
+      control: 'number',
+      description: 'First visible hour in the Todo timeline.',
+      label: 'Timeline workday starts at',
+      max: 23,
+      min: 0,
+      path: 'todo.timelineWorkdayStartHour',
+      step: 1,
+      unit: 'hour',
+    }, {
+      control: 'number',
+      description: 'Last visible hour in the Todo timeline.',
+      label: 'Timeline workday ends at',
+      max: 23,
+      min: 1,
+      path: 'todo.timelineWorkdayEndHour',
+      step: 1,
+      unit: 'hour',
     }, {
       control: 'toggle',
       description: 'Show the Todo workspace without changing Todo blocks inside the editor.',

@@ -24,7 +24,10 @@ interface IcsProperty {
 }
 
 interface ParsedIcsEvent {
+  allDay?: boolean
+  endAt?: string | null
   endDate: JournalDate | null
+  startAt?: string | null
   startDate: JournalDate
   title: string
   uid: string
@@ -94,6 +97,13 @@ function dateFromValue(value: string): JournalDate | null {
   return `${match[1]}-${match[2]}-${match[3]}`
 }
 
+function dateTimeFromValue(value: string): string | null {
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/u.exec(value)
+  if (!match)
+    return null
+  return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}`
+}
+
 function dateToUtc(value: JournalDate): Date {
   const [year, month, day] = value.split('-').map(Number)
   if (year === undefined || month === undefined || day === undefined
@@ -158,10 +168,13 @@ function parseEvents(text: string, range: { from: JournalDate, through: JournalD
     while (occurrence < max && date <= range.through) {
       if (date >= range.from && !exclusions.has(date)) {
         events.push({
+          allDay: current.allDay !== false,
           endDate: durationDays === null
             ? null
             : utcToDate(new Date(dateToUtc(date).getTime() + durationDays * 86_400_000)),
+          endAt: current.endAt ?? null,
           startDate: date,
+          startAt: current.startAt ?? null,
           title: current.title,
           uid: `${current.uid}:${date}`,
         })
@@ -198,6 +211,8 @@ function parseEvents(text: string, range: { from: JournalDate, through: JournalD
     }
     else if (parsed.name === 'DTSTART') {
       current.startDate = dateFromValue(parsed.value) ?? undefined
+      current.allDay = parsed.parameters.VALUE === 'DATE' || dateTimeFromValue(parsed.value) === null
+      current.startAt = current.allDay ? null : dateTimeFromValue(parsed.value)
     }
     else if (parsed.name === 'DTEND') {
       const end = dateFromValue(parsed.value)
@@ -205,6 +220,7 @@ function parseEvents(text: string, range: { from: JournalDate, through: JournalD
         const exclusive = parsed.parameters.VALUE === 'DATE'
         current.endDate = exclusive ? utcToDate(new Date(dateToUtc(end).getTime() - 86_400_000)) : end
       }
+      current.endAt = parsed.parameters.VALUE === 'DATE' ? null : dateTimeFromValue(parsed.value)
     }
     else if (parsed.name === 'RRULE') {
       current.recurrence = parseRecurrence(parsed.value)

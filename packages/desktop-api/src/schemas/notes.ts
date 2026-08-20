@@ -242,6 +242,15 @@ export const DesktopTodoTaskPageSchema: EffectSchema.Codec<DesktopTodoTaskPage> 
   nextCursor: nullable(PositiveIntegerSchema),
 })
 
+export const CreateDesktopTodoTaskInputSchema = Schema.Struct({
+  allDay: Schema.optionalKey(Schema.Boolean),
+  dueDate: JournalDateSchema,
+  dueTime: Schema.optionalKey(nullable(TaskTimeSchema)),
+  endAt: Schema.optionalKey(nullable(TaskDateTimeSchema)),
+  startAt: Schema.optionalKey(nullable(TaskDateTimeSchema)),
+  text: Schema.String,
+})
+
 export const DesktopTodoCalendarSubscriptionSchema: EffectSchema.Codec<DesktopTodoCalendarSubscription> = Schema.Struct({
   builtIn: Schema.Boolean,
   enabled: Schema.Boolean,
@@ -257,8 +266,11 @@ export const DesktopTodoCalendarSubscriptionSchema: EffectSchema.Codec<DesktopTo
 export const DesktopTodoCalendarSubscriptionsSchema: EffectSchema.Codec<readonly DesktopTodoCalendarSubscription[]> = Schema.Array(DesktopTodoCalendarSubscriptionSchema)
 
 export const DesktopTodoCalendarEventsSchema: EffectSchema.Codec<readonly DesktopTodoCalendarEvent[]> = Schema.Array(Schema.Struct({
+  allDay: Schema.optionalKey(Schema.Boolean),
   endDate: nullable(JournalDateSchema),
+  endAt: Schema.optionalKey(nullable(TaskDateTimeSchema)),
   startDate: JournalDateSchema,
+  startAt: Schema.optionalKey(nullable(TaskDateTimeSchema)),
   subscriptionId: Schema.NonEmptyString,
   subscriptionTitle: Schema.String,
   title: Schema.String,

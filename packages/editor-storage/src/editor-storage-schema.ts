@@ -316,6 +316,9 @@ const schema = `
     uid TEXT NOT NULL,
     start_date TEXT NOT NULL CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
     end_date TEXT CHECK (end_date IS NULL OR end_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    start_at TEXT,
+    end_at TEXT,
+    all_day INTEGER NOT NULL DEFAULT 1 CHECK (all_day IN (0, 1)),
     title TEXT NOT NULL,
     PRIMARY KEY (subscription_id, version, uid, start_date),
     FOREIGN KEY (subscription_id, version)

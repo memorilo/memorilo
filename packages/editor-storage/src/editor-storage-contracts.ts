@@ -512,6 +512,9 @@ export interface TodoCalendarSubscription {
 export interface TodoCalendarEvent {
   endDate: JournalDate | null
   startDate: JournalDate
+  endAt?: string | null
+  startAt?: string | null
+  allDay?: boolean
   subscriptionId: string
   subscriptionTitle: string
   title: string

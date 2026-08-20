@@ -104,6 +104,15 @@ export interface UpdateTodoTaskInput {
   topicId: string
 }
 
+export interface CreateTodoTaskInput {
+  allDay?: boolean
+  dueDate: JournalDate
+  dueTime?: string | null
+  endAt?: string | null
+  startAt?: string | null
+  text: string
+}
+
 export interface GetNoteCardProjectionInput {
   cardId: string
   noteId: string

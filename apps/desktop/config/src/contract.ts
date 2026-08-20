@@ -59,9 +59,12 @@ export interface DesktopMcpConfiguration {
 
 export interface DesktopTodoConfiguration {
   autoCompleteParentTasks: boolean
+  blankTaskDurationMinutes: number
   enabled: boolean
   keepDetailOpenWhenTaskLeavesView: boolean
   recurringTaskCompletionAction: DesktopRecurringTaskCompletionAction
+  timelineWorkdayEndHour: number
+  timelineWorkdayStartHour: number
 }
 
 export interface DesktopConfiguration {
