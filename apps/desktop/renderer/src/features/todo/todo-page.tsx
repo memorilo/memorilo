@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import {
   CalendarClock,
   CalendarDays,
+  CalendarRange,
   Columns3,
   Grid2X2,
   List,
@@ -136,7 +137,7 @@ function ViewIcon({ view }: { view: TodoView }) {
     case 'timeline':
       return <CalendarClock aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'agenda':
-      return <CalendarClock aria-hidden="true" size={14} strokeWidth={1.8} />
+      return <CalendarRange aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'calendar':
       return <CalendarDays aria-hidden="true" size={14} strokeWidth={1.8} />
     case 'quadrant':

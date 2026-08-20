@@ -7,23 +7,14 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { todoTimeGridViewStyles as styles } from './todo-time-grid-view.stylex'
 
 const storageKeys = {
   multiDay: 'memorilo.todo.timeline.multiDay',
   multiWeek: 'memorilo.todo.timeline.multiWeek',
 } as const
-
-const styles = stylex.create({
-  root: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 },
-  toolbar: { alignItems: 'center', display: 'flex', justifyContent: 'space-between', padding: '8px 12px' },
-  controls: { alignItems: 'center', display: 'flex', gap: 4 },
-  control: { backgroundColor: 'transparent', border: '1px solid transparent', borderRadius: 5, color: 'var(--text-secondary)', padding: '4px 8px' },
-  active: { backgroundColor: 'var(--surface-secondary)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' },
-  navigation: { display: 'flex', gap: 2 },
-  calendar: { flex: 1, minHeight: 0, padding: '0 12px 12px' },
-})
 
 function remembered(key: string, fallback: number, min: number, max: number): number {
   if (typeof window === 'undefined')
@@ -64,6 +55,7 @@ function dateFromEvent(event: { id: string, start: Date | null, end: Date | null
 
 export function TodoTimeGridView({
   calendarEvents,
+  locale,
   now,
   onCreateTask,
   onSelectTask,
@@ -87,7 +79,10 @@ export function TodoTimeGridView({
   const [multiDay, setMultiDay] = useState(() => remembered(storageKeys.multiDay, 3, 1, 7))
   const [multiWeek, setMultiWeek] = useState(() => remembered(storageKeys.multiWeek, 2, 1, 4))
   const [anchor, setAnchor] = useState(() => dayjs(now).startOf('day').toDate())
+  const calendarRootRef = useRef<HTMLDivElement>(null)
+  const fullCalendarRef = useRef<FullCalendar>(null)
   const days = mode === 'day' ? 1 : mode === 'multi-day' ? multiDay : mode === 'week' ? 7 : multiWeek * 7
+  const workdayStart = `${String(settings.timelineWorkdayStartHour).padStart(2, '0')}:00:00`
   const calendarEventsForView = useMemo(() => tasks.map((task) => {
     const start = taskStart(task)
     if (!start)
@@ -150,40 +145,78 @@ export function TodoTimeGridView({
       void onSelectTask(task)
   }
   const viewType = mode === 'day' ? 'timeGridDay' : 'timeGridWeek'
-  const header = `${t(mode === 'multi-day' ? 'multiDayView' : mode === 'multi-week' ? 'multiWeekView' : mode === 'week' ? 'weekView' : 'dayView')}`
+  const rangeLabel = t(mode === 'multi-day' ? 'multiDayView' : mode === 'multi-week' ? 'multiWeekView' : mode === 'week' ? 'weekView' : 'dayView')
+  const dateLabel = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(anchor)
+  useLayoutEffect(() => {
+    const root = calendarRootRef.current
+    if (!root)
+      return
+    let frame = 0
+    const fitWorkday = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        const scroller = root.querySelector<HTMLElement>('.fc-scroller-liquid-absolute')
+        if (!scroller || scroller.clientHeight === 0)
+          return
+        const visibleSlots = (settings.timelineWorkdayEndHour - settings.timelineWorkdayStartHour) * 2
+        root.style.setProperty('--todo-time-grid-slot-height', `${scroller.clientHeight / visibleSlots}px`)
+        frame = window.requestAnimationFrame(() => fullCalendarRef.current?.getApi().scrollToTime(workdayStart))
+      })
+    }
+    const observer = new ResizeObserver(fitWorkday)
+    observer.observe(root)
+    fitWorkday()
+    return () => {
+      observer.disconnect()
+      window.cancelAnimationFrame(frame)
+    }
+  }, [days, mode, settings.timelineWorkdayEndHour, settings.timelineWorkdayStartHour, workdayStart])
   return (
-    <div {...stylex.props(styles.root)}>
+    <div {...stylex.props(styles.root)} data-todo-time-grid-view>
       <div {...stylex.props(styles.toolbar)}>
-        <div {...stylex.props(styles.controls)} role="group" aria-label={t('timelineRange')}>
-          {(['day', 'multi-day', 'week', 'multi-week'] as const).map(value => (
-            <button key={value} type="button" aria-pressed={mode === value} {...stylex.props(styles.control, mode === value && styles.active)} onClick={() => setMode(value)}>
-              {t(value === 'multi-day' ? 'multiDayView' : value === 'multi-week' ? 'multiWeekView' : value === 'week' ? 'weekView' : 'dayView')}
+        <div {...stylex.props(styles.dateControls)}>
+          <h2 {...stylex.props(styles.dateTitle)}>{dateLabel}</h2>
+          <button {...stylex.props(styles.today)} type="button" onClick={() => setAnchor(dayjs(now).startOf('day').toDate())}>{t('today')}</button>
+          <div {...stylex.props(styles.navigation)}>
+            <button {...stylex.props(styles.navigationButton)} aria-label={t('previousPeriod')} type="button" onClick={() => setAnchor(current => dayjs(current).subtract(days, 'day').toDate())}>
+              <ChevronLeft aria-hidden="true" size={16} />
             </button>
-          ))}
+            <button {...stylex.props(styles.navigationButton)} aria-label={t('nextPeriod')} type="button" onClick={() => setAnchor(current => dayjs(current).add(days, 'day').toDate())}>
+              <ChevronRight aria-hidden="true" size={16} />
+            </button>
+          </div>
+        </div>
+        <div {...stylex.props(styles.controls)} role="group" aria-label={t('timelineRange')}>
+          <div {...stylex.props(styles.range)}>
+            {(['day', 'multi-day', 'week', 'multi-week'] as const).map(value => (
+              <button key={value} type="button" aria-pressed={mode === value} {...stylex.props(styles.rangeButton, mode === value && styles.rangeButtonSelected)} onClick={() => setMode(value)}>
+                {t(value === 'multi-day' ? 'multiDayView' : value === 'multi-week' ? 'multiWeekView' : value === 'week' ? 'weekView' : 'dayView')}
+              </button>
+            ))}
+          </div>
           {(mode === 'multi-day' || mode === 'multi-week') && (
-            <select aria-label={header} value={mode === 'multi-day' ? multiDay : multiWeek} onChange={event => changeSpan(Number(event.target.value))}>
+            <select {...stylex.props(styles.spanSelect)} aria-label={rangeLabel} value={mode === 'multi-day' ? multiDay : multiWeek} onChange={event => changeSpan(Number(event.target.value))}>
               {Array.from({ length: mode === 'multi-day' ? 7 : 4 }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           )}
         </div>
-        <div {...stylex.props(styles.navigation)}>
-          <button type="button" aria-label={t('previousPeriod')} onClick={() => setAnchor(current => dayjs(current).subtract(days, 'day').toDate())}><ChevronLeft size={15} /></button>
-          <button type="button" aria-label={t('nextPeriod')} onClick={() => setAnchor(current => dayjs(current).add(days, 'day').toDate())}><ChevronRight size={15} /></button>
-        </div>
       </div>
-      <div {...stylex.props(styles.calendar)}>
+      <div ref={calendarRootRef} {...stylex.props(styles.calendar)} data-todo-time-grid-calendar>
         <FullCalendar
+          ref={fullCalendarRef}
           key={`${mode}:${days}:${anchor.toISOString()}`}
           allDaySlot
           allDayText={t('allDay')}
           editable
           firstDay={weekStart === 'monday' ? 1 : 0}
           height="100%"
+          headerToolbar={false}
           initialDate={anchor}
           initialView={viewType}
+          locale={locale}
           nowIndicator
           plugins={[timeGridPlugin, interactionPlugin]}
-          scrollTime={`${String(settings.timelineWorkdayStartHour).padStart(2, '0')}:00:00`}
+          scrollTime={workdayStart}
           select={handleSelect}
           selectable
           slotMaxTime="24:00:00"
