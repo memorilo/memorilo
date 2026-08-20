@@ -12,7 +12,7 @@ inject({
 })
 
 const colors = {
-  focus: 'rgba(0, 122, 255, 0.86)',
+  focus: 'rgba(0, 122, 255, 0.76)',
   text: 'rgba(28, 28, 30, 0.92)',
   textMuted: 'rgba(60, 60, 67, 0.72)',
   textQuiet: 'rgba(60, 60, 67, 0.52)',
@@ -55,13 +55,9 @@ export const todoDetailSidebarStyles = stylex.create({
     },
     borderLeftStyle: 'solid',
     borderLeftWidth: 1,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
-    },
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
     boxShadow: {
-      'default': '-14px 0 30px rgba(28, 28, 30, 0.08), inset 1px 0 rgba(255, 255, 255, 0.9)',
+      'default': '-16px 0 34px rgba(28, 28, 30, 0.1), inset 1px 0 rgba(255, 255, 255, 0.94)',
       '@media (prefers-contrast: more)': '-1px 0 rgba(0, 0, 0, 0.18)',
     },
     color: colors.text,
@@ -232,7 +228,7 @@ export const todoDetailSidebarStyles = stylex.create({
     borderTopWidth: 1,
     paddingRight: 18,
     paddingLeft: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
   },
   noteLink: {
     display: 'flex',

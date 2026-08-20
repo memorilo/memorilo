@@ -1,18 +1,23 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  panelSolid: 'rgb(250, 250, 251)',
-  text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(48, 52, 59, 0.62)',
-  textQuiet: 'rgba(48, 52, 59, 0.46)',
+  panelSolid: 'rgb(255, 255, 255)',
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
 } as const
 
 export const todoCalendarViewStyles = stylex.create({
   toolbar: {
     display: 'flex',
-    minHeight: 40,
+    minHeight: 48,
     alignItems: 'center',
     gap: 16,
+    borderBottomColor: 'rgba(60, 60, 67, 0.11)',
+    borderBottomStyle: 'solid',
+    borderBottomWidth: 1,
+    paddingRight: 16,
+    paddingLeft: 16,
   },
   toolbarLeading: {
     display: 'flex',
@@ -24,8 +29,8 @@ export const todoCalendarViewStyles = stylex.create({
     minWidth: 0,
     overflow: 'hidden',
     margin: 0,
-    color: 'rgba(20, 20, 22, 0.94)',
-    fontSize: 22,
+    color: 'rgb(224, 53, 47)',
+    fontSize: 18,
     fontVariantNumeric: 'tabular-nums',
     fontWeight: 700,
     letterSpacing: 0,
@@ -41,38 +46,25 @@ export const todoCalendarViewStyles = stylex.create({
     borderColor: 'rgba(72, 72, 74, 0.12)',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 16,
     paddingRight: 2,
     paddingLeft: 2,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.5)',
-      '@media (prefers-reduced-transparency: reduce)': colors.panelSolid,
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
-    },
-    backdropFilter: {
-      'default': 'blur(28px) saturate(135%) brightness(1.02)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 4px 14px rgba(28, 28, 30, 0.075), 0 0 0 0.5px rgba(255, 255, 255, 0.58), inset 0 1px rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.46)',
+    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.36) 62%, rgba(174, 215, 255, 0.16))',
+    boxShadow: '0 7px 20px rgba(28, 28, 30, 0.13), inset 0 1px rgba(255, 255, 255, 1), inset 0 -1px rgba(0, 96, 204, 0.18)',
   },
   todayButton: {
     height: 30,
     borderColor: 'rgba(72, 72, 74, 0.12)',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 15,
     paddingRight: 11,
     paddingLeft: 11,
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.5)',
-      ':hover': 'rgba(255, 255, 255, 0.72)',
-      ':active': 'rgba(118, 118, 128, 0.12)',
-      '@media (prefers-reduced-transparency: reduce)': colors.panelSolid,
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
-    },
-    backdropFilter: {
-      'default': 'blur(28px) saturate(135%) brightness(1.02)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
+      'default': colors.panelSolid,
+      ':hover': 'rgb(255, 255, 255)',
+      ':active': 'rgba(0, 122, 255, 0.16)',
     },
     color: colors.textMuted,
     cursor: 'default',
@@ -80,8 +72,8 @@ export const todoCalendarViewStyles = stylex.create({
     fontWeight: 600,
     outline: 'none',
     boxShadow: {
-      'default': '0 4px 14px rgba(28, 28, 30, 0.075), 0 0 0 0.5px rgba(255, 255, 255, 0.58), inset 0 1px rgba(255, 255, 255, 0.92)',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      'default': '0 5px 14px rgba(28, 28, 30, 0.11), inset 0 1px rgba(255, 255, 255, 1), inset 0 -1px rgba(0, 96, 204, 0.14)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
     transform: {
       'default': 'scale(1)',
@@ -142,8 +134,8 @@ export const todoCalendarViewStyles = stylex.create({
     gridTemplateRows: 'repeat(6, minmax(96px, 1fr))',
     gap: 1,
     overflow: 'visible',
-    backgroundColor: 'rgba(72, 72, 74, 0.105)',
-    boxShadow: '0 0 0 0.5px rgba(72, 72, 74, 0.1)',
+    backgroundColor: 'rgba(0, 122, 255, 0.11)',
+    boxShadow: '0 0 0 0.5px rgba(0, 122, 255, 0.1)',
   },
   weekdays: {
     display: 'grid',
@@ -176,7 +168,7 @@ export const todoCalendarViewStyles = stylex.create({
     paddingBottom: 5,
     paddingLeft: 5,
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.72)',
+      'default': 'rgb(255, 255, 255)',
       '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
       '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
     },
@@ -196,7 +188,7 @@ export const todoCalendarViewStyles = stylex.create({
     marginLeft: 5,
   },
   cellNeighbor: {
-    backgroundColor: 'rgba(247, 247, 248, 0.72)',
+    backgroundColor: 'rgb(248, 247, 252)',
   },
   dayButton: {
     display: 'grid',
@@ -222,7 +214,7 @@ export const todoCalendarViewStyles = stylex.create({
     outline: 'none',
     boxShadow: {
       'default': 'none',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
     transform: {
       'default': 'scale(1)',
@@ -274,11 +266,11 @@ export const todoCalendarViewStyles = stylex.create({
     paddingBottom: 0,
     paddingLeft: 5,
     backgroundColor: {
-      'default': 'rgba(0, 122, 255, 0.09)',
-      ':hover': 'rgba(0, 122, 255, 0.14)',
-      ':active': 'rgba(0, 122, 255, 0.18)',
+      'default': 'rgba(0, 122, 255, 0.1)',
+      ':hover': 'rgba(0, 122, 255, 0.15)',
+      ':active': 'rgba(0, 122, 255, 0.2)',
     },
-    color: 'rgba(18, 64, 111, 0.88)',
+    color: 'rgba(48, 45, 104, 0.9)',
     cursor: 'default',
     fontSize: 10,
     fontWeight: 550,
@@ -287,7 +279,7 @@ export const todoCalendarViewStyles = stylex.create({
     textAlign: 'left',
     boxShadow: {
       'default': 'none',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
     transitionDuration: {
       'default': '100ms',
@@ -297,8 +289,8 @@ export const todoCalendarViewStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   taskButtonSelected: {
-    backgroundColor: 'rgba(0, 122, 255, 0.2)',
-    boxShadow: 'inset 0 0 0 1px rgba(0, 113, 227, 0.22)',
+    backgroundColor: 'rgba(0, 122, 255, 0.18)',
+    boxShadow: 'inset 2px 0 rgba(0, 122, 255, 0.7)',
   },
   taskStatus: {
     width: 6,
@@ -414,16 +406,9 @@ export const todoCalendarViewStyles = stylex.create({
     borderWidth: 1,
     borderRadius: 10,
     padding: 9,
-    backgroundColor: {
-      'default': 'rgba(246, 247, 249, 0.9)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 250, 251)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
-    },
-    backdropFilter: {
-      'default': 'blur(24px) saturate(145%)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 14px 32px rgba(28, 28, 30, 0.18), 0 0 0 0.5px rgba(72, 72, 74, 0.08), inset 0 1px rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundImage: 'linear-gradient(145deg, rgb(255, 255, 255), rgb(247, 250, 253))',
+    boxShadow: '0 18px 44px rgba(28, 28, 30, 0.2), inset 0 1px rgba(255, 255, 255, 1), inset 0 -1px rgba(0, 96, 204, 0.14)',
     transform: 'translateX(-50%)',
   },
   overflowTitle: {

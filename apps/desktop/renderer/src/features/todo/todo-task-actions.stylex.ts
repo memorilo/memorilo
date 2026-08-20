@@ -11,12 +11,12 @@ export const todoTaskActionStyles = stylex.create({
     height: 28,
     placeItems: 'center',
     borderWidth: 0,
-    borderRadius: 7,
+    borderRadius: 5,
     padding: 0,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.62)',
-      ':active': 'rgba(225, 230, 238, 0.78)',
+      ':hover': 'rgba(0, 122, 255, 0.1)',
+      ':active': 'rgba(0, 122, 255, 0.16)',
     },
     color: 'rgba(48, 52, 59, 0.56)',
     cursor: 'default',
@@ -24,7 +24,7 @@ export const todoTaskActionStyles = stylex.create({
     outline: 'none',
     boxShadow: {
       'default': 'none',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
   },
   summaryCompact: {
@@ -36,7 +36,7 @@ export const todoTaskActionStyles = stylex.create({
       ':hover': 'rgba(0, 122, 255, 0.1)',
       ':active': 'rgba(0, 122, 255, 0.16)',
     },
-    color: 'rgba(18, 64, 111, 0.58)',
+    color: 'rgba(60, 60, 67, 0.6)',
   },
   scheduleSummary: {
     width: 'auto',
@@ -48,8 +48,8 @@ export const todoTaskActionStyles = stylex.create({
     paddingInline: 4,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.62)',
-      ':active': 'rgba(225, 230, 238, 0.78)',
+      ':hover': 'rgba(0, 122, 255, 0.1)',
+      ':active': 'rgba(0, 122, 255, 0.16)',
     },
   },
 })

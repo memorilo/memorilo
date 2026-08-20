@@ -1,10 +1,10 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  accent: 'rgb(56, 108, 244)',
-  text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(48, 52, 59, 0.62)',
-  textQuiet: 'rgba(48, 52, 59, 0.46)',
+  accent: 'rgb(0, 122, 255)',
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
 } as const
 
 export const todoTimelineViewStyles = stylex.create({
@@ -16,7 +16,7 @@ export const todoTimelineViewStyles = stylex.create({
     flex: 1,
     flexDirection: 'column',
     overflow: 'auto',
-    padding: '4px 4px 18px',
+    padding: '18px 22px 24px',
     overscrollBehavior: 'contain',
   },
   group: {
@@ -145,16 +145,28 @@ export const todoTimelineViewStyles = stylex.create({
   loadMoreButton: {
     alignSelf: 'center',
     height: 28,
-    borderColor: 'rgba(0, 100, 210, 0.25)',
+    borderColor: 'rgba(0, 122, 255, 0.28)',
     borderStyle: 'solid',
     borderWidth: 1,
     borderRadius: 7,
     paddingRight: 12,
     paddingLeft: 12,
-    backgroundColor: 'rgba(0, 113, 227, 0.12)',
-    color: 'rgb(0, 113, 227)',
+    backgroundColor: colors.accent,
+    backgroundImage: 'linear-gradient(180deg, rgb(34, 144, 255), rgb(0, 122, 255))',
+    color: 'rgb(255, 255, 255)',
     cursor: 'default',
     fontSize: 11,
     fontWeight: 600,
+    boxShadow: '0 4px 12px rgba(0, 92, 196, 0.24), inset 0 1px rgba(255, 255, 255, 0.3)',
+    transform: {
+      'default': 'scale(1)',
+      ':active': 'scale(0.97)',
+    },
+    transitionDuration: {
+      'default': '100ms',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'box-shadow, transform',
+    transitionTimingFunction: 'ease-out',
   },
 })

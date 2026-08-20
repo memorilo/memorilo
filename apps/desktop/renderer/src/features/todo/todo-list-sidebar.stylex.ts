@@ -1,11 +1,11 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  accent: 'rgb(0, 113, 227)',
-  focus: 'rgba(41, 97, 194, 0.85)',
-  text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(48, 52, 59, 0.62)',
-  textQuiet: 'rgba(48, 52, 59, 0.44)',
+  accent: 'rgb(0, 122, 255)',
+  focus: 'rgba(0, 122, 255, 0.72)',
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
 } as const
 
 export const todoListSidebarStyles = stylex.create({
@@ -16,18 +16,16 @@ export const todoListSidebarStyles = stylex.create({
     overflowX: 'hidden',
     overflowY: 'auto',
     overscrollBehavior: 'contain',
-    borderRightColor: 'rgba(72, 72, 74, 0.1)',
+    borderRightColor: 'rgba(60, 60, 67, 0.12)',
     borderRightStyle: 'solid',
     borderRightWidth: 1,
-    paddingTop: 7,
-    paddingRight: 10,
+    paddingTop: 10,
+    paddingRight: 8,
     paddingBottom: 18,
-    paddingLeft: 6,
-    backgroundColor: {
-      'default': 'rgba(242, 243, 246, 0.64)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(244, 245, 247)',
-      '@media (prefers-contrast: more)': 'rgb(248, 249, 251)',
-    },
+    paddingLeft: 8,
+    backgroundColor: 'rgb(255, 255, 255)',
+    backgroundImage: 'none',
+    boxShadow: 'none',
   },
   section: {
     marginBottom: 15,
@@ -58,11 +56,11 @@ export const todoListSidebarStyles = stylex.create({
   },
   sectionHeaderInteractive: {
     cursor: 'pointer',
-    borderRadius: 7,
+    borderRadius: 8,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(76, 84, 96, 0.06)',
-      ':active': 'rgba(76, 84, 96, 0.12)',
+      ':hover': 'rgba(255, 255, 255, 0.48)',
+      ':active': 'rgba(0, 122, 255, 0.1)',
     },
   },
   disclosure: {
@@ -85,7 +83,7 @@ export const todoListSidebarStyles = stylex.create({
     margin: 0,
     padding: 0,
     flexDirection: 'column',
-    gap: 2,
+    gap: 1,
     listStyle: 'none',
   },
   item: {
@@ -99,13 +97,13 @@ export const todoListSidebarStyles = stylex.create({
     borderColor: 'transparent',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 6,
     paddingRight: 9,
     paddingLeft: 8,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(76, 84, 96, 0.07)',
-      ':active': 'rgba(76, 84, 96, 0.14)',
+      ':hover': 'rgba(255, 255, 255, 0.54)',
+      ':active': 'rgba(0, 122, 255, 0.14)',
     },
     color: colors.text,
     cursor: 'default',
@@ -131,10 +129,12 @@ export const todoListSidebarStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   itemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.76)',
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(118, 118, 128, 0.12)',
+    backgroundImage: 'none',
     color: colors.text,
-    fontWeight: 560,
-    boxShadow: '0 1px 4px rgba(28, 28, 30, 0.09), 0 0 0 0.5px rgba(72, 72, 74, 0.06), inset 0 1px rgba(255, 255, 255, 0.9)',
+    fontWeight: 590,
+    boxShadow: 'none',
   },
   icon: {
     display: 'grid',
@@ -159,6 +159,9 @@ export const todoListSidebarStyles = stylex.create({
     fontVariantNumeric: 'tabular-nums',
     fontWeight: 500,
     textAlign: 'right',
+  },
+  countActive: {
+    color: colors.textQuiet,
   },
   empty: {
     minHeight: 30,

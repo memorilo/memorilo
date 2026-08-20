@@ -26,7 +26,7 @@ export const todoTaskOccurrenceActionStyles = stylex.create({
       backgroundColor: 'rgba(118, 118, 128, 0.16)',
     },
     ':focus-visible': {
-      boxShadow: '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      boxShadow: '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
   },
 })

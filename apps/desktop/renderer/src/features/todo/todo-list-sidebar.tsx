@@ -42,7 +42,7 @@ export function TodoListSidebarItem({ active, count, icon: Icon, label, onSelect
           <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
         </span>
         <span {...stylex.props(styles.label)}>{label}</span>
-        <span {...stylex.props(styles.count)}>{count}</span>
+        <span {...stylex.props(styles.count, active && styles.countActive)}>{count}</span>
       </button>
     </li>
   )

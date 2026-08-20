@@ -1,11 +1,12 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  border: 'rgba(72, 72, 74, 0.12)',
-  panelSolid: 'rgb(250, 250, 251)',
-  text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(48, 52, 59, 0.62)',
-  textQuiet: 'rgba(48, 52, 59, 0.46)',
+  accent: 'rgb(0, 122, 255)',
+  border: 'rgba(60, 60, 67, 0.12)',
+  panelSolid: 'rgb(255, 255, 255)',
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
 } as const
 
 export const todoPlanningViewStyles = stylex.create({
@@ -16,17 +17,22 @@ export const todoPlanningViewStyles = stylex.create({
     minHeight: 0,
     flex: 1,
     flexDirection: 'column',
-    gap: 12,
+    gap: 0,
     overflow: 'auto',
-    padding: 14,
+    padding: 0,
     boxSizing: 'border-box',
   },
   toolbar: {
     display: 'flex',
-    minHeight: 32,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    borderBottomColor: 'rgba(60, 60, 67, 0.11)',
+    borderBottomStyle: 'solid',
+    borderBottomWidth: 1,
+    paddingRight: 16,
+    paddingLeft: 16,
   },
   toolbarTitle: {
     display: 'flex',
@@ -36,7 +42,7 @@ export const todoPlanningViewStyles = stylex.create({
   },
   title: {
     overflow: 'hidden',
-    color: colors.text,
+    color: colors.accent,
     fontSize: 15,
     fontWeight: 650,
     lineHeight: '20px',
@@ -64,19 +70,12 @@ export const todoPlanningViewStyles = stylex.create({
     borderColor: colors.border,
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 9,
-    paddingRight: 3,
-    paddingLeft: 3,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.42)',
-      '@media (prefers-reduced-transparency: reduce)': colors.panelSolid,
-      '@media (prefers-contrast: more)': 'rgb(248, 249, 251)',
-    },
-    backdropFilter: {
-      'default': 'blur(28px) saturate(130%) brightness(1.02)',
-      '@media (prefers-reduced-transparency: reduce)': 'none',
-    },
-    boxShadow: '0 4px 14px rgba(28, 28, 30, 0.075), 0 0 0 0.5px rgba(255, 255, 255, 0.58), inset 0 1px rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    paddingRight: 2,
+    paddingLeft: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.46)',
+    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.36) 62%, rgba(174, 215, 255, 0.16))',
+    boxShadow: '0 7px 20px rgba(28, 28, 30, 0.13), inset 0 1px rgba(255, 255, 255, 1), inset 0 -1px rgba(0, 96, 204, 0.18)',
   },
   iconButton: {
     display: 'grid',
@@ -84,12 +83,12 @@ export const todoPlanningViewStyles = stylex.create({
     height: 26,
     placeItems: 'center',
     borderWidth: 0,
-    borderRadius: 7,
+    borderRadius: 13,
     padding: 0,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.62)',
-      ':active': 'rgba(118, 118, 128, 0.12)',
+      ':hover': 'rgba(255, 255, 255, 0.68)',
+      ':active': 'rgba(0, 122, 255, 0.14)',
       ':disabled': 'transparent',
     },
     color: {
@@ -100,7 +99,7 @@ export const todoPlanningViewStyles = stylex.create({
     outline: 'none',
     boxShadow: {
       'default': 'none',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
     transform: {
       'default': 'scale(1)',
@@ -118,18 +117,19 @@ export const todoPlanningViewStyles = stylex.create({
     borderColor: 'rgba(72, 72, 74, 0.1)',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 13,
     paddingRight: 9,
     paddingLeft: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.58)',
-    color: colors.textMuted,
+    backgroundColor: 'rgb(0, 122, 255)',
+    backgroundImage: 'linear-gradient(180deg, rgb(34, 144, 255), rgb(0, 122, 255))',
+    color: 'rgb(255, 255, 255)',
     cursor: 'default',
     fontSize: 11,
     fontWeight: 600,
     outline: 'none',
     boxShadow: {
-      'default': '0 1px 4px rgba(28, 28, 30, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.6), inset 0 1px rgba(255, 255, 255, 0.94)',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      'default': '0 4px 10px rgba(0, 92, 196, 0.3), inset 0 1px rgba(255, 255, 255, 0.32)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
     transform: {
       'default': 'scale(1)',

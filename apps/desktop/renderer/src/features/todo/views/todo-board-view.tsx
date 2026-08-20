@@ -60,7 +60,16 @@ export function TodoBoardView({
         {todoStatuses.map((status) => {
           const columnTasks = grouped[status]
           return (
-            <section key={status} {...stylex.props(styles.column)} aria-label={statusLabel(status, t)}>
+            <section
+              key={status}
+              {...stylex.props(
+                styles.column,
+                status === 'todo' && styles.columnTodo,
+                status === 'doing' && styles.columnDoing,
+                status === 'done' && styles.columnDone,
+              )}
+              aria-label={statusLabel(status, t)}
+            >
               <header {...stylex.props(styles.columnHeader)}>
                 <span {...stylex.props(styles.columnTitle)}>
                   <TaskStatusIcon status={status} />

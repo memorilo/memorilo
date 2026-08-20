@@ -1,11 +1,11 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  focus: 'rgba(41, 97, 194, 0.85)',
-  separator: 'rgba(72, 72, 74, 0.1)',
-  text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(48, 52, 59, 0.62)',
-  textQuiet: 'rgba(48, 52, 59, 0.46)',
+  focus: 'rgba(0, 122, 255, 0.72)',
+  separator: 'rgba(60, 60, 67, 0.12)',
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
 } as const
 
 const loadingRotation = stylex.keyframes({
@@ -20,9 +20,9 @@ export const todoListViewStyles = stylex.create({
     minHeight: 0,
     flex: 1,
     flexDirection: 'column',
-    gap: 10,
+    gap: 0,
     overflow: 'hidden',
-    padding: '10px 14px 0',
+    padding: '0 18px',
     boxSizing: 'border-box',
   },
   viewport: {
@@ -92,9 +92,9 @@ export const todoListViewStyles = stylex.create({
     flex: '0 0 28px',
   },
   rowShellSelected: {
-    borderRadius: 10,
-    backgroundColor: 'rgba(0, 113, 227, 0.1)',
-    boxShadow: 'inset 0 0 0 1px rgba(0, 113, 227, 0.16)',
+    borderRadius: 5,
+    backgroundColor: 'rgba(0, 122, 255, 0.09)',
+    boxShadow: 'inset 2px 0 rgba(0, 122, 255, 0.58)',
   },
   rowButton: {
     display: 'grid',
@@ -106,7 +106,7 @@ export const todoListViewStyles = stylex.create({
     gridTemplateColumns: '28px minmax(0, 1fr)',
     gap: 10,
     borderWidth: 0,
-    borderRadius: 8,
+    borderRadius: 5,
     paddingRight: 14,
     paddingLeft: 12,
     backgroundColor: {
@@ -192,11 +192,11 @@ export const todoListViewStyles = stylex.create({
     borderColor: 'rgba(0, 100, 210, 0.25)',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 5,
     paddingRight: 12,
     paddingLeft: 12,
-    backgroundColor: 'rgba(0, 113, 227, 0.12)',
-    color: 'rgb(0, 113, 227)',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    color: colors.text,
     cursor: 'default',
     fontSize: 12,
     fontWeight: 600,

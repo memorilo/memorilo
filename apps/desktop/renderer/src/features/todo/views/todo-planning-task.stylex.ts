@@ -1,9 +1,9 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  text: 'rgba(25, 27, 31, 0.9)',
-  textMuted: 'rgba(48, 52, 59, 0.62)',
-  textQuiet: 'rgba(48, 52, 59, 0.46)',
+  text: 'rgba(28, 28, 30, 0.94)',
+  textMuted: 'rgba(60, 60, 67, 0.64)',
+  textQuiet: 'rgba(60, 60, 67, 0.46)',
 } as const
 
 export const todoPlanningTaskStyles = stylex.create({
@@ -21,32 +21,31 @@ export const todoPlanningTaskStyles = stylex.create({
     },
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 10,
     boxSizing: 'border-box',
     paddingTop: 9,
     paddingRight: 44,
     paddingBottom: 9,
     paddingLeft: 9,
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.78)',
-      ':hover': 'rgba(255, 255, 255, 0.94)',
-      ':active': 'rgba(118, 118, 128, 0.1)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+      'default': 'rgba(255, 255, 255, 0.82)',
+      ':hover': 'rgba(255, 255, 255, 0.96)',
+      ':active': 'rgba(235, 232, 244, 0.88)',
     },
+    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28))',
     color: colors.text,
     cursor: 'default',
     outline: 'none',
     textAlign: 'left',
     boxShadow: {
-      'default': '0 2px 7px rgba(28, 28, 30, 0.07), 0 0 0 0.5px rgba(255, 255, 255, 0.7), inset 0 1px rgba(255, 255, 255, 0.92)',
-      ':hover': '0 6px 16px rgba(28, 28, 30, 0.1), 0 0 0 0.5px rgba(255, 255, 255, 0.8), inset 0 1px rgba(255, 255, 255, 0.98)',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      'default': '0 4px 14px rgba(49, 42, 72, 0.08), inset 0 1px rgba(255, 255, 255, 0.96)',
+      ':hover': '0 7px 20px rgba(49, 42, 72, 0.12), inset 0 1px rgba(255, 255, 255, 1)',
+      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
     },
     transform: {
       'default': 'translateY(0) scale(1)',
-      ':hover': 'translateY(-1px) scale(1.002)',
-      ':active': 'translateY(1px) scale(0.985)',
+      ':hover': 'translateY(-1px) scale(1)',
+      ':active': 'translateY(0) scale(0.99)',
     },
     transitionDuration: {
       'default': '110ms',
@@ -58,9 +57,9 @@ export const todoPlanningTaskStyles = stylex.create({
     containIntrinsicSize: '62px',
   },
   taskSelected: {
-    borderColor: 'rgba(0, 113, 227, 0.3)',
-    backgroundColor: 'rgba(241, 247, 255, 0.96)',
-    boxShadow: '0 7px 18px rgba(28, 28, 30, 0.1), 0 0 0 1px rgba(0, 113, 227, 0.14), inset 0 1px rgba(255, 255, 255, 0.98)',
+    borderColor: 'rgba(0, 122, 255, 0.34)',
+    backgroundColor: 'rgba(240, 247, 255, 0.94)',
+    boxShadow: '0 0 0 1px rgba(0, 122, 255, 0.12), 0 7px 20px rgba(0, 92, 196, 0.14)',
   },
   shell: {
     position: 'relative',
