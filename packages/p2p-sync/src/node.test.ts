@@ -204,12 +204,17 @@ describe('p2p communication', () => {
     secondPairing.identity.peerId = secondPeerId
     const accepted = await secondPairing.acceptInvitation(firstPairing.createInvitation())
     await firstPairing.completeInvitation(accepted.response)
-    const secondAddress = second.node.getMultiaddrs()[0]
-    if (secondAddress === undefined)
-      throw new Error('Second peer has no listen address')
-    await first.node.dial(multiaddr(secondAddress.toString()))
-    await first.syncPeer(secondPeerId)
-    await waitFor(() => first.status().devices.some(device => device.state === 'synced'))
+    const initiator = firstPeerId < secondPeerId ? first : second
+    const responder = firstPeerId < secondPeerId ? second : first
+    const initiatorAddress = initiator.node.getMultiaddrs()[0]
+    const initiatorPeerId = initiator.status().peerId
+    const responderPeerId = responder.status().peerId
+    if (initiatorAddress === undefined || initiatorPeerId === null || responderPeerId === null)
+      throw new Error('Sync peers did not start')
+    await responder.node.dial(multiaddr(initiatorAddress.toString()))
+    await waitFor(() => initiator.status().connectedPeers.includes(responderPeerId))
+    await initiator.syncPeer(responderPeerId)
+    await waitFor(() => initiator.status().devices.some(device => device.state === 'synced'))
 
     const checksAfterInitialSync = synchronizationChecks
     observedStates.length = 0

@@ -41,6 +41,7 @@ async function createFixture() {
   const topic = tree.entries.find(entry => entry.kind === 'topic')
   if (!topic)
     throw new Error('Created Note is missing its Topic')
+  onExternalUpdate.mockClear()
   return { created, notes, onExternalUpdate, storage, topic, tree }
 }
 
