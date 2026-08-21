@@ -10,6 +10,7 @@ import { createP2pNode } from '@memorilo/p2p-sync/node'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BetterSqliteDatabase } from '../storage/better-sqlite-database'
 import { createNoteApplicationService } from './note-application-service'
+import { ensureNoteP2pBaselines } from './note-p2p-baselines'
 
 const embeddingModel = {
   dimensions: 3,
@@ -166,5 +167,75 @@ describe('p2p Note synchronization', () => {
     expect(restoredNote.title).toBe('P2P Note')
     const restored = await reopenedDestinationNotes.getTopic({ noteId: created.id, topicId })
     expect(restored.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Received while unopened')
+  })
+
+  it('seeds a complete baseline for Notes that predate the P2P journal', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'memorilo-note-p2p-baseline-'))
+    temporaryDirectories.push(directory)
+    const sourceJournal = new JsonSyncJournal(join(directory, 'source-journal.json'))
+    await sourceJournal.load()
+    await sourceJournal.setDeviceId('source')
+
+    const source = createEditorNote({
+      id: 'existing-note',
+      initialTopicHeading: 'Initial',
+      title: 'Existing Note',
+    })
+    const initialSnapshot = source.exportSnapshot()
+    const version = source.getVersion()
+    source.renameNote('Edited Existing Note')
+    const edit = source.exportUpdates(version)
+    await sourceJournal.appendLocal({
+      id: 'source:note:rename',
+      kind: 'note-update',
+      payload: JSON.stringify({ noteId: source.id, update: Buffer.from(edit).toString('base64url') }),
+    })
+
+    const seedBaselines = () => ensureNoteP2pBaselines({
+      defaultNoteLearningEnabled: () => true,
+      deviceId: 'source',
+      getNote: async (noteId) => {
+        expect(noteId).toBe(source.id)
+        return {
+          checkpointSequence: 0,
+          createdAt: 1,
+          id: source.id,
+          latestSequence: 1,
+          snapshot: initialSnapshot,
+          title: 'Existing Note',
+          updatedAt: 2,
+          updates: [{ sequence: 1, update: edit }],
+        }
+      },
+      journal: sourceJournal,
+      listNoteIds: async () => [source.id],
+    })
+    await seedBaselines()
+    await seedBaselines()
+
+    const changes = sourceJournal.listChanges({})
+    expect(changes).toHaveLength(2)
+    expect(changes.map(change => change.id)).toEqual([
+      'source:note:rename',
+      'source:note-baseline:existing-note',
+    ])
+
+    const destinationStorage = await openStorage()
+    const destinationNotes = createNoteApplicationService(destinationStorage)
+    applications.push(destinationNotes)
+    const updatesByNoteId = new Map<string, Uint8Array[]>()
+    for (const change of changes) {
+      const payload = JSON.parse(change.payload) as { noteId: string, update: string }
+      const updates = updatesByNoteId.get(payload.noteId) ?? []
+      updates.push(Uint8Array.from(Buffer.from(payload.update, 'base64url')))
+      updatesByNoteId.set(payload.noteId, updates)
+    }
+    for (const [noteId, updates] of updatesByNoteId)
+      await destinationNotes.saveNoteUpdates({ noteId, updates })
+
+    await expect(destinationNotes.getNote({ noteId: source.id })).resolves.toMatchObject({
+      id: source.id,
+      title: 'Edited Existing Note',
+    })
   })
 })

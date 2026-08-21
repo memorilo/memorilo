@@ -34,6 +34,7 @@ import { createDesktopServices } from './ipc/services'
 import { installJournalRollover } from './lifecycle/journal-rollover'
 import { createMcpServerController } from './mcp/mcp-server-controller'
 import { createNoteApplicationService } from './notes/note-application-service'
+import { ensureNoteP2pBaselines } from './notes/note-p2p-baselines'
 import { createActiveReadingRegistry } from './reading/active-reading-registry'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { openCurrentMainDatabase } from './storage/main-database'
@@ -225,7 +226,16 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     const pendingJournalWrites = new Set<Promise<void>>()
     const pendingLocalNoteUpdates: Array<{ noteId: string, update: Uint8Array }> = []
     let journalError: unknown = null
+    let finishP2pInitialization!: () => void
+    const p2pInitialization = new Promise<void>((resolve) => {
+      finishP2pInitialization = resolve
+    })
     let applyingRemoteP2pChanges = 0
+    const waitForP2pInitialization = async (): Promise<void> => {
+      await p2pInitialization
+      if (journalError !== null)
+        throw journalError
+    }
     const queueJournalWrite = (write: Promise<void>): void => {
       const tracked = write.catch((error) => {
         journalError = error
@@ -339,6 +349,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         statePath: join(userDataPath, 'p2p', 'identity.json'),
         provider: {
           applyChanges: async (changes, _peer) => {
+            await waitForP2pInitialization()
             applyingRemoteP2pChanges += 1
             let learningChanged = false
             try {
@@ -387,9 +398,11 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
             }
           },
           observeMembershipEpoch: async (epoch) => {
+            await waitForP2pInitialization()
             await p2pApplication?.observeMembershipEpoch(epoch)
           },
           getChanges: async (since) => {
+            await waitForP2pInitialization()
             await Promise.all([...pendingJournalWrites])
             if (journalError !== null)
               throw journalError
@@ -427,8 +440,29 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'P2P sync',
     })).resource
     p2pApplication = p2p
-    await syncJournal.setDeviceId(p2pApplication.pairing.identity.deviceId)
-    pendingLocalNoteUpdates.splice(0).forEach(({ noteId, update }) => queueLocalNoteUpdate(noteId, update))
+    try {
+      const deviceId = p2pApplication.pairing.identity.deviceId
+      await syncJournal.setDeviceId(deviceId)
+      await ensureNoteP2pBaselines({
+        defaultNoteLearningEnabled: () => configurationStore.getSnapshot().defaultNoteLearningEnabled,
+        deviceId,
+        getNote: noteId => editorStorage.notes.getNote({ noteId }),
+        journal: syncJournal,
+        listNoteIds: () => editorStorage.notes.listNoteIds(),
+      })
+      pendingLocalNoteUpdates.splice(0).forEach(({ noteId, update }) => queueLocalNoteUpdate(noteId, update))
+      await Promise.all([...pendingJournalWrites])
+      if (journalError !== null)
+        throw journalError
+    }
+    catch (error) {
+      journalError = error
+      throw error
+    }
+    finally {
+      finishP2pInitialization()
+    }
+    void p2pApplication.notifyChangesAvailable().catch(error => console.warn('Failed to synchronize Note baselines', error))
     await mcpServer.update(snapshot.mcp)
     const backup = (await scope.acquire({
       acquire: () => createDatabaseBackupApplication({
