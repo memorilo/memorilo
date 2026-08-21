@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Memorilo
-Comment=Read, organize, and review your knowledge
-Exec=memorilo
-Icon=dev.memorilo.desktop
-Terminal=false
-Categories=Education;

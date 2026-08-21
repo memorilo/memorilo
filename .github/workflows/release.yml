@@ -102,30 +102,6 @@ jobs:
           RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
         run: pnpm exec electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never --config.extraMetadata.version="$RELEASE_VERSION"
 
-      - name: Install Flatpak tooling
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes flatpak flatpak-builder
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user --noninteractive flathub \
-            org.freedesktop.Platform//25.08 \
-            org.freedesktop.Sdk//25.08 \
-            org.electronjs.Electron2.BaseApp//25.08
-
-      - name: Build Flatpak bundle
-        if: matrix.platform == 'linux'
-        working-directory: apps/desktop
-        env:
-          RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
-        run: |
-          flatpak-builder --user --force-clean --repo=flatpak-repo flatpak-build flatpak/dev.memorilo.desktop.yml
-          flatpak build-bundle \
-            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
-            flatpak-repo \
-            "dist/Memorilo-${RELEASE_VERSION}-linux-x64.flatpak" \
-            dev.memorilo.desktop
-
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
@@ -137,7 +113,6 @@ jobs:
             apps/desktop/dist/*.deb
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.exe
-            apps/desktop/dist/*.flatpak
             apps/desktop/dist/*.rpm
             apps/desktop/dist/*.zip
 
