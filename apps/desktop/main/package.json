@@ -22,6 +22,7 @@
     "@memorilo/editor": "workspace:*",
     "@memorilo/editor-storage": "workspace:*",
     "@memorilo/effect-lifecycle": "workspace:*",
+    "@memorilo/p2p-sync": "workspace:*",
     "@memorilo/reading-model": "workspace:*",
     "@memorilo/shelf": "workspace:*",
     "@memorilo/spreadsheet": "workspace:*",

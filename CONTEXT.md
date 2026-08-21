@@ -204,6 +204,22 @@ _Avoid_: Review session, current Card state
 Account-scoped synchronization of a user's Review Events, Learning States, Optimizer revisions, and assignments across that user's devices; it is separate from collaborative Note content.
 _Avoid_: Note collaboration, shared review state
 
+**Paired Device**:
+A device with an explicit Memorilo authorization grant for the same user's sync membership. A discovered PeerId is not a Paired Device until its identity and grant are verified.
+_Avoid_: Discovered peer, network peer, account session
+
+**Device Display Name**:
+User-editable metadata used to recognize a device before, during, and after pairing. It is not a device identity, key, authorization grant, or membership generation.
+_Avoid_: Device ID, PeerId, host identity
+
+**Device Version Vector**:
+The per-device map of the highest contiguous mutation sequence durably accepted by a Paired Device set. It is the incremental sync cursor for pure P2P learning synchronization, not a server sequence.
+_Avoid_: Server cursor, global sync sequence
+
+**Membership Epoch**:
+A monotonically increasing generation identifying the authorized Paired Device set and its tombstone/prune boundary. Removing a device advances the epoch; a removed device cannot advance purge progress in a later epoch.
+_Avoid_: Sync timestamp, device sequence
+
 **Sync Tombstone**:
 A retained marker that tells another device an object or historical record was permanently removed during database maintenance.
 _Avoid_: Inactive Card, archive

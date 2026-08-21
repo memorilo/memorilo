@@ -5,7 +5,7 @@ import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { Sidebar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, CalendarDays, GraduationCap, HardDrive, NotebookPen, Plug, Settings2 } from 'lucide-react'
+import { BookOpen, CalendarDays, GraduationCap, HardDrive, NotebookPen, Plug, Settings2, Wifi } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,9 +14,10 @@ import { useDesktopConfiguration } from '../shared/configuration'
 import { AssetSettings } from './asset-settings'
 import { CalendarSettings } from './calendar-settings'
 import { DatabaseSettings } from './database-settings'
+import { P2pSettings } from './p2p-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
-type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading'
+type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading' | 'sync'
 type SourceSectionId = 'anki' | 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'todo'
 
 interface SettingsCategoryDefinition {
@@ -33,6 +34,7 @@ const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
   { id: 'learning', sectionIds: ['learning', 'goals', 'flashcards', 'anki'], showSectionHeadings: true },
   { id: 'media', sectionIds: ['images', 'backup'], showSectionHeadings: true },
   { id: 'mcp', sectionIds: ['mcp'] },
+  { id: 'sync', sectionIds: [] },
 ]
 
 const learningDetailSectionIds: readonly SourceSectionId[] = ['anki', 'flashcards', 'goals']
@@ -45,6 +47,7 @@ const categoryIcons = {
   mcp: Plug,
   media: HardDrive,
   reading: BookOpen,
+  sync: Wifi,
 } as const
 
 function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): string {
@@ -63,6 +66,8 @@ function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): s
       return t('mediaSection')
     case 'mcp':
       return t('mcpSection')
+    case 'sync':
+      return t('syncSection')
   }
 }
 
@@ -82,6 +87,8 @@ function translateCategoryDescription(categoryId: SettingsCategoryId, t: TFuncti
       return t('mediaDescription')
     case 'mcp':
       return t('mcpDescription')
+    case 'sync':
+      return t('syncDescription')
   }
 }
 
@@ -507,6 +514,7 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
                     {activeCategory.description}
                   </p>
                 </header>
+                {activeCategory.id === 'sync' ? <P2pSettings /> : null}
                 {activeCategory.sections.map((section, index) => (
                   <Fragment key={section.id}>
                     <SettingsFieldsGroup

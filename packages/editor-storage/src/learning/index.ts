@@ -2,6 +2,7 @@ export { SqliteLearningStorage } from './learning-storage'
 export { GLOBAL_OPTIMIZER_ID } from './schema'
 export type {
   AcknowledgeLearningSyncInput,
+  ApplyLearningSyncChangeInput,
   AssignNoteOptimizerInput,
   CreateFsrsOptimizerInput,
   FsrsOptimizer,

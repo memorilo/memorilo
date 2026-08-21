@@ -95,7 +95,8 @@ Partial Card 只是单一 item Target 的复习展示，不是新的 Card Defini
 | status | active 或 archived |
 | current_revision_id | 指向当前配置快照 |
 | created_at / updated_at | 审计与同步冲突处理 |
-| sync_sequence | 预留的实体同步序号；当前本地写入使用 -1，确认流程只推进全局 last_server_sequence |
+| origin_device_id / origin_device_sequence | 产生该实体 mutation 的设备和设备内单调序号；由设备 version vector 去重与增量拉取 |
+| membership_epoch | 产生该 mutation 时的授权设备成员 epoch；用于撤销设备和 tombstone prune 边界 |
 
 Global 行允许修改 current_revision_id，不允许改 name、status 或 identity。普通 Optimizer 的删除是 archived 状态转换，不是立即 DELETE。
 
@@ -108,7 +109,8 @@ Global 行允许修改 current_revision_id，不允许改 name、status 或 iden
 | revision_id / optimizer_id | revision identity 和 owner |
 | configuration_json | 目标记忆率、FSRS weights、learning/relearning steps、最大间隔和 fuzz 的完整快照 |
 | fsrs_version | 解释参数和重放所需的算法版本 |
-| created_at / sync_sequence | 创建时间与预留的实体同步序号 |
+| created_at / origin_device_id / origin_device_sequence | 创建时间与产生 mutation 的设备序列 |
+| membership_epoch | 创建时的授权设备成员 epoch |
 
 Review Event 不以外键绑定历史 revision。参数变化后的重放必须使用 Note 当前 effective Optimizer 的 current revision 解释全部有效 Rating；这正是“从历史重新计算”，而不是让旧事件永远锁定旧参数。旧 revision 用于审计并保留历史配置，当前界面不提供选择旧 revision 回滚的操作。
 
@@ -160,7 +162,7 @@ Review Event 是 append-only 事实：
 | --- | --- |
 | event_id | UUIDv7，幂等 identity |
 | device_id / device_sequence | 本地事件来源和单调序号 |
-| server_sequence | 预留的事件服务端序号；当前确认流程只更新全局 last_server_sequence |
+| membership_epoch | 事件产生时的授权设备成员 epoch；设备 version vector 以 `device_id/device_sequence` 作为事件的同步坐标 |
 | target_id / card_id / note_id | 重放与训练索引 |
 | event_kind | rating、undo 或 reset |
 | rating | Rating event 的四级结果 |
@@ -178,7 +180,7 @@ Undo 和 Reset 不 UPDATE/DELETE 旧 event。有效历史由事件集合推导�
 - 被有效 Undo event 引用的 Rating 不参与当前重放或优化。
 - 当前 Reset epoch 之前的 Rating 保留审计，但不参与当前重放或优化。
 - 同一 base_event_id 产生多个离线 Rating 时形成竞争分支，不把它们伪装成连续复习。
-- 分支 winner 按 occurred_at、event_id 确定；server_sequence 只用于同步水位。
+- 分支 winner 按 occurred_at、event_id 确定；设备 version vector 只用于判断缺失与已持久化范围，不改变学习冲突决议。
 
 每个 Target 的 Rating event 形成以 base_event_id 连接的 graph。Learning State 沿 canonical lineage 重建：每个 fork 只选择 winner 及其后继，其他分支永久保留用于审计和 Optimizer 训练，但不作为下一次调度的前置 Rating。
 
@@ -219,9 +221,9 @@ Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实
 
 ### 5.11 learning_sync_state 与 tombstones
 
-`learning_sync_state` 当前保存 device identity、next device sequence、last server sequence 和 schema generation；`learning_sync_outbox` 保存待发送的 assignment、card、optimizer、review-event 与 tombstone mutations。当前没有 full-sync-required、sanity hash、入站 merge 或设备 prune watermark 字段。
+纯 P2P 运行时由 `@memorilo/p2p-sync` 的持久化 journal 保存本机 Note/learning 变更、设备 version vector 和连续接收游标；SQLite 继续保存 learning outbox、mutation receipt 与本地 tombstone。P2P ack 只删除已保留在 journal 中的 learning mutation，不推进旧的 `last_server_sequence` 字段。当前仍缺少 full-sync-required、sanity hash、设备级 prune watermark 和跨设备成员集合的自动清理协调。
 
-永久维护会为 Card、Optimizer 或单独 inactive item Target 写入 scoped purge tombstone，而不是为每条历史制造墓碑。远端同步实现后，服务器和客户端何时可删除 tombstone 仍需由设备确认与 prune-watermark 协议补齐。
+永久维护会为 Card、Optimizer 或单独 inactive item Target 写入 scoped purge tombstone，而不是为每条历史制造墓碑。tombstone 带 membership epoch 和产生它的设备 vector；只有当前授权设备集合都推进到该 tombstone，或设备已在更高 epoch 被移除，才允许物理删除。离线设备不能被静默跳过。
 
 ## 6. 写入与重放事务
 
@@ -348,19 +350,19 @@ RemNote 当前公开资料没有证明它会自动执行相同的 sibling bury�
 
 ## 9. Anki 式个人同步协议设计
 
-当前实现仅完成本地同步基础设施：Review Events 带 device sequence，写入会进入 learning sync outbox，并提供服务器 sequence 确认和 purge tombstone 持久化。远端传输、服务端、入站合并、时钟校验、full-sync recovery 和账户级设备协调尚未实现。因此本节描述目标协议，不是当前已经可用的跨设备功能。
+当前实现已提供 Electron main 中的纯 P2P 传输：配对 ACL、Noise/Yamux/mDNS、持久化 device version vector、双向 mutation/Note update session、幂等入站合并和 membership epoch。Review Event 等本地写入仍进入 SQLite outbox，远端 receipt 在事务后确认。full-sync recovery、时钟校验、sanity hash 和 prune watermark 仍属于后续协议工作；纯 P2P 决策见 [ADR 0007](adr/0007-pure-p2p-learning-sync.md)。
 
 目标协议中，学习数据按账户跨设备同步，不进入 Note 的 LoroDoc，并采用 Anki 的主要机制：
 
 1. 首次 Upload/Download 单向选择；
-2. 正常同步按服务器单调 sequence 增量分块；
+2. 正常同步按设备 version vector 的缺失 component 增量分块；
 3. Review Event 按 eventId 做集合合并；
 4. 同一 base 的两个离线 Rating 都保留为分支，当前 state 沿最近回答分支的 canonical lineage 重放；
-5. Optimizer current revision 和 assignment 的并发编辑按 server sequence last-write-wins，旧 revision 保留；
+5. Optimizer current revision 和 assignment 的并发编辑按确定性 mutation/device-sequence 规则收敛，旧 revision 保留；设备 version vector 只表达传输进度；
 6. schema/sanity 校验失败时要求 full sync；
 7. Note 内容和媒体保持独立同步。
 
-远端同步接入后，客户端应在同步前比较设备与服务器时钟，偏差超过 5 分钟时停止，避免“最近回答”被错误时钟破坏。eventId 是相同 occurred_at 的稳定 tie-break；server sequence 只作为同步水位，不把较早但晚上传的离线评分变成最新评分。
+远端同步接入后，客户端应在配对握手中交换设备时间和 membership epoch；明显时钟倒退或未来时间应阻止依赖时间的合并并提示校准。eventId 是相同 occurred_at 的稳定 tie-break；device version vector 只作为同步水位，不把较早但晚发送的离线评分变成最新评分。
 
 Anki 本地删除 revlog 的 Undo 无法同步；Memorilo 使用 append-only Undo event，这是为满足“保留历史 + 跨设备撤销”所做的有意调整。
 
@@ -381,9 +383,9 @@ Purge 事务会同时持久化 `vacuum-pending` maintenance marker 和本次删�
 
 Active Card 的 Review Event 不能因为其历史 Optimizer 已归档而删除；Review Event 不外键绑定 Optimizer revision，因此清理 Optimizer 不破坏活动历史。
 
-现有 storage integration tests 已覆盖 inactive item/card 的 scope、活动历史保留、归档 Optimizer、完整事务回滚、存在未确认 outbox 时拒绝维护，以及 VACUUM 后重新打开文件数据库。远端设备不会复活已 purge 数据和 prune-watermark 协调仍需等同步实现后补齐。
+现有 storage integration tests 已覆盖 inactive item/card 的 scope、活动历史保留、归档 Optimizer、完整事务回滚、存在未确认 outbox 时拒绝维护，以及 VACUUM 后重新打开文件数据库。远端设备不会复活已 purge 数据和 device-vector prune watermark 协调仍需等同步实现后补齐。
 
-在远端同步可用后，账户级永久删除还必须先达到 clean sync 和 prune watermark；存在离线或未确认设备时不能把本地 purge 宣称为全账户永久删除。当前实现只在数据库曾确认过服务器 sequence 且仍有 pending outbox 时拒绝维护，不具备远端设备协调能力。
+在远端同步可用后，账户级永久删除还必须先达到 clean sync 和 device-vector prune watermark；存在离线设备时不能把本地 purge 宣称为全成员永久删除，必须先通过更高 membership epoch 移除该设备。当前实现只在数据库曾确认过旧服务器 sequence 且仍有 pending outbox 时拒绝维护，不具备远端设备协调能力；纯 P2P 实现必须迁移为检查设备 version vector 和 membership epoch。
 
 ## 11. 实现状态与剩余顺序
 
@@ -391,7 +393,7 @@ Active Card 的 Review Event 不能因为其历史 Optimizer 已归档而删除�
 2. 已完成 FSRS engine、Rating/Replay/Undo/Reset、Optimizer revision/assignment/optimization 与可选立即重调度。
 3. 已完成全局练习政策、动态选卡、Daily Goal、两层 List/Set、派生 Partial 状态和 Sibling Bury。
 4. 已完成 CardTopic Preview 使用 `CardPreview`、正式 Learning Review 使用 `CardSurface`；两者读取同一个 `projectCardTopicCards()` 投影，并共用 main process 的 64-Note LRU。
-5. 已完成本地同步 outbox、server-sequence acknowledgement 和 purge tombstone；远端 transport、入站 merge 与 full-sync recovery 尚未实现。
-6. 已完成底层数据库维护、IPC 和 integration tests；Settings 入口与远端 prune-watermark 协调尚未实现。
+5. 已完成本地同步 outbox、持久化 P2P journal、device version vector、membership epoch、入站 merge、tombstone 防复活和 Noise/Yamux/mDNS transport；full-sync recovery 与 prune-watermark 协调尚未实现。
+6. 已完成底层数据库维护、P2P IPC、Settings 配对入口和 package/integration tests；远端 prune-watermark 协调仍待实现。
 
 main database schema generation 保持为 `1`；CardTopic ownership 不改变这一 generation。数据库维护只处理当前 schema 的派生数据、索引和 tombstone。

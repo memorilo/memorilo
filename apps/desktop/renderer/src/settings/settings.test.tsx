@@ -53,6 +53,11 @@ describe('settings renderer', () => {
     fireEvent.change(recurringTaskCompletion, { target: { value: 'move-next-to-due-date' } })
     await waitFor(() => expect(store.getSnapshot().todo.recurringTaskCompletionAction).toBe('move-next-to-due-date'))
 
+    fireEvent.click(rendered.getByRole('button', { name: 'Sync' }))
+    expect(await rendered.findByRole('heading', { name: 'Sync' })).toBeInTheDocument()
+    expect(rendered.getByText('P2P sync')).toBeInTheDocument()
+    expect(rendered.getByRole('button', { name: 'Allow discovery for 5 minutes' })).toBeDisabled()
+
     fireEvent.click(rendered.getByRole('button', { name: 'Notes & Editor' }))
     expect(await rendered.findByRole('heading', { name: 'Notes & Editor' })).toBeInTheDocument()
     expect(rendered.getByRole('combobox', { name: 'Pasted network images' })).toHaveValue('download')

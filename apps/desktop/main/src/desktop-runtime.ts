@@ -1,9 +1,12 @@
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { LearningPracticeConfiguration } from '@memorilo/editor-storage'
+import type { P2pApplication } from '@memorilo/p2p-sync/node'
 import type { MessageBoxOptions } from 'electron'
-import { randomBytes } from 'node:crypto'
+import { Buffer } from 'node:buffer'
+import { createHash, randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
+import { hostname } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 
@@ -19,9 +22,11 @@ import {
   SqliteShelfStorage,
 } from '@memorilo/editor-storage'
 import { createOperationSupervisor, createResourceScope } from '@memorilo/effect-lifecycle'
+import { JsonSyncJournal } from '@memorilo/p2p-sync'
+import { createP2pApplication } from '@memorilo/p2p-sync/node'
 import { ShelfReadingFileStore } from '@memorilo/shelf/node'
-import { app, BrowserWindow, dialog } from 'electron'
 
+import { app, BrowserWindow, dialog } from 'electron'
 import { installApplicationMenu } from './application-menu'
 import { createDatabaseBackupApplication } from './backup/backup-application'
 import { createDesktopConfigurationAdapter } from './configuration/desktop-configuration-adapter'
@@ -214,6 +219,19 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       close: application => application.close(),
       name: 'Whiteboard Library',
     })).resource
+    let p2pApplication: P2pApplication | null = null
+    const syncJournal = new JsonSyncJournal(join(userDataPath, 'p2p', 'sync-journal.json'))
+    await syncJournal.load()
+    const pendingJournalWrites = new Set<Promise<void>>()
+    let journalError: unknown = null
+    let applyingRemoteP2pChange = false
+    const queueJournalWrite = (write: Promise<void>): void => {
+      const tracked = write.catch((error) => {
+        journalError = error
+      })
+      pendingJournalWrites.add(tracked)
+      void tracked.then(() => pendingJournalWrites.delete(tracked))
+    }
     const shelfStorage = (await scope.acquire({
       acquire: () => SqliteShelfStorage.open({
         database: mainDatabase,
@@ -264,6 +282,21 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     })).resource
     const notes = (await scope.acquire({
       acquire: () => createNoteApplicationService(editorStorage, ({ noteId, update, updatedAt }) => {
+        if (!applyingRemoteP2pChange && p2pApplication !== null) {
+          const deviceId = p2pApplication.pairing.identity.deviceId
+          const updateId = createHash('sha256')
+            .update(noteId)
+            .update('\0')
+            .update(update)
+            .digest('hex')
+          const payload = JSON.stringify({ noteId, update: Buffer.from(update).toString('base64url') })
+          const write = syncJournal.appendLocal({
+            id: `${deviceId}:note:${updateId}`,
+            kind: 'note-update',
+            payload,
+          }).then(() => undefined)
+          queueJournalWrite(write)
+        }
         for (const window of BrowserWindow.getAllWindows())
           window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
       }, {
@@ -285,6 +318,83 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       close: server => server.close(),
       name: 'MCP server',
     })).resource
+    const p2p = (await scope.acquire({
+      acquire: () => createP2pApplication({
+        deviceName: process.env.MEMORILO_DEVICE_NAME ?? hostname(),
+        onStatus: (status) => {
+          for (const window of BrowserWindow.getAllWindows())
+            window.webContents.send('memorilo:p2p-status', status)
+        },
+        statePath: join(userDataPath, 'p2p', 'identity.json'),
+        provider: {
+          applyChanges: async (changes, _peer) => {
+            applyingRemoteP2pChange = true
+            try {
+              for (const change of changes) {
+                if (change.kind === 'learning-mutation') {
+                  const learningChange = JSON.parse(change.payload) as {
+                    createdAt: number
+                    entityId: string
+                    entityKind: 'assignment' | 'card' | 'optimizer' | 'review-event' | 'tombstone'
+                    mutationId: string
+                    operation: 'delete' | 'upsert'
+                    payload: unknown
+                  }
+                  await editorStorage.learning.sync.applyRemote({
+                    ...learningChange,
+                    sourceDeviceId: change.deviceId,
+                    sourceSequence: change.sequence,
+                  })
+                  continue
+                }
+                if (change.kind !== 'note-update')
+                  continue
+                const payload = JSON.parse(change.payload) as { noteId: string, update: string }
+                await notes.saveNoteUpdates({ noteId: payload.noteId, updates: [Uint8Array.from(Buffer.from(payload.update, 'base64url'))] })
+              }
+              await syncJournal.recordReceived(changes)
+            }
+            finally {
+              applyingRemoteP2pChange = false
+            }
+          },
+          observeMembershipEpoch: async (epoch) => {
+            await p2pApplication?.observeMembershipEpoch(epoch)
+          },
+          getChanges: async (since) => {
+            await Promise.all([...pendingJournalWrites])
+            if (journalError !== null)
+              throw journalError
+            const learningChanges = await editorStorage.learning.sync.listPending(250)
+            for (const change of learningChanges) {
+              const write = syncJournal.appendLocal({
+                id: change.mutationId,
+                kind: 'learning-mutation',
+                payload: JSON.stringify(change),
+              })
+              await write
+            }
+            return syncJournal.listChanges(since)
+          },
+          acknowledgeChanges: async (changeIds) => {
+            const localDeviceId = p2pApplication?.pairing.identity.deviceId
+            const learningIds = new Set(syncJournal.listChanges({})
+              .filter(change => change.kind === 'learning-mutation'
+                && change.deviceId === localDeviceId
+                && changeIds.includes(change.id))
+              .map(change => change.id))
+            if (learningIds.size > 0)
+              await editorStorage.learning.sync.acknowledgeMutations([...learningIds])
+          },
+          getMembershipEpoch: () => p2pApplication?.membershipEpoch() ?? 1,
+          getVersionVector: () => syncJournal.getVersionVector(),
+        },
+      }),
+      close: application => application.close(),
+      name: 'P2P sync',
+    })).resource
+    p2pApplication = p2p
+    await syncJournal.setDeviceId(p2pApplication.pairing.identity.deviceId)
     await mcpServer.update(snapshot.mcp)
     const backup = (await scope.acquire({
       acquire: () => createDatabaseBackupApplication({
@@ -323,6 +433,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           ]),
           rendererDirectory: join(options.mainDirectory, '../renderer'),
         },
+        p2p,
       ),
       close: handle => handle.close(),
       name: 'desktop services',
