@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
 
-import { learningReviewRoute } from '../features/learning/review/learning-review-route'
-import { useDesktopConfiguration } from '../shared/configuration'
+import { learningReviewRoute } from '../../features/learning/review/learning-review-route'
+import { useDesktopConfiguration } from '../../shared/configuration'
 
 const LearningReviewPage = lazy(async () => {
-  const module = await import('../features/learning/review/learning-review-page')
+  const module = await import('../../features/learning/review/learning-review-page')
   return { default: module.LearningReviewPage }
 })
 
-export const Route = createFileRoute('/learning_/review')({
+export const Route = createFileRoute('/learning/review')({
   component: LearningReviewRoute,
   validateSearch: learningReviewRoute.validate,
 })

@@ -1,7 +1,7 @@
-import type { NoteSearch } from '../features/notes/editor/note-page'
+import type { NoteSearch } from '../../../features/notes/editor/note-page'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { NotePage } from '../features/notes/editor/note-page'
+import { NotePage } from '../../../features/notes/editor/note-page'
 
 function validateNoteSearch(search: Record<string, unknown>): NoteSearch {
   if (search.focus === undefined)

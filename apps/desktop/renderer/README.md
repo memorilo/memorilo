@@ -24,4 +24,4 @@ Renderer resources are acquired in the commit phase through `useOwnedResource`; 
 
 The renderer composition root creates application resources only after configuration and i18n initialization succeeds. Its mount disposer must attempt every owned finalizer on both mount rollback and window shutdown, so a React unmount failure cannot skip Note persistence or other later cleanup.
 
-The trailing underscores in route filenames such as `reader_.$readingId.tsx` and `learning_.review.tsx` are TanStack Router non-nested-route syntax and must remain. A leading `-` is only TanStack's route-ignore convention; renderer implementation files live outside `routes/` and do not use that prefix.
+Organize related URL segments in route directories. An `index.tsx` route and its sibling routes remain non-nested unless the directory defines a `route.tsx` layout; layout routes must render an `Outlet` for their children. A leading `-` is only TanStack's route-ignore convention; renderer implementation files live outside `routes/` and do not use that prefix.

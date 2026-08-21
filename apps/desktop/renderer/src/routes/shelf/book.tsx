@@ -1,7 +1,7 @@
-import type { ShelfBookSearch } from '../features/shelf/shelf-book-page'
+import type { ShelfBookSearch } from '../../features/shelf/shelf-book-page'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { ShelfBookPage } from '../features/shelf/shelf-book-page'
+import { ShelfBookPage } from '../../features/shelf/shelf-book-page'
 
 function requiredSearchValue(search: Record<string, unknown>, name: keyof ShelfBookSearch): string {
   const value = search[name]
@@ -17,7 +17,7 @@ function validateShelfBookSearch(search: Record<string, unknown>): ShelfBookSear
   }
 }
 
-export const Route = createFileRoute('/shelf_/book')({
+export const Route = createFileRoute('/shelf/book')({
   component: ShelfBookRoute,
   validateSearch: validateShelfBookSearch,
 })

@@ -1,7 +1,7 @@
-import type { ShelfReaderSearch } from '../features/reader/reader-page'
+import type { ShelfReaderSearch } from '../../features/reader/reader-page'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { ReaderPage } from '../features/reader/reader-page'
+import { ReaderPage } from '../../features/reader/reader-page'
 
 function validateShelfReaderSearch(search: Record<string, unknown>): ShelfReaderSearch {
   if (search.noteId === undefined && search.topicId === undefined && search.annotationId === undefined)
@@ -21,7 +21,7 @@ function validateShelfReaderSearch(search: Record<string, unknown>): ShelfReader
   }
 }
 
-export const Route = createFileRoute('/reader_/$readingId')({
+export const Route = createFileRoute('/reader/$readingId')({
   component: ShelfReaderRoute,
   validateSearch: validateShelfReaderSearch,
 })

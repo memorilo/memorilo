@@ -1,14 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
 
-import { useDesktopConfiguration } from '../shared/configuration'
+import { useDesktopConfiguration } from '../../../shared/configuration'
 
 const LearningOptimizerDetail = lazy(async () => {
-  const module = await import('../features/learning/optimizer/learning-optimizer-detail')
+  const module = await import('../../../features/learning/optimizer/learning-optimizer-detail')
   return { default: module.LearningOptimizerDetail }
 })
 
-export const Route = createFileRoute('/learning_/optimizer/$optimizerId')({
+export const Route = createFileRoute('/learning/optimizer/$optimizerId')({
   component: LearningOptimizerRoute,
 })
 

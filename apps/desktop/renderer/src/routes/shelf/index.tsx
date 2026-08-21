@@ -1,7 +1,7 @@
-import type { ShelfSearch } from '../features/shelf/shelf-page'
+import type { ShelfSearch } from '../../features/shelf/shelf-page'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { ShelfPage } from '../features/shelf/shelf-page'
+import { ShelfPage } from '../../features/shelf/shelf-page'
 
 function validateShelfSearch(search: Record<string, unknown>): ShelfSearch {
   return {
@@ -11,7 +11,7 @@ function validateShelfSearch(search: Record<string, unknown>): ShelfSearch {
   }
 }
 
-export const Route = createFileRoute('/shelf')({
+export const Route = createFileRoute('/shelf/')({
   component: ShelfRoute,
   validateSearch: validateShelfSearch,
 })

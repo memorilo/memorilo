@@ -1,11 +1,11 @@
-import type { LearningSearch } from '../features/learning/learning-page'
+import type { LearningSearch } from '../../features/learning/learning-page'
 import { createFileRoute } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
 
-import { useDesktopConfiguration } from '../shared/configuration'
+import { useDesktopConfiguration } from '../../shared/configuration'
 
 const LearningPage = lazy(async () => {
-  const module = await import('../features/learning/learning-page')
+  const module = await import('../../features/learning/learning-page')
   return { default: module.LearningPage }
 })
 
@@ -17,7 +17,7 @@ function validateLearningSearch(search: Record<string, unknown>): LearningSearch
   throw new TypeError('Learning view must be notes or optimizer')
 }
 
-export const Route = createFileRoute('/learning')({
+export const Route = createFileRoute('/learning/')({
   component: LearningRoute,
   validateSearch: validateLearningSearch,
 })
