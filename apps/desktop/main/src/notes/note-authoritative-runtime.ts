@@ -117,7 +117,35 @@ export function createNoteAuthoritativeRuntime(
   }
 
   const loading = createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabled, storage })
-  const { commit, load, open, openJournal } = loading
+  const { commit: commitStored, load, open, openJournal: openStoredJournal } = loading
+
+  const broadcastCreatedNote = (current: AuthoritativeNote): void => {
+    if (!onExternalUpdate)
+      return
+    try {
+      onExternalUpdate({
+        noteId: current.note.id,
+        update: current.note.exportUpdates(),
+        updatedAt: current.updatedAt,
+      })
+    }
+    catch (error) {
+      console.error(`Failed to broadcast created Note ${current.note.id}`, error)
+    }
+  }
+
+  const commit = async (note: EditorNote): Promise<AuthoritativeNote> => {
+    const current = await commitStored(note)
+    broadcastCreatedNote(current)
+    return current
+  }
+
+  const openJournal = async (journalDate: JournalDate) => {
+    const opened = await openStoredJournal(journalDate)
+    if (opened.created)
+      broadcastCreatedNote(opened.current)
+    return opened
+  }
 
   const persistLocalMutation = async (
     current: AuthoritativeNote,
@@ -176,6 +204,7 @@ export function createNoteAuthoritativeRuntime(
     activeReadings,
     autoCompleteTodoParents,
     cache,
+    commit: commitStored,
     onExternalUpdate,
     open,
     scheduleIndex,

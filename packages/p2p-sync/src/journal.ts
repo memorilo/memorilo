@@ -178,12 +178,19 @@ export class JsonSyncJournal {
   }
 
   async recordReceived(changes: readonly SyncChange[]): Promise<void> {
-    await this.#enqueue(async () => {
+    await this.recordReceivedAndReport(changes)
+  }
+
+  async recordReceivedAndReport(changes: readonly SyncChange[]): Promise<boolean> {
+    return this.#enqueue(async () => {
       this.#assertLoaded()
+      let acceptedNewChange = false
       for (const change of changes) {
         assertSequence(change.sequence, 'Received P2P sync change sequence')
-        if (!this.#state.changes.some(current => current.id === change.id))
+        if (!this.#state.changes.some(current => current.id === change.id)) {
           this.#state.changes.push({ ...change })
+          acceptedNewChange = true
+        }
         const cursor = this.#state.receivedVersionVector[change.deviceId] ?? 0
         if (change.sequence <= cursor)
           continue
@@ -200,6 +207,7 @@ export class JsonSyncJournal {
           delete this.#state.pendingReceivedSequences[change.deviceId]
       }
       await this.#save()
+      return acceptedNewChange
     })
   }
 

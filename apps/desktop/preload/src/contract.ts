@@ -36,6 +36,7 @@ export interface DesktopApi {
     updateDeviceName: (deviceName: string) => Promise<void>
   }
   subscribeConfiguration: (listener: (configuration: DesktopConfiguration) => void) => () => void
+  subscribeLearningUpdates: (listener: () => void) => () => void
   subscribeNoteSaveRequests: (listener: () => Promise<void>) => () => void
   subscribeNoteUpdates: (listener: (update: DesktopNoteExternalUpdate) => void) => () => void
   subscribeP2pStatus: (listener: (status: DesktopP2pStatus) => void) => () => void

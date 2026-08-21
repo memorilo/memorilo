@@ -22,6 +22,18 @@
   "favoritesEmpty": "No favorites",
   "recentEmptyError": "Couldn’t load recent notes",
   "recentEmpty": "No recent notes",
+  "p2pSidebarState": {
+    "connecting": "Connecting",
+    "syncing": "Syncing",
+    "synced": "Synced",
+    "paused": "Sync paused",
+    "error": "Sync needs attention"
+  },
+  "p2pSidebarDeviceCount_one": "{{count}} device",
+  "p2pSidebarDeviceCount_other": "{{count}} devices",
+  "p2pSidebarSync": "P2P sync",
+  "p2pSidebarDetails": "P2P sync details",
+  "p2pSidebarDevices": "Sync devices",
   "hideSidebar": "Hide Sidebar",
   "showSidebar": "Show Sidebar",
   "pageNavigation": "Page navigation",

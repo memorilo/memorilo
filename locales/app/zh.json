@@ -22,6 +22,18 @@
   "favoritesEmpty": "暂无收藏",
   "recentEmptyError": "无法加载最近的笔记",
   "recentEmpty": "暂无最近的笔记",
+  "p2pSidebarState": {
+    "connecting": "正在连接",
+    "syncing": "正在同步",
+    "synced": "已同步",
+    "paused": "同步已暂停",
+    "error": "同步需要处理"
+  },
+  "p2pSidebarDeviceCount_one": "{{count}} 台设备",
+  "p2pSidebarDeviceCount_other": "{{count}} 台设备",
+  "p2pSidebarSync": "P2P 同步",
+  "p2pSidebarDetails": "P2P 同步详情",
+  "p2pSidebarDevices": "同步设备",
   "hideSidebar": "隐藏侧边栏",
   "showSidebar": "显示侧边栏",
   "pageNavigation": "页面导航",

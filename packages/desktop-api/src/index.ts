@@ -9,7 +9,7 @@ export type {
   DesktopOperationHandlers,
 } from './operations'
 export { withDesktopHonoRequestContext } from './operations'
-export type { DesktopP2pDiscoveredPeer, DesktopP2pLocalDevice, DesktopP2pPairedDevice, DesktopP2pPairingRequest, DesktopP2pStatus } from './p2p-contract'
+export type { DesktopP2pDeviceStatus, DesktopP2pDiscoveredPeer, DesktopP2pLocalDevice, DesktopP2pPairedDevice, DesktopP2pPairingRequest, DesktopP2pStatus } from './p2p-contract'
 export type {
   DesktopHonoFailure,
 } from './wire'

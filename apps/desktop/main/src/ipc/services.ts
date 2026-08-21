@@ -81,6 +81,9 @@ export async function createDesktopServices(
         createLearningReviewApplication(notes, learning, now),
         createDesktopAnkiService(configuration),
         now,
+        () => {
+          void p2p.notifyChangesAvailable().catch(error => console.warn('Failed to synchronize local Learning changes', error))
+        },
       ),
       notes: createNoteHandlers(notes, createTodoCalendarService(storage, () => configuration.getSnapshot().language)),
       shelf: createShelfHandlers(
