@@ -92,6 +92,8 @@ jobs:
         run: pnpm prepare:embedding-model
 
       - name: Build application
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm --filter @memorilo/desktop build
 
       - name: Package desktop application
