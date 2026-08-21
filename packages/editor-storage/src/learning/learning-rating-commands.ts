@@ -258,6 +258,7 @@ export class LearningRatingCommands {
           queueKind: sourceQueue satisfies LearningQueueKind,
           rating: input.rating,
           reviewedAt,
+          resultState: toLearningState(replayed.state),
           targetId: target.target_id,
         }, reviewedAt),
       ],

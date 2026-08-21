@@ -199,6 +199,13 @@ export const learningSchema = `
   CREATE INDEX IF NOT EXISTS learning_sync_outbox_order_idx
     ON learning_sync_outbox(created_at, mutation_id);
 
+  CREATE TABLE IF NOT EXISTS learning_sync_received_mutations (
+    mutation_id TEXT PRIMARY KEY,
+    source_device_id TEXT NOT NULL,
+    source_sequence INTEGER NOT NULL CHECK (source_sequence > 0),
+    received_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS learning_purge_tombstones (
     tombstone_id TEXT PRIMARY KEY,
     scope_kind TEXT NOT NULL CHECK (scope_kind IN ('card', 'optimizer', 'target')),

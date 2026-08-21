@@ -91,6 +91,7 @@ export class LearningReviewCommands {
         eventId,
         kind: 'reset',
         resetAt,
+        resultState: toLearningState(state),
         targetId: target.target_id,
       }, resetAt),
     ])
@@ -182,6 +183,7 @@ export class LearningReviewCommands {
         syncMutationCommand('review-event', command.eventId, 'upsert', {
           eventId: command.eventId,
           kind: 'undo',
+          resultState: toLearningState(replayed.state),
           targetId: target.target_id,
           undoesEventId: winningEventId,
           undoneAt,

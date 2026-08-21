@@ -256,6 +256,11 @@ export interface AcknowledgeLearningSyncInput {
   serverSequence: number
 }
 
+export interface ApplyLearningSyncChangeInput extends LearningSyncChange {
+  sourceDeviceId: string
+  sourceSequence: number
+}
+
 export interface LearningCardStorage {
   listNotesWithCards: () => Promise<readonly LearningNoteSummary[]>
   listNoteTopicIds: (noteId: string) => Promise<readonly string[]>
@@ -298,7 +303,9 @@ export interface LearningReviewStorage {
 }
 
 export interface LearningSyncStorage {
+  applyRemote: (input: ApplyLearningSyncChangeInput) => Promise<void>
   acknowledge: (input: AcknowledgeLearningSyncInput) => Promise<void>
+  acknowledgeMutations: (mutationIds: readonly string[]) => Promise<void>
   listPending: (limit?: number) => Promise<readonly LearningSyncChange[]>
 }
 

@@ -8,6 +8,8 @@ import { createDesktopIpcClient } from './ipc-client'
 import { createNoteSaveCoordinator } from './note-save-coordinator'
 import { noteSaveRequestChannel, noteSaveResultChannel } from './note-save-handshake'
 
+const p2pStatusChannel = 'memorilo:p2p-status'
+
 const services = createDesktopIpcClient(ipcRenderer)
 
 function subscribeConfiguration(listener: (configuration: DesktopConfiguration) => void): () => void {
@@ -43,7 +45,13 @@ function subscribeNoteUpdates(listener: Parameters<DesktopApi['subscribeNoteUpda
   return () => ipcRenderer.removeListener('memorilo:note-update', handleUpdate)
 }
 
+function subscribeP2pStatus(listener: Parameters<DesktopApi['subscribeP2pStatus']>[0]): () => void {
+  const handleStatus = (_event: Electron.IpcRendererEvent, status: Parameters<DesktopApi['subscribeP2pStatus']>[0] extends (status: infer Status) => void ? Status : never) => listener(status)
+  ipcRenderer.on(p2pStatusChannel, handleStatus)
+  return () => ipcRenderer.removeListener(p2pStatusChannel, handleStatus)
+}
+
 contextBridge.exposeInMainWorld(
   'desktop',
-  createDesktopApi(services, subscribeConfiguration, subscribeNoteSaveRequests, subscribeNoteUpdates),
+  createDesktopApi(services, subscribeConfiguration, subscribeNoteSaveRequests, subscribeNoteUpdates, subscribeP2pStatus),
 )

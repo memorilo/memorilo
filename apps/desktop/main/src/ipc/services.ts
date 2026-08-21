@@ -2,6 +2,7 @@ import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopFetchRequest, DesktopFetchResponse } from '@memorilo/desktop-api/transport'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage, LearningStorage } from '@memorilo/editor-storage'
+import type { P2pApplication } from '@memorilo/p2p-sync/node'
 import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
 import type { DatabaseBackupApplication } from '../backup/backup-application'
@@ -29,6 +30,7 @@ import { createIpcHandlerRegistry, withIpcContext } from './ipc-handler-registry
 import { createJournalHandlers } from './journal-service'
 import { createLearningHandlers } from './learning-service'
 import { createNoteHandlers } from './note-service'
+import { createP2pHandlers } from './p2p-service'
 import { createShelfOperationRuntime } from './shelf-operation-runtime'
 import { createShelfHandlers } from './shelf-service'
 import { createWhiteboardLibraryHandlers } from './whiteboard-library-service'
@@ -54,6 +56,7 @@ export async function createDesktopServices(
     allowedOrigins: ReadonlySet<string>
     rendererDirectory: string
   },
+  p2p: P2pApplication,
 ) {
   const scope = createResourceScope('Desktop services', { closeMode: 'dependent' })
   try {
@@ -125,6 +128,7 @@ export async function createDesktopServices(
         }),
       },
       whiteboardLibrary: createWhiteboardLibraryHandlers(whiteboardLibrary),
+      p2p: createP2pHandlers(p2p),
     }
     await scope.acquire({
       acquire: () => registerMemoriloProtocol({

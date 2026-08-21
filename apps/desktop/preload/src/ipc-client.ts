@@ -26,6 +26,7 @@ export function createDesktopIpcClient(renderer: Pick<IpcRenderer, 'invoke'>): D
     return envelope.value as Result
   }
   return {
+    p2p: createGroupClient('p2p', invoke),
     transport: createGroupClient('transport', invoke),
     whiteboardLibrary: createGroupClient('whiteboardLibrary', invoke),
   }
