@@ -342,6 +342,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
             applyingRemoteP2pChanges += 1
             let learningChanged = false
             try {
+              // Relayed deltas may precede a Note's initialization update, so import each Note as one batch before validation.
+              const noteUpdates = new Map<string, Uint8Array[]>()
               for (const change of changes) {
                 if (change.kind === 'learning-mutation') {
                   const learningChange = JSON.parse(change.payload) as {
@@ -363,8 +365,12 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
                 if (change.kind !== 'note-update')
                   continue
                 const payload = JSON.parse(change.payload) as { noteId: string, update: string }
-                await notes.saveNoteUpdates({ noteId: payload.noteId, updates: [Uint8Array.from(Buffer.from(payload.update, 'base64url'))] })
+                const updates = noteUpdates.get(payload.noteId) ?? []
+                updates.push(Uint8Array.from(Buffer.from(payload.update, 'base64url')))
+                noteUpdates.set(payload.noteId, updates)
               }
+              for (const [noteId, updates] of noteUpdates)
+                await notes.saveNoteUpdates({ noteId, updates })
               const acceptedNewChanges = await syncJournal.recordReceivedAndReport(changes)
               if (learningChanged) {
                 for (const window of BrowserWindow.getAllWindows())
