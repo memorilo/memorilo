@@ -48,8 +48,17 @@ export interface P2pNodeStatus {
   readonly state: 'stopped' | 'starting' | 'ready' | 'error'
   readonly peerId: string | null
   readonly connectedPeers: readonly string[]
+  readonly devices: readonly P2pDeviceStatus[]
   readonly error: string | null
   readonly discoveredPeers: readonly { deviceId: string, deviceName: string, peerId: string }[]
+}
+
+export interface P2pDeviceStatus {
+  readonly deviceId: string
+  readonly deviceName: string
+  readonly peerId: string
+  readonly state: 'connecting' | 'syncing' | 'synced' | 'paused' | 'error'
+  readonly error: string | null
 }
 
 export interface P2pNodeHandle {
@@ -211,6 +220,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   const now = options.now ?? Date.now
   let currentStatus: P2pNodeStatus = {
     connectedPeers: [],
+    devices: [],
     discoveredPeers: [],
     error: null,
     peerId: null,
@@ -239,8 +249,31 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   const dialing = new Set<string>()
   const activeSyncs = new Map<string, Promise<void>>()
   const syncSchedules = new Map<string, { dirty: boolean, running: Promise<void> | null }>()
+  const deviceStates = new Map<string, Pick<P2pDeviceStatus, 'error' | 'state'>>()
   const shouldInitiate = (peerId: string): boolean => node.peerId.toString() < peerId
   const authorizedConnectedPeers = (): readonly string[] => [...connected].filter(peerId => options.pairing.findByPeerId(peerId) !== undefined)
+  const deviceStatuses = (): readonly P2pDeviceStatus[] => [...deviceStates.entries()].flatMap(([peerId, status]) => {
+    const device = options.pairing.findByPeerId(peerId)
+    return device === undefined
+      ? []
+      : [{
+          deviceId: device.deviceId,
+          deviceName: device.deviceName,
+          error: status.error,
+          peerId,
+          state: status.state,
+        }]
+  })
+  const updateDeviceStatus = (
+    peerId: string,
+    state: P2pDeviceStatus['state'],
+    error: string | null = null,
+  ): void => {
+    if (options.pairing.findByPeerId(peerId) === undefined)
+      return
+    deviceStates.set(peerId, { error, state })
+    updateStatus({ devices: deviceStatuses() })
+  }
   const availablePeers = (): readonly { deviceId: string, deviceName: string, peerId: string }[] => {
     const currentTime = now()
     const available: { deviceId: string, deviceName: string, peerId: string }[] = []
@@ -268,32 +301,40 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     await options.provider?.applyChanges(changes.changes, paired, changes.membershipEpoch)
   }
   const handleIncomingSession = async (stream: SyncStream, paired: PairedDevice): Promise<void> => {
-    const reader = createMessageReader(stream)
-    const hello = requireType(await reader.read(), 'hello')
-    if (hello.pairingId !== paired.pairingId || hello.sharedSecret !== paired.sharedSecret)
-      throw new Error('Peer pairing credentials were rejected')
-    await options.pairing.updateDeviceName(paired.peerId, hello.deviceName)
-    await options.pairing.markSeen(paired.peerId)
+    updateDeviceStatus(paired.peerId, 'syncing')
+    try {
+      const reader = createMessageReader(stream)
+      const hello = requireType(await reader.read(), 'hello')
+      if (hello.pairingId !== paired.pairingId || hello.sharedSecret !== paired.sharedSecret)
+        throw new Error('Peer pairing credentials were rejected')
+      await options.pairing.updateDeviceName(paired.peerId, hello.deviceName)
+      await options.pairing.markSeen(paired.peerId)
 
-    const changesForPeer = await options.provider?.getChanges(hello.versionVector) ?? []
-    await writeMessage(stream, {
-      changes: changesForPeer,
-      deviceName: options.identity.deviceName,
-      membershipEpoch: options.provider?.getMembershipEpoch() ?? 0,
-      type: 'changes',
-      versionVector: options.provider?.getVersionVector() ?? {},
-    })
-    const remoteAcknowledgement = requireType(await reader.read(), 'ack')
-    await acknowledge(remoteAcknowledgement.acceptedChangeIds, paired)
+      const changesForPeer = await options.provider?.getChanges(hello.versionVector) ?? []
+      await writeMessage(stream, {
+        changes: changesForPeer,
+        deviceName: options.identity.deviceName,
+        membershipEpoch: options.provider?.getMembershipEpoch() ?? 0,
+        type: 'changes',
+        versionVector: options.provider?.getVersionVector() ?? {},
+      })
+      const remoteAcknowledgement = requireType(await reader.read(), 'ack')
+      await acknowledge(remoteAcknowledgement.acceptedChangeIds, paired)
 
-    const changesFromPeer = requireType(await reader.read(), 'changes')
-    await applyChanges(changesFromPeer, paired)
-    await writeMessage(stream, {
-      acceptedChangeIds: changesFromPeer.changes.map(change => change.id),
-      membershipEpoch: options.provider?.getMembershipEpoch() ?? 0,
-      type: 'ack',
-      versionVector: options.provider?.getVersionVector() ?? {},
-    })
+      const changesFromPeer = requireType(await reader.read(), 'changes')
+      await applyChanges(changesFromPeer, paired)
+      await writeMessage(stream, {
+        acceptedChangeIds: changesFromPeer.changes.map(change => change.id),
+        membershipEpoch: options.provider?.getMembershipEpoch() ?? 0,
+        type: 'ack',
+        versionVector: options.provider?.getVersionVector() ?? {},
+      })
+      updateDeviceStatus(paired.peerId, 'synced')
+    }
+    catch (error) {
+      updateDeviceStatus(paired.peerId, 'error', error instanceof Error ? error.message : String(error))
+      throw error
+    }
   }
 
   const syncPeer = async (peerId: string, dialTarget?: unknown): Promise<void> => {
@@ -305,43 +346,52 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
       return
     const provider = options.provider
     const task = (async () => {
-      const connection = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
-      const stream = await (connection === undefined
-        ? node.dialProtocol((dialTarget ?? peerId) as never, memoriloSyncProtocol)
-        : connection.newStream(memoriloSyncProtocol)) as unknown as SyncStream
-      const reader = createMessageReader(stream)
-      const hello: SyncHello = {
-        deviceId: options.identity.deviceId,
-        deviceName: options.identity.deviceName,
-        membershipEpoch: provider.getMembershipEpoch(),
-        pairingId: paired.pairingId,
-        protocol: 'memorilo-sync/1',
-        sharedSecret: paired.sharedSecret,
-        type: 'hello',
-        versionVector: provider.getVersionVector(),
+      updateDeviceStatus(peerId, 'connecting')
+      try {
+        const connection = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
+        const stream = await (connection === undefined
+          ? node.dialProtocol((dialTarget ?? peerId) as never, memoriloSyncProtocol)
+          : connection.newStream(memoriloSyncProtocol)) as unknown as SyncStream
+        updateDeviceStatus(peerId, 'syncing')
+        const reader = createMessageReader(stream)
+        const hello: SyncHello = {
+          deviceId: options.identity.deviceId,
+          deviceName: options.identity.deviceName,
+          membershipEpoch: provider.getMembershipEpoch(),
+          pairingId: paired.pairingId,
+          protocol: 'memorilo-sync/1',
+          sharedSecret: paired.sharedSecret,
+          type: 'hello',
+          versionVector: provider.getVersionVector(),
+        }
+        await writeMessage(stream, hello)
+
+        const changesFromPeer = requireType(await reader.read(), 'changes')
+        await applyChanges(changesFromPeer, paired)
+        await writeMessage(stream, {
+          acceptedChangeIds: changesFromPeer.changes.map(change => change.id),
+          membershipEpoch: provider.getMembershipEpoch(),
+          type: 'ack',
+          versionVector: provider.getVersionVector(),
+        })
+
+        const changesForPeer = await provider.getChanges(changesFromPeer.versionVector)
+        await writeMessage(stream, {
+          changes: changesForPeer,
+          deviceName: options.identity.deviceName,
+          membershipEpoch: provider.getMembershipEpoch(),
+          type: 'changes',
+          versionVector: provider.getVersionVector(),
+        })
+        const acknowledgement = requireType(await reader.read(), 'ack')
+        await acknowledge(acknowledgement.acceptedChangeIds, paired)
+        await stream.close?.()
+        updateDeviceStatus(peerId, 'synced')
       }
-      await writeMessage(stream, hello)
-
-      const changesFromPeer = requireType(await reader.read(), 'changes')
-      await applyChanges(changesFromPeer, paired)
-      await writeMessage(stream, {
-        acceptedChangeIds: changesFromPeer.changes.map(change => change.id),
-        membershipEpoch: provider.getMembershipEpoch(),
-        type: 'ack',
-        versionVector: provider.getVersionVector(),
-      })
-
-      const changesForPeer = await provider.getChanges(changesFromPeer.versionVector)
-      await writeMessage(stream, {
-        changes: changesForPeer,
-        deviceName: options.identity.deviceName,
-        membershipEpoch: provider.getMembershipEpoch(),
-        type: 'changes',
-        versionVector: provider.getVersionVector(),
-      })
-      const acknowledgement = requireType(await reader.read(), 'ack')
-      await acknowledge(acknowledgement.acceptedChangeIds, paired)
-      await stream.close?.()
+      catch (error) {
+        updateDeviceStatus(peerId, 'error', error instanceof Error ? error.message : String(error))
+        throw error
+      }
     })()
     activeSyncs.set(peerId, task)
     try {
@@ -494,7 +544,9 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   node.addEventListener('connection:open', (event) => {
     const peerId = peerString(event.detail.remotePeer)
     connected.add(peerId)
-    updateStatus({ connectedPeers: authorizedConnectedPeers() })
+    if (options.pairing.findByPeerId(peerId) !== undefined)
+      deviceStates.set(peerId, { error: null, state: 'connecting' })
+    updateStatus({ connectedPeers: authorizedConnectedPeers(), devices: deviceStatuses() })
     if (options.pairing.findByPeerId(peerId) && shouldInitiate(peerId)) {
       if (!dialing.has(peerId)) {
         dialing.add(peerId)
@@ -503,8 +555,12 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     }
   })
   node.addEventListener('connection:close', (event) => {
-    connected.delete(peerString(event.detail.remotePeer))
-    updateStatus({ connectedPeers: authorizedConnectedPeers() })
+    const peerId = peerString(event.detail.remotePeer)
+    connected.delete(peerId)
+    const deviceState = deviceStates.get(peerId)
+    if (deviceState?.state !== 'error' && deviceState?.state !== 'paused')
+      deviceStates.delete(peerId)
+    updateStatus({ connectedPeers: authorizedConnectedPeers(), devices: deviceStatuses() })
   })
 
   const reconnectTimer = setInterval(() => {
@@ -536,12 +592,19 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     close: async () => {
       clearInterval(reconnectTimer)
       clearInterval(pairingProbeTimer)
-      updateStatus({ state: 'stopped' })
+      connected.clear()
+      deviceStates.clear()
+      updateStatus({ connectedPeers: [], devices: [], state: 'stopped' })
       await node.stop()
     },
     node,
     notifyChangesAvailable,
-    status: () => ({ ...currentStatus, connectedPeers: [...authorizedConnectedPeers()], discoveredPeers: [...availablePeers()] }),
+    status: () => ({
+      ...currentStatus,
+      connectedPeers: [...authorizedConnectedPeers()],
+      devices: [...deviceStatuses()],
+      discoveredPeers: [...availablePeers()],
+    }),
     syncPeer,
     sendPairingMessage,
     requestPairing: async (peerId: string) => {

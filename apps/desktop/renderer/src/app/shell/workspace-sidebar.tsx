@@ -31,6 +31,8 @@ import {
   desktopEffect,
   desktopEffectQuery,
 } from '../../shared/effect-query'
+import { P2pSidebarStatus } from './p2p-sidebar-status'
+import { p2pSidebarStatusStyles } from './p2p-sidebar-status.stylex'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
 
 const sidebarSpring = {
@@ -367,7 +369,7 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
 
   return (
     <WorkspaceSidebarMotion compactCollapsed={compactCollapsed} visible={visible} onToggle={onToggle}>
-      <Sidebar.Navigation>
+      <Sidebar.Navigation xstyle={p2pSidebarStatusStyles.navigation}>
         <Sidebar.Group>
           <Sidebar.Header asChild>
             <h2>{t('navigation')}</h2>
@@ -399,6 +401,7 @@ export function WorkspaceSidebar({ compactCollapsed, onToggle, visible }: {
           t={t}
         />
       </Sidebar.Navigation>
+      <P2pSidebarStatus />
     </WorkspaceSidebarMotion>
   )
 }
