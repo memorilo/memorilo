@@ -25,7 +25,7 @@ modules:
       - install -Dm755 memorilo.sh /app/bin/memorilo
       - install -Dm644 dev.memorilo.desktop.desktop /app/share/applications/dev.memorilo.desktop.desktop
       - install -Dm644 dev.memorilo.desktop.metainfo.xml /app/share/metainfo/dev.memorilo.desktop.metainfo.xml
-      - install -Dm644 memorilo.png /app/share/icons/hicolor/1024x1024/apps/dev.memorilo.desktop.png
+      - install -Dm644 dev.memorilo.desktop.png /app/share/icons/hicolor/128x128/apps/dev.memorilo.desktop.png
     sources:
       - type: dir
         path: ../dist/linux-unpacked
@@ -37,6 +37,4 @@ modules:
       - type: file
         path: dev.memorilo.desktop.metainfo.xml
       - type: file
-        url: https://raw.githubusercontent.com/electron/electron/0f54e56389941bb2963adc46bd323924c208af3e/default_app/icon.png
-        sha256: b0f6f06d7e94053dabcc7dd8adc83d925089dbca55df0ca573b267b710e1f79d
-        dest-filename: memorilo.png
+        path: dev.memorilo.desktop.png
