@@ -65,6 +65,7 @@ Use Turbo filters when working on a specific package:
 - Rebuild native Electron dependencies after changing Electron or native modules with `pnpm --filter @memorilo/desktop rebuild:native`.
 - Keep database schema and queries inside `packages/editor-storage`; compose that module with platform adapters in the Electron main process.
 - Review editor-storage schema changes before opening an existing database.
+- A comment states the non-obvious reason at the owning boundary. Include a constraint or invalidation condition only when a maintainer needs it to know when the rationale or code stops being valid. Do not restate the operation, preserve intermediate attempts, or list speculative future work.
 
 ## Design skills
 
@@ -75,6 +76,8 @@ Use the `apple-design` skill when building or reviewing:
 - Translucent materials, depth, typography, and Apple-style interface polish.
 - Reduced-motion behavior and accessibility for animated interactions.
 - UI work where responsiveness, spatial consistency, feedback, or restraint materially affects the experience.
+- No blue background, no gnome-style control, no translucent glass
+- Reference liquid glass design language, search its documentation and video if you cannot get related style.
 
 Do not invoke it for routine non-visual changes where these design concerns do not apply.
 
