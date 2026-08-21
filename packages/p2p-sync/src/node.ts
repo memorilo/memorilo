@@ -56,6 +56,7 @@ export interface P2pNodeHandle {
   readonly node: Libp2p
   readonly status: () => P2pNodeStatus
   readonly close: () => Promise<void>
+  readonly notifyChangesAvailable: () => Promise<void>
   readonly syncPeer: (peerId: string, dialTarget?: unknown) => Promise<void>
   readonly requestPairing: (peerId: string) => Promise<{ deviceId: string, deviceName: string, peerId: string, requestId: string }>
   readonly sendPairingMessage: (peerId: string, message: PairingMessage) => Promise<void>
@@ -85,6 +86,7 @@ export interface P2pApplication {
   readonly discoveredPeers: () => readonly { deviceId: string, deviceName: string, peerId: string }[]
   readonly requestPairing: (peerId: string) => Promise<{ requestId: string, deviceId: string, deviceName: string, peerId: string }>
   readonly listPairingRequests: () => readonly { requestId: string, deviceId: string, deviceName: string, peerId: string, emoji: string }[]
+  readonly notifyChangesAvailable: () => Promise<void>
   readonly approvePairing: (requestId: string) => Promise<string>
   readonly confirmPairing: (requestId: string, emoji: string) => Promise<PairedDevice | null>
   readonly close: () => Promise<void>
@@ -236,6 +238,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   const pairingProbes = new Map<string, { requestId: string, sentAt: number }>()
   const dialing = new Set<string>()
   const activeSyncs = new Map<string, Promise<void>>()
+  const syncSchedules = new Map<string, { dirty: boolean, running: Promise<void> | null }>()
   const shouldInitiate = (peerId: string): boolean => node.peerId.toString() < peerId
   const authorizedConnectedPeers = (): readonly string[] => [...connected].filter(peerId => options.pairing.findByPeerId(peerId) !== undefined)
   const availablePeers = (): readonly { deviceId: string, deviceName: string, peerId: string }[] => {
@@ -350,6 +353,40 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     }
   }
 
+  const requestSyncPeer = (peerId: string, dialTarget?: unknown): Promise<void> => {
+    const schedule = syncSchedules.get(peerId) ?? { dirty: false, running: null }
+    syncSchedules.set(peerId, schedule)
+    schedule.dirty = true
+    if (schedule.running !== null)
+      return schedule.running
+
+    schedule.running = (async () => {
+      try {
+        while (schedule.dirty) {
+          schedule.dirty = false
+          await syncPeer(peerId, dialTarget)
+        }
+      }
+      finally {
+        schedule.running = null
+        if (schedule.dirty) {
+          queueMicrotask(() => {
+            void requestSyncPeer(peerId, dialTarget).catch(() => undefined)
+          })
+        }
+        else {
+          syncSchedules.delete(peerId)
+        }
+      }
+    })()
+    return schedule.running
+  }
+
+  const notifyChangesAvailable = async (): Promise<void> => {
+    const peers = options.pairing.list()
+    await Promise.all(peers.map(peer => requestSyncPeer(peer.peerId)))
+  }
+
   const sendPairingMessage = async (peerId: string, message: PairingMessage): Promise<void> => {
     const connection = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
     if (connection === undefined) {
@@ -452,7 +489,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     if (dialing.has(peerId))
       return
     dialing.add(peerId)
-    void node.dial(discovered.multiaddrs as never).then(() => syncPeer(peerId)).catch(() => undefined).finally(() => dialing.delete(peerId))
+    void node.dial(discovered.multiaddrs as never).then(() => requestSyncPeer(peerId)).catch(() => undefined).finally(() => dialing.delete(peerId))
   })
   node.addEventListener('connection:open', (event) => {
     const peerId = peerString(event.detail.remotePeer)
@@ -461,7 +498,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     if (options.pairing.findByPeerId(peerId) && shouldInitiate(peerId)) {
       if (!dialing.has(peerId)) {
         dialing.add(peerId)
-        void syncPeer(peerId).catch(() => undefined).finally(() => dialing.delete(peerId))
+        void requestSyncPeer(peerId).catch(() => undefined).finally(() => dialing.delete(peerId))
       }
     }
   })
@@ -473,10 +510,14 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   const reconnectTimer = setInterval(() => {
     for (const paired of options.pairing.list()) {
       const peerId = paired.peerId
-      if (!shouldInitiate(peerId) || connected.has(peerId) || dialing.has(peerId))
+      if (!shouldInitiate(peerId) || dialing.has(peerId))
         continue
+      if (connected.has(peerId)) {
+        void requestSyncPeer(peerId).catch(() => undefined)
+        continue
+      }
       dialing.add(peerId)
-      void node.dial(peerId as never).then(() => syncPeer(peerId)).catch(() => undefined).finally(() => dialing.delete(peerId))
+      void node.dial(peerId as never).then(() => requestSyncPeer(peerId)).catch(() => undefined).finally(() => dialing.delete(peerId))
     }
   }, options.reconnectIntervalMs ?? 5_000)
   const pairingProbeTimer = setInterval(() => {
@@ -499,6 +540,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
       await node.stop()
     },
     node,
+    notifyChangesAvailable,
     status: () => ({ ...currentStatus, connectedPeers: [...authorizedConnectedPeers()], discoveredPeers: [...availablePeers()] }),
     syncPeer,
     sendPairingMessage,
@@ -672,7 +714,7 @@ export async function createP2pApplication(options: P2pApplicationOptions): Prom
   await saveState(options.statePath, state)
   const syncPairedDevice = (device: PairedDevice): void => {
     if (pairing.identity.peerId < device.peerId)
-      void node.syncPeer(device.peerId).catch(() => undefined)
+      void node.notifyChangesAvailable().catch(() => undefined)
   }
   const observeMembershipEpoch = async (epoch: number): Promise<void> => {
     if (!Number.isSafeInteger(epoch) || epoch < 1 || epoch <= state.membershipEpoch)
@@ -835,6 +877,7 @@ export async function createP2pApplication(options: P2pApplicationOptions): Prom
       return request
     },
     listPairingRequests,
+    notifyChangesAvailable: node.notifyChangesAvailable,
     approvePairing,
     confirmPairing,
     membershipEpoch: () => state.membershipEpoch,

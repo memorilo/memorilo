@@ -223,14 +223,38 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     const syncJournal = new JsonSyncJournal(join(userDataPath, 'p2p', 'sync-journal.json'))
     await syncJournal.load()
     const pendingJournalWrites = new Set<Promise<void>>()
+    const pendingLocalNoteUpdates: Array<{ noteId: string, update: Uint8Array }> = []
     let journalError: unknown = null
-    let applyingRemoteP2pChange = false
+    let applyingRemoteP2pChanges = 0
     const queueJournalWrite = (write: Promise<void>): void => {
       const tracked = write.catch((error) => {
         journalError = error
       })
       pendingJournalWrites.add(tracked)
       void tracked.then(() => pendingJournalWrites.delete(tracked))
+    }
+    const queueLocalNoteUpdate = (noteId: string, update: Uint8Array): void => {
+      const application = p2pApplication
+      if (application === null) {
+        pendingLocalNoteUpdates.push({ noteId, update: new Uint8Array(update) })
+        return
+      }
+      const deviceId = application.pairing.identity.deviceId
+      const updateId = createHash('sha256')
+        .update(noteId)
+        .update('\0')
+        .update(update)
+        .digest('hex')
+      const payload = JSON.stringify({ noteId, update: Buffer.from(update).toString('base64url') })
+      const write = syncJournal.appendLocal({
+        id: `${deviceId}:note:${updateId}`,
+        kind: 'note-update',
+        payload,
+      }).then(() => undefined)
+      queueJournalWrite(write)
+      void write.then(
+        () => application.notifyChangesAvailable(),
+      ).catch(error => console.warn(`Failed to synchronize local Note ${noteId}`, error))
     }
     const shelfStorage = (await scope.acquire({
       acquire: () => SqliteShelfStorage.open({
@@ -282,21 +306,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     })).resource
     const notes = (await scope.acquire({
       acquire: () => createNoteApplicationService(editorStorage, ({ noteId, update, updatedAt }) => {
-        if (!applyingRemoteP2pChange && p2pApplication !== null) {
-          const deviceId = p2pApplication.pairing.identity.deviceId
-          const updateId = createHash('sha256')
-            .update(noteId)
-            .update('\0')
-            .update(update)
-            .digest('hex')
-          const payload = JSON.stringify({ noteId, update: Buffer.from(update).toString('base64url') })
-          const write = syncJournal.appendLocal({
-            id: `${deviceId}:note:${updateId}`,
-            kind: 'note-update',
-            payload,
-          }).then(() => undefined)
-          queueJournalWrite(write)
-        }
+        if (applyingRemoteP2pChanges === 0)
+          queueLocalNoteUpdate(noteId, update)
         for (const window of BrowserWindow.getAllWindows())
           window.webContents.send('memorilo:note-update', { noteId, update, updatedAt })
       }, {
@@ -328,7 +339,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         statePath: join(userDataPath, 'p2p', 'identity.json'),
         provider: {
           applyChanges: async (changes, _peer) => {
-            applyingRemoteP2pChange = true
+            applyingRemoteP2pChanges += 1
+            let learningChanged = false
             try {
               for (const change of changes) {
                 if (change.kind === 'learning-mutation') {
@@ -345,6 +357,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
                     sourceDeviceId: change.deviceId,
                     sourceSequence: change.sequence,
                   })
+                  learningChanged = true
                   continue
                 }
                 if (change.kind !== 'note-update')
@@ -352,10 +365,19 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
                 const payload = JSON.parse(change.payload) as { noteId: string, update: string }
                 await notes.saveNoteUpdates({ noteId: payload.noteId, updates: [Uint8Array.from(Buffer.from(payload.update, 'base64url'))] })
               }
-              await syncJournal.recordReceived(changes)
+              const acceptedNewChanges = await syncJournal.recordReceivedAndReport(changes)
+              if (learningChanged) {
+                for (const window of BrowserWindow.getAllWindows())
+                  window.webContents.send('memorilo:learning-update')
+              }
+              if (acceptedNewChanges) {
+                queueMicrotask(() => {
+                  void p2pApplication?.notifyChangesAvailable().catch(error => console.warn('Failed to relay P2P changes', error))
+                })
+              }
             }
             finally {
-              applyingRemoteP2pChange = false
+              applyingRemoteP2pChanges -= 1
             }
           },
           observeMembershipEpoch: async (epoch) => {
@@ -385,6 +407,11 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
               .map(change => change.id))
             if (learningIds.size > 0)
               await editorStorage.learning.sync.acknowledgeMutations([...learningIds])
+            if ((await editorStorage.learning.sync.listPending(1)).length > 0) {
+              queueMicrotask(() => {
+                void p2pApplication?.notifyChangesAvailable().catch(error => console.warn('Failed to continue Learning synchronization', error))
+              })
+            }
           },
           getMembershipEpoch: () => p2pApplication?.membershipEpoch() ?? 1,
           getVersionVector: () => syncJournal.getVersionVector(),
@@ -395,6 +422,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     })).resource
     p2pApplication = p2p
     await syncJournal.setDeviceId(p2pApplication.pairing.identity.deviceId)
+    pendingLocalNoteUpdates.splice(0).forEach(({ noteId, update }) => queueLocalNoteUpdate(noteId, update))
     await mcpServer.update(snapshot.mcp)
     const backup = (await scope.acquire({
       acquire: () => createDatabaseBackupApplication({

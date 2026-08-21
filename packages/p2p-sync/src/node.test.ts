@@ -1,4 +1,5 @@
 import type { SyncChange, VersionVector } from './model'
+import type { P2pNodeHandle, SyncStateProvider } from './node'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -18,6 +19,45 @@ describe('p2p communication', () => {
       await new Promise(resolve => setTimeout(resolve, 10))
     if (!predicate())
       throw new Error('Timed out waiting for p2p state')
+  }
+
+  async function connectPairedNodes(
+    firstProvider: SyncStateProvider,
+    secondProvider: SyncStateProvider,
+  ): Promise<{ first: P2pNodeHandle, second: P2pNodeHandle }> {
+    const firstPairing = new PairingManager({ deviceId: 'first', deviceName: 'First', peerId: '' }, new MemoryPairingStore())
+    const secondPairing = new PairingManager({ deviceId: 'second', deviceName: 'Second', peerId: '' }, new MemoryPairingStore())
+    await firstPairing.load()
+    await secondPairing.load()
+    const first = await createP2pNode({
+      identity: firstPairing.identity,
+      listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
+      pairing: firstPairing,
+      provider: firstProvider,
+      reconnectIntervalMs: 60_000,
+    })
+    const second = await createP2pNode({
+      identity: secondPairing.identity,
+      listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
+      pairing: secondPairing,
+      provider: secondProvider,
+      reconnectIntervalMs: 60_000,
+    })
+    handles.push(first, second)
+    const firstPeerId = first.status().peerId
+    const secondPeerId = second.status().peerId
+    if (firstPeerId === null || secondPeerId === null)
+      throw new Error('P2P peers did not start')
+    firstPairing.identity.peerId = firstPeerId
+    secondPairing.identity.peerId = secondPeerId
+    const accepted = await secondPairing.acceptInvitation(firstPairing.createInvitation())
+    await firstPairing.completeInvitation(accepted.response)
+    const secondAddress = second.node.getMultiaddrs()[0]
+    if (secondAddress === undefined)
+      throw new Error('Second peer has no listen address')
+    await first.node.dial(multiaddr(secondAddress.toString()))
+    await first.syncPeer(secondPeerId)
+    return { first, second }
   }
 
   afterEach(async () => {
@@ -92,6 +132,78 @@ describe('p2p communication', () => {
     await waitFor(() => received.length === 1)
     expect(received).toEqual(['change-1'])
     expect(observedEpochs).toContain(1)
+  })
+
+  it('synchronizes a change immediately after a connected peer is notified', async () => {
+    const sourceChanges: SyncChange[] = []
+    const received: SyncChange[] = []
+    const { first } = await connectPairedNodes({
+      applyChanges: async () => undefined,
+      getChanges: async since => sourceChanges.filter(change => change.sequence > (since.first ?? 0)),
+      getMembershipEpoch: () => 1,
+      getVersionVector: () => ({ first: sourceChanges.length }),
+    }, {
+      applyChanges: async (changes) => {
+        received.push(...changes)
+      },
+      getChanges: async () => [],
+      getMembershipEpoch: () => 1,
+      getVersionVector: () => ({ first: received.length }),
+    })
+    sourceChanges.push({
+      deviceId: 'first',
+      id: 'change-after-connect',
+      kind: 'learning-mutation',
+      payload: '{}',
+      sequence: 1,
+    })
+
+    await first.notifyChangesAvailable()
+
+    expect(received.map(change => change.id)).toEqual(['change-after-connect'])
+  })
+
+  it('runs another synchronization pass when a change arrives during an active pass', async () => {
+    const sourceChanges: SyncChange[] = []
+    const received: SyncChange[] = []
+    let first: P2pNodeHandle | undefined
+    let queuedSecondPass = false
+    const connected = await connectPairedNodes({
+      applyChanges: async () => undefined,
+      getChanges: async since => sourceChanges.filter(change => change.sequence > (since.first ?? 0)),
+      getMembershipEpoch: () => 1,
+      getVersionVector: () => ({ first: sourceChanges.length }),
+    }, {
+      applyChanges: async (changes) => {
+        received.push(...changes)
+        if (!queuedSecondPass && changes.some(change => change.id === 'first-change')) {
+          queuedSecondPass = true
+          sourceChanges.push({
+            deviceId: 'first',
+            id: 'second-change',
+            kind: 'learning-mutation',
+            payload: '{}',
+            sequence: 2,
+          })
+          void first?.notifyChangesAvailable()
+        }
+      },
+      getChanges: async () => [],
+      getMembershipEpoch: () => 1,
+      getVersionVector: () => ({ first: received.length }),
+    })
+    first = connected.first
+    sourceChanges.push({
+      deviceId: 'first',
+      id: 'first-change',
+      kind: 'learning-mutation',
+      payload: '{}',
+      sequence: 1,
+    })
+
+    await first.notifyChangesAvailable()
+
+    expect(received.map(change => change.id)).toEqual(['first-change', 'second-change'])
   })
 
   it('never synchronizes changes with an unpaired mDNS peer', async () => {

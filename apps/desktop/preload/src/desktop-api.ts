@@ -7,6 +7,7 @@ export function createDesktopApi(
   subscribeNoteSaveRequests: DesktopApi['subscribeNoteSaveRequests'],
   subscribeNoteUpdates: DesktopApi['subscribeNoteUpdates'],
   subscribeP2pStatus: DesktopApi['subscribeP2pStatus'] = () => () => undefined,
+  subscribeLearningUpdates: DesktopApi['subscribeLearningUpdates'] = () => () => undefined,
 ): DesktopApi {
   const p2p = services.p2p ?? {
     approvePairing: async () => { throw new Error('P2P sync is unavailable') },
@@ -30,6 +31,7 @@ export function createDesktopApi(
     saveWhiteboardLibrary: data => services.whiteboardLibrary.save(data),
     p2p,
     subscribeConfiguration,
+    subscribeLearningUpdates,
     subscribeNoteSaveRequests,
     subscribeNoteUpdates,
     subscribeP2pStatus,

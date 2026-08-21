@@ -1,8 +1,9 @@
 import type { EditorStorage } from '@memorilo/editor-storage'
+import type { EditorNote } from '@memorilo/editor/note'
 import type { ActiveReadingRegistry } from '../reading/active-reading-registry'
 import type { SaveNoteUpdatesInput } from './note-application-contracts'
 import type { AuthoritativeNote, NoteAuthoritativeCache } from './note-authoritative-cache'
-import { resolveJournalTopic } from '@memorilo/editor/note'
+import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
 import { projectNoteAssetReferences } from '../assets/asset-references'
@@ -24,6 +25,7 @@ interface NoteAuthoritativeExternalUpdatesDependencies {
   activeReadings?: ActiveReadingRegistry
   autoCompleteTodoParents: () => boolean
   cache: NoteAuthoritativeCache
+  commit: (note: EditorNote) => Promise<AuthoritativeNote>
   onExternalUpdate?: (update: { noteId: string, update: Uint8Array, updatedAt: number }) => void
   open: (noteId: string) => Promise<AuthoritativeNote>
   scheduleIndex: (noteId: string) => void
@@ -34,6 +36,7 @@ export function createNoteAuthoritativeExternalUpdates({
   activeReadings,
   autoCompleteTodoParents,
   cache,
+  commit,
   onExternalUpdate,
   open,
   scheduleIndex,
@@ -42,9 +45,35 @@ export function createNoteAuthoritativeExternalUpdates({
   input: SaveNoteUpdatesInput,
 ) => Effect.Effect<{ updatedAt: number }, Error> {
   return input => Effect.gen(function* () {
-    const current = yield* Effect.tryPromise({ catch: toError, try: () => open(input.noteId) })
     if (input.updates.length === 0)
       return yield* Effect.fail(new TypeError('Note updates must contain at least one update'))
+    const opened = yield* Effect.tryPromise({
+      catch: toError,
+      try: async () => {
+        try {
+          return { created: false, current: await open(input.noteId) }
+        }
+        catch (error) {
+          const exists = (await storage.notes.listNoteIds()).includes(input.noteId)
+          if (exists)
+            throw error
+          const [initial, ...remaining] = input.updates
+          if (initial === undefined)
+            throw new TypeError('A new Note requires a complete initial update')
+          const note = createEditorNote({ id: input.noteId, snapshot: initial, updates: remaining })
+          return { created: true, current: await commit(note) }
+        }
+      },
+    })
+    const { current } = opened
+    if (opened.created) {
+      if (onExternalUpdate) {
+        for (const update of input.updates)
+          onExternalUpdate({ noteId: current.note.id, update, updatedAt: current.updatedAt })
+      }
+      scheduleIndex(current.note.id)
+      return { updatedAt: current.updatedAt }
+    }
     const protectedEntryIds = protectedReadingEntryIds(
       current.note.getEntries(),
       activeReadings?.topicIdsForNote(input.noteId) ?? new Set(),

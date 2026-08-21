@@ -10,7 +10,6 @@ import { createP2pNode } from '@memorilo/p2p-sync/node'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BetterSqliteDatabase } from '../storage/better-sqlite-database'
 import { createNoteApplicationService } from './note-application-service'
-import { toStoredEntries, toStoredTopic } from './note-authoritative-projection'
 
 const embeddingModel = {
   dimensions: 3,
@@ -51,7 +50,7 @@ describe('p2p Note synchronization', () => {
     vi.restoreAllMocks()
   })
 
-  it('persists a Note update received before the peer opens that Note', async () => {
+  it('creates and updates a missing Note received from a peer', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'memorilo-note-p2p-sync-'))
     temporaryDirectories.push(directory)
     const sourceJournal = new JsonSyncJournal(join(directory, 'source-journal.json'))
@@ -63,49 +62,19 @@ describe('p2p Note synchronization', () => {
 
     const sourceStorage = await openStorage()
     const destinationStorage = await openStorage()
-    let sourceJournalWrite: Promise<void> = Promise.resolve()
+    const sourceJournalWrites: Promise<void>[] = []
     const sourceNotes = createNoteApplicationService(sourceStorage, ({ noteId, update }) => {
-      sourceJournalWrite = sourceJournal.appendLocal({
+      sourceJournalWrites.push(sourceJournal.appendLocal({
         id: `note:${noteId}:${Buffer.from(update).toString('base64url')}`,
         kind: 'note-update',
         payload: JSON.stringify({ noteId, update: Buffer.from(update).toString('base64url') }),
-      }).then(() => undefined)
+      }).then(() => undefined))
     })
     const destinationNotes = createNoteApplicationService(destinationStorage)
     applications.push(sourceNotes, destinationNotes)
 
-    const created = await sourceNotes.createNote({ initialHeading: 'Initial heading', title: 'P2P Note' })
-    const baseline = createEditorNote({ id: created.id, snapshot: created.snapshot })
-    const entries = baseline.getEntries()
-    await destinationStorage.notes.createInitializedNote({
-      entries: toStoredEntries(entries),
-      id: created.id,
-      snapshot: created.snapshot,
-      title: created.title,
-      topics: entries
-        .filter(entry => entry.kind === 'topic')
-        .map(entry => toStoredTopic(baseline.getTopicContent(entry.id))),
-    })
-
-    const before = await sourceNotes.getTopic({ noteId: created.id, topicId: entries.find(entry => entry.kind === 'topic')?.id ?? '' })
-    const topicId = before.topicId
-    const blockId = before.document.content?.[0]?.attrs?.blockId
-    if (typeof blockId !== 'string')
-      throw new Error('Initial Topic is missing its Block ID')
-    await sourceNotes.applyTopicEdits({
-      edits: [{
-        blockId,
-        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Received while unopened' }] }],
-        operation: 'update-block-content',
-      }],
-      expectedRevision: before.revision,
-      noteId: created.id,
-      topicId,
-    })
-    await sourceJournalWrite
-
     const destinationLoad = vi.spyOn(destinationStorage.notes, 'getNote')
-    let received = false
+    let receivedNote = false
     const sourcePairing = new PairingManager(
       { deviceId: 'source', deviceName: 'Source', peerId: '' },
       new MemoryPairingStore(),
@@ -141,9 +110,9 @@ describe('p2p Note synchronization', () => {
               noteId: payload.noteId,
               updates: [Uint8Array.from(Buffer.from(payload.update, 'base64url'))],
             })
+            receivedNote = true
           }
           await destinationJournal.recordReceived(changes)
-          received = true
         },
         getChanges: async (since: VersionVector) => destinationJournal.listChanges(since),
         getMembershipEpoch: () => 1,
@@ -165,13 +134,36 @@ describe('p2p Note synchronization', () => {
       throw new Error('Destination peer did not expose a listen address')
     await source.node.dial(destinationAddress as never)
     await source.syncPeer(destinationPeerId)
-    await waitFor(() => received)
+    const created = await sourceNotes.createNote({ initialHeading: 'Initial heading', title: 'P2P Note' })
+    const baseline = createEditorNote({ id: created.id, snapshot: created.snapshot })
+    const entries = baseline.getEntries()
+    const before = await sourceNotes.getTopic({ noteId: created.id, topicId: entries.find(entry => entry.kind === 'topic')?.id ?? '' })
+    const topicId = before.topicId
+    const blockId = before.document.content?.[0]?.attrs?.blockId
+    if (typeof blockId !== 'string')
+      throw new Error('Initial Topic is missing its Block ID')
+    await sourceNotes.applyTopicEdits({
+      edits: [{
+        blockId,
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Received while unopened' }] }],
+        operation: 'update-block-content',
+      }],
+      expectedRevision: before.revision,
+      noteId: created.id,
+      topicId,
+    })
+    await Promise.all(sourceJournalWrites)
+
+    await source.notifyChangesAvailable()
+    await waitFor(() => receivedNote)
 
     expect(destinationLoad).toHaveBeenCalledWith({ noteId: created.id })
     await destinationNotes.close()
     applications.splice(applications.indexOf(destinationNotes), 1)
     const reopenedDestinationNotes = createNoteApplicationService(destinationStorage)
     applications.push(reopenedDestinationNotes)
+    const restoredNote = await reopenedDestinationNotes.getNote({ noteId: created.id })
+    expect(restoredNote.title).toBe('P2P Note')
     const restored = await reopenedDestinationNotes.getTopic({ noteId: created.id, topicId })
     expect(restored.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Received while unopened')
   })
