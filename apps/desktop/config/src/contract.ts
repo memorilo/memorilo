@@ -17,13 +17,6 @@ export type DesktopRecurringTaskCompletionAction
     | 'place-next-after-completed'
     | 'replace-completed'
 
-export interface DesktopAnkiConfiguration {
-  apiKey: string
-  enabled: boolean
-  host: string
-  port: number
-}
-
 export interface DesktopBackupConfiguration {
   enabled: boolean
   intervalMinutes: number
@@ -68,7 +61,6 @@ export interface DesktopTodoConfiguration {
 }
 
 export interface DesktopConfiguration {
-  anki: DesktopAnkiConfiguration
   backup: DesktopBackupConfiguration
   defaultNoteLearningEnabled: boolean
   flashcards: DesktopFlashcardConfiguration

@@ -17,7 +17,6 @@ const electronExecutablePath = electronModule
 
 function configuration(): Record<string, unknown> {
   return {
-    anki: { apiKey: '', enabled: false, host: '127.0.0.1', port: 8765 },
     backup: { enabled: false, intervalMinutes: 1_440, retentionCount: 7 },
     defaultNoteLearningEnabled: true,
     flashcards: {

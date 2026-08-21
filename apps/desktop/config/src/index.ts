@@ -2,7 +2,6 @@ import { defineConfiguration } from '@memorilo/config'
 import * as Schema from 'effect/Schema'
 
 export type {
-  DesktopAnkiConfiguration,
   DesktopBackupConfiguration,
   DesktopConfiguration,
   DesktopDailyGoalMode,
@@ -43,12 +42,6 @@ const defaultGoalConfiguration = {
 } as const
 
 export const DesktopConfigurationSchema = Schema.Struct({
-  anki: Schema.Struct({
-    apiKey: Schema.String,
-    enabled: Schema.Boolean,
-    host: Schema.NonEmptyString.check(Schema.isPattern(/^[^\s/?#]+$/u)),
-    port: Schema.Int.check(Schema.isBetween({ maximum: 65535, minimum: 1 })),
-  }),
   backup: Schema.Struct({
     enabled: Schema.Boolean,
     intervalMinutes: Schema.Int.check(Schema.isBetween({ maximum: 10_080, minimum: 1 })),
@@ -112,12 +105,6 @@ export const DesktopConfigurationSchema = Schema.Struct({
 
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
-    anki: {
-      apiKey: '',
-      enabled: false,
-      host: '127.0.0.1',
-      port: 8765,
-    },
     backup: {
       enabled: false,
       intervalMinutes: 1_440,
@@ -286,35 +273,6 @@ export const desktopConfigurationDefinition = defineConfiguration({
     }],
     id: 'backup',
     label: 'Backup',
-  }, {
-    fields: [{
-      control: 'toggle',
-      description: 'Show Anki decks in Learning and use Anki\'s reviewer through AnkiConnect.',
-      label: 'Enable AnkiConnect',
-      path: 'anki.enabled',
-    }, {
-      control: 'text',
-      description: 'IP address or host name where AnkiConnect is listening.',
-      label: 'AnkiConnect host',
-      path: 'anki.host',
-      placeholder: '127.0.0.1',
-    }, {
-      control: 'number',
-      description: 'AnkiConnect listens on port 8765 by default.',
-      label: 'AnkiConnect port',
-      max: 65535,
-      min: 1,
-      path: 'anki.port',
-      step: 1,
-    }, {
-      control: 'text',
-      description: 'Optional API key configured in the AnkiConnect add-on. Keep it private.',
-      label: 'AnkiConnect API key',
-      path: 'anki.apiKey',
-      sensitive: true,
-    }],
-    id: 'anki',
-    label: 'Anki',
   }, {
     fields: [{
       control: 'number',

@@ -97,7 +97,6 @@ describe('settings renderer', () => {
     fireEvent.change(localizedLanguage, { target: { value: 'zh-CN' } })
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
-        anki: desktopConfigurationDefinition.defaults.anki,
         backup: desktopConfigurationDefinition.defaults.backup,
         defaultNoteLearningEnabled: true,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,
@@ -128,7 +127,6 @@ describe('settings renderer', () => {
     fireEvent.click(rendered.getByRole('switch', { name: 'Reduce motion' }))
     await waitFor(() => {
       expect(store.getSnapshot()).toEqual({
-        anki: desktopConfigurationDefinition.defaults.anki,
         backup: desktopConfigurationDefinition.defaults.backup,
         defaultNoteLearningEnabled: true,
         flashcards: desktopConfigurationDefinition.defaults.flashcards,

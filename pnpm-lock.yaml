@@ -115,9 +115,6 @@ importers:
       '@huggingface/transformers':
         specifier: 3.7.5
         version: 3.7.5
-      '@memorilo/anki-connect':
-        specifier: workspace:*
-        version: link:../../../packages/anki-connect
       '@memorilo/config':
         specifier: workspace:*
         version: link:../../../packages/config
@@ -185,9 +182,6 @@ importers:
 
   apps/desktop/preload:
     dependencies:
-      '@memorilo/anki-connect':
-        specifier: workspace:*
-        version: link:../../../packages/anki-connect
       '@memorilo/desktop-api':
         specifier: workspace:*
         version: link:../../../packages/desktop-api
@@ -237,9 +231,6 @@ importers:
       '@fullcalendar/timegrid':
         specifier: ^6.1.21
         version: 6.1.21(@fullcalendar/core@6.1.21)
-      '@memorilo/anki-connect':
-        specifier: workspace:*
-        version: link:../../../packages/anki-connect
       '@memorilo/config':
         specifier: workspace:*
         version: link:../../../packages/config
@@ -362,31 +353,6 @@ importers:
         specifier: ^7.3.6
         version: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.77.6)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/anki-connect:
-    dependencies:
-      '@stylexjs/stylex':
-        specifier: 0.19.0
-        version: 0.19.0
-      '@tanstack/react-query':
-        specifier: ^5.101.4
-        version: 5.101.4(react@19.2.8)
-      effect:
-        specifier: 4.0.0-beta.23
-        version: 4.0.0-beta.23
-      effect-query:
-        specifier: 1.0.0
-        version: 1.0.0(@tanstack/react-query@5.101.4(react@19.2.8))(effect@4.0.0-beta.23)(react@19.2.8)
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.17)
-
   packages/config:
     dependencies:
       '@memorilo/effect-lifecycle':
@@ -420,9 +386,6 @@ importers:
 
   packages/desktop-api:
     dependencies:
-      '@memorilo/anki-connect':
-        specifier: workspace:*
-        version: link:../anki-connect
       '@memorilo/desktop-config':
         specifier: workspace:*
         version: link:../../apps/desktop/config

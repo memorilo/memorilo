@@ -1,10 +1,4 @@
 import type {
-  AnkiDeck,
-  AnkiReviewAnswerInput,
-  AnkiReviewCardInput,
-  AnkiReviewerCard,
-} from '@memorilo/anki-connect/model'
-import type {
   AssignNoteOptimizerInput,
   CreateFsrsOptimizerInput,
   FsrsOptimizer,
@@ -36,7 +30,6 @@ import type {
   GetNextDesktopReviewItemInput,
   RestoreDesktopReviewItemInput,
 } from '../contract'
-import { AnkiDeckSchema, AnkiReviewAnswerInputSchema, AnkiReviewCardInputSchema, AnkiReviewerCardSchema } from '@memorilo/anki-connect/model'
 import { Schema } from 'effect'
 import {
   EmptyArgumentsSchema,
@@ -315,12 +308,6 @@ export const RestoreDesktopReviewItemInputSchema: EffectSchema.Codec<RestoreDesk
   topicId: Schema.NonEmptyString,
 })
 
-export const AnkiDeckOutputSchema: EffectSchema.Codec<readonly AnkiDeck[]> = Schema.Array(AnkiDeckSchema)
-export const AnkiReviewerCardOutputSchema: EffectSchema.Codec<AnkiReviewerCard | null, unknown> = nullable(AnkiReviewerCardSchema)
-export const AnkiReviewCardOutputSchema: EffectSchema.Codec<AnkiReviewerCard, unknown> = AnkiReviewerCardSchema
-export { AnkiDeckSchema, AnkiReviewAnswerInputSchema, AnkiReviewCardInputSchema, AnkiReviewerCardSchema }
-export type { AnkiDeck, AnkiReviewAnswerInput, AnkiReviewCardInput, AnkiReviewerCard }
-
 export const LearningSchemaArguments = {
   archiveOptimizer: Schema.Tuple([Schema.NonEmptyString]),
   assignNoteOptimizer: Schema.Tuple([AssignNoteOptimizerInputSchema]),
@@ -335,7 +322,6 @@ export const LearningSchemaArguments = {
   getNoteOptimizer: Schema.Tuple([Schema.NonEmptyString]),
   getOptimizer: Schema.Tuple([Schema.NonEmptyString]),
   getOptimizerNoteCount: Schema.Tuple([Schema.NonEmptyString]),
-  listAnkiDecks: EmptyArgumentsSchema,
   listNotesWithCards: EmptyArgumentsSchema,
   listOptimizers: EmptyArgumentsSchema,
   listQueue: optionalArgument(ListLearningQueueInputSchema),
@@ -347,15 +333,8 @@ export const LearningSchemaArguments = {
   rateTarget: Schema.Tuple([RateLearningTargetInputSchema]),
   resetOptimizerDefaults: Schema.Union([Schema.Tuple([Schema.NonEmptyString]), Schema.Tuple([Schema.NonEmptyString, Schema.Boolean])]),
   resetTarget: Schema.Tuple([ResetLearningTargetInputSchema]),
-  retrieveAnkiMediaFile: Schema.Tuple([Schema.NonEmptyString]),
   restoreReviewItem: Schema.Tuple([RestoreDesktopReviewItemInputSchema]),
   saveOptimizer: Schema.Tuple([SaveFsrsOptimizerInputSchema]),
-  showAnkiReviewAnswer: Schema.Tuple([AnkiReviewCardInputSchema]),
-  startAnkiDeckReview: Schema.Tuple([AnkiDeckSchema]),
-  answerAnkiReviewCard: Schema.Tuple([AnkiReviewAnswerInputSchema]),
-  endAnkiReview: EmptyArgumentsSchema,
-  getCurrentAnkiReviewCard: EmptyArgumentsSchema,
-  playAnkiReviewAudio: Schema.Tuple([AnkiReviewCardInputSchema]),
   undoLastReview: Schema.Tuple([UndoLearningReviewInputSchema]),
   undoReviews: Schema.Tuple([UndoLearningReviewsInputSchema]),
 }

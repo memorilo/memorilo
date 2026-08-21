@@ -16,7 +16,6 @@
     "@fullcalendar/interaction": "^6.1.21",
     "@fullcalendar/react": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
-    "@memorilo/anki-connect": "workspace:*",
     "@memorilo/config": "workspace:*",
     "@memorilo/desktop-api": "workspace:*",
     "@memorilo/desktop-config": "workspace:*",

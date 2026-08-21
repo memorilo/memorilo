@@ -15,7 +15,7 @@ in one local workspace.
 - Create flashcards, cloze cards, and image occlusions, then review them with
   FSRS scheduling.
 - Work with whiteboards and spreadsheets alongside regular text topics.
-- Search notes locally and optionally connect Anki or MCP-compatible AI tools.
+- Search notes locally and optionally connect MCP-compatible AI tools.
 
 Memorilo is under active development, and its interfaces and storage formats
 may change.
@@ -52,8 +52,7 @@ MEMORILO_E2E_HIDE_WINDOW=1 pnpm test:e2e  # Run Electron end-to-end tests
 - `packages/editor-storage` contains SQLite persistence and search.
 - `packages/reader`, `packages/shelf`, and `packages/reading-model` contain the
   reading experience.
-- `packages/srs`, `packages/spreadsheet`, and `packages/anki-connect` contain
-  major feature modules.
+- `packages/srs` and `packages/spreadsheet` contain major feature modules.
 - `packages/e2e` contains Electron end-to-end tests.
 
 ## Database Schema
