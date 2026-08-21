@@ -1,4 +1,3 @@
-import type { DesktopAnkiService } from '../anki/desktop-anki-service'
 import type { LearningReviewApplication } from '../learning/learning-review-application'
 import { SqliteEditorStorage } from '@memorilo/editor-storage'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -34,7 +33,6 @@ describe('learning service synchronization', () => {
     const handlers = createLearningHandlers(
       storage.learning,
       {} as LearningReviewApplication,
-      {} as DesktopAnkiService,
       Date.now,
       notifyChangesAvailable,
     )
