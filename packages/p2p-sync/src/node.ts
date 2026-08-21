@@ -301,7 +301,6 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     await options.provider?.applyChanges(changes.changes, paired, changes.membershipEpoch)
   }
   const handleIncomingSession = async (stream: SyncStream, paired: PairedDevice): Promise<void> => {
-    updateDeviceStatus(paired.peerId, 'syncing')
     try {
       const reader = createMessageReader(stream)
       const hello = requireType(await reader.read(), 'hello')
@@ -311,6 +310,8 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
       await options.pairing.markSeen(paired.peerId)
 
       const changesForPeer = await options.provider?.getChanges(hello.versionVector) ?? []
+      if (changesForPeer.length > 0)
+        updateDeviceStatus(paired.peerId, 'syncing')
       await writeMessage(stream, {
         changes: changesForPeer,
         deviceName: options.identity.deviceName,
@@ -322,6 +323,8 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
       await acknowledge(remoteAcknowledgement.acceptedChangeIds, paired)
 
       const changesFromPeer = requireType(await reader.read(), 'changes')
+      if (changesFromPeer.changes.length > 0)
+        updateDeviceStatus(paired.peerId, 'syncing')
       await applyChanges(changesFromPeer, paired)
       await writeMessage(stream, {
         acceptedChangeIds: changesFromPeer.changes.map(change => change.id),
@@ -346,13 +349,13 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
       return
     const provider = options.provider
     const task = (async () => {
-      updateDeviceStatus(peerId, 'connecting')
       try {
         const connection = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
+        if (connection === undefined)
+          updateDeviceStatus(peerId, 'connecting')
         const stream = await (connection === undefined
           ? node.dialProtocol((dialTarget ?? peerId) as never, memoriloSyncProtocol)
           : connection.newStream(memoriloSyncProtocol)) as unknown as SyncStream
-        updateDeviceStatus(peerId, 'syncing')
         const reader = createMessageReader(stream)
         const hello: SyncHello = {
           deviceId: options.identity.deviceId,
@@ -367,6 +370,8 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         await writeMessage(stream, hello)
 
         const changesFromPeer = requireType(await reader.read(), 'changes')
+        if (changesFromPeer.changes.length > 0)
+          updateDeviceStatus(peerId, 'syncing')
         await applyChanges(changesFromPeer, paired)
         await writeMessage(stream, {
           acceptedChangeIds: changesFromPeer.changes.map(change => change.id),
@@ -376,6 +381,8 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         })
 
         const changesForPeer = await provider.getChanges(changesFromPeer.versionVector)
+        if (changesForPeer.length > 0)
+          updateDeviceStatus(peerId, 'syncing')
         await writeMessage(stream, {
           changes: changesForPeer,
           deviceName: options.identity.deviceName,

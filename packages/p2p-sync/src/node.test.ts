@@ -163,6 +163,61 @@ describe('p2p communication', () => {
     expect(received.map(change => change.id)).toEqual(['change-after-connect'])
   })
 
+  it('does not report syncing for a fallback pass without changes', async () => {
+    const firstPairing = new PairingManager({ deviceId: 'first', deviceName: 'First', peerId: '' }, new MemoryPairingStore())
+    const secondPairing = new PairingManager({ deviceId: 'second', deviceName: 'Second', peerId: '' }, new MemoryPairingStore())
+    await firstPairing.load()
+    await secondPairing.load()
+    let synchronizationChecks = 0
+    const observedStates: string[] = []
+    const provider = (): SyncStateProvider => ({
+      applyChanges: async () => undefined,
+      getChanges: async () => {
+        synchronizationChecks += 1
+        return []
+      },
+      getMembershipEpoch: () => 1,
+      getVersionVector: () => ({}),
+    })
+    const first = await createP2pNode({
+      identity: firstPairing.identity,
+      listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
+      onStatus: status => observedStates.push(...status.devices.map(device => device.state)),
+      pairing: firstPairing,
+      provider: provider(),
+      reconnectIntervalMs: 25,
+    })
+    const second = await createP2pNode({
+      identity: secondPairing.identity,
+      listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
+      onStatus: status => observedStates.push(...status.devices.map(device => device.state)),
+      pairing: secondPairing,
+      provider: provider(),
+      reconnectIntervalMs: 25,
+    })
+    handles.push(first, second)
+    const firstPeerId = first.status().peerId
+    const secondPeerId = second.status().peerId
+    if (firstPeerId === null || secondPeerId === null)
+      throw new Error('P2P peers did not start')
+    firstPairing.identity.peerId = firstPeerId
+    secondPairing.identity.peerId = secondPeerId
+    const accepted = await secondPairing.acceptInvitation(firstPairing.createInvitation())
+    await firstPairing.completeInvitation(accepted.response)
+    const secondAddress = second.node.getMultiaddrs()[0]
+    if (secondAddress === undefined)
+      throw new Error('Second peer has no listen address')
+    await first.node.dial(multiaddr(secondAddress.toString()))
+    await first.syncPeer(secondPeerId)
+    await waitFor(() => first.status().devices.some(device => device.state === 'synced'))
+
+    const checksAfterInitialSync = synchronizationChecks
+    observedStates.length = 0
+    await waitFor(() => synchronizationChecks > checksAfterInitialSync)
+
+    expect(observedStates).not.toContain('syncing')
+  })
+
   it('runs another synchronization pass when a change arrives during an active pass', async () => {
     const sourceChanges: SyncChange[] = []
     const received: SyncChange[] = []
