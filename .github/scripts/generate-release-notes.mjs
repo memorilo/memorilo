@@ -105,7 +105,7 @@ lines.push(
   '## Downloads',
   '',
   '* macOS: download the `.dmg` installer or `.zip` archive.',
-  '* Linux: download the `.AppImage`, `.flatpak`, `.deb`, or `.rpm` package.',
+  '* Linux: download the `.AppImage`, `.deb`, or `.rpm` package.',
   '* Windows: download the `.exe` installer.',
   '* Verify downloads with `SHA256SUMS.txt`.',
   '',
