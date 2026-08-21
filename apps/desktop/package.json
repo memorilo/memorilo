@@ -3,6 +3,11 @@
   "type": "module",
   "version": "0.0.0",
   "private": true,
+  "author": {
+    "name": "Memorilo contributors",
+    "email": "i@mslxl.com"
+  },
+  "homepage": "https://github.com/memorilo/memorilo",
   "license": "AGPL-3.0-only",
   "main": "out/main/index.js",
   "scripts": {
