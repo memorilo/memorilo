@@ -30,6 +30,10 @@ npmRebuild: false
 nativeRebuilder: sequential
 
 mac:
+  extendInfo:
+    NSLocalNetworkUsageDescription: Memorilo uses your local network to discover and sync with paired devices.
+    NSBonjourServices:
+      - _p2p._udp
   target:
     - dmg
     - zip
