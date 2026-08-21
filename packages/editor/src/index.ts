@@ -87,6 +87,13 @@ export {
   transformOcclusionBrushShape,
   translateOcclusionBrushShape,
 } from './image-occlusion/image-occlusion-model'
+export type {
+  MarkdownImportDiagnostic,
+  MarkdownImportFlavor,
+  MarkdownImportOptions,
+  MarkdownImportResult,
+} from './import/markdown-import'
+export { parseMarkdownImport } from './import/markdown-import'
 export { JournalEditor } from './journal-editor'
 export type { JournalEditorProps } from './journal-editor'
 export { cardTopicTitle, projectCardTopicCards, projectCardTopicDefinitions } from './note/card-topic-projection'

@@ -57,6 +57,7 @@ export interface NoteEditorViewProps {
   focusBlockId?: string
   onAddBook: (parentId: string | null) => void
   onAddFolder: (parentId: string | null) => void
+  onImportMarkdown: (parentId: string | null) => void
   onAddSpreadsheet: (parentId: string | null) => void
   onAddTopic: (parentId: string | null) => void
   onAddWhiteboard: (parentId: string | null) => void
@@ -77,6 +78,7 @@ export function NoteEditorView({
   focusBlockId,
   onAddBook,
   onAddFolder,
+  onImportMarkdown,
   onAddSpreadsheet,
   onAddTopic,
   onAddWhiteboard,
@@ -190,6 +192,7 @@ export function NoteEditorView({
   const entryContextMenu = useNoteEntryContextMenu({
     onAddBook,
     onAddFolder,
+    onImportMarkdown,
     onAddSpreadsheet,
     onAddTopic,
     onAddWhiteboard,

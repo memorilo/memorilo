@@ -8,6 +8,7 @@ import type {
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
 import type { TFunction } from 'i18next'
 import type { NoteLibraryColumnId } from './note-library-model'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
@@ -17,6 +18,7 @@ import {
   ArrowDown,
   ArrowUp,
   FileText,
+  FileUp,
   LoaderCircle,
   TriangleAlert,
 } from 'lucide-react'
@@ -47,6 +49,7 @@ export interface NoteLibraryCommands {
   favorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
   open: (noteId: string) => Promise<void>
   rename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
+  importMarkdown: () => void
 }
 
 function estimateRowSize() {
@@ -137,13 +140,18 @@ export function NoteLibraryView({ commands }: { commands: NoteLibraryCommands })
   const titlebar = useMemo(() => ({
     title: t('pageLabel'),
     trailing: (
-      <NoteLibraryViewMenu
-        columnVisibility={columnVisibility}
-        onToggleColumn={toggleColumnVisibility}
-        t={t}
-      />
+      <>
+        <Button aria-label={t('importMarkdown')} data-window-no-drag="" title={t('importMarkdown')} variant="titlebar" onClick={commands.importMarkdown}>
+          <FileUp aria-hidden="true" size={17} strokeWidth={1.9} />
+        </Button>
+        <NoteLibraryViewMenu
+          columnVisibility={columnVisibility}
+          onToggleColumn={toggleColumnVisibility}
+          t={t}
+        />
+      </>
     ),
-  }), [columnVisibility, t, toggleColumnVisibility])
+  }), [commands.importMarkdown, columnVisibility, t, toggleColumnVisibility])
   usePageTitlebar(titlebar)
 
   const {

@@ -6,6 +6,7 @@
   "createdColumn": "Created",
   "modifiedColumn": "Modified",
   "viewOptions": "View options",
+  "importMarkdown": "Import Markdown",
   "renameNote": "Rename Note",
   "renameNoteFor": "Rename Note: {{title}}",
   "openNoteFor": "Open Note: {{title}}",

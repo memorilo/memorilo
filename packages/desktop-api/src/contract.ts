@@ -260,6 +260,25 @@ export interface DesktopJournalNote extends DesktopNoteBase {
 
 export type DesktopNote = DesktopJournalNote | DesktopRegularNote
 
+export interface DesktopTopicMark {
+  attrs?: Readonly<Record<string, unknown>>
+  type: string
+}
+
+export interface DesktopTopicNode {
+  attrs?: Readonly<Record<string, unknown>>
+  content?: readonly DesktopTopicNode[]
+  marks?: readonly DesktopTopicMark[]
+  text?: string
+  type: string
+}
+
+export interface CreateDesktopTopicInput {
+  initialContent: DesktopTopicNode
+  mode: 0 | 1
+  title: string
+}
+
 export interface DesktopBookTopicContextSummary {
   book: BookFileBinding
   noteId: string
@@ -291,6 +310,7 @@ export interface OpenDesktopBookContextResult {
 
 export interface CreateDesktopNoteInput {
   initialHeading?: string
+  initialTopic?: CreateDesktopTopicInput
   title?: string
 }
 

@@ -1,3 +1,4 @@
+import type { CreateDesktopTopicInput } from '@memorilo/desktop-api'
 import type { JournalDate, TodoReminder, TodoRepeatRule, TodoTaskStatus } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { TopicBlockEdit } from '@memorilo/editor/note'
@@ -9,6 +10,7 @@ export type { ApplicationNoteDocument, BookTopicReadingContext } from './note-ap
 
 export interface CreateNoteInput {
   initialHeading?: string
+  initialTopic?: CreateDesktopTopicInput
   title?: string
 }
 

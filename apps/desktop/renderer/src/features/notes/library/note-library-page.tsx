@@ -7,9 +7,13 @@ import type {
   SetDesktopNoteFavoriteInput,
 } from '@memorilo/desktop-api'
 import type { InfiniteData } from 'effect-query'
+import type { MarkdownImportValues } from '../markdown-import-dialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { toast } from 'react-toastify/unstyled'
 import { desktopRequests } from '../../../shared/desktop-requests'
+import { MarkdownImportDialog } from '../markdown-import-dialog'
+import { defaultTopicId } from '../note-runtime'
 
 import { noteQueryKeys } from '../query-keys'
 import {
@@ -42,6 +46,8 @@ export function NoteLibraryPage({
   onOpenNote: (noteId: string, topicId: string) => Promise<void>
 }) {
   const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [markdownFile, setMarkdownFile] = useState<{ name: string, source: string } | null>(null)
   const { mutateAsync: mutateRenameNote } = useMutation({
     ...renameNoteMutationOptions(),
     onSuccess: (result) => {
@@ -78,11 +84,45 @@ export function NoteLibraryPage({
     (noteId: string) => openStoredNote(noteId, onOpenJournal, onOpenNote),
     [onOpenJournal, onOpenNote],
   )
+  const importMarkdown = useCallback(() => fileInputRef.current?.click(), [])
+  const confirmMarkdownImport = useCallback(async (values: MarkdownImportValues) => {
+    const created = await desktopRequests.createNote({
+      initialTopic: { initialContent: values.document, mode: 0, title: values.topicTitle },
+      title: values.noteTitle,
+    })
+    setMarkdownFile(null)
+    void queryClient.invalidateQueries({ queryKey: noteQueryKeys.lists })
+    if (values.diagnostics.length > 0) {
+      toast.warning(values.diagnostics.map(diagnostic => `L${diagnostic.line}: ${diagnostic.message}`).join('\n'), { autoClose: 10_000 })
+    }
+    await onOpenNote(created.id, defaultTopicId(created))
+  }, [onOpenNote, queryClient])
   const commands = useMemo(() => ({
     favorite: favoriteNote,
+    importMarkdown,
     open: openSelectedNote,
     rename: renameNote,
-  }), [favoriteNote, openSelectedNote, renameNote])
+  }), [favoriteNote, importMarkdown, openSelectedNote, renameNote])
 
-  return <NoteLibraryView commands={commands} />
+  return (
+    <>
+      <NoteLibraryView commands={commands} />
+      <input
+        ref={fileInputRef}
+        accept=".md,.markdown,text/markdown"
+        hidden
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (!file)
+            return
+          void file.text().then(source => setMarkdownFile({ name: file.name, source }))
+        }}
+      />
+      {markdownFile
+        ? <MarkdownImportDialog fileName={markdownFile.name} onClose={() => setMarkdownFile(null)} onConfirm={confirmMarkdownImport} source={markdownFile.source} target="new-note" />
+        : null}
+    </>
+  )
 }

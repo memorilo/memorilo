@@ -94,6 +94,20 @@
   "entryNameRequired": "请输入名称后再创建。",
   "closeEntryDialog": "关闭",
   "create": "创建",
+  "importMarkdown": "导入 Markdown",
+  "markdownImport": {
+    "title": "导入 Markdown",
+    "close": "关闭 Markdown 导入",
+    "noteTitle": "Note 标题",
+    "topicTitle": "Topic 标题",
+    "flavor": "Markdown 方言",
+    "mapTasks": "将任务列表映射为 Todo",
+    "warnings": "{{count}} 条导入警告",
+    "lineWarning": "第 {{line}} 行：{{message}}",
+    "titleRequired": "请输入 Note 和 Topic 标题。",
+    "importing": "正在导入…",
+    "import": "导入"
+  },
   "imageOcclusion": {
     "defaultTitle": "图片遮挡题",
     "readerRegionSource": "阅读器区域快照",

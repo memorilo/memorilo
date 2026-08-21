@@ -1,15 +1,17 @@
 import type { DesktopRegularNote, JournalDate } from '@memorilo/desktop-api'
 import type { ImageOcclusionSnapshot, OpenImageOcclusionInput } from '@memorilo/editor'
 import type { ShelfReadingFormat } from '@memorilo/shelf'
+import type { MarkdownImportValues } from '../markdown-import-dialog'
 import type { BookPickerTarget, EntryCreationTarget, ShelfBookOption } from './note-editor-dialogs'
 import { EditorMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 
 import { desktopRequests } from '../../../shared/desktop-requests'
+import { MarkdownImportDialog } from '../markdown-import-dialog'
 import { noteQueryKeys } from '../query-keys'
 import { BookTopicPickerDialog, EntryCreationDialog } from './note-editor-dialogs'
 import { useEditorNoteSession } from './note-editor-session'
@@ -48,6 +50,9 @@ export function NoteEditor({
   const queryClient = useQueryClient()
   const [bookPickerTarget, setBookPickerTarget] = useState<BookPickerTarget | undefined>(undefined)
   const [entryCreationTarget, setEntryCreationTarget] = useState<EntryCreationTarget | undefined>(undefined)
+  const [markdownImport, setMarkdownImport] = useState<{ fileName: string, parentId: string | null, source: string } | null>(null)
+  const markdownImportParentId = useRef<string | null>(null)
+  const markdownFileInputRef = useRef<HTMLInputElement>(null)
   const loadNote = useCallback(async (): Promise<DesktopRegularNote> => {
     const stored = await desktopRequests.getNote({ noteId })
     if (stored.kind === 'journal') {
@@ -116,6 +121,25 @@ export function NoteEditor({
       opened.note.createTopic({ mode: EditorMode.Document, parentId: target.parentId, title: label })
     setEntryCreationTarget(undefined)
   }, [opened])
+
+  const handleImportMarkdown = useCallback((parentId: string | null) => {
+    markdownImportParentId.current = parentId
+    markdownFileInputRef.current?.click()
+  }, [])
+  const confirmMarkdownImport = useCallback(async (values: MarkdownImportValues) => {
+    if (!opened || !markdownImport)
+      throw new Error('The Note is no longer open')
+    const topicId = opened.note.createTopic({
+      initialContent: values.document as Parameters<typeof opened.note.createTopic>[0]['initialContent'],
+      mode: EditorMode.Document,
+      parentId: markdownImport.parentId,
+      title: values.topicTitle,
+    })
+    setMarkdownImport(null)
+    if (values.diagnostics.length > 0)
+      toast.warning(values.diagnostics.map(diagnostic => `L${diagnostic.line}: ${diagnostic.message}`).join('\n'), { autoClose: 10_000 })
+    await onOpenTopic(topicId)
+  }, [markdownImport, onOpenTopic, opened])
 
   const handleOpenImageOcclusion = useCallback(async ({ image, imageId }: OpenImageOcclusionInput) => {
     if (!opened)
@@ -187,6 +211,7 @@ export function NoteEditor({
         focusBlockId={focusBlockId}
         onAddBook={parentId => setBookPickerTarget({ kind: 'create', parentId })}
         onAddFolder={parentId => setEntryCreationTarget({ kind: 'folder', parentId })}
+        onImportMarkdown={handleImportMarkdown}
         onAddSpreadsheet={parentId => setEntryCreationTarget({ kind: 'spreadsheet', parentId })}
         onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
         onAddWhiteboard={parentId => setEntryCreationTarget({ kind: 'whiteboard', parentId })}
@@ -222,6 +247,23 @@ export function NoteEditor({
               onCreate={label => handleCreateEntry(entryCreationTarget, label)}
             />
           )
+        : null}
+      <input
+        ref={markdownFileInputRef}
+        accept=".md,.markdown,text/markdown"
+        hidden
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (!file)
+            return
+          const parentId = markdownImportParentId.current
+          void file.text().then(source => setMarkdownImport({ fileName: file.name, parentId, source }))
+        }}
+      />
+      {markdownImport
+        ? <MarkdownImportDialog fileName={markdownImport.fileName} onClose={() => setMarkdownImport(null)} onConfirm={confirmMarkdownImport} source={markdownImport.source} target="topic" />
         : null}
     </>
   )
