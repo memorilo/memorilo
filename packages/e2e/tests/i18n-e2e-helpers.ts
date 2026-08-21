@@ -27,12 +27,6 @@ const electronExecutablePath = electronModule
 
 function runnableConfiguration(configuration: DesktopLanguageConfiguration): Record<string, unknown> {
   return {
-    anki: {
-      apiKey: '',
-      enabled: false,
-      host: '127.0.0.1',
-      port: 8765,
-    },
     backup: {
       enabled: false,
       intervalMinutes: 1_440,

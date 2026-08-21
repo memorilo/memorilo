@@ -15,7 +15,6 @@ import { createDesktopHonoApp } from '@memorilo/desktop-api/server'
 import { memoriloApiHost, memoriloApiOrigin, memoriloProtocol } from '@memorilo/desktop-api/transport'
 import { createResourceScope } from '@memorilo/effect-lifecycle'
 import { ipcMain } from 'electron'
-import { createDesktopAnkiService } from '../anki/desktop-anki-service'
 import { createLearningReviewApplication } from '../learning/learning-review-application'
 import { registerMemoriloProtocol } from '../memorilo-protocol'
 
@@ -79,7 +78,6 @@ export async function createDesktopServices(
       learning: createLearningHandlers(
         learning,
         createLearningReviewApplication(notes, learning, now),
-        createDesktopAnkiService(configuration),
         now,
         () => {
           void p2p.notifyChangesAvailable().catch(error => console.warn('Failed to synchronize local Learning changes', error))

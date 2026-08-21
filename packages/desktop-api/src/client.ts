@@ -68,15 +68,12 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
   }
 
   const learning: DesktopLearningApi = {
-    answerAnkiReviewCard: input => rpc('learning', 'answerAnkiReviewCard', input),
     archiveOptimizer: async (optimizerId) => { await rpc('learning', 'archiveOptimizer', optimizerId) },
     assignNoteOptimizer: async (input) => { await rpc('learning', 'assignNoteOptimizer', input) },
     createOptimizer: input => rpc('learning', 'createOptimizer', input),
-    endAnkiReview: async () => { await rpc('learning', 'endAnkiReview') },
     getActivitySummary: input => input === undefined
       ? rpc('learning', 'getActivitySummary')
       : rpc('learning', 'getActivitySummary', input),
-    getCurrentAnkiReviewCard: () => rpc('learning', 'getCurrentAnkiReviewCard'),
     getDailyProgress: now => now === undefined
       ? rpc('learning', 'getDailyProgress')
       : rpc('learning', 'getDailyProgress', now),
@@ -94,7 +91,6 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
     getNoteOptimizer: noteId => rpc('learning', 'getNoteOptimizer', noteId),
     getOptimizer: optimizerId => rpc('learning', 'getOptimizer', optimizerId),
     getOptimizerNoteCount: optimizerId => rpc('learning', 'getOptimizerNoteCount', optimizerId),
-    listAnkiDecks: () => rpc('learning', 'listAnkiDecks'),
     listNotesWithCards: () => rpc('learning', 'listNotesWithCards'),
     listOptimizers: () => rpc('learning', 'listOptimizers'),
     listQueue: input => input === undefined
@@ -103,7 +99,6 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
     listTargets: cardId => rpc('learning', 'listTargets', cardId),
     maintainDatabase: () => rpc('learning', 'maintainDatabase'),
     optimizeOptimizer: input => rpc('learning', 'optimizeOptimizer', input),
-    playAnkiReviewAudio: async (input) => { await rpc('learning', 'playAnkiReviewAudio', input) },
     prepareReview: input => rpc('learning', 'prepareReview', input),
     rateMultiLineCard: input => rpc('learning', 'rateMultiLineCard', input),
     rateTarget: input => rpc('learning', 'rateTarget', input),
@@ -112,10 +107,7 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
       : rpc('learning', 'resetOptimizerDefaults', optimizerId, rescheduleNow),
     resetTarget: input => rpc('learning', 'resetTarget', input),
     restoreReviewItem: input => rpc('learning', 'restoreReviewItem', input),
-    retrieveAnkiMediaFile: filename => rpc('learning', 'retrieveAnkiMediaFile', filename),
     saveOptimizer: input => rpc('learning', 'saveOptimizer', input),
-    showAnkiReviewAnswer: input => rpc('learning', 'showAnkiReviewAnswer', input),
-    startAnkiDeckReview: deck => rpc('learning', 'startAnkiDeckReview', deck),
     undoLastReview: input => rpc('learning', 'undoLastReview', input),
     undoReviews: input => rpc('learning', 'undoReviews', input),
   }

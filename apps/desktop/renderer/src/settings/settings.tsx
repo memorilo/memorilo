@@ -18,7 +18,7 @@ import { P2pSettings } from './p2p-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
 type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading' | 'sync'
-type SourceSectionId = 'anki' | 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'todo'
+type SourceSectionId = 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'todo'
 
 interface SettingsCategoryDefinition {
   readonly id: SettingsCategoryId
@@ -31,13 +31,13 @@ const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
   { id: 'calendar', sectionIds: ['todo'], showSectionHeadings: true },
   { id: 'editor', sectionIds: ['editor'] },
   { id: 'reading', sectionIds: ['reading'] },
-  { id: 'learning', sectionIds: ['learning', 'goals', 'flashcards', 'anki'], showSectionHeadings: true },
+  { id: 'learning', sectionIds: ['learning', 'goals', 'flashcards'], showSectionHeadings: true },
   { id: 'media', sectionIds: ['images', 'backup'], showSectionHeadings: true },
   { id: 'mcp', sectionIds: ['mcp'] },
   { id: 'sync', sectionIds: [] },
 ]
 
-const learningDetailSectionIds: readonly SourceSectionId[] = ['anki', 'flashcards', 'goals']
+const learningDetailSectionIds: readonly SourceSectionId[] = ['flashcards', 'goals']
 
 const categoryIcons = {
   calendar: CalendarDays,
@@ -96,8 +96,6 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
   switch (sectionId) {
     case 'backup':
       return t('backupSection')
-    case 'anki':
-      return t('ankiSection')
     case 'general':
       return t('generalSection')
     case 'editor':
@@ -129,14 +127,6 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('backupInterval')
     case 'backup.retentionCount':
       return t('backupRetention')
-    case 'anki.enabled':
-      return t('ankiEnabled')
-    case 'anki.host':
-      return t('ankiHost')
-    case 'anki.port':
-      return t('ankiPort')
-    case 'anki.apiKey':
-      return t('ankiApiKey')
     case 'language':
       return t('language')
     case 'reduceMotion':
@@ -216,14 +206,6 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('backupIntervalDescription')
     case 'backup.retentionCount':
       return t('backupRetentionDescription')
-    case 'anki.enabled':
-      return t('ankiEnabledDescription')
-    case 'anki.host':
-      return t('ankiHostDescription')
-    case 'anki.port':
-      return t('ankiPortDescription')
-    case 'anki.apiKey':
-      return t('ankiApiKeyDescription')
     case 'outdentBehavior':
       return t('outdentBehaviorDescription')
     case 'defaultNoteLearningEnabled':
