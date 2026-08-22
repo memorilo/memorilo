@@ -176,6 +176,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
   }, {
     fields: [{
       control: 'toggle',
+      description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
+      label: 'Enable Todo workspace',
+      path: 'todo.enabled',
+    }, {
+      control: 'toggle',
       description: 'Complete a Todo parent when all of its direct Todo children are complete, and reopen it when one is reopened.',
       label: 'Auto-complete parent Todos',
       path: 'todo.autoCompleteParentTasks',
@@ -206,11 +211,6 @@ export const desktopConfigurationDefinition = defineConfiguration({
       path: 'todo.timelineWorkdayEndHour',
       step: 1,
       unit: 'hour',
-    }, {
-      control: 'toggle',
-      description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
-      label: 'Enable Todo workspace',
-      path: 'todo.enabled',
     }, {
       control: 'toggle',
       description: 'Keep the selected task open when a change removes it from the current Todo view.',
