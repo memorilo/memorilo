@@ -82,6 +82,56 @@ describe('p2p communication', () => {
     expect(handle.status().connectedPeers).toEqual([])
   })
 
+  it('keeps a previously paired offline peer silent during startup synchronization', async () => {
+    const offlinePairing = new PairingManager(
+      { deviceId: 'offline', deviceName: 'Offline', peerId: '' },
+      new MemoryPairingStore(),
+    )
+    await offlinePairing.load()
+    const offline = await createP2pNode({
+      identity: offlinePairing.identity,
+      listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
+      pairing: offlinePairing,
+    })
+    const offlinePeerId = offline.status().peerId
+    if (offlinePeerId === null)
+      throw new Error('Offline peer did not start')
+    await offline.close()
+
+    const pairing = new PairingManager(
+      { deviceId: 'local', deviceName: 'Local', peerId: '' },
+      new MemoryPairingStore([{
+        addedAt: 1,
+        deviceId: 'offline',
+        deviceName: 'Offline',
+        lastSeenAt: 2,
+        pairingId: 'pairing-id',
+        peerId: offlinePeerId,
+        sharedSecret: 'shared-secret',
+      }]),
+    )
+    await pairing.load()
+    const observedDevices: string[][] = []
+    const handle = await createP2pNode({
+      identity: pairing.identity,
+      listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
+      onStatus: status => observedDevices.push(status.devices.map(device => device.peerId)),
+      pairing,
+      provider: {
+        applyChanges: async () => undefined,
+        getChanges: async () => [],
+        getMembershipEpoch: () => 1,
+        getVersionVector: () => ({}),
+      },
+      reconnectIntervalMs: 60_000,
+    })
+    handles.push(handle)
+
+    await expect(handle.notifyChangesAvailable()).resolves.toBeUndefined()
+    expect(handle.status().devices).toEqual([])
+    expect(observedDevices.every(devices => devices.length === 0)).toBe(true)
+  })
+
   it('connects paired peers and applies a change over the authenticated sync stream', async () => {
     const firstPairing = new PairingManager({ deviceId: 'first', deviceName: 'First', peerId: '' }, new MemoryPairingStore())
     const secondPairing = new PairingManager({ deviceId: 'second', deviceName: 'Second', peerId: '' }, new MemoryPairingStore())
@@ -321,7 +371,7 @@ describe('p2p communication', () => {
     expect(secondPairing.list()).toEqual([])
   })
 
-  it('actively reconnects a paired peer after the connection closes', async () => {
+  it('reports a paired peer as paused before reconnecting after the connection closes', async () => {
     const firstPairing = new PairingManager({ deviceId: 'first', deviceName: 'First', peerId: '' }, new MemoryPairingStore())
     const secondPairing = new PairingManager({ deviceId: 'second', deviceName: 'Second', peerId: '' }, new MemoryPairingStore())
     await firstPairing.load()
@@ -330,13 +380,13 @@ describe('p2p communication', () => {
       identity: { deviceId: 'first', deviceName: 'First' },
       listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
       pairing: firstPairing,
-      reconnectIntervalMs: 20,
+      reconnectIntervalMs: 100,
     })
     const second = await createP2pNode({
       identity: { deviceId: 'second', deviceName: 'Second' },
       listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
       pairing: secondPairing,
-      reconnectIntervalMs: 20,
+      reconnectIntervalMs: 100,
     })
     handles.push(first, second)
     const firstPeerId = first.status().peerId
@@ -358,6 +408,7 @@ describe('p2p communication', () => {
     await waitFor(() => initiator.status().connectedPeers.includes(responderPeerId))
     await initiator.node.hangUp(responderPeerId as never)
     await waitFor(() => !initiator.status().connectedPeers.includes(responderPeerId))
+    await waitFor(() => initiator.status().devices.some(device => device.peerId === responderPeerId && device.state === 'paused'))
     await waitFor(() => initiator.status().connectedPeers.includes(responderPeerId))
   })
 

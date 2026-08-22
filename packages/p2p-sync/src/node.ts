@@ -210,6 +210,11 @@ function resolveDialTarget(peerId: string, discoveredTarget?: unknown): unknown 
   return discoveredTarget ?? peerIdFromString(peerId)
 }
 
+function isNoValidAddressesError(error: unknown): boolean {
+  // libp2p does not export this dial error from its public interface package.
+  return error instanceof Error && error.name === 'NoValidAddressesError'
+}
+
 function normalizeDeviceName(deviceName: string): string {
   const normalized = deviceName.trim()
   if (normalized.length === 0)
@@ -252,6 +257,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   const advertisedPairingPeers = new Map<string, number>()
   const pairingProbes = new Map<string, { requestId: string, sentAt: number }>()
   const dialing = new Set<string>()
+  const connectedOnce = new Set<string>()
   const activeSyncs = new Map<string, Promise<void>>()
   const syncSchedules = new Map<string, { dirty: boolean, running: Promise<void> | null }>()
   const deviceStates = new Map<string, Pick<P2pDeviceStatus, 'error' | 'state'>>()
@@ -356,8 +362,6 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     const task = (async () => {
       try {
         const connection = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
-        if (connection === undefined)
-          updateDeviceStatus(peerId, 'connecting')
         const stream = await (connection === undefined
           ? node.dialProtocol(resolveDialTarget(peerId, dialTarget) as never, memoriloSyncProtocol)
           : connection.newStream(memoriloSyncProtocol)) as unknown as SyncStream
@@ -401,6 +405,16 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         updateDeviceStatus(peerId, 'synced')
       }
       catch (error) {
+        if (isNoValidAddressesError(error)) {
+          if (connectedOnce.has(peerId)) {
+            updateDeviceStatus(peerId, 'paused')
+          }
+          else {
+            deviceStates.delete(peerId)
+            updateStatus({ devices: deviceStatuses() })
+          }
+          return
+        }
         updateDeviceStatus(peerId, 'error', error instanceof Error ? error.message : String(error))
         throw error
       }
@@ -556,8 +570,10 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   node.addEventListener('connection:open', (event) => {
     const peerId = peerString(event.detail.remotePeer)
     connected.add(peerId)
-    if (options.pairing.findByPeerId(peerId) !== undefined)
+    if (options.pairing.findByPeerId(peerId) !== undefined) {
+      connectedOnce.add(peerId)
       deviceStates.set(peerId, { error: null, state: 'connecting' })
+    }
     updateStatus({ connectedPeers: authorizedConnectedPeers(), devices: deviceStatuses() })
     if (options.pairing.findByPeerId(peerId) && shouldInitiate(peerId)) {
       if (!dialing.has(peerId)) {
@@ -570,7 +586,9 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     const peerId = peerString(event.detail.remotePeer)
     connected.delete(peerId)
     const deviceState = deviceStates.get(peerId)
-    if (deviceState?.state !== 'error' && deviceState?.state !== 'paused')
+    if (connectedOnce.has(peerId) && deviceState?.state !== 'error')
+      deviceStates.set(peerId, { error: null, state: 'paused' })
+    else if (!connectedOnce.has(peerId))
       deviceStates.delete(peerId)
     updateStatus({ connectedPeers: authorizedConnectedPeers(), devices: deviceStatuses() })
   })
@@ -605,6 +623,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
       clearInterval(reconnectTimer)
       clearInterval(pairingProbeTimer)
       connected.clear()
+      connectedOnce.clear()
       deviceStates.clear()
       updateStatus({ connectedPeers: [], devices: [], state: 'stopped' })
       await node.stop()
