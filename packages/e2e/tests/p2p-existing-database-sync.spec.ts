@@ -244,6 +244,14 @@ test('automatically reconnects paired peers after application restarts', async (
 
     await secondApplication.close()
     await createNote(firstWindow, 'Created while peer offline')
+    await firstWindow.waitForTimeout(11_000)
+    await expect(firstWindow.evaluate(() => (
+      (window as unknown as P2pRendererWindow).desktop.p2p.getStatus()
+    ))).resolves.toMatchObject({
+      devices: [{ deviceName: 'Second peer', error: null, state: 'paused' }],
+      error: null,
+      state: 'ready',
+    })
     secondApplication = await launchPeer(secondDatabasePath, 'Second peer', secondUserDataDirectory)
     secondWindow = await secondApplication.firstWindow()
     await waitForApplication(secondWindow)

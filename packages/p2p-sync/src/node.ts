@@ -215,6 +215,16 @@ function isNoValidAddressesError(error: unknown): boolean {
   return error instanceof Error && error.name === 'NoValidAddressesError'
 }
 
+function isTransientConnectionError(error: unknown): boolean {
+  if (error instanceof AggregateError && error.message === 'All multiaddr dials failed')
+    return true
+  if (isNoValidAddressesError(error))
+    return true
+  if (!(error instanceof Error))
+    return false
+  return ['AbortError', 'ConnectionClosedError', 'ConnectionClosingError', 'DialError', 'StreamAbortedError', 'TimeoutError'].includes(error.name)
+}
+
 function normalizeDeviceName(deviceName: string): string {
   const normalized = deviceName.trim()
   if (normalized.length === 0)
@@ -343,6 +353,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         type: 'ack',
         versionVector: options.provider?.getVersionVector() ?? {},
       })
+      connectedOnce.add(paired.peerId)
       updateDeviceStatus(paired.peerId, 'synced')
     }
     catch (error) {
@@ -402,10 +413,11 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         const acknowledgement = requireType(await reader.read(), 'ack')
         await acknowledge(acknowledgement.acceptedChangeIds, paired)
         await stream.close?.()
+        connectedOnce.add(peerId)
         updateDeviceStatus(peerId, 'synced')
       }
       catch (error) {
-        if (isNoValidAddressesError(error)) {
+        if (!connected.has(peerId) && isTransientConnectionError(error)) {
           if (connectedOnce.has(peerId)) {
             updateDeviceStatus(peerId, 'paused')
           }
