@@ -7,8 +7,8 @@
     "name": "Memorilo contributors",
     "email": "i@mslxl.com"
   },
-  "homepage": "https://github.com/memorilo/memorilo",
   "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/memorilo/memorilo",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

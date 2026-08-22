@@ -183,6 +183,44 @@ async function waitForApplication(window: Page): Promise<void> {
   await window.getByRole('link', { name: 'Journals' }).waitFor()
 }
 
+async function waitForSyncedPeer(window: Page, deviceName: string): Promise<void> {
+  await expect.poll(() => window.evaluate(() => (
+    (window as unknown as P2pRendererWindow).desktop.p2p.getStatus()
+  )), { timeout: 20_000 }).toMatchObject({
+    devices: [{ deviceName, error: null, state: 'synced' }],
+    error: null,
+    state: 'ready',
+  })
+}
+
+async function createNote(window: Page, title: string): Promise<void> {
+  await window.keyboard.press('Meta+P')
+  await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill(title)
+  await window.getByRole('option').filter({ hasText: `Create Note “${title}”` }).click()
+  await expect(window.getByRole('button', { name: `Rename Note: ${title}` })).toBeVisible()
+}
+
+async function pairPeers(firstWindow: Page, secondWindow: Page): Promise<void> {
+  const [firstStatus, secondStatus] = await Promise.all([
+    firstWindow.evaluate(() => (window as unknown as P2pRendererWindow).desktop.p2p.getStatus()),
+    secondWindow.evaluate(() => (window as unknown as P2pRendererWindow).desktop.p2p.getStatus()),
+  ])
+  if (firstStatus.peerId === null || secondStatus.peerId === null)
+    throw new Error('P2P peers did not start')
+  const [inviterWindow, acceptingWindow] = firstStatus.peerId < secondStatus.peerId
+    ? [firstWindow, secondWindow]
+    : [secondWindow, firstWindow]
+  const invitation = await inviterWindow.evaluate(() => (
+    (window as unknown as P2pRendererWindow).desktop.p2p.createInvitation()
+  ))
+  const response = await acceptingWindow.evaluate(invitationCode => (
+    (window as unknown as P2pRendererWindow).desktop.p2p.acceptInvitation(invitationCode)
+  ), invitation)
+  await inviterWindow.evaluate(pairingResponse => (
+    (window as unknown as P2pRendererWindow).desktop.p2p.completePairing(pairingResponse)
+  ), response)
+}
+
 test('synchronizes the captured existing database to a new peer', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'memorilo-p2p-existing-database-'))
   const sourceDatabasePath = resolve(directory, 'source.sqlite')
@@ -197,23 +235,9 @@ test('synchronizes the captured existing database to a new peer', async () => {
     const destinationWindow = await destinationApplication.firstWindow()
     await Promise.all([waitForApplication(sourceWindow), waitForApplication(destinationWindow)])
 
-    const invitation = await sourceWindow.evaluate(() => (
-      (window as unknown as P2pRendererWindow).desktop.p2p.createInvitation()
-    ))
-    const response = await destinationWindow.evaluate(invitationCode => (
-      (window as unknown as P2pRendererWindow).desktop.p2p.acceptInvitation(invitationCode)
-    ), invitation)
-    await sourceWindow.evaluate(pairingResponse => (
-      (window as unknown as P2pRendererWindow).desktop.p2p.completePairing(pairingResponse)
-    ), response)
+    await pairPeers(sourceWindow, destinationWindow)
 
-    await expect.poll(() => destinationWindow.evaluate(() => (
-      (window as unknown as P2pRendererWindow).desktop.p2p.getStatus()
-    )), { timeout: 20_000 }).toMatchObject({
-      devices: [{ deviceName: 'Captured database', error: null, state: 'synced' }],
-      error: null,
-      state: 'ready',
-    })
+    await waitForSyncedPeer(destinationWindow, 'Captured database')
 
     await destinationWindow.getByRole('link', { name: 'Pages' }).click()
     await expect(destinationWindow.getByRole('main', { name: 'Pages' })).toBeVisible()
@@ -226,6 +250,65 @@ test('synchronizes the captured existing database to a new peer', async () => {
     await Promise.all([
       sourceApplication?.close(),
       destinationApplication?.close(),
+    ])
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('automatically reconnects paired peers after application restarts', async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'memorilo-p2p-reconnect-'))
+  const firstDatabasePath = resolve(directory, 'first.sqlite')
+  const secondDatabasePath = resolve(directory, 'second.sqlite')
+  const firstUserDataDirectory = resolve(directory, 'first-user-data')
+  const secondUserDataDirectory = resolve(directory, 'second-user-data')
+  let firstApplication: ElectronApplication | null = null
+  let secondApplication: ElectronApplication | null = null
+  try {
+    firstApplication = await launchPeer(firstDatabasePath, 'First peer', firstUserDataDirectory)
+    secondApplication = await launchPeer(secondDatabasePath, 'Second peer', secondUserDataDirectory)
+    let firstWindow = await firstApplication.firstWindow()
+    let secondWindow = await secondApplication.firstWindow()
+    await Promise.all([waitForApplication(firstWindow), waitForApplication(secondWindow)])
+
+    await pairPeers(firstWindow, secondWindow)
+    await Promise.all([
+      waitForSyncedPeer(firstWindow, 'Second peer'),
+      waitForSyncedPeer(secondWindow, 'First peer'),
+    ])
+
+    await secondApplication.close()
+    await createNote(firstWindow, 'Created while peer offline')
+    secondApplication = await launchPeer(secondDatabasePath, 'Second peer', secondUserDataDirectory)
+    secondWindow = await secondApplication.firstWindow()
+    await waitForApplication(secondWindow)
+    await Promise.all([
+      waitForSyncedPeer(firstWindow, 'Second peer'),
+      waitForSyncedPeer(secondWindow, 'First peer'),
+    ])
+    await secondWindow.getByRole('link', { name: 'Pages' }).click()
+    await expect(secondWindow.getByRole('button', { name: 'Open Note: Created while peer offline' })).toBeVisible()
+
+    await Promise.all([firstApplication.close(), secondApplication.close()])
+    firstApplication = null
+    secondApplication = null
+    const [restartedFirstApplication, restartedSecondApplication] = await Promise.all([
+      launchPeer(firstDatabasePath, 'First peer', firstUserDataDirectory),
+      launchPeer(secondDatabasePath, 'Second peer', secondUserDataDirectory),
+    ])
+    firstApplication = restartedFirstApplication
+    secondApplication = restartedSecondApplication
+    firstWindow = await firstApplication.firstWindow()
+    secondWindow = await secondApplication.firstWindow()
+    await Promise.all([waitForApplication(firstWindow), waitForApplication(secondWindow)])
+    await Promise.all([
+      waitForSyncedPeer(firstWindow, 'Second peer'),
+      waitForSyncedPeer(secondWindow, 'First peer'),
+    ])
+  }
+  finally {
+    await Promise.all([
+      firstApplication?.close(),
+      secondApplication?.close(),
     ])
     await rm(directory, { force: true, recursive: true })
   }

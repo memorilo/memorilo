@@ -10,6 +10,7 @@ import { yamux } from '@chainsafe/libp2p-yamux'
 import { keys } from '@libp2p/crypto'
 import { identify } from '@libp2p/identify'
 import { mdns } from '@libp2p/mdns'
+import { peerIdFromString } from '@libp2p/peer-id'
 import { tcp } from '@libp2p/tcp'
 import { createLibp2p } from 'libp2p'
 import { decodeMessage, decodePairingMessage, encodeMessage, encodePairingMessage, maxSyncFrameBytes } from './model'
@@ -205,6 +206,10 @@ function peerString(peer: PeerId | string): string {
   return typeof peer === 'string' ? peer : peer.toString()
 }
 
+function resolveDialTarget(peerId: string, discoveredTarget?: unknown): unknown {
+  return discoveredTarget ?? peerIdFromString(peerId)
+}
+
 function normalizeDeviceName(deviceName: string): string {
   const normalized = deviceName.trim()
   if (normalized.length === 0)
@@ -354,7 +359,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         if (connection === undefined)
           updateDeviceStatus(peerId, 'connecting')
         const stream = await (connection === undefined
-          ? node.dialProtocol((dialTarget ?? peerId) as never, memoriloSyncProtocol)
+          ? node.dialProtocol(resolveDialTarget(peerId, dialTarget) as never, memoriloSyncProtocol)
           : connection.newStream(memoriloSyncProtocol)) as unknown as SyncStream
         const reader = createMessageReader(stream)
         const hello: SyncHello = {
@@ -453,7 +458,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     }
     const connected = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
     const stream = await (connected === undefined
-      ? node.dialProtocol((discoveredTargets.get(peerId) ?? peerId) as never, memoriloPairingProtocol)
+      ? node.dialProtocol(resolveDialTarget(peerId, discoveredTargets.get(peerId)) as never, memoriloPairingProtocol)
       : connected.newStream(memoriloPairingProtocol)) as unknown as SyncStream
     await writePairingMessage(stream, message)
     await stream.close?.()
@@ -580,7 +585,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         continue
       }
       dialing.add(peerId)
-      void node.dial(peerId as never).then(() => requestSyncPeer(peerId)).catch(() => undefined).finally(() => dialing.delete(peerId))
+      void node.dial(peerIdFromString(peerId)).then(() => requestSyncPeer(peerId)).catch(() => undefined).finally(() => dialing.delete(peerId))
     }
   }, options.reconnectIntervalMs ?? 5_000)
   const pairingProbeTimer = setInterval(() => {
@@ -638,7 +643,7 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
         }
         const connected = node.getConnections().find(current => peerString(current.remotePeer) === peerId)
         const stream = await (connected === undefined
-          ? node.dialProtocol((discoveredTargets.get(peerId) ?? peerId) as never, memoriloPairingProtocol)
+          ? node.dialProtocol(resolveDialTarget(peerId, discoveredTargets.get(peerId)) as never, memoriloPairingProtocol)
           : connected.newStream(memoriloPairingProtocol)) as unknown as SyncStream
         await writePairingMessage(stream, request)
         await stream.close?.()
