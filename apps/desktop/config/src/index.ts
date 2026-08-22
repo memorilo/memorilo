@@ -93,14 +93,14 @@ export const DesktopConfigurationSchema = Schema.Struct({
       'place-next-after-completed',
       'replace-completed',
     ]),
-    timelineWorkdayEndHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 1 })),
-    timelineWorkdayStartHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 0 })),
+    timelineWorkdayEndMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_439, minimum: 1 })),
+    timelineWorkdayStartMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_439, minimum: 0 })),
   }),
   weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
-  : configuration.todo.timelineWorkdayEndHour <= configuration.todo.timelineWorkdayStartHour
-    ? { message: 'Todo workday end must be later than its start', path: ['todo', 'timelineWorkdayEndHour'] }
+  : configuration.todo.timelineWorkdayEndMinutes <= configuration.todo.timelineWorkdayStartMinutes
+    ? { message: 'Todo workday end must be later than its start', path: ['todo', 'timelineWorkdayEndMinutes'] }
     : undefined))
 
 export const desktopConfigurationDefinition = defineConfiguration({
@@ -136,8 +136,8 @@ export const desktopConfigurationDefinition = defineConfiguration({
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today' as const,
-      timelineWorkdayEndHour: 21,
-      timelineWorkdayStartHour: 7,
+      timelineWorkdayEndMinutes: 21 * 60,
+      timelineWorkdayStartMinutes: 7 * 60,
     },
     weekStart: 'sunday' as const,
   },
@@ -195,18 +195,18 @@ export const desktopConfigurationDefinition = defineConfiguration({
       unit: 'minutes',
     }, {
       control: 'time',
-      description: 'First visible hour in the Todo timeline.',
+      description: 'First visible time in the Todo timeline.',
       label: 'Timeline workday starts at',
-      max: 23,
+      max: 1_439,
       min: 0,
-      path: 'todo.timelineWorkdayStartHour',
+      path: 'todo.timelineWorkdayStartMinutes',
     }, {
       control: 'time',
-      description: 'Last visible hour in the Todo timeline.',
+      description: 'Last visible time in the Todo timeline.',
       label: 'Timeline workday ends at',
-      max: 23,
+      max: 1_439,
       min: 1,
-      path: 'todo.timelineWorkdayEndHour',
+      path: 'todo.timelineWorkdayEndMinutes',
     }, {
       control: 'toggle',
       description: 'Keep the selected task open when a change removes it from the current Todo view.',

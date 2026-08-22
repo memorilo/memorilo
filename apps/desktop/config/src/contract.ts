@@ -56,8 +56,8 @@ export interface DesktopTodoConfiguration {
   enabled: boolean
   keepDetailOpenWhenTaskLeavesView: boolean
   recurringTaskCompletionAction: DesktopRecurringTaskCompletionAction
-  timelineWorkdayEndHour: number
-  timelineWorkdayStartHour: number
+  timelineWorkdayEndMinutes: number
+  timelineWorkdayStartMinutes: number
 }
 
 export interface DesktopConfiguration {

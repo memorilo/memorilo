@@ -118,13 +118,13 @@ function validateField(field: ConfigurationField, defaults: object): void {
       break
     case 'time': {
       if (typeof value !== 'number' || !Number.isInteger(value))
-        throw new TypeError(`Time field ${field.path} must address an integer hour`)
-      if (value < 0 || value > 23)
-        throw new RangeError(`Time field ${field.path} must address an hour between 0 and 23`)
-      if (field.min !== undefined && (!Number.isInteger(field.min) || field.min < 0 || field.min > 23))
-        throw new RangeError(`Time field ${field.path} minimum must be an hour between 0 and 23`)
-      if (field.max !== undefined && (!Number.isInteger(field.max) || field.max < 0 || field.max > 23))
-        throw new RangeError(`Time field ${field.path} maximum must be an hour between 0 and 23`)
+        throw new TypeError(`Time field ${field.path} must address an integer minute value`)
+      if (value < 0 || value > 1_439)
+        throw new RangeError(`Time field ${field.path} must address a time between 00:00 and 23:59`)
+      if (field.min !== undefined && (!Number.isInteger(field.min) || field.min < 0 || field.min > 1_439))
+        throw new RangeError(`Time field ${field.path} minimum must be between 00:00 and 23:59`)
+      if (field.max !== undefined && (!Number.isInteger(field.max) || field.max < 0 || field.max > 1_439))
+        throw new RangeError(`Time field ${field.path} maximum must be between 00:00 and 23:59`)
       if (field.min !== undefined && field.max !== undefined && field.min > field.max)
         throw new RangeError(`Time field ${field.path} minimum exceeds its maximum`)
       break

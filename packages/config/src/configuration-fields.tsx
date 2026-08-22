@@ -12,8 +12,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function formatHour(hour: number): string {
-  return `${hour.toString().padStart(2, '0')}:00`
+function formatTime(minutes: number): string {
+  const hour = Math.floor(minutes / 60)
+  const minute = minutes % 60
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
 }
 
 function FieldControl<T extends object>({
@@ -129,24 +131,26 @@ function FieldControl<T extends object>({
     }
     case 'time': {
       if (typeof value !== 'number' || !Number.isInteger(value))
-        throw new TypeError(`Time field ${field.path} received a non-integer hour`)
+        throw new TypeError(`Time field ${field.path} received a non-integer minute value`)
       const commit = (event: ChangeEvent<HTMLInputElement>) => {
-        const [hour, minute] = event.target.value.split(':').map(Number)
-        if (!Number.isInteger(hour) || minute !== 0) {
-          setError(`${field.label} requires a whole hour`)
+        const [hourText, minuteText] = event.target.value.split(':')
+        const hour = Number(hourText)
+        const minute = Number(minuteText)
+        if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+          setError(`${field.label} requires a valid time`)
           return
         }
-        void update(hour)
+        void update(hour * 60 + minute)
       }
       control = (
         <TextField
           aria-label={field.label}
           disabled={pending}
-          max={field.max === undefined ? undefined : formatHour(field.max)}
-          min={field.min === undefined ? undefined : formatHour(field.min)}
-          step={3_600}
+          max={field.max === undefined ? undefined : formatTime(field.max)}
+          min={field.min === undefined ? undefined : formatTime(field.min)}
+          step={60}
           type="time"
-          value={formatHour(value)}
+          value={formatTime(value)}
           variant="settings"
           xstyle={configurationFieldStyles.timeInput}
           onChange={commit}
