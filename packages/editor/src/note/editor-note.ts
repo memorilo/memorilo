@@ -22,6 +22,7 @@ import type {
 } from '../image-occlusion/image-occlusion-model'
 import type { LoroTopic } from '../schema/topic-schema'
 import type { TopicBlockEdit } from './editor-note-block-edits'
+import type { EditorNoteIdentity } from './journal-note-identity'
 import type { TopicContentProjection } from './topic-projection'
 import type { TopicReaderReference } from './topic-reader-reference'
 import { EditorNoteCardTopics } from './editor-note-card-topics'
@@ -344,6 +345,8 @@ export interface EditorNote {
   exportUpdates: (from?: readonly EditorNoteVersion[]) => Uint8Array
   /** Returns the current entry projection. Topic snapshots contain effective titles. */
   getEntries: () => readonly NoteEntrySnapshot[]
+  /** Returns the aggregate-owned Note subtype identity. */
+  getIdentity: () => EditorNoteIdentity
   /**
    * Returns an editable handle for an existing Topic in this Note.
    * The handle does not copy, synchronize, or persist the Topic.
@@ -435,6 +438,14 @@ export interface EditorTopicBinding {
  */
 export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
   const runtime = EditorNoteRuntime.open(options)
+  return createEditorNoteFromRuntime(runtime)
+}
+
+export function createJournalNote(journalDate: string, learningEnabled = true): EditorNote {
+  return createEditorNoteFromRuntime(EditorNoteRuntime.openJournal(journalDate, learningEnabled))
+}
+
+function createEditorNoteFromRuntime(runtime: EditorNoteRuntime): EditorNote {
   const { doc, noteId: id } = runtime
   const entryRepository = createEditorNoteEntryRepository({
     runMutation: operation => runtime.runMutation(operation),
@@ -473,6 +484,7 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     exportSnapshot: collaboration.exportSnapshot,
     exportUpdates: collaboration.exportUpdates,
     getEntries: entryRepository.getEntries,
+    getIdentity: () => runtime.getIdentity(),
     getTopicContent: topicId => topics.content(topicId),
     getTopicReaderReference: entryRepository.getTopicReaderReference,
     getTitle: () => runtime.getTitle(),
@@ -481,7 +493,11 @@ export function createEditorNote(options: CreateEditorNoteOptions): EditorNote {
     validateTopic: topicId => topics.validate(topicId),
     getVersion: collaboration.getVersion,
     hasUserContent: entryRepository.hasUserContent,
-    importUpdates: collaboration.importUpdates,
+    importUpdates: (updates) => {
+      const mutation = collaboration.importUpdates(updates)
+      runtime.getIdentity()
+      return mutation
+    },
     isTimeTraveling: collaboration.isTimeTraveling,
     moveEntry: entryRepository.moveEntry,
     renameEntry: entryRepository.renameEntry,

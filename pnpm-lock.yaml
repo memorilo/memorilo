@@ -416,6 +416,9 @@ importers:
       '@memorilo/desktop-api':
         specifier: workspace:*
         version: link:../desktop-api
+      '@memorilo/editor':
+        specifier: workspace:*
+        version: link:../editor
       '@playwright/test':
         specifier: 1.61.1
         version: 1.61.1

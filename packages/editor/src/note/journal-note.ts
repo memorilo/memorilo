@@ -14,6 +14,9 @@ export function resolveJournalTopic(
   note: EditorNote,
   options: ResolveJournalTopicOptions = {},
 ): EditorTopicDocument {
+  const identity = note.getIdentity()
+  if (identity.kind !== 'journal')
+    throw new Error(`Note ${note.id} is not a Journal Note`)
   if (options.expectedNoteTitle !== undefined && note.getTitle() !== options.expectedNoteTitle) {
     throw new Error(
       `Journal Note ${note.id} title does not match its canonical date title ${JSON.stringify(options.expectedNoteTitle)}`,

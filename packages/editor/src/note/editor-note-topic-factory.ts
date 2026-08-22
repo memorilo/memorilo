@@ -38,6 +38,10 @@ interface TopicNodeInput {
   mode: EditorModeValue
   readerReference?: TopicReaderReference
   title: string
+  identity?: {
+    blockId: string
+    entryId: string
+  }
 }
 
 interface PreparedTopicNode {
@@ -70,9 +74,12 @@ function headingTopicDocument(heading: string): NodeJSON {
 }
 
 function prepareTopicNode(input: TopicNodeInput, bookValue?: BookFileBinding): PreparedTopicNode {
-  const entryId = crypto.randomUUID()
+  const entryId = input.identity?.entryId ?? crypto.randomUUID()
   const blockTreeKey = `topic:${entryId}:blocks`
-  const document = normalizeOutlineDocument(input.initialContent ?? emptyTopicDocument())
+  const document = normalizeOutlineDocument(
+    input.initialContent ?? emptyTopicDocument(),
+    input.identity === undefined ? undefined : () => input.identity!.blockId,
+  )
   const mode = assertEditorMode(input.mode, 'Topic Editor mode')
   const topicType = bookValue === undefined ? 'regular' : 'book'
   const title = topicType === 'book'
@@ -167,9 +174,14 @@ export function createTopicNode(
   return prepared.entryId
 }
 
-export function createInitialTopicNode(doc: LoroDoc, heading?: string): string {
+export function createInitialTopicNode(
+  doc: LoroDoc,
+  heading?: string,
+  identity?: { blockId: string, entryId: string },
+): string {
   return createTopicNode(doc, {
     ...(heading === undefined ? {} : { initialContent: headingTopicDocument(heading) }),
+    ...(identity === undefined ? {} : { identity }),
     mode: EditorMode.Document,
     title: '',
   })

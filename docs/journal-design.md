@@ -67,7 +67,7 @@ Changing system timezone does not rewrite existing Journal Dates. A Journal Note
 
 ### Journal Note subtype
 
-A Journal Note remains one Loro-backed Note aggregate as required by ADR 0001. Journal metadata is a persistence subtype projection:
+A Journal Note remains one Loro-backed Note aggregate as required by ADR 0001. Its Loro metadata owns the subtype identity: `kind = 'journal'`, the canonical `journalDate`, the canonical `journal:YYYY-MM-DD` Note ID, and the matching date title. The `journals` table is a rebuildable persistence projection of that aggregate identity:
 
 ```sql
 CREATE TABLE notes (
@@ -97,16 +97,16 @@ CREATE UNIQUE INDEX notes_regular_title_unique
   WHERE kind = 'regular';
 ```
 
-The `journals` table remains the authoritative subtype projection. The non-null `notes.kind` column is only an integrity discriminator: it lets SQLite enforce regular-Note title uniqueness and validate Journal identity without copying `journal_date` or `has_user_content` onto every Note.
+The Loro aggregate is authoritative for the subtype. The `journals` row and `notes.kind` column let SQLite query Journal Notes efficiently, enforce regular-Note title uniqueness, and reject projection drift without becoming a second source of identity.
 
 - `notes.kind` is part of the current schema baseline.
 - The database enforces one Journal Note per Journal Date under concurrent calls.
 - A partial unique index enforces case-insensitive regular-Note titles across independent storage owners while still allowing a regular Note whose title equals a Journal Date.
-- Triggers require Journal rows to reference a `kind = 'journal'` Note with the exact canonical date title and prevent later title/kind drift.
+- Triggers require Journal rows to reference a `kind = 'journal'` Note whose ID is `journal:YYYY-MM-DD` and whose title is the exact canonical date, and prevent later title/kind drift.
 - Deleting the Note cascades through existing projections and Journal metadata.
 - Journal queries stay explicit instead of teaching every Note query about nullable subtype columns.
 
-Journal creation inserts the `notes` and `journals` rows atomically. It stores the canonical Journal Date as the Note aggregate title, while renderer display formatting is derived from `journalDate`. Regular Note title uniqueness is evaluated among regular Notes; a regular Note named `2026-08-04` must not prevent that day's Journal Note from being created.
+Journal creation deterministically initializes the same aggregate identity, root Topic ID, and root Block ID on every device before restoring a device-local editing peer. It then inserts the `notes` and `journals` projections atomically. Renderer display formatting is derived from `journalDate`. Regular Note title uniqueness is evaluated among regular Notes; a regular Note named `2026-08-04` must not prevent that day's Journal Note from being created.
 
 ### Immutable title
 

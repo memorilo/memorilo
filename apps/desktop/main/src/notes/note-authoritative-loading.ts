@@ -1,8 +1,7 @@
 import type { EditorStorage, JournalDate, StoredNote } from '@memorilo/editor-storage'
 import type { EditorNote } from '@memorilo/editor/note'
 import type { AuthoritativeNote, NoteAuthoritativeCache } from './note-authoritative-cache'
-import { randomUUID } from 'node:crypto'
-import { createEditorNote, resolveJournalTopic } from '@memorilo/editor/note'
+import { createEditorNote, createJournalNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { projectNoteAssetReferences } from '../assets/asset-references'
 import { toStoredEntries, toStoredSpreadsheets, toStoredTopic } from './note-authoritative-projection'
 import { projectNoteLearningCards, repairNoteLearningCards } from './note-learning-cards'
@@ -38,6 +37,13 @@ export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabl
       title: stored.title,
       updates: stored.updates.map(update => update.update),
     })
+    const identity = note.getIdentity()
+    const aggregateJournalDate = identity.kind === 'journal' ? identity.journalDate : null
+    if (aggregateJournalDate !== journalDate) {
+      throw new Error(
+        `Stored Note ${stored.id} Journal projection does not match its aggregate identity`,
+      )
+    }
     let checkpointSequence = stored.checkpointSequence
     let latestSequence = stored.latestSequence
     let updatedAt = stored.updatedAt
@@ -91,21 +97,31 @@ export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabl
 
   const commit = async (note: EditorNote): Promise<AuthoritativeNote> => {
     const entries = note.getEntries()
-    const stored = await storage.notes.createInitializedNote({
+    const identity = note.getIdentity()
+    const input = {
       entries: entries.map(entry => structuredClone(entry)),
-      id: note.id,
       learningCards: projectNoteLearningCards(note),
       snapshot: note.exportSnapshot(),
       spreadsheets: toStoredSpreadsheets(note),
-      title: note.getTitle(),
       topics: entries
         .filter(entry => entry.kind === 'topic')
         .map(entry => structuredClone(note.getTopicContent(entry.id))),
-    })
+    }
+    const stored = identity.kind === 'journal'
+      ? (await storage.journals.getOrCreate({
+          ...input,
+          hasUserContent: note.hasUserContent(),
+          journalDate: identity.journalDate,
+        })).note
+      : await storage.notes.createInitializedNote({
+          ...input,
+          id: note.id,
+          title: note.getTitle(),
+        })
     return cache.touch({
       checkpointSequence: stored.checkpointSequence,
       createdAt: stored.createdAt,
-      journalDate: null,
+      journalDate: identity.kind === 'journal' ? identity.journalDate : null,
       latestSequence: stored.latestSequence,
       note,
       updatedAt: stored.updatedAt,
@@ -116,15 +132,11 @@ export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabl
     created: boolean
     current: AuthoritativeNote
   }> => {
-    const note = createEditorNote({
-      id: randomUUID(),
-      learningEnabled: defaultNoteLearningEnabled(),
-      title: journalDate,
-    })
+    const note = createJournalNote(journalDate, defaultNoteLearningEnabled())
     const entries = note.getEntries()
     const stored = await storage.journals.getOrCreate({
       entries: entries.map(entry => structuredClone(entry)),
-      id: note.id,
+      hasUserContent: note.hasUserContent(),
       journalDate,
       learningCards: projectNoteLearningCards(note),
       snapshot: note.exportSnapshot(),

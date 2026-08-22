@@ -379,6 +379,7 @@ const noteKindConstraints = `
     WHERE row_id = new.note_row_id
       AND kind = 'journal'
       AND title = new.journal_date
+      AND id = 'journal:' || new.journal_date
   )
   BEGIN
     SELECT RAISE(ABORT, 'Journal Note identity is invalid');
@@ -392,6 +393,7 @@ const noteKindConstraints = `
     WHERE row_id = new.note_row_id
       AND kind = 'journal'
       AND title = new.journal_date
+      AND id = 'journal:' || new.journal_date
   )
   BEGIN
     SELECT RAISE(ABORT, 'Journal Note identity is invalid');
