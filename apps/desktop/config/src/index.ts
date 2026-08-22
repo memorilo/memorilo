@@ -423,8 +423,8 @@ export const desktopConfigurationDefinition = defineConfiguration({
   }, {
     fields: [{
       control: 'select',
-      description: 'TIFF images are converted to a browser-compatible format before being stored.',
-      label: 'TIFF conversion format',
+      description: 'Images in formats that cannot be displayed directly are converted to this browser-compatible format before being stored.',
+      label: 'Preferred format for unsupported images',
       options: [
         { label: 'WebP', value: 'webp' },
         { label: 'PNG', value: 'png' },
