@@ -400,15 +400,18 @@ describe('editor storage with an in-memory SQLite database', () => {
         title: '',
         topicType: 'regular',
       }],
-      id: 'journal-note-1',
+      hasUserContent: true,
       journalDate: '2026-08-07',
       snapshot: Uint8Array.from([1, 2, 3]),
       topics: [{ blocks: [], title: '', topicId: 'journal-topic' }],
     })
 
     expect(first.status).toBe('created')
-    expect(first.note.id).toBe('journal-note-1')
+    expect(first.note.id).toBe('journal:2026-08-07')
     expect(journalLookupCount).toBe(1)
+    await expect(storage.journals.getMetadata({ noteId: first.note.id })).resolves.toMatchObject({
+      hasUserContent: true,
+    })
 
     database.beforeGet = undefined
     await storage.notes.saveNoteUpdates({
@@ -437,7 +440,7 @@ describe('editor storage with an in-memory SQLite database', () => {
         title: '',
         topicType: 'regular',
       }],
-      id: 'journal-note-2',
+      hasUserContent: true,
       journalDate: '2026-08-07',
       snapshot: Uint8Array.from([9, 9, 9]),
       topics: [{ blocks: [], title: '', topicId: 'different-topic' }],
@@ -493,7 +496,7 @@ describe('editor storage with an in-memory SQLite database', () => {
     databases.push(database)
     const firstStorage = await SqliteEditorStorage.open({ database, databaseOwnership: 'borrowed', embeddingModel })
     const secondStorage = await SqliteEditorStorage.open({ database, databaseOwnership: 'borrowed', embeddingModel })
-    const input = (id: string, topicId: string) => ({
+    const input = (topicId: string) => ({
       entries: [{
         id: topicId,
         kind: 'topic' as const,
@@ -503,19 +506,20 @@ describe('editor storage with an in-memory SQLite database', () => {
         title: '',
         topicType: 'regular' as const,
       }],
-      id,
+      hasUserContent: false,
       journalDate: '2026-08-06' as const,
       snapshot: Uint8Array.from([1, 2, 3]),
       topics: [{ blocks: [], title: '', topicId }],
     })
 
     const results = await Promise.all([
-      firstStorage.journals.getOrCreate(input('concurrent-journal-1', 'concurrent-topic-1')),
-      secondStorage.journals.getOrCreate(input('concurrent-journal-2', 'concurrent-topic-2')),
+      firstStorage.journals.getOrCreate(input('concurrent-topic-1')),
+      secondStorage.journals.getOrCreate(input('concurrent-topic-2')),
     ])
 
     expect(results.map(result => result.status).sort()).toEqual(['created', 'existing'])
     expect(results[0]?.note.id).toBe(results[1]?.note.id)
+    expect(results[0]?.note.id).toBe('journal:2026-08-06')
   })
 
   it('enforces regular Note title uniqueness across independent storage owners', async () => {

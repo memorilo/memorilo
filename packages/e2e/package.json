@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@memorilo/desktop-api": "workspace:*",
+    "@memorilo/editor": "workspace:*",
     "@playwright/test": "1.61.1",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "13.0.1",

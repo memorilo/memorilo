@@ -17,6 +17,7 @@ import type { LearningCardReconciliationPlanner } from './learning/learning-card
 import {
   assertJournalDate,
   assertNonEmpty,
+  journalNoteId,
   readJournalDate,
   resolveLimit,
 } from './editor-storage-shared'
@@ -63,6 +64,8 @@ export class EditorJournalRepository {
 
   getOrCreate(input: GetOrCreateJournalInput): Promise<StoredJournal> {
     assertJournalDate(input.journalDate)
+    if (typeof input.hasUserContent !== 'boolean')
+      throw new TypeError('Journal content state must be a boolean')
     const saved = structuredClone(input)
     return this.options.runOperation(async () => {
       const existing = await this.options.records.findJournal(saved.journalDate)
@@ -76,7 +79,7 @@ export class EditorJournalRepository {
 
       const prepared = this.options.records.prepareInitialized({
         entries: saved.entries,
-        id: saved.id,
+        id: journalNoteId(saved.journalDate),
         learningCards: saved.learningCards,
         snapshot: saved.snapshot,
         title: saved.journalDate,
@@ -87,7 +90,7 @@ export class EditorJournalRepository {
       const learningCommands = saved.learningCards === undefined
         ? []
         : await this.options.planLearningCards({
-            noteId: saved.id,
+            noteId: prepared.note.id,
             replaceMissingTopics: true,
             topics: saved.learningCards,
           })
@@ -96,10 +99,10 @@ export class EditorJournalRepository {
           ...prepared.commands,
           ...learningCommands,
           {
-            parameters: [saved.journalDate, saved.id],
+            parameters: [saved.journalDate, saved.hasUserContent ? 1 : 0, prepared.note.id],
             sql: `
               INSERT INTO journals (note_row_id, journal_date, has_user_content)
-              SELECT row_id, ?, 0 FROM notes WHERE id = ?
+              SELECT row_id, ?, ? FROM notes WHERE id = ?
             `,
           },
         ])

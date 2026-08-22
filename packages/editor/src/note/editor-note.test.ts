@@ -21,6 +21,7 @@ describe('editor note topic creation', () => {
     const empty = createEditorNote({ id: 'empty-note' })
     const [emptyTopic] = empty.getEntries()
     expect(emptyTopic).toMatchObject({ kind: 'topic', title: '', topicType: 'regular' })
+    expect(empty.getIdentity()).toEqual({ kind: 'regular' })
     expect(empty.hasUserContent()).toBe(false)
 
     const headed = createEditorNote({ id: 'headed-note', initialTopicHeading: 'First thought' })

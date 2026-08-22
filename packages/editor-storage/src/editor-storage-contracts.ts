@@ -154,7 +154,8 @@ export interface CreateInitializedNoteInput {
 
 export type JournalDate = string
 
-export type GetOrCreateJournalInput = Omit<CreateInitializedNoteInput, 'title'> & {
+export type GetOrCreateJournalInput = Omit<CreateInitializedNoteInput, 'id' | 'title'> & {
+  hasUserContent: boolean
   journalDate: JournalDate
 }
 

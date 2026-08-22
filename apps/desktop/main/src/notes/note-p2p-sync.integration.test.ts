@@ -169,6 +169,54 @@ describe('p2p Note synchronization', () => {
     expect(restored.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Received while unopened')
   })
 
+  it('merges same-date Journals as one Journal aggregate', async () => {
+    const sourceStorage = await openStorage()
+    const destinationStorage = await openStorage()
+    const sourceUpdates: Uint8Array[] = []
+    const sourceNotes = createNoteApplicationService(sourceStorage, ({ update }) => {
+      sourceUpdates.push(new Uint8Array(update))
+    })
+    const destinationNotes = createNoteApplicationService(destinationStorage)
+    applications.push(sourceNotes, destinationNotes)
+    const journalDate = '2026-08-22' as const
+
+    const [source, destination] = await Promise.all([
+      sourceNotes.openJournal({ journalDate }),
+      destinationNotes.openJournal({ journalDate }),
+    ])
+    expect(source.id).toBe(destination.id)
+    expect(source.id).toBe('journal:2026-08-22')
+
+    const sourceTopic = await sourceNotes.getTopic({ noteId: source.id, topicId: source.topicId })
+    const blockId = sourceTopic.document.content?.[0]?.attrs?.blockId
+    if (typeof blockId !== 'string')
+      throw new Error('Journal Topic is missing its canonical Block')
+    await sourceNotes.applyTopicEdits({
+      edits: [{
+        blockId,
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Synced Journal content' }] }],
+        operation: 'update-block-content',
+      }],
+      expectedRevision: sourceTopic.revision,
+      noteId: source.id,
+      topicId: source.topicId,
+    })
+
+    await destinationNotes.saveNoteUpdates({ noteId: source.id, updates: sourceUpdates })
+
+    await expect(destinationNotes.getNote({ noteId: source.id })).resolves.toMatchObject({
+      id: source.id,
+      journalDate,
+      kind: 'journal',
+    })
+    await expect(destinationStorage.journals.getMetadata({ noteId: source.id })).resolves.toMatchObject({
+      journalDate,
+      noteId: source.id,
+    })
+    const destinationTopic = await destinationNotes.getTopic({ noteId: source.id, topicId: source.topicId })
+    expect(destinationTopic.document.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe('Synced Journal content')
+  })
+
   it('seeds a complete baseline for Notes that predate the P2P journal', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'memorilo-note-p2p-baseline-'))
     temporaryDirectories.push(directory)

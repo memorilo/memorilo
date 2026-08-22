@@ -60,6 +60,19 @@ export function assertJournalDate(value: unknown, name = 'Journal date'): assert
     throw new RangeError(`${name} must be a valid calendar date`)
 }
 
+export function journalNoteId(journalDate: JournalDate): string {
+  assertJournalDate(journalDate)
+  return `journal:${journalDate}`
+}
+
+export function journalDateFromNoteId(noteId: string): JournalDate | null {
+  if (!noteId.startsWith('journal:'))
+    return null
+  const journalDate = noteId.slice('journal:'.length)
+  assertJournalDate(journalDate, 'Journal Note id date')
+  return journalDate
+}
+
 export const visibleJournalPredicate = `
   (? IS NULL
     OR journal.note_row_id IS NULL

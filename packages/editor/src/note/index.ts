@@ -51,10 +51,12 @@ export type {
   WhiteboardTopicSnapshot,
   WhiteboardTopicValidationInput,
 } from './editor-note'
-export { createEditorNote } from './editor-note'
+export { createEditorNote, createJournalNote } from './editor-note'
 export { whiteboardSceneSignature } from './editor-note-whiteboard'
 export type { ResolveJournalTopicOptions } from './journal-note'
 export { resolveJournalTopic } from './journal-note'
+export type { EditorNoteIdentity } from './journal-note-identity'
+export { journalDateFromNoteId, journalNoteId } from './journal-note-identity'
 export type { TopicBlockProjection } from './topic-projection'
 export { hasTopicUserContent } from './topic-user-content'
 export type {
