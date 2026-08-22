@@ -170,11 +170,6 @@ export const desktopConfigurationDefinition = defineConfiguration({
         label: 'Reduce motion',
         path: 'reduceMotion',
       },
-      {
-        control: 'toggle',
-        label: 'Enable learning for new Notes',
-        path: 'defaultNoteLearningEnabled',
-      },
     ],
     id: 'general',
     label: 'General',
@@ -243,6 +238,10 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Enable flashcards, cloze authoring, FSRS scheduling, learning pages, and image occlusion.',
       label: 'Enable learning features',
       path: 'learning.enabled',
+    }, {
+      control: 'toggle',
+      label: 'Enable learning for new Notes',
+      path: 'defaultNoteLearningEnabled',
     }],
     id: 'learning',
     label: 'Learning',
