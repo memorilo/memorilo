@@ -6,7 +6,7 @@ import i18next from 'i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { TextSelection } from 'prosekit/pm/state'
 import { ProseKit } from 'prosekit/react'
-import { lazy, Suspense, useEffect, useLayoutEffect } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
@@ -95,6 +95,7 @@ export function EditorCanvas({
   focusBlockId,
   mode,
   modeControls,
+  modePicker,
   readOnly,
   session,
   taskDate,
@@ -104,12 +105,15 @@ export function EditorCanvas({
   focusBlockId?: string
   mode: EditorModeValue
   modeControls?: ReactNode
+  modePicker?: (onActivate: () => void) => ReactNode
   readOnly: boolean
   session: EditorSession
   taskDate?: string
 }) {
   const { configured, editor } = session
   const { t } = useTranslation('editor')
+  const [editing, setEditing] = useState(false)
+  const beginEditing = useCallback(() => setEditing(true), [])
 
   useLayoutEffect(() => {
     if (focusBlockId !== undefined)
@@ -134,17 +138,35 @@ export function EditorCanvas({
     <>
       {readOnly ? null : <div data-editor-mode-controls="">{modeControls}</div>}
       <ProseKit editor={editor}>
-        <div {...stylex.props(editorCanvasStyles.viewport, embedded && editorCanvasStyles.viewportEmbedded)}>
+        <div {...stylex.props(
+          editorCanvasStyles.viewport,
+          embedded && editorCanvasStyles.viewportEmbedded,
+          embedded && modePicker && editorCanvasStyles.viewportEmbeddedEmpty,
+        )}
+        >
           <UploadStatus />
-          <div {...stylex.props(editorCanvasStyles.scrolling, embedded && editorCanvasStyles.scrollingEmbedded)}>
+          <div {...stylex.props(
+            editorCanvasStyles.scrolling,
+            embedded && editorCanvasStyles.scrollingEmbedded,
+            embedded && modePicker && editorCanvasStyles.scrollingEmbeddedEmpty,
+          )}
+          >
+            {editing ? null : modePicker?.(beginEditing)}
             <div
               ref={editor.mount}
-              {...stylex.props(editorCanvasStyles.content, embedded && editorCanvasStyles.contentEmbedded)}
+              {...stylex.props(
+                editorCanvasStyles.content,
+                embedded && editorCanvasStyles.contentEmbedded,
+                modePicker && !editing && editorCanvasStyles.contentChoosingMode,
+              )}
               aria-label={t('ui.editorContent')}
               aria-multiline={readOnly ? undefined : 'true'}
               aria-readonly={readOnly ? 'true' : undefined}
               data-editor-content=""
               role={readOnly ? 'document' : 'textbox'}
+              onBlur={() => setEditing(false)}
+              onKeyDown={beginEditing}
+              onPointerDown={beginEditing}
             />
             {readOnly
               ? null

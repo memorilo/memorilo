@@ -1,4 +1,5 @@
 import type {
+  DeleteDesktopNoteImpact,
   DesktopNoteFavoriteState,
   DesktopNoteSummary,
   RenameDesktopNoteInput,
@@ -8,7 +9,7 @@ import type {
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
 import type { TFunction } from 'i18next'
 import type { NoteLibraryColumnId } from './note-library-model'
-import { Button } from '@memorilo/ui'
+import { AlertDialog, Button, ContextMenu } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
@@ -20,6 +21,9 @@ import {
   FileText,
   FileUp,
   LoaderCircle,
+  Pencil,
+  Star,
+  Trash2,
   TriangleAlert,
 } from 'lucide-react'
 import {
@@ -49,6 +53,8 @@ export interface NoteLibraryCommands {
   favorite: (input: SetDesktopNoteFavoriteInput) => Promise<DesktopNoteFavoriteState>
   open: (noteId: string) => Promise<void>
   rename: (input: RenameDesktopNoteInput) => Promise<RenameDesktopNoteResult>
+  getDeleteImpact: (input: { noteId: string }) => Promise<DeleteDesktopNoteImpact>
+  delete: (input: { noteId: string }) => Promise<DeleteDesktopNoteImpact>
   importMarkdown: () => void
 }
 
@@ -77,10 +83,10 @@ function formatDate(value: unknown): string {
   return dayjs(value as Date).format('lll')
 }
 
-function createPagesColumns(commands: NoteLibraryCommands, t: TFunction) {
+function createPagesColumns(commands: NoteLibraryCommands, t: TFunction, renameRequestedId: string | null) {
   return [
     columnHelper.accessor('title', {
-      cell: info => <PagesTitleCell commands={commands} note={info.row.original} t={t} />,
+      cell: info => <PagesTitleCell key={`${info.row.original.id}:${renameRequestedId === info.row.original.id}`} commands={commands} note={info.row.original} renameRequested={renameRequestedId === info.row.original.id} t={t} />,
       header: t('titleColumn'),
       sortDescFirst: false,
     }),
@@ -102,9 +108,14 @@ export function NoteLibraryView({ commands }: { commands: NoteLibraryCommands })
   const scrollElementRef = useRef<HTMLDivElement>(null)
   const [sorting, setSorting] = useState<SortingState>(() => [{ desc: true, id: 'updatedAt' }])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [renameRequestedId, setRenameRequestedId] = useState<string | null>(null)
+  const [context, setContext] = useState<{ note: DesktopNoteSummary, x: number, y: number } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DesktopNoteSummary | null>(null)
+  const [deleteImpact, setDeleteImpact] = useState<DeleteDesktopNoteImpact | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const { sortBy, sortDirection } = resolveNoteLibrarySort(sorting)
   const notesQuery = useInfiniteQuery(noteLibraryQueryOptions(sortBy, sortDirection))
-  const columns = useMemo(() => createPagesColumns(commands, t), [commands, t])
+  const columns = useMemo(() => createPagesColumns(commands, t, renameRequestedId), [commands, renameRequestedId, t])
   const notes = useMemo(() => notesQuery.data
     ? notesQuery.data.pages.flatMap(page => [...page.items])
     : [], [notesQuery.data])
@@ -137,6 +148,31 @@ export function NoteLibraryView({ commands }: { commands: NoteLibraryCommands })
       return { ...current, [columnId]: !visible }
     })
   }, [])
+  const openDeleteConfirmation = useCallback(async (note: DesktopNoteSummary) => {
+    setContext(null)
+    setDeleteLoading(true)
+    try {
+      setDeleteImpact(await commands.getDeleteImpact({ noteId: note.id }))
+      setDeleteTarget(note)
+    }
+    finally {
+      setDeleteLoading(false)
+    }
+  }, [commands])
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget)
+      return
+    setDeleteLoading(true)
+    try {
+      await commands.delete({ noteId: deleteTarget.id })
+      setDeleteTarget(null)
+      setDeleteImpact(null)
+      await notesQuery.refetch()
+    }
+    finally {
+      setDeleteLoading(false)
+    }
+  }, [commands, deleteTarget, notesQuery])
   const titlebar = useMemo(() => ({
     title: t('pageLabel'),
     trailing: (
@@ -361,6 +397,11 @@ export function NoteLibraryView({ commands }: { commands: NoteLibraryCommands })
                                 {...stylex.props(pagesRouteStyles.tableRow)}
                                 aria-rowindex={virtualRow.index + 2}
                                 style={{ transform: `translateY(${virtualRow.start}px)` }}
+                                onContextMenu={(event) => {
+                                  event.preventDefault()
+                                  setRenameRequestedId(null)
+                                  setContext({ note: row.original, x: event.clientX, y: event.clientY })
+                                }}
                               >
                                 {row.getVisibleCells().map(cell => (
                                   <td
@@ -383,6 +424,70 @@ export function NoteLibraryView({ commands }: { commands: NoteLibraryCommands })
           </div>
         </div>
       </section>
+      {context
+        ? (
+            <ContextMenu.Root open position={{ x: context.x, y: context.y }} onOpenChange={open => !open && setContext(null)}>
+              <ContextMenu.Portal>
+                <ContextMenu.Content variant="context" aria-label={context.note.title} xstyle={pagesRouteStyles.contextMenu}>
+                  <ContextMenu.Item xstyle={pagesRouteStyles.contextMenuItem} onSelect={() => void commands.open(context.note.id)}>
+                    <FileText {...stylex.props(pagesRouteStyles.contextMenuIcon)} aria-hidden="true" />
+                    {t('openNote')}
+                  </ContextMenu.Item>
+                  {context.note.kind === 'regular'
+                    ? (
+                        <ContextMenu.Item xstyle={pagesRouteStyles.contextMenuItem} onSelect={() => setRenameRequestedId(context.note.id)}>
+                          <Pencil {...stylex.props(pagesRouteStyles.contextMenuIcon)} aria-hidden="true" />
+                          {t('renameNote')}
+                        </ContextMenu.Item>
+                      )
+                    : null}
+                  <ContextMenu.Item xstyle={pagesRouteStyles.contextMenuItem} onSelect={() => void commands.favorite({ favorite: !context.note.favorite, noteId: context.note.id })}>
+                    <Star {...stylex.props(pagesRouteStyles.contextMenuIcon)} aria-hidden="true" />
+                    {context.note.favorite ? t('removeFromFavorites') : t('addToFavorites')}
+                  </ContextMenu.Item>
+                  <ContextMenu.Item xstyle={pagesRouteStyles.contextMenuItem} disabled={deleteLoading} onSelect={() => void openDeleteConfirmation(context.note)}>
+                    <Trash2 {...stylex.props(pagesRouteStyles.contextMenuIcon)} aria-hidden="true" />
+                    {t('deleteNote')}
+                  </ContextMenu.Item>
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            </ContextMenu.Root>
+          )
+        : null}
+      {deleteTarget && deleteImpact
+        ? (
+            <AlertDialog.Root open onOpenChange={open => !open && !deleteLoading && setDeleteTarget(null)}>
+              <AlertDialog.Portal>
+                <AlertDialog.Overlay />
+                <AlertDialog.Content variant="alert" xstyle={pagesRouteStyles.deleteDialogContent}>
+                  <AlertDialog.Header xstyle={pagesRouteStyles.deleteDialogHeader}>
+                    <AlertDialog.Title xstyle={pagesRouteStyles.deleteDialogTitle}>{t('deleteNoteTitle', { title: deleteTarget.title })}</AlertDialog.Title>
+                  </AlertDialog.Header>
+                  <AlertDialog.Body xstyle={pagesRouteStyles.deleteDialogBody}>
+                    <AlertDialog.Description xstyle={pagesRouteStyles.deleteDialogDescription}>{t('deleteNoteDescription')}</AlertDialog.Description>
+                    <ul {...stylex.props(pagesRouteStyles.deleteImpactList)}>
+                      <li {...stylex.props(pagesRouteStyles.deleteImpactItem)}>{t('deleteImpactCards', { count: deleteImpact.cardCount })}</li>
+                      <li {...stylex.props(pagesRouteStyles.deleteImpactItem)}>{t('deleteImpactTopics', { count: deleteImpact.topicCount })}</li>
+                      <li {...stylex.props(pagesRouteStyles.deleteImpactItem)}>{t('deleteImpactBlocks', { count: deleteImpact.topicBlockCount })}</li>
+                      <li {...stylex.props(pagesRouteStyles.deleteImpactItem)}>{t('deleteImpactAssets', { count: deleteImpact.assetCount, references: deleteImpact.assetReferenceCount })}</li>
+                    </ul>
+                  </AlertDialog.Body>
+                  <AlertDialog.Footer xstyle={pagesRouteStyles.deleteDialogFooter}>
+                    <AlertDialog.Cancel asChild>
+                      <Button xstyle={pagesRouteStyles.deleteDialogCancel} disabled={deleteLoading}>{t('cancel')}</Button>
+                    </AlertDialog.Cancel>
+                    <AlertDialog.Action asChild>
+                      <Button xstyle={pagesRouteStyles.deleteDialogAction} disabled={deleteLoading} onClick={(event) => {
+                        event.preventDefault()
+                        void confirmDelete()
+                      }}>{t('deleteNote')}</Button>
+                    </AlertDialog.Action>
+                  </AlertDialog.Footer>
+                </AlertDialog.Content>
+              </AlertDialog.Portal>
+            </AlertDialog.Root>
+          )
+        : null}
     </main>
   )
 }

@@ -2,7 +2,7 @@ import type { DesktopRegularNote, JournalDate } from '@memorilo/desktop-api'
 import type { ImageOcclusionSnapshot, OpenImageOcclusionInput } from '@memorilo/editor'
 import type { ShelfReadingFormat } from '@memorilo/shelf'
 import type { MarkdownImportValues } from '../markdown-import-dialog'
-import type { BookPickerTarget, EntryCreationTarget, ShelfBookOption } from './note-editor-dialogs'
+import type { BookPickerTarget, EntryActionTarget, EntryCreationTarget, ShelfBookOption } from './note-editor-dialogs'
 import { EditorMode } from '@memorilo/editor'
 import * as stylex from '@stylexjs/stylex'
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,7 +13,7 @@ import { toast } from 'react-toastify/unstyled'
 import { desktopRequests } from '../../../shared/desktop-requests'
 import { MarkdownImportDialog } from '../markdown-import-dialog'
 import { noteQueryKeys } from '../query-keys'
-import { BookTopicPickerDialog, EntryCreationDialog } from './note-editor-dialogs'
+import { BookTopicPickerDialog, EntryCreationDialog, EntryDeleteDialog } from './note-editor-dialogs'
 import { useEditorNoteSession } from './note-editor-session'
 import { NoteEditorView } from './note-editor-view'
 import { useNoteMetadata } from './note-metadata'
@@ -50,6 +50,7 @@ export function NoteEditor({
   const queryClient = useQueryClient()
   const [bookPickerTarget, setBookPickerTarget] = useState<BookPickerTarget | undefined>(undefined)
   const [entryCreationTarget, setEntryCreationTarget] = useState<EntryCreationTarget | undefined>(undefined)
+  const [entryDeleteTarget, setEntryDeleteTarget] = useState<EntryActionTarget | undefined>(undefined)
   const [markdownImport, setMarkdownImport] = useState<{ fileName: string, parentId: string | null, source: string } | null>(null)
   const markdownImportParentId = useRef<string | null>(null)
   const markdownFileInputRef = useRef<HTMLInputElement>(null)
@@ -126,6 +127,43 @@ export function NoteEditor({
     markdownImportParentId.current = parentId
     markdownFileInputRef.current?.click()
   }, [])
+  const findEntryActionTarget = useCallback((entryId: string): EntryActionTarget => {
+    if (!opened)
+      throw new Error('The Note is no longer open')
+    const entry = opened.entries.find(candidate => candidate.id === entryId)
+    if (!entry)
+      throw new Error(`Note entry ${entryId} was not found`)
+    return {
+      entryId,
+      kind: entry.kind === 'folder' ? 'folder' : 'topic',
+      label: entry.kind === 'folder' ? entry.name : entry.title,
+    }
+  }, [opened])
+  const requestDeleteEntry = useCallback((entryId: string) => {
+    setEntryDeleteTarget(findEntryActionTarget(entryId))
+  }, [findEntryActionTarget])
+  const deleteEntry = useCallback(() => {
+    if (!opened || !entryDeleteTarget)
+      throw new Error('The Note is no longer open')
+    const descendants = new Set<string>([entryDeleteTarget.entryId])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const entry of opened.entries) {
+        if (entry.parentId !== null && descendants.has(entry.parentId) && !descendants.has(entry.id)) {
+          descendants.add(entry.id)
+          changed = true
+        }
+      }
+    }
+    const nextTopic = opened.entries.find(entry => entry.kind === 'topic' && !descendants.has(entry.id))
+    if (!nextTopic)
+      throw new Error(t('cannotDeleteLastTopic'))
+    opened.note.deleteEntry({ entryId: entryDeleteTarget.entryId, strategy: 'delete-subtree' })
+    setEntryDeleteTarget(undefined)
+    if (descendants.has(opened.topic.topicId))
+      void onOpenTopic(nextTopic.id)
+  }, [entryDeleteTarget, onOpenTopic, opened, t])
   const confirmMarkdownImport = useCallback(async (values: MarkdownImportValues) => {
     if (!opened || !markdownImport)
       throw new Error('The Note is no longer open')
@@ -220,6 +258,7 @@ export function NoteEditor({
           const format = opened.note.getBookTopic(topicId).getBook().file.format
           setBookPickerTarget({ format, kind: 'rebind', topicId })
         }}
+        onDeleteEntry={requestDeleteEntry}
         onRenameNote={metadata.renameNote}
         onToggleEntry={onToggleEntry}
         onToggleFavorite={metadata.toggleFavorite}
@@ -247,6 +286,9 @@ export function NoteEditor({
               onCreate={label => handleCreateEntry(entryCreationTarget, label)}
             />
           )
+        : null}
+      {entryDeleteTarget !== undefined
+        ? <EntryDeleteDialog target={entryDeleteTarget} onClose={() => setEntryDeleteTarget(undefined)} onDelete={deleteEntry} />
         : null}
       <input
         ref={markdownFileInputRef}

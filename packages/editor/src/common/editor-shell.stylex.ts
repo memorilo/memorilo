@@ -19,6 +19,9 @@ export const editorShellStyles = stylex.create({
     minHeight: 'auto',
     overflow: 'visible',
   },
+  rootEmbeddedEmpty: {
+    minHeight: 'inherit',
+  },
   loading: {
     display: 'grid',
     minHeight: 120,

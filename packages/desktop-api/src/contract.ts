@@ -301,6 +301,15 @@ export interface GetDesktopNoteInput {
   noteId: string
 }
 
+export interface DeleteDesktopNoteImpact {
+  assetCount: number
+  assetReferenceCount: number
+  cardCount: number
+  noteId: string
+  topicBlockCount: number
+  topicCount: number
+}
+
 export interface ListDesktopNotesInput {
   page?: number
   pageSize?: number
@@ -506,6 +515,8 @@ export interface DesktopApi {
   closeBookReadingSession: (sessionId: string) => Promise<boolean>
   createBookContext: (input: { noteTitle: string, readingId: string, topicTitle: string }) => Promise<CreateDesktopBookContextResult>
   createNote: (input?: CreateDesktopNoteInput) => Promise<DesktopNote>
+  deleteNote: (input: GetDesktopNoteInput) => Promise<DeleteDesktopNoteImpact>
+  getDeleteNoteImpact: (input: GetDesktopNoteInput) => Promise<DeleteDesktopNoteImpact>
   deleteShelfReading: (readingId: string) => Promise<boolean>
   exportDatabase: () => Promise<DesktopExportDatabaseResult | { status: 'cancelled' }>
   getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>

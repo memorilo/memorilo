@@ -34,8 +34,8 @@ const settings: DesktopTodoConfiguration = {
   enabled: true,
   keepDetailOpenWhenTaskLeavesView: true,
   recurringTaskCompletionAction: 'archive-completed-to-today',
-  timelineWorkdayEndHour: 21,
-  timelineWorkdayStartHour: 7,
+  timelineWorkdayEndMinutes: 21 * 60,
+  timelineWorkdayStartMinutes: 7 * 60,
 }
 
 vi.mock('@fullcalendar/react', () => ({

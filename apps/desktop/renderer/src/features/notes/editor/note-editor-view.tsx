@@ -63,6 +63,7 @@ export interface NoteEditorViewProps {
   onAddWhiteboard: (parentId: string | null) => void
   onOpenImageOcclusion: (input: OpenImageOcclusionInput) => Promise<void> | void
   onRebindBook: (topicId: string) => void
+  onDeleteEntry: (entryId: string) => void
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
   onToggleEntry: (entryId: string) => void
   onToggleFavorite: () => void
@@ -84,6 +85,7 @@ export function NoteEditorView({
   onAddWhiteboard,
   onOpenImageOcclusion,
   onRebindBook,
+  onDeleteEntry,
   onRenameNote,
   onToggleEntry,
   onToggleFavorite,
@@ -94,6 +96,7 @@ export function NoteEditorView({
   const { t } = useTranslation('editor')
   const { t: tCommon } = useTranslation('common')
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null)
+  const [renamingEntryId, setRenamingEntryId] = useState<string | null>(null)
   const [inspectorVisible, setInspectorVisible] = useNoteInspectorVisibility()
   const configuration = useDesktopConfiguration()
   const flushNotePersistence = useFlushNotePersistence()
@@ -197,6 +200,8 @@ export function NoteEditorView({
     onAddTopic,
     onAddWhiteboard,
     onRebindBook,
+    onRenameEntry: entryId => setRenamingEntryId(entryId),
+    onDeleteEntry,
   })
   const showDocumentMode = useCallback(() => editorTopic?.setMode(EditorMode.Document), [editorTopic])
   const showOutlineMode = useCallback(() => editorTopic?.setMode(EditorMode.Outline), [editorTopic])
@@ -444,7 +449,18 @@ export function NoteEditorView({
         learningEnabled={configuration.learning.enabled}
         note={opened.note}
         noteId={opened.note.id}
+        renamingEntryId={renamingEntryId}
         onToggleEntry={onToggleEntry}
+        onCancelRenameEntry={() => setRenamingEntryId(null)}
+        onRenameEntry={(entryId, label) => {
+          try {
+            opened.note.renameEntry(entryId, label)
+            setRenamingEntryId(null)
+          }
+          catch (error) {
+            toast.error(error instanceof Error ? error.message : String(error))
+          }
+        }}
         open={inspectorVisible}
       />
       {entryContextMenu.menu}

@@ -13,6 +13,9 @@ export function createNoteHandlers(
     getNote(input: Parameters<NoteApplicationService['getNote']>[0]) {
       return application.getNote(input)
     },
+    getDeleteNoteImpact(input: Parameters<NoteApplicationService['getDeleteNoteImpact']>[0]) {
+      return application.getDeleteNoteImpact(input)
+    },
     getTopicBlock(input: Parameters<NoteApplicationService['getTopicBlock']>[0]) {
       return application.getTopicBlock(input)
     },
@@ -54,6 +57,9 @@ export function createNoteHandlers(
     },
     renameNote(input: Parameters<NoteApplicationService['renameNote']>[0]) {
       return application.renameNote(input)
+    },
+    deleteNote(input: Parameters<NoteApplicationService['deleteNote']>[0]) {
+      return application.deleteNote(input)
     },
     saveNoteUpdates(input: Parameters<NoteApplicationService['saveNoteUpdates']>[0]) {
       return application.saveNoteUpdates(input)

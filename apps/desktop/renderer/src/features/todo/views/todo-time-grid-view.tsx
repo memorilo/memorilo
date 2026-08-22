@@ -82,7 +82,7 @@ export function TodoTimeGridView({
   const calendarRootRef = useRef<HTMLDivElement>(null)
   const fullCalendarRef = useRef<FullCalendar>(null)
   const days = mode === 'day' ? 1 : mode === 'multi-day' ? multiDay : mode === 'week' ? 7 : multiWeek * 7
-  const workdayStart = `${String(settings.timelineWorkdayStartHour).padStart(2, '0')}:00:00`
+  const workdayStart = `${String(Math.floor(settings.timelineWorkdayStartMinutes / 60)).padStart(2, '0')}:${String(settings.timelineWorkdayStartMinutes % 60).padStart(2, '0')}:00`
   const calendarEventsForView = useMemo(() => tasks.map((task) => {
     const start = taskStart(task)
     if (!start)
@@ -158,7 +158,7 @@ export function TodoTimeGridView({
         const scroller = root.querySelector<HTMLElement>('.fc-scroller-liquid-absolute')
         if (!scroller || scroller.clientHeight === 0)
           return
-        const visibleSlots = (settings.timelineWorkdayEndHour - settings.timelineWorkdayStartHour) * 2
+        const visibleSlots = (settings.timelineWorkdayEndMinutes - settings.timelineWorkdayStartMinutes) / 30
         root.style.setProperty('--todo-time-grid-slot-height', `${scroller.clientHeight / visibleSlots}px`)
         frame = window.requestAnimationFrame(() => fullCalendarRef.current?.getApi().scrollToTime(workdayStart))
       })
@@ -170,7 +170,7 @@ export function TodoTimeGridView({
       observer.disconnect()
       window.cancelAnimationFrame(frame)
     }
-  }, [days, mode, settings.timelineWorkdayEndHour, settings.timelineWorkdayStartHour, workdayStart])
+  }, [days, mode, settings.timelineWorkdayEndMinutes, settings.timelineWorkdayStartMinutes, workdayStart])
   return (
     <div {...stylex.props(styles.root)} data-todo-time-grid-view>
       <div {...stylex.props(styles.toolbar)}>

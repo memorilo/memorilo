@@ -71,8 +71,8 @@ function runnableConfiguration(configuration: DesktopLanguageConfiguration): Rec
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today',
-      timelineWorkdayEndHour: 21,
-      timelineWorkdayStartHour: 7,
+      timelineWorkdayEndMinutes: 21 * 60,
+      timelineWorkdayStartMinutes: 7 * 60,
     },
     weekStart: 'sunday',
   }

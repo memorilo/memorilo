@@ -95,7 +95,7 @@ export function useCommandPaletteSearch({
     let created = createdNoteRef.current
     if (created === null || created.title !== title) {
       created = {
-        note: await mutateCreateNote({ initialHeading: title, title }),
+        note: await mutateCreateNote({ title }),
         title,
       }
       createdNoteRef.current = created

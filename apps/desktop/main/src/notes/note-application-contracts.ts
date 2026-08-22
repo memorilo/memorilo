@@ -29,6 +29,10 @@ export interface RenameNoteInput {
   title: string
 }
 
+export interface DeleteNoteInput {
+  noteId: string
+}
+
 export interface OpenJournalInput {
   journalDate?: JournalDate
 }

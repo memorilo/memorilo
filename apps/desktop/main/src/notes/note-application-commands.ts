@@ -426,6 +426,11 @@ export function createNoteApplicationCommands({
         throw error
       }
     }),
+    deleteNote: (input: Parameters<EditorStorage['notes']['deleteNote']>[0]) => serialize(async () => {
+      const result = await storage.notes.deleteNote(input)
+      runtime.invalidate(input.noteId)
+      return result
+    }),
     renameTopic: (input: RenameTopicInput) => serialize(async () => {
       const current = await runtime.open(input.noteId)
       assertRevision(current, input.expectedRevision)

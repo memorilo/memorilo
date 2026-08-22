@@ -46,6 +46,7 @@ import {
 } from './schemas/learning'
 import {
   CreateDesktopTodoTaskInputSchema,
+  DeleteDesktopNoteImpactSchema,
   DesktopFavoriteNotesSchema,
   DesktopJournalNoteSchema,
   DesktopJournalPageSchema,
@@ -292,6 +293,7 @@ export const desktopOperationSchemas = {
       title: Schema.optionalKey(Schema.String),
     })), DesktopNoteSchema),
     getNote: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DesktopNoteSchema),
+    getDeleteNoteImpact: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DeleteDesktopNoteImpactSchema),
     getTopicBlock: operation(Schema.Tuple([Schema.Struct({
       blockId: Schema.NonEmptyString,
       noteId: Schema.NonEmptyString,
@@ -392,6 +394,7 @@ export const desktopOperationSchemas = {
       favorite: Schema.Boolean,
       noteId: Schema.NonEmptyString,
     })]), DesktopNoteFavoriteStateSchema),
+    deleteNote: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DeleteDesktopNoteImpactSchema),
   },
   shelf: {
     addSource: operation(Schema.Tuple([AddShelfSourceInputSchema]), ShelfSourceSchema),

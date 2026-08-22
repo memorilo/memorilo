@@ -28,13 +28,14 @@ function displayedNoteTitle(note: DesktopNoteSummary): string {
   return note.kind === 'journal' ? formatJournalHeading(note.journalDate) : note.title
 }
 
-export function PagesTitleCell({ commands, note, t }: {
+export function PagesTitleCell({ commands, note, renameRequested, t }: {
   commands: PagesNoteCommands
   note: DesktopNoteSummary
+  renameRequested?: boolean
   t: TFunction
 }) {
   const [draft, setDraft] = useState(note.title)
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(() => renameRequested === true && note.kind === 'regular')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [favoritePending, setFavoritePending] = useState(false)

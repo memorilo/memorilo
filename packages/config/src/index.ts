@@ -6,6 +6,7 @@ export type {
   SegmentedConfigurationField,
   SelectConfigurationField,
   TextConfigurationField,
+  TimeConfigurationField,
   ToggleConfigurationField,
 } from './configuration-definition'
 export { defineConfiguration } from './configuration-definition'

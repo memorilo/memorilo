@@ -1,5 +1,6 @@
 import type { Schema as EffectSchema } from 'effect'
 import type {
+  DeleteDesktopNoteImpact,
   DesktopFavoriteNoteItem,
   DesktopJournalNote,
   DesktopJournalPage,
@@ -323,6 +324,15 @@ export const RenameDesktopNoteResultSchema: EffectSchema.Codec<RenameDesktopNote
 export const DesktopNoteFavoriteStateSchema: EffectSchema.Codec<DesktopNoteFavoriteState> = Schema.Struct({
   favorite: Schema.Boolean,
   noteId: Schema.NonEmptyString,
+})
+
+export const DeleteDesktopNoteImpactSchema: EffectSchema.Codec<DeleteDesktopNoteImpact> = Schema.Struct({
+  assetCount: Schema.Int,
+  assetReferenceCount: Schema.Int,
+  cardCount: Schema.Int,
+  noteId: Schema.NonEmptyString,
+  topicBlockCount: Schema.Int,
+  topicCount: Schema.Int,
 })
 
 export const DesktopNoteWriteReceiptSchema: EffectSchema.Codec<DesktopNoteWriteReceipt> = Schema.Struct({

@@ -1,7 +1,7 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import { ContextMenu } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, ChevronRight, CircleAlert, FileText, FileUp, Folder, PenLine, Plus, RefreshCw, Table2 } from 'lucide-react'
+import { BookOpen, ChevronRight, CircleAlert, FileText, FileUp, Folder, Pencil, PenLine, Plus, RefreshCw, Table2, Trash2 } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
@@ -17,6 +17,7 @@ interface ContainerEntryContextMenu extends EntryContextMenuBase {
   allowFolder: boolean
   kind: 'container'
   parentId: string | null
+  target?: { entryId: string, label: string }
 }
 
 type BookResourceState = 'available' | 'checking' | 'error' | 'missing'
@@ -26,6 +27,7 @@ interface BookEntryContextMenu extends EntryContextMenuBase {
   readingId: string
   resourceState: BookResourceState
   topicId: string
+  target: { entryId: string, label: string }
 }
 
 type EntryContextMenu = BookEntryContextMenu | ContainerEntryContextMenu
@@ -38,12 +40,14 @@ interface NoteEntryContextMenuActions {
   onAddTopic: (parentId: string | null) => void
   onAddWhiteboard: (parentId: string | null) => void
   onRebindBook: (topicId: string) => void
+  onRenameEntry: (entryId: string) => void
+  onDeleteEntry: (entryId: string) => void
 }
 
 interface NoteEntryContextMenuController {
   menu: ReactNode
-  openBook: (event: ReactMouseEvent, topicId: string, readingId: string) => void
-  openContainer: (event: ReactMouseEvent, parentId: string | null, allowFolder: boolean) => void
+  openBook: (event: ReactMouseEvent, topicId: string, readingId: string, label?: string) => void
+  openContainer: (event: ReactMouseEvent, parentId: string | null, allowFolder: boolean, target?: { entryId: string, label: string }) => void
 }
 
 export function useNoteEntryContextMenu({
@@ -54,6 +58,8 @@ export function useNoteEntryContextMenu({
   onAddTopic,
   onAddWhiteboard,
   onRebindBook,
+  onRenameEntry,
+  onDeleteEntry,
 }: NoteEntryContextMenuActions): NoteEntryContextMenuController {
   const { t } = useTranslation('editor')
   const [addSubmenuOpen, setAddSubmenuOpen] = useState(false)
@@ -74,14 +80,15 @@ export function useNoteEntryContextMenu({
     event: ReactMouseEvent,
     parentId: string | null,
     allowFolder: boolean,
+    target?: { entryId: string, label: string },
   ) => {
     event.preventDefault()
     availability.invalidate('availability')
     setAddSubmenuOpen(false)
-    setContextMenu({ allowFolder, kind: 'container', parentId, x: event.clientX, y: event.clientY })
+    setContextMenu({ allowFolder, kind: 'container', parentId, ...(target === undefined ? {} : { target }), x: event.clientX, y: event.clientY })
   }, [availability])
 
-  const openBook = useCallback((event: ReactMouseEvent, topicId: string, readingId: string) => {
+  const openBook = useCallback((event: ReactMouseEvent, topicId: string, readingId: string, label = '') => {
     event.preventDefault()
     setAddSubmenuOpen(false)
     setContextMenu({
@@ -89,6 +96,7 @@ export function useNoteEntryContextMenu({
       readingId,
       resourceState: 'checking',
       topicId,
+      target: { entryId: topicId, label },
       x: event.clientX,
       y: event.clientY,
     })
@@ -124,8 +132,8 @@ export function useNoteEntryContextMenu({
     const menuGap = 4
     const menuPadding = 8
     const menuItemHeight = 30
-    const mainItemCount = contextMenu.kind === 'book' && contextMenu.resourceState !== 'available' ? 2 : 1
-    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 6 : 5
+    const mainItemCount = 4 + (contextMenu.kind === 'book' && contextMenu.resourceState !== 'available' ? 1 : 0)
+    const submenuItemCount = contextMenu.kind === 'container' && contextMenu.allowFolder ? 5 : 4
     const requiredHeight = Math.max(
       menuPadding + mainItemCount * menuItemHeight,
       menuPadding + submenuItemCount * menuItemHeight,
@@ -226,18 +234,6 @@ export function useNoteEntryContextMenu({
                             role="menuitem"
                             type="button"
                             onClick={() => {
-                              onImportMarkdown(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
-                              close()
-                            }}
-                          >
-                            <FileUp aria-hidden="true" size={14} strokeWidth={1.8} />
-                            {t('importMarkdown')}
-                          </button>
-                          <button
-                            {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
-                            role="menuitem"
-                            type="button"
-                            onClick={() => {
                               onAddWhiteboard(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
                               close()
                             }}
@@ -257,14 +253,14 @@ export function useNoteEntryContextMenu({
                             <Table2 aria-hidden="true" size={14} strokeWidth={1.8} />
                             {t('spreadsheet.label')}
                           </button>
-                          {contextMenu.kind === 'container' && contextMenu.allowFolder
+                          {(contextMenu.kind === 'book' || contextMenu.allowFolder)
                             ? (
                                 <button
                                   {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
                                   role="menuitem"
                                   type="button"
                                   onClick={() => {
-                                    onAddFolder(contextMenu.parentId)
+                                    onAddFolder(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
                                     close()
                                   }}
                                 >
@@ -289,6 +285,56 @@ export function useNoteEntryContextMenu({
                       )
                     : null}
                 </div>
+                <div {...stylex.props(noteEntryContextMenuStyles.entryContextMenuSeparator)} role="separator" />
+                <button
+                  {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                  role="menuitem"
+                  type="button"
+                  onFocus={() => setAddSubmenuOpen(false)}
+                  onPointerEnter={() => setAddSubmenuOpen(false)}
+                  onClick={() => {
+                    onImportMarkdown(contextMenu.kind === 'book' ? contextMenu.topicId : contextMenu.parentId)
+                    close()
+                  }}
+                >
+                  <FileUp aria-hidden="true" size={14} strokeWidth={1.8} />
+                  {t('importMarkdown')}
+                </button>
+                {contextMenu.target !== undefined
+                  ? (
+                      <>
+                        <div {...stylex.props(noteEntryContextMenuStyles.entryContextMenuSeparator)} role="separator" />
+                        <button
+                          {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onFocus={() => setAddSubmenuOpen(false)}
+                          onPointerEnter={() => setAddSubmenuOpen(false)}
+                          onClick={() => {
+                            onRenameEntry(contextMenu.target!.entryId)
+                            close()
+                          }}
+                        >
+                          <Pencil aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('renameEntry')}
+                        </button>
+                        <button
+                          {...stylex.props(noteEntryContextMenuStyles.entryContextMenuItem)}
+                          role="menuitem"
+                          type="button"
+                          onFocus={() => setAddSubmenuOpen(false)}
+                          onPointerEnter={() => setAddSubmenuOpen(false)}
+                          onClick={() => {
+                            onDeleteEntry(contextMenu.target!.entryId)
+                            close()
+                          }}
+                        >
+                          <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
+                          {t('deleteEntry')}
+                        </button>
+                      </>
+                    )
+                  : null}
                 {contextMenu.kind === 'book' && contextMenu.resourceState === 'missing'
                   ? (
                       <button

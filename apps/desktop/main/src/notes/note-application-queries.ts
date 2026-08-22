@@ -38,6 +38,7 @@ interface NoteApplicationQueriesDependencies {
 export function createNoteApplicationQueries({ runtime, storage, today }: NoteApplicationQueriesDependencies) {
   const serialize = <Result>(operation: () => Promise<Result>): Promise<Result> => runtime.run(operation)
   return {
+    getDeleteNoteImpact: (input: Parameters<EditorStorage['notes']['getDeleteNoteImpact']>[0]) => serialize(() => storage.notes.getDeleteNoteImpact(input)),
     getBookTopicReadingContext: (input: { noteId: string, topicId: string }) => serialize(async () => (
       projectBookTopicReadingContext(storage, await runtime.open(input.noteId), input.topicId)
     )),

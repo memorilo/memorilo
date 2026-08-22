@@ -93,20 +93,20 @@ export const DesktopConfigurationSchema = Schema.Struct({
       'place-next-after-completed',
       'replace-completed',
     ]),
-    timelineWorkdayEndHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 1 })),
-    timelineWorkdayStartHour: Schema.Int.check(Schema.isBetween({ maximum: 23, minimum: 0 })),
+    timelineWorkdayEndMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_439, minimum: 1 })),
+    timelineWorkdayStartMinutes: Schema.Int.check(Schema.isBetween({ maximum: 1_439, minimum: 0 })),
   }),
   weekStart: Schema.Literals(['monday', 'sunday']),
 }).check(Schema.makeFilter(configuration => configuration.mcp.enabled && configuration.mcp.accessToken.length < 32
   ? { message: 'MCP requires an access token containing at least 32 characters', path: ['mcp', 'accessToken'] }
-  : configuration.todo.timelineWorkdayEndHour <= configuration.todo.timelineWorkdayStartHour
-    ? { message: 'Todo workday end must be later than its start', path: ['todo', 'timelineWorkdayEndHour'] }
+  : configuration.todo.timelineWorkdayEndMinutes <= configuration.todo.timelineWorkdayStartMinutes
+    ? { message: 'Todo workday end must be later than its start', path: ['todo', 'timelineWorkdayEndMinutes'] }
     : undefined))
 
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
     backup: {
-      enabled: false,
+      enabled: true,
       intervalMinutes: 1_440,
       retentionCount: 7,
     },
@@ -136,8 +136,8 @@ export const desktopConfigurationDefinition = defineConfiguration({
       enabled: true,
       keepDetailOpenWhenTaskLeavesView: true,
       recurringTaskCompletionAction: 'archive-completed-to-today' as const,
-      timelineWorkdayEndHour: 21,
-      timelineWorkdayStartHour: 7,
+      timelineWorkdayEndMinutes: 21 * 60,
+      timelineWorkdayStartMinutes: 7 * 60,
     },
     weekStart: 'sunday' as const,
   },
@@ -170,16 +170,16 @@ export const desktopConfigurationDefinition = defineConfiguration({
         label: 'Reduce motion',
         path: 'reduceMotion',
       },
-      {
-        control: 'toggle',
-        label: 'Enable learning for new Notes',
-        path: 'defaultNoteLearningEnabled',
-      },
     ],
     id: 'general',
     label: 'General',
   }, {
     fields: [{
+      control: 'toggle',
+      description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
+      label: 'Enable Todo workspace',
+      path: 'todo.enabled',
+    }, {
       control: 'toggle',
       description: 'Complete a Todo parent when all of its direct Todo children are complete, and reopen it when one is reopened.',
       label: 'Auto-complete parent Todos',
@@ -194,28 +194,19 @@ export const desktopConfigurationDefinition = defineConfiguration({
       step: 5,
       unit: 'minutes',
     }, {
-      control: 'number',
-      description: 'First visible hour in the Todo timeline.',
+      control: 'time',
+      description: 'First visible time in the Todo timeline.',
       label: 'Timeline workday starts at',
-      max: 23,
+      max: 1_439,
       min: 0,
-      path: 'todo.timelineWorkdayStartHour',
-      step: 1,
-      unit: 'hour',
+      path: 'todo.timelineWorkdayStartMinutes',
     }, {
-      control: 'number',
-      description: 'Last visible hour in the Todo timeline.',
+      control: 'time',
+      description: 'Last visible time in the Todo timeline.',
       label: 'Timeline workday ends at',
-      max: 23,
+      max: 1_439,
       min: 1,
-      path: 'todo.timelineWorkdayEndHour',
-      step: 1,
-      unit: 'hour',
-    }, {
-      control: 'toggle',
-      description: 'Show the Todo workspace without changing Todo blocks inside the editor.',
-      label: 'Enable Todo workspace',
-      path: 'todo.enabled',
+      path: 'todo.timelineWorkdayEndMinutes',
     }, {
       control: 'toggle',
       description: 'Keep the selected task open when a change removes it from the current Todo view.',
@@ -243,6 +234,10 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Enable flashcards, cloze authoring, FSRS scheduling, learning pages, and image occlusion.',
       label: 'Enable learning features',
       path: 'learning.enabled',
+    }, {
+      control: 'toggle',
+      label: 'Enable learning for new Notes',
+      path: 'defaultNoteLearningEnabled',
     }],
     id: 'learning',
     label: 'Learning',
@@ -428,8 +423,8 @@ export const desktopConfigurationDefinition = defineConfiguration({
   }, {
     fields: [{
       control: 'select',
-      description: 'TIFF images are converted to a browser-compatible format before being stored.',
-      label: 'TIFF conversion format',
+      description: 'Images in formats that cannot be displayed directly are converted to this browser-compatible format before being stored.',
+      label: 'Preferred format for unsupported images',
       options: [
         { label: 'WebP', value: 'webp' },
         { label: 'PNG', value: 'png' },
