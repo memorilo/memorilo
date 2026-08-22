@@ -22,6 +22,7 @@ export type {
   CreateBookNoteResult,
   CreateNoteInput,
   CreateTodoTaskInput,
+  DeleteNoteInput,
   GetNoteCardProjectionInput,
   ListJournalDatesInput,
   ListPastJournalsInput,

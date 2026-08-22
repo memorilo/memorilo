@@ -1,6 +1,7 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
 import type { EditorNoteRecords } from './editor-note-records'
 import type {
+  DeleteNoteImpact,
   FavoriteNoteItem,
   GetNoteInput,
   ListNoteActivityInput,
@@ -129,6 +130,70 @@ export class EditorNoteLibrary {
         throw new Error(`Unknown Note: ${input.noteId}`)
       return { favorite: row.favorite === 1, noteId: input.noteId }
     })
+  }
+
+  readonly getDeleteNoteImpact = (input: GetNoteInput): Promise<DeleteNoteImpact> => {
+    assertNonEmpty(input.noteId, 'Note id')
+    return this.#options.runOperation(() => this.readDeleteNoteImpact(input.noteId))
+  }
+
+  readonly deleteNote = (input: GetNoteInput): Promise<DeleteNoteImpact> => {
+    assertNonEmpty(input.noteId, 'Note id')
+    return this.#options.runOperation(async () => {
+      const impact = await this.readDeleteNoteImpact(input.noteId)
+      const note = await this.#options.database.get<{ row_id: number }>('SELECT row_id FROM notes WHERE id = ?', [input.noteId])
+      if (!note)
+        throw new Error(`Unknown Note: ${input.noteId}`)
+      const blocks = await this.#options.database.all<{ row_id: number }>('SELECT row_id FROM topic_blocks WHERE note_row_id = ?', [note.row_id])
+      const cards = await this.#options.database.all<{ card_id: string }>('SELECT card_id FROM learning_cards WHERE note_id = ?', [input.noteId])
+      const commands: DatabaseCommand[] = blocks.flatMap<DatabaseCommand>(block => [
+        { parameters: [block.row_id], sql: 'DELETE FROM topic_block_embeddings WHERE block_row_id = ?' },
+        { parameters: [block.row_id], sql: 'DELETE FROM topic_block_embedding_state WHERE block_row_id = ?' },
+      ])
+      commands.push(
+        { parameters: [input.noteId], sql: 'DELETE FROM learning_review_events WHERE note_id = ?' },
+        { parameters: [input.noteId], sql: 'DELETE FROM learning_sibling_bury_events WHERE note_id = ?' },
+        { parameters: [input.noteId], sql: 'DELETE FROM learning_note_optimizer_assignments WHERE note_id = ?' },
+        { parameters: [input.noteId], sql: 'DELETE FROM learning_cards WHERE note_id = ?' },
+        { parameters: [input.noteId], sql: 'DELETE FROM learning_sync_outbox WHERE entity_kind = \'assignment\' AND entity_id = ?' },
+        { parameters: [note.row_id], sql: 'DELETE FROM notes WHERE row_id = ?' },
+      )
+      for (const card of cards)
+        commands.push({ parameters: [card.card_id], sql: 'DELETE FROM learning_sync_outbox WHERE entity_kind = \'card\' AND entity_id = ?' })
+      await this.#options.database.batch(commands)
+      return impact
+    })
+  }
+
+  private async readDeleteNoteImpact(noteId: string): Promise<DeleteNoteImpact> {
+    const row = await this.#options.database.get<{
+      asset_count: number
+      asset_reference_count: number
+      card_count: number
+      note_row_id: number
+      topic_block_count: number
+      topic_count: number
+    }>(`
+      SELECT
+        note.row_id AS note_row_id,
+        (SELECT COUNT(*) FROM topics WHERE note_row_id = note.row_id) AS topic_count,
+        (SELECT COUNT(*) FROM topic_blocks WHERE note_row_id = note.row_id) AS topic_block_count,
+        (SELECT COUNT(*) FROM learning_cards WHERE note_id = note.id) AS card_count,
+        (SELECT COALESCE(SUM(reference_count), 0) FROM note_asset_references WHERE note_row_id = note.row_id) AS asset_reference_count,
+        (SELECT COUNT(*) FROM note_asset_references AS refs WHERE refs.note_row_id = note.row_id AND NOT EXISTS (SELECT 1 FROM note_asset_references AS other WHERE other.asset_file_name = refs.asset_file_name AND other.note_row_id <> refs.note_row_id)) AS asset_count
+      FROM notes AS note
+      WHERE note.id = ?
+    `, [noteId])
+    if (!row)
+      throw new Error(`Unknown Note: ${noteId}`)
+    return {
+      assetCount: row.asset_count,
+      assetReferenceCount: row.asset_reference_count,
+      cardCount: row.card_count,
+      noteId,
+      topicBlockCount: row.topic_block_count,
+      topicCount: row.topic_count,
+    }
   }
 
   readonly listFavoriteNotes = (input: ListNoteActivityInput = {}): Promise<readonly FavoriteNoteItem[]> => {

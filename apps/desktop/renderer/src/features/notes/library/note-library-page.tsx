@@ -1,4 +1,5 @@
 import type {
+  DeleteDesktopNoteImpact,
   DesktopNoteFavoriteState,
   DesktopNotePage,
   JournalDate,
@@ -80,6 +81,14 @@ export function NoteLibraryPage({
     (input: SetDesktopNoteFavoriteInput): Promise<DesktopNoteFavoriteState> => mutateFavoriteNote(input),
     [mutateFavoriteNote],
   )
+  const getDeleteImpact = useCallback(
+    (input: { noteId: string }): Promise<DeleteDesktopNoteImpact> => desktopRequests.getDeleteNoteImpact(input),
+    [],
+  )
+  const deleteNote = useCallback(
+    (input: { noteId: string }): Promise<DeleteDesktopNoteImpact> => desktopRequests.deleteNote(input),
+    [],
+  )
   const openSelectedNote = useCallback(
     (noteId: string) => openStoredNote(noteId, onOpenJournal, onOpenNote),
     [onOpenJournal, onOpenNote],
@@ -102,7 +111,9 @@ export function NoteLibraryPage({
     importMarkdown,
     open: openSelectedNote,
     rename: renameNote,
-  }), [favoriteNote, importMarkdown, openSelectedNote, renameNote])
+    getDeleteImpact,
+    delete: deleteNote,
+  }), [deleteNote, favoriteNote, getDeleteImpact, importMarkdown, openSelectedNote, renameNote])
 
   return (
     <>

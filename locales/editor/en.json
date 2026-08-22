@@ -98,6 +98,12 @@
   "closeEntryDialog": "Close",
   "create": "Create",
   "importMarkdown": "Import Markdown",
+  "renameEntry": "Rename",
+  "deleteEntry": "Delete",
+  "deleteEntryTitle": "Delete {{name}}?",
+  "deleteFolderDescription": "This folder and every item inside it will be permanently deleted. This action cannot be undone.",
+  "deleteTopicDescription": "This topic and every child item inside it will be permanently deleted. This action cannot be undone.",
+  "cannotDeleteLastTopic": "A Note must contain at least one Topic.",
   "markdownImport": {
     "title": "Import Markdown",
     "close": "Close Markdown import",

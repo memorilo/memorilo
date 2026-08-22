@@ -98,6 +98,12 @@
   "closeEntryDialog": "关闭",
   "create": "创建",
   "importMarkdown": "导入 Markdown",
+  "renameEntry": "重命名",
+  "deleteEntry": "删除",
+  "deleteEntryTitle": "删除 {{name}}？",
+  "deleteFolderDescription": "此文件夹及其中的所有项目将被永久删除。此操作无法撤销。",
+  "deleteTopicDescription": "此主题及其中的所有子项目将被永久删除。此操作无法撤销。",
+  "cannotDeleteLastTopic": "一个 Note 必须至少保留一个 Topic。",
   "markdownImport": {
     "title": "导入 Markdown",
     "close": "关闭 Markdown 导入",

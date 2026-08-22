@@ -218,6 +218,15 @@ export interface GetNoteInput {
   noteId: string
 }
 
+export interface DeleteNoteImpact {
+  assetCount: number
+  assetReferenceCount: number
+  cardCount: number
+  noteId: string
+  topicBlockCount: number
+  topicCount: number
+}
+
 export interface ListNotesInput {
   page?: number
   pageSize?: number
@@ -582,6 +591,8 @@ export interface EditorNoteStorage {
   checkpointNote: (input: CheckpointNoteInput) => Promise<NoteWriteReceipt>
   createInitializedNote: (input: CreateInitializedNoteInput) => Promise<StoredNote>
   createNote: (input?: CreateNoteInput) => Promise<StoredNote>
+  deleteNote: (input: GetNoteInput) => Promise<DeleteNoteImpact>
+  getDeleteNoteImpact: (input: GetNoteInput) => Promise<DeleteNoteImpact>
   getNote: (input: GetNoteInput) => Promise<StoredNote>
   getNoteFavorite: (input: GetNoteInput) => Promise<NoteFavoriteState>
   listFavoriteNotes: (input?: ListNoteActivityInput) => Promise<readonly FavoriteNoteItem[]>

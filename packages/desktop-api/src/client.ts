@@ -121,6 +121,7 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
     createNote: input => input === undefined
       ? rpc('notes', 'createNote')
       : rpc('notes', 'createNote', input),
+    deleteNote: input => rpc('notes', 'deleteNote', input),
     deleteShelfReading: readingId => rpc('shelf', 'deleteReading', readingId),
     exportDatabase: () => rpc('backup', 'exportDatabase'),
     getCachedShelfView: input => rpc('shelf', 'getCachedView', input),
@@ -130,6 +131,7 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
       DesktopConfigurationSchema,
     ),
     getNote: input => rpc('notes', 'getNote', input),
+    getDeleteNoteImpact: input => rpc('notes', 'getDeleteNoteImpact', input),
     getRuntimeInfo: async () => decodeDesktopHonoResponse(
       'app.getRuntimeInfo',
       await portableClient.app.runtime.$get(),

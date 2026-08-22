@@ -72,4 +72,12 @@ export const noteEntryContextMenuStyles = stylex.create({
   entryContextMenuItemTrailing: {
     marginLeft: 'auto',
   },
+  entryContextMenuSeparator: {
+    height: 1,
+    marginTop: 4,
+    marginRight: 7,
+    marginBottom: 4,
+    marginLeft: 7,
+    backgroundColor: 'rgba(72, 80, 93, 0.12)',
+  },
 })

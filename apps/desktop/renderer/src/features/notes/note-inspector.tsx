@@ -4,7 +4,7 @@ import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
 import { BookOpen, Brackets, ChevronRight, CreditCard, FileText, Folder, FolderOpen, Highlighter, Link2, ListChecks, ListOrdered, PenLine, ScanLine, Table2, Unlink } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { projectVisibleNoteEntries } from './note-entry-tree'
 import { noteInspectorStyles } from './note-inspector.stylex'
@@ -56,6 +56,73 @@ function CardTopicIcon({
   )
 }
 
+function EditableEntryLabel({
+  entryId,
+  label,
+  renaming,
+  onCancel,
+  onCommit,
+}: {
+  entryId: string
+  label: string
+  renaming: boolean
+  onCancel?: () => void
+  onCommit?: (label: string) => void
+}) {
+  if (!renaming)
+    return <span {...stylex.props(noteInspectorStyles.entryLabel)}>{label}</span>
+  return (
+    <EntryRenameInput
+      entryId={entryId}
+      label={label}
+      onCancel={onCancel}
+      onCommit={onCommit}
+    />
+  )
+}
+
+function EntryRenameInput({
+  entryId,
+  label,
+  onCancel,
+  onCommit,
+}: {
+  entryId: string
+  label: string
+  onCancel?: () => void
+  onCommit?: (label: string) => void
+}) {
+  const [draft, setDraft] = useState(label)
+  const commit = () => {
+    const next = draft.trim()
+    if (next.length === 0) {
+      onCancel?.()
+      return
+    }
+    onCommit?.(next)
+  }
+  return (
+    <input
+      {...stylex.props(noteInspectorStyles.entryRenameInput)}
+      autoFocus
+      data-renaming-entry={entryId}
+      value={draft}
+      onBlur={commit}
+      onChange={event => setDraft(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          commit()
+        }
+        else if (event.key === 'Escape') {
+          event.preventDefault()
+          onCancel?.()
+        }
+      }}
+    />
+  )
+}
+
 export function NoteInspector({
   collapsedEntryIds,
   contextMenu,
@@ -64,19 +131,25 @@ export function NoteInspector({
   learningEnabled = true,
   note,
   noteId,
+  renamingEntryId,
+  onCancelRenameEntry,
+  onRenameEntry,
   onToggleEntry,
   open,
 }: {
   collapsedEntryIds: ReadonlySet<string>
   contextMenu?: {
-    onOpenBook: (event: ReactMouseEvent, topicId: string, readingId: string) => void
-    onOpenContainer: (event: ReactMouseEvent, parentId: string | null, allowFolder: boolean) => void
+    onOpenBook: (event: ReactMouseEvent, topicId: string, readingId: string, label?: string) => void
+    onOpenContainer: (event: ReactMouseEvent, parentId: string | null, allowFolder: boolean, target?: { entryId: string, label: string }) => void
   }
   currentTopicId: string
   entries: readonly NoteEntrySnapshot[]
   learningEnabled?: boolean
   note: Pick<EditorNote, 'getLearningEnabled' | 'setLearningEnabled'>
   noteId: string
+  renamingEntryId?: string | null
+  onCancelRenameEntry?: () => void
+  onRenameEntry?: (entryId: string, label: string) => void
   onToggleEntry: (entryId: string) => void
   open: boolean
 }) {
@@ -111,6 +184,9 @@ export function NoteInspector({
                 learningEnabled={learningEnabled}
                 note={note}
                 noteId={noteId}
+                renamingEntryId={renamingEntryId}
+                onCancelRenameEntry={onCancelRenameEntry}
+                onRenameEntry={onRenameEntry}
                 onToggleEntry={onToggleEntry}
               />
             </motion.aside>
@@ -128,19 +204,25 @@ export function NoteInspectorContent({
   learningEnabled = true,
   note,
   noteId,
+  renamingEntryId,
+  onCancelRenameEntry,
+  onRenameEntry,
   onToggleEntry,
   showTitle = true,
 }: {
   collapsedEntryIds: ReadonlySet<string>
   contextMenu?: {
-    onOpenBook: (event: ReactMouseEvent, topicId: string, readingId: string) => void
-    onOpenContainer: (event: ReactMouseEvent, parentId: string | null, allowFolder: boolean) => void
+    onOpenBook: (event: ReactMouseEvent, topicId: string, readingId: string, label?: string) => void
+    onOpenContainer: (event: ReactMouseEvent, parentId: string | null, allowFolder: boolean, target?: { entryId: string, label: string }) => void
   }
   currentTopicId: string
   entries: readonly NoteEntrySnapshot[]
   learningEnabled?: boolean
   note: Pick<EditorNote, 'getLearningEnabled' | 'setLearningEnabled'>
   noteId: string
+  renamingEntryId?: string | null
+  onCancelRenameEntry?: () => void
+  onRenameEntry?: (entryId: string, label: string) => void
   onToggleEntry: (entryId: string) => void
   showTitle?: boolean
 }) {
@@ -209,6 +291,7 @@ export function NoteInspectorContent({
                 const collapsed = collapsedEntryIds.has(entry.id)
                 const label = entry.kind === 'folder' ? entry.name : entry.title || t('untitledTopic')
                 const current = entry.kind === 'topic' && entry.id === currentTopicId
+                const renaming = renamingEntryId === entry.id
                 const cardSource = entry.kind === 'topic' && entry.topicType === 'regular'
                   ? entry.cardSource
                   : undefined
@@ -218,8 +301,9 @@ export function NoteInspectorContent({
                         event,
                         entry.id,
                         bookTopicReadingId(entry),
+                        label,
                       )
-                    : (event: ReactMouseEvent) => contextMenu.onOpenContainer(event, entry.id, false)
+                    : (event: ReactMouseEvent) => contextMenu.onOpenContainer(event, entry.id, true, { entryId: entry.id, label })
                   : undefined
 
                 return (
@@ -237,33 +321,63 @@ export function NoteInspectorContent({
                     transition={entryTransition}
                   >
                     {entry.kind === 'folder'
-                      ? (
-                          <button
-                            {...stylex.props(noteInspectorStyles.folderEntryButton)}
-                            aria-expanded={hasChildren ? !collapsed : undefined}
-                            disabled={!hasChildren}
-                            title={label}
-                            type="button"
-                            onClick={() => onToggleEntry(entry.id)}
-                            onContextMenu={contextMenu === undefined
-                              ? undefined
-                              : event => contextMenu.onOpenContainer(event, entry.id, true)}
-                          >
-                            <motion.span
-                              {...stylex.props(noteInspectorStyles.entryDisclosure)}
-                              animate={{ rotate: hasChildren && !collapsed ? 90 : 0 }}
-                              transition={entryTransition}
+                      ? renaming
+                        ? (
+                            <div {...stylex.props(noteInspectorStyles.folderEntryButton)} title={label}>
+                              <motion.span
+                                {...stylex.props(noteInspectorStyles.entryDisclosure)}
+                                animate={{ rotate: hasChildren && !collapsed ? 90 : 0 }}
+                                transition={entryTransition}
+                              >
+                                {hasChildren
+                                  ? <ChevronRight aria-hidden="true" size={12} strokeWidth={1.9} />
+                                  : null}
+                              </motion.span>
+                              {hasChildren && !collapsed
+                                ? <FolderOpen {...stylex.props(noteInspectorStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />
+                                : <Folder {...stylex.props(noteInspectorStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />}
+                              <EditableEntryLabel
+                                entryId={entry.id}
+                                label={label}
+                                renaming
+                                onCancel={onCancelRenameEntry}
+                                onCommit={nextLabel => onRenameEntry?.(entry.id, nextLabel)}
+                              />
+                            </div>
+                          )
+                        : (
+                            <button
+                              {...stylex.props(noteInspectorStyles.folderEntryButton)}
+                              aria-expanded={hasChildren ? !collapsed : undefined}
+                              disabled={!hasChildren}
+                              title={label}
+                              type="button"
+                              onClick={() => onToggleEntry(entry.id)}
+                              onContextMenu={contextMenu === undefined
+                                ? undefined
+                                : event => contextMenu.onOpenContainer(event, entry.id, true, { entryId: entry.id, label })}
                             >
-                              {hasChildren
-                                ? <ChevronRight aria-hidden="true" size={12} strokeWidth={1.9} />
-                                : null}
-                            </motion.span>
-                            {hasChildren && !collapsed
-                              ? <FolderOpen {...stylex.props(noteInspectorStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />
-                              : <Folder {...stylex.props(noteInspectorStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />}
-                            <span {...stylex.props(noteInspectorStyles.entryLabel)}>{label}</span>
-                          </button>
-                        )
+                              <motion.span
+                                {...stylex.props(noteInspectorStyles.entryDisclosure)}
+                                animate={{ rotate: hasChildren && !collapsed ? 90 : 0 }}
+                                transition={entryTransition}
+                              >
+                                {hasChildren
+                                  ? <ChevronRight aria-hidden="true" size={12} strokeWidth={1.9} />
+                                  : null}
+                              </motion.span>
+                              {hasChildren && !collapsed
+                                ? <FolderOpen {...stylex.props(noteInspectorStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />
+                                : <Folder {...stylex.props(noteInspectorStyles.folderIcon)} aria-hidden="true" size={15} strokeWidth={1.7} />}
+                              <EditableEntryLabel
+                                entryId={entry.id}
+                                label={label}
+                                renaming={false}
+                                onCancel={onCancelRenameEntry}
+                                onCommit={nextLabel => onRenameEntry?.(entry.id, nextLabel)}
+                              />
+                            </button>
+                          )
                       : (
                           <div {...stylex.props(noteInspectorStyles.topicEntry)} onContextMenu={topicContextMenu}>
                             {hasChildren
@@ -347,38 +461,74 @@ export function NoteInspectorContent({
                                           />
                                         )}
                             {entry.topicType === 'book'
-                              ? (
-                                  <Link
-                                    {...stylex.props(
-                                      noteInspectorStyles.topicLink,
-                                      current && noteInspectorStyles.topicLinkCurrent,
-                                    )}
-                                    aria-current={current ? 'page' : undefined}
-                                    params={{ readingId: bookTopicReadingId(entry) }}
-                                    preload="intent"
-                                    search={{ noteId, topicId: entry.id }}
-                                    title={label}
-                                    to="/reader/$readingId"
-                                  >
-                                    <span {...stylex.props(noteInspectorStyles.entryLabel)}>{label}</span>
-                                  </Link>
-                                )
-                              : (
-                                  <Link
-                                    {...stylex.props(
-                                      noteInspectorStyles.topicLink,
-                                      current && noteInspectorStyles.topicLinkCurrent,
-                                    )}
-                                    aria-current={current ? 'page' : undefined}
-                                    params={{ noteId, topicId: entry.id }}
-                                    preload="intent"
-                                    search={{}}
-                                    title={label}
-                                    to="/note/$noteId/$topicId"
-                                  >
-                                    <span {...stylex.props(noteInspectorStyles.entryLabel)}>{label}</span>
-                                  </Link>
-                                )}
+                              ? renaming
+                                ? (
+                                    <span {...stylex.props(noteInspectorStyles.topicLink, current && noteInspectorStyles.topicLinkCurrent)}>
+                                      <EditableEntryLabel
+                                        entryId={entry.id}
+                                        label={label}
+                                        renaming
+                                        onCancel={onCancelRenameEntry}
+                                        onCommit={nextLabel => onRenameEntry?.(entry.id, nextLabel)}
+                                      />
+                                    </span>
+                                  )
+                                : (
+                                    <Link
+                                      {...stylex.props(
+                                        noteInspectorStyles.topicLink,
+                                        current && noteInspectorStyles.topicLinkCurrent,
+                                      )}
+                                      aria-current={current ? 'page' : undefined}
+                                      params={{ readingId: bookTopicReadingId(entry) }}
+                                      preload="intent"
+                                      search={{ noteId, topicId: entry.id }}
+                                      title={label}
+                                      to="/reader/$readingId"
+                                    >
+                                      <EditableEntryLabel
+                                        entryId={entry.id}
+                                        label={label}
+                                        renaming={false}
+                                        onCancel={onCancelRenameEntry}
+                                        onCommit={nextLabel => onRenameEntry?.(entry.id, nextLabel)}
+                                      />
+                                    </Link>
+                                  )
+                              : renaming
+                                ? (
+                                    <span {...stylex.props(noteInspectorStyles.topicLink, current && noteInspectorStyles.topicLinkCurrent)}>
+                                      <EditableEntryLabel
+                                        entryId={entry.id}
+                                        label={label}
+                                        renaming
+                                        onCancel={onCancelRenameEntry}
+                                        onCommit={nextLabel => onRenameEntry?.(entry.id, nextLabel)}
+                                      />
+                                    </span>
+                                  )
+                                : (
+                                    <Link
+                                      {...stylex.props(
+                                        noteInspectorStyles.topicLink,
+                                        current && noteInspectorStyles.topicLinkCurrent,
+                                      )}
+                                      aria-current={current ? 'page' : undefined}
+                                      params={{ noteId, topicId: entry.id }}
+                                      preload="intent"
+                                      search={{}}
+                                      title={label}
+                                      to="/note/$noteId/$topicId"
+                                    >
+                                      <EditableEntryLabel
+                                        entryId={entry.id}
+                                        label={label}
+                                        renaming={false}
+                                        onCancel={onCancelRenameEntry}
+                                        onCommit={nextLabel => onRenameEntry?.(entry.id, nextLabel)}
+                                      />
+                                    </Link>
+                                  )}
                           </div>
                         )}
                   </motion.div>

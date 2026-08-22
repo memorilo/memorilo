@@ -2,7 +2,7 @@ import type { ShelfPublication, ShelfReadingFormat, ShelfSource } from '@memoril
 import type { FormEvent } from 'react'
 import { readingFormatDisplayName } from '@memorilo/reading-model'
 import { matchesShelfPublication, shelfReadingAcquisitions } from '@memorilo/shelf'
-import { Dialog, TextField } from '@memorilo/ui'
+import { AlertDialog, Button, Dialog, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
@@ -20,6 +20,12 @@ export interface ShelfBookOption {
 export interface EntryCreationTarget {
   kind: 'folder' | 'spreadsheet' | 'topic' | 'whiteboard'
   parentId: string | null
+}
+
+export interface EntryActionTarget {
+  entryId: string
+  kind: 'folder' | 'topic'
+  label: string
 }
 
 export type BookPickerTarget
@@ -350,5 +356,55 @@ export function EntryCreationDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  )
+}
+
+export function EntryDeleteDialog({
+  onClose,
+  onDelete,
+  target,
+}: {
+  onClose: () => void
+  onDelete: () => void
+  target: EntryActionTarget
+}) {
+  const { t } = useTranslation('editor')
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <AlertDialog.Root defaultOpen onOpenChange={open => !open && onClose()}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay variant="note" />
+        <AlertDialog.Content variant="alert">
+          <AlertDialog.Header>
+            <AlertDialog.Title>{t('deleteEntryTitle', { name: target.label })}</AlertDialog.Title>
+          </AlertDialog.Header>
+          <AlertDialog.Body>
+            <AlertDialog.Description>{target.kind === 'folder' ? t('deleteFolderDescription') : t('deleteTopicDescription')}</AlertDialog.Description>
+            {error ? <p {...stylex.props(noteEditorDialogStyles.bookPickerError)} role="alert">{error}</p> : null}
+          </AlertDialog.Body>
+          <AlertDialog.Footer>
+            <AlertDialog.Cancel asChild>
+              <Button variant="secondary">{t('cancel')}</Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action asChild>
+              <Button
+                variant="primary"
+                onClick={(event) => {
+                  event.preventDefault()
+                  try {
+                    onDelete()
+                  }
+                  catch (cause) {
+                    setError(cause instanceof Error ? cause.message : String(cause))
+                  }
+                }}
+              >
+                {t('deleteEntry')}
+              </Button>
+            </AlertDialog.Action>
+          </AlertDialog.Footer>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   )
 }

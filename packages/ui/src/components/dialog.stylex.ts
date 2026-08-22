@@ -79,7 +79,6 @@ export const dialogStyles = stylex.create({
     transitionTimingFunction: uiMotion.easing,
   },
   alertContent: {
-    position: 'relative',
     display: 'flex',
     width: 'min(390px, calc(100vw - 48px))',
     alignItems: 'center',
