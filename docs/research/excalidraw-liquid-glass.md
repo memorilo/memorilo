@@ -17,9 +17,9 @@
 - `output/playwright/excalidraw-liquid-glass-v3-background-response.png`
 - `output/playwright/excalidraw-liquid-glass-v3-menu.png`
 - `output/playwright/excalidraw-liquid-glass-v2-optical-stress.png`
-- `packages/excalidraw/css/theme.scss`
-- `packages/excalidraw/css/variables.module.scss`
-- `packages/excalidraw/css/styles.scss`
+- `packages/excalidraw/excalidraw/css/theme.scss`
+- `packages/excalidraw/excalidraw/css/variables.module.scss`
+- `packages/excalidraw/excalidraw/css/styles.scss`
 
 文中“传统毛玻璃”是一个工程诊断用简称，指固定的“半透明浅色填充 + 大半径 blur + 固定白边 + 固定阴影”。它可以形成 frosted glass，但缺少 Apple 官方反复强调的 lensing、环境自适应和流体行为。
 

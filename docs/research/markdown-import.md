@@ -28,7 +28,7 @@ Markdown 导入在当前架构中可行，且两个目标入口都已有合适�
 
 ### 新 Note 的差异
 
-`EditorNote` 本身支持 `initialTopic?: Omit<CreateTopicInput, 'index' | 'parentId'>`，因此底层已经能原子地创建一个带自定义文档的 Note。可是 desktop API 的 `notes.create` 当前只接受 `title?` 和 `initialHeading?`，主进程 `createNote` 也只把 `initialHeading` 传成默认 Topic 的 H1。[`packages/desktop-api/src/operations.ts`](../../packages/desktop-api/src/operations.ts)；[`apps/desktop/main/src/notes/note-application-contracts.ts`](../../apps/desktop/main/src/notes/note-application-contracts.ts)；[`apps/desktop/main/src/notes/note-application-commands.ts`](../../apps/desktop/main/src/notes/note-application-commands.ts)
+`EditorNote` 本身支持 `initialTopic?: Omit<CreateTopicInput, 'index' | 'parentId'>`，因此底层已经能原子地创建一个带自定义文档的 Note。可是 desktop API 的 `notes.create` 当前只接受 `title?` 和 `initialHeading?`，主进程 `createNote` 也只把 `initialHeading` 传成默认 Topic 的 H1。[`apps/desktop/api/src/operations.ts`](../../apps/desktop/api/src/operations.ts)；[`apps/desktop/main/src/notes/note-application-contracts.ts`](../../apps/desktop/main/src/notes/note-application-contracts.ts)；[`apps/desktop/main/src/notes/note-application-commands.ts`](../../apps/desktop/main/src/notes/note-application-commands.ts)
 
 所以“新 Note 导入”有两种工程路径：
 
