@@ -8,7 +8,7 @@ import type { EditorImageOcclusionIntegration } from './image-occlusion/image-oc
 import type { EditorTopicDocument } from './note/editor-note'
 import * as stylex from '@stylexjs/stylex'
 import { Provider } from 'jotai'
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { EditorMode, editorModeName } from './common/editor-mode'
 import { createEditorSession } from './common/editor-session'
@@ -16,6 +16,7 @@ import { editorShellStyles } from './common/editor-shell.stylex'
 import { resolveOutlineFocusTarget } from './common/outline-runtime'
 import { useEditorTopicMode } from './note/use-editor-topic-mode'
 import { OutlineEditor } from './outline/outline-editor'
+import { EditorModePicker } from './ui/editor-mode-picker'
 import 'prosekit/basic/style.css'
 import 'prosekit/basic/typography.css'
 import 'katex/dist/katex.min.css'
@@ -140,6 +141,11 @@ export function Editor(props: EditorProps) {
     // caused by persistence receipts so asynchronous uploads retain their view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [props.adapters, cardIntegration, imageOcclusion, learningEnabled, props.readOnly, props.topic.documentId, props.topic.noteId])
+  const empty = useSyncExternalStore(
+    session.emptyState.subscribe,
+    session.emptyState.getSnapshot,
+    session.emptyState.getSnapshot,
+  )
 
   useEffect(() => {
     return () => {
@@ -181,7 +187,11 @@ export function Editor(props: EditorProps) {
     <Provider store={session.store}>
       <div
         ref={rootRef}
-        {...stylex.props(editorShellStyles.root, embedded && editorShellStyles.rootEmbedded)}
+        {...stylex.props(
+          editorShellStyles.root,
+          embedded && editorShellStyles.rootEmbedded,
+          embedded && empty && editorShellStyles.rootEmbeddedEmpty,
+        )}
         data-editor-layout={layout}
         data-editor-learning-disabled={!session.learningEnabled ? '' : undefined}
         data-editor-mode={editorModeName(mode)}
@@ -196,6 +206,14 @@ export function Editor(props: EditorProps) {
             blockHandles={props.blockHandles}
             focusBlockId={props.focus?.blockId}
             mode={mode}
+            modePicker={empty && props.readOnly !== true
+              ? onActivate => (
+                <EditorModePicker
+                  session={session}
+                  onActivate={onActivate}
+                />
+              )
+              : undefined}
             readOnly={props.readOnly === true}
             session={session}
             taskDate={props.taskDate}

@@ -13,6 +13,7 @@ import { CardReviewRuntime } from '../card/card-review-runtime'
 import { createEditorCardSync } from '../card/card-sync'
 import { createEditorExtension } from '../extension/create-editor-extension'
 import { resolveEditorTopicDocument } from '../note/editor-topic-runtime'
+import { hasTopicUserContent } from '../note/topic-user-content'
 import { createEditorStore } from '../state/editor-store'
 import { normalizeOutlineDocument } from './outline-document'
 import { OutlineRuntime, resolveOutlineFocusTarget } from './outline-runtime'
@@ -36,6 +37,8 @@ export function createEditorSession(options: EditorSessionOptions) {
   if (!storedContent)
     throw new Error(`Topic ${options.topicDocument.topicId} does not contain an initialized document`)
   const defaultContent = normalizeOutlineDocument(storedContent)
+  let empty = !hasTopicUserContent(defaultContent)
+  const emptyListeners = new Set<() => void>()
   const defaultFocus = options.outline?.defaultFocus
   const outlineRuntime = new OutlineRuntime({
     focusBlockId: defaultFocus ? resolveOutlineFocusTarget(defaultContent, defaultFocus) : null,
@@ -62,6 +65,11 @@ export function createEditorSession(options: EditorSessionOptions) {
   }
   const configured = createEditorExtension(options.adapters, store, outlineRuntime, (document) => {
     outlineRuntime.reconcileDocument(document)
+    const nextEmpty = !hasTopicUserContent(document)
+    if (empty !== nextEmpty) {
+      empty = nextEmpty
+      emptyListeners.forEach(listener => listener())
+    }
     options.onDocumentChange(document)
     scheduleCardSync(document)
   }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled)
@@ -97,6 +105,13 @@ export function createEditorSession(options: EditorSessionOptions) {
     close: resources.close,
     configured,
     editor,
+    emptyState: {
+      getSnapshot: () => empty,
+      subscribe: (listener: () => void) => {
+        emptyListeners.add(listener)
+        return () => emptyListeners.delete(listener)
+      },
+    },
     learningEnabled: options.learningEnabled,
     outlineRuntime,
     store,

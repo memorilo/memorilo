@@ -18,6 +18,9 @@ export const editorCanvasStyles = stylex.create({
     minHeight: 'auto',
     overflow: 'visible',
   },
+  viewportEmbeddedEmpty: {
+    minHeight: 'inherit',
+  },
   scrolling: {
     position: 'relative',
     boxSizing: 'border-box',
@@ -32,6 +35,9 @@ export const editorCanvasStyles = stylex.create({
     minHeight: 'auto',
     overflowY: 'visible',
   },
+  scrollingEmbeddedEmpty: {
+    minHeight: 'inherit',
+  },
   content: {
     boxSizing: 'border-box',
     width: '100%',
@@ -44,6 +50,9 @@ export const editorCanvasStyles = stylex.create({
     minHeight: 'auto',
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  contentChoosingMode: {
+    opacity: 0,
   },
   uploadStatus: {
     display: 'flex',

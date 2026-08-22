@@ -10,6 +10,7 @@ export function DocumentEditor({
   embedded,
   focusBlockId,
   mode,
+  modePicker,
   readOnly,
   session,
   taskDate,
@@ -19,6 +20,7 @@ export function DocumentEditor({
   embedded: boolean
   focusBlockId?: string
   mode: EditorModeValue
+  modePicker?: (onActivate: () => void) => ReactNode
   readOnly: boolean
   session: EditorSession
   taskDate?: string
@@ -30,6 +32,7 @@ export function DocumentEditor({
       focusBlockId={focusBlockId}
       mode={mode}
       modeControls={children}
+      modePicker={modePicker}
       readOnly={readOnly}
       session={session}
       taskDate={taskDate}
