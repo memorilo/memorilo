@@ -105,6 +105,12 @@ export const configurationFieldStyles = stylex.create({
     maxWidth: 104,
     textAlign: 'right',
   },
+  timeInput: {
+    width: 108,
+    maxWidth: '100%',
+    fontVariantNumeric: 'tabular-nums',
+    textAlign: 'center',
+  },
   segmentedControl: {
     display: 'flex',
     width: '100%',

@@ -39,6 +39,12 @@ export interface TextConfigurationField extends ConfigurationFieldBase {
   sensitive?: boolean
 }
 
+export interface TimeConfigurationField extends ConfigurationFieldBase {
+  control: 'time'
+  max?: number
+  min?: number
+}
+
 export interface ToggleConfigurationField extends ConfigurationFieldBase {
   control: 'toggle'
 }
@@ -48,6 +54,7 @@ export type ConfigurationField
     | SegmentedConfigurationField
     | SelectConfigurationField
     | TextConfigurationField
+    | TimeConfigurationField
     | ToggleConfigurationField
 
 export interface ConfigurationSection {
@@ -109,6 +116,19 @@ function validateField(field: ConfigurationField, defaults: object): void {
       if (typeof value !== 'string')
         throw new TypeError(`Text field ${field.path} must address a string`)
       break
+    case 'time': {
+      if (typeof value !== 'number' || !Number.isInteger(value))
+        throw new TypeError(`Time field ${field.path} must address an integer hour`)
+      if (value < 0 || value > 23)
+        throw new RangeError(`Time field ${field.path} must address an hour between 0 and 23`)
+      if (field.min !== undefined && (!Number.isInteger(field.min) || field.min < 0 || field.min > 23))
+        throw new RangeError(`Time field ${field.path} minimum must be an hour between 0 and 23`)
+      if (field.max !== undefined && (!Number.isInteger(field.max) || field.max < 0 || field.max > 23))
+        throw new RangeError(`Time field ${field.path} maximum must be an hour between 0 and 23`)
+      if (field.min !== undefined && field.max !== undefined && field.min > field.max)
+        throw new RangeError(`Time field ${field.path} minimum exceeds its maximum`)
+      break
+    }
     case 'toggle':
       if (typeof value !== 'boolean')
         throw new TypeError(`Toggle field ${field.path} must address a boolean`)

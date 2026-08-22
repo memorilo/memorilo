@@ -12,6 +12,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function formatHour(hour: number): string {
+  return `${hour.toString().padStart(2, '0')}:00`
+}
+
 function FieldControl<T extends object>({
   field,
   store,
@@ -119,6 +123,33 @@ function FieldControl<T extends object>({
             if (event.key === 'Enter')
               event.currentTarget.blur()
           }}
+        />
+      )
+      break
+    }
+    case 'time': {
+      if (typeof value !== 'number' || !Number.isInteger(value))
+        throw new TypeError(`Time field ${field.path} received a non-integer hour`)
+      const commit = (event: ChangeEvent<HTMLInputElement>) => {
+        const [hour, minute] = event.target.value.split(':').map(Number)
+        if (!Number.isInteger(hour) || minute !== 0) {
+          setError(`${field.label} requires a whole hour`)
+          return
+        }
+        void update(hour)
+      }
+      control = (
+        <TextField
+          aria-label={field.label}
+          disabled={pending}
+          max={field.max === undefined ? undefined : formatHour(field.max)}
+          min={field.min === undefined ? undefined : formatHour(field.min)}
+          step={3_600}
+          type="time"
+          value={formatHour(value)}
+          variant="settings"
+          xstyle={configurationFieldStyles.timeInput}
+          onChange={commit}
         />
       )
       break
