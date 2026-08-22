@@ -106,7 +106,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
 export const desktopConfigurationDefinition = defineConfiguration({
   defaults: {
     backup: {
-      enabled: false,
+      enabled: true,
       intervalMinutes: 1_440,
       retentionCount: 7,
     },
