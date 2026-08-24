@@ -85,7 +85,7 @@ Do not invoke it for routine non-visual changes where these design concerns do n
 
 ### Issue tracker
 
-Issues and PRDs are tracked in GitHub Issues for `memorilo/memorilo`. See `docs/agents/issue-tracker.md`.
+Issues and PRDs are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

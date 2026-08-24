@@ -1,37 +1,30 @@
-# Issue tracker: GitHub
+# Issue tracker: Local Markdown
 
-Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs for this repo live as markdown files in `.scratch/`.
 
 ## Conventions
 
-- Create issues with `gh issue create`.
-- Read issues and comments with `gh issue view <number> --comments`.
-- List and filter issues with `gh issue list`.
-- Comment with `gh issue comment`.
-- Apply or remove labels with `gh issue edit`.
-- Close issues with `gh issue close`.
-- Infer the repository from the current Git remote.
+- One feature per directory: `.scratch/<feature-slug>/`
+- The spec is `.scratch/<feature-slug>/spec.md`
+- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
+- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
-## Pull requests as a triage surface
+## When a skill says "publish to the issue tracker"
 
-**PRs as a request surface: no.**
+Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
 
-GitHub shares one number space across issues and pull requests. Resolve ambiguous references using `gh pr view`, falling back to `gh issue view`.
+## When a skill says "fetch the relevant ticket"
 
-## Publishing
-
-When a skill says "publish to the issue tracker", create a GitHub issue.
-
-When a skill says "fetch the relevant ticket", run:
-
-`gh issue view <number> --comments`
+Read the file at the referenced path. The user will normally pass the path or the issue number directly.
 
 ## Wayfinding operations
 
-- Maps are GitHub issues labelled `wayfinder:map`.
-- Child tickets use GitHub sub-issues when available, otherwise task-list links.
-- Ticket types use `wayfinder:<type>` labels.
-- Blocking uses GitHub native issue dependencies when available.
-- The frontier contains open, unassigned child tickets without open blockers.
-- Claim tickets with `gh issue edit <number> --add-assignee @me`.
-- Resolve tickets by commenting, closing, and recording the resulting context in the map.
+Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
+
+- **Map**: `.scratch/<effort>/map.md` (the Notes / Decisions-so-far / Fog body).
+- **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
+- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
+- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
+- **Claim**: set `Status: claimed` and save before any work.
+- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
