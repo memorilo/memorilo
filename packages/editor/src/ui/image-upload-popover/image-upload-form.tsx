@@ -2,12 +2,12 @@
 
 import type { Uploader } from 'prosekit/extensions/file'
 import type { ImageExtension } from 'prosekit/extensions/image'
+import { Button, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useEditor } from 'prosekit/react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { formControlStyles } from '../form-controls/form-controls.stylex'
 import { imageUploadFormStyles } from './image-upload-form.stylex'
 
 export default function ImageUploadForm(props: {
@@ -62,9 +62,8 @@ export default function ImageUploadForm(props: {
         : (
             <>
               <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-link-${ariaId}`}>{t('ui.embedLink')}</label>
-              <input
+              <TextField
                 id={`id-link-${ariaId}`}
-                {...stylex.props(formControlStyles.textInput)}
                 placeholder={t('ui.pasteImageLinkPlaceholder')}
                 type="url"
                 value={url}
@@ -78,9 +77,9 @@ export default function ImageUploadForm(props: {
         : (
             <>
               <label {...stylex.props(imageUploadFormStyles.label)} htmlFor={`id-upload-${ariaId}`}>{t('ui.upload')}</label>
-              <input
+              <TextField
                 id={`id-upload-${ariaId}`}
-                {...stylex.props(formControlStyles.textInput, imageUploadFormStyles.fileInput)}
+                xstyle={imageUploadFormStyles.fileInput}
                 accept="image/*"
                 type="file"
                 onChange={handleFileChange}
@@ -90,16 +89,16 @@ export default function ImageUploadForm(props: {
 
       {url
         ? (
-            <button {...stylex.props(formControlStyles.primaryButton)} type="button" onClick={handleSubmit}>
+            <Button variant="primary" type="button" onClick={handleSubmit}>
               {t('ui.insertImageButton')}
-            </button>
+            </Button>
           )
         : null}
       {file
         ? (
-            <button {...stylex.props(formControlStyles.primaryButton)} type="button" onClick={handleSubmit}>
+            <Button variant="primary" type="button" onClick={handleSubmit}>
               {t('ui.uploadImage')}
-            </button>
+            </Button>
           )
         : null}
     </div>

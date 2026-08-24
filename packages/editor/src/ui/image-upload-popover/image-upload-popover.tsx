@@ -1,14 +1,12 @@
 'use client'
 
 import type { Uploader } from 'prosekit/extensions/file'
-import type { OpenChangeEvent } from 'prosekit/web/popover'
 import type { ReactNode } from 'react'
-import * as stylex from '@stylexjs/stylex'
-import { PopoverPopup, PopoverPositioner, PopoverRoot, PopoverTrigger } from 'prosekit/react/popover'
+import { Popover } from '@memorilo/ui'
 import { useState } from 'react'
 
 import { Button } from '../button/index.ts'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { editorPositionerAdapterStyles } from '../floating-surface/editor-positioner-adapter.stylex'
 import ImageUploadForm from './image-upload-form.tsx'
 import { imageUploadPopoverStyles } from './image-upload-popover.stylex'
 
@@ -20,29 +18,27 @@ export default function ImageUploadPopover(props: {
 }) {
   const [open, setOpen] = useState(false)
 
-  const handleOpenChange = (event: OpenChangeEvent) => {
-    setOpen(event.detail)
-  }
-
   return (
-    <PopoverRoot open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger>
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
         <Button pressed={open} disabled={props.disabled} tooltip={props.tooltip}>
           {props.children}
         </Button>
-      </PopoverTrigger>
+      </Popover.Trigger>
 
-      <PopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)} placement="bottom">
-        <PopoverPopup
-          {...stylex.props(
-            floatingSurfaceStyles.motion,
-            floatingSurfaceStyles.surface,
+      <Popover.Portal>
+        <Popover.Content
+          side="bottom"
+          sideOffset={6}
+          variant="popover"
+          xstyle={[
+            editorPositionerAdapterStyles.motion,
             imageUploadPopoverStyles.card,
-          )}
+          ]}
         >
           {open ? <ImageUploadForm uploader={props.uploader} onComplete={() => setOpen(false)} /> : null}
-        </PopoverPopup>
-      </PopoverPositioner>
-    </PopoverRoot>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }

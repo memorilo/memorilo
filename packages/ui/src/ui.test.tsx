@@ -9,8 +9,11 @@ import {
   Dialog,
   DropdownMenu,
   EditableTitle,
+  Popover,
   SegmentedControl,
+  SelectField,
   Sidebar,
+  Surface,
   Switch,
   Tabs,
   TextField,
@@ -132,6 +135,28 @@ describe('public UI composition', () => {
     expect(field).toHaveValue('https://library.example/opds')
   })
 
+  it('provides native select semantics through an independent field control', async () => {
+    render(
+      <SelectField aria-label="Sort order" defaultValue="title" variant="compact">
+        <option value="title">Title</option>
+        <option value="updated">Updated</option>
+      </SelectField>,
+    )
+
+    const field = screen.getByRole('combobox', { name: 'Sort order' })
+    expect(field).toHaveAttribute('data-ui', 'select-field')
+    await userEvent.selectOptions(field, 'updated')
+    expect(field).toHaveValue('updated')
+  })
+
+  it('provides a visual surface without taking ownership of placement or state', () => {
+    render(<Surface aria-label="Popover surface" variant="popover">Content</Surface>)
+    const surface = screen.getByLabelText('Popover surface')
+    expect(surface).toHaveAttribute('data-ui', 'surface')
+    expect(surface).toHaveAttribute('data-variant', 'popover')
+    expect(surface).toHaveTextContent('Content')
+  })
+
   it('keeps segmented selection and tabs as separate state models', async () => {
     function Example() {
       const [direction, setDirection] = useState('forward')
@@ -197,6 +222,53 @@ describe('public UI composition', () => {
       </Toolbar.Root>,
     )
     expect(screen.getByRole('toolbar', { name: 'Formatting' })).toContainElement(screen.getByRole('group', { name: 'Text style' }))
+  })
+
+  it('opens and closes a popover while restoring focus to its trigger', async () => {
+    render(
+      <Popover.Root>
+        <Popover.Trigger>Open popover</Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content aria-label="Popover content">
+            <p>Popover body</p>
+            <Popover.Close>Close popover</Popover.Close>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Open popover' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('dialog', { name: 'Popover content' })).toHaveTextContent('Popover body')
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Popover content' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('dismisses a non-modal popover from outside pointer input and supports Close', async () => {
+    render(
+      <Popover.Root>
+        <Popover.Trigger>Open popover</Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content aria-label="Popover content">
+            <Popover.Close>Close popover</Popover.Close>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Open popover' })
+    await userEvent.click(trigger)
+    await userEvent.click(document.body)
+    expect(screen.queryByRole('dialog', { name: 'Popover content' })).not.toBeInTheDocument()
+
+    await userEvent.click(trigger)
+    await userEvent.click(screen.getByRole('button', { name: 'Close popover' }))
+    expect(screen.queryByRole('dialog', { name: 'Popover content' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
   it('opens a dropdown menu, moves focus, and closes after selection', async () => {

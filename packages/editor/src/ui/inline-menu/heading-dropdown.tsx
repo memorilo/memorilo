@@ -7,8 +7,7 @@ import * as stylex from '@stylexjs/stylex'
 import { Check, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { buttonStyles } from '../button/button.stylex'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { editorPositionerAdapterStyles } from '../floating-surface/editor-positioner-adapter.stylex'
 import { inlineMenuStyles } from './inline-menu.stylex'
 
 interface HeadingActions {
@@ -55,7 +54,7 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
         <PublicButton
           aria-label={t('ui.textStyle')}
           variant="icon"
-          xstyle={[buttonStyles.action, inlineMenuStyles.headingButton]}
+          xstyle={inlineMenuStyles.headingButton}
           onMouseDown={event => event.preventDefault()}
         >
           <span>{getCurrentLabel(actions, t)}</span>
@@ -64,7 +63,7 @@ export default function HeadingDropdown({ actions }: { actions: HeadingActions }
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="start" asChild variant="editor" xstyle={inlineMenuStyles.headingPopup}>
         <div
-          {...stylex.props(floatingSurfaceStyles.motion)}
+          {...stylex.props(editorPositionerAdapterStyles.motion)}
           aria-label={t('ui.textStyle')}
           onMouseDown={event => event.preventDefault()}
         >

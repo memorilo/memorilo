@@ -4,6 +4,7 @@ import type { Uploader } from 'prosekit/extensions/file'
 import type { KeyboardEventHandler, MouseEvent as ReactMouseEvent, ReactNode, Ref } from 'react'
 import type { EditorAction } from '../editor-actions/index.ts'
 import type { ContextMenuPoint } from './context-menu-interactions'
+import { Surface } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import {
   Check,
@@ -16,7 +17,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
 import { ImageUploadForm } from '../image-upload-popover/index.ts'
 import { keepContextMenuInViewport } from './context-menu-interactions'
 import { contextMenuStyles } from './context-menu.stylex'
@@ -107,12 +107,10 @@ export function ImageInsertPanel({ point, uploader, onClose }: {
           onClose()
       }}
     >
-      <div
+      <Surface
         ref={panelRef}
-        {...stylex.props(
-          floatingSurfaceStyles.surface,
-          contextMenuStyles.imagePanel,
-        )}
+        variant="popover"
+        xstyle={contextMenuStyles.imagePanel}
         aria-label={t('ui.insertImage')}
         aria-modal="false"
         role="dialog"
@@ -129,7 +127,7 @@ export function ImageInsertPanel({ point, uploader, onClose }: {
           </button>
         </div>
         <ImageUploadForm uploader={uploader} onComplete={onClose} />
-      </div>
+      </Surface>
     </div>
   )
 }
@@ -150,13 +148,10 @@ export function ContextStyleMenu({ actions, menuRef, onKeyDown, onRun }: {
   const { t } = useTranslation('editor')
 
   return (
-    <div
+    <Surface
       ref={menuRef}
-      {...stylex.props(
-        floatingSurfaceStyles.surface,
-        contextMenuStyles.popup,
-        contextMenuStyles.submenuPopup,
-      )}
+      variant="popover"
+      xstyle={[contextMenuStyles.popup, contextMenuStyles.submenuPopup]}
       aria-label={t('ui.objectStyles')}
       role="menu"
       tabIndex={-1}
@@ -201,6 +196,6 @@ export function ContextStyleMenu({ actions, menuRef, onKeyDown, onRun }: {
         label={t('ui.codeBlock')}
         onSelect={() => onRun(actions.codeBlock)}
       />
-    </div>
+    </Surface>
   )
 }

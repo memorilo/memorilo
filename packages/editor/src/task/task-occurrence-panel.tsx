@@ -3,12 +3,11 @@ import type { CSSProperties, Ref } from 'react'
 import type { TaskActionUpdate } from './task-action-model'
 import type { TaskActionTask } from './task-action-panel'
 import type { TaskCalendarEvent } from './task-calendar'
+import { Button, Surface, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { useId, useState } from 'react'
-import { buttonStyles } from '../ui/button/button.stylex'
-import { floatingSurfaceStyles } from '../ui/floating-surface/floating-surface.stylex'
-import { formControlStyles } from '../ui/form-controls/form-controls.stylex'
+import { editorPositionerAdapterStyles } from '../ui/floating-surface/editor-positioner-adapter.stylex'
 import { taskActionPanelStyles as styles } from './task-action-panel.stylex'
 import { nextTaskOccurrenceDate, taskRepeatBaseDate, taskRepeatContinuesOn } from './task-recurrence'
 
@@ -108,24 +107,29 @@ export function TaskOccurrencePanel({
   })
 
   return (
-    <div
-      ref={panelRef}
-      {...stylex.props(floatingSurfaceStyles.motion, floatingSurfaceStyles.surface, styles.panel)}
-      aria-labelledby={headingId}
-      id={id}
-      role="dialog"
-      style={{ ...style, visibility: visible ? 'visible' : 'hidden' }}
+    <Surface
+      asChild
+      variant="popover"
+      xstyle={[editorPositionerAdapterStyles.motion, styles.panel]}
     >
-      <strong id={headingId} {...stylex.props(styles.heading)}>{t('occurrenceActions')}</strong>
-      <label {...stylex.props(styles.field)}>
-        {t('onlyThisTaskText')}
-        <input {...stylex.props(formControlStyles.textInput, styles.textInput)} disabled={updating} value={text} onChange={event => setText(event.target.value)} />
-      </label>
-      {error !== null ? <span {...stylex.props(styles.error)} role="alert">{error}</span> : null}
-      <div {...stylex.props(styles.divider)} />
-      <button {...stylex.props(buttonStyles.action, styles.action)} disabled={updating} type="button" onClick={skip}>{t('skipThis')}</button>
-      <button {...stylex.props(buttonStyles.action, styles.action)} disabled={updating} type="button" onClick={onlyThis}>{t('onlyThis')}</button>
-      <button {...stylex.props(formControlStyles.primaryButton, styles.action, styles.primaryAction)} disabled={updating} type="button" onClick={complete}>{t('completeAndRepeat')}</button>
-    </div>
+      <div
+        ref={panelRef}
+        aria-labelledby={headingId}
+        id={id}
+        role="dialog"
+        style={{ ...style, visibility: visible ? 'visible' : 'hidden' }}
+      >
+        <strong id={headingId} {...stylex.props(styles.heading)}>{t('occurrenceActions')}</strong>
+        <label {...stylex.props(styles.field)}>
+          {t('onlyThisTaskText')}
+          <TextField xstyle={styles.textInput} disabled={updating} value={text} onChange={event => setText(event.target.value)} />
+        </label>
+        {error !== null ? <span {...stylex.props(styles.error)} role="alert">{error}</span> : null}
+        <div {...stylex.props(styles.divider)} />
+        <Button variant="plain" xstyle={styles.action} disabled={updating} type="button" onClick={skip}>{t('skipThis')}</Button>
+        <Button variant="plain" xstyle={styles.action} disabled={updating} type="button" onClick={onlyThis}>{t('onlyThis')}</Button>
+        <Button variant="primary" xstyle={[styles.action, styles.primaryAction]} disabled={updating} type="button" onClick={complete}>{t('completeAndRepeat')}</Button>
+      </div>
+    </Surface>
   )
 }

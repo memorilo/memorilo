@@ -1,9 +1,8 @@
 import type { TFunction } from 'i18next'
 import type { CSSProperties } from 'react'
+import { Button, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { X } from 'lucide-react'
-import { buttonStyles } from '../ui/button/button.stylex'
-import { formControlStyles } from '../ui/form-controls/form-controls.stylex'
 import { taskTimePickerStyles as styles } from './task-time-picker.stylex'
 
 export interface TaskTimePickerProps {
@@ -31,18 +30,18 @@ export function TaskTimePicker({
     <div ref={onFloatingRef} {...stylex.props(styles.popover)} data-task-action-floating-owner={floatingOwnerId} style={floatingStyle} role="dialog" aria-label={t('time')}>
       <div {...stylex.props(styles.heading)}>
         <span>{t('time')}</span>
-        <button {...stylex.props(buttonStyles.action, styles.closeButton)} aria-label={t('close')} title={t('close')} type="button" onClick={onClose}>
+        <Button variant="icon" xstyle={styles.closeButton} aria-label={t('close')} title={t('close')} type="button" onClick={onClose}>
           <X aria-hidden="true" size={14} strokeWidth={1.9} />
-        </button>
+        </Button>
       </div>
-      <input
-        {...stylex.props(formControlStyles.textInput, styles.input)}
+      <TextField
+        xstyle={styles.input}
         aria-label={t('time')}
         type="time"
         value={value}
         onChange={event => onChange(event.target.value)}
       />
-      <button {...stylex.props(buttonStyles.action, styles.clearButton)} type="button" onClick={onClear}>{t('clearTime')}</button>
+      <Button variant="plain" xstyle={styles.clearButton} type="button" onClick={onClear}>{t('clearTime')}</Button>
     </div>
   )
 }

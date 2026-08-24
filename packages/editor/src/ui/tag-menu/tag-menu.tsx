@@ -4,6 +4,7 @@ import type { BasicExtension } from 'prosekit/basic'
 import type { Union } from 'prosekit/core'
 import type { TagExtension } from '../../extension/tag-extension'
 import type { TagRuntime } from '../../tag/tag-runtime'
+import { Surface } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { canUseRegexLookbehind } from 'prosekit/core'
 import { useEditor } from 'prosekit/react'
@@ -20,7 +21,7 @@ import { useTranslation } from 'react-i18next'
 import { getTagLabelError, isSameTagLabel, normalizeTagLabel, TAG_LABEL_ERROR_TRANSLATION_KEYS } from '../../tag/tag-label'
 import { InvalidStoredTagError } from '../../tag/tag-runtime'
 import { autocompleteMenuStyles } from '../autocomplete-menu/autocomplete-menu.stylex'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { editorPositionerAdapterStyles } from '../floating-surface/editor-positioner-adapter.stylex'
 
 const regex = new RegExp(
   (canUseRegexLookbehind() ? String.raw`(?<!\S)` : '')
@@ -111,44 +112,40 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
         setTypedLabel(matchedLabel || event.detail)
       }}
     >
-      <AutocompletePositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
-        <AutocompletePopup
-          {...stylex.props(
-            floatingSurfaceStyles.motion,
-            floatingSurfaceStyles.surface,
-            autocompleteMenuStyles.popup,
-          )}
-        >
-          <div {...stylex.props(autocompleteMenuStyles.content)}>
-            <AutocompleteEmpty {...stylex.props(autocompleteMenuStyles.item)}>
-              {loading ? t('ui.loading') : error ?? (labelError ? t(TAG_LABEL_ERROR_TRANSLATION_KEYS[labelError], { count: 64 }) : t('ui.noResults'))}
-            </AutocompleteEmpty>
+      <AutocompletePositioner {...stylex.props(editorPositionerAdapterStyles.positioner)}>
+        <AutocompletePopup {...stylex.props(editorPositionerAdapterStyles.motion)}>
+          <Surface variant="popover" xstyle={autocompleteMenuStyles.popup}>
+            <div {...stylex.props(autocompleteMenuStyles.content)}>
+              <AutocompleteEmpty {...stylex.props(autocompleteMenuStyles.item)}>
+                {loading ? t('ui.loading') : error ?? (labelError ? t(TAG_LABEL_ERROR_TRANSLATION_KEYS[labelError], { count: 64 }) : t('ui.noResults'))}
+              </AutocompleteEmpty>
 
-            {sortedTags.map(tag => (
-              <AutocompleteItem
-                key={tag.id}
-                value={tag.label}
-                {...stylex.props(autocompleteMenuStyles.item)}
-                onSelect={() => handleTagInsert(tag.id, tag.label)}
-              >
-                #
-                {tag.label}
-              </AutocompleteItem>
-            ))}
+              {sortedTags.map(tag => (
+                <AutocompleteItem
+                  key={tag.id}
+                  value={tag.label}
+                  {...stylex.props(autocompleteMenuStyles.item)}
+                  onSelect={() => handleTagInsert(tag.id, tag.label)}
+                >
+                  #
+                  {tag.label}
+                </AutocompleteItem>
+              ))}
 
-            {canCreate
-              ? (
-                  <AutocompleteItem
-                    value={normalizedTypedLabel}
-                    {...stylex.props(autocompleteMenuStyles.item)}
-                    onSelect={handleTagCreate}
-                  >
-                    <span>{t('ui.createTag', { label: normalizedTypedLabel })}</span>
-                    <span {...stylex.props(autocompleteMenuStyles.keyboard)}>{t('ui.enter')}</span>
-                  </AutocompleteItem>
-                )
-              : null}
-          </div>
+              {canCreate
+                ? (
+                    <AutocompleteItem
+                      value={normalizedTypedLabel}
+                      {...stylex.props(autocompleteMenuStyles.item)}
+                      onSelect={handleTagCreate}
+                    >
+                      <span>{t('ui.createTag', { label: normalizedTypedLabel })}</span>
+                      <span {...stylex.props(autocompleteMenuStyles.keyboard)}>{t('ui.enter')}</span>
+                    </AutocompleteItem>
+                  )
+                : null}
+            </div>
+          </Surface>
         </AutocompletePopup>
       </AutocompletePositioner>
     </AutocompleteRoot>

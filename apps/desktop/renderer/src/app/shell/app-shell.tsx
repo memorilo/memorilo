@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { PaletteCommand } from '../../shared/command-palette'
 import type { PageTitlebarOptions } from '../../shared/page-titlebar'
+import { uiThemes } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useState } from 'react'
 
@@ -22,11 +23,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const shellStyle = {
     '--reader-leading-offset': sidebarVisible ? '270px' : '120px',
   } as CSSProperties
+  const shellProps = stylex.props(appShellStyles.shell)
 
   return (
     <PageTitlebarContext value={setPageTitlebar}>
       <CommandPaletteCommandsContext value={setPageCommands}>
-        <div {...stylex.props(appShellStyles.shell)} style={shellStyle}>
+        <div
+          {...shellProps}
+          className={`${uiThemes.light.theme} ${shellProps.className}`}
+          data-ui-theme="light"
+          style={shellStyle}
+        >
           <AppTitlebar page={pageTitlebar} sidebarVisible={sidebarVisible} />
           <div {...stylex.props(appShellStyles.body)}>
             <WorkspaceSidebar
