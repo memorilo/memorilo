@@ -9,7 +9,7 @@ Memorilo is an Electron application organized as a pnpm and Turbo monorepo.
 - `packages/editor` owns reusable editor UI, state, extensions, and integrations.
 - `packages/editor-storage` owns the platform-independent persistence workflow, SQLite schema, CRDT snapshot persistence, node projections, and search.
 - Platform packages provide database-driver and embedding-model adapters to `packages/editor-storage`.
-- `packages/e2e` owns Playwright Electron end-to-end tests.
+- `apps/desktop/e2e` owns Playwright Electron end-to-end tests.
 
 Import packages through their public entry points. Do not reach into another package's private source tree.
 

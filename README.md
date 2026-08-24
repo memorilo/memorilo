@@ -53,7 +53,7 @@ MEMORILO_E2E_HIDE_WINDOW=1 pnpm test:e2e  # Run Electron end-to-end tests
 - `packages/reader`, `packages/shelf`, and `packages/reading-model` contain the
   reading experience.
 - `packages/srs` and `packages/spreadsheet` contain major feature modules.
-- `packages/e2e` contains Electron end-to-end tests.
+- `apps/desktop/e2e` contains Electron end-to-end tests.
 
 ## Database Schema
 

@@ -1,0 +1,20 @@
+{
+  "name": "@memorilo/desktop-e2e",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test:e2e": "pnpm --filter @memorilo/desktop pack:dir && playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@memorilo/desktop-api": "workspace:*",
+    "@memorilo/editor": "workspace:*",
+    "@playwright/test": "1.61.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "13.0.1",
+    "electron": "43.2.0"
+  }
+}

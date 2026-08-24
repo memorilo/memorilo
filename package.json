@@ -21,7 +21,7 @@
     "prepare:embedding-model": "node scripts/prepare-embedding-model.mjs",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test --concurrency=1",
-    "test:e2e": "turbo run test:e2e --filter=@memorilo/e2e"
+    "test:e2e": "turbo run test:e2e --filter=@memorilo/desktop-e2e"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.19.0",

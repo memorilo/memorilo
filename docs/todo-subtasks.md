@@ -191,7 +191,7 @@ The projection does not add a database column or schema migration. Todo ancestry
 - `apps/desktop/renderer/src/features/todo/views/todo-list-view.tsx`
 - `packages/editor-storage/src/editor-todo-repository.ts`
 - `packages/editor-storage/src/editor-storage-contracts.ts`
-- `packages/desktop-api/src/schemas/notes.ts`
+- `apps/desktop/api/src/schemas/notes.ts`
 
 ## Resolved decisions
 

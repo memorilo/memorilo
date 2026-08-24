@@ -477,10 +477,16 @@ export function NoteLibraryView({ commands }: { commands: NoteLibraryCommands })
                       <Button xstyle={pagesRouteStyles.deleteDialogCancel} disabled={deleteLoading}>{t('cancel')}</Button>
                     </AlertDialog.Cancel>
                     <AlertDialog.Action asChild>
-                      <Button xstyle={pagesRouteStyles.deleteDialogAction} disabled={deleteLoading} onClick={(event) => {
-                        event.preventDefault()
-                        void confirmDelete()
-                      }}>{t('deleteNote')}</Button>
+                      <Button
+                        xstyle={pagesRouteStyles.deleteDialogAction}
+                        disabled={deleteLoading}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          void confirmDelete()
+                        }}
+                      >
+                        {t('deleteNote')}
+                      </Button>
                     </AlertDialog.Action>
                   </AlertDialog.Footer>
                 </AlertDialog.Content>

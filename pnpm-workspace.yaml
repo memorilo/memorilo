@@ -1,6 +1,7 @@
 packages:
   - apps/desktop
   - apps/desktop/*
+  - packages/excalidraw/*
   - packages/*
 
 supportedArchitectures:
