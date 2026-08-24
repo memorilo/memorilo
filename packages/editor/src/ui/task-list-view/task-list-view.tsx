@@ -7,7 +7,7 @@ import { DOMSerializer } from 'prosekit/pm/model'
 import { createListNodeView } from 'prosemirror-flat-list'
 import { parseTaskRepeatRule } from '../../schema/task-schema'
 
-import { buttonStyles } from '../button/button.stylex'
+import { editorButtonAdapterStyles } from '../button/editor-button-adapter.stylex'
 import { taskMenuStyles } from '../task-menu/editor-task-menu.stylex'
 import { taskStyles } from './task-list-view.stylex'
 import { effectiveStatus, formatDuration, nextClickStatus, totalElapsed, transitionAttrs } from './task-status'
@@ -130,7 +130,7 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
       menuButton.setAttribute('aria-haspopup', 'dialog')
       menuButton.setAttribute('aria-label', taskActionsLabel())
       menuButton.title = taskActionsLabel()
-      applyStylex(menuButton, stylex.props(buttonStyles.action, taskMenuStyles.trigger))
+      applyStylex(menuButton, stylex.props(editorButtonAdapterStyles.action, taskMenuStyles.trigger))
       const [tag, attrs, children] = MoreHorizontal
       const icon = createIcon([tag, { ...attrs, 'width': 16, 'height': 16, 'stroke-width': 1.8 }, children])
       icon.setAttribute('aria-hidden', 'true')

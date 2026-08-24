@@ -1,7 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
-import { editorColors } from '../../common/editor-theme.stylex'
 
-export const floatingSurfaceStyles = stylex.create({
+export const editorPositionerAdapterStyles = stylex.create({
   positioner: {
     display: 'block',
     width: 'min-content',
@@ -33,12 +32,5 @@ export const floatingSurfaceStyles = stylex.create({
       scale: 0.95,
       transitionDuration: '150ms',
     },
-  },
-  surface: {
-    borderColor: editorColors.gray200,
-    borderStyle: 'solid',
-    borderWidth: 1,
-    backgroundColor: editorColors.canvas,
-    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 10%), 0 4px 6px -4px rgb(0 0 0 / 10%)',
   },
 })

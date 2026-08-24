@@ -11,9 +11,9 @@ export const statusStyles = stylex.create({
   },
   neutral: {},
   success: {
-    color: 'rgb(55, 92, 64)',
+    color: uiColors.statusSuccess,
   },
   error: {
-    color: 'rgb(166, 53, 53)',
+    color: uiColors.danger,
   },
 })

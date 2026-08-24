@@ -4,7 +4,7 @@ import * as stylexRuntime from '@stylexjs/stylex'
 import { buttonStyles } from './button.stylex'
 import { Slot } from './slot'
 
-export type ButtonVariant = 'icon' | 'menu' | 'plain' | 'primary' | 'secondary' | 'titlebar' | 'toolbar'
+export type ButtonVariant = 'danger' | 'icon' | 'menu' | 'plain' | 'primary' | 'secondary' | 'titlebar' | 'toolbar'
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'style'> {
   asChild?: boolean

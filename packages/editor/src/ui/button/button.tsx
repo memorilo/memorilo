@@ -1,43 +1,52 @@
 'use client'
 
-import type { MouseEventHandler, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import { Button as PublicButton } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { TooltipPopup, TooltipPositioner, TooltipRoot, TooltipTrigger } from 'prosekit/react/tooltip'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
-import { buttonStyles } from './button.stylex'
+import { editorPositionerAdapterStyles } from '../floating-surface/editor-positioner-adapter.stylex'
+import { editorButtonAdapterStyles } from './editor-button-adapter.stylex'
 
-export default function Button(props: {
-  pressed?: boolean
-  disabled?: boolean
-  onClick?: MouseEventHandler<HTMLButtonElement>
-  tooltip?: string
+export default function Button({
+  children,
+  disabled = false,
+  onMouseDown,
+  pressed,
+  ref,
+  tooltip,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'style' | 'children'> & {
   children: ReactNode
+  pressed?: boolean
+  ref?: Ref<HTMLButtonElement>
+  tooltip?: string
 }) {
   return (
     <TooltipRoot>
-      <TooltipTrigger {...stylex.props(buttonStyles.tooltipTrigger)}>
+      <TooltipTrigger {...stylex.props(editorButtonAdapterStyles.tooltipTrigger)}>
         <PublicButton
-          data-state={props.pressed ? 'on' : 'off'}
-          disabled={props.disabled}
-          pressed={props.pressed}
+          {...props}
+          data-state={pressed ? 'on' : 'off'}
+          disabled={disabled}
+          pressed={pressed}
+          ref={ref}
           variant="icon"
-          xstyle={[buttonStyles.action, props.pressed && buttonStyles.pressed]}
-          onClick={props.onClick}
+          xstyle={editorButtonAdapterStyles.action}
           onMouseDown={(event) => {
             // Prevent the editor from being blurred when the button is clicked
             event.preventDefault()
+            onMouseDown?.(event)
           }}
         >
-          {props.children}
-          {props.tooltip ? <span {...stylex.props(buttonStyles.visuallyHidden)}>{props.tooltip}</span> : null}
+          {children}
+          {tooltip ? <span {...stylex.props(editorButtonAdapterStyles.visuallyHidden)}>{tooltip}</span> : null}
         </PublicButton>
       </TooltipTrigger>
-      {props.tooltip
+      {tooltip
         ? (
-            <TooltipPositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
-              <TooltipPopup {...stylex.props(floatingSurfaceStyles.motion, buttonStyles.tooltipPopup)}>
-                {props.tooltip}
+            <TooltipPositioner {...stylex.props(editorPositionerAdapterStyles.positioner)}>
+              <TooltipPopup {...stylex.props(editorPositionerAdapterStyles.motion, editorButtonAdapterStyles.tooltipPopup)}>
+                {tooltip}
               </TooltipPopup>
             </TooltipPositioner>
           )

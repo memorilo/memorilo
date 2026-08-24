@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { insertBlockSiblingAfter } from '../../common/block-sibling'
 import { EditorMode } from '../../common/editor-mode'
 import { OUTLINE_LIST_KIND } from '../../common/outline-document'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
+import { editorPositionerAdapterStyles } from '../floating-surface/editor-positioner-adapter.stylex'
 import { blockHandleStyles } from './block-handle.stylex'
 
 interface Props {
@@ -41,10 +41,10 @@ export default function BlockHandle(props: Props) {
   return (
     <BlockHandleRoot onStateChange={(event) => { hoveredBlockRef.current = event.detail }}>
       <BlockHandlePositioner
-        {...stylex.props(floatingSurfaceStyles.positioner)}
+        {...stylex.props(editorPositionerAdapterStyles.positioner)}
         placement={props.dir === 'rtl' ? 'right' : 'left'}
       >
-        <BlockHandlePopup {...stylex.props(floatingSurfaceStyles.motion, blockHandleStyles.popup)}>
+        <BlockHandlePopup {...stylex.props(editorPositionerAdapterStyles.motion, blockHandleStyles.popup)}>
           <button {...stylex.props(blockHandleStyles.button)} aria-label={t('ui.addBlock')} type="button" onPointerDown={addBlock}><Plus size={20} /></button>
           <BlockHandleDraggable {...stylex.props(blockHandleStyles.button, blockHandleStyles.dragButton)} aria-label={t('ui.dragBlock')}><GripVertical size={20} /></BlockHandleDraggable>
         </BlockHandlePopup>

@@ -1,7 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
-import { editorColors } from '../../common/editor-theme.stylex'
 
-export const buttonStyles = stylex.create({
+export const editorButtonAdapterStyles = stylex.create({
   tooltipTrigger: {
     display: 'block',
   },
@@ -16,10 +15,10 @@ export const buttonStyles = stylex.create({
     padding: 8,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': editorColors.gray100,
+      ':hover': 'color-mix(in srgb, currentColor 10%, transparent)',
     },
     color: {
-      'default': editorColors.gray900,
+      'default': 'currentColor',
       ':disabled': 'oklch(0.21 0.034 264.665 / 50%)',
     },
     cursor: {
@@ -30,7 +29,7 @@ export const buttonStyles = stylex.create({
     fontWeight: 500,
     boxShadow: {
       'default': 'none',
-      ':focus-visible': `0 0 0 2px ${editorColors.gray900}`,
+      ':focus-visible': '0 0 0 2px currentColor',
     },
     outline: 'none',
     outlineOffset: 0,
@@ -43,20 +42,20 @@ export const buttonStyles = stylex.create({
     transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
   },
   pressed: {
-    backgroundColor: editorColors.gray200,
+    backgroundColor: 'color-mix(in srgb, currentColor 14%, transparent)',
   },
   tooltipPopup: {
     display: 'flex',
     overflow: 'hidden',
-    borderColor: editorColors.gray50,
+    borderColor: 'color-mix(in srgb, currentColor 22%, transparent)',
     borderStyle: 'solid',
     borderWidth: 1,
     borderRadius: 6,
     paddingBlock: 6,
     paddingInline: 12,
-    backgroundColor: editorColors.gray900,
+    backgroundColor: 'currentColor',
     boxShadow: '0 1px 2px rgb(0 0 0 / 5%)',
-    color: editorColors.gray50,
+    color: 'Canvas',
     fontSize: 12,
     whiteSpace: 'nowrap',
     transitionDuration: {

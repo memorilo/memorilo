@@ -3,7 +3,7 @@ import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { TFunction } from 'i18next'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
-import { Sidebar } from '@memorilo/ui'
+import { Sidebar, uiThemes } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpen, CalendarDays, GraduationCap, HardDrive, NotebookPen, Plug, Settings2, Wifi } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -451,12 +451,17 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
   const [activeCategoryId, setActiveCategoryId] = useState<SettingsCategoryId>('general')
   const shouldReduceMotion = useReducedMotion()
   const activeCategory = categories.find(category => category.id === activeCategoryId)
+  const windowProps = stylex.props(settingsStyles.window)
 
   if (!activeCategory)
     throw new Error(`Settings has no active category matching ${activeCategoryId}`)
 
   return (
-    <main {...stylex.props(settingsStyles.window)}>
+    <main
+      {...windowProps}
+      className={`${uiThemes.light.theme} ${windowProps.className}`}
+      data-ui-theme="light"
+    >
       <div {...stylex.props(settingsStyles.dragRegion)} data-window-drag="" />
       <div {...stylex.props(settingsStyles.layout)}>
         <Sidebar.Root aria-label={t('categories')} variant="settings">

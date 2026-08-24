@@ -1,11 +1,10 @@
 import type { TFunction } from 'i18next'
 import type { CSSProperties } from 'react'
 import type { TaskReminder } from '../schema/task-schema'
+import { Button, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Plus, X } from 'lucide-react'
 import { useState } from 'react'
-import { buttonStyles } from '../ui/button/button.stylex'
-import { formControlStyles } from '../ui/form-controls/form-controls.stylex'
 import { taskReminderLabel } from './task-reminder'
 import { taskReminderPickerStyles as styles } from './task-reminder-picker.stylex'
 
@@ -68,9 +67,9 @@ export function TaskReminderPicker({
     >
       <div {...stylex.props(styles.heading)}>
         <span>{t('reminderSettings')}</span>
-        <button {...stylex.props(buttonStyles.action, styles.iconButton)} aria-label={t('close')} title={t('close')} type="button" onClick={onClose}>
+        <Button variant="icon" xstyle={styles.iconButton} aria-label={t('close')} title={t('close')} type="button" onClick={onClose}>
           <X aria-hidden="true" size={14} strokeWidth={1.9} />
-        </button>
+        </Button>
       </div>
       <div {...stylex.props(styles.options)} role="group" aria-label={t('reminderPresets')}>
         {presetOffsets.map((minutes) => {
@@ -96,8 +95,8 @@ export function TaskReminderPicker({
       <div {...stylex.props(styles.customSection)}>
         <span {...stylex.props(styles.sectionLabel)}>{t('reminderCustomTime')}</span>
         <div {...stylex.props(styles.customInputRow)}>
-          <input
-            {...stylex.props(formControlStyles.textInput, styles.timeInput)}
+          <TextField
+            xstyle={styles.timeInput}
             aria-label={t('reminderCustomTime')}
             type="time"
             value={customTime}
@@ -109,8 +108,9 @@ export function TaskReminderPicker({
               }
             }}
           />
-          <button
-            {...stylex.props(buttonStyles.action, styles.addButton)}
+          <Button
+            variant="icon"
+            xstyle={styles.addButton}
             aria-label={t('addReminder')}
             disabled={customTime.length === 0 || selectedKeys.has(`time:${customTime}`) || reminders.length >= 8}
             title={t('addReminder')}
@@ -118,7 +118,7 @@ export function TaskReminderPicker({
             onClick={addCustomTime}
           >
             <Plus aria-hidden="true" size={15} strokeWidth={2} />
-          </button>
+          </Button>
         </div>
         {customReminders.length > 0
           ? (
@@ -126,22 +126,23 @@ export function TaskReminderPicker({
                 {customReminders.map(reminder => (
                   <div key={reminder.time} {...stylex.props(styles.customItem)}>
                     <span>{reminder.time}</span>
-                    <button
-                      {...stylex.props(buttonStyles.action, styles.removeButton)}
+                    <Button
+                      variant="icon"
+                      xstyle={styles.removeButton}
                       aria-label={t('removeReminder', { time: reminder.time })}
                       title={t('removeReminder', { time: reminder.time })}
                       type="button"
                       onClick={() => onChange(reminders.filter(item => reminderKey(item) !== reminderKey(reminder)))}
                     >
                       <X aria-hidden="true" size={12} strokeWidth={2} />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
             )
           : null}
       </div>
-      <button {...stylex.props(buttonStyles.action, styles.clearButton)} disabled={reminders.length === 0} type="button" onClick={onClear}>{t('clearReminders')}</button>
+      <Button variant="plain" xstyle={styles.clearButton} disabled={reminders.length === 0} type="button" onClick={onClear}>{t('clearReminders')}</Button>
     </div>
   )
 }

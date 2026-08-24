@@ -5,7 +5,7 @@ import type { Editor } from 'prosekit/core'
 import type { LinkAttrs } from 'prosekit/extensions/link'
 import type { EditorState } from 'prosekit/pm/state'
 import type { CardExtension } from '../../card/card-extension'
-import { Toolbar } from '@memorilo/ui'
+import { Button as PublicButton, Surface, TextField, Toolbar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { Bold, Brackets, Code2, Highlighter, Italic, Link2, Strikethrough, Underline } from 'lucide-react'
 import { useEditor, useEditorDerivedValue } from 'prosekit/react'
@@ -16,8 +16,7 @@ import { getSelectedCardDefinitionId } from '../../card/card-extension'
 
 import { Button } from '../button/index.ts'
 import { getEditorActions } from '../editor-actions/index.ts'
-import { floatingSurfaceStyles } from '../floating-surface/floating-surface.stylex'
-import { formControlStyles } from '../form-controls/form-controls.stylex'
+import { editorPositionerAdapterStyles } from '../floating-surface/editor-positioner-adapter.stylex'
 import HeadingDropdown from './heading-dropdown.tsx'
 import { inlineMenuStyles } from './inline-menu.stylex'
 
@@ -110,10 +109,10 @@ export default function InlineMenu({ learningEnabled = true }: { learningEnabled
           }
         }}
       >
-        <InlinePopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)}>
+        <InlinePopoverPositioner {...stylex.props(editorPositionerAdapterStyles.positioner)}>
           <Toolbar.Root asChild variant="floating" xstyle={inlineMenuStyles.mainPopup}>
             <InlinePopoverPopup
-              {...stylex.props(floatingSurfaceStyles.motion)}
+              {...stylex.props(editorPositionerAdapterStyles.motion)}
               data-testid="inline-menu-main"
             >
               <HeadingDropdown actions={actions.heading} />
@@ -209,41 +208,39 @@ export default function InlineMenu({ learningEnabled = true }: { learningEnabled
         open={linkMenuOpen}
         onOpenChange={event => setLinkMenuOpen(event.detail)}
       >
-        <InlinePopoverPositioner {...stylex.props(floatingSurfaceStyles.positioner)} placement="bottom">
+        <InlinePopoverPositioner {...stylex.props(editorPositionerAdapterStyles.positioner)} placement="bottom">
           <InlinePopoverPopup
-            {...stylex.props(
-              floatingSurfaceStyles.motion,
-              floatingSurfaceStyles.surface,
-              inlineMenuStyles.linkPopup,
-            )}
+            {...stylex.props(editorPositionerAdapterStyles.motion)}
             data-testid="inline-menu-link"
           >
-            {linkMenuOpen && (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  const target = event.target as HTMLFormElement | null
-                  const href = target?.querySelector('input')?.value?.trim()
-                  handleLinkUpdate(href)
-                }}
-              >
-                <input
-                  {...stylex.props(formControlStyles.textInput)}
-                  placeholder={t('ui.pasteLinkPlaceholder')}
-                  defaultValue={link.currentLink}
-                />
-              </form>
-            )}
-            {link.isActive && (
-              <button
-                {...stylex.props(formControlStyles.primaryButton, inlineMenuStyles.removeButton)}
-                type="button"
-                onClick={() => handleLinkUpdate()}
-                onMouseDown={event => event.preventDefault()}
-              >
-                {t('ui.removeLink')}
-              </button>
-            )}
+            <Surface variant="popover" xstyle={inlineMenuStyles.linkPopup}>
+              {linkMenuOpen && (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    const target = event.target as HTMLFormElement | null
+                    const href = target?.querySelector('input')?.value?.trim()
+                    handleLinkUpdate(href)
+                  }}
+                >
+                  <TextField
+                    placeholder={t('ui.pasteLinkPlaceholder')}
+                    defaultValue={link.currentLink}
+                  />
+                </form>
+              )}
+              {link.isActive && (
+                <PublicButton
+                  variant="primary"
+                  xstyle={inlineMenuStyles.removeButton}
+                  type="button"
+                  onClick={() => handleLinkUpdate()}
+                  onMouseDown={event => event.preventDefault()}
+                >
+                  {t('ui.removeLink')}
+                </PublicButton>
+              )}
+            </Surface>
           </InlinePopoverPopup>
         </InlinePopoverPositioner>
       </InlinePopoverRoot>
