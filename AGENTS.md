@@ -13,7 +13,17 @@ Memorilo is an Electron application organized as a pnpm and Turbo monorepo.
 
 Import packages through their public entry points. Do not reach into another package's private source tree.
 
-Renderer and editor component styles use StyleX. Keep component styles in `*.stylex.ts`; reserve plain CSS for global resets, fonts, and third-party content.
+## Component architecture
+
+- `packages/ui` owns public, cross-feature controls and their semantic visual contract. Import them through `@memorilo/ui`; do not reach into another package's component files.
+- Keep domain semantics and feature-specific interaction in the owning feature. Promote a component only when its behavior and accessibility contract are stable across multiple features; move the public component and its styles together, then remove the absorbed private API.
+- Build shared controls for composition. Prefer compound APIs (`Root`, `Trigger`, `Content`, `Item`, and similar) when a control has meaningful subparts; use `asChild` only when the caller must provide the semantic element and the resulting element still forwards refs, keyboard behavior, and ARIA attributes correctly.
+- Keep the public API small: expose semantic variants and slots for real layout differences, not feature flags for unrelated workflows. Pass `xstyle` for local composition; keep structural rules and states in the component's `*.stylex.ts` file.
+- `packages/ui/src/theme.stylex.ts` owns shared semantic tokens and theme presets. Shared styles consume tokens rather than raw colors, shadows, or surfaces, so a theme may change the visual language substantially without feature edits. Apply the selected theme at renderer composition roots.
+- Feature-only styles may use feature tokens and remain local. Third-party/editor integration styles, positioning adapters, and lifecycle-specific behavior stay at their integration boundary instead of leaking into `packages/ui`.
+- Keep pure synchronous view-model calculations in ordinary TypeScript. Components coordinate React state, events, and rendering; use Effect only at an explicitly justified asynchronous/resource boundary, never to wrap presentation for consistency.
+- Preserve native semantics and observable states: forward native props and refs, expose `data-ui`, `data-variant`, and `data-state` where useful, and make focus, dismissal, reduced motion, and disabled behavior part of the component contract.
+- When changing a shared control, inspect every public consumer, update the component and its StyleX module together, and run the affected package's lint, typecheck, and focused tests before broader repository gates.
 
 ## Development commands
 
