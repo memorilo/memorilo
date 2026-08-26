@@ -1,6 +1,8 @@
 export const desktopConfigurationChangedChannel = 'memorilo:configuration-changed'
 
 export type DesktopLanguage = 'en' | 'system' | 'zh-CN'
+export type DesktopThemeFamily = 'liquid-glass' | 'fluent' | 'neubrutalism'
+export type DesktopThemeAppearance = 'system' | 'light' | 'dark'
 export type DesktopOutdentBehavior = 'logical' | 'traditional'
 export type DesktopDailyGoalMode = 'all-due' | 'fixed' | 'spread-week'
 export type DesktopNetworkImagePasteBehavior = 'download' | 'url'
@@ -44,6 +46,11 @@ export interface DesktopLearningConfiguration {
   enabled: boolean
 }
 
+export interface DesktopThemePreference {
+  family: DesktopThemeFamily
+  appearance: DesktopThemeAppearance
+}
+
 export interface DesktopMcpConfiguration {
   accessToken: string
   enabled: boolean
@@ -67,6 +74,7 @@ export interface DesktopConfiguration {
   goals: DesktopGoalConfiguration
   learning: DesktopLearningConfiguration
   language: DesktopLanguage
+  theme: DesktopThemePreference
   mcp: DesktopMcpConfiguration
   networkImagePasteBehavior: DesktopNetworkImagePasteBehavior
   outdentBehavior: DesktopOutdentBehavior

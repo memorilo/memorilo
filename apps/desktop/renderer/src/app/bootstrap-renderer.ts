@@ -20,6 +20,10 @@ export async function bootstrapRenderer(
   let store: ConfigurationStore<DesktopConfiguration> | undefined
   try {
     store = await createRendererConfigurationStore()
+    if (typeof document !== 'undefined') {
+      const { applyDesktopTheme } = await import('./configuration/theme-runtime')
+      applyDesktopTheme(store.getSnapshot().theme)
+    }
     await initI18n(resolveConfigLanguage(store.getSnapshot().language))
     const activeStore = store
     const dispose = await render(activeStore)

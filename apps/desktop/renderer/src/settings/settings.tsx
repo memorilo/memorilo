@@ -1,9 +1,10 @@
 import type { ConfigurationField, ConfigurationSection, ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { TFunction } from 'i18next'
+import type { CSSProperties } from 'react'
 import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
-import { Sidebar, uiThemes } from '@memorilo/ui'
+import { getUiThemeDefinitions, SegmentedControl, Sidebar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { BookOpen, CalendarDays, GraduationCap, HardDrive, NotebookPen, Plug, Settings2, Wifi } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -443,6 +444,76 @@ function SettingsFieldsGroup({
   )
 }
 
+function ThemeGallery({ store }: { store: ConfigurationStore<DesktopConfiguration> }) {
+  const { t } = useTranslation('settings')
+  const configuration = useDesktopConfiguration()
+  const appearanceOptions = [
+    { label: t('themeSystem'), value: 'system' },
+    { label: t('themeLight'), value: 'light' },
+    { label: t('themeDark'), value: 'dark' },
+  ] as const
+
+  return (
+    <section {...stylex.props(settingsStyles.themeSection)} aria-labelledby="theme-settings-heading">
+      <h2 id="theme-settings-heading" {...stylex.props(settingsStyles.sectionTitle, settingsStyles.sectionTitleFirst)}>
+        {t('themeSection')}
+      </h2>
+      <fieldset {...stylex.props(settingsStyles.themeGallery)} aria-label={t('themeFamily')}>
+        <legend {...stylex.props(settingsStyles.themeLegend)}>{t('themeFamily')}</legend>
+        {getUiThemeDefinitions().map((definition) => {
+          const selected = configuration.theme.family === definition.id
+          const label = t(definition.labelKey)
+          const description = t(definition.descriptionKey)
+          const previewStyle = {
+            backgroundColor: definition.preview.canvas,
+          } as CSSProperties
+          return (
+            <label
+              key={definition.id}
+              {...stylex.props(settingsStyles.themeCard, selected && settingsStyles.themeCardSelected)}
+            >
+              <input
+                {...stylex.props(settingsStyles.themeInput)}
+                aria-label={label}
+                checked={selected}
+                name="theme-family"
+                type="radio"
+                value={definition.id}
+                onChange={() => void store.setValue('theme.family', definition.id)}
+              />
+              <div {...stylex.props(settingsStyles.themePreview)} style={previewStyle}>
+                <div {...stylex.props(settingsStyles.themePreviewSidebar)} style={{ backgroundColor: definition.preview.surface }} />
+                <div {...stylex.props(settingsStyles.themePreviewContent)} style={{ backgroundColor: definition.preview.surface }}>
+                  <div {...stylex.props(settingsStyles.themePreviewAccent)} style={{ backgroundColor: definition.preview.accent }} />
+                  <div {...stylex.props(settingsStyles.themePreviewLine)} />
+                  <div {...stylex.props(settingsStyles.themePreviewLine)} style={{ width: '52%' }} />
+                </div>
+              </div>
+              <div {...stylex.props(settingsStyles.themeCardHeader)}>
+                <span {...stylex.props(settingsStyles.themeCardName)}>{label}</span>
+                {selected ? <span {...stylex.props(settingsStyles.themeSelection)} aria-hidden="true">✓</span> : null}
+              </div>
+              <p {...stylex.props(settingsStyles.themeCardDescription)}>{description}</p>
+            </label>
+          )
+        })}
+      </fieldset>
+      <div {...stylex.props(settingsStyles.appearanceRow)}>
+        <span {...stylex.props(settingsStyles.appearanceLabel)}>{t('themeAppearance')}</span>
+        <SegmentedControl.Root
+          value={configuration.theme.appearance}
+          onValueChange={value => void store.setValue('theme.appearance', value)}
+        >
+          {appearanceOptions.map(option => (
+            <SegmentedControl.Item key={option.value} value={option.value}>{option.label}</SegmentedControl.Item>
+          ))}
+        </SegmentedControl.Root>
+      </div>
+      <p {...stylex.props(settingsStyles.themeStatus)} role="status">{t('themeSaved')}</p>
+    </section>
+  )
+}
+
 export function Settings({ store }: { store: ConfigurationStore<DesktopConfiguration> }) {
   const { t } = useTranslation('settings')
   const configuration = useDesktopConfiguration()
@@ -459,8 +530,7 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
   return (
     <main
       {...windowProps}
-      className={`${uiThemes.light.theme} ${windowProps.className}`}
-      data-ui-theme="light"
+      className={windowProps.className}
     >
       <div {...stylex.props(settingsStyles.dragRegion)} data-window-drag="" />
       <div {...stylex.props(settingsStyles.layout)}>
@@ -501,6 +571,7 @@ export function Settings({ store }: { store: ConfigurationStore<DesktopConfigura
                     {activeCategory.description}
                   </p>
                 </header>
+                {activeCategory.id === 'general' ? <ThemeGallery store={store} /> : null}
                 {activeCategory.id === 'sync' ? <P2pSettings /> : null}
                 {activeCategory.sections.map((section, index) => (
                   <Fragment key={section.id}>

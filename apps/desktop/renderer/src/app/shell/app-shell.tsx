@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { PaletteCommand } from '../../shared/command-palette'
 import type { PageTitlebarOptions } from '../../shared/page-titlebar'
-import { uiThemes } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useState } from 'react'
 
@@ -30,8 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <CommandPaletteCommandsContext value={setPageCommands}>
         <div
           {...shellProps}
-          className={`${uiThemes.light.theme} ${shellProps.className}`}
-          data-ui-theme="light"
+          className={shellProps.className}
           style={shellStyle}
         >
           <AppTitlebar page={pageTitlebar} sidebarVisible={sidebarVisible} />

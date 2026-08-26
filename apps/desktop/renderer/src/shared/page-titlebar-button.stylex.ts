@@ -13,7 +13,7 @@ export const pageTitlebarButtonStyles = stylex.create({
     alignItems: 'center',
     justifyItems: 'center',
     borderWidth: 0,
-    borderRadius: 16,
+    borderRadius: 'var(--ui-control-radius, 9px)',
     padding: 0,
     backgroundColor: {
       'default': 'transparent',

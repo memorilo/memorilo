@@ -1,11 +1,18 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  focus: 'rgba(0, 122, 255, 0.72)',
-  separator: 'rgba(60, 60, 67, 0.12)',
-  text: 'rgba(28, 28, 30, 0.94)',
-  textMuted: 'rgba(60, 60, 67, 0.64)',
-  textQuiet: 'rgba(60, 60, 67, 0.46)',
+  accent: 'var(--ui-accent, rgb(0, 122, 255))',
+  accentSoft: 'var(--ui-accent-soft, rgba(0, 122, 255, 0.1))',
+  controlHover: 'var(--ui-control-hover, rgba(118, 118, 128, 0.07))',
+  controlPressed: 'var(--ui-control-pressed, rgba(118, 118, 128, 0.12))',
+  controlSelected: 'var(--ui-control-selected, rgba(0, 122, 255, 0.09))',
+  focus: 'var(--ui-focus, rgba(0, 122, 255, 0.72))',
+  separator: 'var(--ui-divider, rgba(60, 60, 67, 0.12))',
+  success: 'var(--ui-status-success, rgb(42, 145, 87))',
+  text: 'var(--ui-text, rgba(28, 28, 30, 0.94))',
+  textMuted: 'var(--ui-text-muted, rgba(60, 60, 67, 0.64))',
+  textQuiet: 'var(--ui-text-quiet, rgba(60, 60, 67, 0.46))',
+  warning: 'var(--ui-warning, rgb(214, 127, 16))',
 } as const
 
 const loadingRotation = stylex.keyframes({
@@ -65,12 +72,12 @@ export const todoListViewStyles = stylex.create({
     flex: '0 0 28px',
     placeItems: 'center',
     borderWidth: 0,
-    borderRadius: 7,
+    borderRadius: 'var(--ui-control-radius, 7px)',
     padding: 0,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(118, 118, 128, 0.07)',
-      ':active': 'rgba(118, 118, 128, 0.12)',
+      ':hover': colors.controlHover,
+      ':active': colors.controlPressed,
     },
     color: colors.textQuiet,
     cursor: 'default',
@@ -92,9 +99,9 @@ export const todoListViewStyles = stylex.create({
     flex: '0 0 28px',
   },
   rowShellSelected: {
-    borderRadius: 5,
-    backgroundColor: 'rgba(0, 122, 255, 0.09)',
-    boxShadow: 'inset 2px 0 rgba(0, 122, 255, 0.58)',
+    borderRadius: 'var(--ui-control-radius, 5px)',
+    backgroundColor: colors.controlSelected,
+    boxShadow: `inset var(--ui-nav-selected-indicator-width, 2px) 0 ${colors.accent}`,
   },
   rowButton: {
     display: 'grid',
@@ -106,13 +113,13 @@ export const todoListViewStyles = stylex.create({
     gridTemplateColumns: '28px minmax(0, 1fr)',
     gap: 10,
     borderWidth: 0,
-    borderRadius: 5,
+    borderRadius: 'var(--ui-control-radius, 5px)',
     paddingRight: 14,
     paddingLeft: 12,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(118, 118, 128, 0.07)',
-      ':active': 'rgba(118, 118, 128, 0.12)',
+      ':hover': colors.controlHover,
+      ':active': colors.controlPressed,
     },
     color: colors.text,
     cursor: 'default',
@@ -154,10 +161,10 @@ export const todoListViewStyles = stylex.create({
     color: colors.textQuiet,
   },
   statusDoing: {
-    color: 'rgb(214, 127, 16)',
+    color: colors.warning,
   },
   statusDone: {
-    color: 'rgb(42, 145, 87)',
+    color: colors.success,
   },
   taskContent: {
     display: 'flex',
@@ -189,13 +196,13 @@ export const todoListViewStyles = stylex.create({
   },
   retryButton: {
     height: 28,
-    borderColor: 'rgba(0, 100, 210, 0.25)',
+    borderColor: colors.accent,
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 'var(--ui-control-radius, 5px)',
     paddingRight: 12,
     paddingLeft: 12,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    backgroundColor: colors.accentSoft,
     color: colors.text,
     cursor: 'default',
     fontSize: 12,

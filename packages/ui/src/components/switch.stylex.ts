@@ -8,16 +8,13 @@ export const switchStyles = stylex.create({
     height: 20,
     flex: '0 0 34px',
     borderWidth: 0,
-    borderRadius: 10,
+    borderRadius: uiColors.pillRadius,
     padding: 0,
-    backgroundColor: {
-      'default': 'rgba(83, 87, 96, 0.22)',
-      '@media (prefers-color-scheme: dark)': 'rgba(235, 238, 244, 0.24)',
-    },
+    backgroundColor: uiColors.controlPressed,
     cursor: 'default',
     outline: 'none',
     boxShadow: {
-      'default': 'inset 0 0 0 1px rgba(39, 43, 50, 0.08)',
+      'default': `inset 0 0 0 1px ${uiColors.fieldBorder}`,
       ':focus-visible': `0 0 0 2px ${uiColors.focus}`,
     },
     transform: {
@@ -35,8 +32,8 @@ export const switchStyles = stylex.create({
     width: 32,
     height: 18,
     flexBasis: 32,
-    borderRadius: 9,
-    boxShadow: 'inset 0 0 0 1px rgba(35, 39, 46, 0.08)',
+    borderRadius: uiColors.pillRadius,
+    boxShadow: uiColors.controlShadow,
     transform: {
       'default': 'scale(1)',
       ':active': 'scale(0.94)',
@@ -54,9 +51,9 @@ export const switchStyles = stylex.create({
     left: 2,
     width: 16,
     height: 16,
-    borderRadius: 8,
+    borderRadius: uiColors.pillRadius,
     backgroundColor: 'white',
-    boxShadow: '0 1px 3px rgba(24, 28, 35, 0.26)',
+    boxShadow: uiColors.controlShadow,
     transform: 'translateX(0)',
     transitionDuration: {
       'default': '150ms',
@@ -73,8 +70,8 @@ export const switchStyles = stylex.create({
     left: 2,
     width: 14,
     height: 14,
-    borderRadius: 7,
-    boxShadow: '0 1px 3px rgba(24, 28, 35, 0.24)',
+    borderRadius: uiColors.pillRadius,
+    boxShadow: uiColors.controlShadow,
     transitionDuration: {
       'default': '140ms',
       '@media (prefers-reduced-motion: reduce)': '0ms',

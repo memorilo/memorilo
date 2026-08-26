@@ -13,7 +13,8 @@ import {
   List,
   ListTodo,
   LoaderCircle,
-  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   TriangleAlert,
 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -22,7 +23,6 @@ import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
 import { usePageTitlebar } from '../../shared/page-titlebar'
-import { PageTitlebarButton } from '../../shared/page-titlebar-button'
 import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 import { TodoDetailSidebar } from './todo-detail-sidebar'
@@ -292,16 +292,6 @@ export function TodoPage({
   ])
 
   const titlebar = useMemo(() => ({
-    leading: view === 'list'
-      ? (
-          <PageTitlebarButton
-            label={listSidebarVisible ? t('hideListSidebar') : t('showListSidebar')}
-            onClick={() => setListSidebarVisible(current => !current)}
-          >
-            <PanelLeft aria-hidden="true" size={17} strokeWidth={1.8} />
-          </PageTitlebarButton>
-        )
-      : undefined,
     title: t('title'),
     trailingAppearance: 'plain' as const,
     trailing: (
@@ -321,7 +311,7 @@ export function TodoPage({
         ))}
       </div>
     ),
-  }), [listSidebarVisible, onViewChange, t, view])
+  }), [onViewChange, t, view])
   usePageTitlebar(titlebar)
 
   let viewContent
@@ -410,8 +400,23 @@ export function TodoPage({
             : null}
         </AnimatePresence>
         <div {...stylex.props(todoPageStyles.listMain)}>
-          <div {...stylex.props(todoPageStyles.controls)}>
-            <h2 {...stylex.props(todoPageStyles.listTitle)}>{currentSelectionLabel}</h2>
+          <div {...stylex.props(todoPageStyles.controls)} data-todo-list-controls="">
+            <div {...stylex.props(todoPageStyles.listControlsTitle)}>
+              <button
+                {...stylex.props(todoPageStyles.listSidebarToggle)}
+                aria-label={listSidebarVisible ? t('hideListSidebar') : t('showListSidebar')}
+                aria-pressed={listSidebarVisible}
+                data-todo-list-sidebar-toggle=""
+                title={listSidebarVisible ? t('hideListSidebar') : t('showListSidebar')}
+                type="button"
+                onClick={() => setListSidebarVisible(current => !current)}
+              >
+                {listSidebarVisible
+                  ? <PanelLeftClose aria-hidden="true" size={16} strokeWidth={2} />
+                  : <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={2} />}
+              </button>
+              <h2 {...stylex.props(todoPageStyles.listTitle)}>{currentSelectionLabel}</h2>
+            </div>
             <p {...stylex.props(todoPageStyles.count)} aria-live="polite">
               {tasksQuery.hasNextPage || tasksQuery.isFetchingNextPage
                 ? <LoaderCircle {...stylex.props(todoPageStyles.countLoadingIcon, todoPageStyles.loadingIcon)} aria-hidden="true" strokeWidth={1.8} />

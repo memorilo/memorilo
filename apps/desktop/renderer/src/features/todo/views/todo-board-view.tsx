@@ -55,7 +55,7 @@ export function TodoBoardView({
 }) {
   const grouped = groupTodoTasks(tasks)
   return (
-    <div {...stylex.props(styles.viewport)}>
+    <div {...stylex.props(styles.viewport)} data-todo-view="board">
       <div {...stylex.props(styles.grid)}>
         {todoStatuses.map((status) => {
           const columnTasks = grouped[status]

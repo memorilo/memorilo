@@ -5,8 +5,8 @@ const spin = stylex.keyframes({
 })
 
 const colors = {
-  secondaryText: 'rgba(54, 55, 61, 0.4)',
-  text: 'rgba(28, 29, 33, 0.9)',
+  secondaryText: 'var(--ui-text-muted, rgba(54, 55, 61, 0.4))',
+  text: 'var(--ui-text, rgba(28, 29, 33, 0.9))',
 } as const
 
 export const commandPaletteStyles = stylex.create({
@@ -47,7 +47,7 @@ export const commandPaletteStyles = stylex.create({
       bottom: 0,
       left: 20,
       height: 1,
-      backgroundColor: 'rgba(74, 74, 80, 0.13)',
+      backgroundColor: 'var(--ui-divider, rgba(74, 74, 80, 0.13))',
       content: '',
     },
   },
@@ -55,7 +55,7 @@ export const commandPaletteStyles = stylex.create({
     width: 25,
     height: 25,
     flex: '0 0 25px',
-    color: 'rgba(44, 45, 50, 0.58)',
+    color: 'var(--ui-text-muted, rgba(44, 45, 50, 0.58))',
   },
   searchInputCluster: {
     display: 'flex',
@@ -90,13 +90,13 @@ export const commandPaletteStyles = stylex.create({
   },
   searchIntent: {
     flex: '0 0 auto',
-    borderRadius: 9,
+    borderRadius: 'var(--ui-control-radius, 9px)',
     paddingTop: 4,
     paddingRight: 10,
     paddingBottom: 4,
     paddingLeft: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.43)',
-    color: 'rgba(64, 65, 70, 0.34)',
+    backgroundColor: 'var(--ui-control-hover, rgba(255, 255, 255, 0.43))',
+    color: 'var(--ui-text-muted, rgba(64, 65, 70, 0.34))',
     fontSize: 15,
     fontWeight: 510,
     letterSpacing: '-0.006em',
@@ -110,8 +110,8 @@ export const commandPaletteStyles = stylex.create({
     flex: '0 0 30px',
     alignItems: 'center',
     justifyItems: 'center',
-    borderRadius: 8,
-    boxShadow: '0 3px 8px rgba(24, 24, 28, 0.18), inset 0 0 0 0.5px rgba(255, 255, 255, 0.34), inset 0 1px rgba(255, 255, 255, 0.35)',
+    borderRadius: 'var(--ui-control-radius, 9px)',
+    boxShadow: 'var(--ui-control-shadow, 0 3px 8px rgba(24, 24, 28, 0.18))',
   },
   searchSpinner: {
     width: 21,
@@ -124,7 +124,7 @@ export const commandPaletteStyles = stylex.create({
       '@media (prefers-reduced-motion: reduce)': 'none',
     },
     animationTimingFunction: 'linear',
-    color: 'rgba(58, 59, 64, 0.42)',
+    color: 'var(--ui-text-muted, rgba(58, 59, 64, 0.42))',
   },
   resultsShell: {
     minHeight: 0,
@@ -155,7 +155,7 @@ export const commandPaletteStyles = stylex.create({
     alignItems: 'center',
     columnGap: 11,
     borderWidth: 0,
-    borderRadius: 17,
+    borderRadius: 'var(--ui-control-radius, 9px)',
     paddingTop: 5,
     paddingRight: 12,
     paddingBottom: 5,
@@ -177,7 +177,7 @@ export const commandPaletteStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   commandSelected: {
-    backgroundColor: 'rgba(73, 73, 79, 0.13)',
+    backgroundColor: 'var(--ui-control-pressed, rgba(73, 73, 79, 0.13))',
   },
   commandIconFrame: {
     display: 'grid',
@@ -185,8 +185,8 @@ export const commandPaletteStyles = stylex.create({
     height: 32,
     alignItems: 'center',
     justifyItems: 'center',
-    borderRadius: 8,
-    boxShadow: '0 3px 8px rgba(24, 24, 28, 0.16), inset 0 0 0 0.5px rgba(255, 255, 255, 0.34), inset 0 1px rgba(255, 255, 255, 0.34)',
+    borderRadius: 'var(--ui-control-radius, 9px)',
+    boxShadow: 'var(--ui-control-shadow, 0 3px 8px rgba(24, 24, 28, 0.16))',
   },
   commandIconBlue: {
     backgroundColor: '#147ce5',

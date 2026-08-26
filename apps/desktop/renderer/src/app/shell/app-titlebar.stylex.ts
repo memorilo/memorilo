@@ -1,7 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  text: 'rgba(25, 27, 31, 0.9)',
+  text: 'var(--ui-text, rgba(25, 27, 31, 0.9))',
 } as const
 
 export const appTitlebarStyles = stylex.create({
@@ -13,7 +13,10 @@ export const appTitlebarStyles = stylex.create({
     left: 0,
     width: '100%',
     height: 56,
-    backgroundColor: 'transparent',
+    backgroundColor: 'var(--ui-chrome-background, transparent)',
+    borderBottomColor: 'var(--ui-chrome-border, transparent)',
+    borderBottomStyle: 'solid',
+    borderBottomWidth: 'var(--ui-chrome-border-width, 0px)',
     color: colors.text,
     userSelect: 'none',
   },

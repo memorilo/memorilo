@@ -9,7 +9,7 @@ export const buttonStyles = stylex.create({
     'justifyContent': 'center',
     'gap': 6,
     'borderStyle': 'solid',
-    'borderWidth': 1,
+    'borderWidth': uiColors.controlStroke,
     'outline': 'none',
     'cursor': 'default',
     'textDecoration': 'none',
@@ -28,7 +28,7 @@ export const buttonStyles = stylex.create({
   plain: {
     minHeight: 34,
     borderColor: 'transparent',
-    borderRadius: 9,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 10,
     paddingLeft: 10,
     backgroundColor: {
@@ -46,7 +46,7 @@ export const buttonStyles = stylex.create({
     flex: '0 0 32px',
     borderColor: 'transparent',
     borderWidth: 0,
-    borderRadius: 16,
+    borderRadius: uiColors.pillRadius,
     padding: 0,
     backgroundColor: {
       'default': 'transparent',
@@ -71,7 +71,7 @@ export const buttonStyles = stylex.create({
     flex: '0 0 32px',
     borderColor: 'transparent',
     borderWidth: 0,
-    borderRadius: 7,
+    borderRadius: uiColors.controlRadius,
     padding: 4,
     backgroundColor: {
       'default': 'transparent',
@@ -85,7 +85,7 @@ export const buttonStyles = stylex.create({
   primary: {
     minHeight: 36,
     borderColor: uiColors.accentSoft,
-    borderRadius: 11,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 14,
     paddingLeft: 12,
     backgroundColor: {
@@ -96,30 +96,30 @@ export const buttonStyles = stylex.create({
     color: uiColors.onAccent,
     fontSize: 13,
     fontWeight: 600,
-    boxShadow: '0 4px 11px rgba(0, 86, 178, 0.2), inset 0 1px rgba(255, 255, 255, 0.24)',
+    boxShadow: uiColors.controlShadow,
   },
   secondary: {
     minHeight: 36,
     borderColor: uiColors.fieldBorder,
-    borderRadius: 11,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 14,
     paddingLeft: 14,
     backgroundColor: {
-      'default': 'rgba(235, 240, 247, 0.18)',
+      'default': uiColors.surfaceTranslucent,
       ':hover': uiColors.controlHover,
       ':active': uiColors.controlPressed,
     },
     color: uiColors.text,
     fontSize: 13,
     fontWeight: 550,
-    boxShadow: 'inset 0 1px rgba(255, 255, 255, 0.54), 0 1px 2px rgba(35, 42, 52, 0.06)',
+    boxShadow: uiColors.controlShadow,
   },
   menu: {
     minHeight: 38,
     width: '100%',
     justifyContent: 'flex-start',
     borderColor: 'transparent',
-    borderRadius: 9,
+    borderRadius: uiColors.controlRadius,
     paddingTop: 5,
     paddingRight: 8,
     paddingBottom: 5,
@@ -138,7 +138,7 @@ export const buttonStyles = stylex.create({
     minHeight: 36,
     borderColor: 'transparent',
     borderWidth: 0,
-    borderRadius: 6,
+    borderRadius: uiColors.controlRadius,
     padding: 8,
     backgroundColor: {
       'default': 'transparent',
@@ -155,7 +155,7 @@ export const buttonStyles = stylex.create({
   danger: {
     minHeight: 36,
     borderColor: 'transparent',
-    borderRadius: 11,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 14,
     paddingLeft: 14,
     backgroundColor: {

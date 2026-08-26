@@ -1,8 +1,8 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  canvas: '#ffffff',
-  gray500: 'oklch(0.551 0.027 264.364)',
+  canvas: 'var(--ui-canvas, #ffffff)',
+  gray500: 'var(--ui-text-muted, oklch(0.551 0.027 264.364))',
 } as const
 
 export const editorShellStyles = stylex.create({

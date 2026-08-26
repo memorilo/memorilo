@@ -9,7 +9,7 @@ export const p2pSettingsStyles = stylex.create({
     overflow: 'hidden',
     borderColor: {
       'default': 'rgba(80, 87, 98, 0.13)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.12)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.12)',
       '@media (prefers-contrast: more)': 'currentColor',
     },
     borderStyle: 'solid',
@@ -17,7 +17,7 @@ export const p2pSettingsStyles = stylex.create({
     borderRadius: 12,
     backgroundColor: {
       'default': 'rgba(255, 255, 255, 0.34)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.055)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.055)',
       '@media (prefers-reduced-transparency: reduce)': 'rgb(245, 246, 248)',
       '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.98)',
     },
@@ -43,18 +43,18 @@ export const p2pSettingsStyles = stylex.create({
     placeItems: 'center',
     borderColor: {
       'default': 'rgba(255, 255, 255, 0.58)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.14)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.14)',
     },
     borderStyle: 'solid',
     borderWidth: 1,
     borderRadius: 11,
     backgroundColor: {
       'default': 'rgba(225, 237, 251, 0.72)',
-      '@media (prefers-color-scheme: dark)': 'rgba(36, 125, 232, 0.18)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(36, 125, 232, 0.18)',
     },
     color: {
       'default': 'rgb(0, 101, 204)',
-      '@media (prefers-color-scheme: dark)': 'rgb(105, 177, 255)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(105, 177, 255)',
     },
     boxShadow: 'inset 0 1px rgba(255, 255, 255, 0.72), 0 2px 6px rgba(31, 73, 120, 0.1)',
   },
@@ -66,7 +66,7 @@ export const p2pSettingsStyles = stylex.create({
   identityEyebrow: {
     color: {
       'default': 'rgba(53, 55, 61, 0.5)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.5)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.5)',
     },
     fontSize: 10,
     fontWeight: 650,
@@ -86,7 +86,7 @@ export const p2pSettingsStyles = stylex.create({
     margin: 0,
     color: {
       'default': 'rgba(28, 29, 32, 0.92)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.92)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.92)',
     },
     fontSize: 14,
     fontWeight: 650,
@@ -99,7 +99,7 @@ export const p2pSettingsStyles = stylex.create({
     margin: 0,
     color: {
       'default': 'rgba(53, 55, 61, 0.6)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.6)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.6)',
     },
     fontSize: 11,
     lineHeight: '16px',
@@ -111,7 +111,7 @@ export const p2pSettingsStyles = stylex.create({
     gap: 5,
     color: {
       'default': 'rgba(53, 55, 61, 0.58)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.58)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.58)',
     },
     fontSize: 10,
     fontWeight: 550,
@@ -120,7 +120,7 @@ export const p2pSettingsStyles = stylex.create({
   connectionStateReady: {
     color: {
       'default': 'rgb(45, 118, 65)',
-      '@media (prefers-color-scheme: dark)': 'rgb(111, 201, 130)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(111, 201, 130)',
     },
   },
   stateDot: {
@@ -138,7 +138,7 @@ export const p2pSettingsStyles = stylex.create({
     'gap': 24,
     'borderTopColor': {
       'default': 'rgba(57, 62, 70, 0.1)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.1)',
     },
     'borderTopStyle': 'solid',
     'borderTopWidth': 1,
@@ -158,7 +158,7 @@ export const p2pSettingsStyles = stylex.create({
   rowLabel: {
     color: {
       'default': 'rgba(28, 29, 32, 0.9)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.9)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.9)',
     },
     fontSize: 13,
     fontWeight: 550,
@@ -168,7 +168,7 @@ export const p2pSettingsStyles = stylex.create({
     margin: 0,
     color: {
       'default': 'rgba(53, 55, 61, 0.58)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.58)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.58)',
     },
     fontSize: 11,
     lineHeight: '16px',
@@ -192,7 +192,7 @@ export const p2pSettingsStyles = stylex.create({
   deviceSection: {
     borderTopColor: {
       'default': 'rgba(57, 62, 70, 0.1)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.1)',
     },
     borderTopStyle: 'solid',
     borderTopWidth: 1,
@@ -205,7 +205,7 @@ export const p2pSettingsStyles = stylex.create({
     paddingLeft: 18,
     color: {
       'default': 'rgba(53, 55, 61, 0.54)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.54)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.54)',
     },
     fontSize: 10,
     fontWeight: 650,
@@ -246,7 +246,7 @@ export const p2pSettingsStyles = stylex.create({
     overflow: 'hidden',
     color: {
       'default': 'rgba(28, 29, 32, 0.9)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.9)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.9)',
     },
     fontSize: 12,
     fontWeight: 600,
@@ -258,7 +258,7 @@ export const p2pSettingsStyles = stylex.create({
     overflow: 'hidden',
     color: {
       'default': 'rgba(53, 55, 61, 0.52)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.52)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.52)',
     },
     fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 10,
@@ -283,7 +283,7 @@ export const p2pSettingsStyles = stylex.create({
     justifyContent: 'center',
     borderColor: {
       'default': 'rgba(80, 87, 98, 0.12)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.11)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.11)',
     },
     borderStyle: 'solid',
     borderWidth: 1,
@@ -291,7 +291,7 @@ export const p2pSettingsStyles = stylex.create({
     paddingInline: 12,
     backgroundColor: {
       'default': 'rgba(255, 255, 255, 0.46)',
-      '@media (prefers-color-scheme: dark)': 'rgba(8, 10, 14, 0.22)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(8, 10, 14, 0.22)',
     },
     fontFamily: 'Apple Color Emoji, Segoe UI Emoji, sans-serif',
     fontSize: 20,
@@ -308,7 +308,7 @@ export const p2pSettingsStyles = stylex.create({
     paddingLeft: 18,
     color: {
       'default': 'rgba(53, 55, 61, 0.48)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.48)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.48)',
     },
     fontSize: 11,
     lineHeight: '16px',
@@ -319,7 +319,7 @@ export const p2pSettingsStyles = stylex.create({
     paddingInline: 8,
     color: {
       'default': 'rgb(176, 65, 54)',
-      '@media (prefers-color-scheme: dark)': 'rgb(255, 139, 128)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(255, 139, 128)',
     },
     fontSize: 11,
     fontWeight: 550,

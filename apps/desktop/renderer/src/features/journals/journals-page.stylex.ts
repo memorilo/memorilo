@@ -1,12 +1,12 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  accent: 'rgb(28, 94, 196)',
-  accentSoft: 'rgba(28, 94, 196, 0.1)',
-  error: 'rgb(170, 48, 48)',
-  focus: 'rgba(41, 97, 194, 0.82)',
-  secondaryText: 'rgba(50, 54, 62, 0.58)',
-  text: 'rgba(24, 26, 31, 0.92)',
+  accent: 'var(--ui-accent, rgb(28, 94, 196))',
+  accentSoft: 'var(--ui-accent-soft, rgba(28, 94, 196, 0.1))',
+  error: 'var(--ui-danger, rgb(170, 48, 48))',
+  focus: 'var(--ui-focus, rgba(41, 97, 194, 0.82))',
+  secondaryText: 'var(--ui-text-muted, rgba(50, 54, 62, 0.58))',
+  text: 'var(--ui-text, rgba(24, 26, 31, 0.92))',
 } as const
 
 export const journalsPageStyles = stylex.create({
@@ -18,7 +18,7 @@ export const journalsPageStyles = stylex.create({
     minWidth: 0,
     minHeight: 0,
     overflow: 'hidden',
-    backgroundColor: 'rgb(255, 255, 255)',
+    backgroundColor: 'var(--ui-canvas, rgb(255, 255, 255))',
     color: colors.text,
   },
   scrollEdge: {
@@ -30,15 +30,15 @@ export const journalsPageStyles = stylex.create({
     height: 60,
     pointerEvents: 'none',
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.94)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+      'default': 'var(--ui-surface-translucent, rgba(255, 255, 255, 0.94))',
+      '@media (prefers-reduced-transparency: reduce)': 'var(--ui-surface, rgb(255, 255, 255))',
+      '@media (prefers-contrast: more)': 'var(--ui-surface, rgb(255, 255, 255))',
     },
     backdropFilter: {
-      'default': 'blur(14px) saturate(150%)',
+      'default': 'var(--ui-material-filter, blur(14px) saturate(150%))',
       '@media (prefers-reduced-transparency: reduce)': 'none',
     },
-    boxShadow: '0 12px 18px 6px rgba(255, 255, 255, 0.94)',
+    boxShadow: 'var(--ui-shadow-subtle, 0 12px 18px 6px rgba(255, 255, 255, 0.94))',
   },
   viewport: {
     width: '100%',
@@ -82,7 +82,7 @@ export const journalsPageStyles = stylex.create({
     minHeight: 340,
     paddingTop: 28,
     paddingBottom: 64,
-    borderTopColor: 'rgba(75, 80, 90, 0.13)',
+    borderTopColor: 'var(--ui-divider, rgba(75, 80, 90, 0.13))',
     borderTopStyle: 'solid',
     borderTopWidth: 1,
   },
@@ -141,7 +141,7 @@ export const journalsPageStyles = stylex.create({
     borderLeftColor: colors.error,
     borderLeftStyle: 'solid',
     borderLeftWidth: 2,
-    backgroundColor: 'rgba(190, 52, 52, 0.06)',
+    backgroundColor: 'color-mix(in srgb, var(--ui-danger, rgb(190, 52, 52)) 8%, transparent)',
     color: colors.error,
     fontSize: 12,
     letterSpacing: 0,
@@ -185,16 +185,16 @@ export const journalsPageStyles = stylex.create({
   },
   retryButton: {
     minHeight: 28,
-    borderColor: 'rgba(72, 78, 89, 0.18)',
+    borderColor: 'var(--ui-border, rgba(72, 78, 89, 0.18))',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 'var(--ui-control-radius, 6px)',
     paddingRight: 10,
     paddingLeft: 10,
     backgroundColor: {
-      'default': 'rgba(248, 249, 251, 0.88)',
-      ':hover': 'rgb(241, 244, 248)',
-      ':active': 'rgb(232, 236, 242)',
+      'default': 'var(--ui-surface-raised, rgba(248, 249, 251, 0.88))',
+      ':hover': 'var(--ui-control-hover, rgb(241, 244, 248))',
+      ':active': 'var(--ui-control-pressed, rgb(232, 236, 242))',
     },
     color: colors.text,
     cursor: 'default',

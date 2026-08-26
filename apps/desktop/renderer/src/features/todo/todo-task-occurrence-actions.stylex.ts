@@ -8,7 +8,7 @@ export const todoTaskOccurrenceActionStyles = stylex.create({
     'flex': '0 0 20px',
     'alignItems': 'center',
     'justifyContent': 'center',
-    'borderRadius': 10,
+    'borderRadius': 'var(--ui-control-radius, 10px)',
     'color': 'inherit',
     'cursor': 'pointer',
     'outline': 'none',
@@ -19,14 +19,14 @@ export const todoTaskOccurrenceActionStyles = stylex.create({
     'transitionProperty': 'background-color, box-shadow, transform',
     'transitionTimingFunction': 'ease-out',
     ':hover': {
-      backgroundColor: 'rgba(118, 118, 128, 0.11)',
+      backgroundColor: 'var(--ui-control-hover, rgba(118, 118, 128, 0.11))',
     },
     ':active': {
       transform: 'scale(0.93)',
-      backgroundColor: 'rgba(118, 118, 128, 0.16)',
+      backgroundColor: 'var(--ui-control-pressed, rgba(118, 118, 128, 0.16))',
     },
     ':focus-visible': {
-      boxShadow: '0 0 0 2px rgba(0, 122, 255, 0.72)',
+      boxShadow: '0 0 0 2px var(--ui-focus, rgba(0, 122, 255, 0.72))',
     },
   },
 })

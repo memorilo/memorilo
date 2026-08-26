@@ -156,7 +156,7 @@ export function TodoListView({
   }, [])
 
   return (
-    <div {...stylex.props(styles.root)}>
+    <div {...stylex.props(styles.root)} data-todo-view="list">
       <div ref={scrollElementRef} {...stylex.props(styles.viewport)}>
         <ul
           {...stylex.props(styles.list)}

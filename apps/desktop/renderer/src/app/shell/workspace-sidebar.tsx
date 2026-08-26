@@ -41,6 +41,12 @@ const sidebarSpring = {
   type: 'spring',
 } as const
 
+const sidebarToggleSpring = {
+  bounce: 0,
+  type: 'spring',
+  visualDuration: 0.42,
+} as const
+
 const disclosureSpring = {
   bounce: 0,
   type: 'spring',
@@ -283,7 +289,6 @@ function SourceGroup({
 
 export function WorkspaceSidebarMotion({
   children,
-  compactCollapsed,
   onToggle,
   visible,
 }: {
@@ -295,6 +300,7 @@ export function WorkspaceSidebarMotion({
   const { t } = useTranslation('app')
   const shouldReduceMotion = useReducedMotion()
   const transition = shouldReduceMotion ? { duration: 0 } : sidebarSpring
+  const toggleTransition = shouldReduceMotion ? { duration: 0 } : sidebarToggleSpring
   const [sidebarMounted, setSidebarMounted] = useState(visible)
   useEffect(() => {
     if (visible && !sidebarMounted)
@@ -308,8 +314,8 @@ export function WorkspaceSidebarMotion({
             <Sidebar.Root asChild aria-label={t('sidebarLabel')} variant="workspace">
               <motion.aside
                 animate={visible
-                  ? { marginLeft: 8, opacity: 1, width: 248, x: 0 }
-                  : { marginLeft: 0, opacity: 0, width: 0, x: -18 }}
+                  ? { opacity: 1, width: 248, x: 0 }
+                  : { opacity: 0, width: 0, x: -18 }}
                 initial={false}
                 onAnimationComplete={(definition) => {
                   if (typeof definition === 'object' && !Array.isArray(definition) && definition.width === 0)
@@ -324,12 +330,13 @@ export function WorkspaceSidebarMotion({
         : null}
       <motion.button
         {...stylex.props(workspaceSidebarStyles.toggle)}
-        animate={{ left: visible ? 217 : compactCollapsed ? 14 : 80 }}
+        animate={{ left: visible ? 217 : 120 }}
         aria-label={visible ? t('hideSidebar') : t('showSidebar')}
+        data-sidebar-toggle=""
         data-window-no-drag=""
         initial={false}
         title={visible ? t('hideSidebar') : t('showSidebar')}
-        transition={transition}
+        transition={toggleTransition}
         type="button"
         onClick={onToggle}
       >

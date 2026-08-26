@@ -177,7 +177,7 @@ export function JournalFeed({
 
   return (
     <>
-      <div {...stylex.props(journalsPageStyles.scrollEdge)} aria-hidden="true" />
+      <div {...stylex.props(journalsPageStyles.scrollEdge)} aria-hidden="true" data-journal-scroll-edge="" />
       <div ref={scrollElementRef} {...stylex.props(journalsPageStyles.viewport)}>
         <div
           {...stylex.props(

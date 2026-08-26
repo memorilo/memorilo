@@ -9,25 +9,29 @@ const sharedSidebarSurface = {
   minHeight: 0,
   overflow: 'hidden',
   flexDirection: 'column',
-  marginTop: 8,
-  marginBottom: 8,
+  marginTop: uiColors.sidebarInsetBlock,
+  marginBottom: uiColors.sidebarInsetBlock,
+  marginLeft: uiColors.sidebarInsetInlineStart,
   borderColor: {
-    'default': 'rgba(255, 255, 255, 0.62)',
+    'default': uiColors.fieldBorder,
     '@media (prefers-contrast: more)': 'rgba(0, 0, 0, 0.42)',
   },
   borderStyle: 'solid',
-  borderWidth: 1,
-  borderRadius: 18,
+  borderTopWidth: uiColors.sidebarBorderTopWidth,
+  borderRightWidth: uiColors.sidebarBorderRightWidth,
+  borderBottomWidth: uiColors.sidebarBorderBottomWidth,
+  borderLeftWidth: uiColors.sidebarBorderLeftWidth,
+  borderRadius: uiColors.sidebarRadius,
   backgroundColor: {
-    'default': 'rgba(255, 255, 255, 0.48)',
+    'default': uiColors.sidebarBackground,
     '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
     '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.96)',
   },
   backdropFilter: {
-    'default': 'blur(30px) saturate(170%)',
+    'default': uiColors.materialFilter,
     '@media (prefers-reduced-transparency: reduce)': 'none',
   },
-  boxShadow: '0 12px 30px rgba(31, 38, 48, 0.13), 0 2px 7px rgba(31, 38, 48, 0.09), inset 0 1px rgba(255, 255, 255, 0.8), inset 1px 0 rgba(255, 255, 255, 0.48)',
+  boxShadow: uiColors.sidebarShadow,
 } as const
 
 export const sidebarStyles = stylex.create({
@@ -35,18 +39,8 @@ export const sidebarStyles = stylex.create({
   workspaceRoot: {},
   settingsRoot: {
     width: 204,
-    marginLeft: 8,
-    borderColor: {
-      'default': 'rgba(255, 255, 255, 0.62)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.18)',
-      '@media (prefers-contrast: more)': 'rgba(0, 0, 0, 0.42)',
-    },
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.48)',
-      '@media (prefers-color-scheme: dark)': 'rgba(45, 47, 54, 0.58)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
-      '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.96)',
-    },
+    borderColor: uiColors.fieldBorder,
+    backgroundColor: uiColors.sidebarBackground,
   },
   workspaceHeader: {
     marginTop: 0,
@@ -65,10 +59,7 @@ export const sidebarStyles = stylex.create({
     paddingRight: 18,
     paddingBottom: 13,
     paddingLeft: 18,
-    color: {
-      'default': 'rgba(30, 31, 35, 0.58)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.58)',
-    },
+    color: uiColors.textMuted,
     fontSize: 12,
     fontWeight: 650,
     lineHeight: '18px',
@@ -100,6 +91,7 @@ export const sidebarStyles = stylex.create({
     borderColor: 'transparent',
     borderStyle: 'solid',
     borderWidth: 1,
+    borderLeftWidth: 'var(--ui-nav-selected-indicator-width, 0px)',
     backgroundColor: 'transparent',
     color: uiColors.text,
     cursor: 'default',
@@ -123,13 +115,28 @@ export const sidebarStyles = stylex.create({
     height: 31,
     gridTemplateColumns: '20px minmax(0, 1fr)',
     gap: 7,
-    borderRadius: 8,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 9,
     paddingLeft: 8,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(76, 84, 96, 0.07)',
-      ':active': 'rgba(76, 84, 96, 0.15)',
+      ':not([data-state="active"]):hover': uiColors.controlHover,
+      ':not([data-state="active"]):active': uiColors.controlPressed,
+      ':is([data-state="active"])': uiColors.navSelectedBackground,
+      ':is([data-state="active"]):hover': uiColors.controlSelectedHover,
+      ':is([data-state="active"]):active': uiColors.controlSelectedPressed,
+    },
+    borderLeftColor: {
+      'default': 'transparent',
+      ':is([data-state="active"])': uiColors.navSelectedIndicator,
+    },
+    borderColor: {
+      'default': 'transparent',
+      ':is([data-state="active"])': uiColors.navSelectedIndicator,
+    },
+    color: {
+      'default': uiColors.text,
+      ':is([data-state="active"])': uiColors.controlSelectedText,
     },
     fontWeight: {
       'default': 400,
@@ -137,29 +144,34 @@ export const sidebarStyles = stylex.create({
     },
     fontSize: 13,
     lineHeight: '18px',
+    boxShadow: {
+      'default': 'none',
+      ':focus-visible': `0 0 0 2px ${uiColors.focus}`,
+      ':is([data-state="active"])': uiColors.controlShadow,
+    },
   },
   settingsItem: {
     display: 'flex',
     minHeight: 34,
     gap: 10,
-    borderRadius: 9,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 10,
     paddingLeft: 10,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.32)',
-      ':active': 'rgba(80, 91, 108, 0.14)',
-      ':is([data-state="active"])': 'rgba(0, 113, 227, 0.9)',
-      ':is([data-state="active"]):hover': 'rgba(0, 105, 218, 0.94)',
-      ':is([data-state="active"]):active': 'rgba(0, 96, 201, 0.96)',
+      ':hover': uiColors.controlHover,
+      ':active': uiColors.controlPressed,
+      ':is([data-state="active"])': uiColors.navSelectedBackground,
+      ':is([data-state="active"]):hover': uiColors.controlSelectedHover,
+      ':is([data-state="active"]):active': uiColors.controlSelectedPressed,
     },
     borderColor: {
       'default': 'transparent',
-      ':is([data-state="active"])': 'rgba(255, 255, 255, 0.2)',
+      ':is([data-state="active"])': uiColors.navSelectedIndicator,
     },
     color: {
       'default': uiColors.text,
-      ':is([data-state="active"])': 'white',
+      ':is([data-state="active"])': uiColors.controlSelectedText,
     },
     fontWeight: {
       'default': 500,
@@ -168,7 +180,7 @@ export const sidebarStyles = stylex.create({
     boxShadow: {
       'default': 'none',
       ':focus-visible': `0 0 0 2px ${uiColors.focus}`,
-      ':is([data-state="active"])': 'inset 0 1px rgba(255, 255, 255, 0.34), 0 2px 6px rgba(0, 75, 164, 0.22)',
+      ':is([data-state="active"])': uiColors.controlShadow,
     },
     fontSize: 13,
     lineHeight: '18px',
@@ -188,10 +200,10 @@ export const sidebarStyles = stylex.create({
     flex: '0 0 auto',
   },
   iconActiveWorkspace: {
-    color: uiColors.accent,
+    color: uiColors.controlSelectedText,
   },
   iconActiveSettings: {
-    color: 'white',
+    color: uiColors.controlSelectedText,
   },
   label: {
     minWidth: 0,
@@ -202,9 +214,9 @@ export const sidebarStyles = stylex.create({
   workspaceLabel: {},
   settingsLabel: {},
   labelActiveWorkspace: {
-    color: uiColors.accent,
+    color: uiColors.controlSelectedText,
   },
   labelActiveSettings: {
-    color: 'white',
+    color: uiColors.controlSelectedText,
   },
 })

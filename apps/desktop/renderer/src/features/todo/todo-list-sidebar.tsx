@@ -117,7 +117,7 @@ export function TodoListSidebar({
   )), [locale, summary.notes])
 
   return (
-    <nav {...stylex.props(styles.root)} aria-label={t('sidebarLabel')}>
+    <nav {...stylex.props(styles.root)} aria-label={t('sidebarLabel')} data-todo-list-sidebar="">
       <TodoListSidebarSection label={t('sidebarSmartViews')}>
         <ul {...stylex.props(styles.list)}>
           {smartScopes.map(item => (

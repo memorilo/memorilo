@@ -5,7 +5,7 @@ export const calendarSettingsStyles = stylex.create({
     overflow: 'hidden',
     borderColor: {
       'default': 'rgba(80, 87, 98, 0.15)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.13)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.13)',
       '@media (prefers-contrast: more)': 'currentColor',
     },
     borderStyle: 'solid',
@@ -13,7 +13,7 @@ export const calendarSettingsStyles = stylex.create({
     borderRadius: 8,
     backgroundColor: {
       'default': 'rgba(255, 255, 255, 0.38)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.055)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.055)',
       '@media (prefers-reduced-transparency: reduce)': 'rgb(245, 246, 248)',
     },
     boxShadow: 'inset 0 1px rgba(255, 255, 255, 0.68)',
@@ -40,7 +40,7 @@ export const calendarSettingsStyles = stylex.create({
     },
     color: {
       'default': 'rgba(28, 30, 35, 0.92)',
-      '@media (prefers-color-scheme: dark)': 'rgba(247, 248, 250, 0.92)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(247, 248, 250, 0.92)',
     },
     cursor: 'default',
     fontFamily: 'inherit',
@@ -54,7 +54,7 @@ export const calendarSettingsStyles = stylex.create({
   rowSelected: {
     backgroundColor: {
       'default': 'rgba(0, 113, 227, 0.11)',
-      '@media (prefers-color-scheme: dark)': 'rgba(36, 125, 232, 0.2)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(36, 125, 232, 0.2)',
     },
   },
   swatch: {
@@ -82,7 +82,7 @@ export const calendarSettingsStyles = stylex.create({
     overflow: 'hidden',
     color: {
       'default': 'rgba(48, 52, 59, 0.5)',
-      '@media (prefers-color-scheme: dark)': 'rgba(235, 237, 242, 0.5)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(235, 237, 242, 0.5)',
     },
     fontSize: 10,
     lineHeight: '14px',
@@ -96,7 +96,7 @@ export const calendarSettingsStyles = stylex.create({
     gap: 4,
     color: {
       'default': 'rgba(48, 52, 59, 0.48)',
-      '@media (prefers-color-scheme: dark)': 'rgba(235, 237, 242, 0.5)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(235, 237, 242, 0.5)',
     },
     fontSize: 9,
     lineHeight: '14px',
@@ -108,7 +108,7 @@ export const calendarSettingsStyles = stylex.create({
     placeItems: 'center',
     color: {
       'default': 'rgba(48, 52, 59, 0.48)',
-      '@media (prefers-color-scheme: dark)': 'rgba(235, 237, 242, 0.5)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(235, 237, 242, 0.5)',
     },
     fontSize: 11,
   },
@@ -118,14 +118,14 @@ export const calendarSettingsStyles = stylex.create({
     alignItems: 'center',
     borderTopColor: {
       'default': 'rgba(80, 87, 98, 0.12)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.1)',
     },
     borderTopStyle: 'solid',
     borderTopWidth: 1,
     paddingInline: 4,
     backgroundColor: {
       'default': 'rgba(247, 248, 250, 0.58)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.035)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.035)',
     },
   },
   toolButton: {
@@ -143,7 +143,7 @@ export const calendarSettingsStyles = stylex.create({
     },
     'color': {
       'default': 'rgba(35, 38, 44, 0.72)',
-      '@media (prefers-color-scheme: dark)': 'rgba(242, 244, 248, 0.74)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(242, 244, 248, 0.74)',
     },
     'outline': 'none',
     ':disabled': {
@@ -171,7 +171,7 @@ export const calendarSettingsStyles = stylex.create({
     gap: 6,
     color: {
       'default': 'rgba(35, 38, 44, 0.78)',
-      '@media (prefers-color-scheme: dark)': 'rgba(242, 244, 248, 0.78)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(242, 244, 248, 0.78)',
     },
     fontSize: 11,
     fontWeight: 560,
@@ -182,7 +182,7 @@ export const calendarSettingsStyles = stylex.create({
     'boxSizing': 'border-box',
     'borderColor': {
       'default': 'rgba(80, 87, 98, 0.2)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.15)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.15)',
     },
     'borderStyle': 'solid',
     'borderWidth': 1,
@@ -190,7 +190,7 @@ export const calendarSettingsStyles = stylex.create({
     'paddingInline': 9,
     'backgroundColor': {
       'default': 'rgba(255, 255, 255, 0.76)',
-      '@media (prefers-color-scheme: dark)': 'rgba(15, 17, 21, 0.54)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(15, 17, 21, 0.54)',
     },
     'color': 'inherit',
     'fontFamily': 'inherit',
@@ -205,7 +205,7 @@ export const calendarSettingsStyles = stylex.create({
     margin: 0,
     color: {
       'default': 'rgb(176, 65, 54)',
-      '@media (prefers-color-scheme: dark)': 'rgb(255, 139, 128)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(255, 139, 128)',
     },
     fontSize: 11,
     lineHeight: '16px',
@@ -214,7 +214,7 @@ export const calendarSettingsStyles = stylex.create({
     'height': 30,
     'borderColor': {
       'default': 'rgba(80, 87, 98, 0.18)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.14)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.14)',
     },
     'borderStyle': 'solid',
     'borderWidth': 1,
@@ -222,7 +222,7 @@ export const calendarSettingsStyles = stylex.create({
     'paddingInline': 11,
     'backgroundColor': {
       'default': 'rgba(255, 255, 255, 0.56)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.08)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.08)',
     },
     'color': 'inherit',
     'fontSize': 11,
@@ -248,7 +248,7 @@ export const calendarSettingsStyles = stylex.create({
     marginBottom: 0,
     color: {
       'default': 'rgb(176, 65, 54)',
-      '@media (prefers-color-scheme: dark)': 'rgb(255, 139, 128)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(255, 139, 128)',
     },
     fontSize: 11,
     lineHeight: '16px',

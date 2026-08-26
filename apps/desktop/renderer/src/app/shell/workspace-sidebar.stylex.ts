@@ -1,9 +1,11 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  focus: 'rgba(41, 97, 194, 0.85)',
-  textMuted: 'rgba(48, 46, 51, 0.66)',
-  textQuiet: 'rgba(48, 46, 51, 0.5)',
+  controlHover: 'var(--ui-control-hover, rgba(60, 60, 67, 0.08))',
+  controlPressed: 'var(--ui-control-pressed, rgba(60, 60, 67, 0.14))',
+  focus: 'var(--ui-focus, rgba(41, 97, 194, 0.85))',
+  textMuted: 'var(--ui-text-muted, rgba(48, 46, 51, 0.66))',
+  textQuiet: 'var(--ui-text-quiet, rgba(48, 46, 51, 0.5))',
 } as const
 
 export const workspaceSidebarStyles = stylex.create({
@@ -23,8 +25,8 @@ export const workspaceSidebarStyles = stylex.create({
     padding: 0,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.38)',
-      ':active': 'rgba(72, 70, 76, 0.13)',
+      ':hover': colors.controlHover,
+      ':active': colors.controlPressed,
     },
     color: colors.textMuted,
     cursor: 'default',

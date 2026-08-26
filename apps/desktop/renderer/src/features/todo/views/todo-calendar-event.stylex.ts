@@ -1,9 +1,9 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  text: 'rgba(28, 28, 30, 0.94)',
-  textMuted: 'rgba(60, 60, 67, 0.64)',
-  textQuiet: 'rgba(60, 60, 67, 0.46)',
+  text: 'var(--ui-text, rgba(28, 28, 30, 0.94))',
+  textMuted: 'var(--ui-text-muted, rgba(60, 60, 67, 0.64))',
+  textQuiet: 'var(--ui-text-quiet, rgba(60, 60, 67, 0.46))',
 } as const
 
 export const todoCalendarEventStyles = stylex.create({
@@ -38,7 +38,7 @@ export const todoCalendarEventStyles = stylex.create({
     alignItems: 'center',
     gap: 7,
     overflow: 'hidden',
-    borderRadius: 5,
+    borderRadius: 'var(--ui-control-radius, 5px)',
     backgroundColor: 'color-mix(in srgb, var(--todo-calendar-color) 10%, transparent)',
     color: colors.text,
   },
@@ -55,7 +55,7 @@ export const todoCalendarEventStyles = stylex.create({
   calendarItem: {
     height: 20,
     padding: '0 5px',
-    borderRadius: 4,
+    borderRadius: 'var(--ui-control-radius, 4px)',
     fontSize: 10,
     fontWeight: 550,
     lineHeight: '20px',
@@ -64,7 +64,7 @@ export const todoCalendarEventStyles = stylex.create({
     width: 3,
     height: 18,
     flex: '0 0 auto',
-    borderRadius: 2,
+    borderRadius: 'var(--ui-control-radius, 2px)',
     backgroundColor: 'var(--todo-calendar-color)',
   },
   calendarAccent: {

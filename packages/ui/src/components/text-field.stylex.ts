@@ -14,7 +14,7 @@ export const textFieldStyles = stylex.create({
     },
     'borderStyle': 'solid',
     'borderWidth': 1,
-    'borderRadius': 7,
+    'borderRadius': uiColors.controlRadius,
     'paddingRight': 10,
     'paddingLeft': 10,
     'backgroundColor': {
@@ -24,7 +24,7 @@ export const textFieldStyles = stylex.create({
     'fontSize': 13,
     'outline': 'none',
     'boxShadow': {
-      'default': 'inset 0 1px 2px rgba(25, 30, 38, 0.05)',
+      'default': uiColors.controlShadow,
       ':focus': `0 0 0 2px ${uiColors.focus}`,
     },
     '::placeholder': {
@@ -33,7 +33,7 @@ export const textFieldStyles = stylex.create({
   },
   settings: {
     height: 30,
-    borderRadius: 6,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 8,
     paddingLeft: 8,
     color: uiColors.text,
@@ -42,7 +42,7 @@ export const textFieldStyles = stylex.create({
   },
   compact: {
     height: 28,
-    borderRadius: 6,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 7,
     paddingLeft: 7,
     borderColor: {
@@ -53,7 +53,7 @@ export const textFieldStyles = stylex.create({
     fontSize: 11,
     lineHeight: '16px',
     boxShadow: {
-      'default': 'inset 0 1px 2px rgba(25, 30, 38, 0.04)',
+      'default': uiColors.controlShadow,
       ':focus': `0 0 0 2px ${uiColors.focus}`,
     },
   },

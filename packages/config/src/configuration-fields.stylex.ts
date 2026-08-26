@@ -1,11 +1,11 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  accent: 'rgb(0, 113, 227)',
-  danger: 'rgb(176, 45, 45)',
-  focus: 'rgba(41, 97, 194, 0.82)',
-  text: 'rgba(28, 29, 32, 0.9)',
-  textMuted: 'rgba(53, 55, 61, 0.62)',
+  accent: 'var(--ui-accent, rgb(0, 113, 227))',
+  danger: 'var(--ui-danger, rgb(176, 45, 45))',
+  focus: 'var(--ui-focus, rgba(41, 97, 194, 0.82))',
+  text: 'var(--ui-text, rgba(28, 29, 32, 0.9))',
+  textMuted: 'var(--ui-text-muted, rgba(53, 55, 61, 0.62))',
 } as const
 
 export const configurationFieldStyles = stylex.create({
@@ -25,10 +25,7 @@ export const configurationFieldStyles = stylex.create({
     paddingRight: 18,
     paddingBottom: 11,
     paddingLeft: 18,
-    borderBottomColor: {
-      'default': 'rgba(57, 62, 70, 0.1)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
-    },
+    borderBottomColor: 'var(--ui-divider, rgba(57, 62, 70, 0.1))',
     borderBottomStyle: 'solid',
     borderBottomWidth: 1,
   },
@@ -41,10 +38,7 @@ export const configurationFieldStyles = stylex.create({
   },
   label: {
     display: 'block',
-    color: {
-      'default': colors.text,
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.9)',
-    },
+    color: colors.text,
     fontSize: 13,
     fontWeight: 550,
     letterSpacing: 0,
@@ -55,10 +49,7 @@ export const configurationFieldStyles = stylex.create({
     marginRight: 0,
     marginBottom: 0,
     marginLeft: 0,
-    color: {
-      'default': colors.textMuted,
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.6)',
-    },
+    color: colors.textMuted,
     fontSize: 12,
     letterSpacing: 0,
     lineHeight: '17px',
@@ -75,23 +66,16 @@ export const configurationFieldStyles = stylex.create({
     height: 30,
     minWidth: 0,
     borderColor: {
-      'default': 'rgba(71, 76, 86, 0.2)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.16)',
+      'default': 'var(--ui-field-border, rgba(71, 76, 86, 0.2))',
       ':focus': colors.focus,
     },
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 'var(--ui-control-radius, 6px)',
     paddingRight: 8,
     paddingLeft: 8,
-    backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.78)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.09)',
-    },
-    color: {
-      'default': colors.text,
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.9)',
-    },
+    backgroundColor: 'var(--ui-field-background, rgba(255, 255, 255, 0.78))',
+    color: colors.text,
     fontSize: 12,
     letterSpacing: 0,
     lineHeight: '18px',
@@ -124,12 +108,9 @@ export const configurationFieldStyles = stylex.create({
     },
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 'var(--ui-control-radius, 7px)',
     padding: 2,
-    backgroundColor: {
-      'default': 'rgba(82, 86, 94, 0.08)',
-      '@media (prefers-color-scheme: dark)': 'rgba(0, 0, 0, 0.18)',
-    },
+    backgroundColor: 'var(--ui-control-hover, rgba(82, 86, 94, 0.08))',
     boxShadow: 'inset 0 1px 2px rgba(25, 30, 38, 0.05)',
   },
   segmentedOption: {
@@ -138,7 +119,7 @@ export const configurationFieldStyles = stylex.create({
     minWidth: 0,
     flex: 1,
     placeItems: 'center',
-    borderRadius: 5,
+    borderRadius: 'var(--ui-control-radius, 5px)',
   },
   segmentedInput: {
     position: 'absolute',
@@ -147,7 +128,7 @@ export const configurationFieldStyles = stylex.create({
     height: '100%',
     appearance: 'none',
     borderWidth: 0,
-    borderRadius: 5,
+    borderRadius: 'var(--ui-control-radius, 5px)',
     margin: 0,
     backgroundColor: {
       'default': 'transparent',
@@ -171,10 +152,7 @@ export const configurationFieldStyles = stylex.create({
     minWidth: 0,
     paddingRight: 7,
     paddingLeft: 7,
-    color: {
-      'default': colors.text,
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.88)',
-    },
+    color: colors.text,
     fontSize: 11,
     fontWeight: 550,
     letterSpacing: 0,
@@ -186,10 +164,7 @@ export const configurationFieldStyles = stylex.create({
   },
   unit: {
     flex: '0 0 auto',
-    color: {
-      'default': colors.textMuted,
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.6)',
-    },
+    color: colors.textMuted,
     fontSize: 11,
     letterSpacing: 0,
   },
@@ -199,7 +174,7 @@ export const configurationFieldStyles = stylex.create({
     height: 20,
     flex: '0 0 34px',
     borderWidth: 0,
-    borderRadius: 10,
+    borderRadius: 'var(--ui-control-radius, 10px)',
     padding: 0,
     backgroundColor: {
       'default': 'rgba(83, 87, 96, 0.22)',
@@ -231,7 +206,7 @@ export const configurationFieldStyles = stylex.create({
     left: 2,
     width: 16,
     height: 16,
-    borderRadius: 8,
+    borderRadius: 'var(--ui-control-radius, 8px)',
     backgroundColor: 'white',
     boxShadow: '0 1px 3px rgba(24, 28, 35, 0.26)',
     transform: 'translateX(0)',
@@ -254,10 +229,7 @@ export const configurationFieldStyles = stylex.create({
     marginRight: 0,
     marginBottom: 0,
     marginLeft: 0,
-    color: {
-      'default': colors.danger,
-      '@media (prefers-color-scheme: dark)': 'rgb(255, 142, 142)',
-    },
+    color: colors.danger,
     fontSize: 11,
     letterSpacing: 0,
     lineHeight: '16px',

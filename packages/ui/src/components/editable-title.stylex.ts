@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
-import { uiMotion } from '../theme.stylex'
+import { uiColors, uiMotion } from '../theme.stylex'
 
 export const editableTitleStyles = stylex.create({
   trigger: {
@@ -10,20 +10,20 @@ export const editableTitleStyles = stylex.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 0,
-    borderRadius: 16,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 8,
     paddingLeft: 10,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(240, 243, 248, 0.56)',
-      ':active': 'rgba(55, 61, 72, 0.16)',
+      ':hover': uiColors.controlHover,
+      ':active': uiColors.controlPressed,
     },
-    color: 'rgba(25, 27, 31, 0.9)',
+    color: uiColors.text,
     cursor: 'default',
     outline: 'none',
     boxShadow: {
       'default': 'none',
-      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.85)',
+      ':focus-visible': `0 0 0 2px ${uiColors.focus}`,
     },
     transform: {
       'default': 'scale(1)',
@@ -53,33 +53,32 @@ export const editableTitleStyles = stylex.create({
     width: 'clamp(160px, 28vw, 320px)',
     height: 34,
     borderColor: {
-      'default': 'rgba(255, 255, 255, 0.8)',
-      ':focus': 'rgba(41, 97, 194, 0.72)',
+      'default': uiColors.fieldBorder,
+      ':focus': uiColors.focus,
       ':invalid': 'rgba(184, 62, 62, 0.74)',
     },
     borderStyle: 'solid',
     borderWidth: 1,
-    borderRadius: 17,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 10,
     paddingLeft: 10,
     backgroundColor: {
-      'default': 'rgba(233, 236, 242, 0.58)',
+      'default': uiColors.fieldBackground,
       '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
     },
-    backgroundImage: 'linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(225, 229, 236, 0.24))',
     backdropFilter: {
-      'default': 'blur(22px) saturate(180%)',
+      'default': uiColors.materialFilter,
       '@media (prefers-reduced-transparency: reduce)': 'none',
     },
-    color: 'rgba(25, 27, 31, 0.9)',
+    color: uiColors.text,
     fontSize: 13,
     fontWeight: 600,
     letterSpacing: 0,
     lineHeight: '18px',
     outline: 'none',
     boxShadow: {
-      'default': '0 6px 16px rgba(31, 38, 49, 0.12), inset 0 1px rgba(255, 255, 255, 0.9), inset 0 -1px rgba(107, 116, 132, 0.1)',
-      ':focus': '0 0 0 2px rgba(41, 97, 194, 0.2), 0 6px 16px rgba(31, 38, 49, 0.12), inset 0 1px rgba(255, 255, 255, 0.9)',
+      'default': uiColors.controlShadow,
+      ':focus': `0 0 0 2px ${uiColors.focus}`,
     },
     textAlign: 'center',
   },

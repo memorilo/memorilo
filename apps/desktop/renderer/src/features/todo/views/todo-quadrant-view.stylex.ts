@@ -1,9 +1,13 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  panelSolid: 'rgb(255, 255, 255)',
-  text: 'rgba(28, 28, 30, 0.94)',
-  textQuiet: 'rgba(60, 60, 67, 0.46)',
+  accent: 'var(--ui-accent, rgb(0, 122, 255))',
+  border: 'var(--ui-divider, rgba(60, 60, 67, 0.13))',
+  danger: 'var(--ui-danger, rgb(255, 59, 48))',
+  panelSolid: 'var(--ui-surface, rgb(255, 255, 255))',
+  text: 'var(--ui-text, rgba(28, 28, 30, 0.94))',
+  textQuiet: 'var(--ui-text-quiet, rgba(60, 60, 67, 0.46))',
+  warning: 'var(--ui-warning, rgb(255, 149, 0))',
 } as const
 
 export const todoQuadrantViewStyles = stylex.create({
@@ -14,9 +18,9 @@ export const todoQuadrantViewStyles = stylex.create({
     flex: 1,
     gridTemplateColumns: 'repeat(2, minmax(320px, 1fr))',
     gridTemplateRows: 'repeat(2, minmax(220px, 1fr))',
-    gap: 1,
+    gap: 'var(--todo-quadrant-grid-gap, 1px)',
     overflow: 'hidden',
-    backgroundColor: 'rgba(60, 60, 67, 0.13)',
+    backgroundColor: colors.border,
     boxShadow: 'none',
   },
   panel: {
@@ -24,7 +28,7 @@ export const todoQuadrantViewStyles = stylex.create({
     minHeight: 0,
     flexDirection: 'column',
     overflow: 'hidden',
-    backgroundColor: 'rgb(255, 255, 255)',
+    backgroundColor: colors.panelSolid,
   },
   header: {
     display: 'flex',
@@ -51,19 +55,19 @@ export const todoQuadrantViewStyles = stylex.create({
     height: 6,
     flex: '0 0 6px',
     borderRadius: 3,
-    backgroundColor: 'rgb(255, 59, 48)',
-    boxShadow: '0 1px 3px rgba(184, 28, 21, 0.22)',
+    backgroundColor: colors.danger,
+    boxShadow: 'none',
   },
   signalImportant: {
-    backgroundColor: 'rgb(255, 149, 0)',
-    boxShadow: '0 1px 3px rgba(180, 96, 0, 0.2)',
+    backgroundColor: colors.warning,
+    boxShadow: 'none',
   },
   signalUrgent: {
-    backgroundColor: 'rgb(0, 122, 255)',
-    boxShadow: '0 1px 4px rgba(65, 58, 150, 0.25)',
+    backgroundColor: colors.accent,
+    boxShadow: 'none',
   },
   signalQuiet: {
-    backgroundColor: 'rgba(72, 77, 86, 0.3)',
+    backgroundColor: colors.textQuiet,
     boxShadow: 'none',
   },
   count: {

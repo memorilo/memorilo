@@ -17,6 +17,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     goals: desktopConfigurationDefinition.defaults.goals,
     learning: desktopConfigurationDefinition.defaults.learning,
     language: 'system',
+    theme: desktopConfigurationDefinition.defaults.theme,
     mcp,
     networkImagePasteBehavior: 'download',
     outdentBehavior: 'logical',

@@ -276,7 +276,7 @@ export function TodoTimelineView({
   }, [activeMonth])
 
   return (
-    <div {...stylex.props(planningStyles.root)}>
+    <div {...stylex.props(planningStyles.root)} data-todo-view="timeline">
       <div {...stylex.props(planningStyles.toolbar)}>
         <div {...stylex.props(planningStyles.toolbarTitle)}>
           <span {...stylex.props(planningStyles.title)}>{t('timelineView')}</span>

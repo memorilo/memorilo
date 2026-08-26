@@ -25,7 +25,7 @@ export const assetSettingsStyles = stylex.create({
     display: 'block',
     color: {
       'default': 'rgba(28, 29, 32, 0.9)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.9)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.9)',
     },
     fontSize: 13,
     fontWeight: 550,
@@ -39,7 +39,7 @@ export const assetSettingsStyles = stylex.create({
     marginLeft: 0,
     color: {
       'default': 'rgba(53, 55, 61, 0.62)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.6)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.6)',
     },
     fontSize: 12,
     letterSpacing: 0,
@@ -54,7 +54,7 @@ export const assetSettingsStyles = stylex.create({
     gap: 6,
     borderColor: {
       'default': 'rgba(71, 76, 86, 0.2)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.16)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.16)',
     },
     borderStyle: 'solid',
     borderWidth: 1,
@@ -63,11 +63,11 @@ export const assetSettingsStyles = stylex.create({
     paddingLeft: 10,
     backgroundColor: {
       'default': 'rgba(255, 255, 255, 0.78)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.09)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.09)',
     },
     color: {
       'default': 'rgba(28, 29, 32, 0.88)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.88)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.88)',
       ':disabled': 'rgba(90, 92, 99, 0.4)',
     },
     fontSize: 12,
@@ -87,7 +87,7 @@ export const assetSettingsStyles = stylex.create({
   assetResults: {
     borderTopColor: {
       'default': 'rgba(57, 62, 70, 0.1)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.1)',
     },
     borderTopStyle: 'solid',
     borderTopWidth: 1,
@@ -102,7 +102,7 @@ export const assetSettingsStyles = stylex.create({
     gap: 12,
     color: {
       'default': 'rgba(53, 55, 61, 0.62)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.6)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.6)',
     },
     fontSize: 11,
     letterSpacing: 0,
@@ -116,7 +116,7 @@ export const assetSettingsStyles = stylex.create({
     marginTop: 10,
     borderColor: {
       'default': 'rgba(181, 98, 20, 0.28)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 177, 94, 0.3)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 177, 94, 0.3)',
     },
     borderStyle: 'solid',
     borderWidth: 1,
@@ -127,11 +127,11 @@ export const assetSettingsStyles = stylex.create({
     paddingLeft: 9,
     backgroundColor: {
       'default': 'rgba(255, 247, 237, 0.72)',
-      '@media (prefers-color-scheme: dark)': 'rgba(181, 98, 20, 0.1)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(181, 98, 20, 0.1)',
     },
     color: {
       'default': 'rgb(135, 67, 10)',
-      '@media (prefers-color-scheme: dark)': 'rgb(255, 188, 118)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(255, 188, 118)',
     },
     fontSize: 11,
     letterSpacing: 0,
@@ -146,7 +146,7 @@ export const assetSettingsStyles = stylex.create({
     overflow: 'hidden',
     color: {
       'default': 'rgba(112, 59, 15, 0.78)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 203, 151, 0.78)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 203, 151, 0.78)',
     },
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -159,7 +159,7 @@ export const assetSettingsStyles = stylex.create({
     gap: 12,
     color: {
       'default': 'rgba(53, 55, 61, 0.62)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.6)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.6)',
     },
     fontSize: 11,
     letterSpacing: 0,
@@ -181,7 +181,7 @@ export const assetSettingsStyles = stylex.create({
     overflowY: 'auto',
     borderTopColor: {
       'default': 'rgba(57, 62, 70, 0.1)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.1)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.1)',
     },
     borderTopStyle: 'solid',
     borderTopWidth: 1,
@@ -194,13 +194,13 @@ export const assetSettingsStyles = stylex.create({
     gap: 8,
     borderBottomColor: {
       'default': 'rgba(57, 62, 70, 0.08)',
-      '@media (prefers-color-scheme: dark)': 'rgba(255, 255, 255, 0.08)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(255, 255, 255, 0.08)',
     },
     borderBottomStyle: 'solid',
     borderBottomWidth: 1,
     color: {
       'default': 'rgba(28, 29, 32, 0.86)',
-      '@media (prefers-color-scheme: dark)': 'rgba(246, 247, 249, 0.86)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.86)',
     },
     fontSize: 12,
     letterSpacing: 0,
@@ -213,7 +213,7 @@ export const assetSettingsStyles = stylex.create({
   assetSize: {
     color: {
       'default': 'rgba(53, 55, 61, 0.58)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.58)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.58)',
     },
     fontVariantNumeric: 'tabular-nums',
   },
@@ -261,7 +261,7 @@ export const assetSettingsStyles = stylex.create({
     backgroundColor: 'transparent',
     color: {
       'default': 'rgb(148, 72, 8)',
-      '@media (prefers-color-scheme: dark)': 'rgb(255, 177, 94)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(255, 177, 94)',
     },
     fontSize: 12,
     fontWeight: 600,
@@ -275,7 +275,7 @@ export const assetSettingsStyles = stylex.create({
     gap: 7,
     color: {
       'default': 'rgba(46, 109, 67, 0.82)',
-      '@media (prefers-color-scheme: dark)': 'rgba(128, 211, 151, 0.86)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(128, 211, 151, 0.86)',
     },
     fontSize: 12,
     letterSpacing: 0,
@@ -290,7 +290,7 @@ export const assetSettingsStyles = stylex.create({
     paddingBottom: 6,
     color: {
       'default': 'rgba(53, 55, 61, 0.68)',
-      '@media (prefers-color-scheme: dark)': 'rgba(231, 233, 238, 0.68)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.68)',
     },
     fontSize: 11,
     letterSpacing: 0,

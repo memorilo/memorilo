@@ -53,7 +53,7 @@ export function TodoQuadrantView({
   }, [tasks, today])
 
   return (
-    <div {...stylex.props(planningStyles.root)}>
+    <div {...stylex.props(planningStyles.root)} data-todo-view="quadrant">
       <div {...stylex.props(planningStyles.toolbar)}>
         <div {...stylex.props(planningStyles.toolbarTitle)}>
           <span {...stylex.props(planningStyles.title)}>{t('quadrantView')}</span>

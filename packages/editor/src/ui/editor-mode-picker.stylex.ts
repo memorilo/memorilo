@@ -1,13 +1,13 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  active: 'rgba(60, 60, 67, 0.1)',
-  focus: 'rgba(60, 60, 67, 0.42)',
-  group: 'rgba(60, 60, 67, 0.07)',
-  hover: 'rgba(60, 60, 67, 0.06)',
-  hoverBorder: 'rgba(60, 60, 67, 0.18)',
-  hoverText: 'rgba(28, 28, 30, 0.92)',
-  text: 'rgba(60, 60, 67, 0.76)',
+  active: 'var(--ui-control-pressed, rgba(60, 60, 67, 0.1))',
+  focus: 'var(--ui-focus, rgba(60, 60, 67, 0.42))',
+  group: 'var(--ui-surface-stroke, rgba(60, 60, 67, 0.07))',
+  hover: 'var(--ui-control-hover, rgba(60, 60, 67, 0.06))',
+  hoverBorder: 'var(--ui-border-strong, rgba(60, 60, 67, 0.18))',
+  hoverText: 'var(--ui-text, rgba(28, 28, 30, 0.92))',
+  text: 'var(--ui-text-muted, rgba(60, 60, 67, 0.76))',
 } as const
 
 export const editorModePickerStyles = stylex.create({
@@ -41,11 +41,11 @@ export const editorModePickerStyles = stylex.create({
       ':active': colors.hoverBorder,
     },
     borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 8,
+    borderWidth: 'var(--ui-control-stroke, 1px)',
+    borderRadius: 'var(--ui-surface-radius, 8px)',
     padding: 12,
     backgroundColor: {
-      'default': '#ffffff',
+      'default': 'var(--ui-surface-raised, #ffffff)',
       ':hover': colors.hover,
       ':active': colors.active,
     },
@@ -70,7 +70,8 @@ export const editorModePickerStyles = stylex.create({
       'default': '80ms',
       '@media (prefers-reduced-motion: reduce)': '0ms',
     },
-    transitionProperty: 'background-color, border-color, color',
+    boxShadow: 'var(--ui-control-shadow, none)',
+    transitionProperty: 'background-color, border-color, box-shadow, color, transform',
   },
   icon: {
     width: 32,

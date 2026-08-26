@@ -1,3 +1,4 @@
+import type { DesktopThemeFamily } from './contract'
 import { defineConfiguration } from '@memorilo/config'
 import * as Schema from 'effect/Schema'
 
@@ -16,6 +17,9 @@ export type {
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
   DesktopRecurringTaskCompletionAction,
+  DesktopThemeAppearance,
+  DesktopThemeFamily,
+  DesktopThemePreference,
   DesktopTiffConversionFormat,
   DesktopTodoConfiguration,
   DesktopWeekStart,
@@ -23,6 +27,18 @@ export type {
 export { desktopConfigurationChangedChannel } from './contract'
 
 export const defaultDesktopOutdentBehavior = 'logical' as const
+
+function defaultDesktopThemeFamily(): DesktopThemeFamily {
+  // The configuration package is also bundled into the renderer, so avoid a node-only import here.
+  // eslint-disable-next-line node/prefer-global/process
+  const platform = typeof globalThis.process?.platform === 'string' ? globalThis.process.platform : undefined
+  if (platform === 'darwin')
+    return 'liquid-glass'
+  if (platform === 'win32' || platform === 'linux')
+    return 'fluent'
+  const navigatorPlatform = typeof navigator === 'undefined' ? '' : navigator.platform
+  return /Mac|iPhone|iPad|iPod/i.test(navigatorPlatform) ? 'liquid-glass' : 'fluent'
+}
 
 const defaultFlashcardConfiguration = {
   buryInterdayLearningSiblings: true,
@@ -67,6 +83,10 @@ export const DesktopConfigurationSchema = Schema.Struct({
     enabled: Schema.Boolean,
   }),
   language: Schema.Literals(['system', 'en', 'zh-CN']),
+  theme: Schema.Struct({
+    appearance: Schema.Literals(['system', 'light', 'dark']),
+    family: Schema.Literals(['liquid-glass', 'fluent', 'neubrutalism']),
+  }),
   mcp: Schema.Struct({
     accessToken: Schema.String,
     enabled: Schema.Boolean,
@@ -117,6 +137,10 @@ export const desktopConfigurationDefinition = defineConfiguration({
       enabled: true,
     },
     language: 'system' as const,
+    theme: {
+      appearance: 'system' as const,
+      family: defaultDesktopThemeFamily(),
+    },
     mcp: {
       accessToken: '',
       enabled: false,
@@ -465,9 +489,22 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration))
     return configuration
   const record = configuration as Record<string, unknown>
+  const storedTheme = record.theme
+  const theme = typeof storedTheme === 'object' && storedTheme !== null && !Array.isArray(storedTheme)
+    ? storedTheme as Record<string, unknown>
+    : undefined
+  const normalizedTheme = {
+    appearance: theme?.appearance === 'light' || theme?.appearance === 'dark' ? theme.appearance : 'system',
+    family: theme?.family === 'fluent' || theme?.family === 'neubrutalism' || theme?.family === 'liquid-glass'
+      ? theme.family
+      : Object.hasOwn(record, 'theme') ? 'liquid-glass' : defaultDesktopThemeFamily(),
+  } as const
+  const withTheme = Object.hasOwn(record, 'theme') && theme?.appearance === normalizedTheme.appearance && theme?.family === normalizedTheme.family
+    ? record
+    : { ...record, theme: normalizedTheme }
   if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...record,
+      ...withTheme,
       todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
@@ -477,7 +514,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
     return {
-      ...record,
+      ...withTheme,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
@@ -490,12 +527,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
     return {
-      ...record,
+      ...withTheme,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
-  return record
+  return withTheme
 }

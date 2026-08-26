@@ -1,11 +1,15 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  accent: 'rgb(0, 122, 255)',
-  focus: 'rgba(0, 122, 255, 0.72)',
-  text: 'rgba(28, 28, 30, 0.94)',
-  textMuted: 'rgba(60, 60, 67, 0.64)',
-  textQuiet: 'rgba(60, 60, 67, 0.46)',
+  accent: 'var(--ui-accent, rgb(0, 122, 255))',
+  controlHover: 'var(--ui-control-hover, rgba(60, 60, 67, 0.08))',
+  controlPressed: 'var(--ui-control-pressed, rgba(60, 60, 67, 0.14))',
+  controlSelected: 'var(--ui-control-selected, rgba(118, 118, 128, 0.12))',
+  focus: 'var(--ui-focus, rgba(0, 122, 255, 0.72))',
+  surface: 'var(--ui-surface, rgb(255, 255, 255))',
+  text: 'var(--ui-text, rgba(28, 28, 30, 0.94))',
+  textMuted: 'var(--ui-text-muted, rgba(60, 60, 67, 0.64))',
+  textQuiet: 'var(--ui-text-quiet, rgba(60, 60, 67, 0.46))',
 } as const
 
 export const todoListSidebarStyles = stylex.create({
@@ -16,14 +20,14 @@ export const todoListSidebarStyles = stylex.create({
     overflowX: 'hidden',
     overflowY: 'auto',
     overscrollBehavior: 'contain',
-    borderRightColor: 'rgba(60, 60, 67, 0.12)',
+    borderRightColor: 'var(--ui-divider, rgba(60, 60, 67, 0.12))',
     borderRightStyle: 'solid',
     borderRightWidth: 1,
     paddingTop: 10,
     paddingRight: 8,
     paddingBottom: 18,
     paddingLeft: 8,
-    backgroundColor: 'rgb(255, 255, 255)',
+    backgroundColor: colors.surface,
     backgroundImage: 'none',
     boxShadow: 'none',
   },
@@ -59,8 +63,8 @@ export const todoListSidebarStyles = stylex.create({
     borderRadius: 8,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.48)',
-      ':active': 'rgba(0, 122, 255, 0.1)',
+      ':hover': colors.controlHover,
+      ':active': colors.controlPressed,
     },
   },
   disclosure: {
@@ -102,8 +106,8 @@ export const todoListSidebarStyles = stylex.create({
     paddingLeft: 8,
     backgroundColor: {
       'default': 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.54)',
-      ':active': 'rgba(0, 122, 255, 0.14)',
+      ':hover': colors.controlHover,
+      ':active': colors.controlPressed,
     },
     color: colors.text,
     cursor: 'default',
@@ -130,7 +134,7 @@ export const todoListSidebarStyles = stylex.create({
   },
   itemActive: {
     borderColor: 'transparent',
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
+    backgroundColor: colors.controlSelected,
     backgroundImage: 'none',
     color: colors.text,
     fontWeight: 590,

@@ -172,7 +172,7 @@ export function TodoTimeGridView({
     }
   }, [days, mode, settings.timelineWorkdayEndMinutes, settings.timelineWorkdayStartMinutes, workdayStart])
   return (
-    <div {...stylex.props(styles.root)} data-todo-time-grid-view>
+    <div {...stylex.props(styles.root)} data-todo-time-grid-view data-todo-view="schedule">
       <div {...stylex.props(styles.toolbar)}>
         <div {...stylex.props(styles.dateControls)}>
           <h2 {...stylex.props(styles.dateTitle)}>{dateLabel}</h2>

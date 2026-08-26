@@ -1,6 +1,6 @@
 :root {
   background: transparent;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--ui-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
   font-synthesis: none;
 }
 
@@ -23,13 +23,14 @@ body {
 
 body[data-renderer="main"] {
   min-width: 720px;
-  color: #202124;
+  color: var(--ui-text, #202124);
+  background: var(--ui-canvas, #ffffff);
 }
 
 body[data-renderer="settings"] {
   min-width: 320px;
-  background: transparent;
-  color: rgba(25, 27, 31, 0.92);
+  background: var(--ui-canvas, transparent);
+  color: var(--ui-text, rgba(25, 27, 31, 0.92));
 }
 
 :is(button, input, select) {
@@ -83,6 +84,289 @@ body[data-renderer="settings"] {
 [data-topic-type="whiteboard"] .App-toolbar-container,
 [data-topic-type="whiteboard"] .App-toolbar {
   height: 36px;
+}
+
+/* Non-glass families do not use Liquid Glass material effects. */
+:is(html[data-ui-theme-family="fluent"], html[data-ui-theme-family="neubrutalism"]) :is(
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="dialog"],
+  [role="menu"],
+  [data-ui],
+  [data-editor-mode-picker]
+) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Neubrutalism is intentionally hard-edged; Fluent keeps its small rectangle radii. */
+html[data-ui-theme-family="neubrutalism"] :is(
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="dialog"],
+  [role="menu"],
+  [data-ui],
+  [data-editor-mode-picker]
+) {
+  border-radius: 0 !important;
+}
+
+/* NavigationView uses a single leading selection rail, not a full blue outline. */
+html[data-ui-theme-family="fluent"] [data-ui="sidebar-item"][data-state="active"] {
+  border-color: transparent !important;
+  border-left-color: var(--ui-nav-selected-indicator) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [role="group"] {
+  border-radius: 0 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* The Todo secondary navigation uses the same structural grammar as the
+ * primary Neubrutalism rail: thick boundaries, flat state color, hard depth. */
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] {
+  border-right: 3px solid var(--ui-border) !important;
+  padding: 12px 10px 20px !important;
+  background: var(--ui-surface) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] > section {
+  margin-bottom: 20px;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] > section > :is(h3, button[aria-expanded]) {
+  height: 30px;
+  padding: 0 8px;
+  color: var(--ui-text) !important;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] ul {
+  gap: 6px;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] li > button {
+  width: calc(100% - 4px);
+  height: 34px;
+  border: 2px solid transparent !important;
+  padding: 0 8px;
+  font-weight: 600;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] li > button:hover {
+  border-color: var(--ui-border) !important;
+  background: var(--ui-accent-soft) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] li > button[aria-current="page"] {
+  border: 3px solid var(--ui-border) !important;
+  background: var(--ui-accent) !important;
+  box-shadow: 4px 4px 0 var(--ui-border) !important;
+  color: var(--ui-on-accent) !important;
+  font-weight: 800;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] li > button[aria-current="page"] span {
+  color: inherit !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar] p {
+  color: var(--ui-text-muted) !important;
+  font-weight: 600;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-controls] {
+  min-height: 52px;
+  border-bottom: 3px solid var(--ui-border) !important;
+  background: var(--ui-accent) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar-toggle] {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--ui-border) !important;
+  border-radius: 0 !important;
+  background: var(--ui-surface) !important;
+  box-shadow: none !important;
+  color: var(--ui-text) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-sidebar-toggle][aria-pressed="true"] {
+  background: var(--ui-surface) !important;
+  color: var(--ui-text) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-controls] :is(h2, p) {
+  color: var(--ui-on-accent) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-list-controls] h2 {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+html[data-ui-theme-family="neubrutalism"] header [data-window-title-text] {
+  box-sizing: border-box;
+  border: 3px solid var(--ui-border);
+  padding: 3px 11px;
+  background: var(--ui-accent);
+  box-shadow: 3px 3px 0 var(--ui-border);
+  color: var(--ui-on-accent);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 16px;
+}
+
+/* Neubrutalism relies on visible offset shadows and physical button states. */
+html[data-ui-theme-family="neubrutalism"] [data-editor-mode-picker] button {
+  border-color: #000 !important;
+  box-shadow: 5px 5px 0 #000 !important;
+  font-weight: 700;
+}
+
+html[data-ui-theme-family="neubrutalism"] [data-editor-mode-picker] button:first-child {
+  background: #ffd23f !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] [data-editor-mode-picker] button:nth-child(2) {
+  background: #74b9ff !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] [data-editor-mode-picker] button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 #000 !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] [data-editor-mode-picker] button:active {
+  transform: translate(4px, 4px);
+  box-shadow: none !important;
+}
+
+/* Window chrome is a command strip, so it stays flatter than content cards. */
+html[data-ui-theme-family="neubrutalism"] header [data-ui="button-group"][data-variant="glass"]:not([data-titlebar-appearance="plain"]) {
+  height: 32px;
+  gap: 3px;
+  padding: 0;
+  border-width: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-ui-theme-family="neubrutalism"] header [data-ui="button-group"][data-variant="glass"]:not([data-titlebar-appearance="plain"]) button,
+html[data-ui-theme-family="neubrutalism"] [data-sidebar-toggle] {
+  border: 2px solid var(--ui-border) !important;
+  background: var(--ui-surface) !important;
+  box-shadow: none !important;
+  color: var(--ui-text) !important;
+}
+
+/* TODO view commands are a separate square command strip, not a nested glass group. */
+html[data-ui-theme-family="neubrutalism"] header [data-titlebar-appearance="plain"] {
+  height: 36px;
+  gap: 4px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] header [data-titlebar-appearance="plain"] button {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--ui-border) !important;
+  border-radius: 0 !important;
+  background: var(--ui-surface) !important;
+  box-shadow: none !important;
+  color: var(--ui-text) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] header [data-titlebar-appearance="plain"] button[aria-pressed="true"] {
+  background: var(--ui-accent) !important;
+  color: var(--ui-on-accent) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] [data-journal-scroll-edge] {
+  box-shadow: none !important;
+}
+
+html[data-ui-theme-family="liquid-glass"] [data-journal-scroll-edge] {
+  box-shadow: none !important;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0 72%, transparent 100%);
+}
+
+/* Liquid Glass keeps the Todo list rail and heading in one continuous material.
+ * The hard borders belong to the denser desktop families, not the glass surface. */
+html[data-ui-theme-family="liquid-glass"] main[aria-label="Todo"] [data-todo-list-sidebar] {
+  border-right: 0 !important;
+  background: var(--ui-sidebar-background) !important;
+  backdrop-filter: var(--ui-material-filter) !important;
+  -webkit-backdrop-filter: var(--ui-material-filter) !important;
+  box-shadow: 12px 0 28px rgba(26, 32, 42, 0.06) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"] main[aria-label="Todo"] [data-todo-list-controls] {
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+
+/* Keep Liquid Glass window commands on their own material contract. */
+html[data-ui-theme-family="liquid-glass"] header [data-ui="button-group"][data-variant="glass"]:not([data-titlebar-appearance="plain"]) {
+  height: 36px;
+  gap: 0;
+  padding: 1px;
+  border: var(--ui-control-stroke) solid var(--ui-field-border);
+  border-radius: var(--ui-pill-radius);
+  background: var(--ui-surface-translucent);
+  backdrop-filter: var(--ui-material-filter);
+  box-shadow: var(--ui-shadow-subtle);
+}
+
+html[data-ui-theme-family="liquid-glass"] header [data-ui="button-group"][data-variant="glass"]:not([data-titlebar-appearance="plain"]) button {
+  border: 0 !important;
+  border-radius: var(--ui-pill-radius) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Vendor and integration surfaces do not consume shared tokens, but still
+ * need the non-glass material contract in Fluent. */
+:is(html[data-ui-theme-family="fluent"], html[data-ui-theme-family="neubrutalism"]) :is(
+  .memorilo-toast,
+  .memorilo-toast::before,
+  [data-editor-content] [data-card-hover-controls],
+  [data-editor-content] [data-card-definition-scope],
+  [data-editor-content] [data-card-material],
+  [data-todo-time-grid-calendar] .fc-timegrid-event,
+  [data-topic-type="whiteboard"] .App-toolbar-container,
+  [data-topic-type="whiteboard"] .App-toolbar
+) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] :is(
+  .memorilo-toast,
+  .memorilo-toast::before,
+  [data-editor-content] [data-card-hover-controls],
+  [data-editor-content] [data-card-definition-scope],
+  [data-editor-content] [data-card-material],
+  [data-todo-time-grid-calendar] .fc-timegrid-event,
+  [data-topic-type="whiteboard"] .App-toolbar-container,
+  [data-topic-type="whiteboard"] .App-toolbar
+) {
+  border-radius: 0 !important;
 }
 
 [data-topic-type="whiteboard"] .App-toolbar {
@@ -157,4 +441,107 @@ body[data-renderer="settings"] {
 [data-todo-time-grid-calendar] .fc-timegrid-event {
   border-radius: 4px;
   box-shadow: 0 2px 5px rgba(54, 46, 84, 0.16), inset 0 1px rgba(255, 255, 255, 0.28);
+}
+
+/* TODO view family contract. The view implementations share semantic tokens;
+ * these hooks style their third-party/grid internals without coupling to
+ * generated StyleX class names. */
+main[aria-label="Todo"] [data-todo-view] {
+  --todo-view-border: var(--ui-divider, rgba(60, 60, 67, 0.12));
+  --todo-view-surface: var(--ui-surface, rgb(255, 255, 255));
+  --todo-view-text: var(--ui-text, rgba(28, 28, 30, 0.94));
+  --todo-view-muted: var(--ui-text-muted, rgba(60, 60, 67, 0.64));
+  --todo-view-quiet: var(--ui-text-quiet, rgba(60, 60, 67, 0.46));
+  color: var(--todo-view-text);
+}
+
+main[aria-label="Todo"] [data-todo-view] :is(button, select) {
+  font-family: inherit;
+}
+
+html[data-ui-theme-family="fluent"] main[aria-label="Todo"] [data-todo-view] {
+  --todo-accent-background-image: none;
+  --todo-card-background-image: none;
+  --todo-control-background-image: none;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-view] {
+  --todo-accent-background-image: none;
+  --todo-calendar-grid-gap: 2px;
+  --todo-card-background-image: none;
+  --todo-control-background-image: none;
+  --todo-quadrant-grid-gap: 2px;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-view] :is(h1, h2, [role="heading"]) {
+  color: var(--ui-text) !important;
+  font-weight: 800 !important;
+}
+
+html[data-ui-theme-family="fluent"] main[aria-label="Todo"] [data-todo-view="board"] section,
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-view="board"] section {
+  background: var(--ui-surface) !important;
+  background-image: none !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-time-grid-calendar] > .fc,
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-scrollgrid,
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-col,
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-slot-lane {
+  background: var(--ui-surface) !important;
+  border-color: var(--ui-border) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-slot-minor {
+  border-top-color: color-mix(in srgb, var(--ui-border) 42%, transparent) !important;
+}
+
+html[data-ui-theme-family="neubrutalism"] main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-event {
+  border: 2px solid var(--ui-border) !important;
+  border-radius: 0 !important;
+  background: var(--ui-accent) !important;
+  box-shadow: 2px 2px 0 var(--ui-border) !important;
+  color: var(--ui-on-accent) !important;
+}
+
+html[data-ui-theme-family="fluent"] main[aria-label="Todo"] [data-todo-time-grid-calendar] :is(.fc, .fc-scrollgrid, .fc-timegrid-col, .fc-timegrid-slot-lane) {
+  background: var(--ui-surface) !important;
+  border-color: var(--ui-divider) !important;
+}
+
+html[data-ui-theme-family="fluent"] main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-event {
+  border-radius: var(--ui-control-radius, 4px) !important;
+  background: var(--ui-accent) !important;
+  box-shadow: var(--ui-control-shadow, 0 1px 2px rgba(0, 0, 0, 0.08)) !important;
+  color: var(--ui-on-accent) !important;
+}
+
+/* FullCalendar's defaults are opaque white/blue. Rebind them for every
+ * theme, including dark appearance, at the integration boundary. */
+main[aria-label="Todo"] [data-todo-time-grid-view] {
+  --todo-task: var(--ui-accent);
+  --todo-done: var(--ui-status-success);
+  --todo-calendar: var(--ui-warning);
+  --fc-border-color: var(--ui-divider);
+  --fc-button-bg-color: transparent;
+  --fc-button-border-color: transparent;
+  --fc-button-hover-bg-color: var(--ui-control-hover);
+  --fc-button-active-bg-color: var(--ui-control-pressed);
+  --fc-page-bg-color: var(--ui-surface);
+  --fc-neutral-bg-color: var(--ui-surface-sunken);
+  --fc-today-bg-color: var(--ui-accent-soft);
+  --fc-now-indicator-color: var(--ui-danger);
+}
+
+main[aria-label="Todo"] [data-todo-time-grid-calendar] > .fc,
+main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-scrollgrid,
+main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-col,
+main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-slot-lane {
+  background: var(--ui-surface) !important;
+  color: var(--ui-text) !important;
+}
+
+main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-col-header-cell-cushion,
+main[aria-label="Todo"] [data-todo-time-grid-calendar] .fc-timegrid-slot-label-cushion {
+  color: var(--ui-text-muted) !important;
 }

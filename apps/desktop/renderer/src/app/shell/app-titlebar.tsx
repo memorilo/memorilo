@@ -53,8 +53,10 @@ export function AppTitlebar({
 
   const canGoBack = historyPosition.index > 0
   const canGoForward = historyPosition.index < historyPosition.maxIndex
-  const compactCanvasTitlebar = page?.titleVisibility === 'hidden'
-  const navigationOffset = sidebarVisible ? 270 : compactCanvasTitlebar ? 55 : 120
+  // Keep the app controls clear of the native traffic-light region even when
+  // the primary workspace rail is collapsed. The rail toggle occupies the
+  // first slot after that reserved area, so history navigation starts after it.
+  const navigationOffset = sidebarVisible ? 270 : 164
   const leadingOffset = navigationOffset + 76
 
   return (
@@ -140,7 +142,7 @@ export function AppTitlebar({
                     )
                   : (
                       <div {...stylex.props(appTitlebarStyles.staticTitle)}>
-                        <span {...stylex.props(appTitlebarStyles.titleText)}>{page.title}</span>
+                        <span {...stylex.props(appTitlebarStyles.titleText)} data-window-title-text="">{page.title}</span>
                       </div>
                     )
                 : null}
@@ -151,6 +153,7 @@ export function AppTitlebar({
         ? (
             <ButtonGroup
               data-window-no-drag=""
+              data-titlebar-appearance={page.trailingAppearance ?? 'group'}
               variant="glass"
               xstyle={[
                 appTitlebarStyles.navigationGroup,

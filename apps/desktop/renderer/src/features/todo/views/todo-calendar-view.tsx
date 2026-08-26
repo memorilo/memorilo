@@ -474,7 +474,7 @@ export function TodoCalendarView({
   }
 
   return (
-    <div {...stylex.props(planningStyles.root)}>
+    <div {...stylex.props(planningStyles.root)} data-todo-view="calendar">
       <div {...stylex.props(styles.toolbar)}>
         <div {...stylex.props(styles.toolbarLeading)}>
           <button

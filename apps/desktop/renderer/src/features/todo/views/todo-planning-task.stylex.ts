@@ -1,9 +1,17 @@
 import * as stylex from '@stylexjs/stylex'
 
 const colors = {
-  text: 'rgba(28, 28, 30, 0.94)',
-  textMuted: 'rgba(60, 60, 67, 0.64)',
-  textQuiet: 'rgba(60, 60, 67, 0.46)',
+  accent: 'var(--ui-accent, rgb(0, 122, 255))',
+  controlHover: 'var(--ui-control-hover, rgba(255, 255, 255, 0.96))',
+  controlPressed: 'var(--ui-control-pressed, rgba(235, 232, 244, 0.88))',
+  controlSelected: 'var(--ui-control-selected, rgba(240, 247, 255, 0.94))',
+  focus: 'var(--ui-focus, rgba(0, 122, 255, 0.72))',
+  surfaceRaised: 'var(--ui-surface-raised, rgba(255, 255, 255, 0.82))',
+  text: 'var(--ui-text, rgba(28, 28, 30, 0.94))',
+  textMuted: 'var(--ui-text-muted, rgba(60, 60, 67, 0.64))',
+  textQuiet: 'var(--ui-text-quiet, rgba(60, 60, 67, 0.46))',
+  warning: 'var(--ui-warning, rgb(214, 127, 16))',
+  success: 'var(--ui-status-success, rgb(42, 145, 87))',
 } as const
 
 export const todoPlanningTaskStyles = stylex.create({
@@ -15,32 +23,32 @@ export const todoPlanningTaskStyles = stylex.create({
     alignItems: 'center',
     gap: 10,
     borderColor: {
-      'default': 'rgba(72, 72, 74, 0.12)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgba(72, 72, 74, 0.16)',
-      '@media (prefers-contrast: more)': 'rgba(35, 35, 37, 0.4)',
+      'default': 'var(--ui-border, rgba(72, 72, 74, 0.12))',
+      '@media (prefers-reduced-transparency: reduce)': 'var(--ui-border-strong, rgba(72, 72, 74, 0.16))',
+      '@media (prefers-contrast: more)': 'var(--ui-border-strong, rgba(35, 35, 37, 0.4))',
     },
     borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 10,
+    borderWidth: 'var(--ui-surface-stroke, 1px)',
+    borderRadius: 'var(--ui-surface-radius, 10px)',
     boxSizing: 'border-box',
     paddingTop: 9,
     paddingRight: 44,
     paddingBottom: 9,
     paddingLeft: 9,
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.82)',
-      ':hover': 'rgba(255, 255, 255, 0.96)',
-      ':active': 'rgba(235, 232, 244, 0.88)',
+      'default': colors.surfaceRaised,
+      ':hover': colors.controlHover,
+      ':active': colors.controlPressed,
     },
-    backgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28))',
+    backgroundImage: 'var(--todo-card-background-image, linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28)))',
     color: colors.text,
     cursor: 'default',
     outline: 'none',
     textAlign: 'left',
     boxShadow: {
-      'default': '0 4px 14px rgba(49, 42, 72, 0.08), inset 0 1px rgba(255, 255, 255, 0.96)',
-      ':hover': '0 7px 20px rgba(49, 42, 72, 0.12), inset 0 1px rgba(255, 255, 255, 1)',
-      ':focus-visible': '0 0 0 2px rgba(0, 122, 255, 0.72)',
+      'default': 'var(--ui-shadow-subtle, 0 4px 14px rgba(49, 42, 72, 0.08))',
+      ':hover': 'var(--ui-shadow-raised, 0 7px 20px rgba(49, 42, 72, 0.12))',
+      ':focus-visible': `0 0 0 2px ${colors.focus}`,
     },
     transform: {
       'default': 'translateY(0) scale(1)',
@@ -57,9 +65,9 @@ export const todoPlanningTaskStyles = stylex.create({
     containIntrinsicSize: '62px',
   },
   taskSelected: {
-    borderColor: 'rgba(0, 122, 255, 0.34)',
-    backgroundColor: 'rgba(240, 247, 255, 0.94)',
-    boxShadow: '0 0 0 1px rgba(0, 122, 255, 0.12), 0 7px 20px rgba(0, 92, 196, 0.14)',
+    borderColor: colors.accent,
+    backgroundColor: colors.controlSelected,
+    boxShadow: 'var(--ui-shadow-raised, 0 7px 20px rgba(0, 92, 196, 0.14))',
   },
   shell: {
     position: 'relative',
@@ -79,10 +87,10 @@ export const todoPlanningTaskStyles = stylex.create({
     color: colors.textQuiet,
   },
   doing: {
-    color: 'rgb(214, 127, 16)',
+    color: colors.warning,
   },
   doneIcon: {
-    color: 'rgb(42, 145, 87)',
+    color: colors.success,
   },
   content: {
     display: 'flex',
