@@ -142,7 +142,9 @@ export function createTaskListView(taskActions?: EditorTaskActionAdapter): NodeV
     let node = initialNode
     let completionPending = false
     const renderTime = () => {
-      time.textContent = formatDuration(totalElapsed(node.attrs), status === 'doing')
+      const elapsed = totalElapsed(node.attrs)
+      time.hidden = status === 'todo' || elapsed <= 0
+      time.textContent = elapsed > 0 ? formatDuration(elapsed, status === 'doing') : ''
     }
     renderTime()
 
