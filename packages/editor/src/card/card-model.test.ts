@@ -7,7 +7,7 @@ import {
   translateOcclusionBrushShape,
 } from '../image-occlusion/image-occlusion-model'
 
-import { projectEditorCards } from './card-model'
+import { projectEditorCards, projectEditorReadingItems } from './card-model'
 
 function block(id: string, content: readonly NodeJSON[], attrs: Record<string, unknown> = {}): NodeJSON {
   return {
@@ -475,6 +475,14 @@ describe('projectEditorCards', () => {
         sourceBlockId: 'item-red',
       },
     ])
+    expect(projectEditorReadingItems(document)).toEqual([{
+      content: [{
+        content: [{ marks: [highlighted], text: 'Red', type: 'text' }],
+        type: 'paragraph',
+      }],
+      highlightId: 'highlight-red',
+      sourceBlockId: 'item-red',
+    }])
   })
 
   it('does not infer Card membership from indentation or numbered-list presentation', () => {

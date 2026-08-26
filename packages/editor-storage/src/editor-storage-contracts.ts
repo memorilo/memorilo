@@ -6,6 +6,7 @@ import type {
   LearningPracticeConfiguration,
   LearningStorage,
   LearningTopicCardProjection,
+  ReadingItemProjection,
 } from './learning'
 
 export interface FolderProjection {
@@ -146,6 +147,7 @@ export interface CreateInitializedNoteInput {
   entries: readonly NoteEntryProjection[]
   id: string
   learningCards?: readonly LearningTopicCardProjection[]
+  learningReadingItems?: readonly ReadingItemProjection[]
   snapshot: Uint8Array
   spreadsheets?: readonly SpreadsheetProjection[]
   title: string
@@ -330,6 +332,7 @@ export interface SaveNoteUpdatesInput {
   entries?: readonly NoteEntryProjection[]
   journalHasUserContent?: boolean
   learningCards?: readonly LearningTopicCardProjection[]
+  learningReadingItems?: readonly ReadingItemProjection[]
   noteId: string
   spreadsheets?: readonly SpreadsheetProjection[]
   title?: string

@@ -1,4 +1,4 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
 import type { EditorNoteRecords } from './editor-note-records'
 import type {
   CheckpointNoteInput,
@@ -10,6 +10,7 @@ import type {
   StoredNote,
 } from './editor-storage-contracts'
 import type { LearningCardReconciliationPlanner } from './learning/learning-card-reconciliation'
+import type { ReadingItemProjection } from './learning/types'
 import { validateAssetFileName } from './editor-asset-repository'
 import { saveNoteUpdates } from './editor-note-updates'
 import { assertNonEmpty } from './editor-storage-shared'
@@ -22,6 +23,7 @@ import {
 interface EditorNoteRepositoryOptions {
   database: EditorStorageDatabase
   planLearningCards: LearningCardReconciliationPlanner
+  planReadingItems: (noteId: string, items: readonly ReadingItemProjection[]) => Promise<readonly DatabaseCommand[]>
   records: EditorNoteRecords
   runOperation: StorageOperationRunner
 }
@@ -61,8 +63,9 @@ export class EditorNoteRepository {
             replaceMissingTopics: true,
             topics: saved.learningCards,
           })
+      const readingCommands = saved.learningReadingItems === undefined ? [] : await this.#options.planReadingItems(saved.id, saved.learningReadingItems)
       try {
-        await this.#options.database.batch([...prepared.commands, ...learningCommands])
+        await this.#options.database.batch([...prepared.commands, ...learningCommands, ...readingCommands])
       }
       catch (error) {
         return this.#options.records.rethrowTitleConflict(error, saved.title)
@@ -96,6 +99,7 @@ export class EditorNoteRepository {
     return saveNoteUpdates({
       database: this.#options.database,
       planLearningCards: this.#options.planLearningCards,
+      planReadingItems: (noteId, items) => this.#options.planReadingItems(noteId, items),
       records: this.#options.records,
       runOperation: this.#options.runOperation,
     }, input)

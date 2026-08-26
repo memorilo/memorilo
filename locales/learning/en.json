@@ -184,5 +184,17 @@
   "invalidSteps": "Use comma-separated intervals such as 1m, 10m, 1h, or 2d.",
   "operationFailed": "{{operation}} failed: {{message}}",
   "renameDescription": "Shared by all Notes assigned to this optimizer.",
-  "updatedAt": "Updated {{date}}"
+  "updatedAt": "Updated {{date}}",
+  "noteStructure": "Note Structure",
+  "openNoteStructure": "Open Note Structure",
+  "closeNoteStructure": "Close Note Structure",
+  "learningSource": "Learning source",
+  "incrementalLearning": "Incremental learning",
+  "nextReadingItem": "Next",
+  "makeCard": "Make Card",
+  "cardCreated": "Card created",
+  "cardGenerationFailed": "Could not create Card: {{message}}",
+  "readingActionFailed": "Could not process this Reading Item: {{message}}",
+  "unsupportedLearningTopic": "This Topic type is not supported in incremental learning.",
+  "saveLearningSourceFailed": "Could not save the source: {{message}}"
 }

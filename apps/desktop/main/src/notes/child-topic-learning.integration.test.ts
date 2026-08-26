@@ -155,18 +155,6 @@ function firstBlock(document: NodeJSON): NodeJSON {
   return block
 }
 
-function ownBlockContent(block: NodeJSON): NodeJSON[] {
-  return structuredClone((block.content ?? []).filter(node => node.type !== 'list'))
-}
-
-function addMarkToFirstText(node: NodeJSON, mark: NonNullable<NodeJSON['marks']>[number]): boolean {
-  if (typeof node.text === 'string') {
-    node.marks = [...(node.marks ?? []), mark]
-    return true
-  }
-  return node.content?.some(child => addMarkToFirstText(child, mark)) ?? false
-}
-
 function childScenarios(note: ReturnType<typeof createEditorNote>, sourceTopicId: string): readonly ChildTopicScenario[] {
   return note.getEntries().flatMap((entry) => {
     if (entry.kind !== 'topic' || entry.topicType !== 'regular' || entry.parentId !== sourceTopicId || !entry.cardSource)
@@ -274,16 +262,13 @@ afterEach(async () => {
 })
 
 describe('child Topic learning review integration', () => {
-  it('queues, reviews, and rates every child Card kind while excluding the regular source Topic', async () => {
+  it('queues, reviews, and rates explicit child Cards while excluding Highlight extracts', async () => {
     const fixture = await createFixture()
-    expect(fixture.children).toHaveLength(8)
+    expect(fixture.children).toHaveLength(5)
     expect(fixture.children.map(child => child.kind).sort()).toEqual([
       'basic',
       'cloze',
       'cloze',
-      'highlight',
-      'highlight',
-      'highlight',
       'list',
       'set',
     ])
@@ -302,8 +287,6 @@ describe('child Topic learning review integration', () => {
         card: { id: child.cardId, kind: child.kind },
         queue: { cardId: child.cardId, phase: 'new', topicId: child.topicId },
       })
-      if (item.card.kind === 'highlight')
-        expect(item.card).not.toHaveProperty('back')
       if (item.card.kind === 'cloze')
         expect(item.card.content.length).toBeGreaterThan(0)
 
@@ -330,74 +313,44 @@ describe('child Topic learning review integration', () => {
     expect(await fixture.storage.learning.cards.listNoteTopicIds(fixture.noteId)).not.toContain(fixture.sourceTopicId)
   })
 
-  it('keeps a detached child reviewable and creates a rateable nested grandchild', async () => {
+  it('persists Highlights as Reading Items without creating child CardTopics', async () => {
     const fixture = await createFixture()
-    const inlineChild = fixture.children.find(child => child.sourceId === 'inline-highlight')
-    if (!inlineChild)
-      throw new Error('Expected the inline Highlight child Topic')
-    const version = fixture.renderer.getVersion()
-    const document = editableDocument(fixture.renderer, inlineChild.topicId)
-    const block = firstBlock(document)
-    const blockId = block.attrs?.blockId
-    if (typeof blockId !== 'string')
-      throw new Error('Expected the Highlight child source Block ID')
-    const content = ownBlockContent(block)
-    if (!addMarkToFirstText(content[0]!, clozeMark('nested-cloze-card', 'nested-cloze-definition', 'nested-cloze-group')))
-      throw new Error('Expected selected Highlight text in the child Topic')
-    fixture.renderer.applyTopicBlockEdits({
-      edits: [{ blockId, content, operation: 'update-block-content' }],
-      topicId: inlineChild.topicId,
+    expect(fixture.children.some(child => child.kind === 'highlight')).toBe(false)
+    expect(await fixture.storage.learning.readingItems.list({
+      noteId: fixture.noteId,
+      now: Date.now(),
+      topicId: fixture.sourceTopicId,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ highlightId: 'inline-highlight', sourceBlockId: 'inline-source' }),
+      expect.objectContaining({ highlightId: 'second-inline-highlight', sourceBlockId: 'inline-source' }),
+      expect.objectContaining({ highlightId: 'block-highlight', sourceBlockId: 'block-highlight-source' }),
+    ]))
+  })
+
+  it('generates a Highlight CardTopic only through the explicit Note command', async () => {
+    const fixture = await createFixture()
+    const result = await fixture.notes.generateCardTopic({
+      highlightId: 'inline-highlight',
+      noteId: fixture.noteId,
+      sourceTopicId: fixture.sourceTopicId,
     })
-    await persistRendererUpdate(fixture, version)
 
-    const detached = fixture.renderer.getEntries().find(entry => entry.id === inlineChild.topicId)
-    expect(detached).toMatchObject({ cardSource: { sourceTopicId: fixture.sourceTopicId, syncStatus: 'detached' } })
-    const grandchild = fixture.renderer.getEntries().find(entry => (
-      entry.kind === 'topic'
-      && entry.topicType === 'regular'
-      && entry.parentId === inlineChild.topicId
-      && entry.cardSource?.kind === 'cloze'
-      && entry.cardSource.sourceId === 'nested-cloze-group'
-    ))
-    if (!grandchild || grandchild.kind !== 'topic' || grandchild.topicType !== 'regular')
-      throw new Error('Expected the nested Cloze grandchild Topic')
-    expect(await fixture.storage.learning.cards.listNoteTopicIds(fixture.noteId)).toContain(grandchild.id)
-
-    const reviewedAt = Date.now() + 1_000
-    const reviews = createLearningReviewApplication(fixture.notes, fixture.storage.learning, () => reviewedAt)
-    await expect(fixture.notes.getCardProjection({
-      cardId: 'nested-cloze-card',
-      noteId: fixture.noteId,
-      topicId: grandchild.id,
-    })).resolves.toMatchObject({ card: { id: 'nested-cloze-card', kind: 'cloze' } })
-    expect(await fixture.storage.learning.queue.list({
-      mode: 'new',
-      noteId: fixture.noteId,
-      now: reviewedAt,
-      topicId: grandchild.id,
-    })).toContainEqual(expect.objectContaining({ cardId: 'nested-cloze-card', topicId: grandchild.id }))
-    const detachedItem = await reviews.getNextNewItem({ noteId: fixture.noteId, now: reviewedAt, topicId: inlineChild.topicId })
-    expect(detachedItem).toMatchObject({ card: { id: inlineChild.cardId, kind: 'highlight' }, queue: { topicId: inlineChild.topicId } })
-    if (!detachedItem)
-      throw new Error('Expected the detached Highlight child in the new queue')
-    await rateReviewItem(fixture.storage, detachedItem, 'good', reviewedAt)
-
-    await expect(
-      reviews.getNextNewItem({ noteId: fixture.noteId, now: reviewedAt, topicId: grandchild.id }),
-    ).resolves.toBeNull()
-    const nestedReviewedAt = reviewedAt + 2 * 86_400_000
-    const nestedItem = await reviews.getNextNewItem({
-      noteId: fixture.noteId,
-      now: nestedReviewedAt,
-      topicId: grandchild.id,
+    expect(result.cardTopicId).toBeTruthy()
+    const persisted = await createEditorNote({ id: fixture.noteId, snapshot: (await fixture.notes.getNote({ noteId: fixture.noteId })).snapshot })
+    expect(persisted.getEntries().find(entry => entry.id === result.cardTopicId)).toMatchObject({
+      cardSource: {
+        kind: 'highlight',
+        sourceId: 'inline-highlight',
+        sourceTopicId: fixture.sourceTopicId,
+        syncStatus: 'synced',
+      },
     })
-    expect(nestedItem).toMatchObject({ card: { id: 'nested-cloze-card', kind: 'cloze' }, queue: { topicId: grandchild.id } })
-    if (!nestedItem)
-      throw new Error('Expected the nested Cloze grandchild in the new queue')
-    const nestedState = await rateReviewItem(fixture.storage, nestedItem, 'easy', nestedReviewedAt)
-    await expect(
-      reviews.getNextReviewItem({ noteId: fixture.noteId, now: nestedState.dueAt, topicId: grandchild.id }),
-    ).resolves.toMatchObject({ card: { id: 'nested-cloze-card', kind: 'cloze' }, queue: { topicId: grandchild.id } })
+    expect(await fixture.storage.learning.cards.listNoteTopicIds(fixture.noteId)).toContain(result.cardTopicId)
+    const readingItems = await fixture.storage.learning.readingItems.list({
+      includeScheduled: true,
+      noteId: fixture.noteId,
+    })
+    expect(readingItems.every(item => item.topicId === fixture.sourceTopicId)).toBe(true)
   })
 
   it('retains a child Card after its source definition is deleted and allows it to be rated', async () => {

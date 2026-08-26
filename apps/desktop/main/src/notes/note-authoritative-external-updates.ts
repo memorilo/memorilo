@@ -18,7 +18,7 @@ import {
   assertProtectedReadingEntriesRemain,
   protectedReadingEntryIds,
 } from './note-entry-protection'
-import { projectNoteLearningCards } from './note-learning-cards'
+import { projectNoteLearningCards, projectNoteReadingItems } from './note-learning-cards'
 import { reconcileTodoParentStatusesInNote } from './todo-parent-status'
 
 interface NoteAuthoritativeExternalUpdatesDependencies {
@@ -127,6 +127,7 @@ export function createNoteAuthoritativeExternalUpdates({
             learningCards: entries === undefined && !changed.metadataChanged
               ? projectNoteLearningCards(current.note, changed.topicIds)
               : projectNoteLearningCards(current.note),
+            learningReadingItems: projectNoteReadingItems(current.note),
             spreadsheets: toStoredSpreadsheets(current.note, spreadsheetTopicIds),
             topics,
           }
@@ -140,6 +141,7 @@ export function createNoteAuthoritativeExternalUpdates({
           ...(projection.entries ? { entries: toStoredEntries(projection.entries) } : {}),
           ...(projection.journalTopic === null ? {} : { journalHasUserContent: current.note.hasUserContent() }),
           learningCards: projection.learningCards,
+          learningReadingItems: projection.learningReadingItems,
           noteId: current.note.id,
           spreadsheets: projection.spreadsheets,
           ...(changed.metadataChanged || projection.journalTopic !== null ? { title: current.note.getTitle() } : {}),

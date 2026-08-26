@@ -1,0 +1,98 @@
+<!doctype html>
+<!-- Three variants of the editable Incremental Learning workspace, switchable via ?variant= on this throwaway route. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — Incremental Learning Workspace</title>
+  <style>
+    :root { color-scheme: light; font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif; color: #1d2430; background: #eef1f5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: 58px 1fr; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 22px; background: rgba(255,255,255,.82); border-bottom: 1px solid #d9dee7; backdrop-filter: blur(14px); }
+    .brand { font-weight: 700; letter-spacing: -.01em; }
+    .eyebrow { color: #687487; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .workspace { min-height: 0; display: grid; }
+    .sidebar { overflow: auto; padding: 18px 12px; background: #f8f9fb; border-right: 1px solid #d9dee7; }
+    .sidebar h2 { margin: 0 8px 14px; font-size: 13px; }
+    .tree { display: grid; gap: 3px; }
+    .tree button { width: 100%; border: 0; border-radius: 7px; padding: 8px 10px; text-align: left; color: #4e5b6e; background: transparent; }
+    .tree button:hover, .tree button.active { color: #1e4d91; background: #dfeaff; }
+    .tree .indent { padding-left: 27px; }
+    .main { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto 1fr auto; }
+    .context { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 28px 12px; }
+    .context h1 { margin: 3px 0 0; font-size: 23px; letter-spacing: -.025em; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #c8d3e4; border-radius: 999px; padding: 5px 10px; color: #49617f; background: #fff; font-size: 12px; }
+    .content { min-height: 0; overflow: auto; padding: 0 28px 34px; }
+    .paper { max-width: 790px; margin: 0 auto; padding: 30px 38px 44px; border: 1px solid #dce1ea; border-radius: 14px; background: #fff; box-shadow: 0 14px 36px rgba(40,52,75,.08); }
+    .paper h2 { margin: 0 0 16px; font-size: 27px; letter-spacing: -.03em; }
+    .paper p { margin: 0 0 15px; color: #465368; font-size: 17px; }
+    .paper mark { border-radius: 4px; padding: 1px 3px; background: #ffe39a; box-shadow: 0 0 0 2px #ffe39a; }
+    .editor { outline: none; }
+    .editor:focus { box-shadow: 0 0 0 3px #bcd2ff; border-radius: 5px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; padding-top: 17px; border-top: 1px solid #e6eaf0; }
+    .toolbar button, .dock button { border: 1px solid #cad3e1; border-radius: 8px; padding: 8px 12px; color: #263b5c; background: #fff; }
+    .toolbar button.primary, .dock button.primary { color: #fff; border-color: #3169c6; background: #3169c6; }
+    .toolbar button:active, .dock button:active { transform: scale(.98); }
+    .dock { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 78px; padding: 12px 20px; border-top: 1px solid #d9dee7; background: rgba(255,255,255,.86); backdrop-filter: blur(14px); }
+    .dock .answer { margin-right: auto; color: #66758c; font-size: 13px; }
+    .dock .rating { border-color: #dca2a2; color: #963d3d; }
+    .state { position: fixed; right: 15px; bottom: 13px; z-index: 5; max-width: 330px; padding: 8px 12px; border: 1px solid #9aa8bb; border-radius: 9px; color: #34445b; background: #fff; box-shadow: 0 8px 24px rgba(22,37,61,.16); font-size: 12px; }
+    .switcher { position: fixed; left: 50%; bottom: 13px; z-index: 6; display: flex; align-items: center; gap: 12px; transform: translateX(-50%); padding: 7px 10px; border: 1px solid #66758c; border-radius: 999px; color: #fff; background: #26344a; box-shadow: 0 8px 24px rgba(22,37,61,.25); }
+    .switcher button { width: 26px; height: 26px; border: 0; border-radius: 50%; color: #fff; background: #465873; }
+    .switcher button:hover { background: #607695; }
+    .switcher span { min-width: 155px; text-align: center; font-size: 12px; }
+    .variant-b .workspace { grid-template-columns: 1fr 260px; }
+    .variant-b .sidebar { order: 2; border-right: 0; border-left: 1px solid #d9dee7; }
+    .variant-b .paper { margin-top: 25px; }
+    .variant-b .content { padding-inline: 8%; }
+    .variant-c .workspace { display: block; overflow: auto; padding: 24px 8%; }
+    .variant-c .main { max-width: 980px; margin: auto; display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 22px; }
+    .variant-c .context { grid-column: 1 / -1; padding: 0 0 5px; }
+    .variant-c .content { padding: 0; }
+    .variant-c .paper { margin: 0; }
+    .variant-c .sidebar { border: 1px solid #d9dee7; border-radius: 14px; }
+    @media (max-width: 760px) {
+      .topbar { padding-inline: 14px; }
+      .variant-a .workspace, .variant-b .workspace { display: block; overflow: auto; }
+      .variant-a .sidebar, .variant-b .sidebar { max-height: 190px; border: 0; border-bottom: 1px solid #d9dee7; }
+      .variant-b .sidebar { order: initial; }
+      .context, .content { padding-inline: 16px; }
+      .paper { padding: 24px 20px 34px; }
+      .paper p { font-size: 16px; }
+      .dock { flex-wrap: wrap; }
+      .dock .answer { width: 100%; margin: 0; text-align: center; }
+      .switcher { bottom: 70px; }
+      .state { bottom: 13px; left: 12px; right: 12px; max-width: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const variants = [
+      { id: 'A', name: 'Split workspace' },
+      { id: 'B', name: 'Reading focus + rail' },
+      { id: 'C', name: 'Context canvas' },
+    ];
+    const nodes = [
+      ['▾', 'Biology notes', ''], ['▾', 'Memory systems', 'indent'], ['●', 'Spaced repetition', 'indent'],
+      ['◆', 'Highlight: retrieval strength', 'indent'], ['◇', 'CardTopic: FSRS basics', 'indent'], ['▸', 'Research inbox', ''],
+    ];
+    const state = { variant: new URLSearchParams(location.search).get('variant') || 'A', revealed: false, completed: false, edits: 0, active: 'Highlight: retrieval strength' };
+    function renderTree() { return nodes.map(([icon, label, cls], i) => `<button class="${cls} ${label === state.active ? 'active' : ''}" data-node="${label}">${icon} &nbsp;${label}</button>`).join(''); }
+    function sidebar() { return `<aside class="sidebar"><h2>Note Structure</h2><div class="tree">${renderTree()}</div></aside>`; }
+    function paper() { return `<article class="paper"><div class="eyebrow">Reading Item · priority 18 · next process today</div><h2>Retrieval strength and stability</h2><div class="editor" contenteditable="true" spellcheck="false" data-editor><p>Retrieval strength is the probability that a learner can recall an item at a given moment. <mark>Stability describes how long that memory remains retrievable.</mark></p><p>Read this passage, edit it in place, and extract the smallest useful idea before deciding when it should return.</p></div><div class="toolbar"><button data-action="highlight">Highlight / Extract</button><button data-action="cloze">Make Cloze</button><button data-action="note">Add context</button><button class="primary" data-action="next">Next / schedule</button></div></article>`; }
+    function dock() { return `<footer class="dock"><span class="answer">${state.revealed ? 'Answer revealed · rate the Review Target when ready' : 'Edit the source, extract, or continue reading'}</span>${state.revealed ? '<button class="rating" data-action="rate">Again</button><button data-action="rate">Hard</button><button data-action="rate">Good</button><button class="primary" data-action="rate">Easy</button>' : '<button class="primary" data-action="reveal">Show answer</button>'}<button data-action="next">Next</button></footer>`; }
+    function app() { const v = variants.find(v => v.id === state.variant) || variants[0]; document.body.className = 'variant-' + state.variant.toLowerCase(); document.querySelector('#root').innerHTML = `<div class="app"><header class="topbar"><span class="brand">Memorilo <span class="eyebrow">PROTOTYPE</span></span><span class="pill">Learn · Global queue</span></header><div class="workspace">${state.variant === 'C' ? '' : sidebar()}<main class="main"><div class="context"><div><div class="eyebrow">Incremental Learning</div><h1>${state.active}</h1></div><span class="pill">Unsaved edits: ${state.edits}</span></div><div class="content">${paper()}</div>${dock()}</main>${state.variant === 'C' ? sidebar() : ''}</div></div><div class="state" aria-live="polite">${state.completed ? 'Pass scheduled for later.' : state.revealed ? 'Answer is visible. Rating is available.' : 'Editing is live; scheduling waits for a learning action.'}</div><nav class="switcher" aria-label="Prototype variants"><button data-variant="prev">←</button><span>${v.id} · ${v.name}</span><button data-variant="next">→</button></nav>`; bind(); }
+    function bind() { document.querySelectorAll('[data-node]').forEach(b => b.onclick = () => { state.active = b.dataset.node; state.revealed = false; state.completed = false; app(); }); document.querySelector('[data-editor]').oninput = () => { state.edits++; document.querySelector('.state').textContent = 'Edit retained in source Topic; scheduling is unchanged.'; }; document.querySelectorAll('[data-action]').forEach(b => b.onclick = () => { const a = b.dataset.action; if (a === 'reveal') state.revealed = true; if (a === 'next') state.completed = true; if (a === 'rate') { state.revealed = false; state.completed = false; state.edits = 0; } if (a === 'highlight') document.querySelector('.state').textContent = 'Highlight created as an Extract / Reading Item.'; app(); }); document.querySelector('[data-variant="prev"]').onclick = () => cycle(-1); document.querySelector('[data-variant="next"]').onclick = () => cycle(1); }
+    function cycle(delta) { const i = variants.findIndex(v => v.id === state.variant); state.variant = variants[(i + delta + variants.length) % variants.length].id; history.replaceState(null, '', '?variant=' + state.variant); app(); }
+    window.onkeydown = e => { if (e.target.matches('input, textarea, [contenteditable]')) return; if (e.key === 'ArrowLeft') cycle(-1); if (e.key === 'ArrowRight') cycle(1); };
+    app();
+  </script>
+</body>
+</html>

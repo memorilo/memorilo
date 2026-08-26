@@ -87,6 +87,16 @@ export interface NoteExternalUpdate {
   updatedAt: number
 }
 
+export interface GenerateCardTopicInput {
+  highlightId: string
+  noteId: string
+  sourceTopicId: string
+}
+
+export interface GenerateCardTopicResult extends NoteExternalUpdate {
+  cardTopicId: string
+}
+
 export interface SaveNoteUpdatesInput {
   noteId: string
   updates: readonly Uint8Array[]

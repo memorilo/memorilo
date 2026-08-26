@@ -63,6 +63,7 @@ export interface CardExtensionOptions {
   authoringEnabled?: boolean
   createId?: CreateCardId
   shortcuts?: { addBasicCard?: string, addCloze?: string, highlight?: string }
+  onSemanticAction?: (action: 'cloze' | 'extract') => void
 }
 
 export interface InsertBasicCardInput {
@@ -315,7 +316,7 @@ export function defineCardExtension(options: CardExtensionOptions = {}): CardExt
     defineCardSchema(),
     ...(authoringEnabled ? [defineCardDelimiterNodeView()] : []),
     ...(authoringEnabled ? [definePrioritizedCardDelimiterUi()] : []),
-    defineCardCommands(createId, authoringEnabled),
+    defineCardCommands(createId, authoringEnabled, options.onSemanticAction),
     withPriority(definePlugin(new Plugin({
       props: {
         handleKeyDown: (view, event) => {

@@ -154,6 +154,7 @@ export class EditorNoteLibrary {
         { parameters: [input.noteId], sql: 'DELETE FROM learning_review_events WHERE note_id = ?' },
         { parameters: [input.noteId], sql: 'DELETE FROM learning_sibling_bury_events WHERE note_id = ?' },
         { parameters: [input.noteId], sql: 'DELETE FROM learning_note_optimizer_assignments WHERE note_id = ?' },
+        { parameters: [input.noteId], sql: 'DELETE FROM learning_reading_items WHERE note_id = ?' },
         { parameters: [input.noteId], sql: 'DELETE FROM learning_cards WHERE note_id = ?' },
         { parameters: [input.noteId], sql: 'DELETE FROM learning_sync_outbox WHERE entity_kind = \'assignment\' AND entity_id = ?' },
         { parameters: [note.row_id], sql: 'DELETE FROM notes WHERE row_id = ?' },

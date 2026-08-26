@@ -79,6 +79,9 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
       : rpc('learning', 'getDailyProgress', now),
     getLearningState: targetId => rpc('learning', 'getLearningState', targetId),
     getMaintenanceEstimate: () => rpc('learning', 'getMaintenanceEstimate'),
+    getNextLearningKind: input => input === undefined
+      ? rpc('learning', 'getNextLearningKind')
+      : rpc('learning', 'getNextLearningKind', input),
     getNextItem: input => input === undefined
       ? rpc('learning', 'getNextItem')
       : rpc('learning', 'getNextItem', input),
@@ -97,6 +100,10 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
       ? rpc('learning', 'listQueue')
       : rpc('learning', 'listQueue', input),
     listTargets: cardId => rpc('learning', 'listTargets', cardId),
+    listReadingItems: input => input === undefined
+      ? rpc('learning', 'listReadingItems')
+      : rpc('learning', 'listReadingItems', input),
+    processReadingItem: input => rpc('learning', 'processReadingItem', input),
     maintainDatabase: () => rpc('learning', 'maintainDatabase'),
     optimizeOptimizer: input => rpc('learning', 'optimizeOptimizer', input),
     prepareReview: input => rpc('learning', 'prepareReview', input),
@@ -131,6 +138,7 @@ export function createDesktopApiClient(options: CreateDesktopApiClientOptions): 
       DesktopConfigurationSchema,
     ),
     getNote: input => rpc('notes', 'getNote', input),
+    generateCardTopic: input => rpc('notes', 'generateCardTopic', input),
     getDeleteNoteImpact: input => rpc('notes', 'getDeleteNoteImpact', input),
     getRuntimeInfo: async () => decodeDesktopHonoResponse(
       'app.getRuntimeInfo',

@@ -69,7 +69,7 @@ function expectedDefinition(runtime: EditorNoteRuntime, source: CardTopicSource)
   const parentSource = readTopicType(parentNode.data, `Topic ${source.sourceTopicId} type`) === 'regular'
     ? readCardTopicSource(parentNode.data, `Topic ${source.sourceTopicId} card source`)
     : null
-  return projectCardTopicDefinitions(topicDocument(runtime, source.sourceTopicId), parentSource ?? undefined)
+  return projectCardTopicDefinitions(topicDocument(runtime, source.sourceTopicId), parentSource ?? undefined, { includeHighlights: true })
     .find(definition => cardTopicSourceIdentity(definition) === cardTopicSourceIdentity(source)) ?? null
 }
 
@@ -106,8 +106,22 @@ export class EditorNoteCardTopics {
         }
       }
 
-      const definitions = projectCardTopicDefinitions(input.document, ownSource ?? undefined)
       const existing = childCardTopics(this.#runtime, input.topicId)
+      const definitions = [...projectCardTopicDefinitions(input.document, ownSource ?? undefined, { includeHighlights: false })]
+      // Highlight CardTopics are opt-in. Once one exists, keep it in the normal
+      // reconciliation pass so its projected content follows source edits.
+      const existingHighlightKeys = existing
+        .filter(child => child.cardSource.kind === 'highlight' && child.cardSource.syncStatus === 'synced')
+        .map(child => cardTopicSourceIdentity(child.cardSource))
+      if (existingHighlightKeys.length > 0) {
+        const allDefinitions = projectCardTopicDefinitions(input.document, ownSource ?? undefined, { includeHighlights: true })
+        const definitionsByKey = new Map(allDefinitions.map(definition => [cardTopicSourceIdentity(definition), definition]))
+        for (const key of existingHighlightKeys) {
+          const definition = definitionsByKey.get(key)
+          if (definition && !definitions.some(candidate => cardTopicSourceIdentity(candidate) === key))
+            definitions.push(definition)
+        }
+      }
       const existingBySource = new Map(existing.map(child => [cardTopicSourceIdentity(child.cardSource), child]))
       const seen = new Set<string>()
       const mode = assertEditorMode(sourceNode.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${input.topicId} Editor mode`)
@@ -153,6 +167,49 @@ export class EditorNoteCardTopics {
 
       this.#runtime.doc.commit({ origin: 'card-topic:reconcile' })
       return { detachedTopicId }
+    })
+  }
+
+  createFromHighlight(input: { highlightId: string, sourceTopicId: string }): string {
+    return this.#runtime.runMutation(() => {
+      const sourceNode = findNoteEntry(this.#runtime.doc, input.sourceTopicId)
+      if (sourceNode.data.get(ENTRY_KIND_KEY) !== 'topic')
+        throw new TypeError(`NoteEntry ${input.sourceTopicId} is not a Topic`)
+      const topicType = readTopicType(sourceNode.data, `Topic ${input.sourceTopicId} type`)
+      if (topicType !== 'regular' && topicType !== 'book')
+        throw new TypeError(`Topic ${input.sourceTopicId} is not an editable learning Topic`)
+
+      const document = topicDocument(this.#runtime, input.sourceTopicId)
+      const definition = projectCardTopicDefinitions(document, undefined, { includeHighlights: true })
+        .find(candidate => candidate.kind === 'highlight' && candidate.sourceId === input.highlightId)
+      if (!definition)
+        throw new Error(`Highlight ${input.highlightId} is no longer present in Topic ${input.sourceTopicId}`)
+
+      const source = {
+        kind: definition.kind,
+        sourceId: definition.sourceId,
+        sourceTopicId: input.sourceTopicId,
+        syncStatus: 'synced' as const,
+      }
+      const key = cardTopicSourceIdentity(source)
+      const existing = childCardTopics(this.#runtime, input.sourceTopicId)
+        .find(child => cardTopicSourceIdentity(child.cardSource) === key)
+      if (existing) {
+        if (existing.cardSource.syncStatus === 'detached')
+          existing.node.data.set(TOPIC_CARD_SOURCE_KEY, source)
+        this.#runtime.doc.commit({ origin: 'card-topic:generate' })
+        return readString(existing.node.data, ENTRY_ID_KEY, 'Generated Card Topic id')
+      }
+
+      const mode = assertEditorMode(sourceNode.data.get(TOPIC_EDITOR_MODE_KEY), `Topic ${input.sourceTopicId} Editor mode`)
+      const topicId = createTopicNode(this.#runtime.doc, {
+        cardSource: source,
+        initialContent: definition.document,
+        mode,
+        title: cardTopicTitle(definition.document),
+      }, sourceNode.id)
+      this.#runtime.doc.commit({ origin: 'card-topic:generate' })
+      return topicId
     })
   }
 

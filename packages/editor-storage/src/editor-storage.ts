@@ -62,6 +62,7 @@ export class SqliteEditorStorage implements EditorStorage {
     const noteWrites = new EditorNoteRepository({
       database: options.database,
       planLearningCards: input => learning.planCardReconciliation(input),
+      planReadingItems: (noteId, items) => learning.planReadingItemReconciliation(noteId, items),
       records,
       runOperation,
     })

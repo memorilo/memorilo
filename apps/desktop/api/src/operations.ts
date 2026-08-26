@@ -42,6 +42,7 @@ import {
   LearningTargetSchema,
   MultiLineReviewResultSchema,
   PreparedLearningReviewSchema,
+  ReadingItemSchema,
   ReviewResultSchema,
 } from './schemas/learning'
 import {
@@ -64,6 +65,7 @@ import {
   DesktopTodoTaskPageSchema,
   DesktopTodoTaskSchema,
   DesktopTopicBlockSearchHitsSchema,
+  GenerateDesktopCardTopicResultSchema,
   JournalDateSchema,
   PruneDesktopPastEmptyJournalsResultSchema,
   RenameDesktopNoteResultSchema,
@@ -264,6 +266,7 @@ export const desktopOperationSchemas = {
     getDailyProgress: operation(LearningSchemaArguments.getDailyProgress, LearningDailyProgressSchema),
     getLearningState: operation(LearningSchemaArguments.getLearningState, LearningStateSchema),
     getMaintenanceEstimate: operation(LearningSchemaArguments.getMaintenanceEstimate, LearningMaintenanceEstimateSchema),
+    getNextLearningKind: operation(LearningSchemaArguments.getNextLearningKind, Schema.Union([Schema.Literals(['reading', 'review']), Schema.Null])),
     getNextItem: operation(LearningSchemaArguments.getNextItem, DesktopReviewItemSchema),
     getNextNewItem: operation(LearningSchemaArguments.getNextNewItem, DesktopReviewItemSchema),
     getNextReviewItem: operation(LearningSchemaArguments.getNextReviewItem, DesktopReviewItemSchema),
@@ -274,6 +277,8 @@ export const desktopOperationSchemas = {
     listOptimizers: operation(LearningSchemaArguments.listOptimizers, Schema.Array(FsrsOptimizerSchema)),
     listQueue: operation(LearningSchemaArguments.listQueue, Schema.Array(LearningQueueItemSchema)),
     listTargets: operation(LearningSchemaArguments.listTargets, Schema.Array(LearningTargetSchema)),
+    listReadingItems: operation(LearningSchemaArguments.listReadingItems, Schema.Array(ReadingItemSchema)),
+    processReadingItem: operation(LearningSchemaArguments.processReadingItem, ReadingItemSchema),
     maintainDatabase: operation(LearningSchemaArguments.maintainDatabase, LearningMaintenanceResultSchema),
     optimizeOptimizer: operation(LearningSchemaArguments.optimizeOptimizer, FsrsOptimizerSchema),
     prepareReview: operation(LearningSchemaArguments.prepareReview, PreparedLearningReviewSchema),
@@ -293,6 +298,11 @@ export const desktopOperationSchemas = {
       title: Schema.optionalKey(Schema.String),
     })), DesktopNoteSchema),
     getNote: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DesktopNoteSchema),
+    generateCardTopic: operation(Schema.Tuple([Schema.Struct({
+      highlightId: Schema.NonEmptyString,
+      noteId: Schema.NonEmptyString,
+      sourceTopicId: Schema.NonEmptyString,
+    })]), GenerateDesktopCardTopicResultSchema),
     getDeleteNoteImpact: operation(Schema.Tuple([Schema.Struct({ noteId: Schema.NonEmptyString })]), DeleteDesktopNoteImpactSchema),
     getTopicBlock: operation(Schema.Tuple([Schema.Struct({
       blockId: Schema.NonEmptyString,

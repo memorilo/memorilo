@@ -1,4 +1,5 @@
 import type { DesktopReviewItem } from '@memorilo/desktop-api'
+import type { ReadingItem } from '@memorilo/editor-storage'
 import { describe, expect, it } from 'vitest'
 import { learningReviewRoute } from './learning-review-route'
 
@@ -33,6 +34,23 @@ function reviewItem(): DesktopReviewItem {
 }
 
 describe('learning review route', () => {
+  it('round-trips a stable Reading Item position', () => {
+    const item: ReadingItem = {
+      highlightId: 'highlight',
+      nextProcessAt: 123,
+      noteId: 'note',
+      priority: 0,
+      readPoint: 2,
+      readingItemId: 'reading-item',
+      sourceBlockId: 'source',
+      state: 'learning',
+      topicId: 'topic',
+    }
+    const positioned = learningReviewRoute.readingPosition({ scope: 'note', scopeNoteId: 'note' }, item)
+    expect(learningReviewRoute.validate(positioned)).toEqual(positioned)
+    expect(learningReviewRoute.restoreReading(positioned)).toBe('reading-item')
+  })
+
   it('round-trips a saved review position through one codec', () => {
     const positioned = learningReviewRoute.position(
       { scope: 'note', scopeNoteId: 'note' },

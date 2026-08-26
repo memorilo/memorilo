@@ -57,6 +57,30 @@ afterEach(() => {
 })
 
 describe('card authoring extension', () => {
+  it('reports explicit Highlight and Cloze semantic actions after dispatch', () => {
+    const actions: string[] = []
+    const extension = union(defineBasicExtension(), defineCardExtension({
+      createId: (() => {
+        let index = 0
+        return () => `id-${index++}`
+      })(),
+      onSemanticAction: action => actions.push(action),
+    }))
+    const editor = createTestEditor({ extension })
+    const element = document.body.appendChild(document.createElement('div'))
+    editor.mount(element)
+    mountedEditors.push(() => {
+      editor.unmount()
+      element.remove()
+    })
+    const { doc, paragraph } = editor.nodes
+    editor.set(doc(paragraph('Highlight <a>this')))
+    editor.commands.setInlineHighlight({ color: 'yellow' })
+    editor.set(doc(paragraph('<a>Cloze this<b>')))
+    editor.commands.addCloze({ anchorKind: 'rich-content' })
+    expect(actions).toEqual(['extract', 'cloze'])
+  })
+
   it.each([
     { direction: 'forward', symbol: '→', trigger: ':-> ' },
     { direction: 'backward', symbol: '←', trigger: ':-< ' },

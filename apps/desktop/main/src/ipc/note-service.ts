@@ -13,6 +13,9 @@ export function createNoteHandlers(
     getNote(input: Parameters<NoteApplicationService['getNote']>[0]) {
       return application.getNote(input)
     },
+    generateCardTopic(input: Parameters<NoteApplicationService['generateCardTopic']>[0]) {
+      return application.generateCardTopic(input)
+    },
     getDeleteNoteImpact(input: Parameters<NoteApplicationService['getDeleteNoteImpact']>[0]) {
       return application.getDeleteNoteImpact(input)
     },

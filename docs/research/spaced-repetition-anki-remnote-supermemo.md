@@ -210,6 +210,19 @@ SuperMemo 提供 requested forgetting index 作为 retention/workload 控制，�
 
 关键二元边界是 Pass 及以上代表 remembering，Fail 及以下代表 forgetting。被动 Topic review 可直接进入 Next repetition，不经过问答评分。[SuperMemo 17 Help: Learn](https://www.super-memory.com/help/learn.htm)
 
+### 3.4.1 学习期间并非只读：允许即时编辑
+
+SuperMemo 的学习流程把“回忆/评分”和“知识加工”放在同一工作流中，并不是把到期内容锁定为只读卡片。Incremental Reading 的官方步骤要求点击文章进入 **editing mode**，可直接修改正文、选择片段、删除已处理内容、添加上下文和设置 read-point；完成当前片段后再用 `Learn`/`Next repetition` 切换到下一篇文章。[SuperMemo 17 Help: Reading articles](https://www.super-memory.com/help/read.htm#Skill_2:_Reading_articles)
+
+到期 Item 的复习也允许即时修订。官方“Re-evaluation of items”建议在每次 repetition 评估题目是否需要改写，并把 `edit the item` 列为典型动作，可进入 Question/Answer 字段或组件 editing mode，随后再继续评分和下一次 repetition。[SuperMemo 17 Help: Re-evaluation of items](https://www.super-memory.com/help/read.htm#Re-evaluation_of_items)
+
+这意味着 SuperMemo 的“学习”至少有两种交织状态：
+
+1. **主动回忆**：Question → 尝试回答 → Show answer → 选择 Grade → Next repetition；
+2. **增量加工**：在 Topic/Item 到期时阅读、抽取、改写、补充上下文或生成 Cloze，然后再决定下次时间/优先级。
+
+因此，若将 SuperMemo 作为产品参照，“学习页是否允许编辑”不能只按复习卡片的只读/可写二元划分：Topic 阅读和 Item 复评都支持在当前学习上下文中修订内容，但问答评分仍是独立的记忆事件。这个边界与 Memorilo 当前正式 Review UI 使用只读 `CardSurface` 的实现不同；不能把后者的限制归因于 SuperMemo 的通用学习范式。
+
 ### 3.5 本地数据与可携带性
 
 经典 Collection 是一个 `.kno` 文件和同名 companion folder 的组合，完整 backup 必须同时保存二者。官方提供 Copy Collection、带日期的 Backup，以及恢复流程，并反复警告只复制 `.kno` 会得到不可用备份。[SuperMemo 17 Help: Backup](https://www.super-memory.com/help/backup.htm)

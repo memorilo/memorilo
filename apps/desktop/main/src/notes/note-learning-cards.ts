@@ -2,10 +2,11 @@ import type {
   EditorStorage,
   LearningCardProjection,
   LearningTopicCardProjection,
+  ReadingItemProjection,
 } from '@memorilo/editor-storage'
 import type { ReviewCardProjection } from '@memorilo/editor/card'
 import type { EditorNote } from '@memorilo/editor/note'
-import { projectEditorCards, projectImageOcclusionCards } from '@memorilo/editor/card'
+import { projectEditorCards, projectEditorReadingItems, projectImageOcclusionCards } from '@memorilo/editor/card'
 import { projectCardTopicCards } from '@memorilo/editor/note'
 
 type TopicDocument = Extract<ReturnType<EditorNote['getTopicValidationInput']>, { document: unknown }>['document']
@@ -57,7 +58,7 @@ export function projectNoteLearningCards(
         : topicDocuments(note, topicId).flatMap(document => projectCardTopicCards(document, source).map(toLearningCard))
     }
     else {
-      cards = topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).map(toLearningCard))
+      cards = topicDocuments(note, topicId).flatMap(document => projectEditorCards(document).filter(card => card.kind !== 'highlight').map(toLearningCard))
     }
     return {
       cards,
@@ -65,6 +66,37 @@ export function projectNoteLearningCards(
       topicOrder: topicOrder === -1 ? 0 : topicOrder,
     }
   })
+}
+
+export function projectNoteReadingItems(note: EditorNote, topicIds?: Iterable<string>): readonly ReadingItemProjection[] {
+  const selectedTopicIds = topicIds === undefined
+    ? note.getEntries().filter(entry => entry.kind === 'topic').map(entry => entry.id)
+    : [...new Set(topicIds)]
+  const result: ReadingItemProjection[] = []
+  for (const topicId of selectedTopicIds) {
+    const entry = note.getEntries().find(candidate => candidate.id === topicId)
+    // CardTopics are projections of a source Topic. Their copied Highlight
+    // marks must not create a second Reading Item for the same source.
+    if (
+      entry?.kind !== 'topic'
+      || entry.topicType === 'spreadsheet'
+      || entry.topicType === 'image-occlusion'
+      || (entry.topicType === 'regular' && entry.cardSource !== undefined)
+    ) {
+      continue
+    }
+    for (const document of topicDocuments(note, topicId)) {
+      for (const item of projectEditorReadingItems(document)) {
+        result.push({
+          highlightId: item.highlightId,
+          readingItemId: item.highlightId,
+          sourceBlockId: item.sourceBlockId,
+          topicId,
+        })
+      }
+    }
+  }
+  return result
 }
 
 export async function repairNoteLearningCards(

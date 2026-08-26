@@ -22,6 +22,7 @@ export type {
   ClozeEditorCardProjection,
   ClozeMarkAttrs,
   EditorCardProjection,
+  EditorReadingItemProjection,
   HighlightColor,
   HighlightEditorCardProjection,
   InlineHighlightMarkAttrs,
@@ -29,7 +30,7 @@ export type {
   MultiLineEditorCardProjection,
   ReviewCardProjection,
 } from './card/card-model'
-export { projectEditorCards } from './card/card-model'
+export { projectEditorCards, projectEditorReadingItems } from './card/card-model'
 export type { CardPreviewItemSelection, CardPreviewMode, CardPreviewProps } from './card/card-preview'
 export { CardPreview } from './card/card-preview'
 export type {

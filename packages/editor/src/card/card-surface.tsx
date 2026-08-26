@@ -12,6 +12,7 @@ export interface CardSurfaceProps {
   adapters: EditorAdapters
   appearance?: 'preview' | 'review'
   card: EditorCardProjection
+  editable?: boolean
   itemSelection?: CardReviewItemSelection
   revealedItemBlockIds?: readonly string[]
   showSource?: boolean
@@ -23,6 +24,7 @@ export function CardSurface({
   adapters,
   appearance = 'review',
   card,
+  editable = false,
   itemSelection,
   revealedItemBlockIds,
   showSource = false,
@@ -57,7 +59,7 @@ export function CardSurface({
         cardReview={cardReview}
         mode={EditorMode.Outline}
         outline={outline}
-        readOnly
+        readOnly={!editable}
         topic={topic}
       />
     </section>

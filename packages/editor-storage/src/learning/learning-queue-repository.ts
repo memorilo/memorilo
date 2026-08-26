@@ -88,6 +88,31 @@ export class LearningQueueRepository {
     return this.#runOperation(() => this.#progress.getDailyProgress(now))
   }
 
+  nextKind(input: Omit<ListLearningQueueInput, 'limit' | 'mode'> = {}): Promise<'reading' | 'review' | null> {
+    return this.#runOperation(async () => {
+      const now = input.now ?? Date.now()
+      const scope = [input.noteId ?? null, input.topicId ?? null] as const
+      const reading = await this.#database.get<{ last_action_at: number | null, present: number }>('SELECT SUM(CASE WHEN next_process_at IS NULL OR next_process_at <= ? THEN 1 ELSE 0 END) AS present, MAX(last_processed_at) AS last_action_at FROM learning_reading_items WHERE (? IS NULL OR note_id = ?) AND (? IS NULL OR topic_id = ?)', [now, scope[0], scope[0], scope[1], scope[1]])
+      const review = await this.#database.get<{ hard_due: number, last_action_at: number | null, present: number }>(`SELECT COUNT(DISTINCT t.target_id) AS present,
+        MAX(CASE WHEN s.phase = 'review' AND s.due_at <= ? THEN 1 ELSE 0 END) AS hard_due,
+        MAX(e.occurred_at) AS last_action_at
+        FROM learning_targets t
+        JOIN learning_cards c ON c.card_id = t.card_id
+        JOIN learning_states s ON s.target_id = t.target_id
+        LEFT JOIN learning_review_events e ON e.target_id = t.target_id AND e.event_kind = 'rating'
+        WHERE t.active = 1 AND c.active = 1 AND (s.phase = 'new' OR s.due_at <= ?) AND (? IS NULL OR c.note_id = ?) AND (? IS NULL OR c.topic_id = ?)`, [now, now, scope[0], scope[0], scope[1], scope[1]])
+      if (!reading?.present && !review?.present)
+        return null
+      if (!review?.present)
+        return 'reading'
+      if (!reading?.present || review.hard_due === 1)
+        return 'review'
+      return (reading.last_action_at ?? Number.NEGATIVE_INFINITY) <= (review.last_action_at ?? Number.NEGATIVE_INFINITY)
+        ? 'reading'
+        : 'review'
+    })
+  }
+
   async list(input: ListLearningQueueInput = {}): Promise<readonly LearningQueueItem[]> {
     const now = input.now ?? Date.now()
     assertTimestamp(now, 'Queue time')

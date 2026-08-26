@@ -12,6 +12,7 @@ import type {
   NoteUpdateHashRow,
 } from './editor-storage-rows'
 import type { LearningCardReconciliationPlanner } from './learning/learning-card-reconciliation'
+import type { ReadingItemProjection } from './learning/types'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { validateAssetFileName } from './editor-asset-repository'
@@ -28,6 +29,7 @@ import {
 interface EditorNoteUpdateDependencies {
   database: EditorStorageDatabase
   planLearningCards: LearningCardReconciliationPlanner
+  planReadingItems: (noteId: string, items: readonly ReadingItemProjection[]) => Promise<readonly DatabaseCommand[]>
   records: EditorNoteRecords
   runOperation: StorageOperationRunner
 }
@@ -107,6 +109,8 @@ export function saveNoteUpdates(
           topics: saved.learningCards,
         }))
       }
+      if (saved.learningReadingItems !== undefined)
+        commands.push(...await dependencies.planReadingItems(saved.noteId, saved.learningReadingItems))
       if (commands.length > 0)
         await dependencies.database.batch(commands)
       return { acceptedUpdateHashes: [], latestSequence: note.latest_sequence, updatedAt: note.updated_at }
@@ -200,6 +204,8 @@ export function saveNoteUpdates(
         topics: saved.learningCards,
       }))
     }
+    if (saved.learningReadingItems !== undefined)
+      commands.push(...await dependencies.planReadingItems(saved.noteId, saved.learningReadingItems))
 
     for (const existing of existingBlocks) {
       if (!projection.blocks.has(`${existing.topic_id}\0${existing.block_id}`)) {

@@ -2,6 +2,7 @@ import type {
   DesktopReviewItem,
   RestoreDesktopReviewItemInput,
 } from '@memorilo/desktop-api'
+import type { ReadingItem } from '@memorilo/editor-storage'
 import type { ReviewRating } from './learning-review-rating-model'
 
 export type LearningReviewScope = 'global' | 'note'
@@ -12,6 +13,7 @@ export interface LearningReviewRoute {
   listRatings?: string
   noteId?: string
   presentation?: LearningReviewPresentation
+  readingItemId?: string
   scope: LearningReviewScope
   scopeNoteId?: string
   targetId?: string
@@ -48,6 +50,20 @@ function validate(route: Partial<Record<keyof LearningReviewRoute, unknown>>): L
     throw new TypeError('A Global review scope cannot include scopeNoteId')
 
   const identityValues = [route.cardId, route.noteId, route.presentation, route.targetId, route.topicId]
+  if (route.readingItemId !== undefined) {
+    if (route.cardId !== undefined || route.presentation !== undefined || route.targetId !== undefined || route.listRatings !== undefined)
+      throw new TypeError('A saved Reading Item position cannot contain Card identity')
+    const noteId = nonEmptyString(route.noteId, 'Reading Item Note id')
+    if (scopeNoteId !== undefined && noteId !== scopeNoteId)
+      throw new TypeError('The saved Reading Item is outside the selected Note scope')
+    return {
+      noteId,
+      readingItemId: nonEmptyString(route.readingItemId, 'Reading Item id'),
+      scope,
+      ...(scopeNoteId === undefined ? {} : { scopeNoteId }),
+      topicId: nonEmptyString(route.topicId, 'Reading Item Topic id'),
+    }
+  }
   const identityProvided = identityValues.filter(value => value !== undefined).length
   if (identityProvided !== 0 && identityProvided !== identityValues.length)
     throw new TypeError('A saved Review position requires complete Card identity')
@@ -95,12 +111,22 @@ function identity(route: LearningReviewRoute): string {
     route.scope,
     route.scopeNoteId,
     route.noteId,
+    route.readingItemId,
     route.topicId,
     route.cardId,
     route.listRatings,
     route.presentation,
     route.targetId,
   ])
+}
+
+function readingPosition(scope: LearningReviewRoute, item: ReadingItem): LearningReviewRoute {
+  return {
+    ...base(scope),
+    noteId: item.noteId,
+    readingItemId: item.readingItemId,
+    topicId: item.topicId,
+  }
 }
 
 function position(
@@ -138,6 +164,8 @@ export const learningReviewRoute = {
   base,
   identity,
   position,
+  readingPosition,
+  restoreReading: (route: LearningReviewRoute) => route.readingItemId ?? null,
   restore,
   savedRatings: (route: LearningReviewRoute) => parseRatings(route.listRatings),
   validate,

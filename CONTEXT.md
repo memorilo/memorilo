@@ -97,7 +97,7 @@ A Todo that has another Todo anywhere in its Block ancestor chain. Its parent in
 _Avoid_: Child Todo, nested Todo
 
 **CardTopic**:
-A RegularTopic created from one Card authoring source and placed directly below its source Topic. It owns the learnable Card projection and may either remain linked to its source or become independently editable.
+A RegularTopic created from one explicit Card authoring source and placed directly below its source Topic. It owns the learnable Card projection and may either remain linked to its source or become independently editable; a Highlight/Extract alone does not create a CardTopic.
 _Avoid_: Card, hidden Card, Card Definition
 
 **Synced CardTopic**:
@@ -137,8 +137,8 @@ All Cards projected from the same Source Block. Siblings remain independently sc
 _Avoid_: Note, Card Definition, shared Learning State
 
 **Highlight**:
-Memorization emphasis applied either to one continuous inline range or to an entire Block. Each Highlight creates a CardTopic whose Card has no hidden answer.
-_Avoid_: review hint, text color
+An Extract marker applied either to one continuous inline range or to an entire Block. A Highlight can be added to learning as a Reading Item and may later be used to explicitly generate a Card; it is not itself a CardTopic.
+_Avoid_: review hint, text color, automatic CardTopic
 
 **Journal**:
 The chronological workspace that starts with today's Journal Note and continues into earlier non-empty Journal Notes.
@@ -199,6 +199,18 @@ _Avoid_: Edit Card, delete review history
 **Review Event**:
 An immutable record of a Rating or scheduling command for one Review Target, retained as the source history from which Learning State is rebuilt.
 _Avoid_: Review session, current Card state
+
+**Incremental Learning**:
+A learning workflow that interleaves passive processing of source material with active recall, allowing a learner to read, edit, extract, reformulate, and schedule knowledge over multiple sessions.
+_Avoid_: Review-only session, read-only flashcard mode
+
+**Reading Item**:
+A schedulable unit of source-material processing with a source reference, processing position, priority, and next processing time; it may later produce or update one or more Review Targets.
+_Avoid_: Card, Review Target, reading session
+
+**Note Structure**:
+The navigable Folder/Topic/CardTopic hierarchy of one Note, shown as context for learning and used to select a learning source without redefining NoteEntry identity.
+_Avoid_: Sidebar tree, deck tree, document outline
 
 **Personal Learning Sync**:
 Account-scoped synchronization of a user's Review Events, Learning States, Optimizer revisions, and assignments across that user's devices; it is separate from collaborative Note content.

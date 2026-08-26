@@ -55,7 +55,7 @@ export const learningReviewPageStyles = stylex.create({
     paddingLeft: 'clamp(20px, 6vw, 72px)',
   },
   material: {
-    width: 'min(760px, 100%)',
+    width: 'min(1080px, 100%)',
     minHeight: 240,
     alignSelf: 'flex-start',
     color: colors.text,

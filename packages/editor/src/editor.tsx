@@ -43,6 +43,7 @@ interface EditorBaseProps {
   shortcuts?: EditorShortcutConfiguration
   mode?: EditorModeValue
   onDocumentChange?: (document: NodeJSON) => void
+  onSemanticAction?: (action: 'cloze' | 'extract') => void
   outline?: OutlineOptions
   readOnly?: boolean
   /** Planning date used by tasks without an explicit due date, such as Journal tasks. */
@@ -64,6 +65,7 @@ export type EditorLayout = 'embedded' | 'standalone'
 export function Editor(props: EditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const onDocumentChangeRef = useRef(props.onDocumentChange)
+  const onSemanticActionRef = useRef(props.onSemanticAction)
   const onCardSyncErrorRef = useRef(props.cards?.onSyncError)
   const imageOcclusionRef = useRef(props.imageOcclusion)
   const learningEnabled = props.learningEnabled ?? true
@@ -85,6 +87,7 @@ export function Editor(props: EditorProps) {
     : undefined)
   const initialCardReviewRef = useRef(props.cardReview)
   onDocumentChangeRef.current = props.onDocumentChange
+  onSemanticActionRef.current = props.onSemanticAction
   onCardSyncErrorRef.current = props.cards?.onSyncError
   imageOcclusionRef.current = props.imageOcclusion
   const cardRepository = props.cards?.repository
@@ -136,6 +139,11 @@ export function Editor(props: EditorProps) {
     imageOcclusion,
     learningEnabled,
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
+    onSemanticAction: (action) => {
+      const handler = onSemanticActionRef.current
+      if (handler)
+        handler(action)
+    },
     outline: initialOutlineOptionsRef.current,
     readOnly: props.readOnly === true,
     shortcuts: props.shortcuts,

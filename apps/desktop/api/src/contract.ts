@@ -185,6 +185,7 @@ interface DesktopLearningStorageApi {
   getDailyProgress: LearningStorage['queue']['getDailyProgress']
   getLearningState: LearningStorage['reviews']['getState']
   getMaintenanceEstimate: LearningStorage['maintenance']['getEstimate']
+  getNextLearningKind: LearningStorage['queue']['nextKind']
   getNoteOptimizer: LearningStorage['optimizers']['getForNote']
   getOptimizer: LearningStorage['optimizers']['get']
   getOptimizerNoteCount: LearningStorage['optimizers']['getNoteCount']
@@ -192,6 +193,8 @@ interface DesktopLearningStorageApi {
   listOptimizers: LearningStorage['optimizers']['list']
   listQueue: LearningStorage['queue']['list']
   listTargets: LearningStorage['cards']['listTargets']
+  listReadingItems: LearningStorage['readingItems']['list']
+  processReadingItem: LearningStorage['readingItems']['process']
   maintainDatabase: LearningStorage['maintenance']['maintain']
   optimizeOptimizer: LearningStorage['optimizers']['optimize']
   prepareReview: LearningStorage['reviews']['prepare']
@@ -459,6 +462,16 @@ export interface DesktopNoteExternalUpdate {
   updatedAt: number
 }
 
+export interface GenerateDesktopCardTopicInput {
+  highlightId: string
+  noteId: string
+  sourceTopicId: string
+}
+
+export interface GenerateDesktopCardTopicResult extends DesktopNoteExternalUpdate {
+  cardTopicId: string
+}
+
 export interface DesktopWhiteboardLibraryData {
   libraryItems: readonly WhiteboardLibraryItem[]
 }
@@ -522,6 +535,7 @@ export interface DesktopApi {
   getCachedShelfView: (input: BrowseShelfInput) => Promise<ShelfBrowseResult>
   getConfiguration: () => Promise<DesktopConfiguration>
   getNote: (input: GetDesktopNoteInput) => Promise<DesktopNote>
+  generateCardTopic: (input: GenerateDesktopCardTopicInput) => Promise<GenerateDesktopCardTopicResult>
   getRuntimeInfo: () => Promise<RuntimeInfo>
   getShelfAsset: (input: ShelfAssetInput) => Promise<ShelfAssetResult>
   getShelfPublicationDetails: (input: ShelfPublicationDetailsInput) => Promise<ShelfPublicationDetails>

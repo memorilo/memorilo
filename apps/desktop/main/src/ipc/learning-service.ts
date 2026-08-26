@@ -36,6 +36,9 @@ export function createLearningHandlers(
     getMaintenanceEstimate() {
       return learning.maintenance.getEstimate()
     },
+    getNextLearningKind(input?: Parameters<LearningStorage['queue']['nextKind']>[0]) {
+      return learning.queue.nextKind({ ...input, now: input?.now ?? now() })
+    },
     getNextItem(input?: Parameters<LearningReviewApplication['getNextItem']>[0]) {
       return reviews.getNextItem(input)
     },
@@ -65,6 +68,12 @@ export function createLearningHandlers(
     },
     listTargets(cardId: string) {
       return learning.cards.listTargets(cardId)
+    },
+    listReadingItems(input?: Parameters<LearningStorage['readingItems']['list']>[0]) {
+      return learning.readingItems.list({ ...input, now: input?.now ?? now() })
+    },
+    processReadingItem(input: Parameters<LearningStorage['readingItems']['process']>[0]) {
+      return mutation(learning.readingItems.process(input))
     },
     maintainDatabase() {
       return mutation(learning.maintenance.maintain())

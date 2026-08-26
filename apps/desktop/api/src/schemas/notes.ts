@@ -19,6 +19,7 @@ import type {
   DesktopTodoTask,
   DesktopTodoTaskPage,
   DesktopTopicBlockSearchHit,
+  GenerateDesktopCardTopicResult,
   JournalDate,
   PruneDesktopPastEmptyJournalsResult,
   RenameDesktopNoteResult,
@@ -340,6 +341,13 @@ export const DesktopNoteWriteReceiptSchema: EffectSchema.Codec<DesktopNoteWriteR
 })
 
 export const DesktopNoteExternalUpdateSchema: EffectSchema.Codec<DesktopNoteExternalUpdate, unknown> = Schema.Struct({
+  noteId: Schema.NonEmptyString,
+  update: Schema.Uint8ArrayFromBase64,
+  updatedAt: Schema.Number,
+})
+
+export const GenerateDesktopCardTopicResultSchema: EffectSchema.Codec<GenerateDesktopCardTopicResult, unknown> = Schema.Struct({
+  cardTopicId: Schema.NonEmptyString,
   noteId: Schema.NonEmptyString,
   update: Schema.Uint8ArrayFromBase64,
   updatedAt: Schema.Number,

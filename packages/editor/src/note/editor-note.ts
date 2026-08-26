@@ -389,6 +389,8 @@ export interface EditorNote {
   /** Replaces, detaches, or removes the system-managed Reader source for a regular Topic. */
   setTopicReaderReference: (topicId: string, reference: TopicReaderReference | null) => void
   reconcileCardTopics: (input: { document: NodeJSON, topicId: string }) => CardTopicReconciliationResult
+  /** Creates a CardTopic for an existing Highlight only when the user explicitly requests it. */
+  createCardTopicFromHighlight: (input: { highlightId: string, sourceTopicId: string }) => string
   resyncCardTopic: (topicId: string) => void
   /** Replaces the non-empty Note title. */
   renameNote: (title: string) => void
@@ -505,6 +507,7 @@ function createEditorNoteFromRuntime(runtime: EditorNoteRuntime): EditorNote {
     setLearningEnabled: enabled => runtime.setLearningEnabled(enabled),
     setTopicReaderReference: entryRepository.setTopicReaderReference,
     reconcileCardTopics: input => cardTopics.reconcile(input),
+    createCardTopicFromHighlight: input => cardTopics.createFromHighlight(input),
     resyncCardTopic: topicId => cardTopics.resync(topicId),
     subscribe: collaboration.subscribe,
   }

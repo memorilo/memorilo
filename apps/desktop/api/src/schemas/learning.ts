@@ -16,8 +16,10 @@ import type {
   OptimizeFsrsOptimizerInput,
   PreparedLearningReview,
   PrepareLearningReviewInput,
+  ProcessReadingItemInput,
   RateLearningTargetInput,
   RateMultiLineCardInput,
+  ReadingItem,
   ResetLearningTargetInput,
   ReviewResult,
   SaveFsrsOptimizerInput,
@@ -43,6 +45,23 @@ import {
 const ReviewRatingSchema = Schema.Literals(['again', 'easy', 'good', 'hard'])
 const LearningPhaseSchema = Schema.Literals(['learning', 'new', 'relearning', 'review'])
 const LearningQueueModeSchema = Schema.Literals(['mixed', 'new', 'review'])
+export const ReadingItemSchema: EffectSchema.Codec<ReadingItem> = Schema.Struct({
+  highlightId: Schema.NonEmptyString,
+  nextProcessAt: Schema.Union([Schema.Number, Schema.Null]),
+  noteId: Schema.NonEmptyString,
+  priority: Schema.Int,
+  readPoint: NonNegativeIntegerSchema,
+  readingItemId: Schema.NonEmptyString,
+  sourceBlockId: Schema.NonEmptyString,
+  state: Schema.Literals(['new', 'learning', 'processed']),
+  topicId: Schema.NonEmptyString,
+})
+const ProcessReadingItemInputSchema: EffectSchema.Codec<ProcessReadingItemInput> = Schema.Struct({
+  action: Schema.optionalKey(Schema.Literals(['extract', 'cloze', 'next'])),
+  processedAt: Schema.optionalKey(Schema.Number),
+  readPoint: Schema.optionalKey(NonNegativeIntegerSchema),
+  readingItemId: Schema.NonEmptyString,
+})
 
 export const FsrsOptimizerConfigurationSchema = Schema.Struct({
   desiredRetention: Schema.Number,
@@ -90,6 +109,7 @@ export const LearningTargetSchema: EffectSchema.Codec<LearningTarget> = Schema.S
 
 export const LearningQueueItemSchema: EffectSchema.Codec<LearningQueueItem> = Schema.Struct({
   cardId: Schema.NonEmptyString,
+  kind: Schema.optionalKey(Schema.Literals(['reading', 'review'])),
   dueAt: Schema.Number,
   noteId: Schema.NonEmptyString,
   phase: LearningPhaseSchema,
@@ -97,6 +117,8 @@ export const LearningQueueItemSchema: EffectSchema.Codec<LearningQueueItem> = Sc
   sourceBlockId: Schema.NonEmptyString,
   targetIds: Schema.Array(Schema.NonEmptyString),
   topicId: Schema.NonEmptyString,
+  readingItemId: Schema.optionalKey(Schema.NonEmptyString),
+  priority: Schema.optionalKey(Schema.Int),
 })
 
 const LearningDailyGoalModeSchema = Schema.Literals(['all-due', 'fixed', 'spread-week'])
@@ -316,6 +338,11 @@ export const LearningSchemaArguments = {
   getDailyProgress: Schema.Union([Schema.Tuple([]), Schema.Tuple([Schema.Number])]),
   getLearningState: Schema.Tuple([Schema.NonEmptyString]),
   getMaintenanceEstimate: EmptyArgumentsSchema,
+  getNextLearningKind: optionalArgument(Schema.Struct({
+    noteId: Schema.optionalKey(Schema.NonEmptyString),
+    now: Schema.optionalKey(Schema.Number),
+    topicId: Schema.optionalKey(Schema.NonEmptyString),
+  })),
   getNextItem: optionalArgument(GetNextDesktopReviewItemInputSchema),
   getNextNewItem: optionalArgument(GetNextDesktopReviewItemInputSchema),
   getNextReviewItem: optionalArgument(GetNextDesktopReviewItemInputSchema),
@@ -326,6 +353,15 @@ export const LearningSchemaArguments = {
   listOptimizers: EmptyArgumentsSchema,
   listQueue: optionalArgument(ListLearningQueueInputSchema),
   listTargets: Schema.Tuple([Schema.NonEmptyString]),
+  listReadingItems: optionalArgument(Schema.Struct({
+    includeScheduled: Schema.optionalKey(Schema.Boolean),
+    limit: Schema.optionalKey(PositiveIntegerSchema),
+    noteId: Schema.optionalKey(Schema.NonEmptyString),
+    now: Schema.optionalKey(Schema.Number),
+    readingItemId: Schema.optionalKey(Schema.NonEmptyString),
+    topicId: Schema.optionalKey(Schema.NonEmptyString),
+  })),
+  processReadingItem: Schema.Tuple([ProcessReadingItemInputSchema]),
   maintainDatabase: EmptyArgumentsSchema,
   optimizeOptimizer: Schema.Tuple([OptimizeFsrsOptimizerInputSchema]),
   prepareReview: Schema.Tuple([PrepareLearningReviewInputSchema]),

@@ -9,6 +9,7 @@ import type {
   LearningReviewStorage,
   LearningStorage,
   LearningSyncStorage,
+  ReadingItemProjection,
 } from './types'
 import {
   defaultLearningPracticeConfiguration,
@@ -21,6 +22,7 @@ import { LearningMaintenanceRepository } from './learning-maintenance-repository
 import { LearningOptimizerCatalog } from './learning-optimizer-catalog'
 import { LearningOptimizerRepository } from './learning-optimizer-repository'
 import { LearningQueueRepository } from './learning-queue-repository'
+import { LearningReadingItemRepository } from './learning-reading-item-repository'
 import { LearningReviewHistory } from './learning-review-history'
 import { LearningReviewRepository } from './learning-review-repository'
 import { LearningSyncRepository } from './learning-sync-repository'
@@ -39,9 +41,11 @@ interface LearningSchemaStateRow {
 export class SqliteLearningStorage implements LearningStorage {
   readonly cards: LearningCardStorage
   readonly #cardRepository: LearningCardRepository
+  readonly #readingItemRepository: LearningReadingItemRepository
   readonly maintenance: LearningMaintenanceStorage
   readonly optimizers: LearningOptimizerStorage
   readonly queue: LearningQueueStorage
+  readonly readingItems: import('./types').LearningReadingItemStorage
   readonly reviews: LearningReviewStorage
   readonly sync: LearningSyncStorage
 
@@ -78,6 +82,8 @@ export class SqliteLearningStorage implements LearningStorage {
       history: reviewHistory,
       runOperation,
     })
+    this.#readingItemRepository = new LearningReadingItemRepository(database, runOperation)
+    this.readingItems = this.#readingItemRepository
     this.#cardRepository = new LearningCardRepository({
       database,
       effectiveOptimizer: noteId => optimizerCatalog.effective(noteId),
@@ -131,5 +137,23 @@ export class SqliteLearningStorage implements LearningStorage {
 
   planCardReconciliation(input: LearningCardReconciliationInput): Promise<readonly DatabaseCommand[]> {
     return this.#cardRepository.planReconciliation(input)
+  }
+
+  async planReadingItemReconciliation(noteId: string, items: readonly ReadingItemProjection[]): Promise<readonly DatabaseCommand[]> {
+    const byTopic = new Map<string, ReadingItemProjection[]>()
+    for (const item of items) {
+      const topicItems = byTopic.get(item.topicId) ?? []
+      topicItems.push(item)
+      byTopic.set(item.topicId, topicItems)
+    }
+    const existingTopics = await this.#readingItemRepository.listTopics(noteId)
+    for (const topicId of existingTopics) {
+      if (!byTopic.has(topicId))
+        byTopic.set(topicId, [])
+    }
+    const commands: DatabaseCommand[] = []
+    for (const [topicId, topicItems] of byTopic)
+      commands.push(...await this.#readingItemRepository.planReconciliation(noteId, topicId, topicItems))
+    return commands
   }
 }

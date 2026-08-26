@@ -23,6 +23,8 @@ export type {
   CreateNoteInput,
   CreateTodoTaskInput,
   DeleteNoteInput,
+  GenerateCardTopicInput,
+  GenerateCardTopicResult,
   GetNoteCardProjectionInput,
   ListJournalDatesInput,
   ListPastJournalsInput,

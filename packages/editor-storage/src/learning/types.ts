@@ -47,6 +47,38 @@ export interface LearningTopicCardProjection {
   topicId: string
 }
 
+export type ReadingItemProcessingState = 'new' | 'learning' | 'processed'
+
+export interface ReadingItemProjection {
+  highlightId: string
+  nextProcessAt?: number | null
+  priority?: number
+  readPoint?: number
+  sourceBlockId: string
+  state?: ReadingItemProcessingState
+  topicId: string
+  readingItemId: string
+}
+
+export interface ReadingItem {
+  highlightId: string
+  nextProcessAt: number | null
+  noteId: string
+  priority: number
+  readPoint: number
+  readingItemId: string
+  sourceBlockId: string
+  state: ReadingItemProcessingState
+  topicId: string
+}
+
+export interface ProcessReadingItemInput {
+  action?: 'extract' | 'cloze' | 'next'
+  processedAt?: number
+  readingItemId: string
+  readPoint?: number
+}
+
 export interface ReconcileLearningCardsInput extends LearningTopicCardProjection {
   noteId: string
 }
@@ -170,6 +202,7 @@ export interface AssignNoteOptimizerInput {
 }
 
 export interface LearningQueueItem {
+  kind?: 'reading' | 'review'
   cardId: string
   dueAt: number
   noteId: string
@@ -177,6 +210,18 @@ export interface LearningQueueItem {
   presentation: 'full' | 'partial'
   sourceBlockId: string
   targetIds: readonly string[]
+  topicId: string
+  readingItemId?: string
+  priority?: number
+}
+
+export interface LearningReadingQueueItem {
+  kind: 'reading'
+  dueAt: number
+  noteId: string
+  priority: number
+  readingItemId: string
+  sourceBlockId: string
   topicId: string
 }
 
@@ -268,6 +313,12 @@ export interface LearningCardStorage {
   reconcileTopicCards: (input: ReconcileLearningCardsInput) => Promise<void>
 }
 
+export interface LearningReadingItemStorage {
+  list: (input?: { includeScheduled?: boolean, limit?: number, noteId?: string, now?: number, readingItemId?: string, topicId?: string }) => Promise<readonly ReadingItem[]>
+  process: (input: ProcessReadingItemInput) => Promise<ReadingItem>
+  reconcile: (noteId: string, topicId: string, items: readonly ReadingItemProjection[]) => Promise<void>
+}
+
 export interface LearningMaintenanceStorage {
   getEstimate: () => Promise<LearningMaintenanceEstimate>
   maintain: () => Promise<LearningMaintenanceResult>
@@ -290,6 +341,7 @@ export interface LearningQueueStorage {
   getActivitySummary: (input?: GetLearningActivitySummaryInput) => Promise<LearningActivitySummary>
   getDailyProgress: (now?: number) => Promise<LearningDailyProgress>
   list: (input?: ListLearningQueueInput) => Promise<readonly LearningQueueItem[]>
+  nextKind: (input?: Omit<ListLearningQueueInput, 'limit' | 'mode'>) => Promise<'reading' | 'review' | null>
 }
 
 export interface LearningReviewStorage {
@@ -314,6 +366,7 @@ export interface LearningStorage {
   readonly maintenance: LearningMaintenanceStorage
   readonly optimizers: LearningOptimizerStorage
   readonly queue: LearningQueueStorage
+  readonly readingItems: LearningReadingItemStorage
   readonly reviews: LearningReviewStorage
   readonly sync: LearningSyncStorage
 }

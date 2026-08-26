@@ -26,7 +26,7 @@ import {
   toStoredSpreadsheets,
   toStoredTopic,
 } from './note-authoritative-projection'
-import { projectNoteLearningCards } from './note-learning-cards'
+import { projectNoteLearningCards, projectNoteReadingItems } from './note-learning-cards'
 import { reconcileTodoParentStatusesInNote } from './todo-parent-status'
 
 const checkpointInterval = 32
@@ -168,10 +168,10 @@ export function createNoteAuthoritativeRuntime(
       ...(persistOptions.entries || journalTopic !== null ? { entries: toStoredEntries(current.note.getEntries()) } : {}),
       ...(journalTopic === null ? {} : { journalHasUserContent: current.note.hasUserContent() }),
       ...((persistOptions.entries || journalTopic !== null)
-        ? { learningCards: projectNoteLearningCards(current.note) }
+        ? { learningCards: projectNoteLearningCards(current.note), learningReadingItems: projectNoteReadingItems(current.note) }
         : persistOptions.topicIds === undefined
           ? {}
-          : { learningCards: projectNoteLearningCards(current.note, persistOptions.topicIds) }),
+          : { learningCards: projectNoteLearningCards(current.note, persistOptions.topicIds), learningReadingItems: projectNoteReadingItems(current.note) }),
       noteId: current.note.id,
       spreadsheets: toStoredSpreadsheets(current.note, spreadsheetTopicIds),
       ...(persistOptions.title || journalTopic !== null ? { title: current.note.getTitle() } : {}),

@@ -35,6 +35,12 @@ export interface HighlightEditorCardProjection {
   sourceBlockId: string
 }
 
+export interface EditorReadingItemProjection {
+  content: readonly NodeJSON[]
+  highlightId: string
+  sourceBlockId: string
+}
+
 export interface MultiLineCardItemProjection {
   blockId: string
   content: readonly NodeJSON[]
@@ -413,4 +419,22 @@ export function projectEditorCards(document: NodeJSON): readonly EditorCardProje
   }
   document.content?.forEach(visit)
   return cards
+}
+
+export function projectEditorReadingItems(document: NodeJSON): readonly EditorReadingItemProjection[] {
+  if (document.type !== 'doc')
+    throw new TypeError(`Expected a doc node, received ${document.type}`)
+  const items: EditorReadingItemProjection[] = []
+  const visit = (block: NodeJSON): void => {
+    if (block.type !== 'list')
+      throw new TypeError(`Expected a normalized list block, received ${block.type}`)
+    items.push(...projectHighlightCards(block).map(highlight => ({
+      content: highlight.content,
+      highlightId: highlight.id,
+      sourceBlockId: highlight.sourceBlockId,
+    })))
+    block.content?.filter(child => child.type === 'list').forEach(visit)
+  }
+  document.content?.forEach(visit)
+  return items
 }

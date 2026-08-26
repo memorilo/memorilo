@@ -111,10 +111,12 @@ function definitionForCard(document: NodeJSON, card: EditorCardProjection): Card
   }
 }
 
-export function projectCardTopicDefinitions(document: NodeJSON, excluded?: CardTopicSource): readonly CardTopicDefinition[] {
+export function projectCardTopicDefinitions(document: NodeJSON, excluded?: CardTopicSource, options?: { includeHighlights?: boolean }): readonly CardTopicDefinition[] {
   const cards = projectEditorCards(document)
   const definitions = new Map<string, CardTopicDefinition>()
   for (const card of cards) {
+    if (card.kind === 'highlight' && options?.includeHighlights === false)
+      continue
     const definition = definitionForCard(document, card)
     const key = cardTopicSourceIdentity(definition)
     if (excluded && key === cardTopicSourceIdentity(excluded))

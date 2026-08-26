@@ -57,6 +57,28 @@ export const learningSchema = `
     sync_sequence INTEGER NOT NULL DEFAULT -1
   );
 
+  CREATE TABLE IF NOT EXISTS learning_reading_items (
+    reading_item_id TEXT PRIMARY KEY,
+    note_id TEXT NOT NULL,
+    topic_id TEXT NOT NULL,
+    source_block_id TEXT NOT NULL,
+    highlight_id TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('new', 'learning', 'processed')),
+    priority INTEGER NOT NULL DEFAULT 0,
+    next_process_at INTEGER,
+    read_point INTEGER NOT NULL DEFAULT 0 CHECK (read_point >= 0),
+    last_processed_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(note_id, source_block_id, highlight_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS learning_reading_items_queue_idx
+    ON learning_reading_items(next_process_at, priority, reading_item_id);
+
+  CREATE INDEX IF NOT EXISTS learning_reading_items_note_idx
+    ON learning_reading_items(note_id, topic_id, state);
+
   CREATE INDEX IF NOT EXISTS learning_cards_topic_idx
     ON learning_cards(note_id, topic_id, active);
 

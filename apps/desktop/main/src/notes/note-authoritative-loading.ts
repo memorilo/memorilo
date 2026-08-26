@@ -4,7 +4,7 @@ import type { AuthoritativeNote, NoteAuthoritativeCache } from './note-authorita
 import { createEditorNote, createJournalNote, resolveJournalTopic } from '@memorilo/editor/note'
 import { projectNoteAssetReferences } from '../assets/asset-references'
 import { toStoredEntries, toStoredSpreadsheets, toStoredTopic } from './note-authoritative-projection'
-import { projectNoteLearningCards, repairNoteLearningCards } from './note-learning-cards'
+import { projectNoteLearningCards, projectNoteReadingItems, repairNoteLearningCards } from './note-learning-cards'
 
 interface NoteAuthoritativeLoadingDependencies {
   cache: NoteAuthoritativeCache
@@ -57,6 +57,7 @@ export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabl
           entries: toStoredEntries(entries),
           ...(journalTopic === null ? {} : { journalHasUserContent: note.hasUserContent() }),
           learningCards: projectNoteLearningCards(note),
+          learningReadingItems: projectNoteReadingItems(note),
           noteId: note.id,
           spreadsheets: toStoredSpreadsheets(note),
           title: note.getTitle(),
@@ -101,6 +102,7 @@ export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabl
     const input = {
       entries: entries.map(entry => structuredClone(entry)),
       learningCards: projectNoteLearningCards(note),
+      learningReadingItems: projectNoteReadingItems(note),
       snapshot: note.exportSnapshot(),
       spreadsheets: toStoredSpreadsheets(note),
       topics: entries
@@ -139,6 +141,7 @@ export function createNoteAuthoritativeLoading({ cache, defaultNoteLearningEnabl
       hasUserContent: note.hasUserContent(),
       journalDate,
       learningCards: projectNoteLearningCards(note),
+      learningReadingItems: projectNoteReadingItems(note),
       snapshot: note.exportSnapshot(),
       spreadsheets: toStoredSpreadsheets(note),
       topics: entries

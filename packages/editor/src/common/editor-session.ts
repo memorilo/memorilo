@@ -74,7 +74,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     }
     options.onDocumentChange(document)
     scheduleCardSync(document)
-  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled, options.shortcuts)
+  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled, options.shortcuts, options.onSemanticAction)
   const resources = createResourceScope('Editor session')
   resources.own({
     close: () => configured.networkImagePasteRuntime.close(),

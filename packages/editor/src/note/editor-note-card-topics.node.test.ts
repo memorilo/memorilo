@@ -194,18 +194,15 @@ function textContent(document: NodeJSON): string {
 }
 
 describe('editor note Card Topic lifecycle', () => {
-  it('creates one synced child Topic for every Card authoring type with selected content and source titles', () => {
+  it('does not create CardTopics for Highlights', () => {
     const { note, sourceTopicId } = createFixture()
     const children = childTopics(note, sourceTopicId)
 
-    expect(children).toHaveLength(8)
+    expect(children).toHaveLength(5)
     expect(children.map(entry => entry.cardSource?.kind).sort()).toEqual([
       'basic',
       'cloze',
       'cloze',
-      'highlight',
-      'highlight',
-      'highlight',
       'list',
       'set',
     ])
@@ -217,15 +214,34 @@ describe('editor note Card Topic lifecycle', () => {
     expect(childBySource(note, sourceTopicId, 'set', 'set-definition')).toMatchObject({ title: 'SSSSSSSSSSSSSSSSSSSS' })
     expect(childBySource(note, sourceTopicId, 'cloze', 'cloze-group')).toMatchObject({ title: 'CCCCCCCCCCCCCCCCCCCC' })
     expect(childBySource(note, sourceTopicId, 'cloze', 'second-cloze-group')).toMatchObject({ title: 'DDDDDDDDDDDDDDDDDDDD' })
-    expect(childBySource(note, sourceTopicId, 'highlight', 'inline-highlight')).toMatchObject({ title: 'IIIIIIIIIIIIIIIIIIII' })
-    expect(childBySource(note, sourceTopicId, 'highlight', 'second-inline-highlight')).toMatchObject({ title: 'JJJJJJJJJJJJJJJJJJJJ' })
-    expect(childBySource(note, sourceTopicId, 'highlight', 'block-highlight')).toMatchObject({ title: 'HHHHHHHHHHHHHHHHHHHH' })
 
     expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'cloze', 'cloze-group').id))).toBe('CCCCCCCCCCCCCCCCCCCCCCCCC')
     expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'cloze', 'second-cloze-group').id))).toBe('DDDDDDDDDDDDDDDDDDDDDDDDD')
-    expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'highlight', 'inline-highlight').id))).toBe('IIIIIIIIIIIIIIIIIIIIIIIII')
-    expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'highlight', 'second-inline-highlight').id))).toBe('JJJJJJJJJJJJJJJJJJJJJJJJJ')
-    expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'highlight', 'block-highlight').id))).toBe('HHHHHHHHHHHHHHHHHHHHHHHHH')
+  })
+
+  it('creates a Highlight CardTopic only through the explicit command and keeps it synced', () => {
+    const { note, sourceTopicId } = createFixture()
+
+    const cardTopicId = note.createCardTopicFromHighlight({
+      highlightId: 'inline-highlight',
+      sourceTopicId,
+    })
+    expect(childBySource(note, sourceTopicId, 'highlight', 'inline-highlight').id).toBe(cardTopicId)
+
+    note.applyTopicBlockEdits({
+      edits: [{
+        blockId: 'inline-source',
+        content: [paragraphContent([
+          { marks: [inlineHighlightMark('inline-highlight')], text: 'updated highlight', type: 'text' },
+        ])],
+        operation: 'update-block-content',
+      }],
+      topicId: sourceTopicId,
+    })
+
+    const child = childBySource(note, sourceTopicId, 'highlight', 'inline-highlight')
+    expect(child.cardSource?.syncStatus).toBe('synced')
+    expect(textContent(documentOf(note, child.id))).toContain('updated highlight')
   })
 
   it('keeps every synced child content and title aligned after a regular source edit', () => {
@@ -257,9 +273,6 @@ describe('editor note Card Topic lifecycle', () => {
     expect(childBySource(note, sourceTopicId, 'set', 'set-definition')).toMatchObject({ title: 'ssssssssssssssssssss' })
     expect(childBySource(note, sourceTopicId, 'cloze', 'cloze-group')).toMatchObject({ title: 'cccccccccccccccccccc' })
     expect(childBySource(note, sourceTopicId, 'cloze', 'second-cloze-group')).toMatchObject({ title: 'dddddddddddddddddddd' })
-    expect(childBySource(note, sourceTopicId, 'highlight', 'inline-highlight')).toMatchObject({ title: 'iiiiiiiiiiiiiiiiiiii' })
-    expect(childBySource(note, sourceTopicId, 'highlight', 'second-inline-highlight')).toMatchObject({ title: 'jjjjjjjjjjjjjjjjjjjj' })
-    expect(childBySource(note, sourceTopicId, 'highlight', 'block-highlight')).toMatchObject({ title: 'hhhhhhhhhhhhhhhhhhhh' })
     expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'list', 'list-definition').id))).toContain('Lithium updated')
     expect(textContent(documentOf(note, childBySource(note, sourceTopicId, 'set', 'set-definition').id))).toContain('Red updated')
   })
@@ -272,9 +285,6 @@ describe('editor note Card Topic lifecycle', () => {
       childBySource(note, sourceTopicId, 'set', 'set-definition'),
       childBySource(note, sourceTopicId, 'cloze', 'cloze-group'),
       childBySource(note, sourceTopicId, 'cloze', 'second-cloze-group'),
-      childBySource(note, sourceTopicId, 'highlight', 'inline-highlight'),
-      childBySource(note, sourceTopicId, 'highlight', 'second-inline-highlight'),
-      childBySource(note, sourceTopicId, 'highlight', 'block-highlight'),
     ]
 
     for (const child of children) {
@@ -319,10 +329,9 @@ describe('editor note Card Topic lifecycle', () => {
     expect(remaining.every(child => child.cardSource?.syncStatus === 'detached')).toBe(true)
   })
 
-  it('creates nested grandchild Topics under the edited child for both cloze-to-highlight and highlight-to-cloze', () => {
+  it('does not create a nested CardTopic when a Highlight is added to a CardTopic', () => {
     const { note, sourceTopicId } = createFixture()
     const cloze = childBySource(note, sourceTopicId, 'cloze', 'cloze-group')
-    const inlineHighlight = childBySource(note, sourceTopicId, 'highlight', 'inline-highlight')
 
     note.applyTopicBlockEdits({
       topicId: cloze.id,
@@ -335,23 +344,6 @@ describe('editor note Card Topic lifecycle', () => {
         operation: 'update-block-content',
       }],
     })
-    const nestedHighlight = childBySource(note, cloze.id, 'highlight', 'nested-inline-highlight')
-    expect(nestedHighlight).toMatchObject({ parentId: cloze.id, cardSource: { sourceTopicId: cloze.id, syncStatus: 'synced' } })
-    expect(textContent(documentOf(note, nestedHighlight.id))).toBe('CCCCCCCCCCCCCCCCCCCCCCCCC')
-
-    note.applyTopicBlockEdits({
-      topicId: inlineHighlight.id,
-      edits: [{
-        blockId: 'inline-source',
-        content: [paragraph('IIIIIIIIIIIIIIIIIIIIIIIII', [
-          inlineHighlightMark('inline-highlight'),
-          clozeMark('nested-cloze-card', 'nested-cloze-definition', 'nested-cloze-group'),
-        ])],
-        operation: 'update-block-content',
-      }],
-    })
-    const nestedCloze = childBySource(note, inlineHighlight.id, 'cloze', 'nested-cloze-group')
-    expect(nestedCloze).toMatchObject({ parentId: inlineHighlight.id, cardSource: { sourceTopicId: inlineHighlight.id, syncStatus: 'synced' } })
-    expect(textContent(documentOf(note, nestedCloze.id))).toBe('IIIIIIIIIIIIIIIIIIIIIIIII')
+    expect(childTopics(note, cloze.id)).toEqual([])
   })
 })

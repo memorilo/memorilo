@@ -8,6 +8,7 @@ import type {
   CreateBookNoteResult,
   CreateNoteInput,
   CreateTodoTaskInput,
+  GenerateCardTopicInput,
   NoteExternalUpdate,
   OpenJournalInput,
   RebindBookTopicInput,
@@ -461,6 +462,29 @@ export function createNoteApplicationCommands({
     }),
     updateTodoTask,
     createTodoTask,
+    generateCardTopic: (input: GenerateCardTopicInput) => serialize(async () => {
+      const current = await runtime.open(input.noteId)
+      const version = current.note.getVersion()
+      try {
+        const cardTopicId = current.note.createCardTopicFromHighlight({
+          highlightId: input.highlightId,
+          sourceTopicId: input.sourceTopicId,
+        })
+        await current.note.validateTopic(cardTopicId)
+        return {
+          ...toNoteExternalUpdate(await runtime.persistLocalMutation(current, version, {
+            broadcast: true,
+            entries: true,
+            topicIds: [input.sourceTopicId, cardTopicId],
+          })),
+          cardTopicId,
+        }
+      }
+      catch (error) {
+        runtime.invalidate(input.noteId)
+        throw error
+      }
+    }),
   }
 }
 

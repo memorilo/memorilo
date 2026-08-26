@@ -184,5 +184,17 @@
   "invalidSteps": "请使用逗号分隔的间隔，例如 1m、10m、1h 或 2d。",
   "operationFailed": "{{operation}}失败：{{message}}",
   "renameDescription": "所有分配到此优化器的笔记共享这些设置。",
-  "updatedAt": "更新于 {{date}}"
+  "updatedAt": "更新于 {{date}}",
+  "noteStructure": "笔记结构",
+  "openNoteStructure": "打开笔记结构",
+  "closeNoteStructure": "关闭笔记结构",
+  "learningSource": "学习来源",
+  "incrementalLearning": "增量学习",
+  "nextReadingItem": "下一项",
+  "makeCard": "生成卡片",
+  "cardCreated": "卡片已生成",
+  "cardGenerationFailed": "无法生成卡片：{{message}}",
+  "readingActionFailed": "无法处理此阅读项：{{message}}",
+  "unsupportedLearningTopic": "增量学习暂不支持此类 Topic。",
+  "saveLearningSourceFailed": "无法保存来源：{{message}}"
 }

@@ -81,6 +81,7 @@ export function createEditorExtension(
   imageOcclusion?: EditorImageOcclusionIntegration,
   learningEnabled = true,
   shortcuts?: EditorShortcutConfiguration,
+  onSemanticAction?: (action: 'cloze' | 'extract') => void,
 ) {
   const uploadRuntime = new EditorUploadRuntime(adapters.uploadImage, store)
   const uploader = uploadRuntime.uploader
@@ -91,7 +92,7 @@ export function createEditorExtension(
     defineBasicExtension(),
     defineFormattingShortcutGuards(shortcuts),
     defineFormattingShortcuts(shortcuts),
-    defineCardExtension({ authoringEnabled: learningEnabled, shortcuts }),
+    defineCardExtension({ authoringEnabled: learningEnabled, onSemanticAction, shortcuts }),
     ...(cardReviewRuntime ? [defineCardReviewExtension(cardReviewRuntime)] : []),
     withPriority(defineBlockIdExtension(), Priority.highest),
     withPriority(defineImageIdExtension(), Priority.highest),
