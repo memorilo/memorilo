@@ -73,8 +73,9 @@ test('packaged desktop executes offline embedding search', async () => {
       await expect(window.getByRole('button', { name: `Rename Note: ${noteTitle}` })).toBeVisible({
         timeout: 10_000,
       })
-      await expect(editor.locator('h1')).toHaveText(noteTitle)
-      await editor.locator('h1').selectText()
+      const initialBlock = editor.locator('[data-block-id]').first()
+      await expect(initialBlock).toBeVisible()
+      await initialBlock.selectText()
       await window.keyboard.insertText('数据库索引可以显著提升查询速度')
       await window.keyboard.press('Enter')
       await window.keyboard.insertText('红熊猫生活在高山森林中')

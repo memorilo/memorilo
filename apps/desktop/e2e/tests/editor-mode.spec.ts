@@ -37,7 +37,7 @@ test('switches a non-empty Topic between Document and Outline without losing edi
       await window.getByRole('option').filter({ hasText: `Create Note “${title}”` }).click()
 
       const editor = window.getByRole('textbox', { name: 'Editor content' })
-      const heading = editor.getByRole('heading', { name: title })
+      const heading = editor.locator('[data-block-id]').first()
       const editorShell = window.locator('[data-editor-mode]')
       await expect(editorShell).toHaveAttribute('data-editor-mode', 'document')
 
@@ -71,14 +71,14 @@ test('switches a non-empty Topic between Document and Outline without losing edi
       await window.getByRole('option').filter({ hasText: 'Switch to Outline Mode' }).click()
 
       await expect(editorShell).toHaveAttribute('data-editor-mode', 'outline')
-      await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
+      await expect(editor.locator('[data-block-id]').first()).toBeVisible()
       await expect.poll(readSelection).toEqual(selectionBeforeSwitch)
 
       await window.keyboard.press('Meta+P')
       await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill('Switch to Document Mode')
       await window.getByRole('option').filter({ hasText: 'Switch to Document Mode' }).click()
       await expect(editorShell).toHaveAttribute('data-editor-mode', 'document')
-      await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
+      await expect(editor.locator('[data-block-id]').first()).toBeVisible()
       await expect.poll(readSelection).toEqual(selectionBeforeSwitch)
     }
     finally {

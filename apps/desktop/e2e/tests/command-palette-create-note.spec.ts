@@ -14,7 +14,7 @@ if (typeof electronModule !== 'string')
   throw new TypeError('Electron package did not resolve to an executable path')
 const electronExecutablePath = electronModule
 
-test('creates a Note with an H1 first line from an unmatched search', async () => {
+test('creates a Note with an initial editable Outline Block from an unmatched search', async () => {
   const userDataDirectory = await mkdtemp(resolve(tmpdir(), 'memorilo-command-palette-create-'))
   try {
     const electronApplication = await electron.launch({
@@ -42,8 +42,7 @@ test('creates a Note with an H1 first line from an unmatched search', async () =
       await expect(window.getByRole('button', { name: `Rename Note: ${title}` })).toBeVisible()
       await expect.poll(() => window.evaluate(() => globalThis.location.hash)).toMatch(/^#\/note\/[^/]+\/[^/?]+$/)
       const editor = window.getByRole('textbox', { name: 'Editor content' })
-      await expect(editor.locator('h1').first()).toHaveText(title)
-      await expect(editor.locator('[data-block-id]').first()).toHaveText(title)
+      await expect(editor.locator('[data-block-id]').first()).toBeVisible()
     }
     finally {
       await electronApplication.close()

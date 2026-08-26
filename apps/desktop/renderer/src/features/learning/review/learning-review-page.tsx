@@ -8,6 +8,7 @@ import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { Effect } from 'effect'
 import {
   Check,
   ChevronRight,
@@ -160,10 +161,10 @@ export function LearningReviewPage({
         key={restoredReadingItem.readingItemId}
         item={restoredReadingItem}
         onNext={async () => {
-          await desktopEffect('learning.process-reading-item', () => desktopRequests.learning.processReadingItem({
+          await Effect.runPromise(desktopEffect('learning.process-reading-item', () => desktopRequests.learning.processReadingItem({
             action: 'next',
             readingItemId: restoredReadingItem.readingItemId,
-          }))
+          })))
           replaceRoute(learningReviewRoute.base(route))
           await Promise.all([readingItems.refetch(), nextKind.refetch()])
         }}
@@ -183,10 +184,10 @@ export function LearningReviewPage({
         key={readingItem.readingItemId}
         item={readingItem}
         onNext={async () => {
-          await desktopEffect('learning.process-reading-item', () => desktopRequests.learning.processReadingItem({
+          await Effect.runPromise(desktopEffect('learning.process-reading-item', () => desktopRequests.learning.processReadingItem({
             action: 'next',
             readingItemId: readingItem.readingItemId,
-          }))
+          })))
           replaceRoute(learningReviewRoute.base(route))
           await Promise.all([readingItems.refetch(), nextKind.refetch()])
         }}

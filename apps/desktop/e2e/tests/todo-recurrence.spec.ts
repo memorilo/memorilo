@@ -152,8 +152,8 @@ async function createNoteWithTasks(page: Page, noteTitle: string, taskTitles: re
   await page.getByRole('option').filter({ hasText: noteTitle }).last().click()
 
   const editor = page.getByRole('textbox', { name: language === 'en' ? 'Editor content' : '编辑器内容' })
-  const heading = editor.locator('h1').first()
-  await expect(heading).toHaveText(noteTitle)
+  const heading = editor.locator('[data-block-id]').first()
+  await expect(heading).toBeVisible()
   await heading.click()
   await page.keyboard.press('End')
   await page.keyboard.press('Enter')

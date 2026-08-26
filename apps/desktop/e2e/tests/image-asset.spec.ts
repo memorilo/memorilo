@@ -110,7 +110,7 @@ test('persists an uploaded image beside the database and renders it after restar
     await window.getByRole('option').filter({ hasText: `Create Note “${title}”` }).click()
 
     const editor = window.getByRole('textbox', { name: 'Editor content' })
-    await expect(editor.locator('h1').first()).toHaveText(title)
+    await expect(editor.locator('[data-block-id]').first()).toBeVisible()
     await editor.click({ button: 'right' })
     await window.getByRole('menuitem', { name: 'Insert image…' }).click()
 

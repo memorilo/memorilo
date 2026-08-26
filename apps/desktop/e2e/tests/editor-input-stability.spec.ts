@@ -19,7 +19,7 @@ test('keeps the active Editor Block mounted while typing', async () => {
 
       const editor = window.getByRole('textbox', { name: 'Editor content' })
       await editor.waitFor()
-      await editor.locator('h1').click()
+      await editor.locator('[data-block-id]').first().click()
       await window.keyboard.press('End')
       await window.keyboard.press('Enter')
 

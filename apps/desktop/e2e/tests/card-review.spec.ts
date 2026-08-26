@@ -46,11 +46,10 @@ async function createNoteEditor(window: Page, title: string): Promise<Locator> {
   await window.getByRole('option').filter({ hasText: `Create Note “${title}”` }).click()
 
   const editor = window.getByRole('textbox', { name: 'Editor content' })
-  const heading = editor.getByRole('heading', { name: title })
+  const heading = editor.locator('[data-block-id]').first()
   await expect(heading).toBeVisible()
   await heading.click()
   await window.keyboard.press('End')
-  await window.keyboard.press('Enter')
   return editor
 }
 

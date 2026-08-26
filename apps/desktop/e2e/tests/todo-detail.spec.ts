@@ -87,8 +87,8 @@ async function createNoteWithNestedTodo(page: Page, noteTitle: string): Promise<
   await page.getByRole('option').filter({ hasText: `Create Note “${noteTitle}”` }).click()
 
   const editor = page.getByRole('textbox', { name: 'Editor content' })
-  const heading = editor.locator('h1').first()
-  await expect(heading).toHaveText(noteTitle)
+  const heading = editor.locator('[data-block-id]').first()
+  await expect(heading).toBeVisible()
   await editor.focus()
   await heading.evaluate((element) => {
     const selection = globalThis.getSelection()

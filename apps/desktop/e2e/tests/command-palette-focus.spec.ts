@@ -40,7 +40,7 @@ test('focuses the selected Topic Block after opening it from search', async () =
       await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill(noteTitle)
       await window.getByRole('option').filter({ hasText: `Create Note “${noteTitle}”` }).click()
       await editor.waitFor()
-      await editor.locator('h1').click()
+      await editor.locator('[data-block-id]').first().click()
       await window.keyboard.press('End')
       await window.keyboard.press('Enter')
       await window.keyboard.type(originText)
