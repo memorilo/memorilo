@@ -1,5 +1,6 @@
 import type { Rectangle } from 'electron'
 import { Buffer } from 'node:buffer'
+import process from 'node:process'
 
 import { Menu, nativeImage, Tray } from 'electron'
 
@@ -10,6 +11,11 @@ const trayIconSvg = `
 </svg>`
 
 function createTrayIcon() {
+  if (process.platform === 'darwin') {
+    const icon = nativeImage.createFromNamedImage('NSApplicationIcon')
+    return icon.resize({ height: 16, width: 16 })
+  }
+
   const icon = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(trayIconSvg).toString('base64')}`)
   return icon.resize({ height: 16, width: 16 })
 }

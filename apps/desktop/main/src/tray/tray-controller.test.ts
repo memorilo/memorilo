@@ -36,6 +36,7 @@ vi.mock('electron', () => ({
   },
   nativeImage: {
     createFromDataURL: vi.fn(() => ({ resize: vi.fn(() => ({})) })),
+    createFromNamedImage: vi.fn(() => ({ resize: vi.fn(() => ({})) })),
   },
   Tray: mocks.MockTray,
 }))
