@@ -17,15 +17,18 @@ import {
 } from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
 import { mainDatabasePath } from './storage/workspace-paths'
+import { createTrayController } from './tray/tray-controller'
 
 let desktopRuntime: DesktopRuntime | null = null
+let trayController: ReturnType<typeof createTrayController> | null = null
+let mainWindow: BrowserWindow | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 app.setName('Memorilo')
 const isPrimaryInstance = acquireSingleInstance(app)
 if (isPrimaryInstance) {
   app.on('second-instance', () => {
-    const window = BrowserWindow.getAllWindows()[0]
+    const window = mainWindow
     if (window)
       showPrimaryWindow(window)
   })
@@ -60,9 +63,13 @@ function isAllowedNavigation(target: string, rendererUrl: string | undefined) {
 
 function shouldShowWindow(): boolean {
   return process.env.MEMORILO_E2E_HIDE_WINDOW !== '1'
+    && !process.argv.includes('--hidden')
+    && !process.argv.includes('--daemon')
 }
 
 function createWindow() {
+  if (mainWindow !== null && !mainWindow.isDestroyed())
+    return
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
   const macOSWindowOptions = process.platform === 'darwin'
     ? {
@@ -87,6 +94,7 @@ function createWindow() {
     },
     width: 1200,
   })
+  mainWindow = window
 
   if (shouldShowWindow())
     window.once('ready-to-show', () => window.show())
@@ -100,7 +108,16 @@ function createWindow() {
       event.preventDefault()
   })
   window.on('close', (event) => {
+    if (process.platform === 'win32' && trayController !== null && !shutdown.isQuitting()) {
+      event.preventDefault()
+      window.hide()
+      return
+    }
     shutdown.handleWindowClose(window, event)
+  })
+  window.once('closed', () => {
+    if (mainWindow === window)
+      mainWindow = null
   })
 
   if (rendererUrl)
@@ -113,6 +130,11 @@ async function startApplication(): Promise<void> {
   const database = mainDatabasePath(app.getPath('userData'))
   const restore = await applyPendingRestore(database)
   try {
+    trayController = createTrayController({
+      createWindow,
+      getWindow: () => mainWindow ?? undefined,
+      onQuit: () => void shutdown.requestApplicationQuit(),
+    })
     desktopRuntime = await createDesktopRuntime({
       allowTestClock: process.env.MEMORILO_E2E_NOW_MS !== undefined,
       createWindow,
@@ -126,6 +148,8 @@ async function startApplication(): Promise<void> {
     await restore?.commit()
   }
   catch (error) {
+    trayController?.close()
+    trayController = null
     if (restore)
       await restore.rollback()
     throw error
@@ -175,6 +199,11 @@ app.on('before-quit', (event) => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin')
+  if (process.platform !== 'darwin' && trayController === null)
     app.quit()
+})
+
+app.on('will-quit', () => {
+  trayController?.close()
+  trayController = null
 })
