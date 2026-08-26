@@ -17,6 +17,7 @@ export type {
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
   DesktopRecurringTaskCompletionAction,
+  DesktopShortcutConfiguration,
   DesktopThemeAppearance,
   DesktopThemeFamily,
   DesktopThemePreference,
@@ -55,6 +56,16 @@ const defaultFlashcardConfiguration = {
 const defaultGoalConfiguration = {
   dailyLearningGoalCards: 30,
   dailyLearningGoalMode: 'spread-week',
+} as const
+
+const defaultShortcutConfiguration = {
+  addBasicCard: 'Alt+A',
+  addCloze: 'Alt+Z',
+  back: 'Alt+Left',
+  forward: 'Alt+Right',
+  highlight: 'Alt+X',
+  nextNoteStructureEntry: 'Alt+PageDown',
+  previousNoteStructureEntry: 'Alt+PageUp',
 } as const
 
 export const DesktopConfigurationSchema = Schema.Struct({
@@ -99,6 +110,15 @@ export const DesktopConfigurationSchema = Schema.Struct({
   readerEpubPresentationMode: Schema.Literals(['publisher', 'reader']),
   readerPageMode: Schema.Literals(['continuous', 'single-page']),
   reduceMotion: Schema.Boolean,
+  shortcuts: Schema.Struct({
+    addBasicCard: Schema.String,
+    addCloze: Schema.String,
+    back: Schema.String,
+    forward: Schema.String,
+    highlight: Schema.String,
+    nextNoteStructureEntry: Schema.String,
+    previousNoteStructureEntry: Schema.String,
+  }),
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
     autoCompleteParentTasks: Schema.Boolean,
@@ -153,6 +173,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerEpubPresentationMode: 'publisher' as const,
     readerPageMode: 'continuous' as const,
     reduceMotion: false,
+    shortcuts: defaultShortcutConfiguration,
     tiffConversionFormat: 'webp' as const,
     todo: {
       autoCompleteParentTasks: true,
@@ -399,6 +420,41 @@ export const desktopConfigurationDefinition = defineConfiguration({
         { label: 'Keep URL', value: 'url' },
       ],
       path: 'networkImagePasteBehavior',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Back',
+      path: 'shortcuts.back',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Forward',
+      path: 'shortcuts.forward',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Previous Note Structure entry',
+      path: 'shortcuts.previousNoteStructureEntry',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Next Note Structure entry',
+      path: 'shortcuts.nextNoteStructureEntry',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Add Basic Card',
+      path: 'shortcuts.addBasicCard',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Highlight',
+      path: 'shortcuts.highlight',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Add Cloze',
+      path: 'shortcuts.addCloze',
     }],
     id: 'editor',
     label: 'Editor',
@@ -502,9 +558,18 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const withTheme = Object.hasOwn(record, 'theme') && theme?.appearance === normalizedTheme.appearance && theme?.family === normalizedTheme.family
     ? record
     : { ...record, theme: normalizedTheme }
+  const storedShortcuts = record.shortcuts
+  const shortcuts = typeof storedShortcuts === 'object' && storedShortcuts !== null && !Array.isArray(storedShortcuts)
+    ? storedShortcuts as Record<string, unknown>
+    : undefined
+  const defaultShortcuts = desktopConfigurationDefinition.defaults.shortcuts
+  const withShortcuts = shortcuts !== undefined
+    && Object.keys(defaultShortcuts).every(key => typeof shortcuts[key] === 'string')
+    ? withTheme
+    : { ...withTheme, shortcuts: { ...defaultShortcuts, ...shortcuts } }
   if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...withTheme,
+      ...withShortcuts,
       todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
@@ -514,7 +579,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
     return {
-      ...withTheme,
+      ...withShortcuts,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
@@ -527,12 +592,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
     return {
-      ...withTheme,
+      ...withShortcuts,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
-  return withTheme
+  return withShortcuts
 }

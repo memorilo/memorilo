@@ -7,6 +7,7 @@ import { useCallback, useState, useSyncExternalStore } from 'react'
 
 import { configurationFieldStyles } from './configuration-fields.stylex'
 import { getConfigurationValue } from './configuration-path'
+import { ShortcutInput } from './shortcut-input'
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -127,6 +128,12 @@ function FieldControl<T extends object>({
           }}
         />
       )
+      break
+    }
+    case 'shortcut': {
+      if (typeof value !== 'string')
+        throw new TypeError(`Shortcut field ${field.path} received a non-string value`)
+      control = <ShortcutInput disabled={pending} label={field.label} placeholder={field.placeholder} value={value} onChange={next => void update(next)} />
       break
     }
     case 'time': {

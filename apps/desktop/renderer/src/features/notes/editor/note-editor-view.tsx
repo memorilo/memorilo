@@ -15,12 +15,14 @@ import { Editor, EditorMode, projectCardTopicCards, useEditorTopicMode } from '@
 import { readerAnnotationLabel } from '@memorilo/editor/reader'
 import * as stylex from '@stylexjs/stylex'
 import { AlignLeft, Copy, ListTree } from 'lucide-react'
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 import { useCommandPaletteCommands } from '../../../shared/command-palette'
 import { useDesktopConfiguration } from '../../../shared/configuration'
+import { matchesKeyboardShortcut } from '../../../shared/keyboard-shortcut'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
+import { projectVisibleNoteEntries, selectAdjacentVisibleId } from '../note-entry-tree'
 import { NoteInspector } from '../note-inspector'
 import { NoteInspectorActions } from '../note-inspector-actions'
 import { useNoteInspectorVisibility } from '../note-inspector-state'
@@ -62,6 +64,7 @@ export interface NoteEditorViewProps {
   onAddTopic: (parentId: string | null) => void
   onAddWhiteboard: (parentId: string | null) => void
   onOpenImageOcclusion: (input: OpenImageOcclusionInput) => Promise<void> | void
+  onOpenTopic: (topicId: string) => Promise<void>
   onRebindBook: (topicId: string) => void
   onDeleteEntry: (entryId: string) => void
   onRenameNote: (note: EditorNote, title: string) => Promise<{ error?: string } | void>
@@ -84,6 +87,7 @@ export function NoteEditorView({
   onAddTopic,
   onAddWhiteboard,
   onOpenImageOcclusion,
+  onOpenTopic,
   onRebindBook,
   onDeleteEntry,
   onRenameNote,
@@ -192,6 +196,39 @@ export function NoteEditorView({
         readingId: imageOcclusionSourceReadingId,
       }
   const toggleInspector = useCallback(() => setInspectorVisible(visible => !visible), [setInspectorVisible])
+  const visibleTopicIds = useMemo(
+    () => projectVisibleNoteEntries(opened.entries, collapsedEntryIds)
+      .filter(({ entry }) => entry.kind === 'topic'
+        && (configuration.learning.enabled || entry.topicType !== 'image-occlusion'))
+      .map(({ entry }) => entry.id),
+    [collapsedEntryIds, configuration.learning.enabled, opened.entries],
+  )
+  useEffect(() => {
+    if (!inspectorVisible || visibleTopicIds.length === 0)
+      return
+    const isFormControlTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement))
+        return false
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isFormControlTarget(event.target))
+        return
+      const direction = matchesKeyboardShortcut(event, configuration.shortcuts.previousNoteStructureEntry)
+        ? -1
+        : matchesKeyboardShortcut(event, configuration.shortcuts.nextNoteStructureEntry) ? 1 : null
+      if (direction === null)
+        return
+      event.preventDefault()
+      event.stopPropagation()
+      const nextTopicId = selectAdjacentVisibleId(visibleTopicIds, opened.topic.topicId, direction)
+      if (!nextTopicId || nextTopicId === opened.topic.topicId)
+        return
+      void onOpenTopic(nextTopicId)
+    }
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [configuration.shortcuts.nextNoteStructureEntry, configuration.shortcuts.previousNoteStructureEntry, inspectorVisible, onOpenTopic, opened.topic.topicId, visibleTopicIds])
   const entryContextMenu = useNoteEntryContextMenu({
     onAddBook,
     onAddFolder,
@@ -421,6 +458,7 @@ export function NoteEditorView({
                       focus={focusBlockId === undefined ? undefined : { blockId: focusBlockId }}
                       imageOcclusion={regularTopicImageOcclusion}
                       learningEnabled={configuration.learning.enabled}
+                      shortcuts={configuration.shortcuts}
                       onDocumentChange={reconcileCardTopics}
                       outline={{ outdentBehavior: configuration.outdentBehavior }}
                       topic={editorTopic}
@@ -433,6 +471,7 @@ export function NoteEditorView({
                       adapters={editorAdapters}
                       inspectorVisible={inspectorVisible}
                       learningEnabled={configuration.learning.enabled}
+                      shortcuts={configuration.shortcuts}
                       topic={whiteboardTopic}
                     />
                   )

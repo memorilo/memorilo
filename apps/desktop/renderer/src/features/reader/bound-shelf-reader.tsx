@@ -249,6 +249,7 @@ export function BoundShelfReader({
             adapters={editorAdapters}
             layout="embedded"
             learningEnabled={configuration.learning.enabled}
+            shortcuts={configuration.shortcuts}
             outline={{ outdentBehavior: configuration.outdentBehavior }}
             readOnly={readOnly}
             topic={note.getTopic(annotation.annotationTopicId)}

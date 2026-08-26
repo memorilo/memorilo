@@ -26,6 +26,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     readerEpubPresentationMode: 'publisher',
     readerPageMode: 'continuous',
     reduceMotion: false,
+    shortcuts: desktopConfigurationDefinition.defaults.shortcuts,
     tiffConversionFormat: 'webp',
     todo: desktopConfigurationDefinition.defaults.todo,
     weekStart: 'sunday',
@@ -74,6 +75,7 @@ describe('desktop MCP configuration', () => {
     const legacy = Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'todo'))
     expect(migrateDesktopConfiguration(legacy)).toEqual({
       ...legacy,
+      shortcuts: desktopConfigurationDefinition.defaults.shortcuts,
       todo: desktopConfigurationDefinition.defaults.todo,
     })
   })
@@ -89,6 +91,27 @@ describe('desktop MCP configuration', () => {
         autoCompleteParentTasks: true,
         enabled: false,
         recurringTaskCompletionAction: 'archive-completed-to-today',
+      },
+    })
+  })
+
+  it('fills missing shortcut values while preserving customized and cleared bindings', () => {
+    const current = configuration({ accessToken: '', enabled: false, port: 8765 })
+    const migrated = migrateDesktopConfiguration({
+      ...current,
+      shortcuts: {
+        back: 'Ctrl+Alt+Left',
+        highlight: '',
+      },
+    })
+
+    expect(migrated).toMatchObject({
+      shortcuts: {
+        back: 'Ctrl+Alt+Left',
+        highlight: '',
+        forward: 'Alt+Right',
+        addBasicCard: 'Alt+A',
+        addCloze: 'Alt+Z',
       },
     })
   })

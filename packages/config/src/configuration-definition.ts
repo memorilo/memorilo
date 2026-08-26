@@ -39,6 +39,11 @@ export interface TextConfigurationField extends ConfigurationFieldBase {
   sensitive?: boolean
 }
 
+export interface ShortcutConfigurationField extends ConfigurationFieldBase {
+  control: 'shortcut'
+  placeholder?: string
+}
+
 export interface TimeConfigurationField extends ConfigurationFieldBase {
   control: 'time'
   max?: number
@@ -54,6 +59,7 @@ export type ConfigurationField
     | SegmentedConfigurationField
     | SelectConfigurationField
     | TextConfigurationField
+    | ShortcutConfigurationField
     | TimeConfigurationField
     | ToggleConfigurationField
 
@@ -115,6 +121,10 @@ function validateField(field: ConfigurationField, defaults: object): void {
     case 'text':
       if (typeof value !== 'string')
         throw new TypeError(`Text field ${field.path} must address a string`)
+      break
+    case 'shortcut':
+      if (typeof value !== 'string')
+        throw new TypeError(`Shortcut field ${field.path} must address a string`)
       break
     case 'time': {
       if (typeof value !== 'number' || !Number.isInteger(value))

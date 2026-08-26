@@ -140,6 +140,13 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('outdentBehavior')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehavior')
+    case 'shortcuts.back': return t('shortcutBack')
+    case 'shortcuts.forward': return t('shortcutForward')
+    case 'shortcuts.previousNoteStructureEntry': return t('shortcutPreviousNoteStructureEntry')
+    case 'shortcuts.nextNoteStructureEntry': return t('shortcutNextNoteStructureEntry')
+    case 'shortcuts.addBasicCard': return t('shortcutAddBasicCard')
+    case 'shortcuts.highlight': return t('shortcutHighlight')
+    case 'shortcuts.addCloze': return t('shortcutAddCloze')
     case 'readerArrowKeyPageTurning':
       return t('readerArrowKeyPageTurning')
     case 'readerAnnotationCopyFormat':
@@ -215,6 +222,14 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('weekStartDescription')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehaviorDescription')
+    case 'shortcuts.back':
+    case 'shortcuts.forward':
+    case 'shortcuts.previousNoteStructureEntry':
+    case 'shortcuts.nextNoteStructureEntry':
+    case 'shortcuts.addBasicCard':
+    case 'shortcuts.highlight':
+    case 'shortcuts.addCloze':
+      return t('shortcutDescription')
     case 'readerArrowKeyPageTurning':
       return t('readerArrowKeyPageTurningDescription')
     case 'readerAnnotationCopyFormat':

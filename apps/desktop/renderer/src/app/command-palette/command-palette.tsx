@@ -144,6 +144,8 @@ export function CommandPalette({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && event.target.dataset.shortcutInput !== undefined)
+        return
       if ((event.metaKey || event.ctrlKey)
         && !event.altKey
         && !event.shiftKey

@@ -27,6 +27,7 @@ export interface EditorSessionOptions {
   onDocumentChange: (document: NodeJSON) => void
   outline?: OutlineOptions
   readOnly: boolean
+  shortcuts?: { addBasicCard?: string, addCloze?: string, highlight?: string }
   topicDocument: EditorTopicDocument
 }
 
@@ -72,7 +73,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     }
     options.onDocumentChange(document)
     scheduleCardSync(document)
-  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled)
+  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled, options.shortcuts)
   const resources = createResourceScope('Editor session')
   resources.own({
     close: () => configured.networkImagePasteRuntime.close(),
