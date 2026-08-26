@@ -1,11 +1,11 @@
-import type { MessageBoxOptions } from 'electron'
+import type { MessageBoxOptions, Rectangle } from 'electron'
 import type { DesktopRuntime } from './desktop-runtime'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { memoriloProtocol } from '@memorilo/desktop-api/transport'
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, screen, shell } from 'electron'
 
 import { applyPendingRestore } from './backup/restore-state'
 import { createDesktopRuntime } from './desktop-runtime'
@@ -17,11 +17,16 @@ import {
 } from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
 import { mainDatabasePath } from './storage/workspace-paths'
+import { initialPanelToggleState, panelBlur, settleTrayInteraction, trayClick, trayMouseDown } from './tray/panel-toggle-state'
 import { createTrayController } from './tray/tray-controller'
 
 let desktopRuntime: DesktopRuntime | null = null
 let trayController: ReturnType<typeof createTrayController> | null = null
 let mainWindow: BrowserWindow | null = null
+let panelWindow: BrowserWindow | null = null
+let panelToggleState = initialPanelToggleState
+let settlePanelInteractionTimer: NodeJS.Timeout | null = null
+let panelBlurTimer: NodeJS.Timeout | null = null
 const mainDirectory = dirname(fileURLToPath(import.meta.url))
 
 app.setName('Memorilo')
@@ -126,13 +131,129 @@ function createWindow() {
     void window.loadURL(rendererIndexUrl)
 }
 
+function createPanel(): BrowserWindow {
+  if (panelWindow !== null && !panelWindow.isDestroyed())
+    return panelWindow
+
+  const panel = new BrowserWindow({
+    alwaysOnTop: true,
+    backgroundColor: '#ffffff',
+    frame: false,
+    height: 560,
+    resizable: false,
+    roundedCorners: true,
+    show: false,
+    skipTaskbar: true,
+    title: 'Memorilo',
+    webPreferences: {
+      backgroundThrottling: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: join(mainDirectory, '../preload/index.cjs'),
+      sandbox: true,
+    },
+    width: 420,
+  })
+  panelWindow = panel
+  panel.setAlwaysOnTop(true, 'floating')
+  if (process.platform === 'darwin')
+    panel.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  const hide = (): void => {
+    if (!panel.isDestroyed() && !shutdown.isQuitting())
+      panel.hide()
+  }
+  panel.on('blur', () => {
+    if (panelToggleState.suppressBlur)
+      return
+    if (panelBlurTimer !== null)
+      clearTimeout(panelBlurTimer)
+    panelBlurTimer = setTimeout(() => {
+      panelBlurTimer = null
+      panelToggleState = panelBlur(panelToggleState)
+      if (!panelToggleState.open)
+        hide()
+    }, 0)
+  })
+  panel.on('close', (event) => {
+    if (!shutdown.isQuitting()) {
+      event.preventDefault()
+      panel.hide()
+    }
+  })
+  panel.once('closed', () => {
+    if (settlePanelInteractionTimer !== null)
+      clearTimeout(settlePanelInteractionTimer)
+    if (panelBlurTimer !== null)
+      clearTimeout(panelBlurTimer)
+    if (panelWindow === panel)
+      panelWindow = null
+  })
+  void panel.loadURL('about:blank')
+  return panel
+}
+
+function togglePanel(trayBounds: Rectangle): void {
+  if (panelBlurTimer !== null) {
+    clearTimeout(panelBlurTimer)
+    panelBlurTimer = null
+  }
+  panelToggleState = trayClick(panelToggleState)
+  if (settlePanelInteractionTimer !== null)
+    clearTimeout(settlePanelInteractionTimer)
+  settlePanelInteractionTimer = setTimeout(() => {
+    settlePanelInteractionTimer = null
+    panelToggleState = settleTrayInteraction(panelToggleState)
+  }, 50)
+  const panel = createPanel()
+  if (!panelToggleState.open) {
+    panel.hide()
+    return
+  }
+  const trayCenter = {
+    x: trayBounds.x + trayBounds.width / 2,
+    y: trayBounds.y + trayBounds.height / 2,
+  }
+  const display = screen.getDisplayNearestPoint(trayCenter)
+  const workArea = display.workArea
+  const panelBounds = panel.getBounds()
+  const gap = 8
+  const minX = workArea.x + gap
+  const maxX = Math.max(minX, workArea.x + workArea.width - panelBounds.width - gap)
+  const x = Math.min(maxX, Math.max(minX, Math.round(trayCenter.x - panelBounds.width / 2)))
+  const below = trayCenter.y < workArea.y + workArea.height / 2
+  const preferredY = below
+    ? trayBounds.y + trayBounds.height + gap
+    : trayBounds.y - panelBounds.height - gap
+  const minY = workArea.y + gap
+  const maxY = Math.max(minY, workArea.y + workArea.height - panelBounds.height - gap)
+  const y = Math.min(maxY, Math.max(minY, preferredY))
+  panel.setPosition(x, y)
+  panel.show()
+  panel.focus()
+}
+
+function openMainWindow(): void {
+  panelToggleState = { open: false, suppressBlur: false }
+  if (panelWindow !== null && !panelWindow.isDestroyed())
+    panelWindow.hide()
+  createWindow()
+  if (mainWindow)
+    showPrimaryWindow(mainWindow)
+}
+
 async function startApplication(): Promise<void> {
   const database = mainDatabasePath(app.getPath('userData'))
   const restore = await applyPendingRestore(database)
   try {
     trayController = createTrayController({
-      createWindow,
-      getWindow: () => mainWindow ?? undefined,
+      onOpenMainWindow: openMainWindow,
+      onTrayMouseDown: () => {
+        panelToggleState = trayMouseDown(panelToggleState)
+        if (settlePanelInteractionTimer !== null)
+          clearTimeout(settlePanelInteractionTimer)
+      },
+      onTogglePanel: togglePanel,
       onQuit: () => void shutdown.requestApplicationQuit(),
     })
     desktopRuntime = await createDesktopRuntime({

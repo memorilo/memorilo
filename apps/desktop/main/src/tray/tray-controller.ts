@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron'
+import type { Rectangle } from 'electron'
 import { Buffer } from 'node:buffer'
 
 import { Menu, nativeImage, Tray } from 'electron'
@@ -19,35 +19,25 @@ export interface TrayController {
 }
 
 export interface TrayControllerOptions {
-  createWindow: () => void
-  getWindow: () => BrowserWindow | undefined
+  onOpenMainWindow: () => void
+  onTrayMouseDown: () => void
+  onTogglePanel: (trayBounds: Rectangle) => void
   onQuit: () => void
 }
 
-export function createTrayController({ createWindow, getWindow, onQuit }: TrayControllerOptions): TrayController {
+export function createTrayController({ onOpenMainWindow, onQuit, onTogglePanel, onTrayMouseDown }: TrayControllerOptions): TrayController {
   const tray = new Tray(createTrayIcon())
   tray.setToolTip('Memorilo')
 
-  const showWindow = (): void => {
-    let window = getWindow()
-    if (!window) {
-      createWindow()
-      window = getWindow()
-    }
-    if (!window)
-      return
-    if (window.isMinimized())
-      window.restore()
-    window.show()
-    window.focus()
-  }
-
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { click: showWindow, label: 'Open Memorilo' },
+  const contextMenu = Menu.buildFromTemplate([
+    { click: onOpenMainWindow, label: 'Open Memorilo' },
     { type: 'separator' },
     { click: onQuit, label: 'Quit Memorilo' },
-  ]))
-  tray.on('click', showWindow)
+  ])
+  tray.on('mouse-down', onTrayMouseDown)
+  tray.on('click', () => onTogglePanel(tray.getBounds()))
+  tray.on('double-click', onOpenMainWindow)
+  tray.on('right-click', () => tray.popUpContextMenu(contextMenu))
 
   return {
     close: () => tray.destroy(),
