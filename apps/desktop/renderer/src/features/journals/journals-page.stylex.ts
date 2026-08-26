@@ -90,10 +90,23 @@ export const journalsPageStyles = stylex.create({
     paddingTop: 16,
     borderTopWidth: 0,
   },
+  compactDay: {
+    minHeight: 0,
+    height: '100%',
+    paddingTop: 0,
+    paddingBottom: 0,
+    borderTopWidth: 0,
+  },
   dayHeader: {
     minWidth: 0,
     marginBottom: 4,
     paddingInlineStart: 'calc(max(4rem, calc(50% - 20rem)) + 1.5rem + 2px)',
+  },
+  compactDayHeader: {
+    marginBottom: 2,
+    paddingTop: 14,
+    paddingRight: 22,
+    paddingLeft: 22,
   },
   dayTitle: {
     minWidth: 0,
@@ -104,6 +117,10 @@ export const journalsPageStyles = stylex.create({
     letterSpacing: 0,
     lineHeight: '26px',
     textWrap: 'balance',
+  },
+  compactDayTitle: {
+    fontSize: 15,
+    lineHeight: '22px',
   },
   todayLabel: {
     display: 'inline-block',
@@ -117,6 +134,12 @@ export const journalsPageStyles = stylex.create({
   },
   editorRegion: {
     minHeight: 230,
+  },
+  compactEditorRegion: {
+    minHeight: 0,
+    height: 'calc(100% - 38px)',
+    overflowY: 'auto',
+    overscrollBehaviorY: 'contain',
   },
   inlineStatus: {
     display: 'flex',

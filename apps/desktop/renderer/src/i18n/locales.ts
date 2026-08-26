@@ -11,6 +11,7 @@ export const I18N_NAMESPACES = [
   'editor',
   'learning',
   'todo',
+  'panel',
   'settings',
 ] as const
 

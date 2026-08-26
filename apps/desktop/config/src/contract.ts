@@ -11,6 +11,7 @@ export type DesktopReaderPageMode = 'continuous' | 'single-page'
 export type DesktopReaderAnnotationCopyFormat = 'text' | 'text-book' | 'text-book-location'
 export type DesktopTiffConversionFormat = 'avif' | 'jpeg' | 'png' | 'webp'
 export type DesktopWeekStart = 'monday' | 'sunday'
+export type DesktopPanelTabOrder = 'journal-todo' | 'todo-journal'
 export type DesktopRecurringTaskCompletionAction
   = | 'archive-completed-to-today'
     | 'move-next-to-today'
@@ -46,6 +47,10 @@ export interface DesktopLearningConfiguration {
   enabled: boolean
 }
 
+export interface DesktopPanelConfiguration {
+  tabOrder: DesktopPanelTabOrder
+}
+
 export interface DesktopThemePreference {
   family: DesktopThemeFamily
   appearance: DesktopThemeAppearance
@@ -74,6 +79,7 @@ export interface DesktopConfiguration {
   goals: DesktopGoalConfiguration
   learning: DesktopLearningConfiguration
   language: DesktopLanguage
+  panel: DesktopPanelConfiguration
   theme: DesktopThemePreference
   mcp: DesktopMcpConfiguration
   networkImagePasteBehavior: DesktopNetworkImagePasteBehavior

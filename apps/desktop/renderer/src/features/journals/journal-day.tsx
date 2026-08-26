@@ -25,6 +25,7 @@ interface JournalDayProps {
   first: boolean
   focusBlockId?: string
   onJournalSaved: () => void
+  compact?: boolean
   summary: DesktopJournalSummary
   today: JournalDate
 }
@@ -47,6 +48,7 @@ export function JournalDay({
   first,
   focusBlockId,
   onJournalSaved,
+  compact = false,
   summary,
   today,
 }: JournalDayProps) {
@@ -130,18 +132,22 @@ export function JournalDay({
 
   return (
     <article
-      {...stylex.props(journalRouteStyles.day, first && journalRouteStyles.firstDay)}
+      {...stylex.props(
+        journalRouteStyles.day,
+        first && journalRouteStyles.firstDay,
+        compact && journalRouteStyles.compactDay,
+      )}
       aria-labelledby={`journal-heading-${summary.journalDate}`}
     >
-      <header {...stylex.props(journalRouteStyles.dayHeader)}>
-        <h2 id={`journal-heading-${summary.journalDate}`} {...stylex.props(journalRouteStyles.dayTitle)}>
+      <header {...stylex.props(journalRouteStyles.dayHeader, compact && journalRouteStyles.compactDayHeader)}>
+        <h2 id={`journal-heading-${summary.journalDate}`} {...stylex.props(journalRouteStyles.dayTitle, compact && journalRouteStyles.compactDayTitle)}>
           <time dateTime={summary.journalDate}>{formatJournalHeading(summary.journalDate)}</time>
           {summary.journalDate === today
             ? <span {...stylex.props(journalRouteStyles.todayLabel)}>{t('today')}</span>
             : null}
         </h2>
       </header>
-      <div {...stylex.props(journalRouteStyles.editorRegion)}>{editorContent}</div>
+      <div {...stylex.props(journalRouteStyles.editorRegion, compact && journalRouteStyles.compactEditorRegion)}>{editorContent}</div>
     </article>
   )
 }

@@ -1,0 +1,23 @@
+{
+  "panelTabs": "Panel 视图",
+  "todoTab": "Todo",
+  "journalTab": "今日日记",
+  "todayTasks": "今天",
+  "taskCount_one": "{{count}} 个任务",
+  "taskCount_other": "{{count}} 个任务",
+  "refreshTasks": "刷新任务",
+  "loadingTasks": "正在加载任务",
+  "couldNotLoadTasks": "无法加载任务",
+  "retry": "重试",
+  "noTodayTasks": "今天没有待处理任务",
+  "loadMoreTasks": "加载更多",
+  "loadingMoreTasks": "正在加载更多…",
+  "untitledTask": "未命名任务",
+  "completeTask": "完成 {{task}}",
+  "completingTask": "正在完成 {{task}}",
+  "taskUpdateFailed": "无法完成任务：{{message}}",
+  "due": "{{date}} 到期",
+  "loadingJournal": "正在打开今日日记",
+  "couldNotLoadJournal": "无法打开今日日记",
+  "refreshJournal": "重试"
+}
