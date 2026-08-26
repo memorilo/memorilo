@@ -13,6 +13,8 @@ export type {
   DesktopMcpConfiguration,
   DesktopNetworkImagePasteBehavior,
   DesktopOutdentBehavior,
+  DesktopPanelConfiguration,
+  DesktopPanelTabOrder,
   DesktopReaderAnnotationCopyFormat,
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
@@ -83,6 +85,9 @@ export const DesktopConfigurationSchema = Schema.Struct({
     enabled: Schema.Boolean,
   }),
   language: Schema.Literals(['system', 'en', 'zh-CN']),
+  panel: Schema.Struct({
+    tabOrder: Schema.Literals(['journal-todo', 'todo-journal']),
+  }),
   theme: Schema.Struct({
     appearance: Schema.Literals(['system', 'light', 'dark']),
     family: Schema.Literals(['liquid-glass', 'fluent', 'neubrutalism']),
@@ -137,6 +142,9 @@ export const desktopConfigurationDefinition = defineConfiguration({
       enabled: true,
     },
     language: 'system' as const,
+    panel: {
+      tabOrder: 'todo-journal' as const,
+    },
     theme: {
       appearance: 'system' as const,
       family: defaultDesktopThemeFamily(),
@@ -193,6 +201,16 @@ export const desktopConfigurationDefinition = defineConfiguration({
         control: 'toggle',
         label: 'Reduce motion',
         path: 'reduceMotion',
+      },
+      {
+        control: 'select',
+        description: 'Choose which tab appears first in the tray panel.',
+        label: 'Panel tab order',
+        options: [
+          { label: 'Todo first', value: 'todo-journal' },
+          { label: 'Journal first', value: 'journal-todo' },
+        ],
+        path: 'panel.tabOrder',
       },
     ],
     id: 'general',
@@ -502,9 +520,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const withTheme = Object.hasOwn(record, 'theme') && theme?.appearance === normalizedTheme.appearance && theme?.family === normalizedTheme.family
     ? record
     : { ...record, theme: normalizedTheme }
+  const withPanel = Object.hasOwn(record, 'panel')
+    ? withTheme
+    : { ...withTheme, panel: desktopConfigurationDefinition.defaults.panel }
   if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...withTheme,
+      ...withPanel,
       todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
@@ -514,7 +535,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
     return {
-      ...withTheme,
+      ...withPanel,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
@@ -527,12 +548,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
     return {
-      ...withTheme,
+      ...withPanel,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
-  return withTheme
+  return withPanel
 }

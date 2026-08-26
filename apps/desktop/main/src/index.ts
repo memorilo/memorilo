@@ -24,6 +24,7 @@ let desktopRuntime: DesktopRuntime | null = null
 let trayController: ReturnType<typeof createTrayController> | null = null
 let mainWindow: BrowserWindow | null = null
 let panelWindow: BrowserWindow | null = null
+let panelReady = false
 let panelToggleState = initialPanelToggleState
 let settlePanelInteractionTimer: NodeJS.Timeout | null = null
 let panelBlurTimer: NodeJS.Timeout | null = null
@@ -155,6 +156,7 @@ function createPanel(): BrowserWindow {
     width: 420,
   })
   panelWindow = panel
+  panelReady = false
   panel.setAlwaysOnTop(true, 'floating')
   if (process.platform === 'darwin')
     panel.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
@@ -163,6 +165,23 @@ function createPanel(): BrowserWindow {
     if (!panel.isDestroyed() && !shutdown.isQuitting())
       panel.hide()
   }
+  panel.once('ready-to-show', () => {
+    panelReady = true
+    if (panelToggleState.open && !panel.isDestroyed()) {
+      panel.show()
+      panel.focus()
+    }
+  })
+  panel.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://'))
+      void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  panel.webContents.on('will-navigate', (event, url) => {
+    if (!isAllowedNavigation(url, rendererUrl))
+      event.preventDefault()
+  })
   panel.on('blur', () => {
     if (panelToggleState.suppressBlur)
       return
@@ -188,8 +207,17 @@ function createPanel(): BrowserWindow {
       clearTimeout(panelBlurTimer)
     if (panelWindow === panel)
       panelWindow = null
+    panelReady = false
   })
-  void panel.loadURL('about:blank')
+  if (rendererUrl) {
+    const baseUrl = rendererUrl.endsWith('/') ? rendererUrl : `${rendererUrl}/`
+    const panelUrl = new URL('index.html', baseUrl)
+    panelUrl.hash = '/panel'
+    void panel.loadURL(panelUrl.toString())
+  }
+  else {
+    void panel.loadURL(`${rendererIndexUrl}#/panel`)
+  }
   return panel
 }
 
@@ -229,8 +257,10 @@ function togglePanel(trayBounds: Rectangle): void {
   const maxY = Math.max(minY, workArea.y + workArea.height - panelBounds.height - gap)
   const y = Math.min(maxY, Math.max(minY, preferredY))
   panel.setPosition(x, y)
-  panel.show()
-  panel.focus()
+  if (panelReady) {
+    panel.show()
+    panel.focus()
+  }
 }
 
 function openMainWindow(): void {

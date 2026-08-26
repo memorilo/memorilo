@@ -132,6 +132,8 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('language')
     case 'reduceMotion':
       return t('reduceMotion')
+    case 'panel.tabOrder':
+      return t('panelTabOrder')
     case 'defaultNoteLearningEnabled':
       return t('defaultNoteLearningEnabled')
     case 'weekStart':
@@ -213,6 +215,8 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('defaultNoteLearningEnabledDescription')
     case 'weekStart':
       return t('weekStartDescription')
+    case 'panel.tabOrder':
+      return t('panelTabOrderDescription')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehaviorDescription')
     case 'readerArrowKeyPageTurning':
@@ -272,6 +276,10 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('sunday')
     case 'monday':
       return t('monday')
+    case 'todo-journal':
+      return t('panelTodoFirst')
+    case 'journal-todo':
+      return t('panelJournalFirst')
     case 'download':
       return t('networkImagePasteDownload')
     case 'url':

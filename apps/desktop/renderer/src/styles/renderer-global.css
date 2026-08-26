@@ -33,6 +33,12 @@ body[data-renderer="settings"] {
   color: var(--ui-text, rgba(25, 27, 31, 0.92));
 }
 
+body[data-renderer="panel"] {
+  min-width: 0;
+  color: var(--ui-text, #202124);
+  background: transparent;
+}
+
 :is(button, input, select) {
   font-family: inherit;
 }

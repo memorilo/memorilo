@@ -1,0 +1,23 @@
+{
+  "panelTabs": "Panel views",
+  "todoTab": "Todo",
+  "journalTab": "Today's Journal",
+  "todayTasks": "Today",
+  "taskCount_one": "{{count}} task",
+  "taskCount_other": "{{count}} tasks",
+  "refreshTasks": "Refresh tasks",
+  "loadingTasks": "Loading tasks",
+  "couldNotLoadTasks": "Could not load tasks",
+  "retry": "Try again",
+  "noTodayTasks": "Nothing planned for today",
+  "loadMoreTasks": "Load more",
+  "loadingMoreTasks": "Loading more…",
+  "untitledTask": "Untitled task",
+  "completeTask": "Complete {{task}}",
+  "completingTask": "Completing {{task}}",
+  "taskUpdateFailed": "Could not complete the task: {{message}}",
+  "due": "Due {{date}}",
+  "loadingJournal": "Opening today's Journal",
+  "couldNotLoadJournal": "Could not open today's Journal",
+  "refreshJournal": "Try again"
+}
