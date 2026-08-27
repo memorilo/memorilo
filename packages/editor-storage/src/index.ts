@@ -117,6 +117,7 @@ export type {
   LearningReadingQueueItem,
   LearningReviewPreparationToken,
   LearningReviewStorage,
+  LearningSessionQueueItem,
   LearningState,
   LearningStorage,
   LearningSyncChange,

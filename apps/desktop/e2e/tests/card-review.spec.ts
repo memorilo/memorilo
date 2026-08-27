@@ -346,6 +346,57 @@ async function createTwoClozeCards(window: Page, editor: Locator): Promise<reado
   return [firstCardId, secondCardId]
 }
 
+async function addReadingItem(window: Page, editor: Locator, text: string): Promise<void> {
+  await window.keyboard.type(text)
+  const block = sourceBlock(editor, text)
+  await block.evaluate((element) => {
+    const textNode = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode()
+    if (!(textNode instanceof Text))
+      throw new Error('Reading source Block has no text node')
+    const selection = document.getSelection()
+    if (!selection)
+      throw new Error('Reading source selection is unavailable')
+    const range = document.createRange()
+    range.selectNodeContents(textNode)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  })
+  await expect(window.getByTestId('inline-menu-main')).toBeVisible()
+  await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Highlight' }).click()
+  await expect(block.locator('[data-inline-highlight="yellow"]')).toHaveText(text)
+  await block.click()
+  await window.keyboard.press('End')
+  await window.keyboard.press('Enter')
+}
+
+async function currentLearningQueue(window: Page): Promise<Awaited<ReturnType<DesktopApi['learning']['listQueue']>>> {
+  return window.evaluate(async (now) => {
+    const response = await fetch('memorilo://api/rpc/learning/listQueue', {
+      body: JSON.stringify({ args: [{ limit: 100, now }] }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    })
+    if (!response.ok)
+      throw new Error(`Desktop request failed with status ${response.status}`)
+    return response.json() as Promise<Awaited<ReturnType<DesktopApi['learning']['listQueue']>>>
+  }, Date.now())
+}
+
+async function finishActiveReviewCard(window: Page, cardId: string): Promise<void> {
+  const active = window.locator('[data-active-review-card-id]')
+  for (let repetition = 0; repetition < 4; repetition += 1) {
+    await expect(active).toHaveAttribute('data-active-review-card-id', cardId)
+    await revealAndRate(window, 'Easy')
+    if (await window.getByRole('main', { name: 'Incremental learning' }).isVisible())
+      return
+    if (await window.getByRole('heading', { name: 'You\'re caught up' }).isVisible())
+      return
+    if (await active.getAttribute('data-active-review-card-id') !== cardId)
+      return
+  }
+  throw new Error(`Review Card ${cardId} did not finish within four Ratings`)
+}
+
 test('previews multi-line Basic Cards with forward, reverse, and bidirectional Card Topics', async () => {
   await withCardApplication('memorilo-card-directions-', async (window) => {
     const editor = await createNoteEditor(window, 'Card direction coverage')

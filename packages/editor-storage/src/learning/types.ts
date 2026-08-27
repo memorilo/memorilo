@@ -225,6 +225,11 @@ export interface LearningReadingQueueItem {
   topicId: string
 }
 
+/** A single entry returned by the Learning session dispatcher. */
+export type LearningSessionQueueItem
+  = | (LearningQueueItem & { kind: 'review' })
+    | LearningReadingQueueItem
+
 export interface LearningDailyProgress {
   completedCards: number
   dailyGoalCards: number
@@ -340,7 +345,7 @@ export interface LearningOptimizerStorage {
 export interface LearningQueueStorage {
   getActivitySummary: (input?: GetLearningActivitySummaryInput) => Promise<LearningActivitySummary>
   getDailyProgress: (now?: number) => Promise<LearningDailyProgress>
-  list: (input?: ListLearningQueueInput) => Promise<readonly LearningQueueItem[]>
+  list: (input?: ListLearningQueueInput) => Promise<readonly LearningSessionQueueItem[]>
   nextKind: (input?: Omit<ListLearningQueueInput, 'limit' | 'mode'>) => Promise<'reading' | 'review' | null>
 }
 

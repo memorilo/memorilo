@@ -94,7 +94,7 @@ export function LearningReviewPage({
   const { t } = useTranslation('learning')
   const queryClient = useQueryClient()
   const queueScope = route.scope === 'note' ? { noteId: route.scopeNoteId } : {}
-  const nextKindQueryKey = useMemo(() => ['learning', 'next-kind', route.scope, route.scopeNoteId] as const, [route.scope, route.scopeNoteId])
+  const sessionQueueQueryKey = useMemo(() => ['learning', 'session-queue', route.scope, route.scopeNoteId] as const, [route.scope, route.scopeNoteId])
   const readingItemsQueryKey = useMemo(() => ['learning', 'reading-items', route.scope, route.scopeNoteId, route.readingItemId, route.topicId] as const, [route.readingItemId, route.scope, route.scopeNoteId, route.topicId])
   const readingItems = useQuery(desktopEffectQuery.queryOptions({
     queryFn: () => desktopEffect('learning.list-reading-items', () => desktopRequests.learning.listReadingItems({
@@ -106,9 +106,9 @@ export function LearningReviewPage({
     })),
     queryKey: readingItemsQueryKey,
   }))
-  const nextKind = useQuery(desktopEffectQuery.queryOptions({
-    queryFn: () => desktopEffect('learning.get-next-kind', () => desktopRequests.learning.getNextLearningKind({ ...queueScope, now: Date.now() })),
-    queryKey: nextKindQueryKey,
+  const sessionQueue = useQuery(desktopEffectQuery.queryOptions({
+    queryFn: () => desktopEffect('learning.list-queue', () => desktopRequests.learning.listQueue({ ...queueScope, limit: 1, now: Date.now() })),
+    queryKey: sessionQueueQueryKey,
   }))
   const replaceRouteRef = useRef(replaceRoute)
   replaceRouteRef.current = replaceRoute
@@ -117,13 +117,13 @@ export function LearningReviewPage({
   const reviewLearning = useMemo(() => ({
     ...desktopRequests.learning,
     getNextItem: async (input?: Parameters<typeof desktopRequests.learning.getNextItem>[0]) => {
-      const kind = await desktopRequests.learning.getNextLearningKind(input)
-      queryClient.setQueryData(nextKindQueryKey, kind)
-      if (kind !== 'review')
+      const [next] = await desktopRequests.learning.listQueue({ ...input, limit: 1, now: Date.now() })
+      queryClient.setQueryData(sessionQueueQueryKey, next ? [next] : [])
+      if (!next || next.kind !== 'review')
         return null
       return desktopRequests.learning.getNextItem(input)
     },
-  }), [nextKindQueryKey, queryClient])
+  }), [queryClient, sessionQueueQueryKey])
   const workflow = useOwnedResource(
     'Learning review workflow',
     configuration,
@@ -138,23 +138,24 @@ export function LearningReviewPage({
     }),
   )
   const restoredReadingItem = route.readingItemId === undefined ? undefined : readingItems.data?.[0]
+  const nextEntry = sessionQueue.data?.[0]
   useEffect(() => {
     if (route.readingItemId !== undefined && !readingItems.isPending && restoredReadingItem === undefined)
       replaceRoute(learningReviewRoute.base(route))
   }, [readingItems.isPending, replaceRoute, restoredReadingItem, route])
   useEffect(() => {
-    if (route.readingItemId === undefined && nextKind.data === 'reading' && readingItems.data?.[0]) {
+    if (route.readingItemId === undefined && sessionQueue.data?.[0]?.kind === 'reading' && readingItems.data?.[0]) {
       const nextRoute = learningReviewRoute.readingPosition(route, readingItems.data[0])
       if (learningReviewRoute.identity(nextRoute) !== learningReviewRoute.identity(route))
         replaceRoute(nextRoute)
     }
-  }, [nextKind.data, readingItems.data, replaceRoute, route])
+  }, [readingItems.data, replaceRoute, route, sessionQueue.data])
   if (!workflow)
     return null
-  if (nextKind.isPending)
+  if (sessionQueue.isPending)
     return <LearningQueueStatus message={t('loadingReview')} />
-  if (nextKind.isError)
-    return <LearningQueueStatus message={errorMessage(nextKind.error)} error />
+  if (sessionQueue.isError)
+    return <LearningQueueStatus message={errorMessage(sessionQueue.error)} error />
   if (restoredReadingItem) {
     return (
       <LearningReadingWorkspace
@@ -165,8 +166,9 @@ export function LearningReviewPage({
             action: 'next',
             readingItemId: restoredReadingItem.readingItemId,
           })))
+          workflow.setRoute(learningReviewRoute.base(route))
           replaceRoute(learningReviewRoute.base(route))
-          await Promise.all([readingItems.refetch(), nextKind.refetch()])
+          await Promise.all([readingItems.refetch(), sessionQueue.refetch()])
         }}
       />
     )
@@ -174,11 +176,11 @@ export function LearningReviewPage({
   if (route.readingItemId !== undefined) {
     return <LearningQueueStatus message={t('loadingReview')} />
   }
-  if (nextKind.data === null)
+  if (!nextEntry)
     return <LearningQueueStatus message={route.scope === 'note' ? t('noteReviewCompleteDescription') : t('globalReviewCompleteDescription')} />
 
   const readingItem = readingItems.data?.[0]
-  if (nextKind.data === 'reading' && readingItem) {
+  if (nextEntry.kind === 'reading' && readingItem) {
     return (
       <LearningReadingWorkspace
         key={readingItem.readingItemId}
@@ -188,13 +190,14 @@ export function LearningReviewPage({
             action: 'next',
             readingItemId: readingItem.readingItemId,
           })))
+          workflow.setRoute(learningReviewRoute.base(route))
           replaceRoute(learningReviewRoute.base(route))
-          await Promise.all([readingItems.refetch(), nextKind.refetch()])
+          await Promise.all([readingItems.refetch(), sessionQueue.refetch()])
         }}
       />
     )
   }
-  if (nextKind.data === 'reading')
+  if (nextEntry.kind === 'reading')
     return <LearningQueueStatus message={t('loadingReview')} />
   return <LearningReviewPageSession route={route} workflow={workflow} />
 }

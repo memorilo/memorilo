@@ -139,13 +139,13 @@ export function createLearningReviewApplication(
     const unavailableCandidates = new Set<string>()
     while (true) {
       const [queue] = await learning.queue.list({ ...queueInput, limit: 1, mode })
-      if (!queue)
+      if (!queue || queue.kind !== 'review')
         return null
       const candidateKey = queueItemIdentity(queue)
       try {
         const resolved = await resolveQueueItem(notes, learning, queue)
         const [refreshed] = await learning.queue.list({ ...queueInput, limit: 1, mode })
-        if (!refreshed || queueItemFingerprint(refreshed) !== queueItemFingerprint(queue))
+        if (!refreshed || refreshed.kind !== 'review' || queueItemFingerprint(refreshed) !== queueItemFingerprint(queue))
           continue
         return resolved
       }
@@ -206,6 +206,7 @@ export function createLearningReviewApplication(
         sourceBlockId: projection.card.sourceBlockId,
         targetIds: targets.map(target => target.targetId),
         topicId: input.topicId,
+        kind: 'review',
       }
 
       try {

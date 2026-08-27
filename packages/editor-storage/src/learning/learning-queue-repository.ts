@@ -9,6 +9,7 @@ import type {
   LearningDailyProgress,
   LearningPracticeConfiguration,
   LearningQueueItem,
+  LearningSessionQueueItem,
   ListLearningQueueInput,
 } from './types'
 import { selectLearningQueue, selectMultiLinePresentation, studyDayBounds, validateLearningPracticeConfiguration } from '@memorilo/srs'
@@ -113,7 +114,7 @@ export class LearningQueueRepository {
     })
   }
 
-  async list(input: ListLearningQueueInput = {}): Promise<readonly LearningQueueItem[]> {
+  async listReview(input: ListLearningQueueInput = {}): Promise<readonly LearningQueueItem[]> {
     const now = input.now ?? Date.now()
     assertTimestamp(now, 'Queue time')
     const limit = input.limit ?? 100
@@ -186,6 +187,7 @@ export class LearningQueueRepository {
           value: {
             cardId: row.card_id,
             dueAt: row.due_at,
+            kind: 'review',
             noteId: row.note_id,
             phase: row.phase,
             presentation,
@@ -257,5 +259,55 @@ export class LearningQueueRepository {
         })),
       })
     })
+  }
+
+  async list(input: ListLearningQueueInput = {}): Promise<readonly LearningSessionQueueItem[]> {
+    const mode = input.mode ?? 'mixed'
+    if (mode !== 'mixed')
+      return this.listReview(input).then(items => items.map(item => ({ ...item, kind: 'review' as const })))
+
+    const [reviews, readings] = await Promise.all([
+      this.listReview({ ...input, mode: 'mixed' }),
+      this.#runOperation(() => this.#database.all<{
+        due_at: number | null
+        note_id: string
+        priority: number
+        reading_item_id: string
+        source_block_id: string
+        topic_id: string
+      }>(
+        `SELECT reading_item_id, note_id, topic_id, source_block_id, priority, next_process_at AS due_at
+         FROM learning_reading_items
+         WHERE (next_process_at IS NULL OR next_process_at <= ?)
+           AND (? IS NULL OR note_id = ?)
+           AND (? IS NULL OR topic_id = ?)
+         ORDER BY priority DESC, COALESCE(next_process_at, 0), reading_item_id`,
+        [input.now ?? Date.now(), input.noteId ?? null, input.noteId ?? null, input.topicId ?? null, input.topicId ?? null],
+      )),
+    ])
+    const readingItems: LearningSessionQueueItem[] = readings.map(item => ({
+      dueAt: item.due_at ?? 0,
+      kind: 'reading',
+      noteId: item.note_id,
+      priority: item.priority,
+      readingItemId: item.reading_item_id,
+      sourceBlockId: item.source_block_id,
+      topicId: item.topic_id,
+    }))
+    const reviewItems: LearningSessionQueueItem[] = reviews.map(item => ({ ...item, kind: 'review' as const }))
+    const ordered: LearningSessionQueueItem[] = []
+    const firstKind = await this.nextKind(input)
+    let readingIndex = 0
+    let reviewIndex = 0
+    while (ordered.length < (input.limit ?? 100) && (readingIndex < readingItems.length || reviewIndex < reviewItems.length)) {
+      const preferReading = firstKind === 'reading'
+        ? ordered.length % 2 === 0
+        : firstKind === 'review' ? ordered.length % 2 === 1 : readingIndex < readingItems.length
+      if ((preferReading && readingIndex < readingItems.length) || reviewIndex >= reviewItems.length)
+        ordered.push(readingItems[readingIndex++]!)
+      else
+        ordered.push(reviewItems[reviewIndex++]!)
+    }
+    return ordered
   }
 }

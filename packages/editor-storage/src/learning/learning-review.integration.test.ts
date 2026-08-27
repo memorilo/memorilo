@@ -305,6 +305,7 @@ describe('fSRS learning review storage', () => {
     const harness = await fixtures.create()
     await reconcile(harness, [basicCard('z-card'), basicCard('a-card')])
     expect((await harness.storage.learning.queue.list({ now: Date.now() + 1_000 }))
+      .filter(item => item.kind === 'review')
       .map(item => item.cardId)).toEqual(['z-card', 'a-card'])
   })
 
@@ -355,8 +356,10 @@ describe('fSRS learning review storage', () => {
     })
 
     expect((await harness.storage.learning.queue.list({ now: reviewedAt }))
+      .filter(item => item.kind === 'review')
       .map(item => item.cardId)).not.toContain('backward-card')
     expect((await harness.storage.learning.queue.list({ now: reviewedAt + 2 * 86_400_000 }))
+      .filter(item => item.kind === 'review')
       .map(item => item.cardId)).toContain('backward-card')
   })
 })

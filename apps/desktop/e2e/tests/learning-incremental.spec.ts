@@ -22,7 +22,7 @@ async function rpc(window: Page, method: string, args: readonly RpcValue[] = [])
   }, { args, method })
 }
 
-async function createHighlightedNote(window: Page, title: string): Promise<void> {
+async function createHighlightedNote(window: Page, title: string, withSecondHighlight = false): Promise<ReturnType<Page['getByRole']>> {
   await window.getByRole('link', { name: 'Journals' }).waitFor()
   await window.keyboard.press('Meta+P')
   await window.getByRole('combobox', { name: 'Search commands and Notes' }).fill(title)
@@ -53,6 +53,18 @@ async function createHighlightedNote(window: Page, title: string): Promise<void>
   await expect(window.getByTestId('inline-menu-main')).toBeVisible()
   await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Highlight' }).click()
   await expect(sourceBlock.locator('[data-inline-highlight="yellow"]')).toHaveText('Incremental learning keeps source notes editable.')
+  if (withSecondHighlight) {
+    await sourceBlock.click()
+    await window.keyboard.press('End')
+    await window.keyboard.press('Enter')
+    await window.keyboard.type('A second Reading Item remains in the queue.')
+    const secondBlock = editor.locator('[data-block-id]').last()
+    await selectBlockText(secondBlock)
+    await expect(window.getByTestId('inline-menu-main')).toBeVisible()
+    await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Highlight' }).click()
+    await expect(secondBlock.locator('[data-inline-highlight="yellow"]')).toHaveText('A second Reading Item remains in the queue.')
+  }
+  return editor
 }
 
 async function selectBlockText(block: ReturnType<Page['locator']>): Promise<void> {
@@ -109,6 +121,57 @@ test('runs a Highlight Reading Item through the editable Learning workspace', as
       const readingItemAfterNext = (await rpc(window, 'listReadingItems', [{ includeScheduled: true }]))[0]
       expect(readingItemAfterNext.state).toBe('learning')
       expect(readingItemAfterNext.nextProcessAt).toBeGreaterThan(readingItemBeforeNext.nextProcessAt ?? 0)
+    }
+    finally {
+      await application.close()
+    }
+  }
+  finally {
+    await removePagesTestEnvironment(environment)
+  }
+})
+
+test('moves Reading to Basic Review and back to Reading through the public queue', async () => {
+  const environment = await createPagesTestEnvironment('memorilo-learning-mixed-basic-', [])
+  try {
+    const application = await launchPagesTestApplication(environment)
+    try {
+      const window = await application.firstWindow()
+      await createHighlightedNote(window, 'Mixed Basic Learning E2E')
+      await createHighlightedNote(window, 'Mixed Basic Learning E2E Second')
+      await expect.poll(async () => (
+        (await rpc(window, 'listReadingItems', [{ includeScheduled: true }])).length
+      )).toBe(2)
+      await openIncrementalLearning(window)
+      const workspace = window.getByRole('main', { name: 'Incremental learning' })
+      await workspace.getByRole('button', { name: 'Make Card' }).click()
+      await expect(workspace.getByRole('button', { name: 'Card created' })).toBeDisabled()
+
+      await expect.poll(async () => {
+        const queue = await rpc(window, 'listQueue', [{ limit: 3, now: Date.now() }]) as Array<{ kind: string }>
+        return queue.map(item => item.kind)
+      }).toEqual(['reading', 'review', 'reading'])
+
+      const cardId = (await rpc(window, 'listQueue', [{ limit: 3, now: Date.now() }]) as Array<{ cardId?: string, kind: string }>)
+        .find(item => item.kind === 'review')?.cardId
+      if (!cardId)
+        throw new Error('Mixed Basic Card is missing from the Review queue')
+      await workspace.getByRole('button', { name: 'Next' }).click()
+      await expect.poll(async () => {
+        const queue = await rpc(window, 'listQueue', [{ limit: 2, now: Date.now() }]) as Array<{ kind: string }>
+        return queue.map(item => item.kind)
+      }).toEqual(['review', 'reading'])
+      const nextReview = await rpc(window, 'getNextItem') as { mainTargetId: string, queue?: { cardId?: string } } | null
+      expect(nextReview?.queue?.cardId).toBe(cardId)
+      if (!nextReview?.mainTargetId)
+        throw new Error('Mixed Basic Review item is missing its main Target')
+      const prepared = await rpc(window, 'prepareReview', [{ targetId: nextReview.mainTargetId }]) as Record<string, unknown>
+      const { outcomes: _outcomes, ...token } = prepared
+      await rpc(window, 'rateTarget', [{ ...token, rating: 'easy', targetId: nextReview.mainTargetId }])
+      await expect.poll(async () => {
+        const queue = await rpc(window, 'listQueue', [{ limit: 1, now: Date.now() }]) as Array<{ kind: string }>
+        return queue.map(item => item.kind)
+      }).toEqual(['reading'])
     }
     finally {
       await application.close()

@@ -8,6 +8,7 @@ import type {
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
   LearningQueueItem,
+  LearningSessionQueueItem,
   LearningState,
   LearningStorage,
   LearningTarget,
@@ -120,6 +121,29 @@ export const LearningQueueItemSchema: EffectSchema.Codec<LearningQueueItem> = Sc
   readingItemId: Schema.optionalKey(Schema.NonEmptyString),
   priority: Schema.optionalKey(Schema.Int),
 })
+const LearningReadingQueueItemSchema: EffectSchema.Codec<LearningSessionQueueItem> = Schema.Struct({
+  dueAt: Schema.Number,
+  kind: Schema.Literal('reading'),
+  noteId: Schema.NonEmptyString,
+  priority: Schema.Int,
+  readingItemId: Schema.NonEmptyString,
+  sourceBlockId: Schema.NonEmptyString,
+  topicId: Schema.NonEmptyString,
+})
+export const LearningSessionQueueItemSchema: EffectSchema.Codec<LearningSessionQueueItem> = Schema.Union([
+  Schema.Struct({
+    cardId: Schema.NonEmptyString,
+    dueAt: Schema.Number,
+    kind: Schema.Literal('review'),
+    noteId: Schema.NonEmptyString,
+    phase: LearningPhaseSchema,
+    presentation: Schema.Literals(['full', 'partial']),
+    sourceBlockId: Schema.NonEmptyString,
+    targetIds: Schema.Array(Schema.NonEmptyString),
+    topicId: Schema.NonEmptyString,
+  }),
+  LearningReadingQueueItemSchema,
+])
 
 const LearningDailyGoalModeSchema = Schema.Literals(['all-due', 'fixed', 'spread-week'])
 export const LearningDailyProgressSchema: EffectSchema.Codec<LearningDailyProgress> = Schema.Struct({
