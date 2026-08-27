@@ -72,6 +72,21 @@ export interface DesktopTodoConfiguration {
   timelineWorkdayStartMinutes: number
 }
 
+export interface DesktopShortcutConfiguration {
+  addBasicCard: string
+  addCloze: string
+  back: string
+  bold: string
+  code: string
+  forward: string
+  highlight: string
+  italic: string
+  nextNoteStructureEntry: string
+  previousNoteStructureEntry: string
+  strike: string
+  underline: string
+}
+
 export interface DesktopConfiguration {
   backup: DesktopBackupConfiguration
   defaultNoteLearningEnabled: boolean
@@ -89,6 +104,7 @@ export interface DesktopConfiguration {
   readerEpubPresentationMode: DesktopReaderEpubPresentationMode
   readerPageMode: DesktopReaderPageMode
   reduceMotion: boolean
+  shortcuts: DesktopShortcutConfiguration
   tiffConversionFormat: DesktopTiffConversionFormat
   todo: DesktopTodoConfiguration
   weekStart: DesktopWeekStart

@@ -10,10 +10,12 @@ import type {
   HighlightColor,
   InlineHighlightMarkAttrs,
 } from './card-model'
+import { matchesKeyboardShortcut } from '@memorilo/config'
 import {
   addMark,
   defineCommands,
   defineKeymap,
+  definePlugin,
   Priority,
   removeMark,
   union,
@@ -21,6 +23,7 @@ import {
 } from 'prosekit/core'
 import { defineInputRule } from 'prosekit/extensions/input-rule'
 import { InputRule } from 'prosekit/pm/inputrules'
+import { Plugin } from 'prosekit/pm/state'
 import {
   defineCardSchema,
   validateAnchorKind,
@@ -59,6 +62,7 @@ export type CreateCardId = () => string
 export interface CardExtensionOptions {
   authoringEnabled?: boolean
   createId?: CreateCardId
+  shortcuts?: { addBasicCard?: string, addCloze?: string, highlight?: string }
 }
 
 export interface InsertBasicCardInput {
@@ -151,6 +155,41 @@ function addClozeMark(createId: CreateCardId, input: AddClozeInput): Command {
       type: 'cloze',
       attrs: { anchorKind: input.anchorKind, ...resolvedIdentity } satisfies ClozeMarkAttrs,
     })(state, dispatch)
+  }
+}
+
+function toggleInlineHighlightCommand(): Command {
+  return (state, dispatch) => {
+    if (state.selection.empty)
+      return false
+    const markType = state.schema.marks.inlineHighlight
+    if (!markType)
+      return false
+    const active = state.doc.rangeHasMark(state.selection.from, state.selection.to, markType)
+    if (!dispatch)
+      return true
+    return (active
+      ? removeMark({ type: 'inlineHighlight' })
+      : addMark({ type: 'inlineHighlight', attrs: { color: 'yellow', id: crypto.randomUUID() } satisfies InlineHighlightMarkAttrs }))(state, dispatch)
+  }
+}
+
+function toggleClozeCommand(createId: CreateCardId): Command {
+  return (state, dispatch) => {
+    if (state.selection.empty)
+      return false
+    const markType = state.schema.marks.cloze
+    if (!markType)
+      return false
+    const active = state.doc.rangeHasMark(state.selection.from, state.selection.to, markType)
+    if (active)
+      return removeMark({ type: 'cloze' })(state, dispatch)
+    const { $from, $to } = state.selection
+    const anchorKind = ($from.parent.type.name === 'mathInline' || $from.parent.type.name === 'mathBlock')
+      && $from.parent === $to.parent
+      ? 'math-source'
+      : 'rich-content'
+    return addClozeMark(createId, { anchorKind })(state, dispatch)
   }
 }
 
@@ -269,11 +308,28 @@ export type CardExtension = Union<[
 export function defineCardExtension(options: CardExtensionOptions = {}): CardExtension {
   const createId = options.createId ?? defaultCreateId
   const authoringEnabled = options.authoringEnabled ?? true
+  const addBasicCardShortcut = options.shortcuts?.addBasicCard ?? 'Alt+A'
+  const highlightShortcut = options.shortcuts?.highlight ?? 'Alt+X'
+  const addClozeShortcut = options.shortcuts?.addCloze ?? 'Alt+Z'
   return union(
     defineCardSchema(),
     ...(authoringEnabled ? [defineCardDelimiterNodeView()] : []),
     ...(authoringEnabled ? [definePrioritizedCardDelimiterUi()] : []),
     defineCardCommands(createId, authoringEnabled),
+    withPriority(definePlugin(new Plugin({
+      props: {
+        handleKeyDown: (view, event) => {
+          const command = matchesKeyboardShortcut(event, addBasicCardShortcut)
+            ? authoringEnabled ? insertCardDelimiter(createId, 'forward') : disabledCardCommand()
+            : matchesKeyboardShortcut(event, highlightShortcut)
+              ? toggleInlineHighlightCommand()
+              : matchesKeyboardShortcut(event, addClozeShortcut)
+                ? authoringEnabled ? toggleClozeCommand(createId) : disabledCardCommand()
+                : null
+          return command?.(view.state, view.dispatch, view) ?? false
+        },
+      },
+    })), Priority.high),
     ...(authoringEnabled ? [defineCardInputRules(createId)] : []),
     ...(authoringEnabled ? [defineCardMembershipReconciler()] : []),
     ...(authoringEnabled

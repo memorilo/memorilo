@@ -1,0 +1,70 @@
+import * as stylex from '@stylexjs/stylex'
+
+const colors = {
+  focus: 'var(--ui-focus, rgba(41, 97, 194, 0.82))',
+  keyBackground: 'var(--ui-shortcut-key-background, rgba(71, 76, 86, 0.1))',
+  keyBorder: 'var(--ui-shortcut-key-border, rgba(71, 76, 86, 0.22))',
+  muted: 'var(--ui-text-muted, rgba(53, 55, 61, 0.62))',
+  text: 'var(--ui-text, rgba(28, 29, 32, 0.9))',
+} as const
+
+export const shortcutInputStyles = stylex.create({
+  input: {
+    display: 'flex',
+    width: '100%',
+    minHeight: 30,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 5,
+    borderColor: {
+      'default': 'var(--ui-field-border, rgba(71, 76, 86, 0.2))',
+      ':focus-visible': colors.focus,
+    },
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 'var(--ui-control-radius, 6px)',
+    paddingTop: 3,
+    paddingRight: 8,
+    paddingBottom: 3,
+    paddingLeft: 8,
+    backgroundColor: 'var(--ui-field-background, rgba(255, 255, 255, 0.78))',
+    color: colors.text,
+    fontSize: 12,
+    outline: 'none',
+    boxShadow: {
+      'default': 'inset 0 1px 2px rgba(25, 30, 38, 0.05)',
+      ':focus-visible': '0 0 0 2px rgba(41, 97, 194, 0.14)',
+    },
+  },
+  key: {
+    display: 'inline-flex',
+    minWidth: 20,
+    height: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: colors.keyBorder,
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingRight: 6,
+    paddingLeft: 6,
+    backgroundColor: colors.keyBackground,
+    boxShadow: '0 1px 0 rgba(25, 30, 38, 0.12)',
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: '17px',
+    whiteSpace: 'nowrap',
+  },
+  plus: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: 550,
+    lineHeight: '18px',
+  },
+  empty: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: '18px',
+  },
+})

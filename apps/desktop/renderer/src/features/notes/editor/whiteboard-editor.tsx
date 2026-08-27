@@ -6,6 +6,7 @@ import type {
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
 } from '@excalidraw/excalidraw'
+import type { DesktopShortcutConfiguration } from '@memorilo/desktop-config'
 import type {
   EditorAdapters,
   EditorEmbeddedDocument,
@@ -50,22 +51,24 @@ function withoutEditorEmbedLinks(elements: readonly ExcalidrawElement[]): Excali
     : element)
 }
 
-function EmbeddedWhiteboardEditor({ adapters, learningEnabled, topic }: {
+function EmbeddedWhiteboardEditor({ adapters, learningEnabled, shortcuts, topic }: {
   adapters: EditorAdapters
   learningEnabled: boolean
+  shortcuts: DesktopShortcutConfiguration
   topic: EditorEmbeddedDocument
 }) {
   return (
     <article {...stylex.props(whiteboardEditorStyles.editorEmbed)} data-memorilo-whiteboard-editor="">
-      <Editor adapters={adapters} layout="embedded" learningEnabled={learningEnabled} mode={EditorMode.Document} topic={topic} />
+      <Editor adapters={adapters} layout="embedded" learningEnabled={learningEnabled} mode={EditorMode.Document} shortcuts={shortcuts} topic={topic} />
     </article>
   )
 }
 
-export function WhiteboardEditor({ adapters, inspectorVisible, learningEnabled, topic }: {
+export function WhiteboardEditor({ adapters, inspectorVisible, learningEnabled, shortcuts, topic }: {
   adapters: EditorAdapters
   inspectorVisible: boolean
   learningEnabled: boolean
+  shortcuts: DesktopShortcutConfiguration
   topic: EditorWhiteboardTopicDocument
 }) {
   const { t } = useTranslation('editor')
@@ -202,9 +205,9 @@ export function WhiteboardEditor({ adapters, inspectorVisible, learningEnabled, 
   const renderEmbeddable = useCallback((element: ExcalidrawEmbeddableElement) => {
     const embed = editorEmbedData(element)
     return embed
-      ? <EmbeddedWhiteboardEditor adapters={adapters} learningEnabled={learningEnabled} topic={topic.getEmbeddedEditor(embed.editorId)} />
+      ? <EmbeddedWhiteboardEditor adapters={adapters} learningEnabled={learningEnabled} shortcuts={shortcuts} topic={topic.getEmbeddedEditor(embed.editorId)} />
       : null
-  }, [adapters, learningEnabled, topic])
+  }, [adapters, learningEnabled, shortcuts, topic])
 
   const renderToolbarUI = useCallback(() => (
     <button

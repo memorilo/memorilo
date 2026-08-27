@@ -437,6 +437,9 @@ importers:
       '@floating-ui/react':
         specifier: ^0.27.20
         version: 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@memorilo/config':
+        specifier: workspace:*
+        version: link:../config
       '@memorilo/effect-lifecycle':
         specifier: workspace:*
         version: link:../effect-lifecycle

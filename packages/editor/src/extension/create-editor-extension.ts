@@ -1,6 +1,7 @@
 import type { NodeJSON } from 'prosekit/core'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { CardReviewRuntime } from '../card/card-review-runtime'
+import type { EditorShortcutConfiguration } from '../common/formatting-shortcuts'
 import type { OutlineRuntime } from '../common/outline-runtime'
 import type { EditorImageOcclusionIntegration } from '../image-occlusion/image-occlusion-model'
 import type { EditorTopicRuntime } from '../note/editor-topic-runtime'
@@ -34,6 +35,7 @@ import { defineCardExtension } from '../card/card-extension'
 import { defineCardReviewExtension } from '../card/card-review-extension'
 import { defineBlockIdExtension } from '../common/block-id-extension'
 import { defineEditorKeymapExtension } from '../common/editor-keymap-extension'
+import { defineFormattingShortcutGuards, defineFormattingShortcuts } from '../common/formatting-shortcuts'
 import { defineOutlineKeymapExtension } from '../common/outline-keymap-extension'
 import { defineOutlineViewExtension } from '../common/outline-view-extension'
 import { defineTableKeymapExtension } from '../common/table-keymap-extension'
@@ -78,6 +80,7 @@ export function createEditorExtension(
   cardReviewRuntime?: CardReviewRuntime,
   imageOcclusion?: EditorImageOcclusionIntegration,
   learningEnabled = true,
+  shortcuts?: EditorShortcutConfiguration,
 ) {
   const uploadRuntime = new EditorUploadRuntime(adapters.uploadImage, store)
   const uploader = uploadRuntime.uploader
@@ -86,7 +89,9 @@ export function createEditorExtension(
 
   const editorExtension = union(
     defineBasicExtension(),
-    defineCardExtension({ authoringEnabled: learningEnabled }),
+    defineFormattingShortcutGuards(shortcuts),
+    defineFormattingShortcuts(shortcuts),
+    defineCardExtension({ authoringEnabled: learningEnabled, shortcuts }),
     ...(cardReviewRuntime ? [defineCardReviewExtension(cardReviewRuntime)] : []),
     withPriority(defineBlockIdExtension(), Priority.highest),
     withPriority(defineImageIdExtension(), Priority.highest),

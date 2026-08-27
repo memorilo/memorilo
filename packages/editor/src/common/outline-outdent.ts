@@ -1,9 +1,9 @@
 import type { Node as ProseMirrorNode } from 'prosekit/pm/model'
 import type { EditorState, Transaction } from 'prosekit/pm/state'
-import type { OutdentBlockedReason, OutdentResult } from './outline-commands'
+import type { OutdentBlockedReason, OutdentResult, OutlineMoveDirection, OutlineMoveResult } from './outline-commands'
 import type { OutlineRuntime, OutlineRuntimeSnapshot } from './outline-runtime'
 import { AllSelection, NodeSelection, Selection, TextSelection } from 'prosekit/pm/state'
-import { planOutdent } from './outline-commands'
+import { planMove, planOutdent } from './outline-commands'
 
 const TRADITIONAL_SELECTION_MESSAGE = 'Traditional outdent requires consecutive blocks under the same parent. Adjust the selection or switch to Logical outdent.'
 
@@ -192,4 +192,30 @@ export function executeOutlineOutdent(
     snapshot,
     outlineCommandBlockIds(state, snapshot),
   )
+}
+
+export function executeOutlineMove(
+  state: EditorState,
+  dispatch: (transaction: Transaction) => void,
+  runtime: OutlineRuntime,
+  direction: OutlineMoveDirection,
+  blockIds: readonly string[],
+): OutlineMoveResult {
+  const snapshot = runtime.getSnapshot()
+  if (snapshot.focusBlockId && blockIds.includes(snapshot.focusBlockId)) {
+    runtime.setCommandMessage('The focused block cannot move.')
+    return { reason: 'focus_root', status: 'blocked' }
+  }
+  const result = planMove(state.doc.toJSON(), blockIds, direction)
+  if (result.status === 'blocked') {
+    runtime.setCommandMessage(result.reason === 'at_boundary' ? 'The selected block cannot move further.' : null)
+    return result
+  }
+
+  runtime.setCommandMessage(null)
+  const selectionBookmark = captureOutlineSelection(state)
+  const nextDocument = state.schema.nodeFromJSON(result.document)
+  const transaction = state.tr.replaceWith(0, state.doc.content.size, nextDocument.content)
+  dispatch(restoreOutlineSelection(transaction, selectionBookmark).scrollIntoView())
+  return result
 }

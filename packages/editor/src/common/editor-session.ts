@@ -4,6 +4,7 @@ import type { CardReviewOptions } from '../card/card-review-runtime'
 import type { EditorCardIntegration } from '../card/card-sync'
 import type { EditorImageOcclusionIntegration } from '../image-occlusion/image-occlusion-model'
 import type { EditorTopicDocument } from '../note/editor-note'
+import type { EditorShortcutConfiguration } from './formatting-shortcuts'
 import type { OutlineOptions } from './outline-runtime'
 
 import { createResourceScope } from '@memorilo/effect-lifecycle'
@@ -27,6 +28,7 @@ export interface EditorSessionOptions {
   onDocumentChange: (document: NodeJSON) => void
   outline?: OutlineOptions
   readOnly: boolean
+  shortcuts?: EditorShortcutConfiguration
   topicDocument: EditorTopicDocument
 }
 
@@ -72,7 +74,7 @@ export function createEditorSession(options: EditorSessionOptions) {
     }
     options.onDocumentChange(document)
     scheduleCardSync(document)
-  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled)
+  }, topic, options.readOnly, cardReviewRuntime, options.imageOcclusion, options.learningEnabled, options.shortcuts)
   const resources = createResourceScope('Editor session')
   resources.own({
     close: () => configured.networkImagePasteRuntime.close(),

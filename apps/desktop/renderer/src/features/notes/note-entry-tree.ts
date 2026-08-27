@@ -62,3 +62,18 @@ export function projectVisibleNoteEntries(
     return [{ depth, entry, hasChildren: parentsWithChildren.has(entry.id) }]
   })
 }
+
+/** Returns the adjacent item in the current visible order, clamping at either end. */
+export function selectAdjacentVisibleId(
+  visibleIds: readonly string[],
+  currentId: string,
+  direction: -1 | 1,
+): string | undefined {
+  if (visibleIds.length === 0)
+    return undefined
+  const currentIndex = visibleIds.indexOf(currentId)
+  const nextIndex = currentIndex < 0
+    ? direction === 1 ? 0 : visibleIds.length - 1
+    : Math.max(0, Math.min(visibleIds.length - 1, currentIndex + direction))
+  return visibleIds[nextIndex]
+}

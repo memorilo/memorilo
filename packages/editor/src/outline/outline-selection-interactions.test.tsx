@@ -2,7 +2,7 @@ import { render, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { EditorModeHarness } from '../../test/browser/editor-mode-harness'
 import { EditorTestHarness as Editor } from '../../test/browser/editor-test-harness'
-import { placeCaretAtStart, userEvent } from '../../test/browser/user-event'
+import { modShortcut, placeCaretAtStart, userEvent } from '../../test/browser/user-event'
 import { EditorMode } from '../common/editor-mode'
 import {
   adapters,
@@ -98,6 +98,120 @@ describe('outline interactions', () => {
     await userEvent.click(rendered.getByRole('button', { name: 'Document mode' }))
     await userEvent.click(rendered.getByRole('button', { name: 'Outline mode' }))
     await waitFor(() => expect(selectedIds(rendered.container)).toEqual(['B', 'C', 'D', 'E']))
+  })
+
+  it('moves a selected range with the Outline move shortcut', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'E')).toBeInTheDocument())
+
+    await userEvent.click(marker(rendered.container, 'B'), { modifiers: ['Meta'] })
+    await userEvent.click(marker(rendered.container, 'C'), { modifiers: ['Shift'] })
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard(modShortcut('{ArrowUp}', { shift: true }))
+
+    await waitFor(() => {
+      expect(Array.from(rendered.container.querySelectorAll<HTMLElement>('[data-block-id]')).map(element => element.dataset.blockId)).toEqual([
+        'P',
+        'B',
+        'C',
+        'A',
+        'D',
+        'E',
+        'Q',
+      ])
+    })
+    expect(selectedIds(rendered.container)).toEqual(['B', 'C'])
+  })
+
+  it('uses direction-specific shortcuts to collapse and expand selected blocks', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'A')).toBeInTheDocument())
+
+    await userEvent.click(paragraph(rendered.container, 'P'))
+    await userEvent.keyboard(modShortcut('{ArrowUp}'))
+    await waitFor(() => expect(blockElement(rendered.container, 'P')).toHaveAttribute('data-outline-view-collapsed'))
+    expect(blockElement(rendered.container, 'A')).not.toBeVisible()
+
+    await userEvent.keyboard(modShortcut('{ArrowDown}'))
+    await waitFor(() => expect(blockElement(rendered.container, 'P')).not.toHaveAttribute('data-outline-view-collapsed'))
+    expect(blockElement(rendered.container, 'A')).toBeVisible()
+  })
+
+  it('toggles selected children with the outline collapse shortcut', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'A')).toBeInTheDocument())
+
+    await userEvent.click(paragraph(rendered.container, 'P'))
+    await userEvent.keyboard(modShortcut(';'))
+    await waitFor(() => expect(blockElement(rendered.container, 'P')).toHaveAttribute('data-outline-view-collapsed'))
+    await userEvent.keyboard(modShortcut(';'))
+    await waitFor(() => expect(blockElement(rendered.container, 'P')).not.toHaveAttribute('data-outline-view-collapsed'))
+  })
+
+  it('extends the active Outline selection in visible depth-first order', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'E')).toBeInTheDocument())
+
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}')
+
+    await waitFor(() => expect(selectedIds(rendered.container)).toEqual(['B', 'C']))
+  })
+
+  it('keeps a boundary selection when extending beyond the visible Outline', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'P')).toBeInTheDocument())
+
+    await userEvent.click(paragraph(rendered.container, 'P'))
+    await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}')
+
+    expect(selectedIds(rendered.container)).toEqual([])
+  })
+
+  it('selects every visible Outline block with the select-all shortcut', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Outline}
+        initialContent={outlineDocument()}
+      />,
+    )
+    await waitFor(() => expect(blockElement(rendered.container, 'E')).toBeInTheDocument())
+
+    await userEvent.click(paragraph(rendered.container, 'B'))
+    await userEvent.keyboard(modShortcut('a', { shift: true }))
+
+    await waitFor(() => expect(selectedIds(rendered.container)).toEqual(['P', 'A', 'B', 'C', 'D', 'E', 'Q']))
   })
 
   it('focuses by path without replacing the document and provides a way back', async () => {

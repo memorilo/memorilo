@@ -2,11 +2,14 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { PaletteCommand } from '../../shared/command-palette'
 import type { PageTitlebarOptions } from '../../shared/page-titlebar'
 import * as stylex from '@stylexjs/stylex'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { CommandPaletteCommandsContext } from '../../shared/command-palette'
+import { useDesktopConfiguration } from '../../shared/configuration'
+import { matchesKeyboardShortcut } from '../../shared/keyboard-shortcut'
 import { PageTitlebarContext } from '../../shared/page-titlebar'
 import { CommandPalette } from '../command-palette/command-palette'
+import { router } from '../router'
 import { appShellStyles } from './app-shell.stylex'
 import { AppTitlebar } from './app-titlebar'
 import { AppToastContainer } from './app-toast'
@@ -17,7 +20,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [pageTitlebar, setPageTitlebar] = useState<PageTitlebarOptions | null>(null)
   const [pageCommands, setPageCommands] = useState<readonly PaletteCommand[]>([])
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const configuration = useDesktopConfiguration()
   const toggleSidebar = useCallback(() => setSidebarVisible(visible => !visible), [])
+  useEffect(() => {
+    const isFormControlTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement))
+        return false
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isFormControlTarget(event.target))
+        return
+      if (matchesKeyboardShortcut(event, configuration.shortcuts.back)) {
+        event.preventDefault()
+        router.history.back()
+      }
+      else if (matchesKeyboardShortcut(event, configuration.shortcuts.forward)) {
+        event.preventDefault()
+        router.history.forward()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [configuration.shortcuts.back, configuration.shortcuts.forward])
   const compactCanvasTitlebar = pageTitlebar?.titleVisibility === 'hidden'
   const shellStyle = {
     '--reader-leading-offset': sidebarVisible ? '270px' : '120px',

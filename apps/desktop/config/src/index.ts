@@ -19,6 +19,7 @@ export type {
   DesktopReaderEpubPresentationMode,
   DesktopReaderPageMode,
   DesktopRecurringTaskCompletionAction,
+  DesktopShortcutConfiguration,
   DesktopThemeAppearance,
   DesktopThemeFamily,
   DesktopThemePreference,
@@ -42,6 +43,14 @@ function defaultDesktopThemeFamily(): DesktopThemeFamily {
   return /Mac|iPhone|iPad|iPod/i.test(navigatorPlatform) ? 'liquid-glass' : 'fluent'
 }
 
+function defaultShortcutModifier(): 'Ctrl' | 'Mod' {
+  // Keep configurable defaults aligned with ProseMirror's platform-aware Mod key.
+  // eslint-disable-next-line node/prefer-global/process
+  const platform = typeof globalThis.process?.platform === 'string' ? globalThis.process.platform : undefined
+  const navigatorPlatform = typeof navigator === 'undefined' ? '' : navigator.platform
+  return platform === 'darwin' || /Mac|iPhone|iPad|iPod/i.test(navigatorPlatform) ? 'Mod' : 'Ctrl'
+}
+
 const defaultFlashcardConfiguration = {
   buryInterdayLearningSiblings: true,
   buryNewSiblings: true,
@@ -57,6 +66,21 @@ const defaultFlashcardConfiguration = {
 const defaultGoalConfiguration = {
   dailyLearningGoalCards: 30,
   dailyLearningGoalMode: 'spread-week',
+} as const
+
+const defaultShortcutConfiguration = {
+  addBasicCard: 'Alt+A',
+  addCloze: 'Alt+Z',
+  back: 'Alt+Left',
+  bold: `${defaultShortcutModifier()}+B`,
+  code: `${defaultShortcutModifier()}+E`,
+  forward: 'Alt+Right',
+  highlight: 'Alt+X',
+  italic: `${defaultShortcutModifier()}+I`,
+  nextNoteStructureEntry: 'Alt+PageDown',
+  previousNoteStructureEntry: 'Alt+PageUp',
+  strike: `${defaultShortcutModifier()}+S`,
+  underline: `${defaultShortcutModifier()}+U`,
 } as const
 
 export const DesktopConfigurationSchema = Schema.Struct({
@@ -104,6 +128,20 @@ export const DesktopConfigurationSchema = Schema.Struct({
   readerEpubPresentationMode: Schema.Literals(['publisher', 'reader']),
   readerPageMode: Schema.Literals(['continuous', 'single-page']),
   reduceMotion: Schema.Boolean,
+  shortcuts: Schema.Struct({
+    addBasicCard: Schema.String,
+    addCloze: Schema.String,
+    back: Schema.String,
+    bold: Schema.String,
+    code: Schema.String,
+    forward: Schema.String,
+    highlight: Schema.String,
+    italic: Schema.String,
+    nextNoteStructureEntry: Schema.String,
+    previousNoteStructureEntry: Schema.String,
+    strike: Schema.String,
+    underline: Schema.String,
+  }),
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
     autoCompleteParentTasks: Schema.Boolean,
@@ -161,6 +199,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerEpubPresentationMode: 'publisher' as const,
     readerPageMode: 'continuous' as const,
     reduceMotion: false,
+    shortcuts: defaultShortcutConfiguration,
     tiffConversionFormat: 'webp' as const,
     todo: {
       autoCompleteParentTasks: true,
@@ -417,6 +456,66 @@ export const desktopConfigurationDefinition = defineConfiguration({
         { label: 'Keep URL', value: 'url' },
       ],
       path: 'networkImagePasteBehavior',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Back',
+      path: 'shortcuts.back',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Forward',
+      path: 'shortcuts.forward',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Previous Note Structure entry',
+      path: 'shortcuts.previousNoteStructureEntry',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Next Note Structure entry',
+      path: 'shortcuts.nextNoteStructureEntry',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Add Basic Card',
+      path: 'shortcuts.addBasicCard',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Highlight',
+      path: 'shortcuts.highlight',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Add Cloze',
+      path: 'shortcuts.addCloze',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Bold',
+      path: 'shortcuts.bold',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Italic',
+      path: 'shortcuts.italic',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Underline',
+      path: 'shortcuts.underline',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Strikethrough',
+      path: 'shortcuts.strike',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Inline code',
+      path: 'shortcuts.code',
     }],
     id: 'editor',
     label: 'Editor',
@@ -523,9 +622,18 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const withPanel = Object.hasOwn(record, 'panel')
     ? withTheme
     : { ...withTheme, panel: desktopConfigurationDefinition.defaults.panel }
+  const storedShortcuts = record.shortcuts
+  const shortcuts = typeof storedShortcuts === 'object' && storedShortcuts !== null && !Array.isArray(storedShortcuts)
+    ? storedShortcuts as Record<string, unknown>
+    : undefined
+  const defaultShortcuts = desktopConfigurationDefinition.defaults.shortcuts
+  const withShortcuts = shortcuts !== undefined
+    && Object.keys(defaultShortcuts).every(key => typeof shortcuts[key] === 'string')
+    ? withPanel
+    : { ...withPanel, shortcuts: { ...defaultShortcuts, ...shortcuts } }
   if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...withPanel,
+      ...withShortcuts,
       todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
@@ -535,7 +643,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
     return {
-      ...withPanel,
+      ...withShortcuts,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
@@ -548,12 +656,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
     return {
-      ...withPanel,
+      ...withShortcuts,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
-  return withPanel
+  return withShortcuts
 }

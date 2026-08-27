@@ -5,6 +5,7 @@ export type {
   NumberConfigurationField,
   SegmentedConfigurationField,
   SelectConfigurationField,
+  ShortcutConfigurationField,
   TextConfigurationField,
   TimeConfigurationField,
   ToggleConfigurationField,
@@ -18,3 +19,4 @@ export type {
   CreateConfigurationStoreOptions,
 } from './configuration-store'
 export { createConfigurationStore } from './configuration-store'
+export { matchesKeyboardShortcut, shortcutFromKeyboardEvent } from './shortcut-utils'

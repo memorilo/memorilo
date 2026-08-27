@@ -184,13 +184,29 @@ export class OutlineRuntime {
       return
     const collapsed = new Set(this.snapshot.collapsedBlockIds)
     const shouldCollapse = blockIds.some(id => !collapsed.has(id))
+    this.setCollapsed(blockIds, shouldCollapse)
+  }
+
+  setCollapsed(blockIds: readonly string[], collapsed: boolean): void {
+    if (blockIds.length === 0)
+      return
+    const next = new Set(this.snapshot.collapsedBlockIds)
     blockIds.forEach((id) => {
-      if (shouldCollapse)
-        collapsed.add(id)
+      if (collapsed)
+        next.add(id)
       else
-        collapsed.delete(id)
+        next.delete(id)
     })
-    this.patch({ collapsedBlockIds: [...collapsed] })
+    this.patch({ collapsedBlockIds: [...next] })
+  }
+
+  selectAllVisible(visibleBlockIds: readonly string[]): void {
+    const selectedBlockIds = [...visibleBlockIds]
+    this.patch({
+      commandMessage: null,
+      selectedBlockIds,
+      selectionAnchorId: selectedBlockIds[0] ?? null,
+    })
   }
 
   reconcileDocument(document: NodeJSON): void {

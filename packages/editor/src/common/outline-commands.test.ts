@@ -1,7 +1,7 @@
 import type { NodeJSON } from 'prosekit/core'
 import { describe, expect, it } from 'vitest'
 
-import { planOutdent } from './outline-commands'
+import { planMove, planOutdent } from './outline-commands'
 
 interface Shape {
   id: string
@@ -269,5 +269,82 @@ describe('planOutdent', () => {
       status: 'blocked',
       reason: 'unknown_selected_block',
     })
+  })
+})
+
+describe('planMove', () => {
+  it('moves one block up or down while preserving its subtree', () => {
+    const document = doc(block('A', [block('A1')]), block('B'), block('C'))
+
+    const up = planMove(document, ['B'], 'up')
+    expect(up.status).toBe('ready')
+    if (up.status !== 'ready')
+      throw new Error(`Move was blocked: ${up.reason}`)
+    expect(up.movedBlockIds).toEqual(['B'])
+    expect(shape(up.document)).toEqual([
+      { id: 'B', kind: 'outline' },
+      { id: 'A', kind: 'outline', children: [{ id: 'A1', kind: 'outline' }] },
+      { id: 'C', kind: 'outline' },
+    ])
+
+    const down = planMove(document, ['A'], 'down')
+    expect(down.status).toBe('ready')
+    if (down.status !== 'ready')
+      throw new Error(`Move was blocked: ${down.reason}`)
+    expect(shape(down.document)).toEqual([
+      { id: 'B', kind: 'outline' },
+      { id: 'A', kind: 'outline', children: [{ id: 'A1', kind: 'outline' }] },
+      { id: 'C', kind: 'outline' },
+    ])
+  })
+
+  it('moves a contiguous selection as one ordered group', () => {
+    const document = doc(block('A'), block('B'), block('C'), block('D'))
+
+    const up = planMove(document, ['B', 'C'], 'up')
+    expect(up.status).toBe('ready')
+    if (up.status !== 'ready')
+      throw new Error(`Move was blocked: ${up.reason}`)
+    expect(shape(up.document).map(item => item.id)).toEqual(['B', 'C', 'A', 'D'])
+
+    const down = planMove(document, ['B', 'C'], 'down')
+    expect(down.status).toBe('ready')
+    if (down.status !== 'ready')
+      throw new Error(`Move was blocked: ${down.reason}`)
+    expect(shape(down.document).map(item => item.id)).toEqual(['A', 'D', 'B', 'C'])
+  })
+
+  it('moves selected blocks independently across parents and ignores selected descendants', () => {
+    const document = doc(
+      block('P', [block('A', [block('A1')]), block('B'), block('C')]),
+      block('Q', [block('D'), block('E')]),
+    )
+
+    const result = planMove(document, ['A', 'A1', 'D'], 'down')
+    expect(result.status).toBe('ready')
+    if (result.status !== 'ready')
+      throw new Error(`Move was blocked: ${result.reason}`)
+    expect(result.movedBlockIds).toEqual(['D', 'A'])
+    expect(shape(result.document)).toEqual([
+      { id: 'P', kind: 'outline', children: [{ id: 'B', kind: 'outline' }, { id: 'A', kind: 'outline', children: [{ id: 'A1', kind: 'outline' }] }, { id: 'C', kind: 'outline' }] },
+      { id: 'Q', kind: 'outline', children: [{ id: 'E', kind: 'outline' }, { id: 'D', kind: 'outline' }] },
+    ])
+  })
+
+  it('blocks empty, unknown, and boundary moves without changing the document', () => {
+    const document = doc(block('A'), block('B'))
+    expect(planMove(document, [], 'up')).toEqual({ status: 'blocked', reason: 'empty_selection' })
+    expect(planMove(document, ['missing'], 'up')).toEqual({ status: 'blocked', reason: 'unknown_selected_block' })
+    expect(planMove(document, ['A'], 'up')).toEqual({ status: 'blocked', reason: 'at_boundary' })
+    expect(planMove(document, ['B'], 'down')).toEqual({ status: 'blocked', reason: 'at_boundary' })
+    expect(shape(document).map(item => item.id)).toEqual(['A', 'B'])
+  })
+
+  it('does not partially move a multi-parent selection when one target is at a boundary', () => {
+    const document = doc(block('P', [block('A'), block('B')]), block('Q', [block('C')]))
+    const before = structuredClone(document)
+
+    expect(planMove(document, ['B', 'C'], 'down')).toEqual({ status: 'blocked', reason: 'at_boundary' })
+    expect(document).toEqual(before)
   })
 })

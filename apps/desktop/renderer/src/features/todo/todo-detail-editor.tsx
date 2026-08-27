@@ -90,6 +90,7 @@ function TodoDetailEditorLoaded({
         layout="embedded"
         learningEnabled={configuration.learning.enabled}
         mode={EditorMode.Outline}
+        shortcuts={configuration.shortcuts}
         onDocumentChange={reconcileCardTopics}
         outline={outline}
         taskDate={task.journalDate ?? undefined}

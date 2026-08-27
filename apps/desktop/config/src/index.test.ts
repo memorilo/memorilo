@@ -27,6 +27,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     readerEpubPresentationMode: 'publisher',
     readerPageMode: 'continuous',
     reduceMotion: false,
+    shortcuts: desktopConfigurationDefinition.defaults.shortcuts,
     tiffConversionFormat: 'webp',
     todo: desktopConfigurationDefinition.defaults.todo,
     weekStart: 'sunday',
@@ -75,6 +76,7 @@ describe('desktop MCP configuration', () => {
     const legacy = Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'todo'))
     expect(migrateDesktopConfiguration(legacy)).toEqual({
       ...legacy,
+      shortcuts: desktopConfigurationDefinition.defaults.shortcuts,
       todo: desktopConfigurationDefinition.defaults.todo,
     })
   })
@@ -91,6 +93,42 @@ describe('desktop MCP configuration', () => {
         enabled: false,
         recurringTaskCompletionAction: 'archive-completed-to-today',
       },
+    })
+  })
+
+  it('fills missing shortcut values while preserving customized and cleared bindings', () => {
+    const current = configuration({ accessToken: '', enabled: false, port: 8765 })
+    const migrated = migrateDesktopConfiguration({
+      ...current,
+      shortcuts: {
+        back: 'Ctrl+Alt+Left',
+        highlight: '',
+      },
+    })
+
+    expect(migrated).toMatchObject({
+      shortcuts: {
+        back: 'Ctrl+Alt+Left',
+        highlight: '',
+        forward: 'Alt+Right',
+        addBasicCard: 'Alt+A',
+        addCloze: 'Alt+Z',
+        bold: desktopConfigurationDefinition.defaults.shortcuts.bold,
+        code: desktopConfigurationDefinition.defaults.shortcuts.code,
+        italic: desktopConfigurationDefinition.defaults.shortcuts.italic,
+        strike: desktopConfigurationDefinition.defaults.shortcuts.strike,
+        underline: desktopConfigurationDefinition.defaults.shortcuts.underline,
+      },
+    })
+  })
+
+  it('exposes configurable formatting shortcut defaults', () => {
+    expect(desktopConfigurationDefinition.defaults.shortcuts).toMatchObject({
+      bold: expect.stringMatching(/^(Mod|Ctrl)\+B$/u),
+      code: expect.stringMatching(/^(Mod|Ctrl)\+E$/u),
+      italic: expect.stringMatching(/^(Mod|Ctrl)\+I$/u),
+      strike: expect.stringMatching(/^(Mod|Ctrl)\+S$/u),
+      underline: expect.stringMatching(/^(Mod|Ctrl)\+U$/u),
     })
   })
 })

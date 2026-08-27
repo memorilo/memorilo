@@ -1,6 +1,6 @@
 import type { FolderSnapshot, NoteEntrySnapshot, RegularTopicSnapshot } from '@memorilo/editor'
 import { describe, expect, it } from 'vitest'
-import { projectVisibleNoteEntries } from './note-entry-tree'
+import { projectVisibleNoteEntries, selectAdjacentVisibleId } from './note-entry-tree'
 
 function folder(id: string, parentId: string | null = null): FolderSnapshot {
   return { id, kind: 'folder', name: id, ordinal: 0, parentId }
@@ -31,5 +31,16 @@ describe('note entry tree projection', () => {
     const entries: NoteEntrySnapshot[] = [folder('one', 'two'), folder('two', 'one')]
 
     expect(() => projectVisibleNoteEntries(entries, new Set())).toThrow('Cycle detected at Note entry one')
+  })
+
+  it('selects adjacent topics in visible depth-first order and clamps at the ends', () => {
+    const visibleIds = ['topic-root', 'topic-child', 'topic-sibling']
+
+    expect(selectAdjacentVisibleId(visibleIds, 'topic-root', 1)).toBe('topic-child')
+    expect(selectAdjacentVisibleId(visibleIds, 'topic-child', -1)).toBe('topic-root')
+    expect(selectAdjacentVisibleId(visibleIds, 'topic-root', -1)).toBe('topic-root')
+    expect(selectAdjacentVisibleId(visibleIds, 'topic-sibling', 1)).toBe('topic-sibling')
+    expect(selectAdjacentVisibleId(visibleIds, 'missing', 1)).toBe('topic-root')
+    expect(selectAdjacentVisibleId([], 'missing', -1)).toBeUndefined()
   })
 })

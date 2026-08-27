@@ -254,6 +254,7 @@ export function NoteEditor({
         onAddTopic={parentId => setEntryCreationTarget({ kind: 'topic', parentId })}
         onAddWhiteboard={parentId => setEntryCreationTarget({ kind: 'whiteboard', parentId })}
         onOpenImageOcclusion={handleOpenImageOcclusion}
+        onOpenTopic={onOpenTopic}
         onRebindBook={(topicId) => {
           const format = opened.note.getBookTopic(topicId).getBook().file.format
           setBookPickerTarget({ format, kind: 'rebind', topicId })

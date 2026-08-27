@@ -2,7 +2,7 @@ import { render, waitFor } from '@testing-library/react'
 import { page } from '@vitest/browser/context'
 import { describe, expect, it } from 'vitest'
 import { EditorTestHarness as Editor } from '../../test/browser/editor-test-harness'
-import { placeCaretAtStart, userEvent } from '../../test/browser/user-event'
+import { modShortcut, placeCaretAtStart, userEvent } from '../../test/browser/user-event'
 import { EditorMode } from '../common/editor-mode'
 import {
   adapters,
@@ -19,6 +19,55 @@ import {
 } from './document-interactions.fixture'
 
 describe('document interactions', () => {
+  it('uses the configured formatting shortcut and disables the replaced default', async () => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        shortcuts={{ bold: 'Alt+B' }}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('formatting', paragraph('Format me'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Format me')
+
+    await userEvent.click(rendered.getByText('Format me'))
+    await userEvent.keyboard('{Home}{Shift>}{End}{/Shift}')
+    await userEvent.keyboard(modShortcut('b'))
+    expect(rendered.container.querySelector('strong')).toBeNull()
+    await userEvent.keyboard('{Alt>}b{/Alt}')
+
+    await waitFor(() => expect(rendered.container.querySelector('strong')).toHaveTextContent('Format me'))
+  })
+
+  it.each([
+    { binding: 'code', key: 'e', mark: 'code', selector: 'code' },
+    { binding: 'italic', key: 'i', mark: 'italic', selector: 'em' },
+    { binding: 'strike', key: 's', mark: 'strike', selector: 's' },
+    { binding: 'underline', key: 'u', mark: 'underline', selector: 'u' },
+  ])('supports rebinding the $mark formatting shortcut', async ({ binding, key, selector }) => {
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        shortcuts={{ [binding]: `Alt+${key.toUpperCase()}` }}
+        initialContent={{
+          type: 'doc',
+          content: [documentBlock('formatting', paragraph('Format me'))],
+        }}
+      />,
+    )
+    await rendered.findByText('Format me')
+
+    await userEvent.click(rendered.getByText('Format me'))
+    await userEvent.keyboard('{Home}{Shift>}{End}{/Shift}')
+    await userEvent.keyboard(`{Alt>}${key}{/Alt}`)
+
+    await waitFor(() => expect(rendered.container.querySelector(selector)).toHaveTextContent('Format me'))
+  })
+
   it('creates a semantic Card answer child when Enter follows a typed Card delimiter', async () => {
     const rendered = render(
       <Editor

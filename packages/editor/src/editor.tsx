@@ -3,6 +3,7 @@ import type { EditorAdapters } from './adapters/editor-adapters'
 import type { CardReviewOptions } from './card/card-review-runtime'
 import type { EditorCardIntegration } from './card/card-sync'
 import type { EditorModeValue } from './common/editor-mode'
+import type { EditorShortcutConfiguration } from './common/formatting-shortcuts'
 import type { OutlineOptions } from './common/outline-runtime'
 import type { EditorImageOcclusionIntegration } from './image-occlusion/image-occlusion-model'
 import type { EditorTopicDocument } from './note/editor-note'
@@ -39,6 +40,7 @@ interface EditorBaseProps {
   focus?: EditorFocusTarget
   imageOcclusion?: EditorImageOcclusionIntegration
   learningEnabled?: boolean
+  shortcuts?: EditorShortcutConfiguration
   mode?: EditorModeValue
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions
@@ -136,11 +138,12 @@ export function Editor(props: EditorProps) {
     onDocumentChange: document => onDocumentChangeRef.current?.(document),
     outline: initialOutlineOptionsRef.current,
     readOnly: props.readOnly === true,
+    shortcuts: props.shortcuts,
     topicDocument: props.topic,
     // The underlying Note topic is stable by ID; ignore wrapper-object changes
     // caused by persistence receipts so asynchronous uploads retain their view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [props.adapters, cardIntegration, imageOcclusion, learningEnabled, props.readOnly, props.topic.documentId, props.topic.noteId])
+  }), [props.adapters, cardIntegration, imageOcclusion, learningEnabled, props.readOnly, props.shortcuts, props.topic.documentId, props.topic.noteId])
   const empty = useSyncExternalStore(
     session.emptyState.subscribe,
     session.emptyState.getSnapshot,
