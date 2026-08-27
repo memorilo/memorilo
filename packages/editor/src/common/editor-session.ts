@@ -26,6 +26,7 @@ export interface EditorSessionOptions {
   imageOcclusion?: EditorImageOcclusionIntegration
   learningEnabled: boolean
   onDocumentChange: (document: NodeJSON) => void
+  onSemanticAction?: (action: 'cloze' | 'extract') => void
   outline?: OutlineOptions
   readOnly: boolean
   shortcuts?: EditorShortcutConfiguration

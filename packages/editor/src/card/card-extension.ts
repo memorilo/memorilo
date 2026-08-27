@@ -269,11 +269,20 @@ function disabledCardCommand(): Command {
   return () => false
 }
 
-function defineCardCommands(createId: CreateCardId, authoringEnabled: boolean): CardCommandsExtension {
+function semanticAction(command: Command, action: 'cloze' | 'extract', onSemanticAction?: (action: 'cloze' | 'extract') => void): Command {
+  return (state, dispatch) => {
+    const executed = command(state, dispatch)
+    if (executed && dispatch)
+      onSemanticAction?.(action)
+    return executed
+  }
+}
+
+function defineCardCommands(createId: CreateCardId, authoringEnabled: boolean, onSemanticAction?: (action: 'cloze' | 'extract') => void): CardCommandsExtension {
   return defineCommands({
     addCloze: ({ anchorKind, identity }: AddClozeInput) => {
       validateAnchorKind(anchorKind)
-      return authoringEnabled ? addClozeMark(createId, { anchorKind, identity }) : disabledCardCommand()
+      return authoringEnabled ? semanticAction(addClozeMark(createId, { anchorKind, identity }), 'cloze', onSemanticAction) : disabledCardCommand()
     },
     addBlockToCardBack: () => authoringEnabled ? addBlockToCardBackCommand() : disabledCardCommand(),
     insertBasicCard: ({ direction }: InsertBasicCardInput) => {
@@ -292,11 +301,11 @@ function defineCardCommands(createId: CreateCardId, authoringEnabled: boolean): 
       : disabledCardCommand(),
     setBlockHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
-      return updateClosestListAttrs(() => ({ blockHighlight: color, blockHighlightId: crypto.randomUUID() }))
+      return semanticAction(updateClosestListAttrs(() => ({ blockHighlight: color, blockHighlightId: crypto.randomUUID() })), 'extract', onSemanticAction)
     },
     setInlineHighlight: ({ color }: SetHighlightInput) => {
       validateHighlightColor(color)
-      return addMark({ type: 'inlineHighlight', attrs: { color, id: crypto.randomUUID() } satisfies InlineHighlightMarkAttrs })
+      return semanticAction(addMark({ type: 'inlineHighlight', attrs: { color, id: crypto.randomUUID() } satisfies InlineHighlightMarkAttrs }), 'extract', onSemanticAction)
     },
   })
 }
@@ -323,9 +332,9 @@ export function defineCardExtension(options: CardExtensionOptions = {}): CardExt
           const command = matchesKeyboardShortcut(event, addBasicCardShortcut)
             ? authoringEnabled ? insertCardDelimiter(createId, 'forward') : disabledCardCommand()
             : matchesKeyboardShortcut(event, highlightShortcut)
-              ? toggleInlineHighlightCommand()
+              ? semanticAction(toggleInlineHighlightCommand(), 'extract', options.onSemanticAction)
               : matchesKeyboardShortcut(event, addClozeShortcut)
-                ? authoringEnabled ? toggleClozeCommand(createId) : disabledCardCommand()
+                ? authoringEnabled ? semanticAction(toggleClozeCommand(createId), 'cloze', options.onSemanticAction) : disabledCardCommand()
                 : null
           return command?.(view.state, view.dispatch, view) ?? false
         },

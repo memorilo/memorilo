@@ -9,7 +9,7 @@ import { defineCardExtension } from './card-extension'
 
 const mountedEditors: VoidFunction[] = []
 
-function setup(ids: readonly string[]) {
+function setup(ids: readonly string[], onSemanticAction?: (action: 'cloze' | 'extract') => void) {
   let index = 0
   const createId = () => {
     const id = ids[index]
@@ -18,7 +18,7 @@ function setup(ids: readonly string[]) {
     index += 1
     return id
   }
-  const extension = union(defineBasicExtension(), defineCardExtension({ createId }))
+  const extension = union(defineBasicExtension(), defineCardExtension({ createId, onSemanticAction }))
   const editor = createTestEditor({ extension })
   const element = document.body.appendChild(document.createElement('div'))
   editor.mount(element)
@@ -43,10 +43,10 @@ function inputText(editor: ReturnType<typeof setup>, text: string) {
   }
 }
 
-function keyDown(editor: ReturnType<typeof setup>, key: string): boolean {
+function keyDown(editor: ReturnType<typeof setup>, key: string, modifiers: Partial<Pick<KeyboardEvent, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>> = {}): boolean {
   let handled = false
   editor.view.someProp('handleKeyDown', (handler) => {
-    handled = handler(editor.view, new KeyboardEvent('keydown', { key })) === true
+    handled = handler(editor.view, new KeyboardEvent('keydown', { key, ...modifiers })) === true
     return handled
   })
   return handled
@@ -78,6 +78,16 @@ describe('card authoring extension', () => {
     editor.commands.setInlineHighlight({ color: 'yellow' })
     editor.set(doc(paragraph('<a>Cloze this<b>')))
     editor.commands.addCloze({ anchorKind: 'rich-content' })
+    expect(actions).toEqual(['extract', 'cloze'])
+  })
+
+  it('reports semantic actions for Highlight and Cloze shortcuts', () => {
+    const actions: string[] = []
+    const editor = setup(['definition-cloze', 'group-cloze', 'card-cloze'], action => actions.push(action))
+    const { doc, paragraph } = editor.nodes
+    editor.set(doc(paragraph('<a>Shortcut text<b>')))
+    expect(keyDown(editor, 'x', { altKey: true })).toBe(true)
+    expect(keyDown(editor, 'z', { altKey: true })).toBe(true)
     expect(actions).toEqual(['extract', 'cloze'])
   })
 
