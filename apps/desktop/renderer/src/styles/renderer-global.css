@@ -108,6 +108,95 @@ body[data-renderer="panel"] {
   -webkit-backdrop-filter: none !important;
 }
 
+/* Shelf predates the runtime theme contract, so its chrome consumes the
+ * unminified variables that the renderer updates when the family changes. */
+main[aria-label="Shelf"] :is([data-ui="shelf-source-trigger"], [data-ui="shelf-search"]) {
+  border: var(--ui-control-stroke) solid var(--ui-field-border) !important;
+  border-radius: var(--ui-control-radius) !important;
+  background: var(--ui-surface-translucent) !important;
+  backdrop-filter: var(--ui-material-filter) !important;
+  box-shadow: var(--ui-shadow-subtle) !important;
+}
+
+main[aria-label="Shelf"] [data-ui="shelf-source-trigger"]:hover {
+  background: var(--ui-control-hover) !important;
+}
+
+main[aria-label="Shelf"] [data-ui="shelf-source-trigger"]:active {
+  background: var(--ui-control-pressed) !important;
+}
+
+main[aria-label="Shelf"] [data-ui="shelf-source-trigger"]:focus-visible,
+main[aria-label="Shelf"] [data-ui="shelf-search"]:focus-within {
+  border-color: var(--ui-focus) !important;
+  box-shadow: 0 0 0 2px var(--ui-focus) !important;
+}
+
+main[aria-label="Shelf"] [data-ui="shelf-search"]:focus-within {
+  background: var(--ui-surface-raised) !important;
+}
+
+main[aria-label="Shelf"] [data-ui="shelf-search-clear"] {
+  border-radius: var(--ui-control-radius) !important;
+  background: var(--ui-control-pressed) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-source-trigger"] {
+  border: 1px solid rgba(255, 255, 255, 0.68) !important;
+  border-radius: 18px !important;
+  background: rgba(246, 248, 251, 0.56) !important;
+  backdrop-filter: blur(24px) saturate(175%) !important;
+  box-shadow: 0 5px 14px rgba(27, 34, 44, 0.11), 0 1px 3px rgba(27, 34, 44, 0.07), inset 0 1px rgba(255, 255, 255, 0.82) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-source-trigger"]:hover {
+  background: rgba(250, 251, 253, 0.68) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-source-trigger"]:active {
+  background: rgba(226, 230, 237, 0.66) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-search"] {
+  border: 1px solid rgba(255, 255, 255, 0.62) !important;
+  border-radius: 17px !important;
+  background: rgba(239, 242, 246, 0.58) !important;
+  backdrop-filter: blur(24px) saturate(175%) !important;
+  box-shadow: 0 5px 14px rgba(27, 34, 44, 0.1), 0 1px 3px rgba(27, 34, 44, 0.06), inset 0 1px rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-search"]:focus-within {
+  border-color: rgba(0, 113, 227, 0.28) !important;
+  background: rgba(250, 251, 253, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16), 0 5px 14px rgba(27, 34, 44, 0.1), inset 0 1px rgba(255, 255, 255, 0.86) !important;
+}
+
+html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-search-clear"] {
+  border-radius: 10px !important;
+  background: rgba(61, 67, 77, 0.14) !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  main[aria-label="Shelf"] :is([data-ui="shelf-source-trigger"], [data-ui="shelf-search"]) {
+    backdrop-filter: none !important;
+  }
+
+  html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-source-trigger"] {
+    background: rgb(245, 246, 248) !important;
+  }
+
+  html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] [data-ui="shelf-search"] {
+    background: rgb(239, 240, 243) !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  html[data-ui-theme-family="liquid-glass"][data-ui-theme-resolved-appearance="light"] :is([data-ui="shelf-source-trigger"], [data-ui="shelf-search"]) {
+    border-color: rgba(49, 54, 63, 0.5) !important;
+    background: rgba(250, 250, 251, 0.96) !important;
+  }
+}
+
 /* Neubrutalism is intentionally hard-edged; Fluent keeps its small rectangle radii. */
 html[data-ui-theme-family="neubrutalism"] :is(
   button,

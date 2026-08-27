@@ -227,7 +227,7 @@ export function ShelfPage({
                 >
                   <div {...stylex.props(shelfPageStyles.sourceSwitcher)}>
                     <DropdownMenu.Trigger asChild>
-                      <button ref={sourceTriggerRef} {...stylex.props(shelfPageStyles.sourceTrigger)} type="button">
+                      <button ref={sourceTriggerRef} {...stylex.props(shelfPageStyles.sourceTrigger)} data-ui="shelf-source-trigger" type="button">
                         <span {...stylex.props(shelfPageStyles.sourceTriggerIcon)} aria-hidden="true">
                           {catalog.selectedSource ? <Globe2 size={16} strokeWidth={1.8} /> : <LibraryBig size={16} strokeWidth={1.8} />}
                         </span>
@@ -252,7 +252,7 @@ export function ShelfPage({
                   </div>
                 </DropdownMenu.Root>
                 <div {...stylex.props(shelfPageStyles.toolbarTrailing)}>
-                  <label {...stylex.props(shelfPageStyles.searchBox)}>
+                  <label {...stylex.props(shelfPageStyles.searchBox)} data-ui="shelf-search">
                     <Search size={15} strokeWidth={1.8} aria-hidden="true" />
                     <input
                       {...stylex.props(shelfPageStyles.searchInput)}
@@ -267,7 +267,7 @@ export function ShelfPage({
                     />
                     {searchQuery.length > 0
                       ? (
-                          <button {...stylex.props(shelfPageStyles.clearSearch)} aria-label={t('shelfClearSearch')} type="button" onClick={() => void replaceSearch({ ...routeSearch, q: undefined })}>
+                          <button {...stylex.props(shelfPageStyles.clearSearch)} aria-label={t('shelfClearSearch')} data-ui="shelf-search-clear" type="button" onClick={() => void replaceSearch({ ...routeSearch, q: undefined })}>
                             <X size={13} strokeWidth={2} aria-hidden="true" />
                           </button>
                         )
