@@ -26,6 +26,19 @@ export type OutdentResult
     reason: OutdentBlockedReason
   }
 
+export type OutlineMoveDirection = 'down' | 'up'
+
+export type OutlineMoveResult
+  = | {
+    status: 'ready'
+    document: NodeJSON
+    movedBlockIds: string[]
+  }
+  | {
+    status: 'blocked'
+    reason: 'empty_selection' | 'unknown_selected_block' | 'at_boundary' | 'focus_root'
+  }
+
 interface BlockContainer {
   children: OutlineBlock[]
   owner: OutlineBlock | null
@@ -206,4 +219,56 @@ export function planOutdent(
     document: serializeTree(tree),
     movedBlockIds: targetsInDocumentOrder.map(target => target.id),
   }
+}
+
+/** Moves selected blocks within their current parents, preserving each subtree. */
+export function planMove(
+  document: NodeJSON,
+  selectedBlockIds: readonly string[],
+  direction: OutlineMoveDirection,
+): OutlineMoveResult {
+  if (selectedBlockIds.length === 0)
+    return { reason: 'empty_selection', status: 'blocked' }
+
+  const tree = parseOutlineTree(document)
+  const selected = selectedBlockIds.map(id => tree.blocks.get(id))
+  if (selected.some(block => !block))
+    return { reason: 'unknown_selected_block', status: 'blocked' }
+
+  const selectedSet = new Set(selectedBlockIds)
+  const targets = (selected as OutlineBlock[]).filter((block) => {
+    // A selected descendant moves with its selected ancestor.
+    let owner = block.parent.owner
+    while (owner) {
+      if (selectedSet.has(owner.id))
+        return false
+      owner = owner.parent.owner
+    }
+    return true
+  }).sort((left, right) => left.order - right.order)
+
+  const moved = direction === 'up' ? [...targets] : [...targets].reverse()
+  const delta = direction === 'up' ? -1 : 1
+  for (const target of targets) {
+    const siblings = target.parent.children
+    const index = siblings.indexOf(target)
+    let adjacentIndex = index + delta
+    while (adjacentIndex >= 0 && adjacentIndex < siblings.length && selectedSet.has(siblings[adjacentIndex]!.id))
+      adjacentIndex += delta
+    if (adjacentIndex < 0 || adjacentIndex >= siblings.length)
+      return { reason: 'at_boundary', status: 'blocked' }
+  }
+
+  const movedIds: string[] = []
+  for (const target of moved) {
+    const siblings = target.parent.children
+    const index = siblings.indexOf(target)
+    siblings.splice(index, 1)
+    siblings.splice(index + delta, 0, target)
+    movedIds.push(target.id)
+  }
+
+  if (movedIds.length === 0)
+    return { reason: 'at_boundary', status: 'blocked' }
+  return { document: serializeTree(tree), movedBlockIds: movedIds, status: 'ready' }
 }

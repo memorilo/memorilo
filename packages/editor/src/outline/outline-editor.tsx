@@ -5,6 +5,7 @@ import * as stylex from '@stylexjs/stylex'
 import { ArrowLeft } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
+import { executeOutlineMove } from '../common/outline-outdent'
 import { outlineEditorStyles } from './outline-editor.stylex'
 import { observeOutlineMarkerAlignment } from './outline-marker-alignment'
 import './outline-content.stylex'
@@ -18,6 +19,18 @@ function visibleBlockIds(root: HTMLElement): string[] {
         throw new Error('A visible outline block is missing its blockId')
       return blockId
     })
+}
+
+function currentBlockId(session: EditorSession): string | null {
+  const { $from } = session.editor.state.selection
+  for (let depth = $from.depth; depth >= 0; depth -= 1) {
+    const node = $from.node(depth)
+    if (node.type.name !== 'list')
+      continue
+    const blockId = node.attrs.blockId
+    return typeof blockId === 'string' && blockId.length > 0 ? blockId : null
+  }
+  return null
 }
 
 function focusLabel(root: HTMLElement | null, blockId: string | null): string | null {
@@ -156,6 +169,72 @@ export function OutlineEditor({
     document.addEventListener('click', handleMarkerClick, true)
     return () => document.removeEventListener('click', handleMarkerClick, true)
   }, [readOnly, requestFocus, rootRef, runtime])
+
+  useEffect(() => {
+    if (readOnly)
+      return
+    const root = rootRef.current
+    if (!root)
+      throw new Error('Outline keyboard shortcuts require a mounted editor root')
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || (event.altKey && (event.metaKey || event.ctrlKey)))
+        return
+      const ids = visibleBlockIds(root)
+      if (ids.length === 0)
+        return
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLocaleLowerCase() === 'a') {
+        event.preventDefault()
+        event.stopPropagation()
+        runtime.selectAllVisible(ids)
+        return
+      }
+      const currentId = currentBlockId(session)
+      const selected = snapshot.selectedBlockIds.length > 0
+        ? [...snapshot.selectedBlockIds]
+        : currentId ? [currentId] : []
+      if (selected.length === 0)
+        return
+
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        event.preventDefault()
+        event.stopPropagation()
+        executeOutlineMove(session.editor.state, session.editor.view.dispatch, runtime, event.key === 'ArrowUp' ? 'up' : 'down', selected)
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        event.preventDefault()
+        event.stopPropagation()
+        runtime.setCollapsed(selected, event.key === 'ArrowUp')
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key === ';') {
+        event.preventDefault()
+        event.stopPropagation()
+        runtime.toggleCollapsed(selected)
+        return
+      }
+
+      if (event.altKey && !event.metaKey && !event.ctrlKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        if (!currentId)
+          return
+        const currentIndex = ids.indexOf(currentId)
+        if (currentIndex < 0)
+          return
+        const nextId = ids[Math.max(0, Math.min(ids.length - 1, currentIndex + (event.key === 'ArrowUp' ? -1 : 1)))]
+        if (!nextId || nextId === currentId)
+          return
+        event.preventDefault()
+        event.stopPropagation()
+        if (snapshot.selectedBlockIds.length === 0)
+          runtime.selectBlock(currentId, 'toggle', ids)
+        runtime.selectBlock(nextId, 'range', ids)
+      }
+    }
+    root.addEventListener('keydown', handleKeyDown, true)
+    return () => root.removeEventListener('keydown', handleKeyDown, true)
+  }, [readOnly, rootRef, runtime, session, snapshot.selectedBlockIds])
 
   return (
     <>
