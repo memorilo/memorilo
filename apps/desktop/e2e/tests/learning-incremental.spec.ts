@@ -33,6 +33,7 @@ async function createHighlightedNote(window: Page, title: string): Promise<void>
   await expect(initialBlock).toBeVisible()
   await initialBlock.click()
   await window.keyboard.press('End')
+  await window.keyboard.type('Context remains editable.')
   await window.keyboard.press('Enter')
   await window.keyboard.type('Incremental learning keeps source notes editable.')
 
@@ -52,6 +53,21 @@ async function createHighlightedNote(window: Page, title: string): Promise<void>
   await expect(window.getByTestId('inline-menu-main')).toBeVisible()
   await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Highlight' }).click()
   await expect(sourceBlock.locator('[data-inline-highlight="yellow"]')).toHaveText('Incremental learning keeps source notes editable.')
+}
+
+async function selectBlockText(block: ReturnType<Page['locator']>): Promise<void> {
+  await block.evaluate((element) => {
+    const text = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode()
+    if (!(text instanceof Text))
+      throw new Error('Learning Block has no text node')
+    const selection = document.getSelection()
+    if (!selection)
+      throw new Error('Learning selection is unavailable')
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  })
 }
 
 async function openIncrementalLearning(window: Page): Promise<void> {
@@ -93,6 +109,45 @@ test('runs a Highlight Reading Item through the editable Learning workspace', as
       const readingItemAfterNext = (await rpc(window, 'listReadingItems', [{ includeScheduled: true }]))[0]
       expect(readingItemAfterNext.state).toBe('learning')
       expect(readingItemAfterNext.nextProcessAt).toBeGreaterThan(readingItemBeforeNext.nextProcessAt ?? 0)
+    }
+    finally {
+      await application.close()
+    }
+  }
+  finally {
+    await removePagesTestEnvironment(environment)
+  }
+})
+
+test('processes extract and cloze actions through Learning scheduling', async () => {
+  const environment = await createPagesTestEnvironment('memorilo-learning-actions-', [])
+  try {
+    const application = await launchPagesTestApplication(environment)
+    try {
+      const window = await application.firstWindow()
+      await createHighlightedNote(window, 'Learning actions E2E 8adf2d')
+      await expect.poll(async () => (await rpc(window, 'listReadingItems', [{ includeScheduled: true }])).length).toBe(1)
+      await openIncrementalLearning(window)
+
+      const workspace = window.getByRole('main', { name: 'Incremental learning' })
+      const blocks = workspace.getByRole('textbox', { name: 'Editor content' }).locator('[data-block-id]')
+      const readingItem = (await rpc(window, 'listReadingItems', [{ includeScheduled: true }]))[0]
+
+      await selectBlockText(blocks.filter({ hasText: 'Context remains editable.' }).first())
+      await expect(window.getByTestId('inline-menu-main')).toBeVisible()
+      await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Highlight' }).click()
+      await expect.poll(async () => (await rpc(window, 'listReadingItems', [{ includeScheduled: true, readingItemId: readingItem.readingItemId }]))[0]?.state).toBe('learning')
+      const afterExtract = (await rpc(window, 'listReadingItems', [{ includeScheduled: true, readingItemId: readingItem.readingItemId }]))[0]
+      expect(afterExtract.nextProcessAt).toBeGreaterThan(Date.now())
+
+      await selectBlockText(blocks.filter({ hasText: 'Incremental learning keeps source notes editable.' }).first())
+      await expect(window.getByTestId('inline-menu-main')).toBeVisible()
+      await window.getByTestId('inline-menu-main').getByRole('button', { exact: true, name: 'Cloze' }).click()
+      await expect.poll(async () => (await rpc(window, 'listReadingItems', [{ includeScheduled: true, readingItemId: readingItem.readingItemId }]))[0]?.nextProcessAt).toBeGreaterThan((afterExtract.nextProcessAt ?? 0) + 20 * 60 * 60 * 1000)
+      const afterCloze = (await rpc(window, 'listReadingItems', [{ includeScheduled: true, readingItemId: readingItem.readingItemId }]))[0]
+      if (!afterCloze)
+        throw new Error('Reading Item disappeared after Cloze')
+      expect(afterCloze.nextProcessAt).toBeGreaterThan((afterExtract.nextProcessAt ?? 0) + 20 * 60 * 60 * 1000)
     }
     finally {
       await application.close()
