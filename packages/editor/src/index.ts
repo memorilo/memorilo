@@ -53,6 +53,7 @@ export type {
 export { createEditorCardSync, EditorCardSyncClosedError } from './card/card-sync'
 export { EditorMode } from './common/editor-mode'
 export type { EditorModeName, EditorModeValue } from './common/editor-mode'
+export type { EditorShortcutConfiguration, FormattingShortcutConfiguration } from './common/formatting-shortcuts'
 export type { OutlineFocusTarget, OutlineOptions } from './common/outline-runtime'
 export { Editor } from './editor'
 export type { EditorFocusTarget, EditorLayout, EditorProps } from './editor'

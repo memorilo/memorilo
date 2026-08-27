@@ -71,10 +71,15 @@ export interface DesktopShortcutConfiguration {
   addBasicCard: string
   addCloze: string
   back: string
+  bold: string
+  code: string
   forward: string
   highlight: string
+  italic: string
   nextNoteStructureEntry: string
   previousNoteStructureEntry: string
+  strike: string
+  underline: string
 }
 
 export interface DesktopConfiguration {

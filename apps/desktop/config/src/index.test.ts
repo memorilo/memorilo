@@ -112,7 +112,22 @@ describe('desktop MCP configuration', () => {
         forward: 'Alt+Right',
         addBasicCard: 'Alt+A',
         addCloze: 'Alt+Z',
+        bold: desktopConfigurationDefinition.defaults.shortcuts.bold,
+        code: desktopConfigurationDefinition.defaults.shortcuts.code,
+        italic: desktopConfigurationDefinition.defaults.shortcuts.italic,
+        strike: desktopConfigurationDefinition.defaults.shortcuts.strike,
+        underline: desktopConfigurationDefinition.defaults.shortcuts.underline,
       },
+    })
+  })
+
+  it('exposes configurable formatting shortcut defaults', () => {
+    expect(desktopConfigurationDefinition.defaults.shortcuts).toMatchObject({
+      bold: expect.stringMatching(/^(Mod|Ctrl)\+B$/u),
+      code: expect.stringMatching(/^(Mod|Ctrl)\+E$/u),
+      italic: expect.stringMatching(/^(Mod|Ctrl)\+I$/u),
+      strike: expect.stringMatching(/^(Mod|Ctrl)\+S$/u),
+      underline: expect.stringMatching(/^(Mod|Ctrl)\+U$/u),
     })
   })
 })

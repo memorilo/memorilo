@@ -14,6 +14,7 @@ export interface ShortcutInputProps {
 
 const keyLabels: Record<string, string> = {
   Backspace: '⌫',
+  Mod: '⌘',
   Delete: '⌦',
   Down: '↓',
   Enter: '↵',

@@ -141,12 +141,17 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehavior')
     case 'shortcuts.back': return t('shortcutBack')
+    case 'shortcuts.bold': return t('shortcutBold')
+    case 'shortcuts.code': return t('shortcutCode')
     case 'shortcuts.forward': return t('shortcutForward')
     case 'shortcuts.previousNoteStructureEntry': return t('shortcutPreviousNoteStructureEntry')
     case 'shortcuts.nextNoteStructureEntry': return t('shortcutNextNoteStructureEntry')
     case 'shortcuts.addBasicCard': return t('shortcutAddBasicCard')
     case 'shortcuts.highlight': return t('shortcutHighlight')
     case 'shortcuts.addCloze': return t('shortcutAddCloze')
+    case 'shortcuts.italic': return t('shortcutItalic')
+    case 'shortcuts.strike': return t('shortcutStrike')
+    case 'shortcuts.underline': return t('shortcutUnderline')
     case 'readerArrowKeyPageTurning':
       return t('readerArrowKeyPageTurning')
     case 'readerAnnotationCopyFormat':
@@ -223,12 +228,17 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehaviorDescription')
     case 'shortcuts.back':
+    case 'shortcuts.bold':
+    case 'shortcuts.code':
     case 'shortcuts.forward':
     case 'shortcuts.previousNoteStructureEntry':
     case 'shortcuts.nextNoteStructureEntry':
     case 'shortcuts.addBasicCard':
     case 'shortcuts.highlight':
     case 'shortcuts.addCloze':
+    case 'shortcuts.italic':
+    case 'shortcuts.strike':
+    case 'shortcuts.underline':
       return t('shortcutDescription')
     case 'readerArrowKeyPageTurning':
       return t('readerArrowKeyPageTurningDescription')

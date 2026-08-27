@@ -3,6 +3,7 @@ import type { EditorAdapters } from './adapters/editor-adapters'
 import type { CardReviewOptions } from './card/card-review-runtime'
 import type { EditorCardIntegration } from './card/card-sync'
 import type { EditorModeValue } from './common/editor-mode'
+import type { EditorShortcutConfiguration } from './common/formatting-shortcuts'
 import type { OutlineOptions } from './common/outline-runtime'
 import type { EditorImageOcclusionIntegration } from './image-occlusion/image-occlusion-model'
 import type { EditorTopicDocument } from './note/editor-note'
@@ -39,7 +40,7 @@ interface EditorBaseProps {
   focus?: EditorFocusTarget
   imageOcclusion?: EditorImageOcclusionIntegration
   learningEnabled?: boolean
-  shortcuts?: { addBasicCard?: string, addCloze?: string, highlight?: string }
+  shortcuts?: EditorShortcutConfiguration
   mode?: EditorModeValue
   onDocumentChange?: (document: NodeJSON) => void
   outline?: OutlineOptions

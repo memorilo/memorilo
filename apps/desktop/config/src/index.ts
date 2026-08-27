@@ -41,6 +41,14 @@ function defaultDesktopThemeFamily(): DesktopThemeFamily {
   return /Mac|iPhone|iPad|iPod/i.test(navigatorPlatform) ? 'liquid-glass' : 'fluent'
 }
 
+function defaultShortcutModifier(): 'Ctrl' | 'Mod' {
+  // Keep configurable defaults aligned with ProseMirror's platform-aware Mod key.
+  // eslint-disable-next-line node/prefer-global/process
+  const platform = typeof globalThis.process?.platform === 'string' ? globalThis.process.platform : undefined
+  const navigatorPlatform = typeof navigator === 'undefined' ? '' : navigator.platform
+  return platform === 'darwin' || /Mac|iPhone|iPad|iPod/i.test(navigatorPlatform) ? 'Mod' : 'Ctrl'
+}
+
 const defaultFlashcardConfiguration = {
   buryInterdayLearningSiblings: true,
   buryNewSiblings: true,
@@ -62,10 +70,15 @@ const defaultShortcutConfiguration = {
   addBasicCard: 'Alt+A',
   addCloze: 'Alt+Z',
   back: 'Alt+Left',
+  bold: `${defaultShortcutModifier()}+B`,
+  code: `${defaultShortcutModifier()}+E`,
   forward: 'Alt+Right',
   highlight: 'Alt+X',
+  italic: `${defaultShortcutModifier()}+I`,
   nextNoteStructureEntry: 'Alt+PageDown',
   previousNoteStructureEntry: 'Alt+PageUp',
+  strike: `${defaultShortcutModifier()}+S`,
+  underline: `${defaultShortcutModifier()}+U`,
 } as const
 
 export const DesktopConfigurationSchema = Schema.Struct({
@@ -114,10 +127,15 @@ export const DesktopConfigurationSchema = Schema.Struct({
     addBasicCard: Schema.String,
     addCloze: Schema.String,
     back: Schema.String,
+    bold: Schema.String,
+    code: Schema.String,
     forward: Schema.String,
     highlight: Schema.String,
+    italic: Schema.String,
     nextNoteStructureEntry: Schema.String,
     previousNoteStructureEntry: Schema.String,
+    strike: Schema.String,
+    underline: Schema.String,
   }),
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
@@ -455,6 +473,31 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Add Cloze',
       path: 'shortcuts.addCloze',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Bold',
+      path: 'shortcuts.bold',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Italic',
+      path: 'shortcuts.italic',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Underline',
+      path: 'shortcuts.underline',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Strikethrough',
+      path: 'shortcuts.strike',
+    }, {
+      control: 'shortcut',
+      description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
+      label: 'Inline code',
+      path: 'shortcuts.code',
     }],
     id: 'editor',
     label: 'Editor',

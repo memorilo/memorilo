@@ -19,6 +19,15 @@ describe('shortcut input', () => {
     expect(markup).toContain('>+</span>')
   })
 
+  it('renders the platform-neutral primary modifier as a command key', () => {
+    const markup = renderToStaticMarkup(
+      <ShortcutInput label="Bold" onChange={() => {}} value="Mod+B" />,
+    )
+
+    expect(markup).toContain('>⌘</kbd>')
+    expect(markup).toContain('>B</kbd>')
+  })
+
   it('shows the placeholder when the binding is cleared', () => {
     const markup = renderToStaticMarkup(
       <ShortcutInput label="Back" onChange={() => {}} placeholder="Not set" value="" />,
