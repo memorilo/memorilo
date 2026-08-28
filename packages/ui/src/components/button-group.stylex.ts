@@ -15,7 +15,7 @@ export const buttonGroupStyles = stylex.create({
     },
     borderStyle: 'solid',
     borderWidth: uiColors.controlStroke,
-    borderRadius: uiColors.surfaceRadius,
+    borderRadius: uiColors.pillRadius,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
       '@media (prefers-reduced-transparency: reduce)': 'rgb(240, 242, 246)',

@@ -141,6 +141,13 @@ export const readerShellStyles = stylex.create({
   },
   actionsWindowWithSidebarActions: {
     right: 44,
+    transitionDuration: '220ms',
+    transitionProperty: 'right',
+    transitionTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  },
+  actionsWindowWithSidebarActionsActive: {
+    // The auxiliary action reveals one 32px control; keep the two fixed groups separated while it animates.
+    right: 76,
   },
   sidebarActions: {
     display: 'flex',

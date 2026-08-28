@@ -30,6 +30,7 @@ interface ReaderToolbarProps {
   regionSelectionActive: boolean
   run: ReaderSessionEngine['run']
   sidebarActions?: ReactNode
+  sidebarActionsActive?: boolean
   sourceName?: string
   status: ReaderSessionEngine['state']['status']
   title?: string
@@ -58,6 +59,7 @@ export function ReaderToolbar({
   regionSelectionActive,
   run,
   sidebarActions,
+  sidebarActionsActive = false,
   sourceName,
   status,
   title,
@@ -158,6 +160,7 @@ export function ReaderToolbar({
           readerStyles.actions,
           chrome === 'window' && readerStyles.actionsWindow,
           chrome === 'window' && sidebarActions !== undefined && readerStyles.actionsWindowWithSidebarActions,
+          chrome === 'window' && sidebarActionsActive && readerStyles.actionsWindowWithSidebarActionsActive,
         ]}
       >
         {sidebarButton}

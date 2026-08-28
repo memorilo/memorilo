@@ -334,6 +334,7 @@ function ReaderSession({
         run={run}
         sourceName={source.name}
         sidebarActions={renderedSidebarActions}
+        sidebarActionsActive={auxiliarySidebarActive}
         status={status}
         title={title}
         toolbarActions={toolbarActions}
