@@ -22,9 +22,20 @@ Import packages through their public entry points. Do not reach into another pac
 - Keep the public API small: expose semantic variants and slots for real layout differences, not feature flags for unrelated workflows. Pass `xstyle` for local composition; keep structural rules and states in the component's `*.stylex.ts` file.
 - `packages/ui/src/theme.stylex.ts` owns shared semantic tokens and theme presets. Shared styles consume tokens rather than raw colors, shadows, or surfaces, so a theme may change the visual language substantially without feature edits. Apply the selected theme at renderer composition roots.
 - Feature-only styles may use feature tokens and remain local. Third-party/editor integration styles, positioning adapters, and lifecycle-specific behavior stay at their integration boundary instead of leaking into `packages/ui`.
-- Keep pure synchronous view-model calculations in ordinary TypeScript. Components coordinate React state, events, and rendering; use Effect only at an explicitly justified asynchronous/resource boundary, never to wrap presentation for consistency.
+- Keep pure synchronous view-model calculations in ordinary TypeScript. Components coordinate React state, events, and rendering; place Effect programs behind the asynchronous, resource, or service boundary described below.
 - Preserve native semantics and observable states: forward native props and refs, expose `data-ui`, `data-variant`, and `data-state` where useful, and make focus, dismissal, reduced motion, and disabled behavior part of the component contract.
 - When changing a shared control, inspect every public consumer, update the component and its StyleX module together, and run the affected package's lint, typecheck, and focused tests before broader repository gates.
+
+## Effect-TS and reuse
+
+- Use Effect as the default orchestration model for cross-layer asynchronous work and external effects: persistence and database access, IPC and P2P calls, filesystem or network I/O, Electron lifecycle resources, cancellation, timeouts, retries, and recovery. Keep the returned effect composable, and call `Effect.runPromise` or the app runtime only at the owning execution boundary.
+- Model failures as typed, discriminated errors with stable codes or tags, using `Data.TaggedError` when it fits the package's existing contracts. Convert unknown exceptions at the boundary with `Effect.try` or `Effect.tryPromise`, preserve the cause for diagnostics, and map domain failures to localized UI messages only in the UI layer.
+- Represent dependencies as small services and compose them with `Context` and `Layer`. Inject database handles, clients, clocks, filesystem adapters, and Electron resources instead of constructing them inside business functions; this keeps implementations replaceable and makes shared behavior reusable across main, preload, renderer, and package code.
+- Use `Effect.acquireUseRelease` or a scoped `Layer` for every resource with a lifetime. Tie listeners, windows, connections, workers, and temporary files to that scope so cleanup runs on success, failure, and interruption.
+- Express workflows with `Effect.gen` and named service operations. Compose independent work with `Effect.all` and an explicit concurrency policy; use `Schedule` for bounded retry and backoff, and propagate interruption so obsolete UI requests do not continue doing I/O.
+- Extract a shared service or combinator when multiple features repeat loading, error mapping, retry, caching, or lifecycle code. Reuse one Layer/service instance for hot paths, and document cache invalidation or lifetime boundaries whenever reuse changes observable behavior.
+- Keep Effect at a meaningful boundary: represent pure validation, synchronous calculations, React rendering, and simple event handlers in ordinary TypeScript. Add an Effect abstraction when it removes real duplication or makes a resource, dependency, concurrency, or error contract explicit.
+- Before adding a parallel implementation, search public package APIs and existing Effect services for a reusable operation. Extend the owning service contract when the behavior is cross-feature; consume it through public package entry points and keep feature-specific policy in the feature.
 
 ## Development commands
 
