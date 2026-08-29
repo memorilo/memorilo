@@ -484,6 +484,78 @@ describe('document interactions', () => {
     await waitFor(() => expect(selectedDomBlockId()).toBe(secondBlockId))
   })
 
+  it('exits an empty Todo without leaking task attributes and keeps its timing history', async () => {
+    const rendered = render(
+      <Editor adapters={adapters} mode={EditorMode.Document} />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+
+    await userEvent.click(editor)
+    await userEvent.keyboard(modShortcut('{Enter}'))
+    await rendered.findByRole('button', { name: 'Task status: todo' })
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => {
+      const block = editor.firstElementChild
+      expect(block).toHaveAttribute('data-list-kind', 'outline')
+      expect(block).not.toHaveAttribute('data-task-status')
+      expect(block?.querySelector(':scope > .list-content > p')).toHaveAttribute(
+        'data-task-history',
+        JSON.stringify({ status: 'todo', elapsedMs: 0 }),
+      )
+    })
+
+    await userEvent.keyboard('{Enter}{Enter}')
+    await waitFor(() => {
+      expect(editor.children).toHaveLength(3)
+      expect(Array.from(editor.children).every(block => block.getAttribute('data-list-kind') === 'outline')).toBe(true)
+    })
+  })
+
+  it('preserves elapsed time when an empty Todo is exited', async () => {
+    const task = documentBlock('timed', { type: 'paragraph' }, 'task')
+    const rendered = render(
+      <Editor
+        adapters={adapters}
+        mode={EditorMode.Document}
+        initialContent={{
+          type: 'doc',
+          content: [{
+            ...task,
+            attrs: {
+              ...task.attrs,
+              elapsedMs: 1200,
+              startedAt: null,
+              status: 'todo',
+            },
+          }],
+        }}
+      />,
+    )
+    const editor = await rendered.findByRole('textbox', { name: 'Editor content' })
+
+    await userEvent.click(editor)
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => {
+      const block = editor.firstElementChild
+      expect(block).toHaveAttribute('data-list-kind', 'outline')
+      expect(block).not.toHaveAttribute('data-task-status')
+      expect(block?.querySelector(':scope > .list-content > p')).toHaveAttribute(
+        'data-task-history',
+        JSON.stringify({ status: 'todo', elapsedMs: 1200 }),
+      )
+    })
+
+    await userEvent.keyboard(modShortcut('{Enter}'))
+    await waitFor(() => {
+      const block = editor.firstElementChild
+      expect(block).toHaveAttribute('data-list-kind', 'task')
+      expect(block).toHaveAttribute('data-task-status', 'todo')
+      expect(block).toHaveAttribute('data-task-elapsed', '1200')
+    })
+  })
+
   it.each([
     { kind: 'bullet', order: null, text: 'Bullet item' },
     { kind: 'ordered', order: 4, text: 'Ordered item' },
