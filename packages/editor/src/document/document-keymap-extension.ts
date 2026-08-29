@@ -8,6 +8,7 @@ import { addBlockToCardBackCommand } from '../card/card-answer-membership-comman
 import { insertBlockSiblingAfter } from '../common/block-sibling'
 import { currentListBlockContext } from '../common/list-keymap-context'
 import { OUTLINE_LIST_KIND } from '../common/outline-document'
+import { pauseTask } from '../ui/task-list-view/task-status'
 
 const dedentList = createDedentListCommand()
 const unsetBlock = unsetBlockType()
@@ -44,8 +45,43 @@ function setDocumentBlockKind(state: EditorState, transaction: Transaction, posi
 function convertDocumentBlockToOrdinary(state: EditorState, dispatch: DispatchTransaction | undefined, position: number): boolean {
   if (!dispatch)
     return true
+  const node = state.doc.nodeAt(position)
+  if (!node)
+    throw new Error(`Document list block is missing at position ${position}`)
   const transaction = state.tr
-  setDocumentBlockKind(state, transaction, position, OUTLINE_LIST_KIND)
+  const attrs: Record<string, unknown> = {
+    ...node.attrs,
+    checked: false,
+    collapsed: false,
+    kind: OUTLINE_LIST_KIND,
+    order: null,
+  }
+  let ordinaryAttrs = attrs
+  if (node.attrs.kind === 'task') {
+    const content = node.firstChild
+    if (!content || content.type.name !== 'paragraph')
+      throw new Error('An empty Todo must contain a paragraph before it can become ordinary content')
+    // Keep timing on the paragraph so Cmd+Enter can restore it when the block becomes a Todo again.
+    transaction.setNodeMarkup(position + 1, undefined, {
+      ...content.attrs,
+      taskHistory: pauseTask(node.attrs),
+    })
+    ordinaryAttrs = {
+      ...attrs,
+      allDay: false,
+      dueDate: null,
+      dueTime: null,
+      elapsedMs: 0,
+      endAt: null,
+      reminderMinutes: null,
+      reminders: null,
+      repeatRule: null,
+      startAt: null,
+      startedAt: null,
+      status: null,
+    }
+  }
+  transaction.setNodeMarkup(position, undefined, ordinaryAttrs)
   dispatch(transaction)
   return true
 }

@@ -51,6 +51,20 @@ export interface DesktopPanelConfiguration {
   tabOrder: DesktopPanelTabOrder
 }
 
+export type DesktopCursorVfxMode = 'none' | 'railgun' | 'torpedo' | 'pixiedust' | 'sonicboom' | 'ripple' | 'wireframe'
+
+export interface DesktopCursorConfiguration {
+  animationLength: number
+  shortAnimationLength: number
+  trailSize: number
+  vfxMode: DesktopCursorVfxMode
+  vfxOpacity: number
+  vfxParticleLifetime: number
+  vfxParticleDensity: number
+  vfxParticleSpeed: number
+  smoothBlink: boolean
+}
+
 export interface DesktopThemePreference {
   family: DesktopThemeFamily
   appearance: DesktopThemeAppearance
@@ -90,6 +104,7 @@ export interface DesktopShortcutConfiguration {
 export interface DesktopConfiguration {
   backup: DesktopBackupConfiguration
   defaultNoteLearningEnabled: boolean
+  editor: { cursor: DesktopCursorConfiguration }
   flashcards: DesktopFlashcardConfiguration
   goals: DesktopGoalConfiguration
   learning: DesktopLearningConfiguration
