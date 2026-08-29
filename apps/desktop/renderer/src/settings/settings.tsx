@@ -6,7 +6,7 @@ import { ConfigurationFields } from '@memorilo/config/react'
 import { desktopConfigurationDefinition } from '@memorilo/desktop-config'
 import { getUiThemeDefinitions, SegmentedControl, Sidebar } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
-import { BookOpen, CalendarDays, GraduationCap, HardDrive, NotebookPen, Plug, Settings2, Wifi } from 'lucide-react'
+import { BookOpen, CalendarDays, GraduationCap, HardDrive, Keyboard, NotebookPen, Plug, Settings2, Wifi } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,8 +18,8 @@ import { DatabaseSettings } from './database-settings'
 import { P2pSettings } from './p2p-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
-type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading' | 'sync'
-type SourceSectionId = 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'todo'
+type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading' | 'shortcuts' | 'sync'
+type SourceSectionId = 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'shortcut-formatting' | 'shortcut-learning' | 'shortcut-navigation' | 'shortcut-note-structure' | 'todo'
 
 interface SettingsCategoryDefinition {
   readonly id: SettingsCategoryId
@@ -31,6 +31,11 @@ const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
   { id: 'general', sectionIds: ['general'] },
   { id: 'calendar', sectionIds: ['todo'], showSectionHeadings: true },
   { id: 'editor', sectionIds: ['editor'] },
+  {
+    id: 'shortcuts',
+    sectionIds: ['shortcut-navigation', 'shortcut-note-structure', 'shortcut-learning', 'shortcut-formatting'],
+    showSectionHeadings: true,
+  },
   { id: 'reading', sectionIds: ['reading'] },
   { id: 'learning', sectionIds: ['learning', 'goals', 'flashcards'], showSectionHeadings: true },
   { id: 'media', sectionIds: ['images', 'backup'], showSectionHeadings: true },
@@ -48,6 +53,7 @@ const categoryIcons = {
   mcp: Plug,
   media: HardDrive,
   reading: BookOpen,
+  shortcuts: Keyboard,
   sync: Wifi,
 } as const
 
@@ -61,6 +67,8 @@ function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): s
       return t('editorSection')
     case 'reading':
       return t('readingSection')
+    case 'shortcuts':
+      return t('shortcutsSection')
     case 'learning':
       return t('learningSection')
     case 'media':
@@ -82,6 +90,8 @@ function translateCategoryDescription(categoryId: SettingsCategoryId, t: TFuncti
       return t('editorDescription')
     case 'reading':
       return t('readingDescription')
+    case 'shortcuts':
+      return t('shortcutsDescription')
     case 'learning':
       return t('learningDescription')
     case 'media':
@@ -111,6 +121,14 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('imagesSection')
     case 'reading':
       return t('readingSection')
+    case 'shortcut-navigation':
+      return t('shortcutNavigationSection')
+    case 'shortcut-note-structure':
+      return t('shortcutNoteStructureSection')
+    case 'shortcut-learning':
+      return t('shortcutLearningSection')
+    case 'shortcut-formatting':
+      return t('shortcutFormattingSection')
     case 'mcp':
       return t('mcpSection')
     case 'todo':

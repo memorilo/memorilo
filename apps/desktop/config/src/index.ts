@@ -244,7 +244,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
       {
         control: 'select',
         description: 'Choose which tab appears first in the tray panel.',
-        label: 'Panel tab order',
+        label: 'Tray panel tab order',
         options: [
           { label: 'Todo first', value: 'todo-journal' },
           { label: 'Journal first', value: 'journal-todo' },
@@ -456,7 +456,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
         { label: 'Keep URL', value: 'url' },
       ],
       path: 'networkImagePasteBehavior',
-    }, {
+    }],
+    id: 'editor',
+    label: 'Editor',
+  }, {
+    fields: [{
       control: 'shortcut',
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Back',
@@ -466,7 +470,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Forward',
       path: 'shortcuts.forward',
-    }, {
+    }],
+    id: 'shortcut-navigation',
+    label: 'Navigation',
+  }, {
+    fields: [{
       control: 'shortcut',
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Previous Note Structure entry',
@@ -476,7 +484,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Next Note Structure entry',
       path: 'shortcuts.nextNoteStructureEntry',
-    }, {
+    }],
+    id: 'shortcut-note-structure',
+    label: 'Note Structure',
+  }, {
+    fields: [{
       control: 'shortcut',
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Add Basic Card',
@@ -491,7 +503,11 @@ export const desktopConfigurationDefinition = defineConfiguration({
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Add Cloze',
       path: 'shortcuts.addCloze',
-    }, {
+    }],
+    id: 'shortcut-learning',
+    label: 'Learning',
+  }, {
+    fields: [{
       control: 'shortcut',
       description: 'Press a key combination to replace the shortcut. Press Backspace to clear it.',
       label: 'Bold',
@@ -517,8 +533,8 @@ export const desktopConfigurationDefinition = defineConfiguration({
       label: 'Inline code',
       path: 'shortcuts.code',
     }],
-    id: 'editor',
-    label: 'Editor',
+    id: 'shortcut-formatting',
+    label: 'Formatting',
   }, {
     fields: [
       {
