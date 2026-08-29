@@ -1,7 +1,89 @@
 import * as stylex from '@stylexjs/stylex'
 import { editorColors } from './editor-theme.stylex'
 
+const cursorBlink = stylex.keyframes({
+  '0%, 100%': { opacity: 0.72 },
+  '50%': { opacity: 1 },
+})
+
 export const editorCanvasStyles = stylex.create({
+  cursorOverlay: {
+    position: 'absolute',
+    inset: 0,
+    overflow: 'hidden',
+    pointerEvents: 'none',
+    zIndex: 2,
+  },
+  cursor: {
+    position: 'absolute',
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: 'var(--ui-accent, #157a5b)',
+    transformOrigin: 'top left',
+    willChange: 'transform, opacity',
+  },
+  cursorTrail: {
+    position: 'absolute',
+    width: 1,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'var(--ui-accent, #157a5b)',
+    opacity: 0,
+    transformOrigin: 'left center',
+    willChange: 'transform, opacity',
+  },
+  cursorParticle: {
+    position: 'absolute',
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: 'var(--ui-accent, #157a5b)',
+    transformOrigin: 'center',
+    willChange: 'transform, opacity',
+  },
+  cursorParticleTrail: {
+    width: 8,
+    height: 2,
+    borderRadius: 1,
+  },
+  cursorParticleTorpedo: {
+    width: 6,
+    height: 3,
+    borderRadius: 999,
+  },
+  cursorParticlePixieDust: {
+    width: 3,
+    height: 3,
+    borderRadius: 1,
+  },
+  cursorParticleSonicBoom: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+  },
+  cursorParticleRipple: {
+    width: 8,
+    height: 8,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--ui-accent, #157a5b)',
+    backgroundColor: 'transparent',
+  },
+  cursorParticleWireframe: {
+    width: 8,
+    height: 8,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--ui-accent, #157a5b)',
+    borderRadius: 1,
+    backgroundColor: 'transparent',
+  },
+  cursorBlink: {
+    animationName: cursorBlink,
+    animationDuration: '600ms',
+    animationTimingFunction: 'ease-in-out',
+    animationIterationCount: 'infinite',
+  },
   viewport: {
     boxSizing: 'border-box',
     display: 'flex',

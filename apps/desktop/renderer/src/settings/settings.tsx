@@ -132,6 +132,15 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('language')
     case 'reduceMotion':
       return t('reduceMotion')
+    case 'editor.cursor.animationLength': return t('cursorAnimationLength')
+    case 'editor.cursor.shortAnimationLength': return t('cursorTypingAnimation')
+    case 'editor.cursor.trailSize': return t('cursorTrailSize')
+    case 'editor.cursor.vfxMode': return t('cursorParticleEffect')
+    case 'editor.cursor.vfxOpacity': return t('cursorParticleOpacity')
+    case 'editor.cursor.vfxParticleLifetime': return t('cursorParticleLifetime')
+    case 'editor.cursor.vfxParticleDensity': return t('cursorParticleDensity')
+    case 'editor.cursor.vfxParticleSpeed': return t('cursorParticleSpeed')
+    case 'editor.cursor.smoothBlink': return t('smoothCursorBlink')
     case 'panel.tabOrder':
       return t('panelTabOrder')
     case 'defaultNoteLearningEnabled':
@@ -231,6 +240,16 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('panelTabOrderDescription')
     case 'networkImagePasteBehavior':
       return t('networkImagePasteBehaviorDescription')
+    case 'editor.cursor.animationLength':
+    case 'editor.cursor.shortAnimationLength':
+    case 'editor.cursor.trailSize':
+    case 'editor.cursor.vfxMode':
+    case 'editor.cursor.vfxOpacity':
+    case 'editor.cursor.vfxParticleLifetime':
+    case 'editor.cursor.vfxParticleDensity':
+    case 'editor.cursor.vfxParticleSpeed':
+    case 'editor.cursor.smoothBlink':
+      return t('cursorSettingsDescription')
     case 'shortcuts.back':
     case 'shortcuts.bold':
     case 'shortcuts.code':
@@ -345,6 +364,13 @@ function translateOptionLabel(value: string, t: TFunction): string {
       return t('dueRandom')
     case 'retrievability':
       return t('retrievability')
+    case 'none': return t('cursorVfxNone')
+    case 'railgun': return t('cursorVfxRailgun')
+    case 'torpedo': return t('cursorVfxTorpedo')
+    case 'pixiedust': return t('cursorVfxPixiedust')
+    case 'sonicboom': return t('cursorVfxSonicboom')
+    case 'ripple': return t('cursorVfxRipple')
+    case 'wireframe': return t('cursorVfxWireframe')
     case 'spread-week':
       return t('spreadWeek')
     case 'all-due':

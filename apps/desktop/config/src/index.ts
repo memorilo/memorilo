@@ -5,6 +5,8 @@ import * as Schema from 'effect/Schema'
 export type {
   DesktopBackupConfiguration,
   DesktopConfiguration,
+  DesktopCursorConfiguration,
+  DesktopCursorVfxMode,
   DesktopDailyGoalMode,
   DesktopFlashcardConfiguration,
   DesktopGoalConfiguration,
@@ -112,6 +114,19 @@ export const DesktopConfigurationSchema = Schema.Struct({
   panel: Schema.Struct({
     tabOrder: Schema.Literals(['journal-todo', 'todo-journal']),
   }),
+  editor: Schema.Struct({
+    cursor: Schema.Struct({
+      animationLength: Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 })),
+      shortAnimationLength: Schema.Number.check(Schema.isBetween({ maximum: 0.5, minimum: 0 })),
+      trailSize: Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 })),
+      vfxMode: Schema.Literals(['none', 'railgun', 'torpedo', 'pixiedust', 'sonicboom', 'ripple', 'wireframe']),
+      vfxOpacity: Schema.Int.check(Schema.isBetween({ maximum: 255, minimum: 0 })),
+      vfxParticleLifetime: Schema.Number.check(Schema.isBetween({ maximum: 5, minimum: 0.05 })),
+      vfxParticleDensity: Schema.Number.check(Schema.isBetween({ maximum: 20, minimum: 0 })),
+      vfxParticleSpeed: Schema.Number.check(Schema.isBetween({ maximum: 200, minimum: 0 })),
+      smoothBlink: Schema.Boolean,
+    }),
+  }),
   theme: Schema.Struct({
     appearance: Schema.Literals(['system', 'light', 'dark']),
     family: Schema.Literals(['liquid-glass', 'fluent', 'neubrutalism']),
@@ -174,6 +189,19 @@ export const desktopConfigurationDefinition = defineConfiguration({
       retentionCount: 7,
     },
     defaultNoteLearningEnabled: true,
+    editor: {
+      cursor: {
+        animationLength: 0.15,
+        shortAnimationLength: 0.04,
+        trailSize: 1,
+        vfxMode: 'none' as const,
+        vfxOpacity: 200,
+        vfxParticleLifetime: 0.5,
+        vfxParticleDensity: 0.7,
+        vfxParticleSpeed: 10,
+        smoothBlink: true,
+      },
+    },
     flashcards: defaultFlashcardConfiguration,
     goals: defaultGoalConfiguration,
     learning: {
@@ -439,6 +467,85 @@ export const desktopConfigurationDefinition = defineConfiguration({
     label: 'Goals & Streaks',
   }, {
     fields: [{
+      control: 'number',
+      description: 'Duration for normal cursor moves.',
+      label: 'Cursor animation length',
+      max: 1,
+      min: 0,
+      path: 'editor.cursor.animationLength',
+      step: 0.01,
+      unit: 'seconds',
+    }, {
+      control: 'number',
+      description: 'Duration for short horizontal moves while typing.',
+      label: 'Cursor typing animation',
+      max: 0.5,
+      min: 0,
+      path: 'editor.cursor.shortAnimationLength',
+      step: 0.01,
+      unit: 'seconds',
+    }, {
+      control: 'number',
+      description: 'How much the back of the cursor trails behind its leading edge.',
+      label: 'Cursor trail size',
+      max: 1,
+      min: 0,
+      path: 'editor.cursor.trailSize',
+      step: 0.05,
+    }, {
+      control: 'select',
+      description: 'Optional visual effect emitted when the cursor moves.',
+      label: 'Cursor particle effect',
+      options: [
+        { label: 'None', value: 'none' },
+        { label: 'Railgun', value: 'railgun' },
+        { label: 'Torpedo', value: 'torpedo' },
+        { label: 'Pixie dust', value: 'pixiedust' },
+        { label: 'Sonic boom', value: 'sonicboom' },
+        { label: 'Ripple', value: 'ripple' },
+        { label: 'Wireframe', value: 'wireframe' },
+      ],
+      path: 'editor.cursor.vfxMode',
+    }, {
+      control: 'number',
+      description: 'Opacity of cursor particles.',
+      label: 'Cursor particle opacity',
+      max: 255,
+      min: 0,
+      path: 'editor.cursor.vfxOpacity',
+      step: 1,
+    }, {
+      control: 'number',
+      description: 'How long cursor particles remain visible.',
+      label: 'Cursor particle lifetime',
+      max: 5,
+      min: 0.05,
+      path: 'editor.cursor.vfxParticleLifetime',
+      step: 0.05,
+      unit: 'seconds',
+    }, {
+      control: 'number',
+      description: 'Particles generated per line of cursor travel.',
+      label: 'Cursor particle density',
+      max: 20,
+      min: 0,
+      path: 'editor.cursor.vfxParticleDensity',
+      step: 0.1,
+    }, {
+      control: 'number',
+      description: 'Movement speed of cursor particles.',
+      label: 'Cursor particle speed',
+      max: 200,
+      min: 0,
+      path: 'editor.cursor.vfxParticleSpeed',
+      step: 1,
+      unit: 'px/s',
+    }, {
+      control: 'toggle',
+      description: 'Fade the cursor smoothly during its blink cycle.',
+      label: 'Smooth cursor blink',
+      path: 'editor.cursor.smoothBlink',
+    }, {
       control: 'select',
       description: 'Choose how Shift-Tab moves selected blocks in Outline mode.',
       label: 'Outdent behavior',
@@ -631,9 +738,25 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && Object.keys(defaultShortcuts).every(key => typeof shortcuts[key] === 'string')
     ? withPanel
     : { ...withPanel, shortcuts: { ...defaultShortcuts, ...shortcuts } }
+  const storedEditor = record.editor
+  const editor = typeof storedEditor === 'object' && storedEditor !== null && !Array.isArray(storedEditor)
+    ? storedEditor as Record<string, unknown>
+    : {}
+  const storedCursor = editor.cursor
+  const cursor = typeof storedCursor === 'object' && storedCursor !== null && !Array.isArray(storedCursor)
+    ? storedCursor as Record<string, unknown>
+    : {}
+  const defaultCursor = desktopConfigurationDefinition.defaults.editor.cursor
+  const withEditor = editor.cursor !== undefined
+    && Object.keys(defaultCursor).every(key => key in cursor)
+    ? withShortcuts
+    : {
+        ...withShortcuts,
+        editor: { cursor: { ...defaultCursor, ...cursor } },
+      }
   if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...withShortcuts,
+      ...withEditor,
       todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
@@ -643,7 +766,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
     return {
-      ...withShortcuts,
+      ...withEditor,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
@@ -656,12 +779,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
     return {
-      ...withShortcuts,
+      ...withEditor,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
-  return withShortcuts
+  return withEditor
 }

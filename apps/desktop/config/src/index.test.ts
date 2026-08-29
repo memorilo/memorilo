@@ -13,6 +13,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
   return {
     backup: desktopConfigurationDefinition.defaults.backup,
     defaultNoteLearningEnabled: true,
+    editor: desktopConfigurationDefinition.defaults.editor,
     flashcards: desktopConfigurationDefinition.defaults.flashcards,
     goals: desktopConfigurationDefinition.defaults.goals,
     learning: desktopConfigurationDefinition.defaults.learning,
@@ -35,6 +36,14 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
 }
 
 describe('desktop MCP configuration', () => {
+  it('uses Neovide cursor timing with smooth blink enabled by default', () => {
+    expect(desktopConfigurationDefinition.defaults.editor.cursor).toMatchObject({
+      animationLength: 0.15,
+      shortAnimationLength: 0.04,
+      smoothBlink: true,
+    })
+  })
+
   it('copies only highlighted text by default and validates every copy format', () => {
     expect(desktopConfigurationDefinition.defaults.readerAnnotationCopyFormat).toBe('text')
     expect(desktopConfigurationDefinition.defaults.readerPageMode).toBe('continuous')

@@ -28,6 +28,20 @@ export function DesktopConfigurationEnvironment({
   }, [configuration.reduceMotion])
 
   useEffect(() => {
+    const cursor = configuration.editor.cursor
+    const root = document.documentElement
+    root.dataset.editorCursorAnimationLength = String(cursor.animationLength)
+    root.dataset.editorCursorShortAnimationLength = String(cursor.shortAnimationLength)
+    root.dataset.editorCursorTrailSize = String(cursor.trailSize)
+    root.dataset.editorCursorVfxMode = cursor.vfxMode
+    root.dataset.editorCursorVfxOpacity = String(cursor.vfxOpacity)
+    root.dataset.editorCursorVfxParticleLifetime = String(cursor.vfxParticleLifetime)
+    root.dataset.editorCursorVfxParticleDensity = String(cursor.vfxParticleDensity)
+    root.dataset.editorCursorVfxParticleSpeed = String(cursor.vfxParticleSpeed)
+    root.dataset.editorCursorSmoothBlink = String(cursor.smoothBlink)
+  }, [configuration.editor.cursor])
+
+  useEffect(() => {
     applyDesktopTheme(configuration.theme)
   }, [configuration.theme])
 
