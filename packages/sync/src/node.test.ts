@@ -704,7 +704,8 @@ describe('p2p communication', () => {
     handles.push(server)
 
     await client.notifyChangesAvailable()
-    await waitFor(() => client.status().devices.some(device => device.peerId === serverKey.peerId && device.state === 'synced'))
+    // A restarted WebSocket listener may spend several seconds rebinding on a busy CI runner.
+    await waitFor(() => client.status().devices.some(device => device.peerId === serverKey.peerId && device.state === 'synced'), 30_000)
   })
 
   it('discovers a paired peer without a user-provided multiaddress', async () => {
