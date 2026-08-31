@@ -1,0 +1,250 @@
+{
+  "tables": [
+    {
+      "exportName": "syncAccounts",
+      "name": "sync_accounts",
+      "columns": [
+        { "property": "accountId", "name": "account_id", "type": "text", "primaryKey": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true, "default": 0 },
+        { "property": "membershipEpoch", "name": "membership_epoch", "type": "integer", "notNull": true, "default": 1 },
+        { "property": "nextReceiptSequence", "name": "next_receipt_sequence", "type": "integer", "notNull": true, "default": 1 },
+        { "property": "policyEpoch", "name": "policy_epoch", "type": "integer", "notNull": true, "default": 0 },
+        { "property": "enabledModes", "name": "enabled_modes", "type": "json", "tsType": "readonly ('relay' | 'authoritative')[]", "notNull": true }
+      ]
+    },
+    {
+      "exportName": "syncUsers",
+      "name": "sync_users",
+      "columns": [
+        { "property": "accountId", "name": "account_id", "type": "text", "primaryKey": true },
+        { "property": "username", "name": "username", "type": "text", "notNull": true, "unique": true },
+        { "property": "passwordHash", "name": "password_hash", "type": "text", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true }
+      ]
+    },
+    {
+      "exportName": "syncSessions",
+      "name": "sync_sessions",
+      "columns": [
+        { "property": "tokenHash", "name": "token_hash", "type": "text", "primaryKey": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "csrfToken", "name": "csrf_token", "type": "text", "notNull": true },
+        { "property": "expiresAt", "name": "expires_at", "type": "integer", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true }
+      ]
+    },
+    {
+      "exportName": "syncInvites",
+      "name": "sync_invites",
+      "columns": [
+        { "property": "tokenHash", "name": "token_hash", "type": "text", "primaryKey": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "expiresAt", "name": "expires_at", "type": "integer", "notNull": true },
+        { "property": "revokedAt", "name": "revoked_at", "type": "integer" },
+        { "property": "consumedAt", "name": "consumed_at", "type": "integer" }
+      ]
+    },
+    {
+      "exportName": "syncDeviceCredentials",
+      "name": "sync_device_credentials",
+      "columns": [
+        { "property": "credentialHash", "name": "credential_hash", "type": "text", "primaryKey": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "deviceId", "name": "device_id", "type": "text", "notNull": true },
+        { "property": "deviceName", "name": "device_name", "type": "text", "notNull": true },
+        { "property": "peerId", "name": "peer_id", "type": "text", "notNull": true },
+        { "property": "pairingId", "name": "pairing_id", "type": "text", "notNull": true },
+        { "property": "sharedSecretHash", "name": "shared_secret_hash", "type": "text", "notNull": true },
+        { "property": "signingPublicKey", "name": "signing_public_key", "type": "text", "notNull": true },
+        { "property": "membershipEpoch", "name": "membership_epoch", "type": "integer", "notNull": true },
+        { "property": "scopes", "name": "scopes", "type": "json", "tsType": "readonly ('sync' | 'object')[]", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "expiresAt", "name": "expires_at", "type": "integer", "notNull": true },
+        { "property": "revokedAt", "name": "revoked_at", "type": "integer" }
+      ],
+      "indexes": [
+        { "name": "sync_device_credentials_account_device", "unique": true, "columns": ["accountId", "deviceId"] }
+      ]
+    },
+    {
+      "exportName": "syncDeviceNonces",
+      "name": "sync_device_nonces",
+      "columns": [
+        { "property": "nonceHash", "name": "nonce_hash", "type": "text", "primaryKey": true },
+        { "property": "credentialHash", "name": "credential_hash", "type": "text", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "expiresAt", "name": "expires_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_device_nonces_expiry", "columns": ["expiresAt"] },
+        { "name": "sync_device_nonces_credential", "columns": ["credentialHash"] }
+      ]
+    },
+    {
+      "exportName": "syncPairingSessions",
+      "name": "sync_pairing_sessions",
+      "columns": [
+        { "property": "pairingId", "name": "pairing_id", "type": "text", "primaryKey": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "expiresAt", "name": "expires_at", "type": "integer", "notNull": true },
+        { "property": "consumedAt", "name": "consumed_at", "type": "integer" }
+      ]
+    },
+    {
+      "exportName": "syncChanges",
+      "name": "sync_changes",
+      "columns": [
+        { "property": "id", "name": "id", "type": "text", "notNull": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "namespace", "name": "namespace", "type": "enum", "values": ["notes", "learning"], "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "deviceId", "name": "device_id", "type": "text", "notNull": true },
+        { "property": "sequence", "name": "sequence", "type": "integer", "notNull": true },
+        { "property": "kind", "name": "kind", "type": "enum", "values": ["note-update", "learning-mutation"], "notNull": true },
+        { "property": "payload", "name": "payload", "type": "text", "notNull": true },
+        { "property": "payloadHash", "name": "payload_hash", "type": "text", "notNull": true },
+        { "property": "receiptSequence", "name": "receipt_sequence", "type": "integer", "notNull": true },
+        { "property": "receivedAt", "name": "received_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_changes_identity", "unique": true, "columns": ["accountId", "generation", "namespace", "deviceId", "sequence"] },
+        { "name": "sync_changes_id", "unique": true, "columns": ["accountId", "generation", "namespace", "id"] },
+        { "name": "sync_changes_receipt_sequence", "unique": true, "columns": ["accountId", "generation", "receiptSequence"] }
+      ],
+      "checks": ["namespace-kind", "positive-sequence"]
+    },
+    {
+      "exportName": "syncObjects",
+      "name": "sync_objects",
+      "columns": [
+        { "property": "key", "name": "key", "type": "text", "primaryKey": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "namespace", "name": "namespace", "type": "enum", "values": ["assets"], "notNull": true },
+        { "property": "contentHash", "name": "content_hash", "type": "text", "notNull": true },
+        { "property": "contentLength", "name": "content_length", "type": "integer", "notNull": true },
+        { "property": "contentType", "name": "content_type", "type": "text" },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_objects_content_identity", "unique": true, "columns": ["accountId", "generation", "contentHash"] }
+      ],
+      "checks": ["non-negative-content-length"]
+    },
+    {
+      "exportName": "syncAssetManifests",
+      "name": "sync_asset_manifests",
+      "columns": [
+        { "property": "id", "name": "id", "type": "text", "notNull": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "deviceId", "name": "device_id", "type": "text", "notNull": true },
+        { "property": "sequence", "name": "sequence", "type": "integer", "notNull": true },
+        { "property": "fileName", "name": "file_name", "type": "text", "notNull": true },
+        { "property": "originalFileName", "name": "original_file_name", "type": "text", "notNull": true },
+        { "property": "operation", "name": "operation", "type": "enum", "values": ["put", "delete"], "notNull": true },
+        { "property": "contentHash", "name": "content_hash", "type": "text" },
+        { "property": "contentLength", "name": "content_length", "type": "integer" },
+        { "property": "contentType", "name": "content_type", "type": "text" },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "receivedAt", "name": "received_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_asset_manifests_identity", "unique": true, "columns": ["accountId", "generation", "deviceId", "sequence"] },
+        { "name": "sync_asset_manifests_id", "unique": true, "columns": ["accountId", "generation", "id"] }
+      ],
+      "checks": ["asset-manifest-shape", "asset-positive-sequence"]
+    },
+    {
+      "exportName": "syncNoteSnapshots",
+      "name": "sync_note_snapshots",
+      "columns": [
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "noteId", "name": "note_id", "type": "text", "notNull": true },
+        { "property": "snapshot", "name": "snapshot", "type": "text", "notNull": true },
+        { "property": "frontier", "name": "frontier", "type": "json", "tsType": "Readonly<Record<string, number>>", "notNull": true },
+        { "property": "updatedAt", "name": "updated_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_note_snapshots_identity", "unique": true, "columns": ["accountId", "generation", "noteId"] }
+      ]
+    },
+    {
+      "exportName": "syncLearningEntities",
+      "name": "sync_learning_entities",
+      "columns": [
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "entityId", "name": "entity_id", "type": "text", "notNull": true },
+        { "property": "entityKind", "name": "entity_kind", "type": "enum", "values": ["assignment", "card", "optimizer", "review-event", "tombstone"], "notNull": true },
+        { "property": "operation", "name": "operation", "type": "enum", "values": ["upsert", "delete"], "notNull": true },
+        { "property": "mutationId", "name": "mutation_id", "type": "text", "notNull": true },
+        { "property": "sourceDeviceId", "name": "source_device_id", "type": "text", "notNull": true },
+        { "property": "sourceSequence", "name": "source_sequence", "type": "integer", "notNull": true },
+        { "property": "payload", "name": "payload", "type": "text", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "updatedAt", "name": "updated_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_learning_entities_identity", "unique": true, "columns": ["accountId", "generation", "entityId"] }
+      ],
+      "checks": ["learning-positive-sequence"]
+    },
+    {
+      "exportName": "syncLearningTombstones",
+      "name": "sync_learning_tombstones",
+      "columns": [
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "scopeKind", "name": "scope_kind", "type": "enum", "values": ["target", "card", "optimizer"], "notNull": true },
+        { "property": "scopeId", "name": "scope_id", "type": "text", "notNull": true },
+        { "property": "tombstoneId", "name": "tombstone_id", "type": "text", "notNull": true },
+        { "property": "tombstoneGeneration", "name": "tombstone_generation", "type": "integer", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_learning_tombstones_identity", "unique": true, "columns": ["accountId", "generation", "scopeKind", "scopeId"] }
+      ]
+    },
+    {
+      "exportName": "syncResetJobs",
+      "name": "sync_reset_jobs",
+      "columns": [
+        { "property": "id", "name": "id", "type": "text", "primaryKey": true },
+        { "property": "accountId", "name": "account_id", "type": "text", "notNull": true },
+        { "property": "generation", "name": "generation", "type": "integer", "notNull": true },
+        { "property": "status", "name": "status", "type": "enum", "values": ["pending", "running", "completed"], "notNull": true },
+        { "property": "attempts", "name": "attempts", "type": "integer", "notNull": true, "default": 0 },
+        { "property": "leaseOwner", "name": "lease_owner", "type": "text" },
+        { "property": "leaseExpiresAt", "name": "lease_expires_at", "type": "integer" },
+        { "property": "lastError", "name": "last_error", "type": "text" },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true },
+        { "property": "completedAt", "name": "completed_at", "type": "integer" }
+      ],
+      "indexes": [
+        { "name": "sync_reset_jobs_generation", "unique": true, "columns": ["accountId", "generation"] }
+      ]
+    },
+    {
+      "exportName": "syncAuditEvents",
+      "name": "sync_audit_events",
+      "columns": [
+        { "property": "id", "name": "id", "type": "text", "primaryKey": true },
+        { "property": "accountId", "name": "account_id", "type": "text" },
+        { "property": "action", "name": "action", "type": "text", "notNull": true },
+        { "property": "actorType", "name": "actor_type", "type": "enum", "values": ["anonymous", "browser", "device", "system"], "notNull": true },
+        { "property": "actorId", "name": "actor_id", "type": "text" },
+        { "property": "outcome", "name": "outcome", "type": "enum", "values": ["success", "denied", "failure"], "notNull": true },
+        { "property": "requestId", "name": "request_id", "type": "text", "notNull": true },
+        { "property": "remoteAddress", "name": "remote_address", "type": "text" },
+        { "property": "details", "name": "details", "type": "json", "tsType": "Readonly<Record<string, boolean | number | string | null>>", "notNull": true },
+        { "property": "createdAt", "name": "created_at", "type": "integer", "notNull": true }
+      ],
+      "indexes": [
+        { "name": "sync_audit_events_account_created", "columns": ["accountId", "createdAt"] }
+      ]
+    }
+  ]
+}

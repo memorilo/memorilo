@@ -225,6 +225,29 @@ function insertCardDelimiter(createId: CreateCardId, direction: InsertBasicCardI
   }
 }
 
+function insertCardDelimiterFromTrigger(createId: CreateCardId): Command {
+  return (state, dispatch) => {
+    if (!canInsertDelimiter(state))
+      return false
+    const { $from } = state.selection
+    const textBefore = $from.parent.textBetween(0, $from.parentOffset, '\n', '\uFFFC')
+    const match = /(?::->|：-》|:-<|：-《|:<>|：《》)$/u.exec(textBefore)
+    if (!match)
+      return false
+    const trigger = match[0]
+    const direction: InsertBasicCardInput['direction'] = trigger === ':->' || trigger === '：-》'
+      ? 'forward'
+      : trigger === ':-<' || trigger === '：-《' ? 'backward' : 'both'
+    if (!dispatch)
+      return true
+    const delimiter = state.schema.nodes.cardDelimiter?.create(createDelimiterAttrs(createId, direction))
+    if (!delimiter)
+      throw new Error('The editor schema is missing the Card delimiter node')
+    dispatch(state.tr.replaceWith(state.selection.from - trigger.length, state.selection.from, delimiter).scrollIntoView())
+    return true
+  }
+}
+
 function setCardDirection(createId: CreateCardId, input: SetCardDirectionInput): Command {
   validateDirection(input.direction)
   return (state, dispatch) => {
@@ -329,13 +352,15 @@ export function defineCardExtension(options: CardExtensionOptions = {}): CardExt
     withPriority(definePlugin(new Plugin({
       props: {
         handleKeyDown: (view, event) => {
-          const command = matchesKeyboardShortcut(event, addBasicCardShortcut)
-            ? authoringEnabled ? insertCardDelimiter(createId, 'forward') : disabledCardCommand()
-            : matchesKeyboardShortcut(event, highlightShortcut)
-              ? semanticAction(toggleInlineHighlightCommand(), 'extract', options.onSemanticAction)
-              : matchesKeyboardShortcut(event, addClozeShortcut)
-                ? authoringEnabled ? semanticAction(toggleClozeCommand(createId), 'cloze', options.onSemanticAction) : disabledCardCommand()
-                : null
+          const command = event.key === ' '
+            ? insertCardDelimiterFromTrigger(createId)
+            : matchesKeyboardShortcut(event, addBasicCardShortcut)
+              ? authoringEnabled ? insertCardDelimiter(createId, 'forward') : disabledCardCommand()
+              : matchesKeyboardShortcut(event, highlightShortcut)
+                ? semanticAction(toggleInlineHighlightCommand(), 'extract', options.onSemanticAction)
+                : matchesKeyboardShortcut(event, addClozeShortcut)
+                  ? authoringEnabled ? semanticAction(toggleClozeCommand(createId), 'cloze', options.onSemanticAction) : disabledCardCommand()
+                  : null
           return command?.(view.state, view.dispatch, view) ?? false
         },
       },

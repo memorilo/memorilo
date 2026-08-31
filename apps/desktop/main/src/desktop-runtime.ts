@@ -1,7 +1,7 @@
 import type { ConfigurationStore } from '@memorilo/config'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { LearningPracticeConfiguration } from '@memorilo/editor-storage'
-import type { P2pApplication } from '@memorilo/p2p-sync/node'
+import type { P2pApplication } from '@memorilo/sync/node'
 import type { MessageBoxOptions } from 'electron'
 import { Buffer } from 'node:buffer'
 import { createHash, randomBytes } from 'node:crypto'
@@ -11,6 +11,7 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 
 import { createConfigurationStore } from '@memorilo/config'
+import { desktopSyncServerEventChannel } from '@memorilo/desktop-api'
 import { memoriloAppOrigin } from '@memorilo/desktop-api/transport'
 import {
   desktopConfigurationChangedChannel,
@@ -22,12 +23,13 @@ import {
   SqliteShelfStorage,
 } from '@memorilo/editor-storage'
 import { createOperationSupervisor, createResourceScope } from '@memorilo/effect-lifecycle'
-import { JsonSyncJournal } from '@memorilo/p2p-sync'
-import { createP2pApplication } from '@memorilo/p2p-sync/node'
 import { ShelfReadingFileStore } from '@memorilo/shelf/node'
+import { decodeSyncServerCredentialBundle } from '@memorilo/sync'
+import { createP2pApplication, JsonSyncJournal, syncServerDialTarget } from '@memorilo/sync/node'
 
 import { app, BrowserWindow, dialog } from 'electron'
 import { installApplicationMenu } from './application-menu'
+import { createDesktopAssetSync } from './assets/asset-p2p-sync'
 import { createDatabaseBackupApplication } from './backup/backup-application'
 import { createDesktopConfigurationAdapter } from './configuration/desktop-configuration-adapter'
 import { createDesktopServices } from './ipc/services'
@@ -37,6 +39,8 @@ import { createNoteApplicationService } from './notes/note-application-service'
 import { ensureNoteP2pBaselines } from './notes/note-p2p-baselines'
 import { createActiveReadingRegistry } from './reading/active-reading-registry'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
+import { ElectronDeviceSigningKeyStore } from './storage/electron-device-signing-key-store'
+import { ElectronSyncServerCredentialStore } from './storage/electron-sync-server-credential-store'
 import { openCurrentMainDatabase } from './storage/main-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
 import {
@@ -44,6 +48,7 @@ import {
   mainDatabasePath,
   shelfLibraryDirectory,
 } from './storage/workspace-paths'
+import { createSyncServerStatusController } from './sync-server-status'
 import { createTodoReminderScheduler } from './todo/todo-reminder-scheduler'
 import { WhiteboardLibraryApplication } from './whiteboard/whiteboard-library-application'
 import { createSettingsWindowController } from './windows/settings-window'
@@ -185,6 +190,28 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'configuration store',
     })
     const configurationStore = configuration.resource
+    const syncServerCredentialStore = new ElectronSyncServerCredentialStore(join(userDataPath, 'sync-server', 'device-credential.enc'))
+    let storedSyncServerCredential = (await syncServerCredentialStore.load()) ?? ''
+    const loadedSyncServerCredential = storedSyncServerCredential.length === 0
+      ? null
+      : decodeSyncServerCredentialBundle(storedSyncServerCredential)
+    let syncServerCredential = loadedSyncServerCredential?.credential ?? ''
+    if (loadedSyncServerCredential !== null) {
+      const current = configurationStore.getSnapshot()
+      const configuredPeerId = current.syncServer.peerId.trim()
+      if (configuredPeerId.length > 0 && configuredPeerId !== loadedSyncServerCredential.peerId)
+        throw new Error('Stored Sync Server credential does not match the configured server peer')
+    }
+    const runtimeSyncServerConfiguration = configurationStore.getSnapshot().syncServer
+    const syncServerStatus = createSyncServerStatusController({
+      configuration: () => configurationStore.getSnapshot().syncServer,
+      credentialAvailable: () => syncServerCredential.length > 0,
+      publish: (event) => {
+        for (const window of BrowserWindow.getAllWindows())
+          window.webContents.send(desktopSyncServerEventChannel, event)
+      },
+      runtimeConfiguration: runtimeSyncServerConfiguration,
+    })
     const mainDatabase = (await scope.acquire({
       acquire: () => openCurrentMainDatabase(database),
       close: current => current.close(),
@@ -221,6 +248,20 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'Whiteboard Library',
     })).resource
     let p2pApplication: P2pApplication | null = null
+    const requireP2pApplication = (): P2pApplication => {
+      if (p2pApplication === null)
+        throw new Error('P2P application is not ready')
+      return p2pApplication
+    }
+    const assetSync = assets === null
+      ? null
+      : createDesktopAssetSync({
+          application: requireP2pApplication,
+          assetDirectory: assets,
+          assets: editorStorage.assets,
+          deviceId: () => requireP2pApplication().pairing.identity.deviceId,
+          notifyChangesAvailable: () => requireP2pApplication().notifyChangesAvailable(),
+        })
     const syncJournal = new JsonSyncJournal(join(userDataPath, 'p2p', 'sync-journal.json'))
     await syncJournal.load()
     const pendingJournalWrites = new Set<Promise<void>>()
@@ -345,10 +386,40 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         onStatus: (status) => {
           for (const window of BrowserWindow.getAllWindows())
             window.webContents.send('memorilo:p2p-status', status)
+          syncServerStatus.updateP2pStatus(status)
         },
         statePath: join(userDataPath, 'p2p', 'identity.json'),
+        signingKeyStore: new ElectronDeviceSigningKeyStore(join(userDataPath, 'p2p', 'device-signing-key.enc')),
+        ...(assetSync === null ? {} : { objectStore: assetSync.objectStore }),
+        ...(configurationStore.getSnapshot().syncServer.enabled && configurationStore.getSnapshot().syncServer.url.length > 0
+          ? {
+              dialTargets: new Map([[configurationStore.getSnapshot().syncServer.peerId, syncServerDialTarget(configurationStore.getSnapshot().syncServer.url)]]),
+              server: () => {
+                const server = configurationStore.getSnapshot().syncServer
+                return server.enabled
+                  ? {
+                      credential: syncServerCredential,
+                      generation: server.generation,
+                      membershipEpoch: server.membershipEpoch,
+                      modes: server.modes,
+                      peerId: server.peerId,
+                      policyEpoch: server.policyEpoch,
+                    }
+                  : undefined
+              },
+              transport: 'both' as const,
+            }
+          : {}),
         provider: {
-          applyChanges: async (changes, _peer) => {
+          ...(assetSync === null
+            ? {}
+            : {
+                applyAssetManifests: assetSync.applyAssetManifests,
+                getAssetManifests: assetSync.getAssetManifests,
+                getAssetVersionVector: assetSync.getAssetVersionVector,
+                prepareAssetManifestsForPeer: assetSync.prepareAssetManifestsForPeer,
+              }),
+          applyChanges: async (_namespace, changes, _peer) => {
             await waitForP2pInitialization()
             applyingRemoteP2pChanges += 1
             let learningChanged = false
@@ -401,7 +472,39 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
             await waitForP2pInitialization()
             await p2pApplication?.observeMembershipEpoch(epoch)
           },
-          getChanges: async (since) => {
+          observeRemoteHello: async (hello, peer) => {
+            const current = configurationStore.getSnapshot()
+            const server = current.syncServer
+            if (!server.enabled || server.peerId !== peer.peerId)
+              return
+            if (hello.role !== 'server')
+              throw new Error('Configured sync server did not identify itself as a server peer')
+            if (hello.generation < server.generation || hello.membershipEpoch < server.membershipEpoch || hello.policyEpoch < server.policyEpoch)
+              throw new Error('Sync server state regressed')
+            const modes = hello.modes.filter((mode): mode is 'relay' | 'authoritative' => mode === 'relay' || mode === 'authoritative')
+            if (modes.length === 0)
+              throw new Error('Sync server has no compatible mode enabled')
+            const changed = hello.generation !== server.generation
+              || hello.membershipEpoch !== server.membershipEpoch
+              || hello.policyEpoch !== server.policyEpoch
+              || modes.join('\0') !== server.modes.join('\0')
+            if (!changed)
+              return
+            const nextServer = {
+              ...server,
+              generation: hello.generation,
+              membershipEpoch: hello.membershipEpoch,
+              modes,
+              policyEpoch: hello.policyEpoch,
+            }
+            await configurationStore.set({
+              ...current,
+              syncServer: nextServer,
+            })
+            syncServerStatus.publishRemoteStateChange(server, nextServer)
+            throw new Error(hello.generation !== server.generation ? 'sync-account-data-reset' : 'sync-server-policy-changed')
+          },
+          getChanges: async (namespace, since) => {
             await waitForP2pInitialization()
             await Promise.all([...pendingJournalWrites])
             if (journalError !== null)
@@ -415,9 +518,9 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
               })
               await write
             }
-            return syncJournal.listChanges(since)
+            return syncJournal.listChanges(since, namespace)
           },
-          acknowledgeChanges: async (changeIds) => {
+          acknowledgeChanges: async (_namespace, changeIds) => {
             const localDeviceId = p2pApplication?.pairing.identity.deviceId
             const learningIds = new Set(syncJournal.listChanges({})
               .filter(change => change.kind === 'learning-mutation'
@@ -433,7 +536,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
             }
           },
           getMembershipEpoch: () => p2pApplication?.membershipEpoch() ?? 1,
-          getVersionVector: () => syncJournal.getVersionVector(),
+          getVersionVector: namespace => syncJournal.getVersionVector(namespace),
         },
       }),
       close: application => application.close(),
@@ -450,6 +553,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         journal: syncJournal,
         listNoteIds: () => editorStorage.notes.listNoteIds(),
       })
+      await assetSync?.ensureBaselines()
       pendingLocalNoteUpdates.splice(0).forEach(({ noteId, update }) => queueLocalNoteUpdate(noteId, update))
       await Promise.all([...pendingJournalWrites])
       if (journalError !== null)
@@ -502,6 +606,42 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           rendererDirectory: join(options.mainDirectory, '../renderer'),
         },
         p2p,
+        syncServerStatus.getStatus,
+        async (credential) => {
+          const normalized = credential.trim()
+          const bundle = decodeSyncServerCredentialBundle(normalized)
+          const current = configurationStore.getSnapshot()
+          const previousServer = current.syncServer
+          if (previousServer.peerId.trim().length === 0 || previousServer.peerId !== bundle.peerId)
+            throw new TypeError('Sync Server credential does not match the configured server peer')
+          const nextServer = {
+            ...previousServer,
+            generation: bundle.generation,
+            membershipEpoch: bundle.membershipEpoch,
+            modes: [...bundle.modes],
+            policyEpoch: bundle.policyEpoch,
+          }
+          const previousStoredCredential = storedSyncServerCredential
+          const previousCredential = syncServerCredential
+          await syncServerCredentialStore.save(normalized)
+          storedSyncServerCredential = normalized
+          syncServerCredential = bundle.credential
+          try {
+            await configurationStore.set({ ...current, syncServer: nextServer })
+          }
+          catch (error) {
+            if (previousStoredCredential.length === 0)
+              await syncServerCredentialStore.clear()
+            else
+              await syncServerCredentialStore.save(previousStoredCredential)
+            storedSyncServerCredential = previousStoredCredential
+            syncServerCredential = previousCredential
+            throw error
+          }
+          syncServerStatus.publishRemoteStateChange(previousServer, nextServer)
+          void p2p.notifyChangesAvailable().catch(error => console.warn('Failed to reconnect after installing Sync Server credential', error))
+        },
+        assetSync ?? undefined,
       ),
       close: handle => handle.close(),
       name: 'desktop services',
@@ -509,6 +649,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     await scope.acquire({
       acquire: () => configurationStore.subscribe(() => {
         const next = configurationStore.getSnapshot()
+        syncServerStatus.refreshConfiguration()
         for (const window of BrowserWindow.getAllWindows())
           window.webContents.send(desktopConfigurationChangedChannel, next)
         // The controller reports update failures; observe the rejection so a

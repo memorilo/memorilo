@@ -7,6 +7,47 @@ export interface DesktopP2pStatus {
   readonly discoveredPeers: readonly DesktopP2pDiscoveredPeer[]
 }
 
+export const desktopSyncServerEventChannel = 'memorilo:sync-server-event'
+
+export type DesktopSyncServerConnectionState
+  = | 'disabled'
+    | 'setup-required'
+    | 'restart-required'
+    | 'connecting'
+    | 'syncing'
+    | 'synced'
+    | 'offline'
+    | 'error'
+
+export interface DesktopSyncServerStatus {
+  readonly enabled: boolean
+  readonly configured: boolean
+  readonly state: DesktopSyncServerConnectionState
+  readonly peerId: string | null
+  readonly url: string
+  readonly modes: readonly ('relay' | 'authoritative')[]
+  readonly generation: number
+  readonly membershipEpoch: number
+  readonly policyEpoch: number
+  readonly error: string | null
+}
+
+export type DesktopSyncServerEvent
+  = | {
+    readonly type: 'status'
+    readonly status: DesktopSyncServerStatus
+  }
+  | {
+    readonly type: 'policy-changed'
+    readonly previousPolicyEpoch: number
+    readonly status: DesktopSyncServerStatus
+  }
+  | {
+    readonly type: 'account-data-reset'
+    readonly previousGeneration: number
+    readonly status: DesktopSyncServerStatus
+  }
+
 export interface DesktopP2pDeviceStatus {
   readonly deviceId: string
   readonly deviceName: string

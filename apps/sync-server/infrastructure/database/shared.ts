@@ -1,0 +1,45 @@
+import type { SyncAccountState, SyncLearningEntityRecord, SyncObjectMetadata, SyncResetJob, VersionVector } from '@memorilo/sync'
+import { createHash } from 'node:crypto'
+import { mergeVersionVectors } from '@memorilo/sync'
+
+export function payloadHash(payload: string): string {
+  return createHash('sha256').update(payload).digest('hex')
+}
+
+export function frontierFromRows(rows: readonly { readonly deviceId: string, readonly sequence: number }[]): VersionVector {
+  const contiguous: Record<string, number> = {}
+  for (const row of rows) {
+    const expected = (contiguous[row.deviceId] ?? 0) + 1
+    if (row.sequence === expected)
+      contiguous[row.deviceId] = row.sequence
+  }
+  return mergeVersionVectors(contiguous)
+}
+
+export function accountStateFromRow(row: { accountId: string, enabledModes: readonly ('relay' | 'authoritative')[], generation: number, membershipEpoch: number, policyEpoch: number }): SyncAccountState {
+  return {
+    accountId: row.accountId,
+    enabledModes: row.enabledModes,
+    generation: row.generation,
+    membershipEpoch: row.membershipEpoch,
+    policyEpoch: row.policyEpoch,
+  }
+}
+
+export function resetJobFromRow<Row extends SyncResetJob>(row: Row): SyncResetJob {
+  return { ...row }
+}
+
+export function objectMetadataFromRow<Row extends SyncObjectMetadata>(row: Row): SyncObjectMetadata {
+  return { ...row }
+}
+
+export function compareLearningEntityOrder(
+  left: Pick<SyncLearningEntityRecord, 'createdAt' | 'sourceDeviceId' | 'sourceSequence' | 'mutationId'>,
+  right: Pick<SyncLearningEntityRecord, 'createdAt' | 'sourceDeviceId' | 'sourceSequence' | 'mutationId'>,
+): number {
+  return left.createdAt - right.createdAt
+    || left.sourceDeviceId.localeCompare(right.sourceDeviceId)
+    || left.sourceSequence - right.sourceSequence
+    || left.mutationId.localeCompare(right.mutationId)
+}

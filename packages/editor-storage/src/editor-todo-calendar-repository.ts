@@ -1,10 +1,12 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
 import type {
   EditorTodoCalendarStorage,
   SaveTodoCalendarSnapshotInput,
   TodoCalendarEvent,
   TodoCalendarSubscription,
 } from './editor-storage-contracts'
+import { and, asc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm'
+import { todoCalendarEvents, todoCalendarSubscriptions, todoCalendarVersions } from './drizzle-schema'
 
 interface SubscriptionRow {
   etag: string | null
@@ -75,28 +77,36 @@ function toEvent(row: EventRow): TodoCalendarEvent {
 
 export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
   readonly #options: EditorTodoCalendarRepositoryOptions
+  readonly #orm: EditorStorageDrizzleDatabase
 
   constructor(options: EditorTodoCalendarRepositoryOptions) {
     this.#options = options
+    this.#orm = options.database.drizzle
   }
 
   readonly listSubscriptions = (): Promise<readonly TodoCalendarSubscription[]> => this.#options.runOperation(async () => {
-    const rows = await this.#options.database.all<SubscriptionRow>(`
-      SELECT id, url, title, enabled, version, fetched_at, etag, last_modified
-      FROM todo_calendar_subscriptions
-      ORDER BY title COLLATE NOCASE, id
-    `)
+    const rows = this.#orm.select({
+      id: todoCalendarSubscriptions.id,
+      url: todoCalendarSubscriptions.url,
+      title: todoCalendarSubscriptions.title,
+      enabled: todoCalendarSubscriptions.enabled,
+      version: todoCalendarSubscriptions.version,
+      fetched_at: todoCalendarSubscriptions.fetchedAt,
+      etag: todoCalendarSubscriptions.etag,
+      last_modified: todoCalendarSubscriptions.lastModified,
+    }).from(todoCalendarSubscriptions).orderBy(asc(sql`lower(${todoCalendarSubscriptions.title})`), asc(todoCalendarSubscriptions.id)).all() as SubscriptionRow[]
     return rows.map(toSubscription)
   })
 
   readonly ensureSubscription = (input: { id: string, title: string, url: string }): Promise<void> => {
     if (input.id.length === 0 || input.title.length === 0 || input.url.length === 0)
       throw new TypeError('Calendar subscription identity must not be empty')
-    return this.#options.runOperation(() => this.#options.database.run(`
-      INSERT INTO todo_calendar_subscriptions (id, url, title, enabled)
-      VALUES (?, ?, ?, 1)
-      ON CONFLICT(id) DO NOTHING
-    `, [input.id, input.url, input.title]))
+    return this.#options.runOperation(async () => {
+      this.#orm.insert(todoCalendarSubscriptions)
+        .values({ id: input.id, url: input.url, title: input.title, enabled: 1 })
+        .onConflictDoNothing()
+        .run()
+    })
   }
 
   readonly listEvents = (input: { from: string, through: string }): Promise<readonly TodoCalendarEvent[]> => {
@@ -105,18 +115,24 @@ export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
     if (input.from > input.through)
       throw new RangeError('Calendar event range start must not be after the end')
     return this.#options.runOperation(async () => {
-      const rows = await this.#options.database.all<EventRow>(`
-        SELECT event.uid, event.start_date, event.end_date, event.start_at, event.end_at, event.all_day, event.title,
-          event.subscription_id, subscription.title AS subscription_title
-        FROM todo_calendar_events AS event
-        INNER JOIN todo_calendar_subscriptions AS subscription
-          ON subscription.id = event.subscription_id
-         AND subscription.version = event.version
-        WHERE subscription.enabled = 1
-          AND event.start_date <= ?
-          AND (event.end_date IS NULL OR event.end_date >= ?)
-        ORDER BY event.start_date, event.uid
-      `, [input.through, input.from])
+      const rows = this.#orm.select({
+        uid: todoCalendarEvents.uid,
+        start_date: todoCalendarEvents.startDate,
+        end_date: todoCalendarEvents.endDate,
+        start_at: todoCalendarEvents.startAt,
+        end_at: todoCalendarEvents.endAt,
+        all_day: todoCalendarEvents.allDay,
+        title: todoCalendarEvents.title,
+        subscription_id: todoCalendarEvents.subscriptionId,
+        subscription_title: todoCalendarSubscriptions.title,
+      }).from(todoCalendarEvents).innerJoin(todoCalendarSubscriptions, and(
+        eq(todoCalendarSubscriptions.id, todoCalendarEvents.subscriptionId),
+        eq(todoCalendarSubscriptions.version, todoCalendarEvents.version),
+      )).where(and(
+        eq(todoCalendarSubscriptions.enabled, 1),
+        lte(todoCalendarEvents.startDate, input.through),
+        or(isNull(todoCalendarEvents.endDate), gte(todoCalendarEvents.endDate, input.from)),
+      )).orderBy(asc(todoCalendarEvents.startDate), asc(todoCalendarEvents.uid)).all() as EventRow[]
       return rows.map(toEvent)
     })
   }
@@ -126,19 +142,17 @@ export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
       throw new TypeError('Calendar subscription id must not be empty')
     if (!Number.isSafeInteger(fetchedAt) || fetchedAt < 0)
       throw new RangeError('Calendar subscription fetchedAt must be a non-negative safe integer')
-    return this.#options.runOperation(() => this.#options.database.run(
-      'UPDATE todo_calendar_subscriptions SET fetched_at = ? WHERE id = ?',
-      [fetchedAt, id],
-    ))
+    return this.#options.runOperation(async () => {
+      this.#orm.update(todoCalendarSubscriptions).set({ fetchedAt }).where(eq(todoCalendarSubscriptions.id, id)).run()
+    })
   }
 
   readonly remove = (id: string): Promise<void> => {
     if (id.length === 0)
       throw new TypeError('Calendar subscription id must not be empty')
-    return this.#options.runOperation(() => this.#options.database.run(
-      'DELETE FROM todo_calendar_subscriptions WHERE id = ?',
-      [id],
-    ))
+    return this.#options.runOperation(async () => {
+      this.#orm.delete(todoCalendarSubscriptions).where(eq(todoCalendarSubscriptions.id, id)).run()
+    })
   }
 
   readonly saveSnapshot = (input: SaveTodoCalendarSnapshotInput): Promise<void> => {
@@ -153,31 +167,26 @@ export class EditorTodoCalendarRepository implements EditorTodoCalendarStorage {
       if (event.endDate !== null)
         assertDate(event.endDate, `Calendar event ${event.uid} end date`)
     }
-    return this.#options.runOperation(() => this.#options.database.batch([
-      {
-        parameters: [input.id, input.url, input.title, 1, input.version, input.fetchedAt, input.etag ?? null, input.lastModified ?? null],
-        sql: `
-          INSERT INTO todo_calendar_subscriptions (id, url, title, enabled, version, fetched_at, etag, last_modified)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            url = excluded.url,
-            title = excluded.title,
-            version = excluded.version,
-            fetched_at = excluded.fetched_at,
-            etag = excluded.etag,
-            last_modified = excluded.last_modified
-        `,
-      },
-      { parameters: [input.id, input.version], sql: 'DELETE FROM todo_calendar_events WHERE subscription_id = ? AND version = ?' },
-      { parameters: [input.id, input.version, input.fetchedAt, input.rawIcs], sql: `
-        INSERT INTO todo_calendar_versions (subscription_id, version, fetched_at, raw_ics)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(subscription_id, version) DO UPDATE SET fetched_at = excluded.fetched_at, raw_ics = excluded.raw_ics
-      ` },
-      ...input.events.map(event => ({
-        parameters: [input.id, input.version, event.uid, event.startDate, event.endDate, event.startAt ?? null, event.endAt ?? null, event.allDay === false ? 0 : 1, event.title],
-        sql: 'INSERT INTO todo_calendar_events (subscription_id, version, uid, start_date, end_date, start_at, end_at, all_day, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      })),
-    ]))
+    return this.#options.runOperation(async () => {
+      this.#orm.transaction((tx) => {
+        tx.insert(todoCalendarSubscriptions).values({
+          id: input.id,
+          url: input.url,
+          title: input.title,
+          enabled: 1,
+          version: input.version,
+          fetchedAt: input.fetchedAt,
+          etag: input.etag ?? null,
+          lastModified: input.lastModified ?? null,
+        }).onConflictDoUpdate({
+          target: todoCalendarSubscriptions.id,
+          set: { url: input.url, title: input.title, version: input.version, fetchedAt: input.fetchedAt, etag: input.etag ?? null, lastModified: input.lastModified ?? null },
+        }).run()
+        tx.delete(todoCalendarEvents).where(and(eq(todoCalendarEvents.subscriptionId, input.id), eq(todoCalendarEvents.version, input.version))).run()
+        tx.insert(todoCalendarVersions).values({ subscriptionId: input.id, version: input.version, fetchedAt: input.fetchedAt, rawIcs: input.rawIcs }).onConflictDoUpdate({ target: [todoCalendarVersions.subscriptionId, todoCalendarVersions.version], set: { fetchedAt: input.fetchedAt, rawIcs: input.rawIcs } }).run()
+        if (input.events.length > 0)
+          tx.insert(todoCalendarEvents).values(input.events.map(event => ({ subscriptionId: input.id, version: input.version, uid: event.uid, startDate: event.startDate, endDate: event.endDate, startAt: event.startAt ?? null, endAt: event.endAt ?? null, allDay: event.allDay === false ? 0 : 1, title: event.title }))).run()
+      })
+    })
   }
 }

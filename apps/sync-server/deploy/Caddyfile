@@ -1,0 +1,8 @@
+{$MEMORILO_SYNC_SERVER_DOMAIN} {
+  encode zstd gzip
+
+  reverse_proxy 127.0.0.1:6000 {
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Request-Id {http.request.uuid}
+  }
+}

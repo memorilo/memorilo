@@ -1,12 +1,12 @@
-import type { SyncChange, VersionVector } from '@memorilo/p2p-sync'
+import type { SyncChange, VersionVector } from '@memorilo/sync'
 import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SqliteEditorStorage } from '@memorilo/editor-storage'
 import { createEditorNote } from '@memorilo/editor/note'
-import { JsonSyncJournal, MemoryPairingStore, PairingManager } from '@memorilo/p2p-sync'
-import { createP2pNode } from '@memorilo/p2p-sync/node'
+import { createP2pNode, JsonSyncJournal, MemoryPairingStore, PairingManager } from '@memorilo/sync/node'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BetterSqliteDatabase } from '../storage/better-sqlite-database'
 import { createNoteApplicationService } from './note-application-service'
@@ -65,8 +65,9 @@ describe('p2p Note synchronization', () => {
     const destinationStorage = await openStorage()
     const sourceJournalWrites: Promise<void>[] = []
     const sourceNotes = createNoteApplicationService(sourceStorage, ({ noteId, update }) => {
+      const updateId = createHash('sha256').update(noteId).update('\0').update(update).digest('hex')
       sourceJournalWrites.push(sourceJournal.appendLocal({
-        id: `note:${noteId}:${Buffer.from(update).toString('base64url')}`,
+        id: `note:${noteId}:${updateId}`,
         kind: 'note-update',
         payload: JSON.stringify({ noteId, update: Buffer.from(update).toString('base64url') }),
       }).then(() => undefined))
@@ -92,9 +93,9 @@ describe('p2p Note synchronization', () => {
       pairing: sourcePairing,
       provider: {
         applyChanges: async () => undefined,
-        getChanges: async (since: VersionVector) => sourceJournal.listChanges(since),
+        getChanges: async (namespace, since: VersionVector) => sourceJournal.listChanges(since, namespace),
         getMembershipEpoch: () => 1,
-        getVersionVector: () => sourceJournal.getVersionVector(),
+        getVersionVector: namespace => sourceJournal.getVersionVector(namespace),
       },
     })
     const destination = await createP2pNode({
@@ -102,7 +103,7 @@ describe('p2p Note synchronization', () => {
       listenAddresses: ['/ip4/127.0.0.1/tcp/0'],
       pairing: destinationPairing,
       provider: {
-        applyChanges: async (changes: readonly SyncChange[]) => {
+        applyChanges: async (_namespace, changes: readonly SyncChange[]) => {
           for (const change of changes) {
             if (change.kind !== 'note-update')
               continue
@@ -115,9 +116,9 @@ describe('p2p Note synchronization', () => {
           }
           await destinationJournal.recordReceived(changes)
         },
-        getChanges: async (since: VersionVector) => destinationJournal.listChanges(since),
+        getChanges: async (namespace, since: VersionVector) => destinationJournal.listChanges(since, namespace),
         getMembershipEpoch: () => 1,
-        getVersionVector: () => destinationJournal.getVersionVector(),
+        getVersionVector: namespace => destinationJournal.getVersionVector(namespace),
       },
     })
     handles.push(source, destination)

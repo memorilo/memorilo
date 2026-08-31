@@ -4,8 +4,10 @@ import type {
   ShelfSourceOperation,
   StoredShelfSource,
 } from '@memorilo/shelf'
-import type { DatabaseCommand, EditorStorageDatabase } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase } from './database-driver'
+import { asc, desc, eq } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import { shelfPages, shelfSourceOperations, shelfSources, shelfSyncState } from './drizzle-schema'
 import {
   clockLogical,
   clockPhysical,
@@ -128,63 +130,81 @@ function operationFromRow(row: ShelfOperationRow): ShelfSourceOperation {
 
 function syncStateCommand(state: ShelfSyncStateRow): DatabaseCommand {
   return {
-    parameters: [state.last_physical, state.last_logical],
-    sql: 'UPDATE shelf_sync_state SET last_physical = ?, last_logical = ? WHERE singleton = 1',
+    drizzle: database => database.update(shelfSyncState).set({
+      lastLogical: state.last_logical,
+      lastPhysical: state.last_physical,
+    }).where(eq(shelfSyncState.singleton, 1)).run(),
   }
 }
 
 function operationCommand(operation: ShelfSourceOperation, pending: boolean): DatabaseCommand {
   return {
-    parameters: [
-      operation.id,
-      operation.actorId,
-      operation.sourceId,
-      operation.clock,
-      JSON.stringify(operation.fields),
-      pending ? 1 : 0,
-      clockPhysical(operation.clock),
-    ],
-    sql: `
-      INSERT INTO shelf_source_operations (id, actor_id, source_id, clock, fields_json, pending, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `,
+    drizzle: database => database.insert(shelfSourceOperations).values({
+      actorId: operation.actorId,
+      clock: operation.clock,
+      createdAt: clockPhysical(operation.clock),
+      fieldsJson: JSON.stringify(operation.fields),
+      id: operation.id,
+      pending: pending ? 1 : 0,
+      sourceId: operation.sourceId,
+    }).run(),
   }
 }
 
 export class ShelfSourcePersistence {
-  constructor(private readonly database: EditorStorageDatabase) {}
+  readonly #orm: EditorStorageDrizzleDatabase
+
+  constructor(private readonly database: EditorStorageDatabase) {
+    this.#orm = database.drizzle
+  }
 
   async #syncState(): Promise<ShelfSyncStateRow> {
-    const state = await this.database.get<ShelfSyncStateRow>(`
-      SELECT actor_id, last_physical, last_logical
-      FROM shelf_sync_state
-      WHERE singleton = 1
-    `)
+    const state = this.#orm.select({
+      actor_id: shelfSyncState.actorId,
+      last_logical: shelfSyncState.lastLogical,
+      last_physical: shelfSyncState.lastPhysical,
+    }).from(shelfSyncState).where(eq(shelfSyncState.singleton, 1)).get() as ShelfSyncStateRow | undefined
     if (!state)
       throw new Error('Shelf sync state is missing')
     return state
   }
 
   async read(sourceId: string): Promise<StoredShelfSourceRecord | null> {
-    const row = await this.database.get<ShelfSourceRow>(`
-      SELECT
-        id, kind, url, name, username, auth, enabled, order_key,
-        encrypted_password, deleted, field_clocks_json, added_at, updated_at
-      FROM shelf_sources
-      WHERE id = ?
-    `, [sourceId])
+    const row = this.#orm.select({
+      id: shelfSources.id,
+      kind: shelfSources.kind,
+      url: shelfSources.url,
+      name: shelfSources.name,
+      username: shelfSources.username,
+      auth: shelfSources.auth,
+      enabled: shelfSources.enabled,
+      order_key: shelfSources.orderKey,
+      encrypted_password: shelfSources.encryptedPassword,
+      deleted: shelfSources.deleted,
+      field_clocks_json: shelfSources.fieldClocksJson,
+      added_at: shelfSources.addedAt,
+      updated_at: shelfSources.updatedAt,
+    }).from(shelfSources).where(eq(shelfSources.id, sourceId)).get() as ShelfSourceRow | undefined
     return row ? { deleted: row.deleted === 1, source: toStoredSource(row) } : null
   }
 
   async listActive(): Promise<readonly StoredShelfSource[]> {
-    const rows = await this.database.all<ShelfSourceRow>(`
-      SELECT
-        id, kind, url, name, username, auth, enabled, order_key,
-        encrypted_password, deleted, field_clocks_json, added_at, updated_at
-      FROM shelf_sources
-      WHERE deleted = 0
-      ORDER BY enabled DESC, order_key ASC, id ASC
-    `)
+    await this.database.beforeDrizzleRead?.('shelfSources.listActive')
+    const rows = this.#orm.select({
+      id: shelfSources.id,
+      kind: shelfSources.kind,
+      url: shelfSources.url,
+      name: shelfSources.name,
+      username: shelfSources.username,
+      auth: shelfSources.auth,
+      enabled: shelfSources.enabled,
+      order_key: shelfSources.orderKey,
+      encrypted_password: shelfSources.encryptedPassword,
+      deleted: shelfSources.deleted,
+      field_clocks_json: shelfSources.fieldClocksJson,
+      added_at: shelfSources.addedAt,
+      updated_at: shelfSources.updatedAt,
+    }).from(shelfSources).where(eq(shelfSources.deleted, 0)).orderBy(desc(shelfSources.enabled), asc(shelfSources.orderKey), asc(shelfSources.id)).all() as ShelfSourceRow[]
     return rows.map(toStoredSource)
   }
 
@@ -210,20 +230,20 @@ export class ShelfSourcePersistence {
   async acknowledge(operationIds: readonly string[]): Promise<void> {
     if (operationIds.length === 0)
       return
-    await this.database.batch(operationIds.map(operationId => ({
-      parameters: [operationId],
-      sql: 'UPDATE shelf_source_operations SET pending = 0 WHERE id = ?',
-    })))
+    this.#orm.transaction((transaction) => {
+      for (const operationId of operationIds)
+        transaction.update(shelfSourceOperations).set({ pending: 0 }).where(eq(shelfSourceOperations.id, operationId)).run()
+    })
   }
 
   async listPending(limit: number): Promise<readonly ShelfSourceOperation[]> {
-    const rows = await this.database.all<ShelfOperationRow>(`
-      SELECT id, actor_id, source_id, clock, fields_json
-      FROM shelf_source_operations
-      WHERE pending = 1
-      ORDER BY clock ASC, id ASC
-      LIMIT ?
-    `, [limit])
+    const rows = this.#orm.select({
+      id: shelfSourceOperations.id,
+      actor_id: shelfSourceOperations.actorId,
+      source_id: shelfSourceOperations.sourceId,
+      clock: shelfSourceOperations.clock,
+      fields_json: shelfSourceOperations.fieldsJson,
+    }).from(shelfSourceOperations).where(eq(shelfSourceOperations.pending, 1)).orderBy(asc(shelfSourceOperations.clock), asc(shelfSourceOperations.id)).limit(limit).all() as ShelfOperationRow[]
     return rows.map(operationFromRow)
   }
 
@@ -243,10 +263,10 @@ export class ShelfSourcePersistence {
     for (const operation of ordered) {
       if (receivedOperationIds.has(operation.id))
         continue
-      const received = await this.database.get<{ id: string }>(
-        'SELECT id FROM shelf_source_operations WHERE id = ?',
-        [operation.id],
-      )
+      const received = this.#orm.select({ id: shelfSourceOperations.id })
+        .from(shelfSourceOperations)
+        .where(eq(shelfSourceOperations.id, operation.id))
+        .get()
       receivedOperationIds.add(operation.id)
       if (received)
         continue
@@ -275,42 +295,45 @@ export class ShelfSourcePersistence {
 
       commands.push(
         {
-          parameters: [
-            stored.id,
-            stored.kind,
-            stored.url,
-            stored.name,
-            stored.username,
-            stored.auth,
-            stored.enabled ? 1 : 0,
-            stored.orderKey,
-            merged.deleted ? 1 : 0,
-            JSON.stringify(stored.fieldClocks),
-            stored.addedAt,
-            Math.max(stored.updatedAt, clockPhysical(operation.clock)),
-          ],
-          sql: `
-            INSERT INTO shelf_sources (
-              id, kind, url, name, username, auth, enabled, order_key,
-              encrypted_password, deleted, field_clocks_json, added_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              kind = excluded.kind,
-              url = excluded.url,
-              name = excluded.name,
-              username = excluded.username,
-              auth = excluded.auth,
-              enabled = excluded.enabled,
-              order_key = excluded.order_key,
-              deleted = excluded.deleted,
-              field_clocks_json = excluded.field_clocks_json,
-              updated_at = excluded.updated_at
-          `,
+          drizzle: database => database.insert(shelfSources).values({
+            addedAt: stored.addedAt,
+            auth: stored.auth,
+            deleted: merged.deleted ? 1 : 0,
+            enabled: stored.enabled ? 1 : 0,
+            encryptedPassword: null,
+            fieldClocksJson: JSON.stringify(stored.fieldClocks),
+            id: stored.id,
+            kind: stored.kind,
+            name: stored.name,
+            orderKey: stored.orderKey,
+            updatedAt: Math.max(stored.updatedAt, clockPhysical(operation.clock)),
+            url: stored.url,
+            username: stored.username,
+          }).onConflictDoUpdate({
+            set: {
+              auth: stored.auth,
+              deleted: merged.deleted ? 1 : 0,
+              enabled: stored.enabled ? 1 : 0,
+              fieldClocksJson: JSON.stringify(stored.fieldClocks),
+              kind: stored.kind,
+              name: stored.name,
+              orderKey: stored.orderKey,
+              updatedAt: Math.max(stored.updatedAt, clockPhysical(operation.clock)),
+              url: stored.url,
+              username: stored.username,
+            },
+            target: shelfSources.id,
+          }).run(),
         },
         operationCommand(operation, false),
       )
-      if (merged.deleted)
-        commands.push({ parameters: [operation.sourceId], sql: 'DELETE FROM shelf_pages WHERE source_id = ?' })
+      if (merged.deleted) {
+        commands.push({
+          drizzle: database => database.delete(shelfPages)
+            .where(eq(shelfPages.sourceId, operation.sourceId))
+            .run(),
+        })
+      }
     }
 
     if (commands.length > 0)

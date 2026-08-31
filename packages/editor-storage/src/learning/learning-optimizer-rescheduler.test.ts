@@ -1,8 +1,17 @@
 import { defaultOptimizerConfiguration } from '@memorilo/srs'
+import { eq } from 'drizzle-orm'
 import { afterEach, describe, expect, it } from 'vitest'
+import {
+  learningCards,
+  learningNoteOptimizerAssignments,
+  learningOptimizerRevisions,
+  learningOptimizers,
+  learningStates,
+  learningTargets,
+} from '../drizzle-schema'
 import { SqliteTestDatabase } from '../sqlite-test-database'
 import { LearningOptimizerRescheduler } from './learning-optimizer-rescheduler'
-import { GLOBAL_OPTIMIZER_ID, learningSchema } from './schema'
+import { GLOBAL_OPTIMIZER_ID } from './schema'
 
 const databases: SqliteTestDatabase[] = []
 const configuration = defaultOptimizerConfiguration()
@@ -10,19 +19,16 @@ const configuration = defaultOptimizerConfiguration()
 async function createDatabase(): Promise<SqliteTestDatabase> {
   const database = new SqliteTestDatabase()
   databases.push(database)
-  await database.exec(learningSchema)
+  database.migrate()
   await database.batch([
     {
-      parameters: [GLOBAL_OPTIMIZER_ID, 'Global', 'global-revision'],
-      sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 1, \'active\', ?, 1, 1)',
+      drizzle: orm => orm.insert(learningOptimizers).values({ optimizerId: GLOBAL_OPTIMIZER_ID, name: 'Global', isGlobal: 1, status: 'active', currentRevisionId: 'global-revision', createdAt: 1, updatedAt: 1 }).run(),
     },
     {
-      parameters: ['global-revision', GLOBAL_OPTIMIZER_ID, JSON.stringify(configuration)],
-      sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, \'5.2.0\', 1)',
+      drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: 'global-revision', optimizerId: GLOBAL_OPTIMIZER_ID, configurationJson: JSON.stringify(configuration), fsrsVersion: '5.2.0', createdAt: 1 }).run(),
     },
     {
-      parameters: ['current-revision', GLOBAL_OPTIMIZER_ID, JSON.stringify(configuration)],
-      sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, \'5.2.0\', 1)',
+      drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: 'current-revision', optimizerId: GLOBAL_OPTIMIZER_ID, configurationJson: JSON.stringify(configuration), fsrsVersion: '5.2.0', createdAt: 1 }).run(),
     },
   ])
   return database
@@ -36,16 +42,13 @@ async function seedTarget(
 ): Promise<void> {
   await database.batch([
     {
-      parameters: [`card-${targetId}`, noteId, `source-${targetId}`],
-      sql: 'INSERT INTO learning_cards (card_id, note_id, topic_id, topic_order, source_block_id, source_order, kind, direction, active, first_seen_at, last_seen_at) VALUES (?, ?, \'topic\', 0, ?, 0, \'basic\', \'forward\', 1, 1, 1)',
+      drizzle: orm => orm.insert(learningCards).values({ cardId: `card-${targetId}`, noteId, topicId: 'topic', topicOrder: 0, sourceBlockId: `source-${targetId}`, sourceOrder: 0, kind: 'basic', direction: 'forward', active: 1, firstSeenAt: 1, lastSeenAt: 1 }).run(),
     },
     {
-      parameters: [targetId, `card-${targetId}`],
-      sql: 'INSERT INTO learning_targets (target_id, card_id, target_kind, target_order, active, created_at) VALUES (?, ?, \'whole\', 0, 1, 1)',
+      drizzle: orm => orm.insert(learningTargets).values({ targetId, cardId: `card-${targetId}`, targetKind: 'whole', targetOrder: 0, active: 1, createdAt: 1 }).run(),
     },
     {
-      parameters: [targetId, revisionId],
-      sql: 'INSERT INTO learning_states (target_id, phase, due_at, stability, difficulty, scheduled_days, learning_steps, reps, lapses, optimizer_revision_id, state_hash) VALUES (?, \'new\', 1, 1, 1, 0, 0, 0, 0, ?, \'hash\')',
+      drizzle: orm => orm.insert(learningStates).values({ targetId, phase: 'new', dueAt: 1, stability: 1, difficulty: 1, scheduledDays: 0, learningSteps: 0, reps: 0, lapses: 0, optimizerRevisionId: revisionId, stateHash: 'hash' }).run(),
     },
   ])
 }
@@ -59,16 +62,13 @@ describe('learning optimizer rescheduler', () => {
     const database = await createDatabase()
     await database.batch([
       {
-        parameters: ['archived-optimizer', 'Archived', 'archived-revision'],
-        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 0, \'active\', ?, 1, 1)',
+        drizzle: orm => orm.insert(learningOptimizers).values({ optimizerId: 'archived-optimizer', name: 'Archived', isGlobal: 0, status: 'active', currentRevisionId: 'archived-revision', createdAt: 1, updatedAt: 1 }).run(),
       },
       {
-        parameters: ['archived-revision', 'archived-optimizer', JSON.stringify(configuration)],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, \'5.2.0\', 1)',
+        drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: 'archived-revision', optimizerId: 'archived-optimizer', configurationJson: JSON.stringify(configuration), fsrsVersion: '5.2.0', createdAt: 1 }).run(),
       },
       {
-        parameters: ['assigned-note', 'archived-optimizer', 1],
-        sql: 'INSERT INTO learning_note_optimizer_assignments (note_id, optimizer_id, updated_at) VALUES (?, ?, ?)',
+        drizzle: orm => orm.insert(learningNoteOptimizerAssignments).values({ noteId: 'assigned-note', optimizerId: 'archived-optimizer', updatedAt: 1 }).run(),
       },
     ])
     await seedTarget(database, 'assigned-note', 'assigned-target', 'archived-revision')
@@ -82,7 +82,7 @@ describe('learning optimizer rescheduler', () => {
       history: {
         buildRescheduleCommands: async (target, optimizer) => {
           destinations.push({ revisionId: optimizer.revisionId, targetId: target.targetId })
-          return [{ parameters: [optimizer.revisionId, target.targetId], sql: 'UPDATE learning_states SET optimizer_revision_id = ? WHERE target_id = ?' }]
+          return [{ drizzle: orm => orm.update(learningStates).set({ optimizerRevisionId: optimizer.revisionId }).where(eq(learningStates.targetId, target.targetId)).run() }]
         },
       },
     })
@@ -115,30 +115,25 @@ describe('learning optimizer rescheduler', () => {
     const database = await createDatabase()
     await database.batch([
       {
-        parameters: ['optimizer', 'Optimizer', 'revision-old'],
-        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 0, \'active\', ?, 1, 1)',
+        drizzle: orm => orm.insert(learningOptimizers).values({ optimizerId: 'optimizer', name: 'Optimizer', isGlobal: 0, status: 'active', currentRevisionId: 'revision-old', createdAt: 1, updatedAt: 1 }).run(),
       },
       {
-        parameters: ['revision-old', 'optimizer', JSON.stringify(configuration)],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, \'5.2.0\', 1)',
+        drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: 'revision-old', optimizerId: 'optimizer', configurationJson: JSON.stringify(configuration), fsrsVersion: '5.2.0', createdAt: 1 }).run(),
       },
       {
-        parameters: ['revision-new', 'optimizer', JSON.stringify(configuration)],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, \'5.2.0\', 1)',
+        drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: 'revision-new', optimizerId: 'optimizer', configurationJson: JSON.stringify(configuration), fsrsVersion: '5.2.0', createdAt: 1 }).run(),
       },
     ])
     await seedTarget(database, 'note', 'target', 'revision-old')
     await database.batch([{
-      parameters: ['note', 'optimizer', 1],
-      sql: 'INSERT INTO learning_note_optimizer_assignments (note_id, optimizer_id, updated_at) VALUES (?, ?, ?)',
+      drizzle: orm => orm.insert(learningNoteOptimizerAssignments).values({ noteId: 'note', optimizerId: 'optimizer', updatedAt: 1 }).run(),
     }])
     const rescheduler = new LearningOptimizerRescheduler({
       database,
       resolveOptimizer: async () => ({ configuration, revisionId: 'unused' }),
       history: {
         buildRescheduleCommands: async (target, optimizer) => [{
-          parameters: [optimizer.revisionId, target.targetId],
-          sql: 'UPDATE learning_states SET optimizer_revision_id = ? WHERE target_id = ?',
+          drizzle: orm => orm.update(learningStates).set({ optimizerRevisionId: optimizer.revisionId }).where(eq(learningStates.targetId, target.targetId)).run(),
         }],
       },
     })

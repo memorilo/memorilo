@@ -1,4 +1,4 @@
-import type { EditorStorageDatabase } from '../database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase } from '../database-driver'
 import type {
   GetLearningActivitySummaryInput,
   LearningActivitySummary,
@@ -7,6 +7,11 @@ import type {
   ReviewRating,
 } from './types'
 import { addStudyDays, studyDayBounds, validateLearningPracticeConfiguration } from '@memorilo/srs'
+import { and, asc, eq, gte, lt, lte, ne, notExists } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
+import { learningCardIntroductions, learningCards, learningReviewEvents, learningStates, learningTargets } from '../drizzle-schema'
+
+const undoneReviewEvents = alias(learningReviewEvents, 'undone_review_events')
 
 interface DailyRatingRow {
   card_id: string
@@ -29,9 +34,7 @@ export interface FirstReviewRow {
 export function readFirstReviewTimes(
   database: EditorStorageDatabase,
 ): Promise<readonly FirstReviewRow[]> {
-  return database.all<FirstReviewRow>(
-    'SELECT card_id, introduced_at AS first_reviewed_at FROM learning_card_introductions',
-  )
+  return Promise.resolve(database.drizzle.select({ card_id: learningCardIntroductions.cardId, first_reviewed_at: learningCardIntroductions.introducedAt }).from(learningCardIntroductions).orderBy(asc(learningCardIntroductions.cardId)).all() as FirstReviewRow[])
 }
 
 interface LearningQueueProgressDependencies {
@@ -46,10 +49,12 @@ interface LearningQueueProgressDependencies {
 export class LearningQueueProgressReader {
   readonly #configuration: LearningQueueProgressDependencies['configuration']
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
 
   constructor(dependencies: LearningQueueProgressDependencies) {
     this.#configuration = dependencies.configuration
     this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
   }
 
   async getActivitySummary(
@@ -67,10 +72,7 @@ export class LearningQueueProgressReader {
     const firstStudyDay = addStudyDays(currentStudyDay, -(days - 1))
     const [dailyProgress, ratings] = await Promise.all([
       this.getDailyProgress(now),
-      this.#database.all<ActivityRatingRow>(
-        'SELECT e.card_id, e.rating, e.occurred_at FROM learning_review_events e JOIN learning_targets t ON t.target_id = e.target_id WHERE t.target_kind = \'whole\' AND e.event_kind = \'rating\' AND e.occurred_at >= ? AND e.occurred_at <= ? AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id) ORDER BY e.occurred_at, e.event_id',
-        [firstStudyDay, now],
-      ),
+      this.#ratings(firstStudyDay, now),
     ])
 
     const mutableDays = Array.from({ length: days }, (_, index) => ({
@@ -126,18 +128,9 @@ export class LearningQueueProgressReader {
     } = studyDayBounds(now, queuePolicy.studyDayStartsAtHour)
     const studyWeekEndsAt = addStudyDays(studyDayStartedAt, 7)
     const [ratings, dueTodayRows, dueWeekRows, firstReviews] = await Promise.all([
-      this.#database.all<DailyRatingRow>(
-        'SELECT e.card_id, e.rating FROM learning_review_events e JOIN learning_targets t ON t.target_id = e.target_id WHERE t.target_kind = \'whole\' AND e.event_kind = \'rating\' AND e.occurred_at >= ? AND e.occurred_at <= ? AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id)',
-        [studyDayStartedAt, now],
-      ),
-      this.#database.all<CardIdRow>(
-        'SELECT DISTINCT c.card_id FROM learning_cards c JOIN learning_targets t ON t.card_id = c.card_id JOIN learning_states s ON s.target_id = t.target_id WHERE c.active = 1 AND t.active = 1 AND s.phase <> \'new\' AND s.due_at < ?',
-        [studyDayEndsAt],
-      ),
-      this.#database.all<CardIdRow>(
-        'SELECT DISTINCT c.card_id FROM learning_cards c JOIN learning_targets t ON t.card_id = c.card_id JOIN learning_states s ON s.target_id = t.target_id WHERE c.active = 1 AND t.active = 1 AND s.phase <> \'new\' AND s.due_at < ?',
-        [studyWeekEndsAt],
-      ),
+      this.#ratings(studyDayStartedAt, now),
+      this.#dueCards(studyDayEndsAt),
+      this.#dueCards(studyWeekEndsAt),
       readFirstReviewTimes(this.#database),
     ])
 
@@ -192,5 +185,34 @@ export class LearningQueueProgressReader {
       studyDayEndsAt,
       studyDayStartedAt,
     }
+  }
+
+  #ratings(from: number, through: number): Promise<readonly ActivityRatingRow[]> {
+    return Promise.resolve(this.#orm.select({
+      card_id: learningReviewEvents.cardId,
+      rating: learningReviewEvents.rating,
+      occurred_at: learningReviewEvents.occurredAt,
+    }).from(learningReviewEvents).innerJoin(learningTargets, eq(learningTargets.targetId, learningReviewEvents.targetId)).where(and(
+      eq(learningTargets.targetKind, 'whole'),
+      eq(learningReviewEvents.eventKind, 'rating'),
+      gte(learningReviewEvents.occurredAt, from),
+      lte(learningReviewEvents.occurredAt, through),
+      notExists(this.#orm.select({ eventId: undoneReviewEvents.eventId })
+        .from(undoneReviewEvents)
+        .where(and(
+          eq(undoneReviewEvents.eventKind, 'undo'),
+          eq(undoneReviewEvents.undoesEventId, learningReviewEvents.eventId),
+        ))),
+    )).orderBy(asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as ActivityRatingRow[])
+  }
+
+  #dueCards(before: number): Promise<readonly CardIdRow[]> {
+    return Promise.resolve(this.#orm.selectDistinct({ card_id: learningCards.cardId })
+      .from(learningCards)
+      .innerJoin(learningTargets, eq(learningTargets.cardId, learningCards.cardId))
+      .innerJoin(learningStates, eq(learningStates.targetId, learningTargets.targetId))
+      .where(and(eq(learningCards.active, 1), eq(learningTargets.active, 1), ne(learningStates.phase, 'new'), lt(learningStates.dueAt, before)))
+      .orderBy(asc(learningCards.cardId))
+      .all() as CardIdRow[])
   }
 }

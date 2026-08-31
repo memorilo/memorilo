@@ -27,8 +27,17 @@
       {
         formatter = pkgs.alejandra;
         # Used by `nix develop`
-        devShells.default = pkgs.mkShell {
-          inherit buildInputs;
+        devShells = {
+          default = pkgs.mkShell {
+            inherit buildInputs;
+          };
+          sync-server-test = pkgs.mkShell {
+            buildInputs = buildInputs ++ (with pkgs; [
+              postgresql_18
+              seaweedfs
+              toxiproxy
+            ]);
+          };
         };
       }
     );

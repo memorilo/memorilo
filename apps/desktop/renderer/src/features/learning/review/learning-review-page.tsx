@@ -117,7 +117,7 @@ export function LearningReviewPage({
   const reviewLearning = useMemo(() => ({
     ...desktopRequests.learning,
     getNextItem: async (input?: Parameters<typeof desktopRequests.learning.getNextItem>[0]) => {
-      const [next] = await desktopRequests.learning.listQueue({ ...input, limit: 1, now: Date.now() })
+      const [next] = await desktopRequests.learning.listQueue({ ...input, limit: 1 })
       queryClient.setQueryData(sessionQueueQueryKey, next ? [next] : [])
       if (!next || next.kind !== 'review')
         return null
@@ -177,7 +177,7 @@ export function LearningReviewPage({
     return <LearningQueueStatus message={t('loadingReview')} />
   }
   if (!nextEntry)
-    return <LearningQueueStatus message={route.scope === 'note' ? t('noteReviewCompleteDescription') : t('globalReviewCompleteDescription')} />
+    return <LearningReviewPageSession route={route} workflow={workflow} />
 
   const readingItem = readingItems.data?.[0]
   if (nextEntry.kind === 'reading' && readingItem) {

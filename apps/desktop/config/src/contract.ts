@@ -62,6 +62,16 @@ export interface DesktopMcpConfiguration {
   port: number
 }
 
+export interface DesktopSyncServerConfiguration {
+  enabled: boolean
+  peerId: string
+  url: string
+  generation: number
+  membershipEpoch: number
+  policyEpoch: number
+  modes: readonly ('relay' | 'authoritative')[]
+}
+
 export interface DesktopTodoConfiguration {
   autoCompleteParentTasks: boolean
   blankTaskDurationMinutes: number
@@ -105,6 +115,7 @@ export interface DesktopConfiguration {
   readerPageMode: DesktopReaderPageMode
   reduceMotion: boolean
   shortcuts: DesktopShortcutConfiguration
+  syncServer: DesktopSyncServerConfiguration
   tiffConversionFormat: DesktopTiffConversionFormat
   todo: DesktopTodoConfiguration
   weekStart: DesktopWeekStart

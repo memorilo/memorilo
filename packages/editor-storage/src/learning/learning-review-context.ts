@@ -1,6 +1,8 @@
-import type { EditorStorageDatabase } from '../database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase } from '../database-driver'
 import type { LearningReviewHistory, LearningReviewOptimizer } from './learning-review-history'
 import type { LearningStateRow } from './learning-storage-shared'
+import { eq } from 'drizzle-orm'
+import { learningCards, learningStates, learningSyncState as learningSyncStateTable, learningTargets } from '../drizzle-schema'
 
 export interface ReviewTargetRow {
   active: number
@@ -23,6 +25,7 @@ export interface SyncStateRow {
 
 export class LearningReviewContext {
   readonly database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly history: LearningReviewHistory
   readonly resolveOptimizer: (noteId: string) => Promise<LearningReviewOptimizer>
 
@@ -32,38 +35,76 @@ export class LearningReviewContext {
     resolveOptimizer: (noteId: string) => Promise<LearningReviewOptimizer>
   }) {
     this.database = options.database
+    this.#orm = options.database.drizzle
     this.history = options.history
     this.resolveOptimizer = options.resolveOptimizer
   }
 
   async stateRow(targetId: string): Promise<LearningStateRow> {
-    const row = await this.database.get<LearningStateRow>(
-      'SELECT target_id, phase, due_at, stability, difficulty, scheduled_days, learning_steps, reps, lapses, last_review_at, optimizer_revision_id, winning_event_id, state_hash FROM learning_states WHERE target_id = ?',
-      [targetId],
-    )
+    const row = this.#orm.select({
+      target_id: learningStates.targetId,
+      phase: learningStates.phase,
+      due_at: learningStates.dueAt,
+      stability: learningStates.stability,
+      difficulty: learningStates.difficulty,
+      scheduled_days: learningStates.scheduledDays,
+      learning_steps: learningStates.learningSteps,
+      reps: learningStates.reps,
+      lapses: learningStates.lapses,
+      last_review_at: learningStates.lastReviewAt,
+      optimizer_revision_id: learningStates.optimizerRevisionId,
+      winning_event_id: learningStates.winningEventId,
+      state_hash: learningStates.stateHash,
+    }).from(learningStates).where(eq(learningStates.targetId, targetId)).get() as LearningStateRow | undefined
     if (!row)
       throw new Error(`Review Target ${targetId} has no Learning State`)
     return row
   }
 
   async syncState(): Promise<SyncStateRow> {
-    const row = await this.database.get<SyncStateRow>(
-      'SELECT device_id, next_device_sequence FROM learning_sync_state WHERE singleton = 1',
-    )
+    const row = this.#orm.select({ device_id: learningSyncStateTable.deviceId, next_device_sequence: learningSyncStateTable.nextDeviceSequence })
+      .from(learningSyncStateTable)
+      .where(eq(learningSyncStateTable.singleton, 1))
+      .get() as SyncStateRow | undefined
     if (!row)
       throw new Error('Learning sync state is missing')
     return row
   }
 
   async targetRow(targetId: string): Promise<ReviewTargetRow> {
-    const row = await this.database.get<ReviewTargetRow>(
-      'SELECT t.target_id, t.card_id, t.target_kind, t.target_order, t.active, t.created_at, c.active AS card_active, c.note_id, c.source_block_id, c.kind, c.direction FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id WHERE t.target_id = ?',
-      [targetId],
-    )
+    const row = this.#orm.select({
+      target_id: learningTargets.targetId,
+      card_id: learningTargets.cardId,
+      target_kind: learningTargets.targetKind,
+      target_order: learningTargets.targetOrder,
+      active: learningTargets.active,
+      created_at: learningTargets.createdAt,
+      card_active: learningCards.active,
+      note_id: learningCards.noteId,
+      source_block_id: learningCards.sourceBlockId,
+      kind: learningCards.kind,
+      direction: learningCards.direction,
+    }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).where(eq(learningTargets.targetId, targetId)).get() as ReviewTargetRow | undefined
     if (!row)
       throw new Error(`Unknown Review Target: ${targetId}`)
     if (row.active !== 1 || row.card_active !== 1)
       throw new Error(`Review Target ${targetId} is inactive`)
     return row
+  }
+
+  activeTargets(cardId: string): readonly ReviewTargetRow[] {
+    return this.#orm.select({
+      target_id: learningTargets.targetId,
+      card_id: learningTargets.cardId,
+      target_kind: learningTargets.targetKind,
+      target_order: learningTargets.targetOrder,
+      active: learningTargets.active,
+      created_at: learningTargets.createdAt,
+      card_active: learningCards.active,
+      note_id: learningCards.noteId,
+      source_block_id: learningCards.sourceBlockId,
+      kind: learningCards.kind,
+      direction: learningCards.direction,
+    }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).where(eq(learningTargets.cardId, cardId)).orderBy(learningTargets.targetOrder, learningTargets.targetId).all() as ReviewTargetRow[]
   }
 }

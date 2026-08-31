@@ -1,0 +1,24 @@
+# Node, Hono, and libp2p Resource Topology
+
+Type: grilling
+Status: resolved
+Blocked by: 01, 05, 06, 07
+
+## Question
+
+What package/module boundaries, Effect services/Layers, listeners, and shutdown ordering should `apps/sync-server` use?
+
+Decide shared packages versus app-private modules, one-external-port routing and reference proxy shape, Hono web/API composition, libp2p listener ownership, configuration loading and validation, database/object-store Layers, admission/drain sequence, background jobs, logging/metrics/health, secrets, deployment artifact, and horizontal-scaling constraints.
+
+## Answer
+
+The Node resource and deployment topology is:
+
+1. Introduce public `@memorilo/sync-protocol` for strict wire schemas, framing, transport-neutral session state machines, and pure sync algorithms. Introduce `@memorilo/sync-server-storage` for Drizzle-backed repositories, object-store ports/adapters, migrations, and conformance contracts. `apps/sync-server` owns Hono, React SSR composition, libp2p, authentication/policy admission, workers, configuration, and the process root. Server code does not import Electron main/renderer, desktop IPC, or private `editor-storage` modules.
+2. A TLS reverse proxy owns the single public HTTPS/WSS port. Ordinary HTTPS reaches a loopback Hono listener; WebSocket Upgrade traffic reaches the separately owned loopback libp2p WebSocket listener. Do not patch libp2p private APIs or build a custom transport solely to share one Node `http.Server`. Ship an executable Caddy or NGINX reference that forwards Upgrade/Connection, original host and trusted client address, and uses a compatible idle timeout.
+3. Hono owns `/api/*`, health/metrics endpoints, Vite-built web assets, and limited non-streaming React SSR plus hydration through the official React renderer. Do not add TanStack Start or Next.js initially. SSR is a presentation optimization, not an authorization boundary. A browser-session adapter and a libp2p device adapter extract and verify different credential types and scopes, but both reuse the same `IdentityRepository`, `CredentialVerifier`, `AccountPolicy`, `RateLimiter`, `AuditService`, and authenticated account-context model. Cookies cannot authorize sync streams and device credentials cannot call management APIs. The framework comparison and revisit conditions are captured in [Management Web SSR Framework Research](../research/management-ssr-framework.md).
+4. Load one strict Effect Schema configuration with environment overrides for registration, enabled modes, database/object adapters, public origin/multiaddr, internal ports, proxy trust, resource limits, and secret providers. Reject unknown keys, invalid URLs/multiaddrs, internal port collisions, unsupported SQLite/filesystem multi-host topology, missing public-origin/TLS assumptions, and weak/default secrets. Read passwords and signing keys from secret environment/file providers and redact them from logs.
+5. Compose scoped Layers for config, clock/ids, telemetry, Drizzle database, ObjectStore, migration runner, repositories, authentication/policy, durable workers, Hono, and libp2p. Call `Effect.runPromise` only at the process root. Startup is configuration validation, telemetry, database/object resources, migrations, repository reconciliation, workers, listeners, then readiness. Failed acquisition releases already acquired resources in reverse order.
+6. Shutdown is idempotent: readiness false, stop pairing/sync/HTTP admission, stop new job claims, drain admitted HTTP requests, sync sessions, and jobs, interrupt at the deadline, stop libp2p and Hono, then close object and database resources. SIGTERM/SIGINT enter this path once; a second signal may shorten the drain while finalizers still run. Liveness remains available while readiness reports false during drain.
+7. Expose non-secret liveness, dependency-aware readiness, and protected metrics. Structured request/session/job logs carry correlation ids and never include synchronized payloads or credentials. Metrics cover active sessions, relay delivery outcomes, authoritative commit latency, job backlog/age, database/object failures, auth/rate-limit rejection, and configured account/mode quotas. Security audit events are durable repository data, not ordinary log files alone.
+8. Build one Node application artifact plus web assets. SQLite/filesystem is the default single-instance deployment. PostgreSQL/S3-compatible storage supports multiple instances for authoritative mode through database account locking. Relay's online registry is process-local in the first version, so multi-instance relay requires account-sticky routing; if deployment cannot guarantee it, startup/configuration must disable relay rather than silently lose forwarding. Redis/NATS and cross-instance relay coordination are out of scope for the first implementation.

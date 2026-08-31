@@ -221,7 +221,7 @@ Reset Scheduling 只重置调度状态，不抹除 Card 曾经被引入的事实
 
 ### 5.11 learning_sync_state 与 tombstones
 
-纯 P2P 运行时由 `@memorilo/p2p-sync` 的持久化 journal 保存本机 Note/learning 变更、设备 version vector 和连续接收游标；SQLite 继续保存 learning outbox、mutation receipt 与本地 tombstone。P2P ack 只删除已保留在 journal 中的 learning mutation，不推进旧的 `last_server_sequence` 字段。当前仍缺少 full-sync-required、sanity hash、设备级 prune watermark 和跨设备成员集合的自动清理协调。
+纯 P2P 运行时由 `@memorilo/sync` 的持久化 journal 保存本机 Note/learning 变更、设备 version vector 和连续接收游标；SQLite 继续保存 learning outbox、mutation receipt 与本地 tombstone。P2P ack 只删除已保留在 journal 中的 learning mutation，不推进旧的 `last_server_sequence` 字段。Sync Server 作为可选 peer 使用同一同步契约，但拥有独立的多租户存储与 generation；服务器配置不会复用 Electron 数据库。
 
 永久维护会为 Card、Optimizer 或单独 inactive item Target 写入 scoped purge tombstone，而不是为每条历史制造墓碑。tombstone 带 membership epoch 和产生它的设备 vector；只有当前授权设备集合都推进到该 tombstone，或设备已在更高 epoch 被移除，才允许物理删除。离线设备不能被静默跳过。
 

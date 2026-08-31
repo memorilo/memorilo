@@ -7,6 +7,7 @@ import {
 import { AnnotationActivationOwner, annotationOverlayTint } from '../annotations'
 import { RegionSelectionController } from '../region-selection'
 import { regionSelectionClassNames } from '../region-selection.stylex'
+import { epubLayerClassNames } from './epub-layer.stylex'
 
 interface EpubReaderSurfaceOptions {
   container: HTMLElement
@@ -37,7 +38,6 @@ export class EpubReaderSurface {
     title,
   }: EpubReaderSurfaceOptions) {
     this.element = document.createElement('div')
-    this.element.className = 'reader-epub-surface'
     this.element.setAttribute('role', 'document')
     this.element.setAttribute('aria-label', title)
     Object.assign(this.element.style, {
@@ -133,6 +133,11 @@ export class EpubReaderSurface {
   observeResize(): void {
     if (!this.#closing)
       this.#resizeObserver?.observe(this.element)
+  }
+
+  styleNavigatorFrame(frame: Element | null): void {
+    if (frame)
+      frame.className = epubLayerClassNames.navigatorFrame
   }
 
   renderRegionMarkers(markers: readonly EpubRegionMarker[], label: () => string): void {

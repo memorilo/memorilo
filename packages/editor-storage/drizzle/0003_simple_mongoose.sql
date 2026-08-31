@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `notes_regular_title_unique` ON `notes` ("title" COLLATE NOCASE) WHERE "notes"."kind" = 'regular';

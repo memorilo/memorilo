@@ -6,15 +6,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test:e2e": "pnpm --filter @memorilo/desktop pack:dir && playwright test",
+    "test:e2e": "pnpm --filter @memorilo/sync-server web:build && pnpm --filter @memorilo/desktop pack:dir && playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@memorilo/desktop-api": "workspace:*",
     "@memorilo/editor": "workspace:*",
+    "@memorilo/effect-lifecycle": "workspace:*",
     "@playwright/test": "1.61.1",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "13.0.1",
+    "effect": "4.0.0-beta.23",
     "electron": "43.2.0"
   }
 }

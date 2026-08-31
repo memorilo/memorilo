@@ -8,7 +8,15 @@ import type {
   UndoLearningReviewsInput,
 } from './types'
 import { emptyLearningState, FSRSVersion } from '@memorilo/srs'
+import { and, eq } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import {
+  learningCardIntroductions,
+  learningQueueExclusions,
+  learningReviewEvents,
+  learningSyncState,
+  learningTargets,
+} from '../drizzle-schema'
 import { itemPartialActive } from './learning-review-history'
 import {
   assertNonEmpty,
@@ -30,6 +38,31 @@ interface UndoMutation {
   state: LearningState
 }
 
+function refreshIntroductionCommand(cardId: string): DatabaseCommand {
+  return {
+    drizzle: (database) => {
+      const events = database.select({ eventId: learningReviewEvents.eventId, occurredAt: learningReviewEvents.occurredAt })
+        .from(learningReviewEvents)
+        .where(and(eq(learningReviewEvents.cardId, cardId), eq(learningReviewEvents.eventKind, 'rating')))
+        .all()
+      const undone = new Set(database.select({ eventId: learningReviewEvents.undoesEventId })
+        .from(learningReviewEvents)
+        .where(eq(learningReviewEvents.eventKind, 'undo'))
+        .all()
+        .flatMap(row => row.eventId === null ? [] : [row.eventId]))
+      const introducedAt = events.filter(event => !undone.has(event.eventId))
+        .reduce<number | null>((minimum, event) => minimum === null ? event.occurredAt : Math.min(minimum, event.occurredAt), null)
+      if (introducedAt === null) {
+        database.delete(learningCardIntroductions)
+          .where(eq(learningCardIntroductions.cardId, cardId))
+          .run()
+        return
+      }
+      database.insert(learningCardIntroductions).values({ cardId, introducedAt }).onConflictDoUpdate({ set: { introducedAt }, target: learningCardIntroductions.cardId }).run()
+    },
+  }
+}
+
 export class LearningReviewCommands {
   readonly #context: LearningReviewContext
 
@@ -43,14 +76,7 @@ export class LearningReviewCommands {
     assertTimestamp(resetAt, 'Reset time')
     const eventId = input.eventId ?? createUuidV7()
     assertNonEmpty(eventId, 'Reset Event id')
-    const existing = await this.#context.database.get<{
-      event_kind: ReviewEventRow['event_kind']
-      occurred_at: number
-      target_id: string
-    }>(
-      'SELECT target_id, event_kind, occurred_at FROM learning_review_events WHERE event_id = ?',
-      [eventId],
-    )
+    const existing = this.#context.history.eventById(eventId)
     if (existing) {
       if (existing.event_kind !== 'reset'
         || existing.target_id !== input.targetId
@@ -65,27 +91,28 @@ export class LearningReviewCommands {
     const state = emptyLearningState(target.target_id, resetAt, optimizer.revisionId)
     await this.#context.database.batch([
       {
-        parameters: [
+        drizzle: database => database.insert(learningReviewEvents).values({
+          cardId: target.card_id,
+          deviceId: sync.device_id,
+          deviceSequence: sync.next_device_sequence,
           eventId,
-          target.target_id,
-          target.card_id,
-          target.note_id,
-          resetAt,
-          eventId,
-          sync.device_id,
-          sync.next_device_sequence,
-          FSRSVersion,
-        ],
-        sql: 'INSERT INTO learning_review_events (event_id, target_id, card_id, note_id, event_kind, occurred_at, reset_epoch, device_id, device_sequence, fsrs_version) VALUES (?, ?, ?, ?, \'reset\', ?, ?, ?, ?, ?)',
+          eventKind: 'reset',
+          fsrsVersion: FSRSVersion,
+          noteId: target.note_id,
+          occurredAt: resetAt,
+          resetEpoch: eventId,
+          targetId: target.target_id,
+        }).run(),
       },
       {
-        parameters: [sync.next_device_sequence + 1],
-        sql: 'UPDATE learning_sync_state SET next_device_sequence = ? WHERE singleton = 1',
+        drizzle: database => database.update(learningSyncState)
+          .set({ nextDeviceSequence: sync.next_device_sequence + 1 })
+          .where(eq(learningSyncState.singleton, 1))
+          .run(),
       },
       stateCommand(state),
       {
-        parameters: [target.target_id],
-        sql: 'UPDATE learning_targets SET partial_active = 0 WHERE target_id = ?',
+        drizzle: database => database.update(learningTargets).set({ partialActive: 0 }).where(eq(learningTargets.targetId, target.target_id)).run(),
       },
       syncMutationCommand('review-event', eventId, 'upsert', {
         eventId,
@@ -102,15 +129,7 @@ export class LearningReviewCommands {
     command: NormalizedUndoCommand,
     expectedUndoneAt: number | undefined,
   ): Promise<LearningState | null> {
-    const existing = await this.#context.database.get<{
-      event_kind: ReviewEventRow['event_kind']
-      occurred_at: number
-      target_id: string
-      undoes_event_id: string | null
-    }>(
-      'SELECT target_id, event_kind, occurred_at, undoes_event_id FROM learning_review_events WHERE event_id = ?',
-      [command.eventId],
-    )
+    const existing = this.#context.history.eventById(command.eventId)
     if (!existing)
       return null
     if (existing.event_kind !== 'undo'
@@ -157,28 +176,31 @@ export class LearningReviewCommands {
       cardId: target.card_id,
       commands: [
         {
-          parameters: [
-            command.eventId,
-            target.target_id,
-            target.card_id,
-            target.note_id,
-            undoneAt,
-            winningEventId,
-            winningEventId,
-            sync.device_id,
+          drizzle: database => database.insert(learningReviewEvents).values({
+            baseEventId: winningEventId,
+            cardId: target.card_id,
+            deviceId: sync.device_id,
             deviceSequence,
-            FSRSVersion,
-          ],
-          sql: 'INSERT INTO learning_review_events (event_id, target_id, card_id, note_id, event_kind, occurred_at, base_event_id, undoes_event_id, device_id, device_sequence, fsrs_version) VALUES (?, ?, ?, ?, \'undo\', ?, ?, ?, ?, ?, ?)',
+            eventId: command.eventId,
+            eventKind: 'undo',
+            fsrsVersion: FSRSVersion,
+            noteId: target.note_id,
+            occurredAt: undoneAt,
+            targetId: target.target_id,
+            undoesEventId: winningEventId,
+          }).run(),
         },
         stateCommand(replayed.state),
         {
-          parameters: [partialActive ? 1 : 0, target.target_id],
-          sql: 'UPDATE learning_targets SET partial_active = ? WHERE target_id = ?',
+          drizzle: database => database.update(learningTargets)
+            .set({ partialActive: partialActive ? 1 : 0 })
+            .where(eq(learningTargets.targetId, target.target_id))
+            .run(),
         },
         {
-          parameters: [winningEventId],
-          sql: 'DELETE FROM learning_queue_exclusions WHERE source_event_id = ?',
+          drizzle: database => database.delete(learningQueueExclusions)
+            .where(eq(learningQueueExclusions.sourceEventId, winningEventId))
+            .run(),
         },
         syncMutationCommand('review-event', command.eventId, 'upsert', {
           eventId: command.eventId,
@@ -221,19 +243,12 @@ export class LearningReviewCommands {
     await this.#context.database.batch([
       ...mutations.flatMap(mutation => mutation.commands),
       {
-        parameters: [sync.next_device_sequence + mutations.length],
-        sql: 'UPDATE learning_sync_state SET next_device_sequence = ? WHERE singleton = 1',
+        drizzle: database => database.update(learningSyncState)
+          .set({ nextDeviceSequence: sync.next_device_sequence + mutations.length })
+          .where(eq(learningSyncState.singleton, 1))
+          .run(),
       },
-      ...cardIds.flatMap<DatabaseCommand>(cardId => [
-        {
-          parameters: [cardId, cardId],
-          sql: 'INSERT INTO learning_card_introductions (card_id, introduced_at) SELECT ?, MIN(e.occurred_at) FROM learning_review_events e WHERE e.card_id = ? AND e.event_kind = \'rating\' AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id) HAVING COUNT(*) > 0 ON CONFLICT(card_id) DO UPDATE SET introduced_at = excluded.introduced_at',
-        },
-        {
-          parameters: [cardId, cardId],
-          sql: 'DELETE FROM learning_card_introductions WHERE card_id = ? AND NOT EXISTS (SELECT 1 FROM learning_review_events e WHERE e.card_id = ? AND e.event_kind = \'rating\' AND NOT EXISTS (SELECT 1 FROM learning_review_events u WHERE u.event_kind = \'undo\' AND u.undoes_event_id = e.event_id))',
-        },
-      ]),
+      ...cardIds.map(refreshIntroductionCommand),
     ])
     return mutations.map(mutation => mutation.state)
   }

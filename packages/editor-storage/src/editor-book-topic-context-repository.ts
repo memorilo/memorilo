@@ -1,4 +1,4 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
 import type { BookFileFingerprint, BookTopicContext } from './editor-storage-contracts'
 import type { BookTopicContextRow } from './editor-storage-rows'
 import {
@@ -6,31 +6,14 @@ import {
   assertBookFileSha256,
   assertReadingFormat,
 } from '@memorilo/reading-model'
+import { and, asc, eq, sql } from 'drizzle-orm'
+import { bookTopics, notes, topics } from './drizzle-schema'
 import { assertNonEmpty } from './editor-storage-shared'
 
 interface EditorBookTopicContextRepositoryDependencies {
   database: EditorStorageDatabase
   runOperation: StorageOperationRunner
 }
-
-const bookTopicContextSelect = `
-  SELECT
-    note.id AS note_id,
-    note.title AS note_title,
-    topic.topic_id,
-    topic.title AS topic_title,
-    book_topic.format,
-    book_topic.content_hash,
-    book_topic.byte_length,
-    book_topic.original_name,
-    book_topic.publication_title,
-    book_topic.authors_json,
-    book_topic.retrieval_hints_json
-  FROM book_topics AS book_topic
-  INNER JOIN notes AS note ON note.row_id = book_topic.note_row_id
-  INNER JOIN topics AS topic
-    ON topic.note_row_id = book_topic.note_row_id AND topic.topic_id = book_topic.topic_id
-`
 
 function toBookTopicContext(row: BookTopicContextRow): BookTopicContext {
   const binding: unknown = {
@@ -56,14 +39,12 @@ function toBookTopicContext(row: BookTopicContextRow): BookTopicContext {
   }
 }
 
-const topicOrder = 'ORDER BY note.title COLLATE NOCASE ASC, topic.title COLLATE NOCASE ASC, note.id ASC, topic.topic_id ASC'
-
 export class EditorBookTopicContextRepository {
-  readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #runOperation: EditorBookTopicContextRepositoryDependencies['runOperation']
 
   constructor(dependencies: EditorBookTopicContextRepositoryDependencies) {
-    this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#runOperation = dependencies.runOperation
   }
 
@@ -71,10 +52,19 @@ export class EditorBookTopicContextRepository {
     assertReadingFormat(file.format)
     assertBookFileSha256(file.sha256)
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<BookTopicContextRow>(`${bookTopicContextSelect}
-        WHERE book_topic.format = ? AND book_topic.content_hash = ?
-        ${topicOrder}
-      `, [file.format, file.sha256])
+      const rows = this.#orm.select({
+        note_id: notes.id,
+        note_title: notes.title,
+        topic_id: topics.topicId,
+        topic_title: topics.title,
+        format: bookTopics.format,
+        content_hash: bookTopics.contentHash,
+        byte_length: bookTopics.byteLength,
+        original_name: bookTopics.originalName,
+        publication_title: bookTopics.publicationTitle,
+        authors_json: bookTopics.authorsJson,
+        retrieval_hints_json: bookTopics.retrievalHintsJson,
+      }).from(bookTopics).innerJoin(notes, eq(notes.rowId, bookTopics.noteRowId)).innerJoin(topics, and(eq(topics.noteRowId, bookTopics.noteRowId), eq(topics.topicId, bookTopics.topicId))).where(and(eq(bookTopics.format, file.format), eq(bookTopics.contentHash, file.sha256))).orderBy(asc(sql`lower(${notes.title})`), asc(sql`lower(${topics.title})`), asc(notes.id), asc(topics.topicId)).all() as BookTopicContextRow[]
       return rows.map(toBookTopicContext)
     })
   }
@@ -82,15 +72,22 @@ export class EditorBookTopicContextRepository {
   listByReadingId(readingId: string): Promise<readonly BookTopicContext[]> {
     assertNonEmpty(readingId, 'Book retrieval reading id')
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<BookTopicContextRow>(`${bookTopicContextSelect}
-        WHERE EXISTS (
-          SELECT 1
-          FROM json_each(book_topic.retrieval_hints_json) AS hint
-          WHERE json_extract(hint.value, '$.readingId') = ?
-        )
-        ${topicOrder}
-      `, [readingId])
-      return rows.map(toBookTopicContext)
+      const rows = this.#orm.select({
+        note_id: notes.id,
+        note_title: notes.title,
+        topic_id: topics.topicId,
+        topic_title: topics.title,
+        format: bookTopics.format,
+        content_hash: bookTopics.contentHash,
+        byte_length: bookTopics.byteLength,
+        original_name: bookTopics.originalName,
+        publication_title: bookTopics.publicationTitle,
+        authors_json: bookTopics.authorsJson,
+        retrieval_hints_json: bookTopics.retrievalHintsJson,
+      }).from(bookTopics).innerJoin(notes, eq(notes.rowId, bookTopics.noteRowId)).innerJoin(topics, and(eq(topics.noteRowId, bookTopics.noteRowId), eq(topics.topicId, bookTopics.topicId))).orderBy(asc(sql`lower(${notes.title})`), asc(sql`lower(${topics.title})`), asc(notes.id), asc(topics.topicId)).all() as BookTopicContextRow[]
+      return rows.map(toBookTopicContext).filter(context => (
+        context.book.retrievalHints.some(hint => hint.readingId === readingId)
+      ))
     })
   }
 }

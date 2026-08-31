@@ -1,6 +1,8 @@
 import type { DatabaseCommand } from '../database-driver'
 import type { LearningMaintenanceEstimate } from './types'
+import { eq } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import { learningCards, learningMaintenanceState, learningOptimizers, learningPurgeTombstones, learningTargets } from '../drizzle-schema'
 import { syncMutationCommand } from './learning-storage-shared'
 
 type PurgeScopeKind = 'card' | 'optimizer' | 'target'
@@ -28,8 +30,13 @@ function appendTombstone(
   const tombstoneId = createUuidV7()
   commands.push(
     {
-      parameters: [tombstoneId, scopeKind, scopeId, generation, now],
-      sql: 'INSERT INTO learning_purge_tombstones (tombstone_id, scope_kind, scope_id, generation, created_at) VALUES (?, ?, ?, ?, ?)',
+      drizzle: database => database.insert(learningPurgeTombstones).values({
+        createdAt: now,
+        generation,
+        scopeId,
+        scopeKind,
+        tombstoneId,
+      }).run(),
     },
     syncMutationCommand('tombstone', tombstoneId, 'delete', {
       generation,
@@ -57,18 +64,19 @@ export function createLearningMaintenancePurgePlan(
     appendTombstone(commands, 'target', target.target_id, input.generation, input.now)
 
   commands.push(
-    { sql: 'DELETE FROM learning_targets WHERE active = 0' },
-    { sql: 'DELETE FROM learning_cards WHERE active = 0' },
-    { sql: 'DELETE FROM learning_optimizers WHERE status = \'archived\'' },
+    { drizzle: database => database.delete(learningTargets).where(eq(learningTargets.active, 0)).run() },
+    { drizzle: database => database.delete(learningCards).where(eq(learningCards.active, 0)).run() },
+    { drizzle: database => database.delete(learningOptimizers).where(eq(learningOptimizers.status, 'archived')).run() },
     {
-      parameters: [
-        input.estimate.archivedOptimizers,
-        input.estimate.inactiveCards,
-        input.estimate.reviewEvents,
-        input.estimate.targets,
-        input.now,
-      ],
-      sql: 'INSERT INTO learning_maintenance_state (singleton, phase, archived_optimizers, inactive_cards, review_events, targets, created_at) VALUES (1, \'vacuum-pending\', ?, ?, ?, ?, ?)',
+      drizzle: database => database.insert(learningMaintenanceState).values({
+        archivedOptimizers: input.estimate.archivedOptimizers,
+        createdAt: input.now,
+        inactiveCards: input.estimate.inactiveCards,
+        phase: 'vacuum-pending',
+        reviewEvents: input.estimate.reviewEvents,
+        singleton: 1,
+        targets: input.estimate.targets,
+      }).run(),
     },
   )
   return { commands }

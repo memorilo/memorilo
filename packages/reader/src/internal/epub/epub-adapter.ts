@@ -23,7 +23,6 @@ import { assertReaderPositionFormat, runSingleMount } from '../reader-adapter'
 import { EpubContinuousReaderMount } from './epub-continuous-reader-mount'
 import { parseEpub } from './epub-parser'
 import { EpubReaderMount } from './epub-reader-mount'
-import './epub-layer.css'
 
 type EpubSource = ResolvedReaderSource & { format: 'epub' }
 type EpubMount = EpubContinuousReaderMount | EpubReaderMount

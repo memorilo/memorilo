@@ -5,6 +5,8 @@ import { basename, dirname, join } from 'node:path'
 
 import { combineLifecycleFailures, toError } from '@memorilo/effect-lifecycle'
 import BetterSqlite3 from 'better-sqlite3'
+import { sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 
 const automaticBackupPattern = /^memorilo-\d{8}T\d{6}Z-[0-9a-f-]+\.sqlite$/u
 
@@ -20,16 +22,18 @@ function automaticBackupTimestamp(now: Date): string {
 
 export function inspectDatabase(path: string): DatabaseInspection {
   const database = new BetterSqlite3(path, { fileMustExist: true, readonly: true })
+  const orm = drizzle(database)
   let inspection: DatabaseInspection
   try {
-    const integrity = database.prepare('PRAGMA integrity_check').all() as Array<Record<string, unknown>>
+    const integrity = orm.all<Record<string, unknown>>(sql`PRAGMA integrity_check`)
     const messages = integrity.flatMap(row => Object.values(row))
     if (messages.length !== 1 || messages[0] !== 'ok')
       throw new Error(`SQLite integrity check failed: ${messages.map(String).join('; ')}`)
-    const userVersion = database.pragma('user_version', { simple: true })
-    if (!Number.isSafeInteger(userVersion) || (userVersion as number) < 0)
+    const version = orm.get<{ user_version: number }>(sql`PRAGMA user_version`)
+    const userVersion = version?.user_version
+    if (!Number.isSafeInteger(userVersion) || userVersion < 0)
       throw new Error('SQLite database has an invalid schema generation')
-    inspection = { userVersion: userVersion as number }
+    inspection = { userVersion }
   }
   catch (error) {
     const inspectionError = toError(error)

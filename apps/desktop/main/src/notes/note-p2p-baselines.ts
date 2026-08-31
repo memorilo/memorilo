@@ -1,5 +1,5 @@
 import type { StoredNote } from '@memorilo/editor-storage'
-import type { JsonSyncJournal } from '@memorilo/p2p-sync'
+import type { JsonSyncJournal } from '@memorilo/sync/node'
 import { Buffer } from 'node:buffer'
 import { createEditorNote } from '@memorilo/editor/note'
 

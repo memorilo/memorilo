@@ -353,7 +353,7 @@ describe('pdf page view lifecycle', () => {
 
     view.setAnnotations([annotation], 1)
 
-    const marker = appended.find(element => element.className === 'reader-pdf-annotation')
+    const marker = appended.find(element => element.dataset.annotationId === annotation.id)
     expect(marker?.dataset.annotationId).toBe(annotation.id)
     clickListener?.({
       target: { closest: () => marker },

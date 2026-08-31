@@ -6,6 +6,7 @@ import {
 } from '@memorilo/effect-lifecycle'
 import { FixedPageViewportController } from '../fixed-page/viewport'
 import { RegionSelectionController } from '../region-selection'
+import { pdfLayerClassNames } from './pdf-layer.stylex'
 
 interface PdfReaderSurfaceOptions {
   container: HTMLElement
@@ -44,19 +45,20 @@ export class PdfReaderSurface {
   }: PdfReaderSurfaceOptions) {
     this.#onResize = onResize
     this.#scroller = document.createElement('div')
-    this.#scroller.className = 'reader-pdf-scroller'
+    this.#scroller.className = `reader-pdf-scroller ${pdfLayerClassNames.scroller}`
+    this.#scroller.dataset.ui = 'reader-pdf-scroller'
     this.#scroller.setAttribute('role', 'document')
     this.#scroller.setAttribute('aria-label', name)
 
     this.pageSurface = document.createElement('div')
-    this.pageSurface.className = 'reader-pdf-page'
+    this.pageSurface.className = `reader-pdf-page ${pdfLayerClassNames.page}`
     this.canvas = document.createElement('canvas')
-    this.canvas.className = 'reader-pdf-canvas'
+    this.canvas.className = `reader-pdf-canvas ${pdfLayerClassNames.canvas}`
     this.canvas.setAttribute('aria-label', `Page ${pageNumber}`)
     this.annotationLayer = document.createElement('div')
-    this.annotationLayer.className = 'reader-pdf-annotations'
+    this.annotationLayer.className = `reader-pdf-annotations ${pdfLayerClassNames.annotations}`
     this.textLayer = document.createElement('div')
-    this.textLayer.className = 'reader-pdf-text-layer'
+    this.textLayer.className = `reader-pdf-text-layer ${pdfLayerClassNames.textLayer}`
     const listenerOptions = { signal: this.#domEvents!.signal }
     this.textLayer.addEventListener(
       'pointerup',
@@ -69,7 +71,6 @@ export class PdfReaderSurface {
       listenerOptions,
     )
     const regionCapture = document.createElement('div')
-    regionCapture.className = 'reader-pdf-region-capture'
     regionCapture.setAttribute('aria-hidden', 'true')
 
     this.pageSurface.append(this.canvas, this.annotationLayer, this.textLayer, regionCapture)

@@ -1,8 +1,8 @@
 # Use pure P2P synchronization with device version vectors and membership epochs
 
-Status: accepted
+Status: accepted (scope narrowed by ADR 0008)
 
-Memorilo will synchronize personal learning data and collaborative Note updates directly between explicitly paired Electron devices over libp2p, without a rendezvous service, relay server, bootstrap server, DHT service, or other synchronization coordinator. Every node must use Noise for authenticated encrypted connections, Yamux for stream multiplexing, and mDNS for local peer discovery; discovered peers are only candidates and never receive data without an existing pairing grant.
+This ADR defines the direct-device synchronization model. Memorilo synchronizes personal learning data and collaborative Note updates directly between explicitly paired Electron devices over libp2p. Direct P2P remains available without any server, rendezvous, bootstrap, DHT, or synchronization coordinator. An optional Sync Server peer is now allowed by ADR 0008; this ADR's merge, identity, membership, and durability invariants continue to apply to both direct and server sessions. Every node must use Noise for authenticated encrypted connections and Yamux for stream multiplexing; direct P2P uses mDNS for local peer discovery, while server reachability uses its configured WebSocket address.
 
 Pairing is a local, user-mediated discovery flow. Device A can enable discovery for five minutes in the current application process only. Raw mDNS discovery remains internal and is never shown as an available device by itself. Device B probes an mDNS peer over `/memorilo/pairing/1`; A responds with its device identity and window expiry only while discovery is enabled, after which B may show A and request pairing. A must approve the request; both devices derive and display the same five-emoji verification code. The grant is persisted only after users confirm that the emoji sequence matches on both devices. The five-minute window, advertised availability, and pending requests are memory-only and are not restored after an application restart.
 
@@ -17,7 +17,7 @@ Note LoroDocs and personal learning data remain separate synchronization domains
 ## Considered Options
 
 - A centralized sequence service was rejected because the product requirement is server-free operation and local-network/offline synchronization.
-- Public bootstrap, rendezvous, DHT, Circuit Relay, and DCUtR were rejected for the initial protocol because they introduce infrastructure, metadata exposure, and operational dependencies. They may be considered in a future ADR without changing the merge model.
+- Public bootstrap, rendezvous, DHT, Circuit Relay, and DCUtR remain disabled for direct P2P because they introduce infrastructure, metadata exposure, and operational dependencies. Optional Sync Server transport is specified separately by ADR 0008 without changing the merge model.
 - Gossipsub was rejected as the source of truth: it does not provide durable delivery, replay, per-mutation acknowledgement, or tombstone pruning semantics.
 
 ## Consequences

@@ -25,7 +25,8 @@
     "better-sqlite3": "13.0.1",
     "loro-crdt": "1.13.8",
     "sharp": "0.34.5",
-    "sqlite-vec": "0.1.9"
+    "sqlite-vec": "0.1.9",
+    "ws": "8.21.1"
   },
   "optionalDependencies": {
     "@img/sharp-win32-x64": "0.34.5",

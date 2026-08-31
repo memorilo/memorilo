@@ -1,9 +1,11 @@
 import type { FsrsOptimizerConfiguration } from '@memorilo/srs'
-import type { DatabaseCommand, EditorStorageDatabase } from '../database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase } from '../database-driver'
 import type {
   LearningReviewHistory,
   LearningReviewOptimizer,
 } from './learning-review-history'
+import { eq, inArray, or, sql } from 'drizzle-orm'
+import { learningCards, learningNoteOptimizerAssignments, learningOptimizerRevisions, learningOptimizers, learningStates, learningTargets } from '../drizzle-schema'
 import { syncMutationCommand } from './learning-storage-shared'
 import { GLOBAL_OPTIMIZER_ID } from './schema'
 
@@ -15,7 +17,7 @@ interface OptimizerTargetRow {
 }
 
 interface LearningOptimizerReschedulerDependencies {
-  database: Pick<EditorStorageDatabase, 'all' | 'batch'>
+  database: Pick<EditorStorageDatabase, 'batch' | 'drizzle'>
   history: Pick<LearningReviewHistory, 'buildRescheduleCommands'>
   now?: () => number
   resolveOptimizer: (noteId: string) => Promise<LearningReviewOptimizer>
@@ -23,22 +25,26 @@ interface LearningOptimizerReschedulerDependencies {
 
 export class LearningOptimizerRescheduler {
   readonly #database: LearningOptimizerReschedulerDependencies['database']
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #history: LearningOptimizerReschedulerDependencies['history']
   readonly #now: () => number
   readonly #resolveOptimizer: LearningOptimizerReschedulerDependencies['resolveOptimizer']
 
   constructor(dependencies: LearningOptimizerReschedulerDependencies) {
     this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#history = dependencies.history
     this.#now = dependencies.now ?? Date.now
     this.#resolveOptimizer = dependencies.resolveOptimizer
   }
 
   listTargets(optimizerId: string): Promise<readonly OptimizerTargetRow[]> {
-    return this.#database.all<OptimizerTargetRow>(
-      'SELECT t.target_id, t.created_at, c.note_id, t.target_kind FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id LEFT JOIN learning_note_optimizer_assignments a ON a.note_id = c.note_id WHERE COALESCE(a.optimizer_id, ?) = ?',
-      [GLOBAL_OPTIMIZER_ID, optimizerId],
-    )
+    return Promise.resolve(this.#orm.select({
+      target_id: learningTargets.targetId,
+      created_at: learningTargets.createdAt,
+      note_id: learningCards.noteId,
+      target_kind: learningTargets.targetKind,
+    }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).leftJoin(learningNoteOptimizerAssignments, eq(learningNoteOptimizerAssignments.noteId, learningCards.noteId)).where(sql`COALESCE(${learningNoteOptimizerAssignments.optimizerId}, ${GLOBAL_OPTIMIZER_ID}) = ${optimizerId}`).all() as OptimizerTargetRow[])
   }
 
   async commandsForRevision(
@@ -58,15 +64,20 @@ export class LearningOptimizerRescheduler {
   }
 
   async archive(optimizerId: string, global: LearningReviewOptimizer): Promise<void> {
-    const noteRows = await this.#database.all<{ note_id: string }>(
-      'SELECT note_id FROM learning_note_optimizer_assignments WHERE optimizer_id = ?',
-      [optimizerId],
-    )
+    const noteRows = this.#orm.select({ note_id: learningNoteOptimizerAssignments.noteId })
+      .from(learningNoteOptimizerAssignments)
+      .where(eq(learningNoteOptimizerAssignments.optimizerId, optimizerId))
+      .all() as Array<{ note_id: string }>
     const assignedNoteIds = new Set(noteRows.map(row => row.note_id))
-    const targets = await this.#database.all<OptimizerTargetRow>(
-      'SELECT t.target_id, t.created_at, c.note_id, t.target_kind FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id JOIN learning_states s ON s.target_id = t.target_id WHERE c.note_id IN (SELECT note_id FROM learning_note_optimizer_assignments WHERE optimizer_id = ?) OR s.optimizer_revision_id IN (SELECT revision_id FROM learning_optimizer_revisions WHERE optimizer_id = ?)',
-      [optimizerId, optimizerId],
-    )
+    const targets = this.#orm.select({
+      target_id: learningTargets.targetId,
+      created_at: learningTargets.createdAt,
+      note_id: learningCards.noteId,
+      target_kind: learningTargets.targetKind,
+    }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).innerJoin(learningStates, eq(learningStates.targetId, learningTargets.targetId)).where(or(
+      inArray(learningCards.noteId, noteRows.map(row => row.note_id)),
+      inArray(learningStates.optimizerRevisionId, this.#orm.select({ id: learningOptimizerRevisions.revisionId }).from(learningOptimizerRevisions).where(eq(learningOptimizerRevisions.optimizerId, optimizerId))),
+    )).all() as OptimizerTargetRow[]
     const commands: DatabaseCommand[] = []
     for (const target of targets) {
       const destination = assignedNoteIds.has(target.note_id)
@@ -82,12 +93,18 @@ export class LearningOptimizerRescheduler {
     const now = this.#now()
     commands.push(
       {
-        parameters: [now, optimizerId],
-        sql: 'UPDATE learning_optimizers SET status = \'archived\', updated_at = ?, sync_sequence = -1 WHERE optimizer_id = ?',
+        drizzle: database => database.update(learningOptimizers).set({
+          status: 'archived',
+          syncSequence: -1,
+          updatedAt: now,
+        }).where(eq(learningOptimizers.optimizerId, optimizerId)).run(),
       },
       {
-        parameters: [GLOBAL_OPTIMIZER_ID, now, optimizerId],
-        sql: 'UPDATE learning_note_optimizer_assignments SET optimizer_id = ?, updated_at = ?, sync_sequence = -1 WHERE optimizer_id = ?',
+        drizzle: database => database.update(learningNoteOptimizerAssignments).set({
+          optimizerId: GLOBAL_OPTIMIZER_ID,
+          syncSequence: -1,
+          updatedAt: now,
+        }).where(eq(learningNoteOptimizerAssignments.optimizerId, optimizerId)).run(),
       },
       syncMutationCommand('optimizer', optimizerId, 'upsert', {
         id: optimizerId,

@@ -294,7 +294,10 @@ export class EpubReaderMount {
             contentProtection: () => undefined,
             contextMenu: () => undefined,
             customEvent: () => undefined,
-            frameLoaded: frameWindow => frameKeyboard.observe(frameWindow),
+            frameLoaded: (frameWindow) => {
+              surface.styleNavigatorFrame(frameWindow.frameElement)
+              frameKeyboard.observe(frameWindow)
+            },
             handleLocator: () => true,
             miscPointer: () => undefined,
             peripheral: () => undefined,

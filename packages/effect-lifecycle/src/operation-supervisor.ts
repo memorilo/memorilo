@@ -12,6 +12,8 @@ export interface OperationSupervisor {
   isClosed: () => boolean
   /** Runs an Effect inside the supervisor-owned fiber set. */
   runEffect: <Result, Failure = never>(effect: EffectType.Effect<Result, Failure>) => Promise<Result>
+  /** Rejects overlapping native Effects without converting them through Promise work. */
+  runEffectSingleFlight: <Result, Failure = never>(effect: EffectType.Effect<Result, Failure>) => Promise<SingleFlightResult<Result>>
   run: <Result>(operation: (signal: AbortSignal) => Promise<Result>) => Promise<Result>
   /** Rejects overlap before serial queueing and returns busy without starting it. */
   runSingleFlight: <Result>(operation: (signal: AbortSignal) => Promise<Result>) => Promise<SingleFlightResult<Result>>
@@ -74,21 +76,13 @@ export function createOperationSupervisor(
     }))
   }
 
-  const runSingleFlight = <Result>(
-    operation: (signal: AbortSignal) => Promise<Result>,
-  ): Promise<SingleFlightResult<Result>> => {
+  const runOwnedSingleFlight = <Result>(operation: () => Promise<Result>): Promise<SingleFlightResult<Result>> => {
     if (closed)
       return Promise.reject(closedError())
     if (singleFlightBusy)
       return Promise.resolve({ status: 'busy' })
     singleFlightBusy = true
-    return runOwned(Effect.tryPromise({
-      catch: toError,
-      try: () => {
-        controller.signal.throwIfAborted()
-        return operation(controller.signal)
-      },
-    })).then(
+    return operation().then(
       (value): SingleFlightResult<Result> => {
         singleFlightBusy = false
         return { status: 'accepted', value }
@@ -99,6 +93,14 @@ export function createOperationSupervisor(
       },
     )
   }
+
+  const runEffectSingleFlight = <Result, Failure>(
+    effect: Effect.Effect<Result, Failure>,
+  ): Promise<SingleFlightResult<Result>> => runOwnedSingleFlight(() => runEffect(effect))
+
+  const runSingleFlight = <Result>(
+    operation: (signal: AbortSignal) => Promise<Result>,
+  ): Promise<SingleFlightResult<Result>> => runOwnedSingleFlight(() => run(operation))
 
   const close = (): Promise<void> => {
     closed = true
@@ -113,5 +115,5 @@ export function createOperationSupervisor(
     })))
   }
 
-  return { close, isClosed: () => closed, run, runEffect, runSingleFlight }
+  return { close, isClosed: () => closed, run, runEffect, runEffectSingleFlight, runSingleFlight }
 }

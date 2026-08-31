@@ -36,6 +36,9 @@ export default defineConfig({
           'better-sqlite3',
           'loro-crdt',
           'sqlite-vec',
+          // Keep ws in Node's runtime so its optional native accelerators can
+          // fall back cleanly instead of Vite's missing-peer stub throwing.
+          'ws',
         ],
       },
       rollupOptions: {

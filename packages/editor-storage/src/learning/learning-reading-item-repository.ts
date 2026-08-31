@@ -1,5 +1,7 @@
-import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from '../database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from '../database-driver'
 import type { LearningReadingItemStorage, ProcessReadingItemInput, ReadingItem, ReadingItemProjection } from './types'
+import { and, asc, desc, eq, isNull, lte, notInArray, or, sql } from 'drizzle-orm'
+import { learningReadingItems } from '../drizzle-schema'
 import { assertNonEmpty } from './learning-storage-shared'
 
 interface ReadingItemRow extends ReadingItem {
@@ -30,10 +32,12 @@ function mapRow(row: ReadingItemRow): ReadingItem {
 
 export class LearningReadingItemRepository implements LearningReadingItemStorage {
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #runOperation: StorageOperationRunner
 
   constructor(database: EditorStorageDatabase, runOperation: StorageOperationRunner) {
     this.#database = database
+    this.#orm = database.drizzle
     this.#runOperation = runOperation
   }
 
@@ -48,22 +52,45 @@ export class LearningReadingItemRepository implements LearningReadingItemStorage
       if (ids.has(item.readingItemId))
         throw new Error(`Duplicate Reading Item ${item.readingItemId}`)
       ids.add(item.readingItemId)
+      const priority = item.priority
       commands.push({
-        parameters: [item.readingItemId, noteId, topicId, item.sourceBlockId, item.highlightId, item.state ?? 'new', item.priority ?? null, item.nextProcessAt ?? null, item.readPoint ?? 0, now, now, item.priority ?? null],
-        sql: `INSERT INTO learning_reading_items (reading_item_id, note_id, topic_id, source_block_id, highlight_id, state, priority, next_process_at, read_point, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 0), ?, ?, ?, ?)
-          ON CONFLICT(reading_item_id) DO UPDATE SET note_id = excluded.note_id, topic_id = excluded.topic_id, source_block_id = excluded.source_block_id, highlight_id = excluded.highlight_id, priority = COALESCE(?, learning_reading_items.priority), updated_at = excluded.updated_at`,
+        drizzle: database => database.insert(learningReadingItems).values({
+          createdAt: now,
+          highlightId: item.highlightId,
+          nextProcessAt: item.nextProcessAt ?? null,
+          noteId,
+          priority: priority ?? 0,
+          readPoint: item.readPoint ?? 0,
+          readingItemId: item.readingItemId,
+          sourceBlockId: item.sourceBlockId,
+          state: item.state ?? 'new',
+          topicId,
+          updatedAt: now,
+        }).onConflictDoUpdate({
+          set: {
+            highlightId: item.highlightId,
+            noteId,
+            ...(priority === undefined ? {} : { priority }),
+            sourceBlockId: item.sourceBlockId,
+            topicId,
+            updatedAt: now,
+          },
+          target: learningReadingItems.readingItemId,
+        }).run(),
       })
     }
     commands.push({
-      parameters: [noteId, topicId, ...(items.length ? [...ids] : ['__none__'])],
-      sql: `DELETE FROM learning_reading_items WHERE note_id = ? AND topic_id = ? AND reading_item_id NOT IN (${items.length ? items.map(() => '?').join(',') : '?'})`,
+      drizzle: database => database.delete(learningReadingItems).where(and(
+        eq(learningReadingItems.noteId, noteId),
+        eq(learningReadingItems.topicId, topicId),
+        ids.size === 0 ? undefined : notInArray(learningReadingItems.readingItemId, [...ids]),
+      )).run(),
     })
     return commands
   }
 
   async listTopics(noteId: string): Promise<readonly string[]> {
-    const rows = await this.#database.all<{ topic_id: string }>('SELECT DISTINCT topic_id FROM learning_reading_items WHERE note_id = ?', [noteId])
+    const rows = this.#orm.selectDistinct({ topic_id: learningReadingItems.topicId }).from(learningReadingItems).where(eq(learningReadingItems.noteId, noteId)).all()
     return rows.map(row => row.topic_id)
   }
 
@@ -80,23 +107,24 @@ export class LearningReadingItemRepository implements LearningReadingItemStorage
   list(input: { includeScheduled?: boolean, limit?: number, noteId?: string, now?: number, readingItemId?: string, topicId?: string } = {}): Promise<readonly ReadingItem[]> {
     return this.#runOperation(async () => {
       const now = input.now ?? Date.now()
-      const conditions = input.includeScheduled === true ? ['1 = 1'] : ['(next_process_at IS NULL OR next_process_at <= ?)']
-      const parameters: (number | string)[] = input.includeScheduled === true ? [] : [now]
-      if (input.noteId) {
-        conditions.push('note_id = ?')
-        parameters.push(input.noteId)
-      }
-      if (input.topicId) {
-        conditions.push('topic_id = ?')
-        parameters.push(input.topicId)
-      }
-      if (input.readingItemId) {
-        conditions.push('reading_item_id = ?')
-        parameters.push(input.readingItemId)
-      }
       const limit = input.limit ?? 50
-      parameters.push(limit)
-      const rows = await this.#database.all<ReadingItemRow>(`SELECT reading_item_id, note_id, topic_id, source_block_id, highlight_id, state, priority, next_process_at, read_point FROM learning_reading_items WHERE ${conditions.join(' AND ')} ORDER BY priority DESC, COALESCE(next_process_at, 0), reading_item_id LIMIT ?`, parameters)
+      const conditions = [
+        input.includeScheduled === true ? undefined : or(isNull(learningReadingItems.nextProcessAt), lte(learningReadingItems.nextProcessAt, now)),
+        input.noteId === undefined ? undefined : eq(learningReadingItems.noteId, input.noteId),
+        input.topicId === undefined ? undefined : eq(learningReadingItems.topicId, input.topicId),
+        input.readingItemId === undefined ? undefined : eq(learningReadingItems.readingItemId, input.readingItemId),
+      ]
+      const rows = this.#orm.select({
+        reading_item_id: learningReadingItems.readingItemId,
+        note_id: learningReadingItems.noteId,
+        topic_id: learningReadingItems.topicId,
+        source_block_id: learningReadingItems.sourceBlockId,
+        highlight_id: learningReadingItems.highlightId,
+        state: learningReadingItems.state,
+        priority: learningReadingItems.priority,
+        next_process_at: learningReadingItems.nextProcessAt,
+        read_point: learningReadingItems.readPoint,
+      }).from(learningReadingItems).where(and(...conditions)).orderBy(desc(learningReadingItems.priority), asc(sql`coalesce(${learningReadingItems.nextProcessAt}, 0)`), asc(learningReadingItems.readingItemId)).limit(limit).all() as ReadingItemRow[]
       return rows.map(mapRow)
     })
   }
@@ -105,12 +133,22 @@ export class LearningReadingItemRepository implements LearningReadingItemStorage
     assertNonEmpty(input.readingItemId, 'Reading Item id')
     return this.#runOperation(async () => {
       const now = input.processedAt ?? Date.now()
-      const item = await this.#database.get<ReadingItemRow>('SELECT reading_item_id, note_id, topic_id, source_block_id, highlight_id, state, priority, next_process_at, read_point FROM learning_reading_items WHERE reading_item_id = ?', [input.readingItemId])
+      const item = this.#orm.select({
+        reading_item_id: learningReadingItems.readingItemId,
+        note_id: learningReadingItems.noteId,
+        topic_id: learningReadingItems.topicId,
+        source_block_id: learningReadingItems.sourceBlockId,
+        highlight_id: learningReadingItems.highlightId,
+        state: learningReadingItems.state,
+        priority: learningReadingItems.priority,
+        next_process_at: learningReadingItems.nextProcessAt,
+        read_point: learningReadingItems.readPoint,
+      }).from(learningReadingItems).where(eq(learningReadingItems.readingItemId, input.readingItemId)).get() as ReadingItemRow | undefined
       if (!item)
         throw new Error(`Reading Item ${input.readingItemId} was not found`)
       const nextProcessAt = input.action === 'cloze' ? now + 86_400_000 : now + 300_000
       const readPoint = input.readPoint ?? item.read_point
-      await this.#database.run('UPDATE learning_reading_items SET state = \'learning\', next_process_at = ?, read_point = ?, last_processed_at = ?, updated_at = ? WHERE reading_item_id = ?', [nextProcessAt, readPoint, now, now, input.readingItemId])
+      this.#orm.update(learningReadingItems).set({ state: 'learning', nextProcessAt, readPoint, lastProcessedAt: now, updatedAt: now }).where(eq(learningReadingItems.readingItemId, input.readingItemId)).run()
       return mapRow({ ...item, state: 'learning', next_process_at: nextProcessAt, read_point: readPoint })
     })
   }

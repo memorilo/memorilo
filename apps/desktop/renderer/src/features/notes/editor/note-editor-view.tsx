@@ -487,6 +487,7 @@ export function NoteEditorView({
         entries={opened.entries}
         learningEnabled={configuration.learning.enabled}
         note={opened.note}
+        noteTitle={opened.stored.title}
         noteId={opened.note.id}
         renamingEntryId={renamingEntryId}
         onToggleEntry={onToggleEntry}

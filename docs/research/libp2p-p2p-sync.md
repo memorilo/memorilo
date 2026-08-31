@@ -4,13 +4,15 @@
 
 本文研究如何把 libp2p 用作 Memorilo 的跨设备连接与传输层。资料优先采用 libp2p、js-libp2p、Loro 和本仓库源码/ADR 等一手来源；libp2p 事实按 2026-08-20 拉取的官方仓库 `main` 文档核对。本文不把 libp2p 当作 CRDT 或数据库同步协议：它提供 PeerId、连接、加密、复用、发现和 NAT 穿透能力，应用仍必须定义同步数据模型、授权、幂等、游标和删除语义。
 
+> 历史说明：本文最初以“首版纯 P2P”作为范围。当前实现方向允许可选 Sync Server 与直接 P2P 并存；服务器 peer、独立租户存储和 WebSocket 拓扑以 [ADR 0008](../adr/0008-sync-server-coexistence.md) 及后续 ADR 为准。
+
 ## 结论摘要
 
-1. **可行，目标是已配对设备之间的纯 P2P 同步。** Memorilo 已经有 Loro update、SQLite update receipt 和学习 outbox；libp2p 适合承载这些有序/可重试的二进制消息。首版不引入 rendezvous、relay、bootstrap、DHT 或同步服务器。
+1. **可行，直接 P2P 仍是基础同步路径。** Memorilo 已经有 Loro update、SQLite update receipt 和学习 outbox；libp2p 适合承载这些有序/可重试的二进制消息。可选 Sync Server 以 WebSocket peer 加入，但不取代直接 P2P。
 2. **Electron 主进程是 libp2p 节点的合适位置。** renderer 保持现有 IPC/应用服务边界，不让浏览器上下文直接持有私钥或监听网络。浏览器端受安全上下文限制，不能从页面拨打原始 TCP/QUIC；官方推荐的 WebSocket、WebTransport、WebRTC 还分别有证书、监听和信令约束。[libp2p Browser Node Connectivity](https://libp2p.io/docs/browser-connectivity/)
 3. **Note 与学习数据必须分开同步。** 每个 Note 是一个 LoroDoc，使用 Loro version vector 导出增量；学习数据属于个人账户，按现有 `mutationId` outbox 事件协议同步。不要广播 SQLite 文件，也不要让 gossipsub 的“尽力传播”代替可靠增量拉取。
-4. **连接发现只使用已配对 PeerId/地址和桌面 mDNS。** 原始 mDNS peer 只保留在网络层；B 发出配对探测后，只有开启五分钟发现窗口的 A 才回应并成为 UI 候选。配对授权才允许同步；不同网络的可达性不在本 ADR 范围内。
-5. **第一阶段不需要 DHT、gossipsub、relay、bootstrap 或浏览器 renderer 节点。** 一个定向 sync stream、固定 protocol ID、有限设备配对和 mDNS 能先验证数据正确性；其它发现和 NAT 穿透能力必须另立 ADR。
+4. **直接 P2P 的连接发现只使用已配对 PeerId/地址和桌面 mDNS。** 原始 mDNS peer 只保留在网络层；B 发出配对探测后，只有开启五分钟发现窗口的 A 才回应并成为 UI 候选。服务器 peer 使用用户配置的 WebSocket 地址；配对授权才允许同步。
+5. **直接 P2P 不需要 DHT、gossipsub、relay、bootstrap 或浏览器 renderer 节点。** 一个定向 sync stream、固定 protocol ID、有限设备配对和 mDNS 能先验证数据正确性；Sync Server 是独立的可选 peer 拓扑，不改变这些直接 P2P 约束。
 
 ## Memorilo 当前边界
 
@@ -221,10 +223,10 @@ js-libp2p 官方仓库提供 `libp2p`、`@libp2p/tcp`、`@libp2p/websockets`、`
 对本仓库的现实判断：
 
 - 该项目已使用 ESM、Node 22、TypeScript 和 Uint8Array，和当前 js-libp2p API 形态相容。
-- `libp2p` 及其生态包必须固定一组兼容版本，并集中在独立的 `@memorilo/p2p-sync` package；`@memorilo/desktop-main` 只负责组合应用服务、存储和 IPC。首版依赖范围只保留 TCP、mDNS、Noise、Yamux 及必要的 identify/peer-id 模块。
+- `libp2p` 及其生态包必须固定一组兼容版本，并集中在独立的 `@memorilo/sync` package；`@memorilo/desktop-main` 只负责组合应用服务、存储和 IPC。首版依赖范围只保留 TCP、mDNS、Noise、Yamux 及必要的 identify/peer-id 模块；可选 Sync Server 复用该包并通过 WebSocket 作为另一种 peer transport。
 - 不引入旧的 `libp2p-webrtc-star` 等历史包；使用 js-libp2p 官方 README 当前列出的 scoped packages。
 - gossipsub 是 mesh/floodsub 风格的消息传播，官方文档强调 topic 订阅者会收到消息，但 pubsub 依赖外部 peer discovery，且消息可靠性/持久性不能替代本地 outbox；因此首版不启用。[libp2p Publish/Subscribe](https://libp2p.io/docs/pubsub/)；[`@libp2p/gossipsub` README](https://github.com/libp2p/js-libp2p/blob/main/packages/gossipsub/README.md)
-- 采用 `@libp2p/interface` 的 stream 类型和项目已有 Effect lifecycle；不要把 libp2p 的事件直接暴露给 renderer。`@memorilo/p2p-sync` 公共入口只导出状态/命令，main-process adapter 负责生命周期组合。
+- 采用 `@libp2p/interface` 的 stream 类型和项目已有 Effect lifecycle；不要把 libp2p 的事件直接暴露给 renderer。`@memorilo/sync` 公共入口只导出状态/命令，main-process adapter 负责生命周期组合。
 
 ## 分阶段落地建议
 
@@ -258,7 +260,7 @@ js-libp2p 官方仓库提供 `libp2p`、`@libp2p/tcp`、`@libp2p/websockets`、`
 
 ## 最终建议
 
-libp2p 值得采用，但定位应是 **受账户授权的设备间连接层**，不是“自动同步一切”的产品协议。最小可交付架构是独立的 `@memorilo/p2p-sync` package，由 Electron main 组合运行：Noise + Yamux 连接上承载 Note Loro delta、学习 mutation 和后续 asset chunk；mDNS 只提供底层可达 peer，五分钟 probe/available 流程决定哪些设备可出现在配对 UI；SQLite receipt/outbox 继续是本地可靠性边界；Loro 继续是 Note 的合并事实来源；学习 ADR 继续是个人历史与冲突语义来源。纯 P2P 的设备 version vector 和 membership epoch 已记录在 [ADR 0007](../adr/0007-pure-p2p-learning-sync.md)；不引入其它服务器或隐式 NAT 基础设施。
+libp2p 值得采用，但定位应是 **受账户授权的设备间连接层**，不是“自动同步一切”的产品协议。最小可交付架构是独立的 `@memorilo/sync` package，由 Electron main 组合运行：Noise + Yamux 连接上承载 Note Loro delta、学习 mutation 和后续 asset chunk；mDNS 只提供底层可达 peer，五分钟 probe/available 流程决定哪些设备可出现在配对 UI；SQLite receipt/outbox 继续是本地可靠性边界；Loro 继续是 Note 的合并事实来源；学习 ADR 继续是个人历史与冲突语义来源。可选 Sync Server 通过 WebSocket 加入同一协议，不取代直接 P2P。纯 P2P 的设备 version vector 和 membership epoch 已记录在 [ADR 0007](../adr/0007-pure-p2p-learning-sync.md)，服务器共存决策见 [ADR 0008](../adr/0008-sync-server-coexistence.md)。
 
 ## 主要官方来源
 

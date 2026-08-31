@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { SqliteTestDatabase } from '../sqlite-test-database'
 import { LearningSyncRepository } from './learning-sync-repository'
-import { learningSchema } from './schema'
 
 let database: SqliteTestDatabase | undefined
 
 async function createRepository() {
   database = new SqliteTestDatabase()
-  await database.exec(learningSchema)
-  await database.exec('CREATE TABLE notes (row_id INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, title TEXT NOT NULL, kind TEXT NOT NULL, checkpoint_sequence INTEGER NOT NULL, latest_sequence INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)')
+  database.migrate()
   await database.run(
     'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, 1)',
     ['device'],

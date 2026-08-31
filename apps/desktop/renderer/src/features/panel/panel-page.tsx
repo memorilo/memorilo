@@ -18,7 +18,7 @@ import { createEditorNoteSessionCache } from '../notes/note-runtime'
 import { todoQueryKeys } from '../todo/query-keys'
 import { filterTodoListTasks, formatTaskDueDate, sortTodoTasks, todoTaskQueryOptions } from '../todo/todo-model'
 import { panelStyles } from './panel-page.stylex'
-import './panel-editor.css'
+import './panel-editor-overrides.stylex'
 
 type PanelTab = 'journal' | 'todo'
 

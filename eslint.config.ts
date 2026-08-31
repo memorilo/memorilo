@@ -8,6 +8,7 @@ export default antfu(
     ignores: [
       '**/coverage/**',
       '**/dist/**',
+      '**/dist-ssr/**',
       '**/out/**',
       '**/.output/**',
       '**/.turbo/**',

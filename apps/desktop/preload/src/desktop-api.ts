@@ -8,6 +8,7 @@ export function createDesktopApi(
   subscribeNoteUpdates: DesktopApi['subscribeNoteUpdates'],
   subscribeP2pStatus: DesktopApi['subscribeP2pStatus'] = () => () => undefined,
   subscribeLearningUpdates: DesktopApi['subscribeLearningUpdates'] = () => () => undefined,
+  subscribeSyncServerEvents: DesktopApi['subscribeSyncServerEvents'] = () => () => undefined,
 ): DesktopApi {
   const p2p = services.p2p ?? {
     approvePairing: async () => { throw new Error('P2P sync is unavailable') },
@@ -18,7 +19,9 @@ export function createDesktopApi(
     enableDiscovery: async () => { throw new Error('P2P sync is unavailable') },
     getLocalDevice: async () => { throw new Error('P2P sync is unavailable') },
     getPairingRequests: async () => { throw new Error('P2P sync is unavailable') },
+    getServerStatus: async () => { throw new Error('Sync Server is unavailable') },
     getStatus: async () => { throw new Error('P2P sync is unavailable') },
+    installServerCredential: async () => { throw new Error('Sync Server is unavailable') },
     listDevices: async () => { throw new Error('P2P sync is unavailable') },
     listDiscoveredPeers: async () => { throw new Error('P2P sync is unavailable') },
     requestPairing: async () => { throw new Error('P2P sync is unavailable') },
@@ -35,5 +38,6 @@ export function createDesktopApi(
     subscribeNoteSaveRequests,
     subscribeNoteUpdates,
     subscribeP2pStatus,
+    subscribeSyncServerEvents,
   }
 }

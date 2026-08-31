@@ -1,4 +1,4 @@
-import type { DatabaseCommand, EditorStorageDatabase } from '../database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase } from '../database-driver'
 import type { LearningOptimizerCatalog } from './learning-optimizer-catalog'
 import type { LearningOptimizerRescheduler } from './learning-optimizer-rescheduler'
 import type {
@@ -12,7 +12,9 @@ import {
   FSRSVersion,
   validateOptimizerConfiguration,
 } from '@memorilo/srs'
+import { eq } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import { learningNoteOptimizerAssignments, learningOptimizerRevisions, learningOptimizers, notes } from '../drizzle-schema'
 import { assertNonEmpty, syncMutationCommand } from './learning-storage-shared'
 import { GLOBAL_OPTIMIZER_ID } from './schema'
 
@@ -25,6 +27,7 @@ interface LearningOptimizerMutationsDependencies {
 export class LearningOptimizerMutations {
   readonly #catalog: LearningOptimizerCatalog
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #rescheduler: LearningOptimizerRescheduler
 
   constructor({
@@ -34,6 +37,7 @@ export class LearningOptimizerMutations {
   }: LearningOptimizerMutationsDependencies) {
     this.#catalog = catalog
     this.#database = database
+    this.#orm = database.drizzle
     this.#rescheduler = rescheduler
   }
 
@@ -64,14 +68,23 @@ export class LearningOptimizerMutations {
     const commands: DatabaseCommand[] = []
     if (configurationChanged) {
       commands.push({
-        parameters: [revisionId, input.optimizerId, configurationJson, FSRSVersion, now],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?)',
+        drizzle: database => database.insert(learningOptimizerRevisions).values({
+          configurationJson,
+          createdAt: now,
+          fsrsVersion: FSRSVersion,
+          optimizerId: input.optimizerId,
+          revisionId,
+        }).run(),
       })
     }
     commands.push(
       {
-        parameters: [name, revisionId, now, input.optimizerId],
-        sql: 'UPDATE learning_optimizers SET name = ?, current_revision_id = ?, updated_at = ?, sync_sequence = -1 WHERE optimizer_id = ?',
+        drizzle: database => database.update(learningOptimizers).set({
+          currentRevisionId: revisionId,
+          name,
+          syncSequence: -1,
+          updatedAt: now,
+        }).where(eq(learningOptimizers.optimizerId, input.optimizerId)).run(),
       },
       syncMutationCommand('optimizer', input.optimizerId, 'upsert', {
         configuration,
@@ -107,14 +120,20 @@ export class LearningOptimizerMutations {
     const optimizer = await this.#catalog.get(input.optimizerId)
     if (optimizer.status !== 'active')
       throw new Error(`Cannot assign archived FSRS Optimizer ${input.optimizerId}`)
-    const note = await this.#database.get<{ id: string }>('SELECT id FROM notes WHERE id = ?', [input.noteId])
+    const note = this.#orm.select({ id: notes.id }).from(notes).where(eq(notes.id, input.noteId)).get()
     if (!note)
       throw new Error(`Unknown Note: ${input.noteId}`)
     const now = Date.now()
     await this.#database.batch([
       {
-        parameters: [input.noteId, input.optimizerId, now],
-        sql: 'INSERT INTO learning_note_optimizer_assignments (note_id, optimizer_id, updated_at) VALUES (?, ?, ?) ON CONFLICT(note_id) DO UPDATE SET optimizer_id = excluded.optimizer_id, updated_at = excluded.updated_at, sync_sequence = -1',
+        drizzle: database => database.insert(learningNoteOptimizerAssignments).values({
+          noteId: input.noteId,
+          optimizerId: input.optimizerId,
+          updatedAt: now,
+        }).onConflictDoUpdate({
+          set: { optimizerId: input.optimizerId, syncSequence: -1, updatedAt: now },
+          target: learningNoteOptimizerAssignments.noteId,
+        }).run(),
       },
       syncMutationCommand('assignment', input.noteId, 'upsert', input, now),
     ])
@@ -132,12 +151,24 @@ export class LearningOptimizerMutations {
     const revisionId = createUuidV7()
     await this.#database.batch([
       {
-        parameters: [id, name, revisionId, now, now],
-        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 0, \'active\', ?, ?, ?)',
+        drizzle: database => database.insert(learningOptimizers).values({
+          createdAt: now,
+          currentRevisionId: revisionId,
+          isGlobal: 0,
+          name,
+          optimizerId: id,
+          status: 'active',
+          updatedAt: now,
+        }).run(),
       },
       {
-        parameters: [revisionId, id, JSON.stringify(configuration), FSRSVersion, now],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?)',
+        drizzle: database => database.insert(learningOptimizerRevisions).values({
+          configurationJson: JSON.stringify(configuration),
+          createdAt: now,
+          fsrsVersion: FSRSVersion,
+          optimizerId: id,
+          revisionId,
+        }).run(),
       },
       syncMutationCommand('optimizer', id, 'upsert', {
         configuration,

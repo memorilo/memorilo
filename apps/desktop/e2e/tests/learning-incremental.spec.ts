@@ -153,7 +153,8 @@ test('moves Reading to Basic Review and back to Reading through the public queue
       }).toEqual(['reading', 'review', 'reading'])
 
       const cardId = (await rpc(window, 'listQueue', [{ limit: 3, now: Date.now() }]) as Array<{ cardId?: string, kind: string }>)
-        .find(item => item.kind === 'review')?.cardId
+        .find(item => item.kind === 'review')
+        ?.cardId
       if (!cardId)
         throw new Error('Mixed Basic Card is missing from the Review queue')
       await workspace.getByRole('button', { name: 'Next' }).click()

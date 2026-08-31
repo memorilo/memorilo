@@ -173,6 +173,72 @@ export const p2pSettingsStyles = stylex.create({
     fontSize: 11,
     lineHeight: '16px',
   },
+  serverWarning: {
+    color: {
+      'default': 'rgb(146, 86, 18)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(246, 188, 92)',
+    },
+  },
+  serverSummary: {
+    display: 'grid',
+    minWidth: 0,
+    justifyItems: 'end',
+    gap: 3,
+  },
+  serverState: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    color: {
+      'default': 'rgba(53, 55, 61, 0.72)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.72)',
+    },
+    fontSize: 12,
+    fontWeight: 650,
+    lineHeight: '17px',
+  },
+  serverStateReady: {
+    color: {
+      'default': 'rgb(45, 118, 65)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgb(111, 201, 130)',
+    },
+  },
+  serverAddress: {
+    overflow: 'hidden',
+    maxWidth: '100%',
+    color: {
+      'default': 'rgba(53, 55, 61, 0.58)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.58)',
+    },
+    fontSize: 10,
+    lineHeight: '15px',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  serverModes: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 8,
+    color: {
+      'default': 'rgba(28, 29, 32, 0.78)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(246, 247, 249, 0.78)',
+    },
+    fontSize: 10,
+    fontWeight: 600,
+    lineHeight: '15px',
+  },
+  serverMode: {
+    display: 'inline-flex',
+  },
+  serverEpochs: {
+    color: {
+      'default': 'rgba(53, 55, 61, 0.5)',
+      ':root[data-ui-theme-resolved-appearance="dark"] &': 'rgba(231, 233, 238, 0.5)',
+    },
+    fontSize: 10,
+    lineHeight: '15px',
+  },
   nameEditor: {
     minWidth: 0,
     justifyContent: 'flex-end',

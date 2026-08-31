@@ -1,6 +1,6 @@
 import type { LearningQueueKind } from '@memorilo/srs'
 import type { DatabaseCommand } from '../database-driver'
-import type { LearningReviewContext, ReviewTargetRow, SyncStateRow } from './learning-review-context'
+import type { LearningReviewContext, SyncStateRow } from './learning-review-context'
 import type { ReviewEventRow } from './learning-review-history'
 import type {
   LearningRatingOutcome,
@@ -19,7 +19,15 @@ import {
   queueKindForState,
   replayRatings,
 } from '@memorilo/srs'
+import { eq } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import {
+  learningCardIntroductions,
+  learningReviewEvents,
+  learningSiblingBuryEvents,
+  learningSyncState,
+  learningTargets,
+} from '../drizzle-schema'
 import { canonicalRatings, itemPartialActive } from './learning-review-history'
 import {
   assertNonEmpty,
@@ -147,16 +155,7 @@ export class LearningRatingCommands {
     normalized: NormalizedRatingInput,
   ): Promise<ReviewResult | null> {
     const { eventId, input, reviewedAt } = normalized
-    const existing = await this.#context.database.get<{
-      event_kind: ReviewEventRow['event_kind']
-      occurred_at: number
-      rating: ReviewRating | null
-      response_milliseconds: number | null
-      target_id: string
-    }>(
-      'SELECT target_id, event_kind, rating, occurred_at, response_milliseconds FROM learning_review_events WHERE event_id = ?',
-      [eventId],
-    )
+    const existing = this.#context.history.eventById(eventId)
     if (!existing)
       return null
     if (existing.event_kind !== 'rating'
@@ -209,45 +208,52 @@ export class LearningRatingCommands {
     return {
       commands: [
         {
-          parameters: [target.card_id, reviewedAt],
-          sql: 'INSERT INTO learning_card_introductions (card_id, introduced_at) VALUES (?, ?) ON CONFLICT(card_id) DO UPDATE SET introduced_at = MIN(learning_card_introductions.introduced_at, excluded.introduced_at)',
+          drizzle: (database) => {
+            const current = database.select({ introducedAt: learningCardIntroductions.introducedAt })
+              .from(learningCardIntroductions)
+              .where(eq(learningCardIntroductions.cardId, target.card_id))
+              .get()
+            const introducedAt = Math.min(current?.introducedAt ?? reviewedAt, reviewedAt)
+            database.insert(learningCardIntroductions).values({ cardId: target.card_id, introducedAt }).onConflictDoUpdate({ set: { introducedAt }, target: learningCardIntroductions.cardId }).run()
+          },
         },
         {
-          parameters: [
-            eventId,
-            target.target_id,
-            target.card_id,
-            target.note_id,
-            input.rating,
-            reviewedAt,
-            input.responseMilliseconds ?? null,
-            currentState.scheduled_days,
-            currentState.last_review_at === null
+          drizzle: database => database.insert(learningReviewEvents).values({
+            baseEventId: currentState.winning_event_id,
+            cardId: target.card_id,
+            deviceId: sync.device_id,
+            deviceSequence,
+            elapsedDays: currentState.last_review_at === null
               ? 0
               : Math.max(0, Math.round((reviewedAt - currentState.last_review_at) / 86_400_000)),
-            currentState.winning_event_id,
-            JSON.stringify(toLearningState(replayed.state)),
-            sync.device_id,
-            deviceSequence,
-            FSRSVersion,
-          ],
-          sql: 'INSERT INTO learning_review_events (event_id, target_id, card_id, note_id, event_kind, rating, occurred_at, response_milliseconds, scheduled_days, elapsed_days, base_event_id, result_state_json, device_id, device_sequence, fsrs_version) VALUES (?, ?, ?, ?, \'rating\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            eventId,
+            eventKind: 'rating',
+            fsrsVersion: FSRSVersion,
+            noteId: target.note_id,
+            occurredAt: reviewedAt,
+            rating: input.rating,
+            responseMilliseconds: input.responseMilliseconds ?? null,
+            resultStateJson: JSON.stringify(toLearningState(replayed.state)),
+            scheduledDays: currentState.scheduled_days,
+            targetId: target.target_id,
+          }).run(),
         },
         {
-          parameters: [
-            eventId,
-            target.card_id,
-            target.note_id,
-            target.source_block_id,
+          drizzle: database => database.insert(learningSiblingBuryEvents).values({
+            noteId: target.note_id,
+            occurredAt: reviewedAt,
+            sourceBlockId: target.source_block_id,
+            sourceCardId: target.card_id,
+            sourceEventId: eventId,
             sourceQueue,
-            reviewedAt,
-          ],
-          sql: 'INSERT INTO learning_sibling_bury_events (source_event_id, source_card_id, note_id, source_block_id, source_queue, occurred_at) VALUES (?, ?, ?, ?, ?, ?)',
+          }).run(),
         },
         stateCommand(replayed.state),
         {
-          parameters: [partialActive ? 1 : 0, target.target_id],
-          sql: 'UPDATE learning_targets SET partial_active = ? WHERE target_id = ?',
+          drizzle: database => database.update(learningTargets)
+            .set({ partialActive: partialActive ? 1 : 0 })
+            .where(eq(learningTargets.targetId, target.target_id))
+            .run(),
         },
         syncMutationCommand('review-event', eventId, 'upsert', {
           baseEventId: currentState.winning_event_id,
@@ -279,10 +285,7 @@ export class LearningRatingCommands {
     if (new Set(itemTargetIds).size !== itemTargetIds.length)
       throw new Error(`Multi-line Card ${input.cardId} contains duplicate item Ratings`)
 
-    const activeTargets = await this.#context.database.all<ReviewTargetRow>(
-      'SELECT t.target_id, t.card_id, t.target_kind, t.target_order, t.active, t.created_at, c.active AS card_active, c.note_id, c.source_block_id, c.kind, c.direction FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id WHERE t.card_id = ? AND t.active = 1 AND c.active = 1 ORDER BY t.target_order, t.target_id',
-      [input.cardId],
-    )
+    const activeTargets = this.#context.activeTargets(input.cardId).filter(target => target.active === 1 && target.card_active === 1)
     const mainTargets = activeTargets.filter(target => target.target_kind === 'whole')
     const itemTargets = activeTargets.filter(target => target.target_kind === 'item')
     const mainTarget = mainTargets[0]
@@ -348,8 +351,10 @@ export class LearningRatingCommands {
     await this.#context.database.batch([
       ...mutations.flatMap(mutation => mutation.commands),
       {
-        parameters: [sync.next_device_sequence + mutations.length],
-        sql: 'UPDATE learning_sync_state SET next_device_sequence = ? WHERE singleton = 1',
+        drizzle: database => database.update(learningSyncState)
+          .set({ nextDeviceSequence: sync.next_device_sequence + mutations.length })
+          .where(eq(learningSyncState.singleton, 1))
+          .run(),
       },
     ])
     const results = mutations.map(mutation => mutation.result)
@@ -369,8 +374,10 @@ export class LearningRatingCommands {
     await this.#context.database.batch([
       ...mutation.commands,
       {
-        parameters: [sync.next_device_sequence + 1],
-        sql: 'UPDATE learning_sync_state SET next_device_sequence = ? WHERE singleton = 1',
+        drizzle: database => database.update(learningSyncState)
+          .set({ nextDeviceSequence: sync.next_device_sequence + 1 })
+          .where(eq(learningSyncState.singleton, 1))
+          .run(),
       },
     ])
     return mutation.result

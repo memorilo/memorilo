@@ -1,6 +1,7 @@
 packages:
   - apps/desktop
   - apps/desktop/*
+  - apps/sync-server
   - packages/excalidraw/*
   - packages/*
 

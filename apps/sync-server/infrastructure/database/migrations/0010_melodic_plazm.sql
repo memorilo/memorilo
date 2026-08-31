@@ -1,0 +1,1 @@
+ALTER TABLE `sync_device_credentials` ADD `shared_secret_hash` text NOT NULL;

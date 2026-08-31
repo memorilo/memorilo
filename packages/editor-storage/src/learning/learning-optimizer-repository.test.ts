@@ -2,28 +2,27 @@ import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { defaultOptimizerConfiguration, FSRSVersion } from '@memorilo/srs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { learningCards, learningOptimizerRevisions, learningOptimizers, learningTargets } from '../drizzle-schema'
 import { SqliteTestDatabase } from '../sqlite-test-database'
 import { LearningOptimizerCatalog } from './learning-optimizer-catalog'
 import { LearningOptimizerRepository } from './learning-optimizer-repository'
 import { LearningReviewHistory } from './learning-review-history'
-import { GLOBAL_OPTIMIZER_ID, GLOBAL_OPTIMIZER_REVISION_ID, learningSchema } from './schema'
+import { GLOBAL_OPTIMIZER_ID, GLOBAL_OPTIMIZER_REVISION_ID } from './schema'
 
 const databases: SqliteTestDatabase[] = []
 
 async function createRepository() {
   const database = new SqliteTestDatabase()
   databases.push(database)
-  await database.exec(learningSchema)
+  database.migrate()
   const configuration = defaultOptimizerConfiguration()
   const now = 1
   await database.batch([
     {
-      parameters: [GLOBAL_OPTIMIZER_ID, 'Global', GLOBAL_OPTIMIZER_REVISION_ID, now, now],
-      sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 1, \'active\', ?, ?, ?)',
+      drizzle: orm => orm.insert(learningOptimizers).values({ optimizerId: GLOBAL_OPTIMIZER_ID, name: 'Global', isGlobal: 1, status: 'active', currentRevisionId: GLOBAL_OPTIMIZER_REVISION_ID, createdAt: now, updatedAt: now }).run(),
     },
     {
-      parameters: [GLOBAL_OPTIMIZER_REVISION_ID, GLOBAL_OPTIMIZER_ID, JSON.stringify(configuration), FSRSVersion, now],
-      sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?)',
+      drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: GLOBAL_OPTIMIZER_REVISION_ID, optimizerId: GLOBAL_OPTIMIZER_ID, configurationJson: JSON.stringify(configuration), fsrsVersion: FSRSVersion, createdAt: now }).run(),
     },
   ])
   const repository = new LearningOptimizerRepository({
@@ -96,17 +95,15 @@ describe('learning optimizer repository', () => {
     const operations: Array<() => Promise<unknown>> = []
     const database = new SqliteTestDatabase()
     databases.push(database)
-    await database.exec(learningSchema)
+    database.migrate()
     const configuration = defaultOptimizerConfiguration()
     const now = 1
     await database.batch([
       {
-        parameters: [GLOBAL_OPTIMIZER_ID, 'Global', GLOBAL_OPTIMIZER_REVISION_ID, now, now],
-        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 1, \'active\', ?, ?, ?)',
+        drizzle: orm => orm.insert(learningOptimizers).values({ optimizerId: GLOBAL_OPTIMIZER_ID, name: 'Global', isGlobal: 1, status: 'active', currentRevisionId: GLOBAL_OPTIMIZER_REVISION_ID, createdAt: now, updatedAt: now }).run(),
       },
       {
-        parameters: [GLOBAL_OPTIMIZER_REVISION_ID, GLOBAL_OPTIMIZER_ID, JSON.stringify(configuration), FSRSVersion, now],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?)',
+        drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: GLOBAL_OPTIMIZER_REVISION_ID, optimizerId: GLOBAL_OPTIMIZER_ID, configurationJson: JSON.stringify(configuration), fsrsVersion: FSRSVersion, createdAt: now }).run(),
       },
     ])
     const repository = new LearningOptimizerRepository({
@@ -126,24 +123,20 @@ describe('learning optimizer repository', () => {
   it('releases shared database admission while FSRS training is running', async () => {
     const database = new SqliteTestDatabase()
     databases.push(database)
-    await database.exec(learningSchema)
+    database.migrate()
     const configuration = defaultOptimizerConfiguration()
     await database.batch([
       {
-        parameters: [GLOBAL_OPTIMIZER_ID, 'Global', GLOBAL_OPTIMIZER_REVISION_ID, 1, 1],
-        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 1, \'active\', ?, ?, ?)',
+        drizzle: orm => orm.insert(learningOptimizers).values({ optimizerId: GLOBAL_OPTIMIZER_ID, name: 'Global', isGlobal: 1, status: 'active', currentRevisionId: GLOBAL_OPTIMIZER_REVISION_ID, createdAt: 1, updatedAt: 1 }).run(),
       },
       {
-        parameters: [GLOBAL_OPTIMIZER_REVISION_ID, GLOBAL_OPTIMIZER_ID, JSON.stringify(configuration), FSRSVersion, 1],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?)',
+        drizzle: orm => orm.insert(learningOptimizerRevisions).values({ revisionId: GLOBAL_OPTIMIZER_REVISION_ID, optimizerId: GLOBAL_OPTIMIZER_ID, configurationJson: JSON.stringify(configuration), fsrsVersion: FSRSVersion, createdAt: 1 }).run(),
       },
       {
-        parameters: ['card', 'note', 'topic', 0, 'source', 0, 'basic', 'forward', 1, 1, 1],
-        sql: 'INSERT INTO learning_cards (card_id, note_id, topic_id, topic_order, source_block_id, source_order, kind, direction, active, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        drizzle: orm => orm.insert(learningCards).values({ cardId: 'card', noteId: 'note', topicId: 'topic', topicOrder: 0, sourceBlockId: 'source', sourceOrder: 0, kind: 'basic', direction: 'forward', active: 1, firstSeenAt: 1, lastSeenAt: 1 }).run(),
       },
       {
-        parameters: ['target', 'card', 'whole', 0, 1, 1],
-        sql: 'INSERT INTO learning_targets (target_id, card_id, target_kind, target_order, active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        drizzle: orm => orm.insert(learningTargets).values({ targetId: 'target', cardId: 'card', targetKind: 'whole', targetOrder: 0, active: 1, createdAt: 1 }).run(),
       },
     ])
     const trainingStarted = deferred<void>()

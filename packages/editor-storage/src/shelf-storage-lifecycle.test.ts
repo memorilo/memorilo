@@ -1,36 +1,32 @@
-import type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
 import { deferred } from '@memorilo/effect-lifecycle/testing'
 import { describe, expect, it, vi } from 'vitest'
 import { SqliteShelfStorage } from './shelf-storage'
+import { SqliteTestDatabase } from './sqlite-test-database'
 
-class BlockingShelfDatabase implements EditorStorageDatabase {
+class BlockingShelfDatabase extends SqliteTestDatabase {
   readonly readStarted = deferred()
   readonly releaseRead = deferred()
   readonly closeSpy = vi.fn(async () => {})
   failSchema = false
 
-  async all<Row>(_sql: string, _parameters?: readonly DatabaseValue[]): Promise<readonly Row[]> {
-    this.readStarted.resolve()
-    await this.releaseRead.promise
-    return []
+  constructor() {
+    super()
+    this.beforeGet = async () => {
+      this.readStarted.resolve()
+      await this.releaseRead.promise
+    }
   }
 
-  async batch(_commands: readonly DatabaseCommand[]): Promise<void> {}
-
-  async close(): Promise<void> {
+  override async close(): Promise<void> {
     await this.closeSpy()
+    await super.close()
   }
 
-  async exec(_sql: string): Promise<void> {
+  override migrate(): void {
     if (this.failSchema)
       throw new Error('Injected Shelf schema failure')
+    super.migrate()
   }
-
-  async get<Row>(_sql: string, _parameters?: readonly DatabaseValue[]): Promise<Row | undefined> {
-    return undefined
-  }
-
-  async run(_sql: string, _parameters?: readonly DatabaseValue[]): Promise<void> {}
 }
 
 describe('shelf storage lifecycle', () => {

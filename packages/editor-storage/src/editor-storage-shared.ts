@@ -72,10 +72,3 @@ export function journalDateFromNoteId(noteId: string): JournalDate | null {
   assertJournalDate(journalDate, 'Journal Note id date')
   return journalDate
 }
-
-export const visibleJournalPredicate = `
-  (? IS NULL
-    OR journal.note_row_id IS NULL
-    OR journal.has_user_content = 1
-    OR journal.journal_date = ?)
-`

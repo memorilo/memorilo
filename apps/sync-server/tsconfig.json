@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": ["e2e/**/*.ts", "infrastructure/**/*.ts", "playwright.config.ts", "src/**/*.ts", "web/**/*.ts", "web/**/*.tsx"]
+}
