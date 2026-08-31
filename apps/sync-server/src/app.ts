@@ -12,7 +12,7 @@ import { extname, join } from 'node:path'
 import { encodeSyncServerCredentialBundle } from '@memorilo/sync'
 import { decodePairingPayload, verifyPairingResponse } from '@memorilo/sync/node'
 import { Hono } from 'hono'
-import { createBrowserAuth, isLocalHost, isLoopbackAddress } from '../infrastructure/auth/browser-auth'
+import { createBrowserAuth } from '../infrastructure/auth/browser-auth'
 import { withDatabaseFailureMetrics } from '../infrastructure/metrics'
 import { hashDeviceCredential, hashPairingSharedSecret, newDeviceCredential } from '../infrastructure/p2p/server-peer'
 import { createSyncServerMetrics } from './metrics'
@@ -216,18 +216,10 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     })
   })
   app.get('/api/setup', async (context) => {
-    if (!isLocalHost(context.req.header('host') ?? new URL(context.req.url).host)
-      || !isLoopbackAddress(context.get('remoteAddress'))) {
-      return context.json({ code: 'setup_localhost_only' }, 403)
-    }
-    return context.json({ available: config.registration !== 'public' && await auth.countAccounts() === 0 })
+    return context.json({ available: await auth.countAccounts() === 0 })
   })
   app.post('/api/setup', async (context) => {
-    if (!isLocalHost(context.req.header('host') ?? new URL(context.req.url).host)
-      || !isLoopbackAddress(context.get('remoteAddress'))) {
-      return context.json({ code: 'setup_localhost_only' }, 403)
-    }
-    if (config.registration === 'public' || await auth.countAccounts() !== 0)
+    if (await auth.countAccounts() !== 0)
       return context.json({ code: 'setup_unavailable' }, 409)
     const body = await context.req.json<{ username?: unknown, password?: unknown }>()
     if (typeof body.username !== 'string' || typeof body.password !== 'string')

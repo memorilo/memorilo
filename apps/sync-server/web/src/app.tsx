@@ -71,7 +71,7 @@ export function AuthForm({ setup, registration, onAuthenticated, onSetupComplete
         <span {...stylex.props(styles.brandMark)}>M</span>
         <p {...stylex.props(styles.eyebrow)}>Memorilo Sync Server</p>
         <h1 {...stylex.props(styles.authTitle)}>{setup ? 'Create the owner account' : registering ? 'Create an account' : 'Sign in to manage sync'}</h1>
-        <p {...stylex.props(styles.authDescription)}>{setup ? 'This one-time setup is available only from localhost.' : 'Your browser session is separate from device sync credentials.'}</p>
+        <p {...stylex.props(styles.authDescription)}>{setup ? 'This one-time setup is available from any IP while the server has no accounts. Protect the empty deployment until setup is complete.' : 'Your browser session is separate from device sync credentials.'}</p>
         <form {...stylex.props(styles.form)} onSubmit={submit}>
           <label {...stylex.props(styles.field)}>
             Username

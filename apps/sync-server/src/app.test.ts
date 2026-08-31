@@ -176,7 +176,7 @@ describe('sync server management API', () => {
     return { cookie: cookie!.split(';', 1)[0]!, csrfToken: body.csrfToken }
   }
 
-  it('creates the initial localhost account atomically and exposes policy/reset controls', async () => {
+  it('creates the initial account from any address atomically and exposes policy/reset controls', async () => {
     const { app, database } = await fixture()
     let response = await localRequest(app, '/api/setup', {
       body: JSON.stringify({ password: 'correct horse battery', username: 'owner' }),
@@ -230,7 +230,22 @@ describe('sync server management API', () => {
 
   it('supports public registration and rejects duplicate usernames', async () => {
     const { app, database } = await fixture('public')
-    let response = await app.request('http://127.0.0.1/api/auth/register', {
+    let response = await localRequest(app, '/api/setup', undefined, '203.0.113.10')
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ available: true })
+
+    response = await localRequest(app, '/api/setup', {
+      body: JSON.stringify({ password: 'correct horse battery', username: 'owner' }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    }, '203.0.113.10')
+    expect(response.status).toBe(201)
+
+    response = await app.request('http://127.0.0.1/api/setup')
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ available: false })
+
+    response = await app.request('http://127.0.0.1/api/auth/register', {
       body: JSON.stringify({ password: 'correct horse battery', username: 'alice' }),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
@@ -364,17 +379,17 @@ describe('sync server management API', () => {
     database.close()
   })
 
-  it('bootstraps an invite-only server locally and consumes each invitation once', async () => {
+  it('bootstraps an invite-only server from any address and consumes each invitation once', async () => {
     const { app, database } = await fixture('invite-only')
     let response = await localRequest(app, '/api/setup', undefined, '203.0.113.10')
-    expect(response.status).toBe(403)
-    await expect(response.json()).resolves.toEqual({ code: 'setup_localhost_only' })
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ available: true })
 
     response = await localRequest(app, '/api/setup', {
       body: JSON.stringify({ password: 'correct horse battery', username: 'owner' }),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
-    })
+    }, '203.0.113.10')
     expect(response.status).toBe(201)
     const session = await login(app)
     response = await app.request('http://127.0.0.1/api/auth/invites', {

@@ -27,17 +27,32 @@ Set `MEMORILO_SYNC_SERVER_CONFIG_FILE` to a JSON file whose keys use the camel-c
 
 | Variable | Meaning |
 | --- | --- |
+| `MEMORILO_SYNC_SERVER_CONFIG_FILE` | Optional JSON configuration file. Its camel-case keys are merged first; environment variables override matching keys. |
+| `MEMORILO_SYNC_SERVER_DOMAIN` | Caddy deployment variable, not read by the Sync Server process. Sets the public hostname in `deploy/Caddyfile`. |
+| `MEMORILO_SYNC_SERVER_DATA_DIR` | Root directory for the SQLite database, server peer identity, and default filesystem objects. Default `./data/sync-server`. |
 | `MEMORILO_SYNC_SERVER_HOST` | Application listen address. Keep `127.0.0.1` when Caddy runs on the same host. |
 | `MEMORILO_SYNC_SERVER_PORT` | Application HTTP/WebSocket front door. Default `6000`. |
 | `MEMORILO_SYNC_SERVER_PEER_PORT` | Internal loopback libp2p listener. Default `6001`; never expose it publicly. |
 | `MEMORILO_SYNC_SERVER_ENABLED_MODES` | Comma-separated `relay`, `authoritative`, or both. This is the upper bound for every account policy. |
 | `MEMORILO_SYNC_SERVER_DEVICE_CREDENTIAL_TTL_MS` | Lifetime for newly issued scoped device credentials. Default 90 days; minimum one hour. |
 | `MEMORILO_SYNC_SERVER_MAINTENANCE_MODE` | `off` or `read-only`. Read-only rejects sync payload writes and management mutations. |
-| `MEMORILO_SYNC_SERVER_REGISTRATION` | `disabled`, `invite-only`, or `public`. An empty installation permits one localhost-only initial account before this policy applies. |
+| `MEMORILO_SYNC_SERVER_REGISTRATION` | `disabled`, `invite-only`, or `public`. An empty installation permits one initial account from any IP before this policy applies; afterward this setting controls additional registrations. |
+| `MEMORILO_SYNC_SERVER_METADATA_DATABASE` | Metadata provider: `sqlite` or `postgres`. Default `sqlite`. |
+| `MEMORILO_SYNC_SERVER_POSTGRES_URL` | PostgreSQL connection URL; required when `METADATA_DATABASE=postgres`. |
+| `MEMORILO_SYNC_SERVER_OBJECT_STORE` | Object provider: `filesystem` or `s3`. Default `filesystem`. This is independent of the metadata provider. |
+| `MEMORILO_SYNC_SERVER_FILESYSTEM_ROOT` | Filesystem object root. Defaults to `<DATA_DIR>/objects` when omitted. |
+| `MEMORILO_SYNC_SERVER_S3_ACCESS_KEY_ID` | Optional S3 access key. Must be provided together with `S3_SECRET_ACCESS_KEY`; SDK credentials are used when both are omitted. |
+| `MEMORILO_SYNC_SERVER_S3_SECRET_ACCESS_KEY` | Optional S3 secret key. Must be provided together with `S3_ACCESS_KEY_ID`. |
+| `MEMORILO_SYNC_SERVER_S3_BUCKET` | S3 bucket; required when `OBJECT_STORE=s3`. |
+| `MEMORILO_SYNC_SERVER_S3_ENDPOINT` | Optional S3-compatible endpoint URL, such as an R2, MinIO, or other compatible service endpoint. |
+| `MEMORILO_SYNC_SERVER_S3_REGION` | S3 signing region. Default `us-east-1`. |
+| `MEMORILO_SYNC_SERVER_S3_FORCE_PATH_STYLE` | Whether to use path-style S3 requests. Accepts boolean strings such as `true`/`false`; default `false`. |
 | `MEMORILO_SYNC_SERVER_SESSION_IDLE_TIMEOUT_MS` | Maximum time without sync/object stream activity. Default 30 seconds. |
 | `MEMORILO_SYNC_SERVER_SESSION_TOTAL_TIMEOUT_MS` | Maximum lifetime of one sync/object stream. Default 2 minutes and never shorter than the idle timeout. |
-| `MEMORILO_SYNC_SERVER_METADATA_DATABASE` | `sqlite` or `postgres`. |
-| `MEMORILO_SYNC_SERVER_OBJECT_STORE` | `filesystem` or `s3`, independent of the metadata provider. |
+| `MEMORILO_SYNC_SERVER_MAX_SYNC_SESSIONS_PER_ACCOUNT` | Maximum concurrent sync sessions per account. Default `8`. |
+| `MEMORILO_SYNC_SERVER_MAX_OBJECT_TRANSFERS_PER_ACCOUNT` | Maximum concurrent object transfers per account. Default `4`. |
+| `MEMORILO_SYNC_SERVER_ORPHAN_GRACE_MS` | Delay before an unreferenced object is eligible for cleanup. Default 15 minutes; minimum 2 minutes. |
+| `MEMORILO_SYNC_SERVER_ORPHAN_INTERVAL_MS` | Interval between orphan reconciliation passes. Default 1 minute; minimum 10 seconds. |
 | `MEMORILO_SYNC_SERVER_METRICS_TOKEN` | Optional token of at least 32 characters. `/metrics` does not exist when omitted. |
 | `MEMORILO_SYNC_SERVER_TRUST_PROXY` | Set to `true` only when every request reaches the app through a trusted proxy that replaces `X-Forwarded-For`. |
 | `MEMORILO_SYNC_SERVER_MAX_AUTH_ATTEMPTS_PER_MINUTE` | Per-client setup, registration, and login attempt limit. Default `10`. |
@@ -51,7 +66,7 @@ Before becoming ready, the filesystem provider creates, reads, and removes a pri
 
 ## Account and device pairing
 
-Create the initial account from localhost, then configure the server URL in the desktop client before starting pairing. The client accepts the invitation from the management page and produces a signed response; the management page consumes that response and displays a one-time versioned credential bundle. Paste the complete bundle into the client. It binds the secret to the server PeerId plus the account generation, membership epoch, policy epoch, and enabled modes; the desktop stores the bundle with operating-system encryption and sends only the raw secret on the sync protocol.
+Create the initial account from the management page at any IP, then configure the server URL in the desktop client before starting pairing. This one-time setup remains available only while the account database is empty; after that, `registration` controls additional accounts. Protect an exposed empty deployment until setup is complete. The client accepts the invitation from the management page and produces a signed response; the management page consumes that response and displays a one-time versioned credential bundle. Paste the complete bundle into the client. It binds the secret to the server PeerId plus the account generation, membership epoch, policy epoch, and enabled modes; the desktop stores the bundle with operating-system encryption and sends only the raw secret on the sync protocol.
 
 Legacy raw device credentials are not accepted. Revoking a device or clearing authoritative data advances account membership and requires that device to pair again. A reset error is surfaced to the desktop before the stale credential is rejected, but the server cannot recover the cleared generation while all data-bearing clients and peers are offline.
 

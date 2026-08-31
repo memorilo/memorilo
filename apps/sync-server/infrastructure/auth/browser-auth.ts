@@ -36,23 +36,6 @@ function cookieValue(request: Request): string | null {
   return match?.[1] ?? null
 }
 
-export function isLocalHost(host: string | undefined): boolean {
-  const value = host?.trim().toLowerCase()
-  const hostname = value?.startsWith('[')
-    ? value.slice(1, value.indexOf(']'))
-    : value?.split(':', 1)[0]
-  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1'
-}
-
-export function isLoopbackAddress(address: string | null): boolean {
-  if (address === null)
-    return false
-  const normalized = address.toLowerCase().split('%', 1)[0]!
-  return normalized === '::1'
-    || normalized.startsWith('127.')
-    || normalized.startsWith('::ffff:127.')
-}
-
 export function createBrowserAuth(options: BrowserAuthOptions) {
   const now = options.now ?? Date.now
 
