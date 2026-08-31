@@ -50,9 +50,11 @@ function layer(initialNodes: readonly Node[] = []): HTMLDivElement {
     get childNodes() {
       return nodes
     },
+    querySelectorAll: vi.fn(() => []),
     replaceChildren: vi.fn((...next: Node[]) => {
       nodes = [...next]
     }),
+    style: { setProperty: vi.fn() },
   }
   return element as unknown as HTMLDivElement
 }
@@ -107,7 +109,7 @@ describe('pdf text layer', () => {
 
     expect(configurations).toHaveLength(1)
     expect(rendered).toHaveBeenCalledOnce()
-    expect(textLayer.className).toBe('reader-pdf-text-layer')
+    expect(textLayer.className).not.toBe('')
     expect(kindChange).toHaveBeenLastCalledWith('embedded')
     expect(readerCallbacks.onOcrStatusChange).toHaveBeenCalledWith({ pageNumber: 1, state: 'idle' })
     projection.close()

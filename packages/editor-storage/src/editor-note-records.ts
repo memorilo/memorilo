@@ -1,4 +1,4 @@
-import type { DatabaseCommand, EditorStorageDatabase } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase } from './database-driver'
 import type {
   AssetReferenceProjection,
   CreateInitializedNoteInput,
@@ -7,10 +7,12 @@ import type {
 } from './editor-storage-contracts'
 import type { NoteRow, NoteUpdateRow } from './editor-storage-rows'
 import { combineLifecycleFailures } from '@memorilo/effect-lifecycle'
+import { and, asc, desc, eq, gt, ne, or, sql } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import { assets, journals, noteAssetReferences, notes, noteUpdates } from './drizzle-schema'
 import { planInitializedNoteProjection } from './editor-note-projection-plan'
 import { DuplicateNoteTitleError } from './editor-storage-contracts'
-import { assertNonEmpty, visibleJournalPredicate } from './editor-storage-shared'
+import { assertNonEmpty } from './editor-storage-shared'
 import { validateBinary, validateProjectionPatch } from './editor-storage-validation'
 
 interface PreparedInitializedNote {
@@ -20,37 +22,22 @@ interface PreparedInitializedNote {
 
 type NoteKind = 'journal' | 'regular'
 
-const noteRowProjection = `
-  note.row_id,
-  note.id,
-  note.title,
-  note.checkpoint_snapshot,
-  note.checkpoint_sequence,
-  note.latest_sequence,
-  note.created_at,
-  note.updated_at
-`
-
 /** Owns the SQLite record shape and persistence invariants for Notes. */
 export class EditorNoteRecords {
-  constructor(private readonly database: EditorStorageDatabase) {}
+  readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
+
+  constructor(database: EditorStorageDatabase) {
+    this.#database = database
+    this.#orm = database.drizzle
+  }
 
   async assertTitleAvailable(title: string, excludedNoteId?: string): Promise<void> {
-    const duplicate = excludedNoteId === undefined
-      ? await this.database.get<{ id: string }>(`
-          SELECT id
-          FROM notes
-          WHERE kind = 'regular' AND title = ? COLLATE NOCASE
-          LIMIT 1
-        `, [title])
-      : await this.database.get<{ id: string }>(`
-          SELECT id
-          FROM notes
-          WHERE kind = 'regular'
-            AND title = ? COLLATE NOCASE
-            AND id <> ?
-          LIMIT 1
-        `, [title, excludedNoteId])
+    const duplicate = this.#orm.select({ id: notes.id }).from(notes).where(and(
+      eq(notes.kind, 'regular'),
+      sql`lower(${notes.title}) = lower(${title})`,
+      excludedNoteId === undefined ? undefined : ne(notes.id, excludedNoteId),
+    )).limit(1).get()
     if (duplicate)
       throw new DuplicateNoteTitleError(title)
   }
@@ -67,18 +54,18 @@ export class EditorNoteRecords {
       )
     }
 
-    await this.database.batch([
+    await this.#database.batch([
       {
-        parameters: [snapshot, throughSequence, note.row_id],
-        sql: `
-          UPDATE notes
-          SET checkpoint_snapshot = ?, checkpoint_sequence = ?
-          WHERE row_id = ?
-        `,
+        drizzle: database => database.update(notes).set({
+          checkpointSequence: throughSequence,
+          checkpointSnapshot: snapshot,
+        }).where(eq(notes.rowId, note.row_id)).run(),
       },
       {
-        parameters: [note.row_id, throughSequence],
-        sql: 'DELETE FROM note_updates WHERE note_row_id = ? AND sequence <= ?',
+        drizzle: database => database.delete(noteUpdates).where(and(
+          eq(noteUpdates.noteRowId, note.row_id),
+          sql`${noteUpdates.sequence} <= ${throughSequence}`,
+        )).run(),
       },
     ])
     return { acceptedUpdateHashes: [], latestSequence: note.latest_sequence, updatedAt: note.updated_at }
@@ -89,13 +76,7 @@ export class EditorNoteRecords {
     const now = Date.now()
     const id = createUuidV7()
     try {
-      await this.database.run(`
-        INSERT INTO notes (
-          id, title, kind, checkpoint_snapshot,
-          checkpoint_sequence, latest_sequence, created_at, updated_at
-        )
-        VALUES (?, ?, 'regular', NULL, 0, 0, ?, ?)
-      `, [id, title, now, now])
+      this.#orm.insert(notes).values({ id, title, kind: 'regular', checkpointSnapshot: null, checkpointSequence: 0, latestSequence: 0, createdAt: now, updatedAt: now }).run()
     }
     catch (error) {
       return this.rethrowTitleConflict(error, title)
@@ -113,12 +94,20 @@ export class EditorNoteRecords {
   }
 
   async findJournal(journalDate: string): Promise<StoredNote | undefined> {
-    const row = await this.database.get<NoteRow>(`
-      SELECT ${noteRowProjection}
-      FROM journals AS journal
-      INNER JOIN notes AS note ON note.row_id = journal.note_row_id
-      WHERE journal.journal_date = ?
-    `, [journalDate])
+    // Keep the journal lookup observable at the adapter boundary: callers use
+    // this read to coordinate an atomic create, and lifecycle adapters may
+    // instrument or retry it before the typed query executes.
+    await this.#database.beforeDrizzleRead?.('SELECT note.row_id FROM journals AS journal')
+    const row = this.#orm.select({
+      row_id: notes.rowId,
+      id: notes.id,
+      title: notes.title,
+      checkpoint_snapshot: notes.checkpointSnapshot,
+      checkpoint_sequence: notes.checkpointSequence,
+      latest_sequence: notes.latestSequence,
+      created_at: notes.createdAt,
+      updated_at: notes.updatedAt,
+    }).from(journals).innerJoin(notes, eq(notes.rowId, journals.noteRowId)).where(eq(journals.journalDate, journalDate)).get() as NoteRow | undefined
     if (!row)
       return undefined
     if (row.title !== journalDate)
@@ -127,14 +116,16 @@ export class EditorNoteRecords {
   }
 
   async openMostRecent(today: string | null): Promise<StoredNote> {
-    const row = await this.database.get<NoteRow>(`
-      SELECT ${noteRowProjection}
-      FROM notes AS note
-      LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
-      WHERE ${visibleJournalPredicate}
-      ORDER BY note.updated_at DESC, note.id DESC
-      LIMIT 1
-    `, [today, today])
+    const row = this.#orm.select({
+      row_id: notes.rowId,
+      id: notes.id,
+      title: notes.title,
+      checkpoint_snapshot: notes.checkpointSnapshot,
+      checkpoint_sequence: notes.checkpointSequence,
+      latest_sequence: notes.latestSequence,
+      created_at: notes.createdAt,
+      updated_at: notes.updatedAt,
+    }).from(notes).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(or(eq(notes.kind, 'regular'), and(eq(notes.kind, 'journal'), today === null ? sql`1 = 1` : ne(journals.journalDate, today)))).orderBy(desc(notes.updatedAt), desc(notes.id)).limit(1).get() as NoteRow | undefined
     return row ? this.hydrate(row) : this.create('Untitled')
   }
 
@@ -163,13 +154,16 @@ export class EditorNoteRecords {
     )
     const commands: DatabaseCommand[] = [
       {
-        parameters: [input.id, input.title, kind, input.snapshot, now, now],
-        sql: `
-          INSERT INTO notes (
-            id, title, kind, checkpoint_snapshot,
-            checkpoint_sequence, latest_sequence, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, 0, 0, ?, ?)
-        `,
+        drizzle: database => database.insert(notes).values({
+          checkpointSequence: 0,
+          checkpointSnapshot: input.snapshot,
+          createdAt: now,
+          id: input.id,
+          kind,
+          latestSequence: 0,
+          title: input.title,
+          updatedAt: now,
+        }).run(),
       },
       ...projection.commands,
     ]
@@ -195,16 +189,13 @@ export class EditorNoteRecords {
     references: readonly AssetReferenceProjection[],
     allowedMissingAssetFileNames: readonly string[] = [],
   ): Promise<boolean> {
-    const note = await this.database.get<{ latest_sequence: number, row_id: number }>(
-      'SELECT row_id, latest_sequence FROM notes WHERE id = ?',
-      [noteId],
-    )
+    const note = this.#orm.select({ latest_sequence: notes.latestSequence, row_id: notes.rowId }).from(notes).where(eq(notes.id, noteId)).get()
     if (!note)
       throw new Error(`Unknown Note: ${noteId}`)
     if (note.latest_sequence !== expectedLatestSequence)
       return false
 
-    await this.database.batch(await this.replaceAssetReferenceCommands(
+    await this.#database.batch(await this.replaceAssetReferenceCommands(
       note.row_id,
       references,
       allowedMissingAssetFileNames,
@@ -220,10 +211,7 @@ export class EditorNoteRecords {
     const allowedMissing = new Set(allowedMissingAssetFileNames)
     const availableReferences: AssetReferenceProjection[] = []
     for (const reference of references) {
-      const asset = await this.database.get<{ deletion_claimed_at: number | null }>(
-        'SELECT deletion_claimed_at FROM assets WHERE file_name = ?',
-        [reference.fileName],
-      )
+      const asset = this.#orm.select({ deletion_claimed_at: assets.deletionClaimedAt }).from(assets).where(eq(assets.fileName, reference.fileName)).get()
       if (!asset) {
         if (allowedMissing.has(reference.fileName))
           continue
@@ -236,15 +224,16 @@ export class EditorNoteRecords {
 
     return [
       {
-        parameters: [noteRowId],
-        sql: 'DELETE FROM note_asset_references WHERE note_row_id = ?',
+        drizzle: database => database.delete(noteAssetReferences)
+          .where(eq(noteAssetReferences.noteRowId, noteRowId))
+          .run(),
       },
       ...availableReferences.map(reference => ({
-        parameters: [noteRowId, reference.fileName, reference.count],
-        sql: `
-          INSERT INTO note_asset_references (note_row_id, asset_file_name, reference_count)
-          VALUES (?, ?, ?)
-        `,
+        drizzle: (database: EditorStorageDrizzleDatabase) => database.insert(noteAssetReferences).values({
+          assetFileName: reference.fileName,
+          noteRowId,
+          referenceCount: reference.count,
+        }).run(),
       })),
     ]
   }
@@ -273,11 +262,16 @@ export class EditorNoteRecords {
   }
 
   async requireRow(noteId: string): Promise<NoteRow> {
-    const row = await this.database.get<NoteRow>(`
-      SELECT ${noteRowProjection}
-      FROM notes AS note
-      WHERE note.id = ?
-    `, [noteId])
+    const row = this.#orm.select({
+      row_id: notes.rowId,
+      id: notes.id,
+      title: notes.title,
+      checkpoint_snapshot: notes.checkpointSnapshot,
+      checkpoint_sequence: notes.checkpointSequence,
+      latest_sequence: notes.latestSequence,
+      created_at: notes.createdAt,
+      updated_at: notes.updatedAt,
+    }).from(notes).where(eq(notes.id, noteId)).get() as NoteRow | undefined
     if (!row)
       throw new Error(`Unknown Note: ${noteId}`)
     return row
@@ -286,12 +280,11 @@ export class EditorNoteRecords {
   private async hydrate(row: NoteRow): Promise<StoredNote> {
     const updates = row.latest_sequence === row.checkpoint_sequence
       ? []
-      : await this.database.all<NoteUpdateRow>(`
-          SELECT sequence, update_blob
-          FROM note_updates
-          WHERE note_row_id = ? AND sequence > ?
-          ORDER BY sequence ASC
-        `, [row.row_id, row.checkpoint_sequence])
+      : this.#orm.select({ sequence: noteUpdates.sequence, update_blob: noteUpdates.updateBlob })
+        .from(noteUpdates)
+        .where(and(eq(noteUpdates.noteRowId, row.row_id), gt(noteUpdates.sequence, row.checkpoint_sequence)))
+        .orderBy(asc(noteUpdates.sequence))
+        .all() as NoteUpdateRow[]
 
     return {
       checkpointSequence: row.checkpoint_sequence,

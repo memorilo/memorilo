@@ -1,8 +1,11 @@
-export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase } from './database-driver'
+export type { DatabaseCommand, DatabaseValue, EditorStorageDatabase, EditorStorageDrizzleDatabase } from './database-driver'
+export { editorStorageDrizzleSchema } from './drizzle-schema'
 export { assertJournalDate, SqliteEditorStorage } from './editor-storage'
 export type {
+  AppendLocalAssetSyncManifestInput,
   AssetReferenceProjection,
   AssetStatistics,
+  AssetSyncManifest,
   BookFileFingerprint,
   BookTopicContext,
   BookTopicProjection,

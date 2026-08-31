@@ -1,5 +1,7 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
 import type { EditorUserDocumentStorage, SaveUserDocumentInput } from './editor-storage-contracts'
+import { eq } from 'drizzle-orm'
+import { userDocuments } from './drizzle-schema'
 
 interface UserDocumentRow {
   snapshot: Uint8Array
@@ -21,22 +23,21 @@ function validateSnapshot(snapshot: Uint8Array): void {
 }
 
 export class EditorUserDocumentRepository implements EditorUserDocumentStorage {
-  readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #runOperation: StorageOperationRunner
 
   constructor(dependencies: EditorUserDocumentRepositoryDependencies) {
-    this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#runOperation = dependencies.runOperation
   }
 
   load(documentId: string): Promise<Uint8Array | null> {
     validateDocumentId(documentId)
     return this.#runOperation(async () => {
-      const row = await this.#database.get<UserDocumentRow>(`
-        SELECT snapshot
-        FROM user_documents
-        WHERE document_id = ?
-      `, [documentId])
+      const row = this.#orm.select({ snapshot: userDocuments.snapshot })
+        .from(userDocuments)
+        .where(eq(userDocuments.documentId, documentId))
+        .get() as UserDocumentRow | undefined
       return row === undefined ? null : new Uint8Array(row.snapshot)
     })
   }
@@ -46,13 +47,13 @@ export class EditorUserDocumentRepository implements EditorUserDocumentStorage {
     validateSnapshot(input.snapshot)
     const snapshot = new Uint8Array(input.snapshot)
     return this.#runOperation(async () => {
-      await this.#database.run(`
-        INSERT INTO user_documents (document_id, snapshot, updated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(document_id) DO UPDATE SET
-          snapshot = excluded.snapshot,
-          updated_at = excluded.updated_at
-      `, [input.documentId, snapshot, Date.now()])
+      this.#orm.insert(userDocuments)
+        .values({ documentId: input.documentId, snapshot, updatedAt: Date.now() })
+        .onConflictDoUpdate({
+          target: userDocuments.documentId,
+          set: { snapshot, updatedAt: Date.now() },
+        })
+        .run()
     })
   }
 }

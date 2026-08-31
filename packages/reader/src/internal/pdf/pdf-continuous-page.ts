@@ -9,6 +9,7 @@ import type { RegionSelectionResult } from '../region-selection'
 import type { PdfJsModule } from './pdf-page-view'
 import { interruptPromise } from '../interrupt-promise'
 import { RegionSelectionController } from '../region-selection'
+import { pdfLayerClassNames } from './pdf-layer.stylex'
 import { PdfPageView } from './pdf-page-view'
 
 export interface PdfContinuousPage {
@@ -46,16 +47,15 @@ interface CreatePdfContinuousPageOptions {
 function createPageDom(slot: HTMLElement, pageNumber: number) {
   const ownerDocument = slot.ownerDocument
   const pageSurface = ownerDocument.createElement('div')
-  pageSurface.className = 'reader-pdf-page'
+  pageSurface.className = `reader-pdf-page ${pdfLayerClassNames.page}`
   const canvas = ownerDocument.createElement('canvas')
-  canvas.className = 'reader-pdf-canvas'
+  canvas.className = `reader-pdf-canvas ${pdfLayerClassNames.canvas}`
   canvas.setAttribute('aria-label', `Page ${pageNumber}`)
   const annotationLayer = ownerDocument.createElement('div')
-  annotationLayer.className = 'reader-pdf-annotations'
+  annotationLayer.className = `reader-pdf-annotations ${pdfLayerClassNames.annotations}`
   const textLayer = ownerDocument.createElement('div')
-  textLayer.className = 'reader-pdf-text-layer'
+  textLayer.className = `reader-pdf-text-layer ${pdfLayerClassNames.textLayer}`
   const regionCapture = ownerDocument.createElement('div')
-  regionCapture.className = 'reader-pdf-region-capture'
   regionCapture.setAttribute('aria-hidden', 'true')
   pageSurface.append(canvas, annotationLayer, textLayer, regionCapture)
   slot.replaceChildren(pageSurface)

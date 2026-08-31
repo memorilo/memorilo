@@ -38,7 +38,6 @@ export function projectPdfOcrItems(
   items: readonly ReaderOcrTextItem[],
   renderedHeight: number,
 ): void {
-  layer.classList.add('reader-pdf-text-layer-ocr')
   for (const item of items) {
     const span = document.createElement('span')
     span.textContent = item.text

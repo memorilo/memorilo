@@ -89,6 +89,7 @@ function fakeElement(): HTMLElement {
     clientHeight: 600,
     clientWidth: 640,
     contains: vi.fn(() => false),
+    dataset: {},
     querySelectorAll: vi.fn(() => []),
     remove: vi.fn(),
     removeEventListener: vi.fn(),
@@ -188,7 +189,7 @@ function source() {
 }
 
 function scroller(): HTMLElement {
-  const element = createdElements.find(candidate => candidate.className === 'reader-pdf-scroller')
+  const element = createdElements.find(candidate => candidate.dataset.ui === 'reader-pdf-scroller')
   if (!element)
     throw new Error('PDF scroller was not created')
   return element

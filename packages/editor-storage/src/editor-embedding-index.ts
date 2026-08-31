@@ -1,10 +1,13 @@
-import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
 import type {
   IndexPendingEmbeddingsInput,
   IndexPendingEmbeddingsResult,
 } from './editor-storage-contracts'
 import type { EmbeddingModel } from './embedding-model'
+import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm'
+import { notes, topicBlockEmbeddingState, topicBlocks } from './drizzle-schema'
 import { assertNonEmpty, resolveLimit } from './editor-storage-shared'
+import { topicBlockEmbeddings } from './sqlite-extension-schema'
 
 interface PendingEmbeddingRow {
   content_hash: string
@@ -21,7 +24,7 @@ interface EmbeddingCommitRow {
 }
 
 interface PendingEmbeddingStatusRow {
-  has_pending: number
+  row_id: number
 }
 
 function validateVector(vector: Float32Array, model: EmbeddingModel): void {
@@ -39,26 +42,33 @@ function serializeVector(vector: Float32Array): Uint8Array {
 
 /** Owns embedding generation and the stale-content guarded index commit. */
 export class EditorEmbeddingIndex {
+  readonly #orm: EditorStorageDrizzleDatabase
+
   constructor(
     private readonly database: EditorStorageDatabase,
     private readonly embeddingModel: EmbeddingModel,
     private readonly runOperation: StorageOperationRunner,
-  ) {}
+  ) {
+    this.#orm = database.drizzle
+  }
 
   async indexPendingEmbeddings(input: IndexPendingEmbeddingsInput = {}): Promise<IndexPendingEmbeddingsResult> {
     if (input.noteId !== undefined)
       assertNonEmpty(input.noteId, 'Note id')
     const limit = resolveLimit(input.limit, 32, 256)
-    const rows = await this.runOperation(() => this.database.all<PendingEmbeddingRow>(`
-        SELECT b.row_id, b.note_row_id, b.text, b.content_hash
-        FROM topic_blocks b
-        JOIN notes n ON n.row_id = b.note_row_id
-        LEFT JOIN topic_block_embedding_state s ON s.block_row_id = b.row_id
-        WHERE (s.block_row_id IS NULL OR s.model_id <> ? OR s.content_hash <> b.content_hash)
-          AND (? IS NULL OR n.id = ?)
-        ORDER BY n.updated_at DESC, b.row_id ASC
-        LIMIT ?
-      `, [this.embeddingModel.id, input.noteId ?? null, input.noteId ?? null, limit]))
+    const rows = await this.runOperation(() => Promise.resolve(this.#orm.select({
+      row_id: topicBlocks.rowId,
+      note_row_id: topicBlocks.noteRowId,
+      text: topicBlocks.text,
+      content_hash: topicBlocks.contentHash,
+    }).from(topicBlocks).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(topicBlockEmbeddingState, eq(topicBlockEmbeddingState.blockRowId, topicBlocks.rowId)).where(and(
+      or(
+        isNull(topicBlockEmbeddingState.blockRowId),
+        ne(topicBlockEmbeddingState.modelId, this.embeddingModel.id),
+        ne(topicBlockEmbeddingState.contentHash, topicBlocks.contentHash),
+      ),
+      input.noteId === undefined ? undefined : eq(notes.id, input.noteId),
+    )).orderBy(desc(notes.updatedAt), asc(topicBlocks.rowId)).limit(limit).all() as PendingEmbeddingRow[]))
     if (rows.length === 0)
       return { hasPending: false, indexed: 0 }
 
@@ -73,27 +83,38 @@ export class EditorEmbeddingIndex {
       if (!vector)
         throw new Error(`Embedding model ${this.embeddingModel.id} omitted vector ${index}`)
       validateVector(vector, this.embeddingModel)
-      commands.push(
-        {
-          parameters: [BigInt(row.row_id), BigInt(row.note_row_id), serializeVector(vector), row.row_id, row.content_hash],
-          sql: `
-            INSERT OR REPLACE INTO topic_block_embeddings (block_row_id, note_row_id, embedding)
-            SELECT ?, ?, ?
-            WHERE EXISTS (SELECT 1 FROM topic_blocks WHERE row_id = ? AND content_hash = ?)
-          `,
+      commands.push({
+        drizzle: (database) => {
+          const current = database.select({ rowId: topicBlocks.rowId })
+            .from(topicBlocks)
+            .where(and(
+              eq(topicBlocks.rowId, row.row_id),
+              eq(topicBlocks.contentHash, row.content_hash),
+            ))
+            .get()
+          if (!current)
+            return
+          database.delete(topicBlockEmbeddings)
+            .where(eq(topicBlockEmbeddings.blockRowId, row.row_id))
+            .run()
+          database.insert(topicBlockEmbeddings).values({
+            blockRowId: row.row_id,
+            embedding: serializeVector(vector),
+            noteRowId: row.note_row_id,
+          }).run()
+          database.insert(topicBlockEmbeddingState).values({
+            blockRowId: row.row_id,
+            contentHash: row.content_hash,
+            modelId: this.embeddingModel.id,
+          }).onConflictDoUpdate({
+            target: topicBlockEmbeddingState.blockRowId,
+            set: {
+              contentHash: row.content_hash,
+              modelId: this.embeddingModel.id,
+            },
+          }).run()
         },
-        {
-          parameters: [row.row_id, this.embeddingModel.id, row.content_hash, row.row_id, row.content_hash],
-          sql: `
-            INSERT INTO topic_block_embedding_state (block_row_id, model_id, content_hash)
-            SELECT ?, ?, ?
-            WHERE EXISTS (SELECT 1 FROM topic_blocks WHERE row_id = ? AND content_hash = ?)
-            ON CONFLICT(block_row_id) DO UPDATE SET
-              model_id = excluded.model_id,
-              content_hash = excluded.content_hash
-          `,
-        },
-      )
+      })
     }
     return this.runOperation(async () => {
       await this.database.batch(commands)
@@ -113,13 +134,12 @@ export class EditorEmbeddingIndex {
 
   private async countCommittedEmbeddings(rows: readonly PendingEmbeddingRow[]): Promise<number> {
     const selected = new Map(rows.map(row => [row.row_id, row.content_hash]))
-    const placeholders = rows.map(() => '?').join(', ')
-    const committed = await this.database.all<EmbeddingCommitRow>(`
-      SELECT b.row_id, b.content_hash, s.model_id, s.content_hash AS indexed_content_hash
-      FROM topic_blocks b
-      LEFT JOIN topic_block_embedding_state s ON s.block_row_id = b.row_id
-      WHERE b.row_id IN (${placeholders})
-    `, rows.map(row => row.row_id))
+    const committed = this.#orm.select({
+      row_id: topicBlocks.rowId,
+      content_hash: topicBlocks.contentHash,
+      model_id: topicBlockEmbeddingState.modelId,
+      indexed_content_hash: topicBlockEmbeddingState.contentHash,
+    }).from(topicBlocks).leftJoin(topicBlockEmbeddingState, eq(topicBlockEmbeddingState.blockRowId, topicBlocks.rowId)).where(inArray(topicBlocks.rowId, rows.map(row => row.row_id))).all() as EmbeddingCommitRow[]
     return committed.filter(row => (
       selected.get(row.row_id) === row.content_hash
       && row.model_id === this.embeddingModel.id
@@ -128,16 +148,20 @@ export class EditorEmbeddingIndex {
   }
 
   private async hasPendingEmbeddings(noteId: string | undefined): Promise<boolean> {
-    const row = await this.database.get<PendingEmbeddingStatusRow>(`
-      SELECT EXISTS (
-        SELECT 1
-        FROM topic_blocks b
-        JOIN notes n ON n.row_id = b.note_row_id
-        LEFT JOIN topic_block_embedding_state s ON s.block_row_id = b.row_id
-        WHERE (s.block_row_id IS NULL OR s.model_id <> ? OR s.content_hash <> b.content_hash)
-          AND (? IS NULL OR n.id = ?)
-      ) AS has_pending
-    `, [this.embeddingModel.id, noteId ?? null, noteId ?? null])
-    return row?.has_pending === 1
+    const row = this.#orm.select({ row_id: topicBlocks.rowId })
+      .from(topicBlocks)
+      .innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId))
+      .leftJoin(topicBlockEmbeddingState, eq(topicBlockEmbeddingState.blockRowId, topicBlocks.rowId))
+      .where(and(
+        or(
+          isNull(topicBlockEmbeddingState.blockRowId),
+          ne(topicBlockEmbeddingState.modelId, this.embeddingModel.id),
+          ne(topicBlockEmbeddingState.contentHash, topicBlocks.contentHash),
+        ),
+        noteId === undefined ? undefined : eq(notes.id, noteId),
+      ))
+      .limit(1)
+      .get() as PendingEmbeddingStatusRow | undefined
+    return row !== undefined
   }
 }

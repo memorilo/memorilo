@@ -18,8 +18,8 @@ import {
   spreadsheetCellKey,
   SpreadsheetWorkspace,
 } from '../src'
+import { demoGlobalStyles } from './global.stylex'
 import { demoStyles } from './main.stylex'
-import './global.css'
 
 const demoTopicId = 'demo-topic'
 
@@ -228,6 +228,16 @@ export function Demo() {
 const rootElement = document.querySelector('#root')
 if (!rootElement)
   throw new Error('Missing spreadsheet demo root element')
+
+function applyClass(element: Element, className: string | undefined): void {
+  if (className)
+    element.classList.add(...className.split(' '))
+}
+applyClass(document.documentElement, stylex.props(demoGlobalStyles.document).className)
+applyClass(document.body, stylex.props(demoGlobalStyles.body).className)
+applyClass(rootElement, stylex.props(demoGlobalStyles.root).className)
+for (const control of document.querySelectorAll('button, input'))
+  applyClass(control, stylex.props(demoGlobalStyles.controls).className)
 
 createRoot(rootElement).render(
   <StrictMode>

@@ -1,5 +1,6 @@
-import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate } from './contract'
+import type { DesktopApi, DesktopConfiguration, DesktopNoteExternalUpdate, DesktopSyncServerEvent } from './contract'
 import type { NoteSaveRequest } from './note-save-handshake'
+import { desktopSyncServerEventChannel } from '@memorilo/desktop-api'
 import { desktopConfigurationChangedChannel } from '@memorilo/desktop-config/contract'
 import { contextBridge, ipcRenderer } from 'electron'
 
@@ -58,6 +59,12 @@ function subscribeP2pStatus(listener: Parameters<DesktopApi['subscribeP2pStatus'
   return () => ipcRenderer.removeListener(p2pStatusChannel, handleStatus)
 }
 
+function subscribeSyncServerEvents(listener: Parameters<DesktopApi['subscribeSyncServerEvents']>[0]): () => void {
+  const handleEvent = (_event: Electron.IpcRendererEvent, event: DesktopSyncServerEvent) => listener(event)
+  ipcRenderer.on(desktopSyncServerEventChannel, handleEvent)
+  return () => ipcRenderer.removeListener(desktopSyncServerEventChannel, handleEvent)
+}
+
 contextBridge.exposeInMainWorld(
   'desktop',
   createDesktopApi(
@@ -67,5 +74,6 @@ contextBridge.exposeInMainWorld(
     subscribeNoteUpdates,
     subscribeP2pStatus,
     subscribeLearningUpdates,
+    subscribeSyncServerEvents,
   ),
 )

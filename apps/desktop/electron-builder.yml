@@ -14,6 +14,8 @@ files:
 extraResources:
   - from: ../../.cache/embedding-models
     to: embedding-models
+  - from: ../../packages/editor-storage/drizzle
+    to: editor-storage-migrations
 
 asar: true
 asarUnpack:

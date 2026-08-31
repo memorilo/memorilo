@@ -1,4 +1,4 @@
-import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from '../database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from '../database-driver'
 import type { LearningCardReconciliationInput } from './learning-card-reconciliation'
 import type { EffectiveLearningOptimizer } from './learning-optimizer-catalog'
 import type {
@@ -6,6 +6,8 @@ import type {
   LearningTarget,
   ReconcileLearningCardsInput,
 } from './types'
+import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
+import { learningCards, learningNoteOptimizerAssignments, learningOptimizers, learningTargets, notes } from '../drizzle-schema'
 import { planLearningCardReconciliation } from './learning-card-reconciliation'
 import { assertNonEmpty } from './learning-storage-shared'
 import { GLOBAL_OPTIMIZER_ID } from './schema'
@@ -29,15 +31,14 @@ interface TargetRow {
   topic_order: number
 }
 
-interface LearningNoteSummaryRow {
-  card_count: number
+interface LearningNoteCardRow {
   note_id: string
   note_title: string
   optimizer_id: string
   optimizer_is_global: number
   optimizer_name: string
   optimizer_status: 'active' | 'archived'
-  topic_count: number
+  topic_id: string
   updated_at: number
 }
 
@@ -60,11 +61,13 @@ function toLearningTarget(row: TargetRow): LearningTarget {
 
 export class LearningCardRepository {
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #effectiveOptimizer: LearningCardRepositoryDependencies['effectiveOptimizer']
   readonly #runOperation: StorageOperationRunner
 
   constructor(dependencies: LearningCardRepositoryDependencies) {
     this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#effectiveOptimizer = dependencies.effectiveOptimizer
     this.#runOperation = dependencies.runOperation
   }
@@ -90,10 +93,24 @@ export class LearningCardRepository {
   listTargets(cardIdValue: string): Promise<readonly LearningTarget[]> {
     assertNonEmpty(cardIdValue, 'CardID')
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<TargetRow>(
-        'SELECT t.target_id, t.card_id, t.target_kind, t.target_order, t.item_block_id, t.active, t.partial_active, t.created_at, c.active AS card_active, c.note_id, c.topic_id, c.topic_order, c.source_block_id, c.source_order, c.kind, c.direction FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id WHERE t.card_id = ? ORDER BY t.target_order, t.target_id',
-        [cardIdValue],
-      )
+      const rows = this.#orm.select({
+        target_id: learningTargets.targetId,
+        card_id: learningTargets.cardId,
+        target_kind: learningTargets.targetKind,
+        target_order: learningTargets.targetOrder,
+        item_block_id: learningTargets.itemBlockId,
+        active: learningTargets.active,
+        partial_active: learningTargets.partialActive,
+        created_at: learningTargets.createdAt,
+        card_active: learningCards.active,
+        note_id: learningCards.noteId,
+        topic_id: learningCards.topicId,
+        topic_order: learningCards.topicOrder,
+        source_block_id: learningCards.sourceBlockId,
+        source_order: learningCards.sourceOrder,
+        kind: learningCards.kind,
+        direction: learningCards.direction,
+      }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).where(eq(learningTargets.cardId, cardIdValue)).orderBy(asc(learningTargets.targetOrder), asc(learningTargets.targetId)).all() as TargetRow[]
       return rows.map(toLearningTarget)
     })
   }
@@ -101,56 +118,39 @@ export class LearningCardRepository {
   listNoteTopicIds(noteId: string): Promise<readonly string[]> {
     assertNonEmpty(noteId, 'Note id')
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<{ topic_id: string }>(
-        'SELECT DISTINCT topic_id FROM learning_cards WHERE note_id = ? ORDER BY topic_id',
-        [noteId],
-      )
+      const rows = this.#orm.selectDistinct({ topic_id: learningCards.topicId }).from(learningCards).where(eq(learningCards.noteId, noteId)).orderBy(asc(learningCards.topicId)).all()
       return rows.map(row => row.topic_id)
     })
   }
 
   listNotesWithCards(): Promise<readonly LearningNoteSummary[]> {
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<LearningNoteSummaryRow>(`
-        WITH card_topics AS (
-          SELECT
-            note_id,
-            topic_id,
-            COUNT(*) AS card_count
-          FROM learning_cards
-          WHERE active = 1
-          GROUP BY note_id, topic_id
-        )
-        SELECT
-          note.id AS note_id,
-          note.title AS note_title,
-          note.updated_at,
-          optimizer.optimizer_id,
-          optimizer.name AS optimizer_name,
-          optimizer.is_global AS optimizer_is_global,
-          optimizer.status AS optimizer_status,
-          SUM(card_topics.card_count) AS card_count,
-          COUNT(*) AS topic_count
-        FROM card_topics
-        INNER JOIN notes AS note ON note.id = card_topics.note_id
-        LEFT JOIN learning_note_optimizer_assignments AS assignment ON assignment.note_id = note.id
-        INNER JOIN learning_optimizers AS optimizer
-          ON optimizer.optimizer_id = COALESCE(assignment.optimizer_id, ?)
-        GROUP BY
-          note.id,
-          note.title,
-          note.updated_at,
-          optimizer.optimizer_id,
-          optimizer.name,
-          optimizer.is_global,
-          optimizer.status
-        ORDER BY note.updated_at DESC, note.id DESC
-      `, [GLOBAL_OPTIMIZER_ID])
-      return rows.map((row) => {
+      const rows = this.#orm.select({
+        note_id: notes.id,
+        note_title: notes.title,
+        updated_at: notes.updatedAt,
+        optimizer_id: learningOptimizers.optimizerId,
+        optimizer_name: learningOptimizers.name,
+        optimizer_is_global: learningOptimizers.isGlobal,
+        optimizer_status: learningOptimizers.status,
+        topic_id: learningCards.topicId,
+      }).from(learningCards).innerJoin(notes, eq(notes.id, learningCards.noteId)).leftJoin(learningNoteOptimizerAssignments, eq(learningNoteOptimizerAssignments.noteId, notes.id)).innerJoin(learningOptimizers, or(
+        eq(learningOptimizers.optimizerId, learningNoteOptimizerAssignments.optimizerId),
+        and(isNull(learningNoteOptimizerAssignments.optimizerId), eq(learningOptimizers.optimizerId, GLOBAL_OPTIMIZER_ID)),
+      )).where(eq(learningCards.active, 1)).orderBy(desc(notes.updatedAt), desc(notes.id)).all() as LearningNoteCardRow[]
+      const summaries = new Map<string, LearningNoteSummary & { topicIds: Set<string> }>()
+      for (const row of rows) {
         if (row.optimizer_status !== 'active')
           throw new Error(`Note ${row.note_id} references archived FSRS Optimizer ${row.optimizer_id}`)
-        return {
-          cardCount: row.card_count,
+        const existing = summaries.get(row.note_id)
+        if (existing) {
+          existing.cardCount += 1
+          existing.topicIds.add(row.topic_id)
+          existing.topicCount = existing.topicIds.size
+          continue
+        }
+        summaries.set(row.note_id, {
+          cardCount: 1,
           noteId: row.note_id,
           noteTitle: row.note_title,
           optimizer: {
@@ -158,10 +158,12 @@ export class LearningCardRepository {
             isGlobal: row.optimizer_is_global === 1,
             name: row.optimizer_name,
           },
-          topicCount: row.topic_count,
+          topicCount: 1,
+          topicIds: new Set([row.topic_id]),
           updatedAt: row.updated_at,
-        }
-      })
+        })
+      }
+      return [...summaries.values()].map(({ topicIds: _topicIds, ...summary }) => summary)
     })
   }
 }

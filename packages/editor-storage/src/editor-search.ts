@@ -1,4 +1,5 @@
-import type { DatabaseValue, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { SQL } from 'drizzle-orm'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
 import type {
   GetTopicBlockInput,
   IndexPendingEmbeddingsInput,
@@ -14,6 +15,8 @@ import type {
 } from './editor-storage-contracts'
 import type { EmbeddingModel } from './embedding-model'
 import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { journals, notes, topicBlocks, topics } from './drizzle-schema'
 import { EditorEmbeddingIndex } from './editor-embedding-index'
 import { fuseTopicBlockSearchResults, mergeNoteSearchResults } from './editor-search-ranking'
 import {
@@ -21,8 +24,8 @@ import {
   optionalJournalDate,
   readStoredNoteJournalDate,
   resolveLimit,
-  visibleJournalPredicate,
 } from './editor-storage-shared'
+import { topicBlockEmbeddings, topicBlocksFts } from './sqlite-extension-schema'
 
 interface TopicBlockRow {
   attributes_json: string
@@ -64,6 +67,32 @@ interface TopicSearchRow {
   updated_at: number
 }
 
+interface RankedBlockCandidate {
+  preview?: string
+  rank: number
+  row_id: number
+}
+
+function rankedVectorCandidates(rows: readonly { rank: number | null, row_id: number }[]): RankedBlockCandidate[] {
+  return rows.map((row) => {
+    if (row.rank === null)
+      throw new Error(`sqlite-vec omitted the distance for Topic Block ${row.row_id}`)
+    return { rank: row.rank, row_id: row.row_id }
+  })
+}
+
+interface TopicSearchMetadataRow {
+  block_id: string
+  journal_date: string | null
+  note_id: string
+  note_title: string
+  row_id: number
+  text: string
+  topic_id: string
+  topic_title: string
+  updated_at: number
+}
+
 function parseAttributes(json: string): Readonly<Record<string, unknown>> {
   const value: unknown = JSON.parse(json)
   if (value === null || Array.isArray(value) || typeof value !== 'object')
@@ -89,6 +118,16 @@ function quoteFtsQuery(query: string): string {
   return `"${query.replaceAll('"', '""')}"`
 }
 
+function visibleJournalCondition(today: JournalDate | null): SQL | undefined {
+  if (today === null)
+    return undefined
+  return or(
+    isNull(journals.noteRowId),
+    eq(journals.hasUserContent, 1),
+    eq(journals.journalDate, today),
+  )
+}
+
 function toTopicSearchHit(row: TopicSearchRow, match: Exclude<NoteSearchMatch, 'title'>): TopicSearchHit {
   const journalDate = readStoredNoteJournalDate(row.journal_date, row.note_id, row.note_title)
   const preview = row.preview.trim()
@@ -108,6 +147,7 @@ function toTopicSearchHit(row: TopicSearchRow, match: Exclude<NoteSearchMatch, '
 
 export class EditorSearch {
   private readonly embeddingIndex: EditorEmbeddingIndex
+  readonly #orm: EditorStorageDrizzleDatabase
   private readonly embeddingOperations = createOperationSupervisor('Editor embedding indexing', {
     closedError: () => new Error('Editor storage is closed'),
   })
@@ -117,6 +157,7 @@ export class EditorSearch {
     embeddingModel: EmbeddingModel,
     private readonly runOperation: StorageOperationRunner,
   ) {
+    this.#orm = database.drizzle
     this.embeddingIndex = new EditorEmbeddingIndex(database, embeddingModel, runOperation)
   }
 
@@ -129,21 +170,17 @@ export class EditorSearch {
       assertNonEmpty(input.noteId, 'Note id')
       assertNonEmpty(input.topicId, 'Topic id')
       assertNonEmpty(input.blockId, 'Topic Block id')
-      const row = await this.database.get<TopicBlockRow>(`
-        SELECT
-          n.id AS note_id,
-          b.topic_id,
-          b.block_id,
-          b.parent_block_id,
-          b.ordinal,
-          b.kind,
-          b.text,
-          b.attributes_json,
-          b.content_hash
-        FROM topic_blocks b
-        JOIN notes n ON n.row_id = b.note_row_id
-        WHERE n.id = ? AND b.topic_id = ? AND b.block_id = ?
-      `, [input.noteId, input.topicId, input.blockId])
+      const row = this.#orm.select({
+        note_id: notes.id,
+        topic_id: topicBlocks.topicId,
+        block_id: topicBlocks.blockId,
+        parent_block_id: topicBlocks.parentBlockId,
+        ordinal: topicBlocks.ordinal,
+        kind: topicBlocks.kind,
+        text: topicBlocks.text,
+        attributes_json: topicBlocks.attributesJson,
+        content_hash: topicBlocks.contentHash,
+      }).from(topicBlocks).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).where(and(eq(notes.id, input.noteId), eq(topicBlocks.topicId, input.topicId), eq(topicBlocks.blockId, input.blockId))).get() as TopicBlockRow | undefined
       return row ? toStoredBlock(row) : null
     })
   }
@@ -172,28 +209,39 @@ export class EditorSearch {
   }
 
   private async searchNoteTitles(query: string, limit: number, today: JournalDate | null): Promise<readonly NoteSearchHit[]> {
-    const rows = await this.database.all<NoteTitleSearchRow>(`
-      WITH visible_notes AS (
-        SELECT note.*, journal.journal_date
-        FROM notes AS note
-        LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
-        WHERE ${visibleJournalPredicate}
-      )
-      SELECT kind, journal_date, note_id, note_title, topic_id, topic_title, updated_at, match_position
-      FROM (
-        SELECT 'note' AS kind, n.journal_date, n.id AS note_id, n.title AS note_title,
-          NULL AS topic_id, NULL AS topic_title, n.updated_at, instr(lower(n.title), lower(?)) AS match_position
-        FROM visible_notes n
-        UNION ALL
-        SELECT 'topic' AS kind, n.journal_date, n.id AS note_id, n.title AS note_title,
-          t.topic_id, t.title AS topic_title, n.updated_at, instr(lower(t.title), lower(?)) AS match_position
-        FROM topics t JOIN visible_notes n ON n.row_id = t.note_row_id
-      ) title_matches
-      WHERE match_position > 0
-      ORDER BY match_position ASC, CASE kind WHEN 'note' THEN 0 ELSE 1 END ASC,
-        updated_at DESC, note_title COLLATE NOCASE ASC
-      LIMIT ?
-    `, [today, today, query, query, limit])
+    const notePosition = sql<number>`instr(lower(${notes.title}), lower(${query}))`
+    const topicPosition = sql<number>`instr(lower(${topics.title}), lower(${query}))`
+    const noteRows = this.#orm.select({
+      journal_date: journals.journalDate,
+      match_position: notePosition,
+      note_id: notes.id,
+      note_title: notes.title,
+      updated_at: notes.updatedAt,
+    }).from(notes).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+      visibleJournalCondition(today),
+      sql`${notePosition} > 0`,
+    )).orderBy(asc(notePosition), desc(notes.updatedAt), asc(notes.title)).limit(limit).all()
+    const topicRows = this.#orm.select({
+      journal_date: journals.journalDate,
+      match_position: topicPosition,
+      note_id: notes.id,
+      note_title: notes.title,
+      topic_id: topics.topicId,
+      topic_title: topics.title,
+      updated_at: notes.updatedAt,
+    }).from(topics).innerJoin(notes, eq(notes.rowId, topics.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+      visibleJournalCondition(today),
+      sql`${topicPosition} > 0`,
+    )).orderBy(asc(topicPosition), desc(notes.updatedAt), asc(notes.title)).limit(limit).all()
+    const rows: NoteTitleSearchRow[] = [
+      ...noteRows.map(row => ({ ...row, kind: 'note' as const, topic_id: null, topic_title: null })),
+      ...topicRows.map(row => ({ ...row, kind: 'topic' as const })),
+    ].sort((left, right) => (
+      left.match_position - right.match_position
+      || (left.kind === right.kind ? 0 : left.kind === 'note' ? -1 : 1)
+      || right.updated_at - left.updated_at
+      || left.note_title.localeCompare(right.note_title, undefined, { sensitivity: 'base' })
+    )).slice(0, limit)
 
     return rows.map((row): NoteSearchHit => {
       const journalDate = readStoredNoteJournalDate(row.journal_date, row.note_id, row.note_title)
@@ -226,62 +274,67 @@ export class EditorSearch {
   }
 
   private async searchTopicNodeStarts(query: string, limit: number, today: JournalDate | null): Promise<readonly TopicSearchHit[]> {
-    const rows = await this.database.all<TopicSearchRow>(`
-      SELECT n.id AS note_id, n.title AS note_title, journal.journal_date, n.updated_at,
-        t.topic_id, t.title AS topic_title, b.block_id, b.text AS preview, b.ordinal AS rank
-      FROM topic_blocks b
-      JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
-      JOIN notes n ON n.row_id = b.note_row_id
-      LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-      WHERE instr(lower(ltrim(b.text)), lower(?)) = 1 AND ${visibleJournalPredicate}
-      ORDER BY n.updated_at DESC, t.row_id ASC, b.ordinal ASC, b.row_id ASC
-      LIMIT ?
-    `, [query, today, today, limit])
+    const rows = this.#orm.select({
+      block_id: topicBlocks.blockId,
+      journal_date: journals.journalDate,
+      note_id: notes.id,
+      note_title: notes.title,
+      preview: topicBlocks.text,
+      rank: topicBlocks.ordinal,
+      topic_id: topics.topicId,
+      topic_title: topics.title,
+      updated_at: notes.updatedAt,
+    }).from(topicBlocks).innerJoin(topics, and(
+      eq(topics.noteRowId, topicBlocks.noteRowId),
+      eq(topics.topicId, topicBlocks.topicId),
+    )).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+      sql`instr(lower(ltrim(${topicBlocks.text})), lower(${query})) = 1`,
+      visibleJournalCondition(today),
+    )).orderBy(desc(notes.updatedAt), asc(topics.rowId), asc(topicBlocks.ordinal), asc(topicBlocks.rowId)).limit(limit).all() as TopicSearchRow[]
     return rows.map(row => toTopicSearchHit(row, 'node-start'))
   }
 
   private async searchTopicContent(query: string, limit: number, today: JournalDate | null): Promise<readonly TopicSearchHit[]> {
     const shortQuery = [...query].length < 3
     const rows = shortQuery
-      ? await this.database.all<TopicSearchRow>(`
-          SELECT n.id AS note_id, n.title AS note_title, journal.journal_date, n.updated_at,
-            t.topic_id, t.title AS topic_title, b.block_id, b.text AS preview, b.ordinal AS rank
-          FROM topic_blocks b
-          JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
-          JOIN notes n ON n.row_id = b.note_row_id
-          LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-          WHERE instr(lower(b.text), lower(?)) > 0 AND ${visibleJournalPredicate}
-          ORDER BY n.updated_at DESC, t.row_id ASC, b.ordinal ASC, b.row_id ASC
-          LIMIT ?
-        `, [query, today, today, limit])
-      : await this.database.all<TopicSearchRow>(`
-          SELECT n.id AS note_id, n.title AS note_title, journal.journal_date, n.updated_at,
-            t.topic_id, t.title AS topic_title, b.block_id,
-            snippet(topic_blocks_fts, 0, '', '', '…', 24) AS preview, bm25(topic_blocks_fts) AS rank
-          FROM topic_blocks_fts
-          JOIN topic_blocks b ON b.row_id = topic_blocks_fts.rowid
-          JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
-          JOIN notes n ON n.row_id = b.note_row_id
-          LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-          WHERE topic_blocks_fts MATCH ? AND ${visibleJournalPredicate}
-          ORDER BY rank ASC, n.updated_at DESC
-          LIMIT ?
-        `, [quoteFtsQuery(query), today, today, limit])
+      ? this.#orm.select({
+        block_id: topicBlocks.blockId,
+        journal_date: journals.journalDate,
+        note_id: notes.id,
+        note_title: notes.title,
+        preview: topicBlocks.text,
+        rank: topicBlocks.ordinal,
+        topic_id: topics.topicId,
+        topic_title: topics.title,
+        updated_at: notes.updatedAt,
+      }).from(topicBlocks).innerJoin(topics, and(
+        eq(topics.noteRowId, topicBlocks.noteRowId),
+        eq(topics.topicId, topicBlocks.topicId),
+      )).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+        sql`instr(lower(${topicBlocks.text}), lower(${query})) > 0`,
+        visibleJournalCondition(today),
+      )).orderBy(desc(notes.updatedAt), asc(topics.rowId), asc(topicBlocks.ordinal), asc(topicBlocks.rowId)).limit(limit).all() as TopicSearchRow[]
+      : this.hydrateTopicSearchCandidates(
+          this.#orm.select({
+            row_id: topicBlocksFts.rowId,
+            preview: sql<string>`snippet(${topicBlocksFts}, 0, '', '', '…', 24)`,
+            rank: sql<number>`bm25(${topicBlocksFts})`,
+          }).from(topicBlocksFts).where(sql`${topicBlocksFts} MATCH ${quoteFtsQuery(query)}`).orderBy(asc(sql`bm25(${topicBlocksFts})`)).limit(Math.min(limit * 4, 100)).all() as RankedBlockCandidate[],
+          today,
+          limit,
+        )
     return rows.map(row => toTopicSearchHit(row, 'content'))
   }
 
   private async searchTopicSemantically(query: string, limit: number, today: JournalDate | null): Promise<readonly TopicSearchHit[]> {
-    const rows = await this.database.all<TopicSearchRow>(`
-      SELECT n.id AS note_id, n.title AS note_title, journal.journal_date, n.updated_at,
-        t.topic_id, t.title AS topic_title, b.block_id, b.text AS preview, nearest.distance AS rank
-      FROM (SELECT block_row_id, distance FROM topic_block_embeddings WHERE embedding MATCH ? AND k = ?) nearest
-      JOIN topic_blocks b ON b.row_id = nearest.block_row_id
-      JOIN topics t ON t.note_row_id = b.note_row_id AND t.topic_id = b.topic_id
-      JOIN notes n ON n.row_id = b.note_row_id
-      LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-      WHERE ${visibleJournalPredicate}
-      ORDER BY nearest.distance ASC, n.updated_at DESC
-    `, [await this.embeddingIndex.embedQuery(query), limit, today, today])
+    const candidates = rankedVectorCandidates(this.#orm.select({
+      row_id: topicBlockEmbeddings.blockRowId,
+      rank: topicBlockEmbeddings.distance,
+    }).from(topicBlockEmbeddings).where(and(
+      sql`${topicBlockEmbeddings.embedding} MATCH ${await this.embeddingIndex.embedQuery(query)}`,
+      eq(topicBlockEmbeddings.k, Math.min(limit * 4, 100)),
+    )).orderBy(asc(topicBlockEmbeddings.distance)).all())
+    const rows = this.hydrateTopicSearchCandidates(candidates, today, limit)
     return rows.map(row => toTopicSearchHit(row, 'semantic'))
   }
 
@@ -312,64 +365,142 @@ export class EditorSearch {
   }
 
   private async searchLexically(query: string, noteId: string | undefined, limit: number, today: JournalDate | null): Promise<readonly TopicBlockSearchHit[]> {
-    const sharedParameters: DatabaseValue[] = [noteId ?? null, noteId ?? null, today, today, limit]
     const rows = [...query].length < 3
-      ? await this.database.all<TopicBlockSearchRow>(`
-          SELECT n.id AS note_id, b.topic_id, b.block_id, b.parent_block_id, b.ordinal, b.kind,
-            b.text, b.attributes_json, b.content_hash, b.text AS preview, 0 AS rank
-          FROM topic_blocks b
-          JOIN notes n ON n.row_id = b.note_row_id
-          LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-          WHERE instr(lower(b.text), lower(?)) > 0 AND (? IS NULL OR n.id = ?) AND ${visibleJournalPredicate}
-          ORDER BY n.updated_at DESC, b.ordinal ASC
-          LIMIT ?
-        `, [query, ...sharedParameters])
-      : await this.database.all<TopicBlockSearchRow>(`
-          SELECT n.id AS note_id, b.topic_id, b.block_id, b.parent_block_id, b.ordinal, b.kind,
-            b.text, b.attributes_json, b.content_hash,
-            snippet(topic_blocks_fts, 0, '', '', '…', 24) AS preview, bm25(topic_blocks_fts) AS rank
-          FROM topic_blocks_fts
-          JOIN topic_blocks b ON b.row_id = topic_blocks_fts.rowid
-          JOIN notes n ON n.row_id = b.note_row_id
-          LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-          WHERE topic_blocks_fts MATCH ? AND (? IS NULL OR n.id = ?) AND ${visibleJournalPredicate}
-          ORDER BY rank ASC
-          LIMIT ?
-        `, [quoteFtsQuery(query), ...sharedParameters])
+      ? this.#orm.select({
+        attributes_json: topicBlocks.attributesJson,
+        block_id: topicBlocks.blockId,
+        content_hash: topicBlocks.contentHash,
+        kind: topicBlocks.kind,
+        note_id: notes.id,
+        ordinal: topicBlocks.ordinal,
+        parent_block_id: topicBlocks.parentBlockId,
+        preview: topicBlocks.text,
+        rank: sql<number>`0`,
+        text: topicBlocks.text,
+        topic_id: topicBlocks.topicId,
+      }).from(topicBlocks).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+        sql`instr(lower(${topicBlocks.text}), lower(${query})) > 0`,
+        noteId === undefined ? undefined : eq(notes.id, noteId),
+        visibleJournalCondition(today),
+      )).orderBy(desc(notes.updatedAt), asc(topicBlocks.ordinal)).limit(limit).all() as TopicBlockSearchRow[]
+      : this.hydrateTopicBlockCandidates(
+          this.#orm.select({
+            row_id: topicBlocksFts.rowId,
+            preview: sql<string>`snippet(${topicBlocksFts}, 0, '', '', '…', 24)`,
+            rank: sql<number>`bm25(${topicBlocksFts})`,
+          }).from(topicBlocksFts).where(sql`${topicBlocksFts} MATCH ${quoteFtsQuery(query)}`).orderBy(asc(sql`bm25(${topicBlocksFts})`)).limit(Math.min(limit * 4, 100)).all() as RankedBlockCandidate[],
+          noteId,
+          today,
+          limit,
+        )
     return rows.map(row => ({ ...toStoredBlock(row), preview: row.preview, rank: row.rank }))
   }
 
   private async searchSemantically(query: string, noteId: string | undefined, limit: number, today: JournalDate | null): Promise<readonly TopicBlockSearchHit[]> {
     const vectorBytes = await this.embeddingIndex.embedQuery(query)
-    let rows: readonly TopicBlockSearchRow[]
-    if (noteId === undefined) {
-      rows = await this.database.all<TopicBlockSearchRow>(`
-        SELECT n.id AS note_id, b.topic_id, b.block_id, b.parent_block_id, b.ordinal, b.kind,
-          b.text, b.attributes_json, b.content_hash, b.text AS preview, nearest.distance AS rank
-        FROM (SELECT block_row_id, distance FROM topic_block_embeddings WHERE embedding MATCH ? AND k = ?) nearest
-        JOIN topic_blocks b ON b.row_id = nearest.block_row_id
-        JOIN notes n ON n.row_id = b.note_row_id
-        LEFT JOIN journals AS journal ON journal.note_row_id = n.row_id
-        WHERE ${visibleJournalPredicate}
-        ORDER BY nearest.distance ASC
-      `, [vectorBytes, limit, today, today])
-    }
-    else {
-      const note = await this.database.get<{ row_id: number }>('SELECT row_id FROM notes WHERE id = ?', [noteId])
-      if (!note)
-        return []
-      rows = await this.database.all<TopicBlockSearchRow>(`
-        SELECT n.id AS note_id, b.topic_id, b.block_id, b.parent_block_id, b.ordinal, b.kind,
-          b.text, b.attributes_json, b.content_hash, b.text AS preview, nearest.distance AS rank
-        FROM (
-          SELECT block_row_id, distance FROM topic_block_embeddings
-          WHERE embedding MATCH ? AND k = ? AND note_row_id = ?
-        ) nearest
-        JOIN topic_blocks b ON b.row_id = nearest.block_row_id
-        JOIN notes n ON n.row_id = b.note_row_id
-        ORDER BY nearest.distance ASC
-      `, [vectorBytes, limit, BigInt(note.row_id)])
-    }
+    const note = noteId === undefined
+      ? undefined
+      : this.#orm.select({ row_id: notes.rowId }).from(notes).where(eq(notes.id, noteId)).get()
+    if (noteId !== undefined && !note)
+      return []
+    const candidateLimit = Math.min(limit * 4, 100)
+    const candidates = rankedVectorCandidates(this.#orm.select({
+      row_id: topicBlockEmbeddings.blockRowId,
+      rank: topicBlockEmbeddings.distance,
+    }).from(topicBlockEmbeddings).where(and(
+      sql`${topicBlockEmbeddings.embedding} MATCH ${vectorBytes}`,
+      eq(topicBlockEmbeddings.k, candidateLimit),
+      note === undefined ? undefined : eq(topicBlockEmbeddings.noteRowId, note.row_id),
+    )).orderBy(asc(topicBlockEmbeddings.distance)).all())
+    const rows = this.hydrateTopicBlockCandidates(candidates, noteId, today, limit)
     return rows.map(row => ({ ...toStoredBlock(row), preview: row.preview, rank: row.rank }))
+  }
+
+  private hydrateTopicSearchCandidates(
+    candidates: readonly RankedBlockCandidate[],
+    today: JournalDate | null,
+    limit: number,
+  ): readonly TopicSearchRow[] {
+    if (candidates.length === 0)
+      return []
+    const rows = this.#orm.select({
+      block_id: topicBlocks.blockId,
+      journal_date: journals.journalDate,
+      note_id: notes.id,
+      note_title: notes.title,
+      row_id: topicBlocks.rowId,
+      text: topicBlocks.text,
+      topic_id: topics.topicId,
+      topic_title: topics.title,
+      updated_at: notes.updatedAt,
+    }).from(topicBlocks).innerJoin(topics, and(
+      eq(topics.noteRowId, topicBlocks.noteRowId),
+      eq(topics.topicId, topicBlocks.topicId),
+    )).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+      inArray(topicBlocks.rowId, candidates.map(candidate => candidate.row_id)),
+      visibleJournalCondition(today),
+    )).all() as TopicSearchMetadataRow[]
+    const metadata = new Map(rows.map(row => [row.row_id, row]))
+    return candidates.flatMap((candidate): TopicSearchRow[] => {
+      const row = metadata.get(candidate.row_id)
+      return row === undefined
+        ? []
+        : [{
+            block_id: row.block_id,
+            journal_date: row.journal_date,
+            note_id: row.note_id,
+            note_title: row.note_title,
+            preview: candidate.preview ?? row.text,
+            rank: candidate.rank,
+            topic_id: row.topic_id,
+            topic_title: row.topic_title,
+            updated_at: row.updated_at,
+          }]
+    }).slice(0, limit)
+  }
+
+  private hydrateTopicBlockCandidates(
+    candidates: readonly RankedBlockCandidate[],
+    noteId: string | undefined,
+    today: JournalDate | null,
+    limit: number,
+  ): readonly TopicBlockSearchRow[] {
+    if (candidates.length === 0)
+      return []
+    const rows = this.#orm.select({
+      attributes_json: topicBlocks.attributesJson,
+      block_id: topicBlocks.blockId,
+      content_hash: topicBlocks.contentHash,
+      kind: topicBlocks.kind,
+      note_id: notes.id,
+      ordinal: topicBlocks.ordinal,
+      parent_block_id: topicBlocks.parentBlockId,
+      row_id: topicBlocks.rowId,
+      text: topicBlocks.text,
+      topic_id: topicBlocks.topicId,
+    }).from(topicBlocks).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(and(
+      inArray(topicBlocks.rowId, candidates.map(candidate => candidate.row_id)),
+      noteId === undefined ? undefined : eq(notes.id, noteId),
+      visibleJournalCondition(today),
+    )).all()
+    const metadata = new Map(rows.map(row => [row.row_id, row]))
+    return candidates.flatMap((candidate): TopicBlockSearchRow[] => {
+      const row = metadata.get(candidate.row_id)
+      return row === undefined
+        ? []
+        : [{
+            attributes_json: row.attributes_json,
+            block_id: row.block_id,
+            content_hash: row.content_hash,
+            kind: row.kind,
+            note_id: row.note_id,
+            ordinal: row.ordinal,
+            parent_block_id: row.parent_block_id,
+            preview: candidate.preview ?? row.text,
+            rank: candidate.rank,
+            text: row.text,
+            topic_id: row.topic_id,
+          }]
+    }).slice(0, limit)
   }
 }

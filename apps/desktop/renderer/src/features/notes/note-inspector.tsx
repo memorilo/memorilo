@@ -130,6 +130,7 @@ export function NoteInspector({
   entries,
   learningEnabled = true,
   note,
+  noteTitle,
   noteId,
   renamingEntryId,
   onCancelRenameEntry,
@@ -146,6 +147,7 @@ export function NoteInspector({
   entries: readonly NoteEntrySnapshot[]
   learningEnabled?: boolean
   note: Pick<EditorNote, 'getLearningEnabled' | 'setLearningEnabled'>
+  noteTitle?: string
   noteId: string
   renamingEntryId?: string | null
   onCancelRenameEntry?: () => void
@@ -183,6 +185,7 @@ export function NoteInspector({
                 entries={entries}
                 learningEnabled={learningEnabled}
                 note={note}
+                noteTitle={noteTitle}
                 noteId={noteId}
                 renamingEntryId={renamingEntryId}
                 onCancelRenameEntry={onCancelRenameEntry}
@@ -203,6 +206,7 @@ export function NoteInspectorContent({
   entries,
   learningEnabled = true,
   note,
+  noteTitle,
   noteId,
   renamingEntryId,
   onCancelRenameEntry,
@@ -219,6 +223,7 @@ export function NoteInspectorContent({
   entries: readonly NoteEntrySnapshot[]
   learningEnabled?: boolean
   note: Pick<EditorNote, 'getLearningEnabled' | 'setLearningEnabled'>
+  noteTitle?: string
   noteId: string
   renamingEntryId?: string | null
   onCancelRenameEntry?: () => void
@@ -289,7 +294,9 @@ export function NoteInspectorContent({
             <AnimatePresence initial={false}>
               {visibleEntries.map(({ depth, entry, hasChildren }) => {
                 const collapsed = collapsedEntryIds.has(entry.id)
-                const label = entry.kind === 'folder' ? entry.name : entry.title || t('untitledTopic')
+                const label = entry.kind === 'folder'
+                  ? entry.name
+                  : entry.title || (depth === 0 && noteTitle ? noteTitle : t('untitledTopic'))
                 const current = entry.kind === 'topic' && entry.id === currentTopicId
                 const renaming = renamingEntryId === entry.id
                 const cardSource = entry.kind === 'topic' && entry.topicType === 'regular'

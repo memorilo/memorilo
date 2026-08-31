@@ -1,4 +1,4 @@
-import type { DesktopP2pLocalDevice, DesktopP2pPairedDevice, DesktopP2pStatus } from '@memorilo/desktop-api'
+import type { DesktopP2pLocalDevice, DesktopP2pPairedDevice, DesktopP2pStatus, DesktopSyncServerStatus } from '@memorilo/desktop-api'
 import type { DesktopIpcClient } from '@memorilo/desktop-preload/ipc'
 import type { WebContents } from 'electron'
 import {
@@ -36,14 +36,16 @@ export interface DesktopIpcHandlers {
   }
   readonly p2p: {
     readonly approvePairing: (requestId: string) => Promise<string>
-    readonly acceptInvitation: (invitation: string) => Promise<string>
+    readonly acceptInvitation: (invitation: string, dialTarget?: string) => Promise<string>
     readonly confirmPairing: (requestId: string, emoji: string) => Promise<DesktopP2pPairedDevice | null>
     readonly completePairing: (response: string) => Promise<DesktopP2pPairedDevice>
     readonly createInvitation: () => Promise<string>
     readonly enableDiscovery: () => Promise<number>
     readonly getLocalDevice: () => DesktopP2pLocalDevice
     readonly getPairingRequests: () => Promise<readonly { requestId: string, deviceId: string, deviceName: string, peerId: string, emoji: string }[]>
+    readonly getServerStatus: () => DesktopSyncServerStatus
     readonly getStatus: () => DesktopP2pStatus
+    readonly installServerCredential: (credential: string) => Promise<void>
     readonly listDevices: () => readonly DesktopP2pPairedDevice[]
     readonly listDiscoveredPeers: () => Promise<readonly { deviceId: string, deviceName: string, peerId: string }[]>
     readonly requestPairing: (peerId: string) => Promise<{ requestId: string, deviceId: string, deviceName: string, peerId: string }>

@@ -169,6 +169,26 @@ describe('operation supervisor', () => {
     })
   })
 
+  it('keeps native single-flight Effects interruptible and releases admission after failure', async () => {
+    const supervisor = createOperationSupervisor('effect single flight', { shutdown: 'interrupt' })
+    let release!: () => void
+    const pending = new Promise<string>((resolve) => {
+      release = () => resolve('first')
+    })
+    const first = supervisor.runEffectSingleFlight(Effect.promise(() => pending))
+
+    await expect(supervisor.runEffectSingleFlight(Effect.succeed('second'))).resolves.toEqual({ status: 'busy' })
+    release()
+    await expect(first).resolves.toEqual({ status: 'accepted', value: 'first' })
+
+    await expect(supervisor.runEffectSingleFlight(Effect.fail(new Error('effect failed')))).rejects.toThrow('effect failed')
+    await expect(supervisor.runEffectSingleFlight(Effect.succeed('retried'))).resolves.toEqual({
+      status: 'accepted',
+      value: 'retried',
+    })
+    await supervisor.close()
+  })
+
   it('drains accepted single-flight work before close resolves', async () => {
     const supervisor = createOperationSupervisor('review action')
     let release!: () => void

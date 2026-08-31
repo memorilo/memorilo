@@ -1,0 +1,58 @@
+{
+  "name": "@memorilo/sync-server",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./config": "./src/config.ts"
+  },
+  "scripts": {
+    "build": "pnpm web:build && tsc -p tsconfig.json --noEmit",
+    "db:check": "drizzle-kit check --config drizzle.config.ts",
+    "db:generate": "pnpm schema:generate && drizzle-kit generate --config drizzle.config.ts",
+    "db:generate:postgres": "pnpm schema:generate && drizzle-kit generate --config drizzle.postgres.config.ts",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint .",
+    "schema:generate": "node scripts/generate-database-schemas.mjs",
+    "start": "tsx src/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "pnpm web:build && playwright test",
+    "test:integration": "vitest run src/front-door.test.ts src/server-peer.test.ts",
+    "test:services": "node scripts/test-services.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "web:build": "vite build --config web/vite.config.ts && vite build --config web/vite.ssr.config.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1121.0",
+    "@hono/node-server": "^1.19.0",
+    "@memorilo/effect-lifecycle": "workspace:*",
+    "@memorilo/sync": "workspace:*",
+    "@memorilo/ui": "workspace:*",
+    "@stylexjs/stylex": "0.19.0",
+    "argon2": "^0.45.1",
+    "better-sqlite3": "13.0.1",
+    "drizzle-orm": "^0.45.2",
+    "effect": "4.0.0-beta.23",
+    "hono": "4.13.2",
+    "loro-crdt": "1.13.8",
+    "lucide-react": "^0.468.0",
+    "postgres": "^3.4.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsx": "^4.20.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@stylexjs/unplugin": "0.19.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "drizzle-kit": "0.31.8",
+    "vite": "^7.3.6"
+  }
+}

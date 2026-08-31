@@ -10,7 +10,7 @@ import {
 } from '../app/configuration/configuration-environment'
 import { Settings } from './settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
-import '../styles/renderer-global.css'
+import '../styles/renderer-global.stylex'
 
 const rootElement = document.querySelector('#root')
 

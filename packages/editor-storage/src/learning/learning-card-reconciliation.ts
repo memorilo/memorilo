@@ -2,7 +2,9 @@ import type { DatabaseCommand, EditorStorageDatabase } from '../database-driver'
 import type { EffectiveLearningOptimizer } from './learning-optimizer-catalog'
 import type { LearningCardProjection, LearningTopicCardProjection } from './types'
 import { emptyLearningState } from '@memorilo/srs'
+import { and, asc, eq } from 'drizzle-orm'
 import { v5 as createUuidV5 } from 'uuid'
+import { learningCards, learningTargets } from '../drizzle-schema'
 import { assertNonEmpty, stateCommand, syncMutationCommand } from './learning-storage-shared'
 
 const targetNamespace = '8a276bb8-9a21-4fe0-a7fe-52af36fd6839'
@@ -104,10 +106,11 @@ async function completeTopics(
   if (!replaceMissingTopics)
     return topics
   const projectedTopicIds = new Set(topics.map(topic => topic.topicId))
-  const existing = await database.all<{ topic_id: string }>(
-    'SELECT DISTINCT topic_id FROM learning_cards WHERE note_id = ? ORDER BY topic_id',
-    [noteId],
-  )
+  const existing = database.drizzle.selectDistinct({ topic_id: learningCards.topicId })
+    .from(learningCards)
+    .where(eq(learningCards.noteId, noteId))
+    .orderBy(asc(learningCards.topicId))
+    .all() as Array<{ topic_id: string }>
   return [
     ...topics,
     ...existing
@@ -133,10 +136,10 @@ export async function planLearningCardReconciliation(
     : await dependencies.effectiveOptimizer(input.noteId)
 
   for (const cardId of projectedCards.keys()) {
-    const owner = await dependencies.database.get<{ note_id: string }>(
-      'SELECT note_id FROM learning_cards WHERE card_id = ?',
-      [cardId],
-    )
+    const owner = dependencies.database.drizzle.select({ note_id: learningCards.noteId })
+      .from(learningCards)
+      .where(eq(learningCards.cardId, cardId))
+      .get() as { note_id: string } | undefined
     if (owner && owner.note_id !== input.noteId)
       throw new Error(`CardID ${cardId} already belongs to Note ${owner.note_id}`)
   }
@@ -144,10 +147,16 @@ export async function planLearningCardReconciliation(
   const commands: DatabaseCommand[] = []
   const now = Date.now()
   for (const topic of topics) {
-    const existingCards = await dependencies.database.all<ExistingCardRow>(
-      'SELECT card_id, topic_order, source_block_id, source_order, kind, direction, active FROM learning_cards WHERE note_id = ? AND topic_id = ?',
-      [input.noteId, topic.topicId],
-    )
+    const existingCards = dependencies.database.drizzle.select({
+      card_id: learningCards.cardId,
+      topic_id: learningCards.topicId,
+      topic_order: learningCards.topicOrder,
+      source_block_id: learningCards.sourceBlockId,
+      source_order: learningCards.sourceOrder,
+      kind: learningCards.kind,
+      direction: learningCards.direction,
+      active: learningCards.active,
+    }).from(learningCards).where(and(eq(learningCards.noteId, input.noteId), eq(learningCards.topicId, topic.topicId))).all() as ExistingCardRow[]
     const existingById = new Map(existingCards.map(row => [row.card_id, row]))
     const topicCardIds = new Set(topic.cards.map(card => card.cardId))
     for (const existing of existingCards) {
@@ -156,12 +165,17 @@ export async function planLearningCardReconciliation(
         && existing.active === 1) {
         commands.push(
           {
-            parameters: [now, existing.card_id],
-            sql: 'UPDATE learning_cards SET active = 0, inactive_at = ?, sync_sequence = -1 WHERE card_id = ?',
+            drizzle: database => database.update(learningCards).set({
+              active: 0,
+              inactiveAt: now,
+              syncSequence: -1,
+            }).where(eq(learningCards.cardId, existing.card_id)).run(),
           },
           {
-            parameters: [now, existing.card_id],
-            sql: 'UPDATE learning_targets SET active = 0, inactive_at = ? WHERE card_id = ?',
+            drizzle: database => database.update(learningTargets).set({
+              active: 0,
+              inactiveAt: now,
+            }).where(eq(learningTargets.cardId, existing.card_id)).run(),
           },
           syncMutationCommand('card', existing.card_id, 'upsert', { active: false }, now),
         )
@@ -171,10 +185,13 @@ export async function planLearningCardReconciliation(
     for (const [sourceOrder, card] of topic.cards.entries()) {
       const projectedTargets = targetProjection(card)
       const projectedTargetIds = new Set(projectedTargets.map(target => target.targetId))
-      const storedTargets = await dependencies.database.all<ExistingTargetRow>(
-        'SELECT target_id, target_kind, item_block_id, target_order, active FROM learning_targets WHERE card_id = ?',
-        [card.cardId],
-      )
+      const storedTargets = dependencies.database.drizzle.select({
+        target_id: learningTargets.targetId,
+        target_kind: learningTargets.targetKind,
+        item_block_id: learningTargets.itemBlockId,
+        target_order: learningTargets.targetOrder,
+        active: learningTargets.active,
+      }).from(learningTargets).where(eq(learningTargets.cardId, card.cardId)).all() as ExistingTargetRow[]
       const storedTargetById = new Map(storedTargets.map(target => [target.target_id, target]))
       const existing = existingById.get(card.cardId)
       const cardChanged = existing === undefined
@@ -195,39 +212,61 @@ export async function planLearningCardReconciliation(
       if (!cardChanged && !targetsChanged)
         continue
       commands.push({
-        parameters: [
-          card.cardId,
-          input.noteId,
-          topic.topicId,
-          topic.topicOrder,
-          card.sourceBlockId,
+        drizzle: database => database.insert(learningCards).values({
+          active: 1,
+          cardId: card.cardId,
+          direction: card.direction,
+          firstSeenAt: now,
+          inactiveAt: null,
+          kind: card.kind,
+          lastSeenAt: now,
+          noteId: input.noteId,
+          sourceBlockId: card.sourceBlockId,
           sourceOrder,
-          card.kind,
-          card.direction,
-          now,
-          now,
-        ],
-        sql: 'INSERT INTO learning_cards (card_id, note_id, topic_id, topic_order, source_block_id, source_order, kind, direction, active, first_seen_at, last_seen_at, inactive_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, NULL) ON CONFLICT(card_id) DO UPDATE SET note_id = excluded.note_id, topic_id = excluded.topic_id, topic_order = excluded.topic_order, source_block_id = excluded.source_block_id, source_order = excluded.source_order, kind = excluded.kind, direction = excluded.direction, active = 1, last_seen_at = excluded.last_seen_at, inactive_at = NULL, sync_sequence = -1',
+          topicId: topic.topicId,
+          topicOrder: topic.topicOrder,
+        }).onConflictDoUpdate({
+          set: {
+            active: 1,
+            direction: card.direction,
+            inactiveAt: null,
+            kind: card.kind,
+            lastSeenAt: now,
+            noteId: input.noteId,
+            sourceBlockId: card.sourceBlockId,
+            sourceOrder,
+            syncSequence: -1,
+            topicId: topic.topicId,
+            topicOrder: topic.topicOrder,
+          },
+          target: learningCards.cardId,
+        }).run(),
       })
       for (const storedTarget of storedTargets) {
         if (!projectedTargetIds.has(storedTarget.target_id)) {
           commands.push({
-            parameters: [now, storedTarget.target_id],
-            sql: 'UPDATE learning_targets SET active = 0, inactive_at = ? WHERE target_id = ?',
+            drizzle: database => database.update(learningTargets).set({
+              active: 0,
+              inactiveAt: now,
+            }).where(eq(learningTargets.targetId, storedTarget.target_id)).run(),
           })
         }
       }
       for (const target of projectedTargets) {
         commands.push({
-          parameters: [
-            target.targetId,
-            card.cardId,
-            target.kind,
-            target.itemBlockId,
-            target.targetOrder,
-            now,
-          ],
-          sql: 'INSERT INTO learning_targets (target_id, card_id, target_kind, item_block_id, target_order, active, created_at, inactive_at) VALUES (?, ?, ?, ?, ?, 1, ?, NULL) ON CONFLICT(target_id) DO UPDATE SET target_order = excluded.target_order, active = 1, inactive_at = NULL',
+          drizzle: database => database.insert(learningTargets).values({
+            active: 1,
+            cardId: card.cardId,
+            createdAt: now,
+            inactiveAt: null,
+            itemBlockId: target.itemBlockId,
+            targetId: target.targetId,
+            targetKind: target.kind,
+            targetOrder: target.targetOrder,
+          }).onConflictDoUpdate({
+            set: { active: 1, inactiveAt: null, targetOrder: target.targetOrder },
+            target: learningTargets.targetId,
+          }).run(),
         })
         if (!optimizer)
           throw new Error(`Note ${input.noteId} has no effective FSRS Optimizer`)

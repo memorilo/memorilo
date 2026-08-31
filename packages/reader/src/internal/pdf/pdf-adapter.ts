@@ -29,7 +29,6 @@ import {
 } from '../reader-adapter'
 import { PdfContinuousReaderMount } from './pdf-continuous-reader-mount'
 import { PdfReaderMount } from './pdf-reader-mount'
-import './pdf-layer.css'
 
 type PdfMount = PdfContinuousReaderMount | PdfReaderMount
 

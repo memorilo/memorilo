@@ -1,4 +1,4 @@
-import type { DesktopApi, DesktopNoteExternalUpdate } from './contract'
+import type { DesktopApi, DesktopNoteExternalUpdate, DesktopSyncServerEvent } from './contract'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -148,5 +148,35 @@ describe('preload IPC bridge', () => {
     expect(listener).toHaveBeenCalledWith(update)
     unsubscribe()
     expect(mocks.ipcRemoveListener).toHaveBeenCalledWith('memorilo:note-update', handler)
+  })
+
+  it('forwards Sync Server policy and reset events and removes the same handler', () => {
+    const listener = vi.fn()
+    const unsubscribe = exposedApi().subscribeSyncServerEvents(listener)
+    const registration = mocks.ipcOn.mock.calls.find(([channel]) => channel === 'memorilo:sync-server-event')
+    const handler = registration?.[1] as ((event: unknown, update: DesktopSyncServerEvent) => void) | undefined
+    if (!handler)
+      throw new Error('Preload did not register the Sync Server event channel')
+    const event: DesktopSyncServerEvent = {
+      previousGeneration: 0,
+      status: {
+        configured: true,
+        enabled: true,
+        error: null,
+        generation: 1,
+        membershipEpoch: 2,
+        modes: ['authoritative'],
+        peerId: 'server-peer',
+        policyEpoch: 1,
+        state: 'connecting',
+        url: 'wss://sync.example.test',
+      },
+      type: 'account-data-reset',
+    }
+
+    handler({}, event)
+    expect(listener).toHaveBeenCalledWith(event)
+    unsubscribe()
+    expect(mocks.ipcRemoveListener).toHaveBeenCalledWith('memorilo:sync-server-event', handler)
   })
 })

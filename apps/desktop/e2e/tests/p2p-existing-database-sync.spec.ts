@@ -23,7 +23,7 @@ interface P2pRendererWindow extends Window {
   desktop: { p2p: P2pBridge }
 }
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const desktopDirectory = resolve(repositoryRoot, 'apps/desktop')
 const electronModule: unknown = createRequire(import.meta.url)('electron')
 if (typeof electronModule !== 'string')

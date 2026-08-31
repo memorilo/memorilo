@@ -1,0 +1,1 @@
+ALTER TABLE `asset_sync_manifests` ADD `original_file_name` text NOT NULL;

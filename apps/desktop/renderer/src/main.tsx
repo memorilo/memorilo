@@ -14,7 +14,7 @@ import { router } from './app/router'
 import { NotePersistenceManager } from './features/notes/persistence/note-persistence-manager'
 import { NotePersistenceProvider } from './features/notes/persistence/note-persistence-provider'
 import { desktopRequests } from './shared/desktop-requests'
-import './styles/renderer-global.css'
+import './styles/renderer-global.stylex'
 
 const rootElement = document.querySelector('#root')
 

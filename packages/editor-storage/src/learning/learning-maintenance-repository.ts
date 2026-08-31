@@ -1,17 +1,15 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from '../database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from '../database-driver'
 import type {
   LearningMaintenanceEstimate,
   LearningMaintenanceResult,
 } from './types'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import { learningCards, learningMaintenanceState, learningOptimizers, learningReviewEvents, learningSyncOutbox, learningSyncState, learningTargets } from '../drizzle-schema'
 import { createLearningMaintenancePurgePlan } from './learning-maintenance-purge-plan'
 
 interface LearningMaintenanceRepositoryDependencies {
   database: EditorStorageDatabase
   runOperation: StorageOperationRunner
-}
-
-interface CountRow {
-  count: number
 }
 
 interface SyncStateRow {
@@ -27,19 +25,29 @@ interface PendingMaintenanceRow {
 
 export class LearningMaintenanceRepository {
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #runOperation: LearningMaintenanceRepositoryDependencies['runOperation']
 
   constructor(dependencies: LearningMaintenanceRepositoryDependencies) {
     this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#runOperation = dependencies.runOperation
   }
 
   async #estimate(): Promise<LearningMaintenanceEstimate> {
     const [cards, targets, events, optimizers] = await Promise.all([
-      this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM learning_cards WHERE active = 0'),
-      this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM learning_targets WHERE active = 0'),
-      this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM learning_review_events WHERE target_id IN (SELECT target_id FROM learning_targets WHERE active = 0)'),
-      this.#database.get<CountRow>('SELECT COUNT(*) AS count FROM learning_optimizers WHERE status = \'archived\''),
+      this.#orm.select({ count: sql<number>`count(*)` }).from(learningCards).where(eq(learningCards.active, 0)).get(),
+      this.#orm.select({ count: sql<number>`count(*)` }).from(learningTargets).where(eq(learningTargets.active, 0)).get(),
+      this.#orm.select({ count: sql<number>`count(*)` })
+        .from(learningReviewEvents)
+        .where(inArray(
+          learningReviewEvents.targetId,
+          this.#orm.select({ targetId: learningTargets.targetId })
+            .from(learningTargets)
+            .where(eq(learningTargets.active, 0)),
+        ))
+        .get(),
+      this.#orm.select({ count: sql<number>`count(*)` }).from(learningOptimizers).where(eq(learningOptimizers.status, 'archived')).get(),
     ])
     if (!cards || !targets || !events || !optimizers)
       throw new Error('Failed to count learning database maintenance scope')
@@ -56,20 +64,21 @@ export class LearningMaintenanceRepository {
   }
 
   async #finishVacuum(estimate: LearningMaintenanceEstimate): Promise<LearningMaintenanceResult> {
-    const foreignKeyErrors = await this.#database.all<Record<string, unknown>>(
-      'PRAGMA foreign_key_check',
-    )
+    const foreignKeyErrors = this.#orm.all<Record<string, unknown>>(sql`PRAGMA foreign_key_check`)
     if (foreignKeyErrors.length > 0)
       throw new Error('Learning database maintenance left foreign key violations')
-    await this.#database.exec('VACUUM')
-    await this.#database.run('DELETE FROM learning_maintenance_state WHERE singleton = 1')
+    await this.#database.executeInfrastructureSql('VACUUM')
+    this.#orm.delete(learningMaintenanceState).where(eq(learningMaintenanceState.singleton, 1)).run()
     return { ...estimate, vacuumed: true }
   }
 
   async #pendingMaintenance(): Promise<LearningMaintenanceEstimate | null> {
-    const row = await this.#database.get<PendingMaintenanceRow>(
-      'SELECT archived_optimizers, inactive_cards, review_events, targets FROM learning_maintenance_state WHERE singleton = 1 AND phase = \'vacuum-pending\'',
-    )
+    const row = this.#orm.select({
+      archived_optimizers: learningMaintenanceState.archivedOptimizers,
+      inactive_cards: learningMaintenanceState.inactiveCards,
+      review_events: learningMaintenanceState.reviewEvents,
+      targets: learningMaintenanceState.targets,
+    }).from(learningMaintenanceState).where(and(eq(learningMaintenanceState.singleton, 1), eq(learningMaintenanceState.phase, 'vacuum-pending'))).get() as PendingMaintenanceRow | undefined
     if (!row)
       return null
     return {
@@ -87,27 +96,20 @@ export class LearningMaintenanceRepository {
         return this.#finishVacuum(pendingMaintenance)
 
       const estimate = await this.#estimate()
-      const sync = await this.#database.get<SyncStateRow>(
-        'SELECT last_server_sequence FROM learning_sync_state WHERE singleton = 1',
-      )
+      const sync = this.#orm.select({ last_server_sequence: learningSyncState.lastServerSequence })
+        .from(learningSyncState)
+        .where(eq(learningSyncState.singleton, 1))
+        .get() as SyncStateRow | undefined
       if (!sync)
         throw new Error('Learning sync state is missing')
-      const pendingChanges = await this.#database.get<CountRow>(
-        'SELECT COUNT(*) AS count FROM learning_sync_outbox',
-      )
+      const pendingChanges = this.#orm.select({ count: sql<number>`count(*)` }).from(learningSyncOutbox).get()
       if (!pendingChanges)
         throw new Error('Failed to inspect pending learning sync changes')
       if (sync.last_server_sequence > 0 && pendingChanges.count > 0)
         throw new Error('Learning database maintenance requires a clean sync')
-      const inactiveCards = await this.#database.all<{ card_id: string }>(
-        'SELECT card_id FROM learning_cards WHERE active = 0',
-      )
-      const inactiveTargets = await this.#database.all<{ target_id: string }>(
-        'SELECT t.target_id FROM learning_targets t JOIN learning_cards c ON c.card_id = t.card_id WHERE t.active = 0 AND c.active = 1',
-      )
-      const archivedOptimizers = await this.#database.all<{ optimizer_id: string }>(
-        'SELECT optimizer_id FROM learning_optimizers WHERE status = \'archived\'',
-      )
+      const inactiveCards = this.#orm.select({ card_id: learningCards.cardId }).from(learningCards).where(eq(learningCards.active, 0)).all()
+      const inactiveTargets = this.#orm.select({ target_id: learningTargets.targetId }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).where(and(eq(learningTargets.active, 0), eq(learningCards.active, 1))).all()
+      const archivedOptimizers = this.#orm.select({ optimizer_id: learningOptimizers.optimizerId }).from(learningOptimizers).where(eq(learningOptimizers.status, 'archived')).all()
       const now = Date.now()
       const plan = createLearningMaintenancePurgePlan({
         archivedOptimizers,

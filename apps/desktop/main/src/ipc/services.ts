@@ -1,10 +1,12 @@
 import type { ConfigurationStore } from '@memorilo/config'
+import type { DesktopSyncServerStatus } from '@memorilo/desktop-api'
 import type { DesktopFetchRequest, DesktopFetchResponse } from '@memorilo/desktop-api/transport'
 import type { DesktopConfiguration } from '@memorilo/desktop-config'
 import type { EditorStorage, LearningStorage } from '@memorilo/editor-storage'
-import type { P2pApplication } from '@memorilo/p2p-sync/node'
 import type { ShelfImageCache, ShelfStorage } from '@memorilo/shelf'
 import type { ShelfReadingFileStore } from '@memorilo/shelf/node'
+import type { P2pApplication } from '@memorilo/sync/node'
+import type { DesktopAssetSync } from '../assets/asset-p2p-sync'
 import type { DatabaseBackupApplication } from '../backup/backup-application'
 import type { DesktopRequestContext } from '../desktop-request-handlers'
 import type { NoteApplicationService } from '../notes/note-application-service'
@@ -56,6 +58,9 @@ export async function createDesktopServices(
     rendererDirectory: string
   },
   p2p: P2pApplication,
+  getSyncServerStatus: () => DesktopSyncServerStatus,
+  installSyncServerCredential: (credential: string) => Promise<void>,
+  assetSync?: Pick<DesktopAssetSync, 'recordLocalDelete' | 'recordLocalPut'>,
 ) {
   const scope = createResourceScope('Desktop services', { closeMode: 'dependent' })
   try {
@@ -65,7 +70,16 @@ export async function createDesktopServices(
       name: 'Shelf operations',
     })).resource
     const requestHandlers = {
-      assets: createAssetHandlers(assetDirectory, storage, configuration, serializeAssetOperation),
+      assets: createAssetHandlers(assetDirectory, storage, configuration, serializeAssetOperation, assetSync === undefined
+        ? undefined
+        : {
+            onDelete: async (asset) => {
+              await assetSync.recordLocalDelete(asset).catch(error => console.warn(`Failed to synchronize deleted asset ${asset.fileName}`, error))
+            },
+            onPut: async (asset) => {
+              await assetSync.recordLocalPut(asset).catch(error => console.warn(`Failed to synchronize saved asset ${asset.fileName}`, error))
+            },
+          }),
       backup: createBackupHandlers(backup),
       books: createBookHandlers(new BookReadingApplication({
         activeReadings,
@@ -129,7 +143,7 @@ export async function createDesktopServices(
         }),
       },
       whiteboardLibrary: createWhiteboardLibraryHandlers(whiteboardLibrary),
-      p2p: createP2pHandlers(p2p),
+      p2p: createP2pHandlers(p2p, getSyncServerStatus, installSyncServerCredential),
     }
     await scope.acquire({
       acquire: () => registerMemoriloProtocol({

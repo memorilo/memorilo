@@ -29,6 +29,7 @@ function configuration(mcp: { accessToken: string, enabled: boolean, port: numbe
     readerPageMode: 'continuous',
     reduceMotion: false,
     shortcuts: desktopConfigurationDefinition.defaults.shortcuts,
+    syncServer: desktopConfigurationDefinition.defaults.syncServer,
     tiffConversionFormat: 'webp',
     todo: desktopConfigurationDefinition.defaults.todo,
     weekStart: 'sunday',

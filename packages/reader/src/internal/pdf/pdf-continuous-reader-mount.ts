@@ -22,6 +22,7 @@ import { toReaderError } from '../reader-adapter'
 import { createPdfContinuousPage } from './pdf-continuous-page'
 import { projectPdfContinuousTextSelection } from './pdf-continuous-text-selection'
 import { openPdfDocumentSession } from './pdf-document-session'
+import { pdfLayerClassNames } from './pdf-layer.stylex'
 import { PdfOutlineNavigation } from './pdf-outline-navigation'
 
 interface OpenPdfContinuousReaderMountOptions {
@@ -50,7 +51,7 @@ const scrollTolerance = 1
 
 function createPageSlot(ownerDocument: Document, pageNumber: number): HTMLDivElement {
   const slot = ownerDocument.createElement('div')
-  slot.className = 'reader-pdf-page-slot'
+  slot.className = `reader-pdf-page-slot ${pdfLayerClassNames.pageSlot}`
   slot.dataset.pageNumber = String(pageNumber)
   slot.style.containIntrinsicSize = `1px ${estimatedPageHeight}px`
   slot.style.contentVisibility = 'auto'
@@ -85,6 +86,7 @@ export class PdfContinuousReaderMount {
   readonly #ocrProvider: ReaderOcrProvider | undefined
   #annotations: readonly ReaderAnnotation[]
   #closed = false
+  #hasUserScrolled = false
   #positionFrame: number | null = null
   #regionSelectionEnabled = false
   #scale: number
@@ -119,9 +121,7 @@ export class PdfContinuousReaderMount {
       if (!this.#closed)
         options.onResize()
     })
-    for (const slot of slots)
-      this.#observer.observe(slot)
-    scroller.addEventListener('scroll', this.#schedulePosition, { passive: true })
+    scroller.addEventListener('scroll', this.#handleScroll, { passive: true })
   }
 
   static async open(options: OpenPdfContinuousReaderMountOptions): Promise<PdfContinuousReaderMount> {
@@ -133,11 +133,12 @@ export class PdfContinuousReaderMount {
           if (!ownerDocument)
             throw new Error('The PDF reader container is not attached to a document')
           const scroller = ownerDocument.createElement('div')
-          scroller.className = 'reader-pdf-scroller reader-pdf-scroller-continuous'
+          scroller.className = pdfLayerClassNames.scrollerContinuous
+          scroller.dataset.ui = 'reader-pdf-scroller'
           scroller.setAttribute('role', 'document')
           scroller.setAttribute('aria-label', options.source.name)
           const list = ownerDocument.createElement('div')
-          list.className = 'reader-pdf-continuous-list'
+          list.className = pdfLayerClassNames.continuousList
           scroller.append(list)
           options.container.append(scroller)
           return { list, scroller }
@@ -192,6 +193,7 @@ export class PdfContinuousReaderMount {
       )))
       if (adjacentRendered.some(rendered => !rendered))
         throw new Error('PDF adjacent page rendering did not complete')
+      mount.#startObservingSlots()
       mount.#resizeObserver.observe(surface.scroller)
       resources.commit()
       return mount
@@ -370,6 +372,11 @@ export class PdfContinuousReaderMount {
     }
   }
 
+  #handleScroll = (): void => {
+    this.#hasUserScrolled = true
+    this.#schedulePosition()
+  }
+
   #captureTextSelection = (): void => {
     queueMicrotask(() => {
       if (this.#closed)
@@ -381,6 +388,11 @@ export class PdfContinuousReaderMount {
         this.#callbacks.onError(toReaderError(error))
       }
     })
+  }
+
+  #startObservingSlots(): void {
+    for (const slot of this.#slots)
+      this.#observer.observe(slot)
   }
 
   #createPage(pageNumber: number): PdfContinuousPage {
@@ -446,7 +458,10 @@ export class PdfContinuousReaderMount {
         continue
       }
       const page = this.#pages.get(pageNumber)
-      if (!page || selectionIntersects(slot))
+      // A hidden test window (or a suspended background tab) reports a zero
+      // viewport; do not evict pages until layout can provide a meaningful
+      // visibility signal.
+      if (!page || !this.#hasUserScrolled || this.#scroller.clientHeight === 0 || selectionIntersects(slot))
         continue
       this.#pages.delete(pageNumber)
       void page.close().catch((error) => {
@@ -508,7 +523,7 @@ export class PdfContinuousReaderMount {
     this.#lifetime.abort(new Error('Continuous PDF reader closed'))
     this.#observer.disconnect()
     this.#resizeObserver.disconnect()
-    this.#scroller.removeEventListener('scroll', this.#schedulePosition)
+    this.#scroller.removeEventListener('scroll', this.#handleScroll)
     if (this.#positionFrame !== null)
       cancelAnimationFrame(this.#positionFrame)
     this.#positionFrame = null

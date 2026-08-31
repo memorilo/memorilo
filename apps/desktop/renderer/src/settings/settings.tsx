@@ -19,7 +19,7 @@ import { P2pSettings } from './p2p-settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 
 type SettingsCategoryId = 'calendar' | 'editor' | 'general' | 'learning' | 'mcp' | 'media' | 'reading' | 'shortcuts' | 'sync'
-type SourceSectionId = 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'shortcut-formatting' | 'shortcut-learning' | 'shortcut-navigation' | 'shortcut-note-structure' | 'todo'
+type SourceSectionId = 'backup' | 'editor' | 'flashcards' | 'general' | 'goals' | 'images' | 'learning' | 'mcp' | 'reading' | 'shortcut-formatting' | 'shortcut-learning' | 'shortcut-navigation' | 'shortcut-note-structure' | 'sync-server' | 'todo'
 
 interface SettingsCategoryDefinition {
   readonly id: SettingsCategoryId
@@ -40,7 +40,7 @@ const settingsCategoryDefinitions: readonly SettingsCategoryDefinition[] = [
   { id: 'learning', sectionIds: ['learning', 'goals', 'flashcards'], showSectionHeadings: true },
   { id: 'media', sectionIds: ['images', 'backup'], showSectionHeadings: true },
   { id: 'mcp', sectionIds: ['mcp'] },
-  { id: 'sync', sectionIds: [] },
+  { id: 'sync', sectionIds: ['sync-server'], showSectionHeadings: true },
 ]
 
 const learningDetailSectionIds: readonly SourceSectionId[] = ['flashcards', 'goals']
@@ -131,6 +131,8 @@ function translateSectionLabel(sectionId: string, t: TFunction): string {
       return t('shortcutFormattingSection')
     case 'mcp':
       return t('mcpSection')
+    case 'sync-server':
+      return t('syncServerSection')
     case 'todo':
       return t('todoSection')
     default:
@@ -213,6 +215,12 @@ function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
       return t('mcpPort')
     case 'mcp.accessToken':
       return t('mcpAccessToken')
+    case 'syncServer.enabled':
+      return t('syncServerEnabled')
+    case 'syncServer.url':
+      return t('syncServerUrl')
+    case 'syncServer.peerId':
+      return t('syncServerPeerId')
     case 'flashcards.newCardsPerDay':
       return t('newCardsPerDay')
     case 'flashcards.newGatherOrder':
@@ -313,6 +321,12 @@ function translateFieldDescription(field: ConfigurationField, t: TFunction): str
       return t('mcpPortDescription')
     case 'mcp.accessToken':
       return t('mcpAccessTokenDescription')
+    case 'syncServer.enabled':
+      return t('syncServerEnabledDescription')
+    case 'syncServer.url':
+      return t('syncServerUrlDescription')
+    case 'syncServer.peerId':
+      return t('syncServerPeerIdDescription')
     case 'flashcards.newCardsPerDay':
       return t('newCardsPerDayDescription')
     case 'goals.dailyLearningGoalCards':

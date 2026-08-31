@@ -357,27 +357,6 @@ describe('editor storage with an in-memory SQLite database', () => {
       .toEqual([{ row_id: 'revenue-row' }])
   })
 
-  it('rejects a database whose Topic constraint predates SpreadsheetTopic', async () => {
-    const database = new SqliteTestDatabase()
-    databases.push(database)
-    await database.exec(`
-      CREATE TABLE topics (
-        row_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        topic_type TEXT NOT NULL CHECK (
-          topic_type IN ('regular', 'book', 'image-occlusion', 'whiteboard')
-        )
-      )
-    `)
-
-    await expect(SqliteEditorStorage.open({
-      database,
-      databaseOwnership: 'borrowed',
-      embeddingModel,
-    })).rejects.toThrow(
-      'Unsupported topics schema: SpreadsheetTopic is required; delete the existing database before starting Memorilo',
-    )
-  })
-
   it('creates a Journal atomically and returns the existing winner on retries', async () => {
     const database = new SqliteTestDatabase()
     databases.push(database)
@@ -453,42 +432,6 @@ describe('editor storage with an in-memory SQLite database', () => {
       latestSequence: 1,
       updates: [{ sequence: 1, update: Uint8Array.from([4]) }],
     })
-  })
-
-  it('rejects a legacy Journal schema without migrating it', async () => {
-    const database = new SqliteTestDatabase()
-    databases.push(database)
-    await database.exec(`
-      CREATE TABLE notes (
-        row_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        id TEXT NOT NULL UNIQUE,
-        title TEXT NOT NULL,
-        checkpoint_snapshot BLOB,
-        checkpoint_sequence INTEGER NOT NULL DEFAULT 0 CHECK (checkpoint_sequence >= 0),
-        latest_sequence INTEGER NOT NULL DEFAULT 0 CHECK (latest_sequence >= checkpoint_sequence),
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-      CREATE TABLE journals (
-        note_row_id INTEGER PRIMARY KEY REFERENCES notes(row_id) ON DELETE CASCADE,
-        journal_date TEXT NOT NULL UNIQUE,
-        has_user_content INTEGER NOT NULL CHECK (has_user_content IN (0, 1))
-      );
-      INSERT INTO notes (
-        id, title, checkpoint_snapshot, checkpoint_sequence, latest_sequence, created_at, updated_at
-      ) VALUES
-        ('legacy-regular', '2026-08-05', NULL, 0, 0, 1, 1),
-        ('legacy-journal', '2026-08-05', NULL, 0, 0, 2, 2);
-      INSERT INTO journals (note_row_id, journal_date, has_user_content)
-      SELECT row_id, '2026-08-05', 0 FROM notes WHERE id = 'legacy-journal';
-    `)
-
-    await expect(SqliteEditorStorage.open({
-      database,
-      databaseOwnership: 'borrowed',
-      embeddingModel,
-    })).rejects.toThrow('Unsupported notes schema: kind is required; delete the existing database before starting Memorilo')
-    await expect(database.all<{ name: string }>('PRAGMA table_info(notes)')).resolves.not.toContainEqual({ name: 'kind' })
   })
 
   it('resolves concurrent Journal creation to one durable winner', async () => {
@@ -895,5 +838,38 @@ describe('editor storage with an in-memory SQLite database', () => {
     ])
 
     expect(claims.filter(claim => claim !== null)).toHaveLength(1)
+  })
+
+  it('stores asset sync manifests with durable device frontiers and idempotency', async () => {
+    const storage = await createStorage()
+    const first = await storage.assets.appendLocalSyncManifest({
+      contentHash: 'a'.repeat(64),
+      contentLength: 8,
+      contentType: 'image/png',
+      createdAt: 1,
+      deviceId: 'local-device',
+      fileName: '00000000-0000-0000-0000-000000000001.png',
+      operation: 'put',
+      originalFileName: 'photo.png',
+    })
+    const second = await storage.assets.appendLocalSyncManifest({
+      contentHash: null,
+      contentLength: null,
+      contentType: null,
+      createdAt: 2,
+      deviceId: 'local-device',
+      fileName: first.fileName,
+      operation: 'delete',
+      originalFileName: first.originalFileName,
+    })
+    expect([first.sequence, second.sequence]).toEqual([1, 2])
+    await expect(storage.assets.getSyncFrontier()).resolves.toEqual({ 'local-device': 2 })
+    await expect(storage.assets.listSyncManifests({ 'local-device': 1 })).resolves.toEqual([second])
+
+    const remote = { ...first, deviceId: 'remote-device', id: 'remote-device:asset:1' }
+    await storage.assets.recordReceivedSyncManifests([remote, remote])
+    await expect(storage.assets.getSyncFrontier()).resolves.toEqual({ 'local-device': 2, 'remote-device': 1 })
+    const conflictingManifest = storage.assets.recordReceivedSyncManifests([{ ...remote, originalFileName: 'different.png' }])
+    await expect(conflictingManifest).rejects.toThrow('idempotency conflict')
   })
 })

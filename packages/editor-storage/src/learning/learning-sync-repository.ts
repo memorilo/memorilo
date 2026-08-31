@@ -1,9 +1,23 @@
-import type { EditorStorageDatabase, StorageOperationRunner } from '../database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from '../database-driver'
 import type {
   AcknowledgeLearningSyncInput,
   ApplyLearningSyncChangeInput,
   LearningSyncChange,
 } from './types'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import {
+  learningCards,
+  learningNoteOptimizerAssignments,
+  learningOptimizerRevisions,
+  learningOptimizers,
+  learningPurgeTombstones,
+  learningReviewEvents,
+  learningStates,
+  learningSyncOutbox,
+  learningSyncReceivedMutations,
+  learningSyncState,
+  learningTargets,
+} from '../drizzle-schema'
 import { assertNonEmpty } from './learning-storage-shared'
 
 interface LearningSyncRepositoryDependencies {
@@ -11,16 +25,14 @@ interface LearningSyncRepositoryDependencies {
   runOperation: StorageOperationRunner
 }
 
-interface CountRow {
-  count: number
-}
-
 export class LearningSyncRepository {
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #runOperation: LearningSyncRepositoryDependencies['runOperation']
 
   constructor(dependencies: LearningSyncRepositoryDependencies) {
     this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#runOperation = dependencies.runOperation
   }
 
@@ -28,17 +40,21 @@ export class LearningSyncRepository {
     if (!Number.isSafeInteger(limit) || limit < 1)
       throw new RangeError('Learning sync change limit must be a positive safe integer')
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<{
+      const rows = this.#orm.select({
+        created_at: learningSyncOutbox.createdAt,
+        entity_id: learningSyncOutbox.entityId,
+        entity_kind: learningSyncOutbox.entityKind,
+        mutation_id: learningSyncOutbox.mutationId,
+        operation: learningSyncOutbox.operation,
+        payload_json: learningSyncOutbox.payloadJson,
+      }).from(learningSyncOutbox).orderBy(asc(learningSyncOutbox.createdAt), asc(learningSyncOutbox.mutationId)).limit(limit).all() as Array<{
         created_at: number
         entity_id: string
         entity_kind: LearningSyncChange['entityKind']
         mutation_id: string
         operation: LearningSyncChange['operation']
         payload_json: string
-      }>(
-        'SELECT mutation_id, entity_kind, entity_id, operation, payload_json, created_at FROM learning_sync_outbox ORDER BY created_at, mutation_id LIMIT ?',
-        [limit],
-      )
+      }>
       return rows.map(row => ({
         createdAt: row.created_at,
         entityId: row.entity_id,
@@ -56,60 +72,70 @@ export class LearningSyncRepository {
     if (!Number.isSafeInteger(input.sourceSequence) || input.sourceSequence < 1)
       throw new RangeError('Remote learning mutation sequence must be positive')
     return this.#runOperation(async () => {
-      const received = await this.#database.get<{ mutation_id: string }>(
-        'SELECT mutation_id FROM learning_sync_received_mutations WHERE mutation_id = ?',
-        [input.mutationId],
-      )
+      const received = this.#orm.select({ mutation_id: learningSyncReceivedMutations.mutationId }).from(learningSyncReceivedMutations).where(eq(learningSyncReceivedMutations.mutationId, input.mutationId)).get()
       if (received)
         return
       const payload = input.payload && typeof input.payload === 'object'
         ? input.payload as Record<string, unknown>
         : {}
       const now = Number.isSafeInteger(input.createdAt) && input.createdAt >= 0 ? input.createdAt : Date.now()
-      const commands = []
+      const commands: DatabaseCommand[] = []
       if (input.entityKind === 'tombstone' && input.operation === 'delete') {
         const tombstone = parseTombstone(payload, input.entityId)
-        const existingTombstone = await this.#database.get<{ generation: number }>(
-          'SELECT generation FROM learning_purge_tombstones WHERE scope_kind = ? AND scope_id = ?',
-          [tombstone.scopeKind, tombstone.scopeId],
-        )
+        const existingTombstone = this.#orm.select({ generation: learningPurgeTombstones.generation }).from(learningPurgeTombstones).where(and(eq(learningPurgeTombstones.scopeKind, tombstone.scopeKind), eq(learningPurgeTombstones.scopeId, tombstone.scopeId))).get()
         if (!existingTombstone || existingTombstone.generation < tombstone.generation) {
           commands.push({
-            parameters: [tombstone.scopeKind, tombstone.scopeId],
-            sql: 'DELETE FROM learning_purge_tombstones WHERE scope_kind = ? AND scope_id = ?',
+            drizzle: database => database.delete(learningPurgeTombstones).where(and(
+              eq(learningPurgeTombstones.scopeKind, tombstone.scopeKind),
+              eq(learningPurgeTombstones.scopeId, tombstone.scopeId),
+            )).run(),
           }, {
-            parameters: [tombstone.tombstoneId, tombstone.scopeKind, tombstone.scopeId, tombstone.generation, now],
-            sql: 'INSERT INTO learning_purge_tombstones (tombstone_id, scope_kind, scope_id, generation, created_at) VALUES (?, ?, ?, ?, ?)',
+            drizzle: database => database.insert(learningPurgeTombstones).values({
+              createdAt: now,
+              generation: tombstone.generation,
+              scopeId: tombstone.scopeId,
+              scopeKind: tombstone.scopeKind,
+              tombstoneId: tombstone.tombstoneId,
+            }).run(),
           })
           if (tombstone.scopeKind === 'target') {
             commands.push({
-              parameters: [tombstone.scopeId],
-              sql: 'DELETE FROM learning_targets WHERE target_id = ?',
+              drizzle: database => database.delete(learningTargets)
+                .where(eq(learningTargets.targetId, tombstone.scopeId))
+                .run(),
             })
           }
           else if (tombstone.scopeKind === 'card') {
             commands.push({
-              parameters: [tombstone.scopeId],
-              sql: 'DELETE FROM learning_cards WHERE card_id = ?',
+              drizzle: database => database.delete(learningCards)
+                .where(eq(learningCards.cardId, tombstone.scopeId))
+                .run(),
             })
           }
           else {
             commands.push(
               {
-                parameters: [tombstone.scopeId],
-                sql: 'DELETE FROM learning_note_optimizer_assignments WHERE optimizer_id = ?',
+                drizzle: database => database.delete(learningNoteOptimizerAssignments)
+                  .where(eq(learningNoteOptimizerAssignments.optimizerId, tombstone.scopeId))
+                  .run(),
               },
               {
-                parameters: [tombstone.scopeId],
-                sql: 'DELETE FROM learning_states WHERE optimizer_revision_id IN (SELECT revision_id FROM learning_optimizer_revisions WHERE optimizer_id = ?)',
+                drizzle: database => database.delete(learningStates).where(inArray(
+                  learningStates.optimizerRevisionId,
+                  database.select({ id: learningOptimizerRevisions.revisionId })
+                    .from(learningOptimizerRevisions)
+                    .where(eq(learningOptimizerRevisions.optimizerId, tombstone.scopeId)),
+                )).run(),
               },
               {
-                parameters: [tombstone.scopeId],
-                sql: 'DELETE FROM learning_optimizer_revisions WHERE optimizer_id = ?',
+                drizzle: database => database.delete(learningOptimizerRevisions)
+                  .where(eq(learningOptimizerRevisions.optimizerId, tombstone.scopeId))
+                  .run(),
               },
               {
-                parameters: [tombstone.scopeId],
-                sql: 'DELETE FROM learning_optimizers WHERE optimizer_id = ?',
+                drizzle: database => database.delete(learningOptimizers)
+                  .where(eq(learningOptimizers.optimizerId, tombstone.scopeId))
+                  .run(),
               },
             )
           }
@@ -118,10 +144,7 @@ export class LearningSyncRepository {
       else if (input.operation === 'upsert') {
         const tombstoneScope = tombstoneScopeFor(input, payload)
         if (tombstoneScope !== null) {
-          const tombstone = await this.#database.get<{ generation: number }>(
-            'SELECT generation FROM learning_purge_tombstones WHERE scope_kind = ? AND scope_id = ?',
-            [tombstoneScope.scopeKind, tombstoneScope.scopeId],
-          )
+          const tombstone = this.#orm.select({ generation: learningPurgeTombstones.generation }).from(learningPurgeTombstones).where(and(eq(learningPurgeTombstones.scopeKind, tombstoneScope.scopeKind), eq(learningPurgeTombstones.scopeId, tombstoneScope.scopeId))).get()
           const incomingGeneration = Number.isSafeInteger(payload.generation) && (payload.generation as number) > 0
             ? payload.generation as number
             : 0
@@ -133,8 +156,14 @@ export class LearningSyncRepository {
             const noteId = stringPayload(payload, 'noteId', input.entityId)
             const optimizerId = stringPayload(payload, 'optimizerId')
             commands.push({
-              parameters: [noteId, optimizerId, now],
-              sql: 'INSERT INTO learning_note_optimizer_assignments (note_id, optimizer_id, updated_at) VALUES (?, ?, ?) ON CONFLICT(note_id) DO UPDATE SET optimizer_id = excluded.optimizer_id, updated_at = excluded.updated_at',
+              drizzle: database => database.insert(learningNoteOptimizerAssignments).values({
+                noteId,
+                optimizerId,
+                updatedAt: now,
+              }).onConflictDoUpdate({
+                set: { optimizerId, updatedAt: now },
+                target: learningNoteOptimizerAssignments.noteId,
+              }).run(),
             })
             break
           }
@@ -148,12 +177,27 @@ export class LearningSyncRepository {
               : '{}'
             commands.push(
               {
-                parameters: [optimizerId, name, status, revisionId, now, now],
-                sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, current_revision_id, created_at, updated_at) VALUES (?, ?, 0, ?, ?, ?, ?) ON CONFLICT(optimizer_id) DO UPDATE SET name = excluded.name, status = excluded.status, current_revision_id = excluded.current_revision_id, updated_at = excluded.updated_at',
+                drizzle: database => database.insert(learningOptimizers).values({
+                  createdAt: now,
+                  currentRevisionId: revisionId,
+                  isGlobal: 0,
+                  name,
+                  optimizerId,
+                  status,
+                  updatedAt: now,
+                }).onConflictDoUpdate({
+                  set: { currentRevisionId: revisionId, name, status, updatedAt: now },
+                  target: learningOptimizers.optimizerId,
+                }).run(),
               },
               {
-                parameters: [revisionId, optimizerId, configuration, 'remote', now],
-                sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(revision_id) DO NOTHING',
+                drizzle: database => database.insert(learningOptimizerRevisions).values({
+                  configurationJson: configuration,
+                  createdAt: now,
+                  fsrsVersion: 'remote',
+                  optimizerId,
+                  revisionId,
+                }).onConflictDoNothing().run(),
               },
             )
             break
@@ -169,15 +213,53 @@ export class LearningSyncRepository {
             const sourceOrder = integerPayload(payload, 'sourceOrder')
             const itemBlockIds = Array.isArray(payload.itemBlockIds) ? payload.itemBlockIds : []
             commands.push({
-              parameters: [cardId, noteId, topicId, topicOrder, sourceBlockId, sourceOrder, kind, direction, now, now],
-              sql: 'INSERT INTO learning_cards (card_id, note_id, topic_id, topic_order, source_block_id, source_order, kind, direction, active, first_seen_at, last_seen_at, inactive_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, NULL) ON CONFLICT(card_id) DO UPDATE SET note_id = excluded.note_id, topic_id = excluded.topic_id, topic_order = excluded.topic_order, source_block_id = excluded.source_block_id, source_order = excluded.source_order, kind = excluded.kind, direction = excluded.direction, active = 1, last_seen_at = excluded.last_seen_at, inactive_at = NULL',
+              drizzle: database => database.insert(learningCards).values({
+                active: 1,
+                cardId,
+                direction,
+                firstSeenAt: now,
+                inactiveAt: null,
+                kind,
+                lastSeenAt: now,
+                noteId,
+                sourceBlockId,
+                sourceOrder,
+                topicId,
+                topicOrder,
+              }).onConflictDoUpdate({
+                set: {
+                  active: 1,
+                  direction,
+                  inactiveAt: null,
+                  kind,
+                  lastSeenAt: now,
+                  noteId,
+                  sourceBlockId,
+                  sourceOrder,
+                  topicId,
+                  topicOrder,
+                },
+                target: learningCards.cardId,
+              }).run(),
             })
             for (const [targetOrder, itemBlockId] of itemBlockIds.entries()) {
               if (typeof itemBlockId !== 'string')
                 continue
+              const targetId = `${cardId}:${itemBlockId}`
               commands.push({
-                parameters: [`${cardId}:${itemBlockId}`, cardId, 'item', itemBlockId, targetOrder, now],
-                sql: 'INSERT INTO learning_targets (target_id, card_id, target_kind, item_block_id, target_order, active, created_at, inactive_at) VALUES (?, ?, ?, ?, ?, 1, ?, NULL) ON CONFLICT(target_id) DO UPDATE SET active = 1, inactive_at = NULL, target_order = excluded.target_order',
+                drizzle: database => database.insert(learningTargets).values({
+                  active: 1,
+                  cardId,
+                  createdAt: now,
+                  inactiveAt: null,
+                  itemBlockId,
+                  targetId,
+                  targetKind: 'item',
+                  targetOrder,
+                }).onConflictDoUpdate({
+                  set: { active: 1, inactiveAt: null, targetOrder },
+                  target: learningTargets.targetId,
+                }).run(),
               })
             }
             break
@@ -194,40 +276,42 @@ export class LearningSyncRepository {
               : null
             const cardId = stringPayload(payload, 'cardId', targetId)
             const noteId = stringPayload(payload, 'noteId', targetId)
+            const rating = kind === 'rating' ? stringPayload(payload, 'rating') : null
+            const undoesEventId = kind === 'undo' ? stringPayload(payload, 'undoesEventId') : null
             commands.push({
-              parameters: [
-                eventId,
-                targetId,
+              drizzle: database => database.insert(learningReviewEvents).values({
                 cardId,
+                deviceId: input.sourceDeviceId,
+                deviceSequence: input.sourceSequence,
+                eventId,
+                eventKind: kind,
+                fsrsVersion: 'remote',
                 noteId,
                 occurredAt,
-                kind === 'rating' ? stringPayload(payload, 'rating') : null,
-                kind === 'undo' ? stringPayload(payload, 'undoesEventId') : null,
-                kind === 'reset' ? String(occurredAt) : null,
-                JSON.stringify(resultState),
-                input.sourceDeviceId,
-                input.sourceSequence,
-              ],
-              sql: 'INSERT INTO learning_review_events (event_id, target_id, card_id, note_id, event_kind, occurred_at, rating, undoes_event_id, reset_epoch, result_state_json, device_id, device_sequence, fsrs_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(event_id) DO NOTHING',
+                rating,
+                resetEpoch: kind === 'reset' ? String(occurredAt) : null,
+                resultStateJson: JSON.stringify(resultState),
+                targetId,
+                undoesEventId,
+              }).onConflictDoNothing().run(),
             })
             if (resultState !== null) {
+              const state = {
+                difficulty: stateValue(resultState, 'difficulty') as number,
+                dueAt: stateValue(resultState, 'dueAt') as number,
+                lapses: stateValue(resultState, 'lapses') as number,
+                lastReviewAt: stateValue(resultState, 'lastReviewAt') as number | null,
+                learningSteps: stateValue(resultState, 'learningSteps') as number,
+                optimizerRevisionId: stateValue(resultState, 'optimizerRevisionId') as string,
+                phase: stateValue(resultState, 'phase') as string,
+                reps: stateValue(resultState, 'reps') as number,
+                scheduledDays: stateValue(resultState, 'scheduledDays') as number,
+                stability: stateValue(resultState, 'stability') as number,
+                stateHash: stateValue(resultState, 'stateHash') as string,
+                winningEventId: stateValue(resultState, 'winningEventId') as string | null,
+              }
               commands.push({
-                parameters: [
-                  stateValue(resultState, 'phase'),
-                  stateValue(resultState, 'dueAt'),
-                  stateValue(resultState, 'stability'),
-                  stateValue(resultState, 'difficulty'),
-                  stateValue(resultState, 'scheduledDays'),
-                  stateValue(resultState, 'learningSteps'),
-                  stateValue(resultState, 'reps'),
-                  stateValue(resultState, 'lapses'),
-                  stateValue(resultState, 'lastReviewAt'),
-                  stateValue(resultState, 'optimizerRevisionId'),
-                  stateValue(resultState, 'winningEventId'),
-                  stateValue(resultState, 'stateHash'),
-                  targetId,
-                ],
-                sql: 'UPDATE learning_states SET phase = ?, due_at = ?, stability = ?, difficulty = ?, scheduled_days = ?, learning_steps = ?, reps = ?, lapses = ?, last_review_at = ?, optimizer_revision_id = ?, winning_event_id = ?, state_hash = ? WHERE target_id = ?',
+                drizzle: database => database.update(learningStates).set(state).where(eq(learningStates.targetId, targetId)).run(),
               })
             }
             break
@@ -237,18 +321,25 @@ export class LearningSyncRepository {
         }
       }
       commands.push({
-        parameters: [input.mutationId, input.sourceDeviceId, input.sourceSequence, now],
-        sql: 'INSERT INTO learning_sync_received_mutations (mutation_id, source_device_id, source_sequence, received_at) VALUES (?, ?, ?, ?)',
+        drizzle: database => database.insert(learningSyncReceivedMutations).values({
+          mutationId: input.mutationId,
+          receivedAt: now,
+          sourceDeviceId: input.sourceDeviceId,
+          sourceSequence: input.sourceSequence,
+        }).run(),
       })
       await this.#database.batch(commands)
     })
   }
 
   #recordReceived(input: ApplyLearningSyncChangeInput, receivedAt: number): Promise<void> {
-    return this.#database.run(
-      'INSERT INTO learning_sync_received_mutations (mutation_id, source_device_id, source_sequence, received_at) VALUES (?, ?, ?, ?)',
-      [input.mutationId, input.sourceDeviceId, input.sourceSequence, receivedAt],
-    )
+    this.#orm.insert(learningSyncReceivedMutations).values({
+      mutationId: input.mutationId,
+      receivedAt,
+      sourceDeviceId: input.sourceDeviceId,
+      sourceSequence: input.sourceSequence,
+    }).run()
+    return Promise.resolve()
   }
 
   acknowledge(input: AcknowledgeLearningSyncInput): Promise<void> {
@@ -257,23 +348,22 @@ export class LearningSyncRepository {
     const mutationIds = [...new Set(input.mutationIds)]
     mutationIds.forEach(mutationId => assertNonEmpty(mutationId, 'Sync mutation id'))
     return this.#runOperation(async () => {
-      const commands = []
+      const commands: DatabaseCommand[] = []
       if (mutationIds.length > 0) {
-        const placeholders = mutationIds.map(() => '?').join(', ')
-        const existing = await this.#database.get<CountRow>(
-          `SELECT COUNT(*) AS count FROM learning_sync_outbox WHERE mutation_id IN (${placeholders})`,
-          mutationIds,
-        )
+        const existing = this.#orm.select({ count: sql<number>`count(*)` }).from(learningSyncOutbox).where(inArray(learningSyncOutbox.mutationId, mutationIds)).get()
         if (!existing || existing.count !== mutationIds.length)
           throw new Error('Cannot acknowledge unknown learning sync mutations')
         commands.push({
-          parameters: mutationIds,
-          sql: `DELETE FROM learning_sync_outbox WHERE mutation_id IN (${placeholders})`,
+          drizzle: database => database.delete(learningSyncOutbox)
+            .where(inArray(learningSyncOutbox.mutationId, mutationIds))
+            .run(),
         })
       }
       commands.push({
-        parameters: [input.serverSequence],
-        sql: 'UPDATE learning_sync_state SET last_server_sequence = MAX(last_server_sequence, ?) WHERE singleton = 1',
+        drizzle: database => database.update(learningSyncState)
+          .set({ lastServerSequence: sql`MAX(${learningSyncState.lastServerSequence}, ${input.serverSequence})` })
+          .where(eq(learningSyncState.singleton, 1))
+          .run(),
       })
       await this.#database.batch(commands)
     })
@@ -285,17 +375,10 @@ export class LearningSyncRepository {
     return this.#runOperation(async () => {
       if (uniqueMutationIds.length === 0)
         return
-      const placeholders = uniqueMutationIds.map(() => '?').join(', ')
-      const existing = await this.#database.get<CountRow>(
-        `SELECT COUNT(*) AS count FROM learning_sync_outbox WHERE mutation_id IN (${placeholders})`,
-        uniqueMutationIds,
-      )
+      const existing = this.#orm.select({ count: sql<number>`count(*)` }).from(learningSyncOutbox).where(inArray(learningSyncOutbox.mutationId, uniqueMutationIds)).get()
       if (!existing || existing.count !== uniqueMutationIds.length)
         throw new Error('Cannot acknowledge unknown learning sync mutations')
-      await this.#database.run(
-        `DELETE FROM learning_sync_outbox WHERE mutation_id IN (${placeholders})`,
-        uniqueMutationIds,
-      )
+      this.#orm.delete(learningSyncOutbox).where(inArray(learningSyncOutbox.mutationId, uniqueMutationIds)).run()
     })
   }
 }

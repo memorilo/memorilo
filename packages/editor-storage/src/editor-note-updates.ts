@@ -1,4 +1,4 @@
-import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
 import type { EditorNoteRecords } from './editor-note-records'
 import type {
   NoteWriteReceipt,
@@ -15,6 +15,8 @@ import type { LearningCardReconciliationPlanner } from './learning/learning-card
 import type { ReadingItemProjection } from './learning/types'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
+import { and, eq } from 'drizzle-orm'
+import { journals, noteEntries, notes, noteUpdateReceipts, noteUpdates, topicBlockEmbeddingState, topicBlocks, topics } from './drizzle-schema'
 import { validateAssetFileName } from './editor-asset-repository'
 import { planUpdatedNoteProjection } from './editor-note-projection-plan'
 import { assertNonEmpty, readJournalDate } from './editor-storage-shared'
@@ -25,6 +27,7 @@ import {
   validateJournalProjection,
   validateProjectionPatch,
 } from './editor-storage-validation'
+import { topicBlockEmbeddings } from './sqlite-extension-schema'
 
 interface EditorNoteUpdateDependencies {
   database: EditorStorageDatabase
@@ -57,18 +60,15 @@ export function saveNoteUpdates(
     validateAssetReferences(input.assetReferences)
   input.allowedMissingAssetFileNames?.forEach(validateAssetFileName)
   const saved = structuredClone(input)
+  const orm: EditorStorageDrizzleDatabase = dependencies.database.drizzle
 
   return dependencies.runOperation(async () => {
     const note = await dependencies.records.requireRow(saved.noteId)
-    const journal = await dependencies.database.get<JournalMetadataRow>(`
-        SELECT
-          note.id AS note_id,
-          journal.journal_date,
-          journal.has_user_content
-        FROM journals AS journal
-        INNER JOIN notes AS note ON note.row_id = journal.note_row_id
-        WHERE journal.note_row_id = ?
-      `, [note.row_id])
+    const journal = orm.select({
+      note_id: notes.id,
+      journal_date: journals.journalDate,
+      has_user_content: journals.hasUserContent,
+    }).from(journals).innerJoin(notes, eq(notes.rowId, journals.noteRowId)).where(eq(journals.noteRowId, note.row_id)).get() as JournalMetadataRow | undefined
     if (journal) {
       const journalDate = readJournalDate(journal.journal_date, `Stored Journal date for Note ${saved.noteId}`)
       if (note.title !== journalDate)
@@ -86,10 +86,10 @@ export function saveNoteUpdates(
       await dependencies.records.assertTitleAvailable(saved.title, note.id)
 
     const updatesByHash = new Map(saved.updates.map(update => [updateHash(update), update]))
-    const received = await dependencies.database.all<NoteUpdateHashRow>(
-      'SELECT update_hash FROM note_update_receipts WHERE note_row_id = ?',
-      [note.row_id],
-    )
+    const received = orm.select({ update_hash: noteUpdateReceipts.updateHash })
+      .from(noteUpdateReceipts)
+      .where(eq(noteUpdateReceipts.noteRowId, note.row_id))
+      .all() as NoteUpdateHashRow[]
     const receivedHashes = new Set(received.map(row => row.update_hash))
     const newUpdates = [...updatesByHash]
       .filter(([hash]) => !receivedHashes.has(hash))
@@ -98,8 +98,10 @@ export function saveNoteUpdates(
       const commands: DatabaseCommand[] = []
       if (journal) {
         commands.push({
-          parameters: [saved.journalHasUserContent === true ? 1 : 0, note.row_id],
-          sql: 'UPDATE journals SET has_user_content = ? WHERE note_row_id = ?',
+          drizzle: database => database.update(journals)
+            .set({ hasUserContent: saved.journalHasUserContent === true ? 1 : 0 })
+            .where(eq(journals.noteRowId, note.row_id))
+            .run(),
         })
       }
       if (saved.learningCards !== undefined) {
@@ -125,22 +127,17 @@ export function saveNoteUpdates(
 
     const [existingEntries, existingTopics, existingBlocksByTopic] = await Promise.all([
       saved.entries
-        ? dependencies.database.all<ExistingEntryRow>(
-            'SELECT entry_id FROM note_entries WHERE note_row_id = ?',
-            [note.row_id],
-          )
+        ? Promise.resolve(orm.select({ entry_id: noteEntries.entryId }).from(noteEntries).where(eq(noteEntries.noteRowId, note.row_id)).all() as ExistingEntryRow[])
         : Promise.resolve([]),
       saved.entries
-        ? dependencies.database.all<ExistingTopicRow>(
-            'SELECT topic_id FROM topics WHERE note_row_id = ?',
-            [note.row_id],
-          )
+        ? Promise.resolve(orm.select({ topic_id: topics.topicId }).from(topics).where(eq(topics.noteRowId, note.row_id)).all() as ExistingTopicRow[])
         : Promise.resolve([]),
-      Promise.all(saved.topics.map(topic => dependencies.database.all<ExistingBlockRow>(`
-          SELECT row_id, topic_id, block_id, content_hash
-          FROM topic_blocks
-          WHERE note_row_id = ? AND topic_id = ?
-        `, [note.row_id, topic.topicId]))),
+      Promise.all(saved.topics.map(topic => Promise.resolve(orm.select({
+        row_id: topicBlocks.rowId,
+        topic_id: topicBlocks.topicId,
+        block_id: topicBlocks.blockId,
+        content_hash: topicBlocks.contentHash,
+      }).from(topicBlocks).where(and(eq(topicBlocks.noteRowId, note.row_id), eq(topicBlocks.topicId, topic.topicId))).all() as ExistingBlockRow[]))),
     ])
 
     const existingBlocks = existingBlocksByTopic.flat()
@@ -150,8 +147,16 @@ export function saveNoteUpdates(
       const next = projection.blocks.get(`${existing.topic_id}\0${existing.block_id}`)
       if (!next || next.hash !== existing.content_hash) {
         commands.push(
-          { parameters: [existing.row_id], sql: 'DELETE FROM topic_block_embeddings WHERE block_row_id = ?' },
-          { parameters: [existing.row_id], sql: 'DELETE FROM topic_block_embedding_state WHERE block_row_id = ?' },
+          {
+            drizzle: database => database.delete(topicBlockEmbeddings)
+              .where(eq(topicBlockEmbeddings.blockRowId, existing.row_id))
+              .run(),
+          },
+          {
+            drizzle: database => database.delete(topicBlockEmbeddingState)
+              .where(eq(topicBlockEmbeddingState.blockRowId, existing.row_id))
+              .run(),
+          },
         )
       }
     }
@@ -166,34 +171,38 @@ export function saveNoteUpdates(
       ))
     }
     commands.push({
-      parameters: [saved.title ?? note.title, latestSequence, now, note.row_id],
-      sql: `
-          UPDATE notes
-          SET title = ?, latest_sequence = ?, updated_at = ?
-          WHERE row_id = ?
-        `,
+      drizzle: database => database.update(notes).set({
+        latestSequence,
+        title: saved.title ?? note.title,
+        updatedAt: now,
+      }).where(eq(notes.rowId, note.row_id)).run(),
     })
     if (journal) {
       commands.push({
-        parameters: [saved.journalHasUserContent === true ? 1 : 0, note.row_id],
-        sql: 'UPDATE journals SET has_user_content = ? WHERE note_row_id = ?',
+        drizzle: database => database.update(journals)
+          .set({ hasUserContent: saved.journalHasUserContent === true ? 1 : 0 })
+          .where(eq(journals.noteRowId, note.row_id))
+          .run(),
       })
     }
     newUpdates.forEach(({ hash, update }, index) => {
       const sequence = note.latest_sequence + index + 1
       commands.push({
-        parameters: [note.row_id, sequence, hash, update, now],
-        sql: `
-            INSERT INTO note_updates (note_row_id, sequence, update_hash, update_blob, created_at)
-            VALUES (?, ?, ?, ?, ?)
-          `,
+        drizzle: database => database.insert(noteUpdates).values({
+          createdAt: now,
+          noteRowId: note.row_id,
+          sequence,
+          updateBlob: update,
+          updateHash: hash,
+        }).run(),
       })
       commands.push({
-        parameters: [note.row_id, hash, sequence, now],
-        sql: `
-            INSERT INTO note_update_receipts (note_row_id, update_hash, sequence, created_at)
-            VALUES (?, ?, ?, ?)
-        `,
+        drizzle: database => database.insert(noteUpdateReceipts).values({
+          createdAt: now,
+          noteRowId: note.row_id,
+          sequence,
+          updateHash: hash,
+        }).run(),
       })
     })
     commands.push(...projection.commands)
@@ -210,24 +219,31 @@ export function saveNoteUpdates(
     for (const existing of existingBlocks) {
       if (!projection.blocks.has(`${existing.topic_id}\0${existing.block_id}`)) {
         commands.push({
-          parameters: [note.row_id, existing.topic_id, existing.block_id],
-          sql: 'DELETE FROM topic_blocks WHERE note_row_id = ? AND topic_id = ? AND block_id = ?',
+          drizzle: database => database.delete(topicBlocks).where(and(
+            eq(topicBlocks.noteRowId, note.row_id),
+            eq(topicBlocks.topicId, existing.topic_id),
+            eq(topicBlocks.blockId, existing.block_id),
+          )).run(),
         })
       }
     }
     for (const existing of existingTopics) {
       if (!projection.topicIds.has(existing.topic_id)) {
         commands.push({
-          parameters: [note.row_id, existing.topic_id],
-          sql: 'DELETE FROM topics WHERE note_row_id = ? AND topic_id = ?',
+          drizzle: database => database.delete(topics).where(and(
+            eq(topics.noteRowId, note.row_id),
+            eq(topics.topicId, existing.topic_id),
+          )).run(),
         })
       }
     }
     for (const existing of existingEntries) {
       if (!projection.entryIds.has(existing.entry_id)) {
         commands.push({
-          parameters: [note.row_id, existing.entry_id],
-          sql: 'DELETE FROM note_entries WHERE note_row_id = ? AND entry_id = ?',
+          drizzle: database => database.delete(noteEntries).where(and(
+            eq(noteEntries.noteRowId, note.row_id),
+            eq(noteEntries.entryId, existing.entry_id),
+          )).run(),
         })
       }
     }

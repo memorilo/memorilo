@@ -1,5 +1,7 @@
 import type { CachedShelfPage, ShelfPage, ShelfPublication } from '@memorilo/shelf'
-import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase, StorageOperationRunner } from './database-driver'
+import { and, desc, eq } from 'drizzle-orm'
+import { shelfPages } from './drizzle-schema'
 import { assertNonEmpty } from './editor-storage-shared'
 import { normalizeShelfRemoteUrl } from './shelf-storage-shared'
 
@@ -33,25 +35,31 @@ export function saveShelfPageCommand(page: CachedShelfPage): DatabaseCommand {
   assertNonEmpty(page.sourceId, 'Shelf page source id')
   const normalizedUrl = normalizeShelfRemoteUrl(page.url, 'Shelf page URL')
   return {
-    parameters: [page.sourceId, normalizedUrl, JSON.stringify(page.page), page.etag, page.lastModified, page.fetchedAt],
-    sql: `
-      INSERT INTO shelf_pages (source_id, url, page_json, etag, last_modified, fetched_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(source_id, url) DO UPDATE SET
-        page_json = excluded.page_json,
-        etag = excluded.etag,
-        last_modified = excluded.last_modified,
-        fetched_at = excluded.fetched_at
-    `,
+    drizzle: database => database.insert(shelfPages).values({
+      etag: page.etag,
+      fetchedAt: page.fetchedAt,
+      lastModified: page.lastModified,
+      pageJson: JSON.stringify(page.page),
+      sourceId: page.sourceId,
+      url: normalizedUrl,
+    }).onConflictDoUpdate({
+      set: {
+        etag: page.etag,
+        fetchedAt: page.fetchedAt,
+        lastModified: page.lastModified,
+        pageJson: JSON.stringify(page.page),
+      },
+      target: [shelfPages.sourceId, shelfPages.url],
+    }).run(),
   }
 }
 
 export class ShelfPageCacheRepository {
-  readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #runOperation: ShelfPageCacheRepositoryDependencies['runOperation']
 
   constructor(dependencies: ShelfPageCacheRepositoryDependencies) {
-    this.#database = dependencies.database
+    this.#orm = dependencies.database.drizzle
     this.#runOperation = dependencies.runOperation
   }
 
@@ -59,11 +67,14 @@ export class ShelfPageCacheRepository {
     assertNonEmpty(sourceId, 'Shelf source id')
     const normalizedUrl = normalizeShelfRemoteUrl(url, 'Shelf source URL')
     return this.#runOperation(async () => {
-      const row = await this.#database.get<ShelfPageRow>(`
-        SELECT source_id, url, page_json, etag, last_modified, fetched_at
-        FROM shelf_pages
-        WHERE source_id = ? AND url = ?
-      `, [sourceId, normalizedUrl])
+      const row = this.#orm.select({
+        source_id: shelfPages.sourceId,
+        url: shelfPages.url,
+        page_json: shelfPages.pageJson,
+        etag: shelfPages.etag,
+        last_modified: shelfPages.lastModified,
+        fetched_at: shelfPages.fetchedAt,
+      }).from(shelfPages).where(and(eq(shelfPages.sourceId, sourceId), eq(shelfPages.url, normalizedUrl))).get() as ShelfPageRow | undefined
       return row
         ? {
             etag: row.etag,
@@ -81,12 +92,11 @@ export class ShelfPageCacheRepository {
     assertNonEmpty(sourceId, 'Shelf source id')
     assertNonEmpty(publicationId, 'Shelf publication id')
     return this.#runOperation(async () => {
-      const rows = await this.#database.all<Pick<ShelfPageRow, 'page_json'>>(`
-        SELECT page_json
-        FROM shelf_pages
-        WHERE source_id = ?
-        ORDER BY fetched_at DESC
-      `, [sourceId])
+      const rows = this.#orm.select({ page_json: shelfPages.pageJson })
+        .from(shelfPages)
+        .where(eq(shelfPages.sourceId, sourceId))
+        .orderBy(desc(shelfPages.fetchedAt))
+        .all() as Pick<ShelfPageRow, 'page_json'>[]
       for (const row of rows) {
         const publication = parsePage(row.page_json).publications.find(candidate => candidate.id === publicationId)
         if (publication)
@@ -98,6 +108,20 @@ export class ShelfPageCacheRepository {
 
   async save(page: CachedShelfPage): Promise<void> {
     const saved = structuredClone(page)
-    return this.#runOperation(() => this.#database.batch([saveShelfPageCommand(saved)]))
+    assertNonEmpty(saved.sourceId, 'Shelf page source id')
+    const normalizedUrl = normalizeShelfRemoteUrl(saved.url, 'Shelf page URL')
+    return this.#runOperation(async () => {
+      this.#orm.insert(shelfPages).values({
+        sourceId: saved.sourceId,
+        url: normalizedUrl,
+        pageJson: JSON.stringify(saved.page),
+        etag: saved.etag,
+        lastModified: saved.lastModified,
+        fetchedAt: saved.fetchedAt,
+      }).onConflictDoUpdate({
+        target: [shelfPages.sourceId, shelfPages.url],
+        set: { pageJson: JSON.stringify(saved.page), etag: saved.etag, lastModified: saved.lastModified, fetchedAt: saved.fetchedAt },
+      }).run()
+    })
   }
 }

@@ -1,9 +1,11 @@
 # 配置模块使用文档
 
+Sync Server 是独立的 Node 服务，不使用 Electron 配置热更新。它的启动期环境变量、单公网端口部署、备份恢复和维护约束见 [Sync Server operations](./sync-server-operations.md)。桌面端配置只保存服务器 URL、PeerId 和同步状态；配对后签发的 bearer credential 由 Electron main 进程通过操作系统 `safeStorage` 单独加密保存，不进入 renderer 可读取的配置快照。
+
 配置模块由两层组成：
 
 - `@memorilo/config`：通用配置定义、Effect Schema 校验、存储、订阅、热更新和 React 配置控件。
-- `@memorilo/desktop-config`：Memorilo 桌面应用的配置原型，目前包含 General、Flashcards、Goals & Streaks、Editor 和 MCP 设置。
+- `@memorilo/desktop-config`：Memorilo 桌面应用的配置原型，目前包含 General、Flashcards、Goals & Streaks、Editor、MCP 和 Sync Server 设置。
 
 ## 定义配置
 
@@ -158,7 +160,7 @@ stylex(stylexOptions)
 
 `@stylexjs/unplugin` 0.19 支持 `externalPackages`，但当前类型声明没有包含它，因此示例显式补充了该属性。
 
-多 HTML 入口必须共同导入一个实际的 CSS 文件，并用上例的 `cssInjectionTarget` 指向它，确保 StyleX 汇总规则被两个入口引用。Memorilo 让所有入口导入 `renderer-global.css`。
+多 HTML 入口必须共同导入同一个 StyleX 全局入口，并用上例的 `cssInjectionTarget` 指向它，确保 StyleX 汇总规则被两个入口引用。Memorilo 让所有入口导入 `renderer-global.stylex.ts`。
 
 ## Memorilo 桌面设置
 

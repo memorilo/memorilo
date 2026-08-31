@@ -6,6 +6,8 @@ import type {
   StoredShelfSource,
 } from '@memorilo/shelf'
 import type { DatabaseCommand, EditorStorageDatabase, StorageOperationRunner } from './database-driver'
+import { eq } from 'drizzle-orm'
+import { shelfPages, shelfSources } from './drizzle-schema'
 import { assertNonEmpty } from './editor-storage-shared'
 import { saveShelfPageCommand } from './shelf-page-cache-repository'
 import { ShelfSourcePersistence } from './shelf-source-persistence'
@@ -48,11 +50,14 @@ export class ShelfSourceRepository {
       await this.#database.batch([
         prepared.syncStateCommand,
         {
-          parameters: [JSON.stringify(clocks), Date.now(), sourceId],
-          sql: 'UPDATE shelf_sources SET deleted = 1, field_clocks_json = ?, updated_at = ? WHERE id = ?',
+          drizzle: database => database.update(shelfSources).set({
+            deleted: 1,
+            fieldClocksJson: JSON.stringify(clocks),
+            updatedAt: Date.now(),
+          }).where(eq(shelfSources.id, sourceId)).run(),
         },
         prepared.operationCommand,
-        { parameters: [sourceId], sql: 'DELETE FROM shelf_pages WHERE source_id = ?' },
+        { drizzle: database => database.delete(shelfPages).where(eq(shelfPages.sourceId, sourceId)).run() },
       ])
     })
   }
@@ -98,8 +103,10 @@ export class ShelfSourceRepository {
       : changedFields
     if (Object.keys(fields).length === 0) {
       return [{
-        parameters: [saved.encryptedPassword, saved.source.id],
-        sql: 'UPDATE shelf_sources SET encrypted_password = ? WHERE id = ?',
+        drizzle: database => database.update(shelfSources)
+          .set({ encryptedPassword: saved.encryptedPassword })
+          .where(eq(shelfSources.id, saved.source.id))
+          .run(),
       }]
     }
 
@@ -113,38 +120,36 @@ export class ShelfSourceRepository {
     return [
       prepared.syncStateCommand,
       {
-        parameters: [
-          saved.source.id,
-          saved.source.kind,
-          saved.source.url,
-          saved.source.name,
-          saved.source.username,
-          saved.source.auth,
-          saved.source.enabled ? 1 : 0,
-          saved.source.orderKey,
-          saved.encryptedPassword,
-          JSON.stringify(clocks),
-          saved.source.addedAt,
-          saved.source.updatedAt,
-        ],
-        sql: `
-          INSERT INTO shelf_sources (
-            id, kind, url, name, username, auth, enabled, order_key,
-            encrypted_password, deleted, field_clocks_json, added_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            kind = excluded.kind,
-            url = excluded.url,
-            name = excluded.name,
-            username = excluded.username,
-            auth = excluded.auth,
-            enabled = excluded.enabled,
-            order_key = excluded.order_key,
-            encrypted_password = excluded.encrypted_password,
-            deleted = 0,
-            field_clocks_json = excluded.field_clocks_json,
-            updated_at = excluded.updated_at
-        `,
+        drizzle: database => database.insert(shelfSources).values({
+          addedAt: saved.source.addedAt,
+          auth: saved.source.auth,
+          deleted: 0,
+          enabled: saved.source.enabled ? 1 : 0,
+          encryptedPassword: saved.encryptedPassword,
+          fieldClocksJson: JSON.stringify(clocks),
+          id: saved.source.id,
+          kind: saved.source.kind,
+          name: saved.source.name,
+          orderKey: saved.source.orderKey,
+          updatedAt: saved.source.updatedAt,
+          url: saved.source.url,
+          username: saved.source.username,
+        }).onConflictDoUpdate({
+          set: {
+            auth: saved.source.auth,
+            deleted: 0,
+            enabled: saved.source.enabled ? 1 : 0,
+            encryptedPassword: saved.encryptedPassword,
+            fieldClocksJson: JSON.stringify(clocks),
+            kind: saved.source.kind,
+            name: saved.source.name,
+            orderKey: saved.source.orderKey,
+            updatedAt: saved.source.updatedAt,
+            url: saved.source.url,
+            username: saved.source.username,
+          },
+          target: shelfSources.id,
+        }).run(),
       },
       prepared.operationCommand,
     ]

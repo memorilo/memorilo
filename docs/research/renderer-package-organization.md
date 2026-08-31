@@ -125,7 +125,7 @@ Journal feed 现在由 `journal-feed.tsx` 独占虚拟列表、分页触发、�
 2. Query keys、Effect query builders、cache projection 跟随拥有数据语义的 feature。不要把只服务 Shelf 的 query 留在横向 `queries/`。
 3. 只有出现真实跨 feature 消费时才建立 feature `index.ts`，并只导出页面入口、provider 或窄服务接口；内部组件继续用相对导入。
 4. `component.tsx`、`component.stylex.ts`、`component.test.tsx` 共置；状态机的 `workflow.ts` 与 `workflow.node.test.ts` 共置。当前 Vitest 配置递归匹配 `src/**/*.node.test.ts`，移动到嵌套目录不需要改测试发现规则。
-5. `styles/renderer-global.css` 保持 package-global；feature 样式继续使用 `*.stylex.ts`，不集中到一个 giant styles directory。
+5. `styles/renderer-global.stylex.ts` 保持 package-global；feature 样式继续使用 `*.stylex.ts`，不集中到一个 giant styles directory。
 6. `shared/` 不是暂存区。带有 Note、Reader、Shelf、Learning 等领域词汇的模块默认留在拥有它的 feature，即使有两个调用方。
 7. 迁移后 `routes/` 内不应再出现测试、StyleX 文件、普通组件、workflow、controller、session 或 query。可以增加结构测试来守住这一约束。
 

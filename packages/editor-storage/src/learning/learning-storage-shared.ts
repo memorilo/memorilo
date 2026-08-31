@@ -6,6 +6,7 @@ import type { DatabaseCommand } from '../database-driver'
 import type { LearningState, LearningSyncChange } from './types'
 import { validateOptimizerConfiguration } from '@memorilo/srs'
 import { v7 as createUuidV7 } from 'uuid'
+import { learningStates, learningSyncOutbox } from '../drizzle-schema'
 
 export { assertNonEmpty } from '../editor-storage-shared'
 
@@ -44,44 +45,51 @@ export function syncMutationCommand(
   payload: unknown,
   createdAt: number,
 ): DatabaseCommand {
+  const mutationId = createUuidV7()
+  const payloadJson = JSON.stringify(payload)
   return {
-    parameters: [
-      createUuidV7(),
-      entityKind,
-      entityId,
-      operation,
-      JSON.stringify(payload),
+    drizzle: database => database.insert(learningSyncOutbox).values({
       createdAt,
-    ],
-    sql: 'INSERT INTO learning_sync_outbox (mutation_id, entity_kind, entity_id, operation, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      entityId,
+      entityKind,
+      mutationId,
+      operation,
+      payloadJson,
+    }).run(),
   }
 }
-
-const learningStateInsertSql = 'INSERT INTO learning_states (target_id, phase, due_at, stability, difficulty, scheduled_days, learning_steps, reps, lapses, last_review_at, optimizer_revision_id, winning_event_id, state_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(target_id)'
 
 export function stateCommand(
   state: PersistedLearningState,
   conflictBehavior: 'ignore' | 'update' = 'update',
 ): DatabaseCommand {
+  const values = {
+    difficulty: state.difficulty,
+    dueAt: state.dueAt,
+    lapses: state.lapses,
+    lastReviewAt: state.lastReviewAt,
+    learningSteps: state.learningSteps,
+    optimizerRevisionId: state.optimizerRevisionId,
+    phase: state.phase,
+    reps: state.reps,
+    scheduledDays: state.scheduledDays,
+    stability: state.stability,
+    stateHash: state.stateHash,
+    targetId: state.targetId,
+    winningEventId: state.winningEventId,
+  }
   return {
-    parameters: [
-      state.targetId,
-      state.phase,
-      state.dueAt,
-      state.stability,
-      state.difficulty,
-      state.scheduledDays,
-      state.learningSteps,
-      state.reps,
-      state.lapses,
-      state.lastReviewAt,
-      state.optimizerRevisionId,
-      state.winningEventId,
-      state.stateHash,
-    ],
-    sql: `${learningStateInsertSql} ${conflictBehavior === 'update'
-      ? 'DO UPDATE SET phase = excluded.phase, due_at = excluded.due_at, stability = excluded.stability, difficulty = excluded.difficulty, scheduled_days = excluded.scheduled_days, learning_steps = excluded.learning_steps, reps = excluded.reps, lapses = excluded.lapses, last_review_at = excluded.last_review_at, optimizer_revision_id = excluded.optimizer_revision_id, winning_event_id = excluded.winning_event_id, state_hash = excluded.state_hash'
-      : 'DO NOTHING'}`,
+    drizzle: (database) => {
+      const insert = database.insert(learningStates).values(values)
+      if (conflictBehavior === 'ignore') {
+        insert.onConflictDoNothing().run()
+        return
+      }
+      insert.onConflictDoUpdate({
+        set: values,
+        target: learningStates.targetId,
+      }).run()
+    },
   }
 }
 

@@ -16,7 +16,9 @@ import {
   defaultOptimizerConfiguration,
   FSRSVersion,
 } from '@memorilo/srs'
+import { eq } from 'drizzle-orm'
 import { v7 as createUuidV7 } from 'uuid'
+import { learningOptimizerRevisions, learningOptimizers, learningSyncState } from '../drizzle-schema'
 import { LearningCardRepository } from './learning-card-repository'
 import { LearningMaintenanceRepository } from './learning-maintenance-repository'
 import { LearningOptimizerCatalog } from './learning-optimizer-catalog'
@@ -29,7 +31,6 @@ import { LearningSyncRepository } from './learning-sync-repository'
 import {
   GLOBAL_OPTIMIZER_ID,
   GLOBAL_OPTIMIZER_REVISION_ID,
-  learningSchema,
 } from './schema'
 
 const learningSchemaGeneration = 1
@@ -97,10 +98,12 @@ export class SqliteLearningStorage implements LearningStorage {
     runOperation: StorageOperationRunner,
     configuration: () => LearningPracticeConfiguration = defaultLearningPracticeConfiguration,
   ): Promise<SqliteLearningStorage> {
-    await database.exec(learningSchema)
-    const schemaState = await database.get<LearningSchemaStateRow>(
-      'SELECT schema_generation FROM learning_sync_state WHERE singleton = 1',
-    )
+    // Learning tables are part of the editor-storage Drizzle migration and are
+    // initialized before this service is opened.
+    const orm = database.drizzle
+    if (orm === undefined)
+      throw new TypeError('Editor storage requires a Drizzle database handle')
+    const schemaState = orm.select({ schema_generation: learningSyncState.schemaGeneration }).from(learningSyncState).where(eq(learningSyncState.singleton, 1)).get() as LearningSchemaStateRow | undefined
     if (schemaState && schemaState.schema_generation !== learningSchemaGeneration) {
       throw new Error(
         `Unsupported Learning schema generation ${schemaState.schema_generation}; expected ${learningSchemaGeneration}`,
@@ -108,30 +111,32 @@ export class SqliteLearningStorage implements LearningStorage {
     }
     const now = Date.now()
     const optimizerConfiguration = defaultOptimizerConfiguration()
-    await database.batch([
-      {
-        parameters: [GLOBAL_OPTIMIZER_ID, 'Global', now, now],
-        sql: 'INSERT INTO learning_optimizers (optimizer_id, name, is_global, status, created_at, updated_at) VALUES (?, ?, 1, \'active\', ?, ?) ON CONFLICT(optimizer_id) DO NOTHING',
-      },
-      {
-        parameters: [
-          GLOBAL_OPTIMIZER_REVISION_ID,
-          GLOBAL_OPTIMIZER_ID,
-          JSON.stringify(optimizerConfiguration),
-          FSRSVersion,
-          now,
-        ],
-        sql: 'INSERT INTO learning_optimizer_revisions (revision_id, optimizer_id, configuration_json, fsrs_version, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(revision_id) DO NOTHING',
-      },
-      {
-        parameters: [GLOBAL_OPTIMIZER_REVISION_ID, GLOBAL_OPTIMIZER_ID],
-        sql: 'UPDATE learning_optimizers SET current_revision_id = COALESCE(current_revision_id, ?) WHERE optimizer_id = ?',
-      },
-      {
-        parameters: [createUuidV7(), learningSchemaGeneration],
-        sql: 'INSERT INTO learning_sync_state (singleton, device_id, next_device_sequence, last_server_sequence, schema_generation) VALUES (1, ?, 1, 0, ?) ON CONFLICT(singleton) DO NOTHING',
-      },
-    ])
+    orm.transaction((transaction) => {
+      transaction.insert(learningOptimizers).values({
+        optimizerId: GLOBAL_OPTIMIZER_ID,
+        name: 'Global',
+        isGlobal: 1,
+        status: 'active',
+        currentRevisionId: null,
+        createdAt: now,
+        updatedAt: now,
+      }).onConflictDoNothing().run()
+      transaction.insert(learningOptimizerRevisions).values({
+        revisionId: GLOBAL_OPTIMIZER_REVISION_ID,
+        optimizerId: GLOBAL_OPTIMIZER_ID,
+        configurationJson: JSON.stringify(optimizerConfiguration),
+        fsrsVersion: FSRSVersion,
+        createdAt: now,
+      }).onConflictDoNothing().run()
+      transaction.update(learningOptimizers).set({ currentRevisionId: GLOBAL_OPTIMIZER_REVISION_ID }).where(eq(learningOptimizers.optimizerId, GLOBAL_OPTIMIZER_ID)).run()
+      transaction.insert(learningSyncState).values({
+        singleton: 1,
+        deviceId: createUuidV7(),
+        nextDeviceSequence: 1,
+        lastServerSequence: 0,
+        schemaGeneration: learningSchemaGeneration,
+      }).onConflictDoNothing().run()
+    })
     return new SqliteLearningStorage(database, configuration, runOperation)
   }
 

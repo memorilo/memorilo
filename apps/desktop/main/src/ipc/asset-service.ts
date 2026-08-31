@@ -162,6 +162,10 @@ export function createAssetHandlers(
   storage: EditorStorage,
   configuration: ConfigurationStore<DesktopConfiguration>,
   serializeAssetOperation: <Result>(operation: () => Promise<Result>) => Promise<Result>,
+  sync?: {
+    readonly onDelete: (asset: Awaited<ReturnType<EditorStorage['assets']['register']>>) => Promise<void>
+    readonly onPut: (asset: Awaited<ReturnType<EditorStorage['assets']['register']>>) => Promise<void>
+  },
 ): DesktopRequestHandlers['assets'] {
   const persistImage = async (input: SaveImageInput): Promise<SaveImageResult> => {
     if (assetDirectory === null)
@@ -194,12 +198,13 @@ export function createAssetHandlers(
     try {
       await writeFile(temporaryPath, stored.data, { flag: 'wx' })
       await rename(temporaryPath, filePath)
-      await storage.assets.register({
+      const asset = await storage.assets.register({
         byteSize: stored.data.byteLength,
         fileName,
         mimeType: stored.mimeType,
         originalFileName: input.fileName,
       })
+      await sync?.onPut(asset)
     }
     catch (error) {
       const cleanupErrors: unknown[] = []
@@ -299,6 +304,7 @@ export function createAssetHandlers(
             continue
           }
           await storage.assets.completeDeletion({ fileName })
+          await sync?.onDelete(claimed)
           reclaimedFileNames.push(fileName)
         }
         return { cancelled: false, failedFileNames, reclaimedFileNames }

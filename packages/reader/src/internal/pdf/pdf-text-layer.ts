@@ -8,6 +8,7 @@ import type { ReaderAdapterCallbacks } from '../reader-adapter'
 import { runSyncLifecycleOperations } from '@memorilo/effect-lifecycle'
 import { interruptPromise } from '../interrupt-promise'
 import { toReaderError } from '../reader-adapter'
+import { applyPdfTextLayerContentStyles, pdfLayerClassNames } from './pdf-layer.stylex'
 import {
   pdfCanvasBlob,
   projectPdfOcrItems,
@@ -199,7 +200,7 @@ export class PdfTextLayer {
   ): Promise<PdfTextLayerCommit | null> {
     const layer = this.createStagingLayer()
     layer.replaceChildren()
-    layer.classList.remove('reader-pdf-text-layer-ocr')
+    layer.className = `reader-pdf-text-layer ${pdfLayerClassNames.textLayer}`
     const textLayer = new this.options.TextLayer({
       container: layer,
       textContentSource: content,
@@ -208,6 +209,7 @@ export class PdfTextLayer {
     this.task = textLayer
     try {
       await interruptPromise(textLayer.render(), attempt.signal)
+      applyPdfTextLayerContentStyles(layer, false)
     }
     catch (error) {
       if (attempt.isCurrent() && !this.closed)
@@ -237,6 +239,7 @@ export class PdfTextLayer {
     if (cached) {
       const layer = this.createStagingLayer()
       projectPdfOcrItems(layer, cached.items, input.viewport.height)
+      applyPdfTextLayerContentStyles(layer, true)
       return this.prepareCommit(layer, cached.items.length > 0 ? 'ocr' : 'none', () => {
         this.options.callbacks.onOcrStatusChange({ pageNumber: input.pageNumber, state: 'ready' })
       })
@@ -264,6 +267,7 @@ export class PdfTextLayer {
       this.ocrCache.set(input.pageNumber, result)
       const layer = this.createStagingLayer()
       projectPdfOcrItems(layer, result.items, input.viewport.height)
+      applyPdfTextLayerContentStyles(layer, true)
       return this.prepareCommit(layer, result.items.length > 0 ? 'ocr' : 'none', () => {
         this.options.callbacks.onOcrStatusChange({ pageNumber: input.pageNumber, state: 'ready' })
       })

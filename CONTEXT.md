@@ -235,3 +235,43 @@ _Avoid_: Sync timestamp, device sequence
 **Sync Tombstone**:
 A retained marker that tells another device an object or historical record was permanently removed during database maintenance.
 _Avoid_: Inactive Card, archive
+
+**Sync Server**:
+An optional multi-tenant libp2p peer that devices reach over WebSocket while direct Paired Device synchronization remains available.
+_Avoid_: Replacement P2P network, desktop API server
+
+**Relay Sync Mode**:
+An account policy in which a Sync Server forwards data only between currently connected devices and does not persist transferred payloads; it cannot recover data while every source device is offline.
+_Avoid_: Durable relay, backup service
+
+**Authoritative Sync Mode**:
+An account policy in which a Sync Server durably stores plaintext Note, Personal Learning Sync, and asset data as an additional peer and recovery source.
+_Avoid_: Relay Sync Mode, opaque backup
+
+**Account**:
+A single user's tenant boundary on a Sync Server, owning that user's synchronized Notes, Personal Learning Sync, assets, and device memberships.
+_Avoid_: Organization, user session, database
+
+**Account Device**:
+An authorized membership binding one local Device to an Account through its PeerId and revocable DeviceCredential.
+_Avoid_: Paired Device, discovered peer, browser session
+
+**Active Sync Server Account**:
+The one server Account currently bound to a local database for server synchronization; direct Paired Devices remain independent of this binding.
+_Avoid_: Primary server, authoritative database
+
+**Sync Frontier**:
+A namespace-specific position describing the mutations or CRDT state a sync participant has observed and durably incorporated.
+_Avoid_: Sync timestamp, global server cursor
+
+**Sync Generation**:
+The account-scoped reset boundary for synchronized content; advancing it invalidates prior cursors and requires clients to bootstrap the namespace again.
+_Avoid_: Membership Epoch, database version
+
+**Policy Epoch**:
+A monotonically increasing version of an Account's enabled synchronization modes and limits, used to drain sessions that no longer satisfy current policy.
+_Avoid_: Sync Generation, protocol version
+
+**Relay Acknowledgement**:
+An acknowledgement that a relay accepted a batch for best-effort delivery to currently connected devices; it does not assert durable storage or offline recoverability.
+_Avoid_: Durable acknowledgement, authoritative commit

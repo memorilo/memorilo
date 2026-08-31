@@ -8,7 +8,32 @@ import type {
   TodoTaskPage,
   TodoTaskStatus,
 } from './editor-storage-contracts'
+import { and, desc, eq, inArray, lt } from 'drizzle-orm'
+import { journals, noteFavorites, notes, topicBlocks, topics } from './drizzle-schema'
 import { resolveLimit } from './editor-storage-shared'
+
+interface TodoTaskProjectionRow {
+  attributes_json: string
+  block_id: string
+  journal_date: string | null
+  note_favorite_row_id: number | null
+  note_id: string
+  note_row_id: number
+  note_title: string
+  parent_block_id: string | null
+  task_row_id: number
+  text: string
+  topic_id: string
+  topic_title: string
+}
+
+interface TopicBlockParentRow {
+  block_id: string
+  kind: string
+  note_row_id: number
+  parent_block_id: string | null
+  topic_id: string
+}
 
 interface TodoTaskRow {
   all_day: number | null
@@ -102,6 +127,82 @@ function readReminders(value: string | null, blockId: string): readonly TodoRemi
   if (new Set(reminders.map(reminder => JSON.stringify(reminder))).size !== reminders.length)
     throw new TypeError(`Stored Todo task ${blockId} has duplicate reminders`)
   return reminders
+}
+
+function parseTaskAttributes(value: string, blockId: string): Record<string, unknown> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  }
+  catch (error) {
+    throw new TypeError(`Stored Todo task ${blockId} has invalid attributes`, { cause: error })
+  }
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object')
+    throw new TypeError(`Stored Todo task ${blockId} has invalid attributes`)
+  return parsed as Record<string, unknown>
+}
+
+function serializedAttribute(attributes: Record<string, unknown>, key: string): string | null {
+  const value = attributes[key]
+  return value === undefined || value === null ? null : JSON.stringify(value)
+}
+
+function todoParentKey(noteRowId: number, topicId: string, blockId: string): string {
+  return `${noteRowId}\u0000${topicId}\u0000${blockId}`
+}
+
+function nearestTodoParent(
+  task: Pick<TodoTaskProjectionRow, 'block_id' | 'note_row_id' | 'parent_block_id' | 'topic_id'>,
+  blocks: ReadonlyMap<string, TopicBlockParentRow>,
+): string | null {
+  let ancestorId = task.parent_block_id
+  const visited = new Set<string>([task.block_id])
+  while (ancestorId !== null) {
+    if (visited.has(ancestorId))
+      throw new Error(`Todo task ${task.block_id} contains a cyclic parent chain`)
+    visited.add(ancestorId)
+    const ancestor = blocks.get(todoParentKey(task.note_row_id, task.topic_id, ancestorId))
+    if (!ancestor)
+      return null
+    if (ancestor.kind === 'task')
+      return ancestor.block_id
+    ancestorId = ancestor.parent_block_id
+  }
+  return null
+}
+
+function projectTodoTaskRow(
+  row: TodoTaskProjectionRow,
+  attributes: Record<string, unknown>,
+  todoParentId: string | null,
+): TodoTaskRow {
+  const allDay = attributes.allDay === true
+    ? 1
+    : attributes.allDay === false || attributes.allDay === undefined ? 0 : attributes.allDay as number
+  return {
+    all_day: allDay,
+    block_id: row.block_id,
+    due_date: (attributes.dueDate ?? null) as string | null,
+    due_time: (attributes.dueTime ?? null) as string | null,
+    elapsed_ms: (attributes.elapsedMs ?? null) as number | null,
+    end_at: (attributes.endAt ?? null) as string | null,
+    journal_date: row.journal_date,
+    note_favorite: row.note_favorite_row_id === null ? 0 : 1,
+    note_id: row.note_id,
+    note_title: row.note_title,
+    parent_block_id: row.parent_block_id,
+    reminder_minutes: (attributes.reminderMinutes ?? null) as number | null,
+    reminders: serializedAttribute(attributes, 'reminders'),
+    repeat_rule: serializedAttribute(attributes, 'repeatRule'),
+    start_at: (attributes.startAt ?? null) as string | null,
+    started_at: (attributes.startedAt ?? null) as number | null,
+    status: (attributes.status ?? null) as string | null,
+    task_row_id: row.task_row_id,
+    text: row.text,
+    todo_parent_id: todoParentId,
+    topic_id: row.topic_id,
+    topic_title: row.topic_title,
+  }
 }
 
 function toTodoTask(row: TodoTaskRow): TodoTask {
@@ -240,79 +341,47 @@ export class EditorTodoRepository implements EditorTodoStorage {
     const cursor = resolveCursor(input.cursor)
     const limit = resolveLimit(input.limit, 100, 500)
     const status = resolveStatus(input.status)
-    const cursorPredicate = cursor === null ? '' : 'AND block.row_id < ?'
-    const statusPredicate = status === null ? '' : `AND json_extract(block.attributes_json, '$.status') = ?`
-    const parameters = [
-      ...(cursor === null ? [] : [cursor]),
-      ...(status === null ? [] : [status]),
-      limit + 1,
-    ]
 
     return this.#options.runOperation(async () => {
-      const rows = await this.#options.database.all<TodoTaskRow>(`
-        WITH RECURSIVE task_parents (note_row_id, topic_id, task_block_id, ancestor_id, todo_parent_id) AS (
-          SELECT block.note_row_id, block.topic_id, block.block_id, block.parent_block_id, NULL
-          FROM topic_blocks AS block
-          WHERE block.kind = 'task'
-          UNION ALL
-          SELECT parents.note_row_id,
-            parents.topic_id,
-            parents.task_block_id,
-            parent.parent_block_id,
-            CASE WHEN parent.kind = 'task' THEN parent.block_id ELSE NULL END
-          FROM task_parents AS parents
-          INNER JOIN topic_blocks AS parent
-            ON parent.note_row_id = parents.note_row_id
-            AND parent.topic_id = parents.topic_id
-            AND parent.block_id = parents.ancestor_id
-          WHERE parents.ancestor_id IS NOT NULL
-            AND parents.todo_parent_id IS NULL
-        )
-        SELECT
-          block.row_id AS task_row_id,
-          block.block_id,
-          block.parent_block_id,
-          (
-            SELECT parents.todo_parent_id
-            FROM task_parents AS parents
-            WHERE parents.note_row_id = block.note_row_id
-              AND parents.topic_id = block.topic_id
-              AND parents.task_block_id = block.block_id
-              AND parents.todo_parent_id IS NOT NULL
-            LIMIT 1
-          ) AS todo_parent_id,
-          block.text,
-          json_extract(block.attributes_json, '$.dueDate') AS due_date,
-          COALESCE(json_extract(block.attributes_json, '$.allDay'), 0) AS all_day,
-          json_extract(block.attributes_json, '$.dueTime') AS due_time,
-          json_extract(block.attributes_json, '$.endAt') AS end_at,
-          json_extract(block.attributes_json, '$.elapsedMs') AS elapsed_ms,
-          json_extract(block.attributes_json, '$.startedAt') AS started_at,
-          json_extract(block.attributes_json, '$.status') AS status,
-          json_extract(block.attributes_json, '$.repeatRule') AS repeat_rule,
-          json_extract(block.attributes_json, '$.reminderMinutes') AS reminder_minutes,
-          json_extract(block.attributes_json, '$.reminders') AS reminders,
-          json_extract(block.attributes_json, '$.startAt') AS start_at,
-          journal.journal_date,
-          note.id AS note_id,
-          CASE WHEN favorite.note_row_id IS NULL THEN 0 ELSE 1 END AS note_favorite,
-          note.title AS note_title,
-          topic.topic_id,
-          topic.title AS topic_title
-        FROM topic_blocks AS block
-        INNER JOIN notes AS note ON note.row_id = block.note_row_id
-        LEFT JOIN journals AS journal ON journal.note_row_id = note.row_id
-        LEFT JOIN note_favorites AS favorite ON favorite.note_row_id = note.row_id
-        INNER JOIN topics AS topic
-          ON topic.note_row_id = block.note_row_id AND topic.topic_id = block.topic_id
-        WHERE block.kind = 'task'
-          ${cursorPredicate}
-          ${statusPredicate}
-        ORDER BY block.row_id DESC
-        LIMIT ?
-      `, parameters)
-      const hasMore = rows.length > limit
-      const pageRows = hasMore ? rows.slice(0, limit) : rows
+      const candidates = this.#options.database.drizzle.select({
+        attributes_json: topicBlocks.attributesJson,
+        block_id: topicBlocks.blockId,
+        journal_date: journals.journalDate,
+        note_favorite_row_id: noteFavorites.noteRowId,
+        note_id: notes.id,
+        note_row_id: topicBlocks.noteRowId,
+        note_title: notes.title,
+        parent_block_id: topicBlocks.parentBlockId,
+        task_row_id: topicBlocks.rowId,
+        text: topicBlocks.text,
+        topic_id: topicBlocks.topicId,
+        topic_title: topics.title,
+      }).from(topicBlocks).innerJoin(notes, eq(notes.rowId, topicBlocks.noteRowId)).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).leftJoin(noteFavorites, eq(noteFavorites.noteRowId, notes.rowId)).innerJoin(topics, and(eq(topics.noteRowId, topicBlocks.noteRowId), eq(topics.topicId, topicBlocks.topicId))).where(and(eq(topicBlocks.kind, 'task'), cursor === null ? undefined : lt(topicBlocks.rowId, cursor))).orderBy(desc(topicBlocks.rowId)).all() as TodoTaskProjectionRow[]
+      const matching = candidates.map(row => ({
+        attributes: parseTaskAttributes(row.attributes_json, row.block_id),
+        row,
+      })).filter(candidate => status === null || candidate.attributes.status === status)
+      const hasMore = matching.length > limit
+      const pageCandidates = hasMore ? matching.slice(0, limit) : matching
+      const noteRowIds = [...new Set(pageCandidates.map(candidate => candidate.row.note_row_id))]
+      const parentRows = noteRowIds.length === 0
+        ? []
+        : this.#options.database.drizzle.select({
+          block_id: topicBlocks.blockId,
+          kind: topicBlocks.kind,
+          note_row_id: topicBlocks.noteRowId,
+          parent_block_id: topicBlocks.parentBlockId,
+          topic_id: topicBlocks.topicId,
+        }).from(topicBlocks).where(inArray(topicBlocks.noteRowId, noteRowIds)).all() as TopicBlockParentRow[]
+      const parentByKey = new Map(parentRows.map(row => [
+        todoParentKey(row.note_row_id, row.topic_id, row.block_id),
+        row,
+      ]))
+      const pageRows = pageCandidates.map(candidate => projectTodoTaskRow(
+        candidate.row,
+        candidate.attributes,
+        nearestTodoParent(candidate.row, parentByKey),
+      ))
       const items = pageRows.map(toTodoTask)
       const lastRow = pageRows.at(-1)
       if (hasMore && lastRow && !Number.isSafeInteger(lastRow.task_row_id))

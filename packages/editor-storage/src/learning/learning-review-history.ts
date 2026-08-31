@@ -4,9 +4,11 @@ import type {
   RatingEventForReplay,
   RatingHistory,
 } from '@memorilo/srs'
-import type { DatabaseCommand, EditorStorageDatabase } from '../database-driver'
+import type { DatabaseCommand, EditorStorageDatabase, EditorStorageDrizzleDatabase } from '../database-driver'
 import type { ReviewRating } from './types'
 import { isStrugglingMultiLineItem, replayRatings } from '@memorilo/srs'
+import { asc, eq, inArray } from 'drizzle-orm'
+import { learningReviewEvents, learningTargets } from '../drizzle-schema'
 import { stateCommand } from './learning-storage-shared'
 
 export interface LearningReviewOptimizer {
@@ -28,6 +30,7 @@ export interface ReviewEventRow {
   rating: ReviewRating | null
   reset_epoch: string | null
   undoes_event_id: string | null
+  response_milliseconds?: number | null
 }
 
 function compareEvents(left: ReviewEventRow, right: ReviewEventRow): number {
@@ -92,17 +95,36 @@ export function itemPartialActive(canonical: readonly RatingEventForReplay[]): b
 }
 
 export class LearningReviewHistory {
-  readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
 
   constructor(database: EditorStorageDatabase) {
-    this.#database = database
+    this.#orm = database.drizzle
   }
 
   events(targetId: string): Promise<readonly ReviewEventRow[]> {
-    return this.#database.all<ReviewEventRow>(
-      'SELECT event_id, event_kind, rating, occurred_at, base_event_id, undoes_event_id, reset_epoch FROM learning_review_events WHERE target_id = ? ORDER BY occurred_at, event_id',
-      [targetId],
-    )
+    return Promise.resolve(this.#orm.select({
+      event_id: learningReviewEvents.eventId,
+      event_kind: learningReviewEvents.eventKind,
+      rating: learningReviewEvents.rating,
+      occurred_at: learningReviewEvents.occurredAt,
+      base_event_id: learningReviewEvents.baseEventId,
+      undoes_event_id: learningReviewEvents.undoesEventId,
+      reset_epoch: learningReviewEvents.resetEpoch,
+    }).from(learningReviewEvents).where(eq(learningReviewEvents.targetId, targetId)).orderBy(asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as ReviewEventRow[])
+  }
+
+  eventById(eventId: string): (ReviewEventRow & { target_id: string }) | undefined {
+    return this.#orm.select({
+      event_id: learningReviewEvents.eventId,
+      event_kind: learningReviewEvents.eventKind,
+      rating: learningReviewEvents.rating,
+      occurred_at: learningReviewEvents.occurredAt,
+      base_event_id: learningReviewEvents.baseEventId,
+      undoes_event_id: learningReviewEvents.undoesEventId,
+      reset_epoch: learningReviewEvents.resetEpoch,
+      target_id: learningReviewEvents.targetId,
+      response_milliseconds: learningReviewEvents.responseMilliseconds,
+    }).from(learningReviewEvents).where(eq(learningReviewEvents.eventId, eventId)).get() as (ReviewEventRow & { target_id: string }) | undefined
   }
 
   async ratings(targetId: string): Promise<readonly RatingEventForReplay[]> {
@@ -167,11 +189,16 @@ export class LearningReviewHistory {
     const uniqueTargetIds = [...new Set(targetIds)]
     if (uniqueTargetIds.length === 0)
       return new Map()
-    const placeholders = uniqueTargetIds.map(() => '?').join(', ')
-    const storedEvents = await this.#database.all<ReviewEventRow & { target_id: string }>(
-      `SELECT target_id, event_id, event_kind, rating, occurred_at, base_event_id, undoes_event_id, reset_epoch FROM learning_review_events WHERE target_id IN (${placeholders}) ORDER BY target_id, occurred_at, event_id`,
-      uniqueTargetIds,
-    )
+    const storedEvents = this.#orm.select({
+      target_id: learningReviewEvents.targetId,
+      event_id: learningReviewEvents.eventId,
+      event_kind: learningReviewEvents.eventKind,
+      rating: learningReviewEvents.rating,
+      occurred_at: learningReviewEvents.occurredAt,
+      base_event_id: learningReviewEvents.baseEventId,
+      undoes_event_id: learningReviewEvents.undoesEventId,
+      reset_epoch: learningReviewEvents.resetEpoch,
+    }).from(learningReviewEvents).where(inArray(learningReviewEvents.targetId, uniqueTargetIds)).orderBy(asc(learningReviewEvents.targetId), asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as Array<ReviewEventRow & { target_id: string }>
     const eventsByTarget = new Map<string, ReviewEventRow[]>()
     for (const event of storedEvents) {
       const group = eventsByTarget.get(event.target_id)
@@ -201,8 +228,9 @@ export class LearningReviewHistory {
     const commands: DatabaseCommand[] = [stateCommand(state)]
     if (target.targetKind === 'item') {
       commands.push({
-        parameters: [itemPartialActive(canonical) ? 1 : 0, target.targetId],
-        sql: 'UPDATE learning_targets SET partial_active = ? WHERE target_id = ?',
+        drizzle: database => database.update(learningTargets).set({
+          partialActive: itemPartialActive(canonical) ? 1 : 0,
+        }).where(eq(learningTargets.targetId, target.targetId)).run(),
       })
     }
     return commands

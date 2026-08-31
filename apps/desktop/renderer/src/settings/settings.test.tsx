@@ -38,6 +38,7 @@ describe('settings renderer', () => {
 
     fireEvent.click(rendered.getByRole('button', { name: 'Sync' }))
     expect(await rendered.findByRole('heading', { name: 'Sync' })).toBeInTheDocument()
+    expect(rendered.getByRole('heading', { name: 'Sync Server' })).toBeInTheDocument()
     expect(rendered.getByText('P2P sync')).toBeInTheDocument()
     expect(rendered.getByRole('button', { name: 'Allow discovery for 5 minutes' })).toBeDisabled()
 

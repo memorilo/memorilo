@@ -1,11 +1,13 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { sql } from 'drizzle-orm'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { afterEach, describe, expect, it } from 'vitest'
-import { BetterSqliteDatabase } from './better-sqlite-database'
-import { mainDatabaseSchemaGeneration, openCurrentMainDatabase } from './main-database'
+import { openCurrentMainDatabase } from './main-database'
 
 const temporaryDirectories: string[] = []
+const retained = sqliteTable('retained', { value: text().notNull() })
 
 async function databasePath(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'memorilo-main-database-'))
@@ -19,56 +21,23 @@ afterEach(async () => {
   )))
 })
 
-describe('main database generation', () => {
-  it('preserves data after the current generation has been established', async () => {
+describe('main database', () => {
+  it('preserves data while Drizzle owns the schema generation', async () => {
     const path = await databasePath()
     const first = await openCurrentMainDatabase(path)
-    await first.exec('CREATE TABLE retained (value TEXT NOT NULL)')
-    await first.run('INSERT INTO retained (value) VALUES (?)', ['current'])
+    first.migrate()
+    const firstGeneration = first.drizzle.get<{ user_version: number }>(sql`PRAGMA user_version`)
+    expect(firstGeneration?.user_version).toBeGreaterThan(0)
+    first.drizzle.run(sql`CREATE TABLE ${retained} (value TEXT NOT NULL)`)
+    first.drizzle.insert(retained).values({ value: 'current' }).run()
     await first.close()
 
     const second = await openCurrentMainDatabase(path)
-    await expect(second.get<{ value: string }>('SELECT value FROM retained')).resolves.toEqual({ value: 'current' })
-    await expect(second.get<{ user_version: number }>('PRAGMA user_version')).resolves.toEqual({
-      user_version: mainDatabaseSchemaGeneration,
+    second.migrate()
+    expect(second.drizzle.select().from(retained).get()).toEqual({ value: 'current' })
+    expect(second.drizzle.get<{ user_version: number }>(sql`PRAGMA user_version`)).toEqual({
+      user_version: firstGeneration?.user_version,
     })
     await second.close()
-  })
-
-  it('deletes an unversioned legacy database before opening the current generation', async () => {
-    const path = await databasePath()
-    const legacy = new BetterSqliteDatabase(path)
-    await legacy.exec('CREATE TABLE legacy_notes (value TEXT NOT NULL)')
-    await legacy.run('INSERT INTO legacy_notes (value) VALUES (?)', ['delete me'])
-    await legacy.close()
-
-    const current = await openCurrentMainDatabase(path)
-
-    await expect(current.get<{ name: string }>(
-      'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = \'legacy_notes\'',
-    )).resolves.toBeUndefined()
-    await expect(current.get<{ user_version: number }>('PRAGMA user_version')).resolves.toEqual({
-      user_version: mainDatabaseSchemaGeneration,
-    })
-    await current.close()
-  })
-
-  it('deletes a database from an incompatible generation before opening the current generation', async () => {
-    const path = await databasePath()
-    const legacy = new BetterSqliteDatabase(path)
-    await legacy.exec('CREATE TABLE incompatible_notes (value TEXT NOT NULL)')
-    await legacy.run('INSERT INTO incompatible_notes (value) VALUES (?)', ['delete me'])
-    await legacy.exec('PRAGMA user_version = 999')
-    await legacy.close()
-
-    const current = await openCurrentMainDatabase(path)
-
-    await expect(current.get<{ name: string }>(
-      'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = \'incompatible_notes\'',
-    )).resolves.toBeUndefined()
-    await expect(current.get<{ user_version: number }>('PRAGMA user_version')).resolves.toEqual({
-      user_version: mainDatabaseSchemaGeneration,
-    })
-    await current.close()
   })
 })

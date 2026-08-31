@@ -319,6 +319,30 @@ export interface RegisterAssetInput {
   originalFileName: string
 }
 
+export interface AssetSyncManifest {
+  contentHash: string | null
+  contentLength: number | null
+  contentType: string | null
+  createdAt: number
+  deviceId: string
+  fileName: string
+  id: string
+  operation: 'put' | 'delete'
+  originalFileName: string
+  sequence: number
+}
+
+export interface AppendLocalAssetSyncManifestInput {
+  contentHash: string | null
+  contentLength: number | null
+  contentType: string | null
+  createdAt: number
+  deviceId: string
+  fileName: string
+  operation: 'put' | 'delete'
+  originalFileName: string
+}
+
 export interface ReconcileNoteAssetReferencesInput {
   allowedMissingAssetFileNames?: readonly string[]
   expectedLatestSequence: number
@@ -567,12 +591,16 @@ export interface TopicBlockSearchHit extends StoredTopicBlock {
 }
 
 export interface EditorAssetStorage {
+  appendLocalSyncManifest: (input: AppendLocalAssetSyncManifestInput) => Promise<AssetSyncManifest>
   claimUnreferenced: (input: { fileName: string, unreferencedBefore: number }) => Promise<StoredAsset | null>
   completeDeletion: (input: { fileName: string }) => Promise<void>
   getStatistics: () => Promise<AssetStatistics>
+  getSyncFrontier: () => Promise<Readonly<Record<string, number>>>
   list: () => Promise<readonly StoredAsset[]>
   listClaimed: () => Promise<readonly StoredAsset[]>
   listUnreferenced: (input: { unreferencedBefore: number }) => Promise<readonly StoredAsset[]>
+  listSyncManifests: (since: Readonly<Record<string, number>>) => Promise<readonly AssetSyncManifest[]>
+  recordReceivedSyncManifests: (manifests: readonly AssetSyncManifest[]) => Promise<void>
   register: (input: RegisterAssetInput) => Promise<StoredAsset>
   releaseClaim: (input: { fileName: string }) => Promise<void>
 }

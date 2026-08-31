@@ -19,6 +19,7 @@ import {
 } from '@memorilo/effect-lifecycle'
 import { AnnotationActivationOwner, annotationOverlayTint } from '../annotations'
 import { interruptPromise } from '../interrupt-promise'
+import { pdfAnnotationClassName, pdfLayerClassNames } from './pdf-layer.stylex'
 import { PdfTextLayer } from './pdf-text-layer'
 
 export interface PdfJsModule {
@@ -137,7 +138,7 @@ export class PdfPageView {
     const viewport = page.getViewport({ scale: fitScale * input.scale })
     const outputScale = Math.min(window.devicePixelRatio || 1, 2)
     const nextCanvas = document.createElement('canvas')
-    nextCanvas.className = 'reader-pdf-canvas'
+    nextCanvas.className = `reader-pdf-canvas ${pdfLayerClassNames.canvas}`
     nextCanvas.width = Math.floor(viewport.width * outputScale)
     nextCanvas.height = Math.floor(viewport.height * outputScale)
     nextCanvas.style.width = `${Math.floor(viewport.width)}px`
@@ -270,7 +271,7 @@ export class PdfPageView {
           throw new Error(`PDF annotation ${annotation.id} has no visible anchor rectangle`)
         for (const rect of rects) {
           const highlight = document.createElement('button')
-          highlight.className = 'reader-pdf-annotation'
+          highlight.className = `reader-pdf-annotation ${pdfAnnotationClassName(annotation.style)}`
           highlight.dataset.annotationId = annotation.id
           highlight.dataset.style = annotation.style
           highlight.setAttribute('aria-label', this.options.callbacks.regionAnnotationLabel())

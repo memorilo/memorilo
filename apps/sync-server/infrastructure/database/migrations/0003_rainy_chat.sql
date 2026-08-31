@@ -1,0 +1,1 @@
+ALTER TABLE `sync_device_credentials` ADD `device_name` text NOT NULL;

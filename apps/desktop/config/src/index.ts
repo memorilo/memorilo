@@ -22,6 +22,7 @@ export type {
   DesktopReaderPageMode,
   DesktopRecurringTaskCompletionAction,
   DesktopShortcutConfiguration,
+  DesktopSyncServerConfiguration,
   DesktopThemeAppearance,
   DesktopThemeFamily,
   DesktopThemePreference,
@@ -157,6 +158,15 @@ export const DesktopConfigurationSchema = Schema.Struct({
     strike: Schema.String,
     underline: Schema.String,
   }),
+  syncServer: Schema.Struct({
+    enabled: Schema.Boolean,
+    generation: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    membershipEpoch: Schema.Int.check(Schema.isGreaterThan(0)),
+    modes: Schema.Array(Schema.Literals(['relay', 'authoritative'])),
+    peerId: Schema.String,
+    policyEpoch: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    url: Schema.String,
+  }),
   tiffConversionFormat: Schema.Literals(['avif', 'jpeg', 'png', 'webp']),
   todo: Schema.Struct({
     autoCompleteParentTasks: Schema.Boolean,
@@ -228,6 +238,15 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerPageMode: 'continuous' as const,
     reduceMotion: false,
     shortcuts: defaultShortcutConfiguration,
+    syncServer: {
+      enabled: false,
+      generation: 0,
+      membershipEpoch: 1,
+      modes: ['relay', 'authoritative'] as ('relay' | 'authoritative')[],
+      peerId: '',
+      policyEpoch: 0,
+      url: '',
+    },
     tiffConversionFormat: 'webp' as const,
     todo: {
       autoCompleteParentTasks: true,
@@ -722,6 +741,25 @@ export const desktopConfigurationDefinition = defineConfiguration({
     }],
     id: 'mcp',
     label: 'MCP',
+  }, {
+    fields: [{
+      control: 'toggle',
+      description: 'Connect this device to a Memorilo Sync Server in addition to direct peer-to-peer sync.',
+      label: 'Enable Sync Server',
+      path: 'syncServer.enabled',
+    }, {
+      control: 'text',
+      description: 'Use the ws:// or wss:// address exposed by the server.',
+      label: 'Sync Server URL',
+      path: 'syncServer.url',
+    }, {
+      control: 'text',
+      description: 'Peer identity from the server pairing invitation.',
+      label: 'Sync Server peer ID',
+      path: 'syncServer.peerId',
+    }],
+    id: 'sync-server',
+    label: 'Sync Server',
   }],
 })
 
@@ -770,9 +808,30 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
         ...withShortcuts,
         editor: { cursor: { ...defaultCursor, ...cursor } },
       }
+  const storedSyncServer = withEditor.syncServer
+  const syncServer = typeof storedSyncServer === 'object' && storedSyncServer !== null && !Array.isArray(storedSyncServer)
+    ? storedSyncServer as Record<string, unknown>
+    : undefined
+  const syncServerComplete = syncServer !== undefined
+    && typeof syncServer.enabled === 'boolean'
+    && typeof syncServer.url === 'string'
+    && typeof syncServer.peerId === 'string'
+    && typeof syncServer.generation === 'number'
+    && typeof syncServer.membershipEpoch === 'number'
+    && typeof syncServer.policyEpoch === 'number'
+    && Array.isArray(syncServer.modes)
+  const withSyncServer = syncServerComplete
+    ? withEditor
+    : {
+        ...withEditor,
+        syncServer: {
+          ...desktopConfigurationDefinition.defaults.syncServer,
+          ...syncServer,
+        },
+      }
   if (!Object.hasOwn(record, 'todo')) {
     return {
-      ...withEditor,
+      ...withSyncServer,
       todo: desktopConfigurationDefinition.defaults.todo,
     }
   }
@@ -782,7 +841,7 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'recurringTaskCompletionAction')) {
     return {
-      ...withEditor,
+      ...withSyncServer,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
@@ -795,12 +854,12 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
     && !Array.isArray(todo)
     && !Object.hasOwn(todo, 'autoCompleteParentTasks')) {
     return {
-      ...withEditor,
+      ...withSyncServer,
       todo: {
         ...todo,
         autoCompleteParentTasks: desktopConfigurationDefinition.defaults.todo.autoCompleteParentTasks,
       },
     }
   }
-  return withEditor
+  return withSyncServer
 }

@@ -1,7 +1,9 @@
 import type { OperationSupervisor } from '@memorilo/effect-lifecycle'
 import type { CachedShelfAsset, ShelfImageCache } from '@memorilo/shelf'
-import type { EditorStorageDatabase } from './database-driver'
+import type { EditorStorageDatabase, EditorStorageDrizzleDatabase } from './database-driver'
 import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { and, desc, eq, notExists, sql } from 'drizzle-orm'
+import { shelfAssets, shelfImageCacheEntries } from './drizzle-schema'
 import { assertNonEmpty } from './editor-storage-shared'
 import { normalizeShelfRemoteUrl } from './shelf-storage-shared'
 
@@ -22,75 +24,15 @@ interface ShelfImageRow {
   url: string
 }
 
-const imageCacheSchema = `
-  CREATE TABLE IF NOT EXISTS shelf_assets (
-    source_id TEXT NOT NULL,
-    url TEXT NOT NULL,
-    bytes BLOB NOT NULL,
-    mime_type TEXT NOT NULL,
-    etag TEXT,
-    last_modified TEXT,
-    fetched_at INTEGER NOT NULL,
-    PRIMARY KEY (source_id, url)
-  );
-
-  CREATE TABLE IF NOT EXISTS shelf_image_cache_entries (
-    source_id TEXT NOT NULL,
-    url TEXT NOT NULL,
-    byte_size INTEGER NOT NULL CHECK (byte_size > 0),
-    last_accessed_at INTEGER NOT NULL CHECK (last_accessed_at >= 0),
-    PRIMARY KEY (source_id, url),
-    FOREIGN KEY (source_id, url) REFERENCES shelf_assets(source_id, url) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS shelf_image_cache_lru_idx
-    ON shelf_image_cache_entries(last_accessed_at, source_id, url);
-`
-
-function pruningCommands(maximumBytes: number) {
-  return [
-    {
-      parameters: [maximumBytes],
-      sql: `
-        DELETE FROM shelf_assets
-        WHERE EXISTS (
-          SELECT 1
-          FROM (
-            SELECT
-              source_id,
-              url,
-              SUM(byte_size) OVER (
-                ORDER BY last_accessed_at DESC, source_id DESC, url DESC
-              ) AS retained_bytes
-            FROM shelf_image_cache_entries
-          ) AS retained
-          WHERE retained.source_id = shelf_assets.source_id
-            AND retained.url = shelf_assets.url
-            AND retained.retained_bytes > ?
-        )
-      `,
-    },
-    {
-      sql: `
-        DELETE FROM shelf_image_cache_entries
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM shelf_assets
-          WHERE shelf_assets.source_id = shelf_image_cache_entries.source_id
-            AND shelf_assets.url = shelf_image_cache_entries.url
-        )
-      `,
-    },
-  ] as const
-}
-
 export class SqliteShelfImageCache implements ShelfImageCache {
   readonly #database: EditorStorageDatabase
+  readonly #orm: EditorStorageDrizzleDatabase
   readonly #maximumBytes: number
   readonly #operations: OperationSupervisor
 
   private constructor(database: EditorStorageDatabase, maximumBytes: number) {
     this.#database = database
+    this.#orm = database.drizzle
     this.#maximumBytes = maximumBytes
     this.#operations = createOperationSupervisor('Shelf image cache')
   }
@@ -99,8 +41,26 @@ export class SqliteShelfImageCache implements ShelfImageCache {
     const maximumBytes = options.maximumBytes ?? defaultMaximumImageCacheBytes
     if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1)
       throw new RangeError('Shelf image cache maximum size must be a positive safe integer')
-    await options.database.exec(imageCacheSchema)
-    await options.database.batch(pruningCommands(maximumBytes))
+    await options.database.migrate()
+    const orm = options.database.drizzle
+    const entries = orm.select({ sourceId: shelfImageCacheEntries.sourceId, url: shelfImageCacheEntries.url, byteSize: shelfImageCacheEntries.byteSize })
+      .from(shelfImageCacheEntries)
+      .orderBy(desc(shelfImageCacheEntries.lastAccessedAt), desc(shelfImageCacheEntries.sourceId), desc(shelfImageCacheEntries.url))
+      .all()
+    let retained = 0
+    for (const entry of entries) {
+      retained += entry.byteSize
+      if (retained > maximumBytes)
+        orm.delete(shelfAssets).where(and(eq(shelfAssets.sourceId, entry.sourceId), eq(shelfAssets.url, entry.url))).run()
+    }
+    orm.delete(shelfImageCacheEntries).where(notExists(
+      orm.select({ sourceId: shelfAssets.sourceId })
+        .from(shelfAssets)
+        .where(and(
+          eq(shelfAssets.sourceId, shelfImageCacheEntries.sourceId),
+          eq(shelfAssets.url, shelfImageCacheEntries.url),
+        )),
+    )).run()
     return new SqliteShelfImageCache(options.database, maximumBytes)
   }
 
@@ -114,43 +74,32 @@ export class SqliteShelfImageCache implements ShelfImageCache {
 
   async deleteSource(sourceId: string): Promise<void> {
     assertNonEmpty(sourceId, 'Shelf image source id')
-    return this.#run(() => this.#database.batch([
-      {
-        parameters: [sourceId],
-        sql: 'DELETE FROM shelf_image_cache_entries WHERE source_id = ?',
-      },
-      {
-        parameters: [sourceId],
-        sql: 'DELETE FROM shelf_assets WHERE source_id = ?',
-      },
-    ]))
+    return this.#run(async () => {
+      this.#orm.delete(shelfImageCacheEntries).where(eq(shelfImageCacheEntries.sourceId, sourceId)).run()
+      this.#orm.delete(shelfAssets).where(eq(shelfAssets.sourceId, sourceId)).run()
+    })
   }
 
   async get(sourceId: string, url: string): Promise<CachedShelfAsset | null> {
     assertNonEmpty(sourceId, 'Shelf image source id')
     const normalizedUrl = normalizeShelfRemoteUrl(url, 'Shelf image URL')
     return this.#run(async () => {
-      const row = await this.#database.get<ShelfImageRow>(`
-        SELECT source_id, url, bytes, mime_type, etag, last_modified, fetched_at
-        FROM shelf_assets
-        WHERE source_id = ? AND url = ?
-      `, [sourceId, normalizedUrl])
+      await this.#database.beforeDrizzleRead?.('SELECT source_id, url, bytes, mime_type, etag, last_modified, fetched_at FROM shelf_assets')
+      const row = this.#orm.select({
+        source_id: shelfAssets.sourceId,
+        url: shelfAssets.url,
+        bytes: shelfAssets.bytes,
+        mime_type: shelfAssets.mimeType,
+        etag: shelfAssets.etag,
+        last_modified: shelfAssets.lastModified,
+        fetched_at: shelfAssets.fetchedAt,
+      }).from(shelfAssets).where(and(eq(shelfAssets.sourceId, sourceId), eq(shelfAssets.url, normalizedUrl))).get() as ShelfImageRow | undefined
       if (!row)
         return null
 
       const accessedAt = Date.now()
-      await this.#database.run(`
-        INSERT INTO shelf_image_cache_entries (source_id, url, byte_size, last_accessed_at)
-        VALUES (
-          ?,
-          ?,
-          ?,
-          MAX(?, COALESCE((SELECT MAX(last_accessed_at) + 1 FROM shelf_image_cache_entries), ?))
-        )
-        ON CONFLICT(source_id, url) DO UPDATE SET
-          byte_size = excluded.byte_size,
-          last_accessed_at = excluded.last_accessed_at
-      `, [sourceId, normalizedUrl, row.bytes.byteLength, accessedAt, accessedAt])
+      const maxAccessed = this.#orm.select({ value: sql<number>`coalesce(max(${shelfImageCacheEntries.lastAccessedAt}) + 1, ${accessedAt})` }).from(shelfImageCacheEntries).get()?.value ?? accessedAt
+      this.#orm.insert(shelfImageCacheEntries).values({ sourceId, url: normalizedUrl, byteSize: row.bytes.byteLength, lastAccessedAt: Math.max(accessedAt, maxAccessed) }).onConflictDoUpdate({ target: [shelfImageCacheEntries.sourceId, shelfImageCacheEntries.url], set: { byteSize: row.bytes.byteLength, lastAccessedAt: Math.max(accessedAt, maxAccessed) } }).run()
 
       return {
         bytes: new Uint8Array(row.bytes),
@@ -175,44 +124,29 @@ export class SqliteShelfImageCache implements ShelfImageCache {
     if (!Number.isSafeInteger(saved.fetchedAt) || saved.fetchedAt < 0)
       throw new RangeError('Shelf image fetch time must be a non-negative safe integer')
     const accessedAt = Date.now()
-    return this.#run(() => this.#database.batch([
-      {
-        parameters: [
-          saved.sourceId,
-          normalizedUrl,
-          saved.bytes,
-          saved.mimeType,
-          saved.etag,
-          saved.lastModified,
-          saved.fetchedAt,
-        ],
-        sql: `
-          INSERT INTO shelf_assets (source_id, url, bytes, mime_type, etag, last_modified, fetched_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(source_id, url) DO UPDATE SET
-            bytes = excluded.bytes,
-            mime_type = excluded.mime_type,
-            etag = excluded.etag,
-            last_modified = excluded.last_modified,
-            fetched_at = excluded.fetched_at
-        `,
-      },
-      {
-        parameters: [saved.sourceId, normalizedUrl, saved.bytes.byteLength, accessedAt, accessedAt],
-        sql: `
-          INSERT INTO shelf_image_cache_entries (source_id, url, byte_size, last_accessed_at)
-          VALUES (
-            ?,
-            ?,
-            ?,
-            MAX(?, COALESCE((SELECT MAX(last_accessed_at) + 1 FROM shelf_image_cache_entries), ?))
-          )
-          ON CONFLICT(source_id, url) DO UPDATE SET
-            byte_size = excluded.byte_size,
-            last_accessed_at = excluded.last_accessed_at
-        `,
-      },
-      ...pruningCommands(this.#maximumBytes),
-    ]))
+    return this.#run(async () => {
+      this.#orm.transaction((tx) => {
+        tx.insert(shelfAssets).values({ sourceId: saved.sourceId, url: normalizedUrl, bytes: saved.bytes, mimeType: saved.mimeType, etag: saved.etag, lastModified: saved.lastModified, fetchedAt: saved.fetchedAt }).onConflictDoUpdate({ target: [shelfAssets.sourceId, shelfAssets.url], set: { bytes: saved.bytes, mimeType: saved.mimeType, etag: saved.etag, lastModified: saved.lastModified, fetchedAt: saved.fetchedAt } }).run()
+        tx.insert(shelfImageCacheEntries).values({ sourceId: saved.sourceId, url: normalizedUrl, byteSize: saved.bytes.byteLength, lastAccessedAt: accessedAt }).onConflictDoUpdate({ target: [shelfImageCacheEntries.sourceId, shelfImageCacheEntries.url], set: { byteSize: saved.bytes.byteLength, lastAccessedAt: accessedAt } }).run()
+      })
+      const entries = this.#orm.select({ sourceId: shelfImageCacheEntries.sourceId, url: shelfImageCacheEntries.url, byteSize: shelfImageCacheEntries.byteSize })
+        .from(shelfImageCacheEntries)
+        .orderBy(desc(shelfImageCacheEntries.lastAccessedAt), desc(shelfImageCacheEntries.sourceId), desc(shelfImageCacheEntries.url))
+        .all()
+      let retained = 0
+      for (const entry of entries) {
+        retained += entry.byteSize
+        if (retained > this.#maximumBytes)
+          this.#orm.delete(shelfAssets).where(and(eq(shelfAssets.sourceId, entry.sourceId), eq(shelfAssets.url, entry.url))).run()
+      }
+      this.#orm.delete(shelfImageCacheEntries).where(notExists(
+        this.#orm.select({ sourceId: shelfAssets.sourceId })
+          .from(shelfAssets)
+          .where(and(
+            eq(shelfAssets.sourceId, shelfImageCacheEntries.sourceId),
+            eq(shelfAssets.url, shelfImageCacheEntries.url),
+          )),
+      )).run()
+    })
   }
 }

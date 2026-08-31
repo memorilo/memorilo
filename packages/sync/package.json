@@ -1,0 +1,34 @@
+{
+  "name": "@memorilo/sync",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.1",
+    "@libp2p/crypto": "^5.1.22",
+    "@libp2p/identify": "^4.1.12",
+    "@libp2p/interface": "3.3.0",
+    "@libp2p/mdns": "^12.0.29",
+    "@libp2p/peer-id": "^6.0.14",
+    "@libp2p/tcp": "^11.0.26",
+    "@libp2p/websockets": "^10.1.20",
+    "@multiformats/multiaddr": "^13.0.3",
+    "libp2p": "^3.3.8",
+    "loro-crdt": "1.13.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "effect": "4.0.0-beta.23"
+  }
+}

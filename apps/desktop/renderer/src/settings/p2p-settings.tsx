@@ -1,28 +1,52 @@
-import type { DesktopP2pDiscoveredPeer, DesktopP2pLocalDevice, DesktopP2pPairedDevice, DesktopP2pPairingRequest, DesktopP2pStatus } from '@memorilo/desktop-api'
+import type { DesktopP2pDiscoveredPeer, DesktopP2pLocalDevice, DesktopP2pPairedDevice, DesktopP2pPairingRequest, DesktopP2pStatus, DesktopSyncServerStatus } from '@memorilo/desktop-api'
 import type { ReactNode } from 'react'
 import { Button, ButtonGroup, Status, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
-import { Check, Laptop, Radar, Save, ShieldCheck, Trash2, Wifi } from 'lucide-react'
+import { Check, Laptop, Radar, Save, Server, ShieldCheck, Trash2, Wifi } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useDesktopConfiguration } from '../shared/configuration'
+import { desktopRequests } from '../shared/desktop-requests'
 import { p2pSettingsStyles as styles } from './p2p-settings.stylex'
 
 function peerIdSummary(peerId: string): string {
   return peerId.length > 18 ? `${peerId.slice(0, 10)}…${peerId.slice(-6)}` : peerId
 }
 
+function peerIdFromInvitation(value: string): string | null {
+  const separator = value.indexOf('.')
+  if (separator < 0)
+    return null
+  try {
+    const encoded = value.slice(separator + 1).replace(/-/gu, '+').replace(/_/gu, '/')
+    const invitation = JSON.parse(atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '='))) as { peerId?: unknown }
+    return typeof invitation.peerId === 'string' && invitation.peerId.length > 0
+      ? invitation.peerId
+      : null
+  }
+  catch {
+    return null
+  }
+}
+
 export function P2pSettings() {
   const { t } = useTranslation('settings')
+  const configuration = useDesktopConfiguration()
   const available = typeof window.desktop !== 'undefined'
   const [devices, setDevices] = useState<readonly DesktopP2pPairedDevice[]>([])
   const [localDevice, setLocalDevice] = useState<DesktopP2pLocalDevice | null>(null)
   const [draftDeviceName, setDraftDeviceName] = useState('')
   const [nameDirty, setNameDirty] = useState(false)
   const [status, setStatus] = useState<DesktopP2pStatus | null>(null)
+  const [serverStatus, setServerStatus] = useState<DesktopSyncServerStatus | null>(null)
   const [peers, setPeers] = useState<readonly DesktopP2pDiscoveredPeer[]>([])
   const [requests, setRequests] = useState<readonly DesktopP2pPairingRequest[]>([])
   const [emojiByRequest, setEmojiByRequest] = useState<Record<string, string>>({})
   const [message, setMessage] = useState<string | null>(null)
+  const [serverInvitation, setServerInvitation] = useState('')
+  const [serverPairingResponse, setServerPairingResponse] = useState('')
+  const [serverCredential, setServerCredential] = useState('')
+  const [serverPeerId, setServerPeerId] = useState('')
 
   const reload = useCallback(async () => {
     if (!available)
@@ -62,6 +86,30 @@ export function P2pSettings() {
     const timer = window.setInterval(() => void reload(), 1000)
     return () => window.clearInterval(timer)
   }, [available, reload])
+
+  useEffect(() => {
+    if (!available)
+      return
+    let active = true
+    const unsubscribe = window.desktop.subscribeSyncServerEvents((event) => {
+      setServerStatus(event.status)
+      if (event.type === 'account-data-reset')
+        setMessage(t('syncServerDataResetDetected'))
+      else if (event.type === 'policy-changed')
+        setMessage(t('syncServerPolicyChanged'))
+    })
+    void window.desktop.p2p.getServerStatus().then((next) => {
+      if (active)
+        setServerStatus(next)
+    }).catch((error) => {
+      if (active)
+        setMessage(error instanceof Error ? error.message : String(error))
+    })
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [available, t])
 
   const enableDiscovery = async () => {
     try {
@@ -119,6 +167,45 @@ export function P2pSettings() {
     }
   }
 
+  const acceptServerInvitation = async () => {
+    try {
+      const serverUrl = configuration.syncServer.url.trim()
+      if (serverUrl.length === 0)
+        throw new Error(t('syncServerUrlRequired'))
+      const invitation = serverInvitation.trim()
+      const peerId = peerIdFromInvitation(invitation)
+      if (peerId === null)
+        throw new Error(t('syncServerInvitationInvalid'))
+      const response = await window.desktop.p2p.acceptInvitation(invitation, serverUrl)
+      await desktopRequests.setConfigurationValue('syncServer.peerId', peerId)
+      setServerPeerId(peerId)
+      setServerPairingResponse(response)
+      setMessage(t('syncServerPairingResponseReady'))
+    }
+    catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const completeServerPairing = async () => {
+    try {
+      const credential = serverCredential.trim()
+      const peerId = serverPeerId || configuration.syncServer.peerId.trim()
+      if (peerId.length === 0 || credential.length === 0)
+        throw new Error(t('syncServerCredentialRequired'))
+      await desktopRequests.setConfigurationValue('syncServer.peerId', peerId)
+      await window.desktop.p2p.installServerCredential(credential)
+      await desktopRequests.setConfigurationValue('syncServer.enabled', true)
+      setServerCredential('')
+      setServerInvitation('')
+      setServerPairingResponse('')
+      setMessage(t('syncServerPairingCompleted'))
+    }
+    catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
   const stateLabel = status?.state === 'ready'
     ? t('p2pStateReady')
     : status?.state === 'starting'
@@ -129,6 +216,24 @@ export function P2pSettings() {
   const pairingPeerIds = new Set(requests.map(request => request.peerId))
   const unpairedPeers = peers.filter(peer => !pairingPeerIds.has(peer.peerId))
   const nearbyDeviceCount = requests.length + unpairedPeers.length
+  const serverStateLabel = (() => {
+    switch (serverStatus?.state) {
+      case 'disabled': return t('syncServerStateDisabled')
+      case 'setup-required': return t('syncServerStateSetupRequired')
+      case 'restart-required': return t('syncServerStateRestartRequired')
+      case 'connecting': return t('syncServerStateConnecting')
+      case 'syncing': return t('syncServerStateSyncing')
+      case 'synced': return t('syncServerStateSynced')
+      case 'offline': return t('syncServerStateOffline')
+      case 'error': return t('syncServerStateError')
+      default: return t('syncServerStateLoading')
+    }
+  })()
+  const serverModeDescription = serverStatus?.modes.includes('relay')
+    ? t('syncServerRelayWarning')
+    : serverStatus?.modes.includes('authoritative')
+      ? t('syncServerAuthoritativeDescription')
+      : t('syncServerStatusDescription')
 
   return (
     <div {...stylex.props(styles.root)} data-window-no-drag="">
@@ -153,6 +258,45 @@ export function P2pSettings() {
             </p>
           </div>
         </section>
+
+        <div {...stylex.props(styles.settingRow)}>
+          <div {...stylex.props(styles.rowCopy)}>
+            <span {...stylex.props(styles.rowLabel)}>{t('syncServerSection')}</span>
+            <p {...stylex.props(styles.rowDescription, serverStatus?.modes.includes('relay') && styles.serverWarning)}>
+              {serverModeDescription}
+            </p>
+          </div>
+          <div {...stylex.props(styles.serverSummary)} aria-live="polite">
+            <span {...stylex.props(styles.serverState, serverStatus?.state === 'synced' && styles.serverStateReady)}>
+              <Server aria-hidden="true" size={14} strokeWidth={1.8} />
+              {serverStateLabel}
+            </span>
+            {serverStatus?.url
+              ? <span {...stylex.props(styles.serverAddress)}>{serverStatus.url}</span>
+              : null}
+            {serverStatus && serverStatus.modes.length > 0
+              ? (
+                  <span {...stylex.props(styles.serverModes)}>
+                    {serverStatus.modes.map(mode => (
+                      <span key={mode} {...stylex.props(styles.serverMode)}>
+                        {mode === 'relay' ? t('syncServerModeRelay') : t('syncServerModeAuthoritative')}
+                      </span>
+                    ))}
+                  </span>
+                )
+              : null}
+            {serverStatus?.configured
+              ? (
+                  <span {...stylex.props(styles.serverEpochs)}>
+                    {t('syncServerEpochSummary', {
+                      generation: serverStatus.generation,
+                      policyEpoch: serverStatus.policyEpoch,
+                    })}
+                  </span>
+                )
+              : null}
+          </div>
+        </div>
 
         <div {...stylex.props(styles.settingRow)}>
           <div {...stylex.props(styles.rowCopy)}>
@@ -248,6 +392,37 @@ export function P2pSettings() {
             </DeviceRow>
           ))}
         </DeviceSection>
+        <div {...stylex.props(styles.settingRow)}>
+          <div {...stylex.props(styles.rowCopy)}>
+            <label htmlFor="sync-server-invitation" {...stylex.props(styles.rowLabel)}>{t('syncServerPairingInvitation')}</label>
+            <p {...stylex.props(styles.rowDescription)}>{t('syncServerPairingInvitationDescription')}</p>
+          </div>
+          <ButtonGroup xstyle={styles.nameEditor}>
+            <TextField id="sync-server-invitation" value={serverInvitation} variant="settings" onChange={event => setServerInvitation(event.target.value)} />
+            <Button disabled={!available || serverInvitation.trim().length === 0} variant="secondary" xstyle={styles.compactButton} onClick={() => void acceptServerInvitation()}>{t('syncServerCreatePairingResponse')}</Button>
+          </ButtonGroup>
+        </div>
+        {serverPairingResponse.length > 0
+          ? (
+              <div {...stylex.props(styles.settingRow)}>
+                <div {...stylex.props(styles.rowCopy)}>
+                  <label htmlFor="sync-server-pairing-response" {...stylex.props(styles.rowLabel)}>{t('syncServerPairingResponse')}</label>
+                  <p {...stylex.props(styles.rowDescription)}>{t('syncServerPairingResponseDescription')}</p>
+                </div>
+                <TextField id="sync-server-pairing-response" readOnly value={serverPairingResponse} variant="settings" />
+              </div>
+            )
+          : null}
+        <div {...stylex.props(styles.settingRow)}>
+          <div {...stylex.props(styles.rowCopy)}>
+            <label htmlFor="sync-server-issued-credential" {...stylex.props(styles.rowLabel)}>{t('syncServerIssuedCredential')}</label>
+            <p {...stylex.props(styles.rowDescription)}>{t('syncServerIssuedCredentialDescription')}</p>
+          </div>
+          <ButtonGroup xstyle={styles.nameEditor}>
+            <TextField id="sync-server-issued-credential" value={serverCredential} variant="settings" onChange={event => setServerCredential(event.target.value)} />
+            <Button disabled={!available || serverCredential.trim().length === 0} variant="primary" xstyle={styles.compactButton} onClick={() => void completeServerPairing()}>{t('syncServerFinishPairing')}</Button>
+          </ButtonGroup>
+        </div>
       </div>
 
       {message
