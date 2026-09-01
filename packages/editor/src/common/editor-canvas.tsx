@@ -3,6 +3,7 @@ import type { CursorSpringAxis } from './cursor-motion'
 import type { EditorModeValue } from './editor-mode'
 import type { EditorSession } from './editor-session'
 import * as stylex from '@stylexjs/stylex'
+import { Match } from 'effect'
 import i18next from 'i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { TextSelection } from 'prosekit/pm/state'
@@ -94,19 +95,15 @@ function cursorVfxMode(value: string | undefined): CursorVfxMode | null {
 }
 
 function cursorParticleKind(mode: CursorVfxMode): CursorParticleKind {
-  switch (mode) {
-    case 'railgun':
-    case 'torpedo':
-      return 'trail'
-    case 'pixiedust':
-      return 'pixiedust'
-    case 'sonicboom':
-      return 'burst'
-    case 'ripple':
-      return 'ripple'
-    case 'wireframe':
-      return 'wireframe'
-  }
+  return Match.value(mode).pipe(
+    Match.when('railgun', () => 'trail' as const),
+    Match.when('torpedo', () => 'trail' as const),
+    Match.when('pixiedust', () => 'pixiedust' as const),
+    Match.when('sonicboom', () => 'burst' as const),
+    Match.when('ripple', () => 'ripple' as const),
+    Match.when('wireframe', () => 'wireframe' as const),
+    Match.exhaustive,
+  )
 }
 
 function cursorParticleClass(mode: CursorVfxMode): string {

@@ -1,7 +1,7 @@
 import type { PairingInvitation, PairingResponse, SyncAuditStore } from '@memorilo/sync'
 import type { P2pApplication } from '@memorilo/sync/node'
 import type { Context, Next } from 'hono'
-import type { BrowserAuthOptions } from '../infrastructure/auth/browser-auth'
+import type { AuthenticatedBrowserAccount, BrowserAuthOptions } from '../infrastructure/auth/browser-auth'
 import type { SyncServerConfig } from './config'
 import type { SyncPeerMetrics, SyncServerMetrics } from './metrics'
 import type { RateLimiter } from './rate-limiter'
@@ -75,6 +75,10 @@ function json(body: unknown, status = 200, headers = new Headers()): Response {
   return new Response(JSON.stringify(body), { headers, status })
 }
 
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
 export function createSyncServerApp(config: SyncServerConfig, services: SyncServerAppServices): SyncServerApp {
   const app = new Hono<SyncServerEnvironment>()
   const now = services.now ?? Date.now
@@ -83,6 +87,26 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
   const repository = withDatabaseFailureMetrics(services.repository, metrics.peerRecorder)
   const audit = withDatabaseFailureMetrics(services.audit, metrics.peerRecorder)
   const browserAuth = createBrowserAuth({ ...services, auth, defaultEnabledModes: config.enabledModes, repository })
+  const requireAccount = async (context: Context<SyncServerEnvironment>): Promise<AuthenticatedBrowserAccount | Response> => {
+    const account = await browserAuth.current(context.req.raw)
+    return account ?? context.json({ code: 'unauthorized' }, 401)
+  }
+  const requireCsrf = async (context: Context<SyncServerEnvironment>, account: AuthenticatedBrowserAccount): Promise<Response | null> => {
+    try {
+      await browserAuth.requireCsrf(context.req.raw, account)
+      return null
+    }
+    catch {
+      return context.json({ code: 'csrf_invalid' }, 403)
+    }
+  }
+  const requireAccountWithCsrf = async (context: Context<SyncServerEnvironment>): Promise<AuthenticatedBrowserAccount | Response> => {
+    const account = await requireAccount(context)
+    if (account instanceof Response)
+      return account
+    const csrfError = await requireCsrf(context, account)
+    return csrfError ?? account
+  }
   const rateLimiter = services.rateLimiter ?? createRateLimiter(services.now)
   const peerMetrics = (): SyncPeerMetrics => services.peerMetrics?.() ?? { activeObjectTransfers: 0, activeSyncSessions: 0 }
   const renderIndex = async (body: Uint8Array): Promise<Response> => {
@@ -247,7 +271,7 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
         remoteAddress: context.get('remoteAddress'),
         requestId: context.get('requestId'),
       })
-      return context.json({ code: 'setup_failed', message: error instanceof Error ? error.message : 'Setup failed' }, 400)
+      return context.json({ code: 'setup_failed', message: errorMessage(error, 'Setup failed') }, 400)
     }
   })
   app.post('/api/auth/register', async (context) => {
@@ -286,7 +310,7 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
         remoteAddress: context.get('remoteAddress'),
         requestId: context.get('requestId'),
       })
-      const message = error instanceof Error ? error.message : 'Registration failed'
+      const message = errorMessage(error, 'Registration failed')
       if (message === 'Invalid registration invite')
         return context.json({ code: 'registration_unavailable' }, 400)
       if (message.includes('UNIQUE constraint failed: sync_users.username')
@@ -297,15 +321,9 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     }
   })
   app.post('/api/auth/invites', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     if (config.registration !== 'invite-only')
       return context.json({ code: 'invite_registration_disabled' }, 409)
     const result = await browserAuth.createInvite()
@@ -356,16 +374,16 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     return account ? context.json(account) : context.json({ code: 'unauthorized' }, 401)
   })
   app.get('/api/sync/state', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
+    const account = await requireAccount(context)
+    if (account instanceof Response)
+      return account
     const state = await repository.getAccountState(account.accountId)
     return state ? context.json({ ...state, availableModes: config.enabledModes }) : context.json({ code: 'account_not_found' }, 404)
   })
   app.get('/api/audit-events', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
+    const account = await requireAccount(context)
+    if (account instanceof Response)
+      return account
     const requestedLimit = Number(context.req.query('limit') ?? 50)
     const beforeValue = context.req.query('before')
     const before = beforeValue === undefined ? undefined : Number(beforeValue)
@@ -377,9 +395,9 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     return context.json({ events })
   })
   app.get('/api/devices', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
+    const account = await requireAccount(context)
+    if (account instanceof Response)
+      return account
     const devices = (await auth.listDeviceCredentials(account.accountId))
       .filter(device => device.revokedAt === null)
       .map(device => ({
@@ -394,15 +412,9 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     return context.json({ devices })
   })
   app.post('/api/devices/pairing', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     if (!services.peer)
       return context.json({ code: 'peer_unavailable' }, 503)
     const state = await repository.getAccountState(account.accountId)
@@ -429,15 +441,9 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     return context.json({ invitation }, 201)
   })
   app.post('/api/devices/pairing/complete', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     if (!services.peer)
       return context.json({ code: 'peer_unavailable' }, 503)
     const body = await context.req.json<{ response?: unknown }>()
@@ -506,19 +512,13 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
         remoteAddress: context.get('remoteAddress'),
         requestId: context.get('requestId'),
       })
-      return context.json({ code: 'pairing_failed', message: error instanceof Error ? error.message : 'Pairing failed' }, 400)
+      return context.json({ code: 'pairing_failed', message: errorMessage(error, 'Pairing failed') }, 400)
     }
   })
   app.post('/api/devices/:deviceId/revoke', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     const body = await context.req.json<{ password?: unknown }>().catch(() => null)
     if (!body || typeof body.password !== 'string')
       return context.json({ code: 'invalid_revoke_payload' }, 400)
@@ -560,15 +560,9 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
     return context.json({ membershipEpoch, revoked: true })
   })
   app.patch('/api/sync/policy', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     const body = await context.req.json<{ enabledModes?: unknown, password?: unknown, policyEpoch?: unknown, transition?: unknown }>()
     if (!Array.isArray(body.enabledModes)
       || !body.enabledModes.every(mode => mode === 'relay' || mode === 'authoritative')
@@ -611,20 +605,14 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
       })
     }
     catch (error) {
-      const message = error instanceof Error ? error.message : 'Policy update failed'
+      const message = errorMessage(error, 'Policy update failed')
       return context.json({ code: message.includes('changed') ? 'policy_conflict' : 'policy_update_failed', message }, message.includes('changed') ? 409 : 400)
     }
   })
   app.post('/api/sync/reset', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     const body = await context.req.json<{ password?: unknown, confirmation?: unknown, generation?: unknown }>()
     if (typeof body.password !== 'string' || body.confirmation !== 'CLEAR SERVER DATA' || !Number.isSafeInteger(body.generation))
       return context.json({ code: 'invalid_reset_payload' }, 400)
@@ -661,27 +649,21 @@ export function createSyncServerApp(config: SyncServerConfig, services: SyncServ
       }, 202)
     }
     catch (error) {
-      const message = error instanceof Error ? error.message : 'Reset failed'
+      const message = errorMessage(error, 'Reset failed')
       return context.json({ code: message.includes('changed') ? 'generation_conflict' : 'reset_failed', message }, message.includes('changed') ? 409 : 400)
     }
   })
   app.get('/api/sync/reset/:jobId', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
+    const account = await requireAccount(context)
+    if (account instanceof Response)
+      return account
     const job = await repository.getResetJob(account.accountId, context.req.param('jobId'))
     return job ? context.json(job) : context.json({ code: 'reset_job_not_found' }, 404)
   })
   app.post('/api/auth/logout', async (context) => {
-    const account = await browserAuth.current(context.req.raw)
-    if (!account)
-      return context.json({ code: 'unauthorized' }, 401)
-    try {
-      await browserAuth.requireCsrf(context.req.raw, account)
-    }
-    catch {
-      return context.json({ code: 'csrf_invalid' }, 403)
-    }
+    const account = await requireAccountWithCsrf(context)
+    if (account instanceof Response)
+      return account
     const headers = new Headers()
     await browserAuth.logout(context.req.raw, headers)
     await recordAudit({

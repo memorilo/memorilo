@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
+import { errorMessage } from '../../shared/error-message'
 import { JournalDay } from '../journals/journal-day'
 import { journalSummary } from '../journals/journal-model'
 import { journalQueryKeys } from '../journals/query-keys'
@@ -24,10 +25,6 @@ type PanelTab = 'journal' | 'todo'
 
 function tabOrder(order: DesktopPanelTabOrder): readonly [PanelTab, PanelTab] {
   return order === 'journal-todo' ? ['journal', 'todo'] : ['todo', 'journal']
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 function TodoPanel() {

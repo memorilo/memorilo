@@ -58,6 +58,13 @@ const tiffConversions: Readonly<Record<DesktopTiffConversionFormat, { extension:
   png: { extension: '.png', mimeType: 'image/png' },
   webp: { extension: '.webp', mimeType: 'image/webp' },
 }
+
+const tiffPipelineTransforms: Readonly<Record<DesktopTiffConversionFormat, (pipeline: sharp.Sharp) => sharp.Sharp>> = {
+  avif: pipeline => pipeline.avif(),
+  jpeg: pipeline => pipeline.jpeg(),
+  png: pipeline => pipeline.png(),
+  webp: pipeline => pipeline.webp(),
+}
 const mimeTypesByImageExtension = Object.fromEntries(
   Object.entries(imageExtensionsByMimeType).map(([mimeType, extension]) => [extension, mimeType]),
 ) as Readonly<Record<string, string>>
@@ -139,21 +146,7 @@ async function convertTiff(
   format: DesktopTiffConversionFormat,
 ): Promise<{ data: Uint8Array, extension: string, mimeType: string }> {
   const conversion = tiffConversions[format]
-  let pipeline = sharp(data).autoOrient()
-  switch (format) {
-    case 'avif':
-      pipeline = pipeline.avif()
-      break
-    case 'jpeg':
-      pipeline = pipeline.jpeg()
-      break
-    case 'png':
-      pipeline = pipeline.png()
-      break
-    case 'webp':
-      pipeline = pipeline.webp()
-      break
-  }
+  const pipeline = tiffPipelineTransforms[format](sharp(data).autoOrient())
   return { ...conversion, data: await pipeline.toBuffer() }
 }
 

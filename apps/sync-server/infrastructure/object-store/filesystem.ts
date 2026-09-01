@@ -5,7 +5,7 @@ import { link, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/pro
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { pipeline } from 'node:stream/promises'
-import { objectKeyFor } from '@memorilo/sync'
+import { assertMetadata, ensureAccountKey, sameMetadata } from './metadata'
 
 type StoredMetadata = Omit<SyncObjectMetadata, 'createdAt'> & { readonly createdAt: number }
 
@@ -28,33 +28,11 @@ function ensureWithinRoot(root: string, key: string): string {
   return objectPath
 }
 
-function ensureAccountKey(accountId: string, key: string): void {
-  if (!accountId || !key.startsWith(`tenants/${accountId}/`))
-    throw new Error('Object key does not belong to the requested account')
-}
-
 async function hashFile(path: string): Promise<string> {
   const hash = createHash('sha256')
   for await (const chunk of createReadStream(path))
     hash.update(chunk)
   return hash.digest('hex')
-}
-
-function sameMetadata(left: SyncObjectMetadata, right: SyncObjectMetadata): boolean {
-  return left.accountId === right.accountId
-    && left.generation === right.generation
-    && left.key === right.key
-    && left.contentHash === right.contentHash
-    && left.contentLength === right.contentLength
-    && left.contentType === right.contentType
-}
-
-function assertMetadata(metadata: SyncObjectMetadata): void {
-  const expectedKey = objectKeyFor(metadata.accountId, metadata.generation, metadata.contentHash)
-  if (metadata.namespace !== 'assets' || metadata.key !== expectedKey)
-    throw new TypeError('Object metadata does not match its content-addressed key')
-  if (!Number.isSafeInteger(metadata.contentLength) || metadata.contentLength < 0)
-    throw new TypeError('Object content length must be a non-negative safe integer')
 }
 
 export function createFilesystemObjectStore(options: FilesystemObjectStoreOptions): SyncObjectStore {

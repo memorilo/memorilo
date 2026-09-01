@@ -19,8 +19,9 @@ import { useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
-
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
+
+import { errorMessage } from '../../../shared/error-message'
 import { useOwnedResource } from '../../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { learningQueryKeys } from '../query-keys'
@@ -37,10 +38,6 @@ const ReviewMaterial = lazy(async () => {
 })
 
 const ratings: readonly ReviewRating[] = ['again', 'hard', 'good', 'easy']
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function reviewFailureMessage(failure: LearningReviewFailure, t: TFunction): string {
   const message = errorMessage(failure.cause)

@@ -1,3 +1,4 @@
+import type { Node as ProseMirrorNode } from 'prosekit/pm/model'
 import type { EditorState } from 'prosekit/pm/state'
 import { isListNode } from 'prosemirror-flat-list'
 
@@ -6,6 +7,7 @@ export interface ListBlockContext {
   hasPreviousSiblingBlock: boolean
   kind: unknown
   nested: boolean
+  node: ProseMirrorNode
   position: number
   previousSiblingKind: unknown
 }
@@ -27,6 +29,7 @@ export function currentListBlockContext(state: EditorState): ListBlockContext | 
         && typeof previousSibling.attrs.kind === 'string',
       kind: node.attrs.kind,
       nested: isListNode(parent),
+      node,
       position: $from.before(depth),
       previousSiblingKind: previousSibling?.attrs.kind,
     }

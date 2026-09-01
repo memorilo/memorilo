@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { desktopRequests } from '../shared/desktop-requests'
+import { errorMessage } from '../shared/error-message'
 import { databaseSettingsStyles as styles } from './database-settings.stylex'
 
 export function DatabaseSettings() {
@@ -27,7 +28,7 @@ export function DatabaseSettings() {
       setStatus(t('databaseExported', { path: result.path }))
     }
     catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error))
+      setStatus(errorMessage(error))
     }
     finally {
       setPending(null)
@@ -44,7 +45,7 @@ export function DatabaseSettings() {
       setStatus(result.status === 'cancelled' ? t('databaseRestoreCancelled') : t('databaseRestoreRestarting'))
     }
     catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error))
+      setStatus(errorMessage(error))
     }
     finally {
       setPending(null)

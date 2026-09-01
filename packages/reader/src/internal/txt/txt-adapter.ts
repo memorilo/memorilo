@@ -21,6 +21,7 @@ import {
   assertReaderPositionFormat,
   clampReaderScale,
   runSingleMount,
+  toReaderError,
 } from '../reader-adapter'
 import { readSourceBytes } from '../source'
 import { decodeTxtDocument } from './txt-document'
@@ -90,21 +91,21 @@ class TxtAdapter implements ReaderAdapter {
     return this.finalizer.close()
   }
 
-  async goBackward(_entryEdge: ReaderPageEdge): Promise<void> {
+  goBackward(_entryEdge: ReaderPageEdge): Promise<void> {
     return this.operations.run(async () => {
       if (!this.destroyed)
         this.mounted?.movePage(-1)
     })
   }
 
-  async goForward(_entryEdge: ReaderPageEdge): Promise<void> {
+  goForward(_entryEdge: ReaderPageEdge): Promise<void> {
     return this.operations.run(async () => {
       if (!this.destroyed)
         this.mounted?.movePage(1)
     })
   }
 
-  async goToAnnotation(annotationId: string): Promise<void> {
+  goToAnnotation(annotationId: string): Promise<void> {
     return this.operations.run(async () => {
       const annotation = this.annotations.find(item => item.id === annotationId)
       if (!annotation || annotation.anchors[0].format !== 'txt')
@@ -130,7 +131,7 @@ class TxtAdapter implements ReaderAdapter {
       this.mounted?.setRegionSelectionEnabled(enabled)
   }
 
-  async setScale(scale: number): Promise<void> {
+  setScale(scale: number): Promise<void> {
     return this.operations.run(async () => {
       if (this.destroyed)
         return
@@ -161,7 +162,7 @@ class TxtAdapter implements ReaderAdapter {
       () => undefined,
       (error) => {
         if (!this.destroyed)
-          this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+          this.callbacks.onError(toReaderError(error))
       },
     )
   }

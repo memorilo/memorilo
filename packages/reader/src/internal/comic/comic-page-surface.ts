@@ -12,6 +12,7 @@ import {
 } from '@memorilo/effect-lifecycle'
 import { AnnotationActivationOwner, annotationOverlayTint } from '../annotations'
 import { FixedPageViewportController } from '../fixed-page/viewport'
+import { toReaderError } from '../reader-adapter'
 import { RegionSelectionController } from '../region-selection'
 
 export type ComicFormat = 'cbr' | 'cbz'
@@ -160,7 +161,7 @@ export class ComicPageSurface {
           this.#layoutImage()
         }
         catch (error) {
-          options.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+          options.callbacks.onError(toReaderError(error))
         }
       })
       resizeObserver.observe(scroller)

@@ -1,22 +1,16 @@
 import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
-import { Circle, CircleCheck, CircleDotDashed } from 'lucide-react'
 import { formatTaskDuration, taskElapsedMs } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskMetadata } from '../todo-task-metadata'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
+import { todoTaskStatusIcons } from '../todo-task-status'
 import { todoPlanningTaskStyles as styles } from './todo-planning-task.stylex'
 
 function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
-  switch (status) {
-    case 'todo':
-      return <Circle {...stylex.props(styles.icon)} aria-hidden="true" strokeWidth={1.8} />
-    case 'doing':
-      return <CircleDotDashed {...stylex.props(styles.icon, styles.doing)} aria-hidden="true" strokeWidth={1.8} />
-    case 'done':
-      return <CircleCheck {...stylex.props(styles.icon, styles.doneIcon)} aria-hidden="true" strokeWidth={1.8} />
-  }
+  const Icon = todoTaskStatusIcons[status]
+  return <Icon {...stylex.props(styles.icon, status === 'doing' && styles.doing, status === 'done' && styles.doneIcon)} aria-hidden="true" strokeWidth={1.8} />
 }
 
 export function TodoPlanningTask({

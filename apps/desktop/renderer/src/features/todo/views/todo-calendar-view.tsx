@@ -8,6 +8,7 @@ import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { formatTodoMonth } from '../todo-date-format'
 import { taskPlanningDate, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
@@ -47,10 +48,6 @@ interface CalendarMonthView {
 
 function formatDate(date: Dayjs, locale: string): string {
   return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', weekday: 'short' }).format(date.toDate())
-}
-
-function formatMonth(date: Dayjs, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date.toDate())
 }
 
 function weekdayLabels(locale: string, weekStart: DesktopWeekStart): readonly { key: string, label: string }[] {
@@ -491,7 +488,7 @@ export function TodoCalendarView({
             <PeriodButton direction="previous" label={t('previousMonth')} onClick={() => selectMonth(activeMonth.subtract(1, 'month'))} />
             <PeriodButton direction="next" label={t('nextMonth')} onClick={() => selectMonth(activeMonth.add(1, 'month'))} />
           </div>
-          <h1 {...stylex.props(styles.monthTitle)}>{formatMonth(activeMonth, locale)}</h1>
+          <h1 {...stylex.props(styles.monthTitle)}>{formatTodoMonth(activeMonth, locale)}</h1>
         </div>
       </div>
       <div {...stylex.props(styles.layout)}>
@@ -505,7 +502,7 @@ export function TodoCalendarView({
               <div {...stylex.props(styles.weekdays)} aria-hidden="true">
                 {labels.map(item => <span key={item.key} {...stylex.props(styles.weekday)}>{item.label}</span>)}
               </div>
-              <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(monthView.month, locale)}>
+              <div {...stylex.props(styles.grid)} role="grid" aria-label={formatTodoMonth(monthView.month, locale)}>
                 {monthView.days.map((date, dayIndex) => {
                   const dateKey = date.format('YYYY-MM-DD')
                   const dateItems = monthView.grouped.get(dateKey) ?? []

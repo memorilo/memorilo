@@ -57,388 +57,263 @@ const categoryIcons = {
   sync: Wifi,
 } as const
 
+const categoryLabelKeys: Readonly<Record<SettingsCategoryId, string>> = {
+  calendar: 'calendarSection',
+  editor: 'editorSection',
+  general: 'generalSection',
+  learning: 'learningSection',
+  media: 'mediaSection',
+  mcp: 'mcpSection',
+  reading: 'readingSection',
+  shortcuts: 'shortcutsSection',
+  sync: 'syncSection',
+}
+
+const categoryDescriptionKeys: Readonly<Record<SettingsCategoryId, string>> = {
+  calendar: 'calendarDescription',
+  editor: 'editorDescription',
+  general: 'generalDescription',
+  learning: 'learningDescription',
+  media: 'mediaDescription',
+  mcp: 'mcpDescription',
+  reading: 'readingDescription',
+  shortcuts: 'shortcutsDescription',
+  sync: 'syncDescription',
+}
+
+const sectionLabelKeys: Readonly<Record<string, string>> = {
+  'backup': 'backupSection',
+  'editor': 'editorSection',
+  'flashcards': 'flashcardsSection',
+  'general': 'generalSection',
+  'goals': 'goalsSection',
+  'images': 'imagesSection',
+  'learning': 'learningSection',
+  'mcp': 'mcpSection',
+  'reading': 'readingSection',
+  'shortcut-formatting': 'shortcutFormattingSection',
+  'shortcut-learning': 'shortcutLearningSection',
+  'shortcut-navigation': 'shortcutNavigationSection',
+  'shortcut-note-structure': 'shortcutNoteStructureSection',
+  'sync-server': 'syncServerSection',
+  'todo': 'todoSection',
+}
+
 function translateCategoryLabel(categoryId: SettingsCategoryId, t: TFunction): string {
-  switch (categoryId) {
-    case 'calendar':
-      return t('calendarSection')
-    case 'general':
-      return t('generalSection')
-    case 'editor':
-      return t('editorSection')
-    case 'reading':
-      return t('readingSection')
-    case 'shortcuts':
-      return t('shortcutsSection')
-    case 'learning':
-      return t('learningSection')
-    case 'media':
-      return t('mediaSection')
-    case 'mcp':
-      return t('mcpSection')
-    case 'sync':
-      return t('syncSection')
-  }
+  return t(categoryLabelKeys[categoryId])
 }
 
 function translateCategoryDescription(categoryId: SettingsCategoryId, t: TFunction): string {
-  switch (categoryId) {
-    case 'calendar':
-      return t('calendarDescription')
-    case 'general':
-      return t('generalDescription')
-    case 'editor':
-      return t('editorDescription')
-    case 'reading':
-      return t('readingDescription')
-    case 'shortcuts':
-      return t('shortcutsDescription')
-    case 'learning':
-      return t('learningDescription')
-    case 'media':
-      return t('mediaDescription')
-    case 'mcp':
-      return t('mcpDescription')
-    case 'sync':
-      return t('syncDescription')
-  }
+  return t(categoryDescriptionKeys[categoryId])
 }
 
 function translateSectionLabel(sectionId: string, t: TFunction): string {
-  switch (sectionId) {
-    case 'backup':
-      return t('backupSection')
-    case 'general':
-      return t('generalSection')
-    case 'editor':
-      return t('editorSection')
-    case 'flashcards':
-      return t('flashcardsSection')
-    case 'goals':
-      return t('goalsSection')
-    case 'learning':
-      return t('learningSection')
-    case 'images':
-      return t('imagesSection')
-    case 'reading':
-      return t('readingSection')
-    case 'shortcut-navigation':
-      return t('shortcutNavigationSection')
-    case 'shortcut-note-structure':
-      return t('shortcutNoteStructureSection')
-    case 'shortcut-learning':
-      return t('shortcutLearningSection')
-    case 'shortcut-formatting':
-      return t('shortcutFormattingSection')
-    case 'mcp':
-      return t('mcpSection')
-    case 'sync-server':
-      return t('syncServerSection')
-    case 'todo':
-      return t('todoSection')
-    default:
-      return sectionId
-  }
+  const key = sectionLabelKeys[sectionId]
+  return key === undefined ? sectionId : t(key)
 }
 
+const fieldLabelKeys: Readonly<Record<string, string>> = {
+  'backup.enabled': 'backupEnabled',
+  'backup.intervalMinutes': 'backupInterval',
+  'backup.retentionCount': 'backupRetention',
+  'language': 'language',
+  'reduceMotion': 'reduceMotion',
+  'editor.cursor.animationLength': 'cursorAnimationLength',
+  'editor.cursor.shortAnimationLength': 'cursorTypingAnimation',
+  'editor.cursor.trailSize': 'cursorTrailSize',
+  'editor.cursor.vfxMode': 'cursorParticleEffect',
+  'editor.cursor.vfxOpacity': 'cursorParticleOpacity',
+  'editor.cursor.vfxParticleLifetime': 'cursorParticleLifetime',
+  'editor.cursor.vfxParticleDensity': 'cursorParticleDensity',
+  'editor.cursor.vfxParticleSpeed': 'cursorParticleSpeed',
+  'editor.cursor.smoothBlink': 'smoothCursorBlink',
+  'panel.tabOrder': 'panelTabOrder',
+  'defaultNoteLearningEnabled': 'defaultNoteLearningEnabled',
+  'weekStart': 'weekStart',
+  'outdentBehavior': 'outdentBehavior',
+  'networkImagePasteBehavior': 'networkImagePasteBehavior',
+  'shortcuts.back': 'shortcutBack',
+  'shortcuts.bold': 'shortcutBold',
+  'shortcuts.code': 'shortcutCode',
+  'shortcuts.forward': 'shortcutForward',
+  'shortcuts.previousNoteStructureEntry': 'shortcutPreviousNoteStructureEntry',
+  'shortcuts.nextNoteStructureEntry': 'shortcutNextNoteStructureEntry',
+  'shortcuts.addBasicCard': 'shortcutAddBasicCard',
+  'shortcuts.highlight': 'shortcutHighlight',
+  'shortcuts.addCloze': 'shortcutAddCloze',
+  'shortcuts.italic': 'shortcutItalic',
+  'shortcuts.strike': 'shortcutStrike',
+  'shortcuts.underline': 'shortcutUnderline',
+  'readerArrowKeyPageTurning': 'readerArrowKeyPageTurning',
+  'readerAnnotationCopyFormat': 'readerAnnotationCopyFormat',
+  'readerEpubPresentationMode': 'readerEpubPresentationMode',
+  'readerPageMode': 'readerPageMode',
+  'tiffConversionFormat': 'tiffConversionFormat',
+  'mcp.enabled': 'mcpEnabled',
+  'mcp.port': 'mcpPort',
+  'mcp.accessToken': 'mcpAccessToken',
+  'learning.enabled': 'learningEnabled',
+  'todo.enabled': 'todoEnabled',
+  'todo.autoCompleteParentTasks': 'autoCompleteParentTasks',
+  'todo.blankTaskDurationMinutes': 'blankTaskDurationMinutes',
+  'todo.timelineWorkdayStartMinutes': 'timelineWorkdayStartMinutes',
+  'todo.timelineWorkdayEndMinutes': 'timelineWorkdayEndMinutes',
+  'todo.keepDetailOpenWhenTaskLeavesView': 'keepTodoDetailOpen',
+  'todo.recurringTaskCompletionAction': 'recurringTaskCompletionAction',
+  'syncServer.enabled': 'syncServerEnabled',
+  'syncServer.url': 'syncServerUrl',
+  'syncServer.peerId': 'syncServerPeerId',
+  'flashcards.newCardsPerDay': 'newCardsPerDay',
+  'flashcards.newGatherOrder': 'newGatherOrder',
+  'flashcards.interdayOrder': 'interdayOrder',
+  'flashcards.reviewOrder': 'reviewOrder',
+  'flashcards.learnAheadMinutes': 'learnAhead',
+  'flashcards.studyDayStartsAtHour': 'studyDayStarts',
+  'flashcards.buryNewSiblings': 'buryNewSiblings',
+  'flashcards.buryReviewSiblings': 'buryReviewSiblings',
+  'flashcards.buryInterdayLearningSiblings': 'buryInterdaySiblings',
+  'goals.dailyLearningGoalMode': 'dailyLearningGoal',
+  'goals.dailyLearningGoalCards': 'dailyLimit',
+}
+
+const fieldDescriptionKeys: Readonly<Record<string, string>> = {
+  'backup.enabled': 'backupEnabledDescription',
+  'backup.intervalMinutes': 'backupIntervalDescription',
+  'backup.retentionCount': 'backupRetentionDescription',
+  'outdentBehavior': 'outdentBehaviorDescription',
+  'defaultNoteLearningEnabled': 'defaultNoteLearningEnabledDescription',
+  'weekStart': 'weekStartDescription',
+  'panel.tabOrder': 'panelTabOrderDescription',
+  'networkImagePasteBehavior': 'networkImagePasteBehaviorDescription',
+  'readerArrowKeyPageTurning': 'readerArrowKeyPageTurningDescription',
+  'readerAnnotationCopyFormat': 'readerAnnotationCopyFormatDescription',
+  'readerEpubPresentationMode': 'readerEpubPresentationModeDescription',
+  'readerPageMode': 'readerPageModeDescription',
+  'tiffConversionFormat': 'tiffConversionFormatDescription',
+  'mcp.enabled': 'mcpEnabledDescription',
+  'mcp.port': 'mcpPortDescription',
+  'mcp.accessToken': 'mcpAccessTokenDescription',
+  'learning.enabled': 'learningEnabledDescription',
+  'todo.enabled': 'todoEnabledDescription',
+  'todo.autoCompleteParentTasks': 'autoCompleteParentTasksDescription',
+  'todo.blankTaskDurationMinutes': 'blankTaskDurationMinutesDescription',
+  'todo.timelineWorkdayStartMinutes': 'timelineWorkdayStartMinutesDescription',
+  'todo.timelineWorkdayEndMinutes': 'timelineWorkdayEndMinutesDescription',
+  'todo.keepDetailOpenWhenTaskLeavesView': 'keepTodoDetailOpenDescription',
+  'todo.recurringTaskCompletionAction': 'recurringTaskCompletionActionDescription',
+  'syncServer.enabled': 'syncServerEnabledDescription',
+  'syncServer.url': 'syncServerUrlDescription',
+  'syncServer.peerId': 'syncServerPeerIdDescription',
+  'flashcards.newCardsPerDay': 'newCardsPerDayDescription',
+  'goals.dailyLearningGoalCards': 'dailyLimitDescription',
+}
+
+const cursorFieldPaths = new Set([
+  'editor.cursor.animationLength',
+  'editor.cursor.shortAnimationLength',
+  'editor.cursor.trailSize',
+  'editor.cursor.vfxMode',
+  'editor.cursor.vfxOpacity',
+  'editor.cursor.vfxParticleLifetime',
+  'editor.cursor.vfxParticleDensity',
+  'editor.cursor.vfxParticleSpeed',
+  'editor.cursor.smoothBlink',
+])
+
+const shortcutFieldPaths = new Set([
+  'shortcuts.back',
+  'shortcuts.bold',
+  'shortcuts.code',
+  'shortcuts.forward',
+  'shortcuts.previousNoteStructureEntry',
+  'shortcuts.nextNoteStructureEntry',
+  'shortcuts.addBasicCard',
+  'shortcuts.highlight',
+  'shortcuts.addCloze',
+  'shortcuts.italic',
+  'shortcuts.strike',
+  'shortcuts.underline',
+])
+
 function translateFieldLabel(field: ConfigurationField, t: TFunction): string {
-  switch (field.path) {
-    case 'backup.enabled':
-      return t('backupEnabled')
-    case 'backup.intervalMinutes':
-      return t('backupInterval')
-    case 'backup.retentionCount':
-      return t('backupRetention')
-    case 'language':
-      return t('language')
-    case 'reduceMotion':
-      return t('reduceMotion')
-    case 'editor.cursor.animationLength': return t('cursorAnimationLength')
-    case 'editor.cursor.shortAnimationLength': return t('cursorTypingAnimation')
-    case 'editor.cursor.trailSize': return t('cursorTrailSize')
-    case 'editor.cursor.vfxMode': return t('cursorParticleEffect')
-    case 'editor.cursor.vfxOpacity': return t('cursorParticleOpacity')
-    case 'editor.cursor.vfxParticleLifetime': return t('cursorParticleLifetime')
-    case 'editor.cursor.vfxParticleDensity': return t('cursorParticleDensity')
-    case 'editor.cursor.vfxParticleSpeed': return t('cursorParticleSpeed')
-    case 'editor.cursor.smoothBlink': return t('smoothCursorBlink')
-    case 'panel.tabOrder':
-      return t('panelTabOrder')
-    case 'defaultNoteLearningEnabled':
-      return t('defaultNoteLearningEnabled')
-    case 'weekStart':
-      return t('weekStart')
-    case 'outdentBehavior':
-      return t('outdentBehavior')
-    case 'networkImagePasteBehavior':
-      return t('networkImagePasteBehavior')
-    case 'shortcuts.back': return t('shortcutBack')
-    case 'shortcuts.bold': return t('shortcutBold')
-    case 'shortcuts.code': return t('shortcutCode')
-    case 'shortcuts.forward': return t('shortcutForward')
-    case 'shortcuts.previousNoteStructureEntry': return t('shortcutPreviousNoteStructureEntry')
-    case 'shortcuts.nextNoteStructureEntry': return t('shortcutNextNoteStructureEntry')
-    case 'shortcuts.addBasicCard': return t('shortcutAddBasicCard')
-    case 'shortcuts.highlight': return t('shortcutHighlight')
-    case 'shortcuts.addCloze': return t('shortcutAddCloze')
-    case 'shortcuts.italic': return t('shortcutItalic')
-    case 'shortcuts.strike': return t('shortcutStrike')
-    case 'shortcuts.underline': return t('shortcutUnderline')
-    case 'readerArrowKeyPageTurning':
-      return t('readerArrowKeyPageTurning')
-    case 'readerAnnotationCopyFormat':
-      return t('readerAnnotationCopyFormat')
-    case 'readerEpubPresentationMode':
-      return t('readerEpubPresentationMode')
-    case 'readerPageMode':
-      return t('readerPageMode')
-    case 'tiffConversionFormat':
-      return t('tiffConversionFormat')
-    case 'mcp.enabled':
-      return t('mcpEnabled')
-    case 'learning.enabled':
-      return t('learningEnabled')
-    case 'todo.enabled':
-      return t('todoEnabled')
-    case 'todo.autoCompleteParentTasks':
-      return t('autoCompleteParentTasks')
-    case 'todo.blankTaskDurationMinutes':
-      return t('blankTaskDurationMinutes')
-    case 'todo.timelineWorkdayStartMinutes':
-      return t('timelineWorkdayStartMinutes')
-    case 'todo.timelineWorkdayEndMinutes':
-      return t('timelineWorkdayEndMinutes')
-    case 'todo.keepDetailOpenWhenTaskLeavesView':
-      return t('keepTodoDetailOpen')
-    case 'todo.recurringTaskCompletionAction':
-      return t('recurringTaskCompletionAction')
-    case 'mcp.port':
-      return t('mcpPort')
-    case 'mcp.accessToken':
-      return t('mcpAccessToken')
-    case 'syncServer.enabled':
-      return t('syncServerEnabled')
-    case 'syncServer.url':
-      return t('syncServerUrl')
-    case 'syncServer.peerId':
-      return t('syncServerPeerId')
-    case 'flashcards.newCardsPerDay':
-      return t('newCardsPerDay')
-    case 'flashcards.newGatherOrder':
-      return t('newGatherOrder')
-    case 'flashcards.interdayOrder':
-      return t('interdayOrder')
-    case 'flashcards.reviewOrder':
-      return t('reviewOrder')
-    case 'flashcards.learnAheadMinutes':
-      return t('learnAhead')
-    case 'flashcards.studyDayStartsAtHour':
-      return t('studyDayStarts')
-    case 'flashcards.buryNewSiblings':
-      return t('buryNewSiblings')
-    case 'flashcards.buryReviewSiblings':
-      return t('buryReviewSiblings')
-    case 'flashcards.buryInterdayLearningSiblings':
-      return t('buryInterdaySiblings')
-    case 'goals.dailyLearningGoalMode':
-      return t('dailyLearningGoal')
-    case 'goals.dailyLearningGoalCards':
-      return t('dailyLimit')
-    default:
-      return field.label
-  }
+  const key = fieldLabelKeys[field.path]
+  return key === undefined ? field.label : t(key)
 }
 
 function translateFieldDescription(field: ConfigurationField, t: TFunction): string | undefined {
-  switch (field.path) {
-    case 'backup.enabled':
-      return t('backupEnabledDescription')
-    case 'backup.intervalMinutes':
-      return t('backupIntervalDescription')
-    case 'backup.retentionCount':
-      return t('backupRetentionDescription')
-    case 'outdentBehavior':
-      return t('outdentBehaviorDescription')
-    case 'defaultNoteLearningEnabled':
-      return t('defaultNoteLearningEnabledDescription')
-    case 'weekStart':
-      return t('weekStartDescription')
-    case 'panel.tabOrder':
-      return t('panelTabOrderDescription')
-    case 'networkImagePasteBehavior':
-      return t('networkImagePasteBehaviorDescription')
-    case 'editor.cursor.animationLength':
-    case 'editor.cursor.shortAnimationLength':
-    case 'editor.cursor.trailSize':
-    case 'editor.cursor.vfxMode':
-    case 'editor.cursor.vfxOpacity':
-    case 'editor.cursor.vfxParticleLifetime':
-    case 'editor.cursor.vfxParticleDensity':
-    case 'editor.cursor.vfxParticleSpeed':
-    case 'editor.cursor.smoothBlink':
-      return t('cursorSettingsDescription')
-    case 'shortcuts.back':
-    case 'shortcuts.bold':
-    case 'shortcuts.code':
-    case 'shortcuts.forward':
-    case 'shortcuts.previousNoteStructureEntry':
-    case 'shortcuts.nextNoteStructureEntry':
-    case 'shortcuts.addBasicCard':
-    case 'shortcuts.highlight':
-    case 'shortcuts.addCloze':
-    case 'shortcuts.italic':
-    case 'shortcuts.strike':
-    case 'shortcuts.underline':
-      return t('shortcutDescription')
-    case 'readerArrowKeyPageTurning':
-      return t('readerArrowKeyPageTurningDescription')
-    case 'readerAnnotationCopyFormat':
-      return t('readerAnnotationCopyFormatDescription')
-    case 'readerEpubPresentationMode':
-      return t('readerEpubPresentationModeDescription')
-    case 'readerPageMode':
-      return t('readerPageModeDescription')
-    case 'tiffConversionFormat':
-      return t('tiffConversionFormatDescription')
-    case 'mcp.enabled':
-      return t('mcpEnabledDescription')
-    case 'learning.enabled':
-      return t('learningEnabledDescription')
-    case 'todo.enabled':
-      return t('todoEnabledDescription')
-    case 'todo.autoCompleteParentTasks':
-      return t('autoCompleteParentTasksDescription')
-    case 'todo.blankTaskDurationMinutes':
-      return t('blankTaskDurationMinutesDescription')
-    case 'todo.timelineWorkdayStartMinutes':
-      return t('timelineWorkdayStartMinutesDescription')
-    case 'todo.timelineWorkdayEndMinutes':
-      return t('timelineWorkdayEndMinutesDescription')
-    case 'todo.keepDetailOpenWhenTaskLeavesView':
-      return t('keepTodoDetailOpenDescription')
-    case 'todo.recurringTaskCompletionAction':
-      return t('recurringTaskCompletionActionDescription')
-    case 'mcp.port':
-      return t('mcpPortDescription')
-    case 'mcp.accessToken':
-      return t('mcpAccessTokenDescription')
-    case 'syncServer.enabled':
-      return t('syncServerEnabledDescription')
-    case 'syncServer.url':
-      return t('syncServerUrlDescription')
-    case 'syncServer.peerId':
-      return t('syncServerPeerIdDescription')
-    case 'flashcards.newCardsPerDay':
-      return t('newCardsPerDayDescription')
-    case 'goals.dailyLearningGoalCards':
-      return t('dailyLimitDescription')
-    default:
-      return field.description
-  }
+  const key = fieldDescriptionKeys[field.path]
+    ?? (cursorFieldPaths.has(field.path) ? 'cursorSettingsDescription' : undefined)
+    ?? (shortcutFieldPaths.has(field.path) ? 'shortcutDescription' : undefined)
+  return key === undefined ? field.description : t(key)
+}
+
+const optionLabelKeys: Readonly<Record<string, string>> = {
+  'after-reviews': 'afterReviews',
+  'all-due': 'allDue',
+  'archive-completed-to-today': 'recurringTaskArchiveCompletedToToday',
+  'before-reviews': 'beforeReviews',
+  'continuous': 'readerPageModeContinuous',
+  'due-random': 'dueRandom',
+  'download': 'networkImagePasteDownload',
+  'en': 'english',
+  'fixed': 'fixedDailyLimit',
+  'journal-todo': 'panelJournalFirst',
+  'logical': 'outdentLogical',
+  'monday': 'monday',
+  'mixed': 'mixedWithReviews',
+  'none': 'cursorVfxNone',
+  'pixiedust': 'cursorVfxPixiedust',
+  'publisher': 'readerEpubPresentationPublisher',
+  'random': 'randomOrder',
+  'reader': 'readerEpubPresentationReader',
+  'railgun': 'cursorVfxRailgun',
+  'replace-completed': 'recurringTaskReplaceCompleted',
+  'retrievability': 'retrievability',
+  'ripple': 'cursorVfxRipple',
+  'single-page': 'readerPageModeSinglePage',
+  'sonicboom': 'cursorVfxSonicboom',
+  'source': 'sourceOrder',
+  'spread-week': 'spreadWeek',
+  'system': 'systemDefault',
+  'text': 'readerCopyTextOnly',
+  'text-book': 'readerCopyTextBook',
+  'text-book-location': 'readerCopyTextBookLocation',
+  'todo-journal': 'panelTodoFirst',
+  'torpedo': 'cursorVfxTorpedo',
+  'traditional': 'outdentTraditional',
+  'url': 'networkImagePasteUrl',
+  'wireframe': 'cursorVfxWireframe',
+  'zh-CN': 'chinese',
+  'sunday': 'sunday',
+  'move-next-to-today': 'recurringTaskMoveNextToToday',
+  'move-next-to-due-date': 'recurringTaskMoveNextToDueDate',
+  'nest-completed-under-next': 'recurringTaskNestCompletedUnderNext',
+  'place-next-after-completed': 'recurringTaskPlaceNextAfterCompleted',
+}
+
+const unitLabelKeys: Readonly<Record<string, string>> = {
+  backups: 'backups',
+  cards: 'cards',
+  hour: 'hour',
+  minutes: 'minutes',
 }
 
 function translateOptionLabel(value: string, t: TFunction): string {
-  switch (value) {
-    case 'system':
-      return t('systemDefault')
-    case 'en':
-      return t('english')
-    case 'zh-CN':
-      return t('chinese')
-    case 'logical':
-      return t('outdentLogical')
-    case 'traditional':
-      return t('outdentTraditional')
-    case 'sunday':
-      return t('sunday')
-    case 'monday':
-      return t('monday')
-    case 'todo-journal':
-      return t('panelTodoFirst')
-    case 'journal-todo':
-      return t('panelJournalFirst')
-    case 'download':
-      return t('networkImagePasteDownload')
-    case 'url':
-      return t('networkImagePasteUrl')
-    case 'publisher':
-      return t('readerEpubPresentationPublisher')
-    case 'reader':
-      return t('readerEpubPresentationReader')
-    case 'continuous':
-      return t('readerPageModeContinuous')
-    case 'single-page':
-      return t('readerPageModeSinglePage')
-    case 'text':
-      return t('readerCopyTextOnly')
-    case 'text-book':
-      return t('readerCopyTextBook')
-    case 'text-book-location':
-      return t('readerCopyTextBookLocation')
-    case 'webp':
-      return 'WebP'
-    case 'png':
-      return 'PNG'
-    case 'jpeg':
-      return 'JPEG'
-    case 'avif':
-      return 'AVIF'
-    case 'source':
-      return t('sourceOrder')
-    case 'random':
-      return t('randomOrder')
-    case 'before-reviews':
-      return t('beforeReviews')
-    case 'mixed':
-      return t('mixedWithReviews')
-    case 'after-reviews':
-      return t('afterReviews')
-    case 'due-random':
-      return t('dueRandom')
-    case 'retrievability':
-      return t('retrievability')
-    case 'none': return t('cursorVfxNone')
-    case 'railgun': return t('cursorVfxRailgun')
-    case 'torpedo': return t('cursorVfxTorpedo')
-    case 'pixiedust': return t('cursorVfxPixiedust')
-    case 'sonicboom': return t('cursorVfxSonicboom')
-    case 'ripple': return t('cursorVfxRipple')
-    case 'wireframe': return t('cursorVfxWireframe')
-    case 'spread-week':
-      return t('spreadWeek')
-    case 'all-due':
-      return t('allDue')
-    case 'fixed':
-      return t('fixedDailyLimit')
-    case 'archive-completed-to-today':
-      return t('recurringTaskArchiveCompletedToToday')
-    case 'move-next-to-today':
-      return t('recurringTaskMoveNextToToday')
-    case 'move-next-to-due-date':
-      return t('recurringTaskMoveNextToDueDate')
-    case 'nest-completed-under-next':
-      return t('recurringTaskNestCompletedUnderNext')
-    case 'place-next-after-completed':
-      return t('recurringTaskPlaceNextAfterCompleted')
-    case 'replace-completed':
-      return t('recurringTaskReplaceCompleted')
-    default:
-      return value
-  }
+  if (value === 'webp')
+    return 'WebP'
+  if (value === 'png')
+    return 'PNG'
+  if (value === 'jpeg')
+    return 'JPEG'
+  if (value === 'avif')
+    return 'AVIF'
+  const key = optionLabelKeys[value]
+  return key === undefined ? value : t(key)
 }
 
 function translateUnit(unit: string | undefined, t: TFunction): string | undefined {
-  switch (unit) {
-    case 'cards':
-      return t('cards')
-    case 'minutes':
-      return t('minutes')
-    case 'backups':
-      return t('backups')
-    case 'hour':
-      return t('hour')
-    default:
-      return unit
-  }
+  const key = unit === undefined ? undefined : unitLabelKeys[unit]
+  return key === undefined ? unit : t(key)
 }
 
 function localizeSection(section: ConfigurationSection, t: TFunction): ConfigurationSection {

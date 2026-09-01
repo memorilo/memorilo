@@ -89,30 +89,26 @@ function schedulerParameters(configuration: FsrsOptimizerConfiguration): FSRSPar
   })
 }
 
+const gradesByRating: Readonly<Record<ReviewRating, Grade>> = {
+  again: Rating.Again,
+  easy: Rating.Easy,
+  good: Rating.Good,
+  hard: Rating.Hard,
+}
+
 function toGrade(rating: ReviewRating): Grade {
-  switch (rating) {
-    case 'again':
-      return Rating.Again
-    case 'hard':
-      return Rating.Hard
-    case 'good':
-      return Rating.Good
-    case 'easy':
-      return Rating.Easy
-  }
+  return gradesByRating[rating]
+}
+
+const learningPhasesByState: Readonly<Record<State, LearningPhase>> = {
+  [State.Learning]: 'learning',
+  [State.New]: 'new',
+  [State.Relearning]: 'relearning',
+  [State.Review]: 'review',
 }
 
 function toLearningPhase(state: State): LearningPhase {
-  switch (state) {
-    case State.New:
-      return 'new'
-    case State.Learning:
-      return 'learning'
-    case State.Review:
-      return 'review'
-    case State.Relearning:
-      return 'relearning'
-  }
+  return learningPhasesByState[state]
 }
 
 function stateHash(state: LearningState): string {

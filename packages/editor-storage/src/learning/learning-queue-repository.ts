@@ -221,7 +221,7 @@ export class LearningQueueRepository {
       if (rows.length === 0)
         return []
       const [siblingBuryEvents, firstReviews, ratingsByTarget] = await Promise.all([
-        Promise.resolve(this.#orm.select({
+        this.#orm.select({
           source_card_id: learningSiblingBuryEvents.sourceCardId,
           note_id: learningSiblingBuryEvents.noteId,
           source_block_id: learningSiblingBuryEvents.sourceBlockId,
@@ -236,7 +236,7 @@ export class LearningQueueRepository {
               eq(undoneSiblingBuryEvents.eventKind, 'undo'),
               eq(undoneSiblingBuryEvents.undoesEventId, learningSiblingBuryEvents.sourceEventId),
             ))),
-        )).all() as SiblingBuryEventRow[]),
+        )).all() as SiblingBuryEventRow[],
         readFirstReviewTimes(this.#database),
         this.#history.ratingsByTarget(rows
           .filter(row => row.target_kind === 'item')
@@ -387,7 +387,7 @@ export class LearningQueueRepository {
     return ordered
   }
 
-  #listReadingItems(input: ListLearningQueueInput): Promise<readonly {
+  async #listReadingItems(input: ListLearningQueueInput): Promise<readonly {
     due_at: number | null
     note_id: string
     priority: number
@@ -396,7 +396,7 @@ export class LearningQueueRepository {
     topic_id: string
   }[]> {
     const now = input.now ?? Date.now()
-    return Promise.resolve(this.#orm.select({
+    return this.#orm.select({
       due_at: learningReadingItems.nextProcessAt,
       note_id: learningReadingItems.noteId,
       priority: learningReadingItems.priority,
@@ -414,6 +414,6 @@ export class LearningQueueRepository {
       reading_item_id: string
       source_block_id: string
       topic_id: string
-    }>)
+    }>
   }
 }

@@ -62,17 +62,17 @@ function estimateRowSize() {
   return rowHeight
 }
 
+const columnStyles = {
+  createdAt: pagesRouteStyles.createdColumn,
+  title: pagesRouteStyles.titleColumn,
+  updatedAt: pagesRouteStyles.dateColumn,
+} as const
+
 function columnStyle(columnId: string) {
-  switch (columnId) {
-    case 'title':
-      return pagesRouteStyles.titleColumn
-    case 'createdAt':
-      return pagesRouteStyles.createdColumn
-    case 'updatedAt':
-      return pagesRouteStyles.dateColumn
-    default:
-      throw new Error(`Unknown Pages table column: ${columnId}`)
-  }
+  const style = columnStyles[columnId as NoteLibraryColumnId]
+  if (style === undefined)
+    throw new Error(`Unknown Pages table column: ${columnId}`)
+  return style
 }
 
 function noteCountLabel(totalItems: number, t: TFunction) {

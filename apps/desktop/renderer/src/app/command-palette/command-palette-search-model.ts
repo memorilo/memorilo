@@ -58,16 +58,13 @@ function matchesQuery(command: PaletteCommand, normalizedQuery: string): boolean
 }
 
 function searchMatchLabel(hit: DesktopNoteSearchHit, t: TFunction): string {
-  switch (hit.match) {
-    case 'title':
-      return hit.kind === 'note' ? t('noteTitleMatch') : t('topicTitleMatch')
-    case 'node-start':
-      return t('nodeStartsWith')
-    case 'content':
-      return t('contentMatch')
-    case 'semantic':
-      return t('relatedMeaning')
-  }
+  if (hit.match === 'title')
+    return t(hit.kind === 'note' ? 'noteTitleMatch' : 'topicTitleMatch')
+  return t(({
+    'node-start': 'nodeStartsWith',
+    'content': 'contentMatch',
+    'semantic': 'relatedMeaning',
+  } as const)[hit.match])
 }
 
 function searchResultDescription(hit: DesktopNoteSearchHit, t: TFunction): string {

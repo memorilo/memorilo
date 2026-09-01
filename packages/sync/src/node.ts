@@ -846,24 +846,22 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
     return { action: 'retry', code: 'server-failure', retryable: true, type: 'error' }
   }
   const dataNamespaces = ['notes', 'learning'] as const satisfies readonly SyncDataNamespace[]
-  const getVersionVector = async (provider: SyncStateProvider, namespace: SyncDataNamespace): Promise<VersionVector> => provider.getVersionVectorAsync === undefined ? provider.getVersionVector(namespace) : provider.getVersionVectorAsync(namespace)
+  const getVersionVector = async (provider: SyncStateProvider, namespace: SyncDataNamespace): Promise<VersionVector> => provider.getVersionVectorAsync?.(namespace) ?? provider.getVersionVector(namespace)
   const getFrontiers = async (provider: SyncStateProvider): Promise<SyncFrontiers> => {
     const [notes, learning, assets] = await Promise.all([
       getVersionVector(provider, 'notes'),
       getVersionVector(provider, 'learning'),
-      provider.getAssetVersionVector?.() ?? Promise.resolve({}),
+      provider.getAssetVersionVector?.() ?? {},
     ])
     return { assets, learning, notes }
   }
   const supportsAssetSync = (provider: SyncStateProvider): boolean => provider.getAssetVersionVector !== undefined
     && provider.getAssetManifests !== undefined
     && provider.applyAssetManifests !== undefined
-  const getChanges = async (provider: SyncStateProvider, namespace: SyncDataNamespace, since: VersionVector): Promise<readonly SyncChange[]> => provider.getChangesAsync === undefined ? provider.getChanges(namespace, since) : provider.getChangesAsync(namespace, since)
+  const getChanges = async (provider: SyncStateProvider, namespace: SyncDataNamespace, since: VersionVector): Promise<readonly SyncChange[]> => provider.getChangesAsync?.(namespace, since) ?? provider.getChanges(namespace, since)
   const applyProviderChanges = async (provider: SyncStateProvider, namespace: SyncDataNamespace, changes: readonly SyncChange[], paired: PairedDevice, remoteMembershipEpoch: number): Promise<void> => {
-    if (provider.applyChangesAsync !== undefined)
-      await provider.applyChangesAsync(namespace, changes, paired, remoteMembershipEpoch)
-    else
-      await provider.applyChanges(namespace, changes, paired, remoteMembershipEpoch)
+    await (provider.applyChangesAsync?.(namespace, changes, paired, remoteMembershipEpoch)
+      ?? provider.applyChanges(namespace, changes, paired, remoteMembershipEpoch))
   }
   const acknowledge = async (provider: SyncStateProvider | undefined, namespace: SyncDataNamespace, changeIds: readonly string[], paired: PairedDevice): Promise<void> => {
     await provider?.acknowledgeChanges?.(namespace, changeIds, paired)

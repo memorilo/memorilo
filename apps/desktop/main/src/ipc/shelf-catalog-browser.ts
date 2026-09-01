@@ -31,17 +31,16 @@ interface ShelfCatalogBrowserDependencies {
   storage: Pick<ShelfStorage, 'pages' | 'sources'>
 }
 
+const shelfBrowseIssueKinds: Record<Exclude<ShelfRequestError['_tag'], 'ShelfResponseError'>, ShelfBrowseIssue['kind']> = {
+  ShelfAuthenticationError: 'authentication',
+  ShelfNetworkError: 'network',
+  ShelfParseError: 'parse',
+} as const
+
 function requestIssue(error: ShelfRequestError): ShelfBrowseIssue {
-  switch (error._tag) {
-    case 'ShelfAuthenticationError':
-      return { kind: 'authentication' }
-    case 'ShelfParseError':
-      return { kind: 'parse' }
-    case 'ShelfResponseError':
-      return { kind: 'response', status: error.status }
-    case 'ShelfNetworkError':
-      return { kind: 'network' }
-  }
+  if (error._tag === 'ShelfResponseError')
+    return { kind: 'response', status: error.status }
+  return { kind: shelfBrowseIssueKinds[error._tag] } as Exclude<ShelfBrowseIssue, { kind: 'response' }>
 }
 
 /** Owns source selection, conditional refresh, and publication asset caching. */

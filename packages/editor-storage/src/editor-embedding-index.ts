@@ -56,7 +56,7 @@ export class EditorEmbeddingIndex {
     if (input.noteId !== undefined)
       assertNonEmpty(input.noteId, 'Note id')
     const limit = resolveLimit(input.limit, 32, 256)
-    const rows = await this.runOperation(() => Promise.resolve(this.#orm.select({
+    const rows = await this.runOperation(async () => this.#orm.select({
       row_id: topicBlocks.rowId,
       note_row_id: topicBlocks.noteRowId,
       text: topicBlocks.text,
@@ -68,7 +68,7 @@ export class EditorEmbeddingIndex {
         ne(topicBlockEmbeddingState.contentHash, topicBlocks.contentHash),
       ),
       input.noteId === undefined ? undefined : eq(notes.id, input.noteId),
-    )).orderBy(desc(notes.updatedAt), asc(topicBlocks.rowId)).limit(limit).all() as PendingEmbeddingRow[]))
+    )).orderBy(desc(notes.updatedAt), asc(topicBlocks.rowId)).limit(limit).all() as PendingEmbeddingRow[])
     if (rows.length === 0)
       return { hasPending: false, indexed: 0 }
 

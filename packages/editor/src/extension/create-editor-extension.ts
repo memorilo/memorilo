@@ -6,6 +6,7 @@ import type { OutlineRuntime } from '../common/outline-runtime'
 import type { EditorImageOcclusionIntegration } from '../image-occlusion/image-occlusion-model'
 import type { EditorTopicRuntime } from '../note/editor-topic-runtime'
 import type { EditorStore } from '../state/editor-store'
+import { toError } from '@memorilo/effect-lifecycle'
 import {
   LoroTreeEphemeralCursorPlugin,
   LoroTreeSyncPlugin,
@@ -129,7 +130,7 @@ export function createEditorExtension(
       onError: ({ error }) => {
         if (uploadRuntime.closed)
           return
-        const message = error instanceof Error ? error.message : String(error)
+        const message = toError(error).message
         store.set(uploadErrorAtom, message)
       },
     }),

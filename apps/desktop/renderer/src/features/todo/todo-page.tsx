@@ -1,6 +1,7 @@
 import type { CreateDesktopTodoTaskInput, DesktopTodoTask, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
-import type { TodoListSelection, TodoView } from './todo-model'
+import type { LucideIcon } from 'lucide-react'
+import type { TodoListScopeId, TodoListSelection, TodoView } from './todo-model'
 import * as stylex from '@stylexjs/stylex'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -27,7 +28,7 @@ import { subscribeTodoCalendarSnapshot } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 import { TodoDetailSidebar } from './todo-detail-sidebar'
 import { TodoListSidebar } from './todo-list-sidebar'
-import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoTaskKey, todoTaskQueryOptions, todoTasksForView } from './todo-model'
+import { filterTodoListTasks, sortTodoTasks, summarizeTodoListTasks, todoCalendarQueryOptions, todoListSelectionKey, todoStatusLabelKeys, todoTaskKey, todoTaskQueryOptions, todoTasksForView } from './todo-model'
 import { todoPageStyles } from './todo-page.stylex'
 import { TodoBoardView } from './views/todo-board-view'
 import { TodoCalendarView } from './views/todo-calendar-view'
@@ -44,6 +45,15 @@ const viewOptions: readonly { descriptionKey: string, id: TodoView, labelKey: st
   { descriptionKey: 'switchToCalendar', id: 'calendar', labelKey: 'calendarView' },
   { descriptionKey: 'switchToQuadrant', id: 'quadrant', labelKey: 'quadrantView' },
 ]
+
+const viewIcons: Readonly<Record<TodoView, LucideIcon>> = {
+  agenda: CalendarRange,
+  board: Columns3,
+  calendar: CalendarDays,
+  list: List,
+  quadrant: Grid2X2,
+  timeline: CalendarClock,
+}
 
 const listSidebarSpring = {
   bounce: 0,
@@ -72,28 +82,20 @@ function selectedTaskReducer(
     return current
   }
 
-  const next = { ...current }
-  if (action.input.allDay !== undefined)
-    next.allDay = action.input.allDay
-  if (action.input.dueDate !== undefined)
-    next.dueDate = action.input.dueDate
-  if (action.input.dueTime !== undefined)
-    next.dueTime = action.input.dueTime
-  if (action.input.endAt !== undefined)
-    next.endAt = action.input.endAt
-  if (action.input.reminderMinutes !== undefined)
-    next.reminderMinutes = action.input.reminderMinutes
-  if (action.input.reminders !== undefined)
-    next.reminders = action.input.reminders
-  if (action.input.repeatRule !== undefined)
-    next.repeatRule = action.input.repeatRule
-  if (action.input.startAt !== undefined)
-    next.startAt = action.input.startAt
-  if (action.input.status !== undefined)
-    next.status = action.input.status
-  if (action.input.text !== undefined)
-    next.text = action.input.text
-  return next
+  const input = action.input
+  return {
+    ...current,
+    ...(input.allDay === undefined ? {} : { allDay: input.allDay }),
+    ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
+    ...(input.dueTime === undefined ? {} : { dueTime: input.dueTime }),
+    ...(input.endAt === undefined ? {} : { endAt: input.endAt }),
+    ...(input.reminderMinutes === undefined ? {} : { reminderMinutes: input.reminderMinutes }),
+    ...(input.reminders === undefined ? {} : { reminders: input.reminders }),
+    ...(input.repeatRule === undefined ? {} : { repeatRule: input.repeatRule }),
+    ...(input.startAt === undefined ? {} : { startAt: input.startAt }),
+    ...(input.status === undefined ? {} : { status: input.status }),
+    ...(input.text === undefined ? {} : { text: input.text }),
+  }
 }
 
 function viewLabel(view: TodoView, t: TFunction): string {
@@ -103,46 +105,27 @@ function viewLabel(view: TodoView, t: TFunction): string {
   return t(option.labelKey)
 }
 
+const selectionLabelKeys: Readonly<Record<TodoListScopeId, string>> = {
+  all: 'sidebarAll',
+  doing: todoStatusLabelKeys.doing,
+  done: todoStatusLabelKeys.done,
+  next7: 'sidebarNext7',
+  overdue: 'sidebarOverdue',
+  today: 'sidebarToday',
+  todo: todoStatusLabelKeys.todo,
+  tomorrow: 'sidebarTomorrow',
+  undated: 'sidebarUndated',
+}
+
 function selectionLabel(selection: TodoListSelection, tasks: readonly DesktopTodoTask[], t: TFunction): string {
   if (selection.kind === 'note')
     return tasks.find(task => task.noteId === selection.noteId)?.noteTitle ?? t('sidebarNotes')
-  switch (selection.id) {
-    case 'all':
-      return t('sidebarAll')
-    case 'today':
-      return t('sidebarToday')
-    case 'tomorrow':
-      return t('sidebarTomorrow')
-    case 'overdue':
-      return t('sidebarOverdue')
-    case 'next7':
-      return t('sidebarNext7')
-    case 'undated':
-      return t('sidebarUndated')
-    case 'todo':
-      return t('statusTodo')
-    case 'doing':
-      return t('statusDoing')
-    case 'done':
-      return t('statusDone')
-  }
+  return t(selectionLabelKeys[selection.id])
 }
 
 function ViewIcon({ view }: { view: TodoView }) {
-  switch (view) {
-    case 'list':
-      return <List aria-hidden="true" size={14} strokeWidth={1.8} />
-    case 'board':
-      return <Columns3 aria-hidden="true" size={14} strokeWidth={1.8} />
-    case 'timeline':
-      return <CalendarClock aria-hidden="true" size={14} strokeWidth={1.8} />
-    case 'agenda':
-      return <CalendarRange aria-hidden="true" size={14} strokeWidth={1.8} />
-    case 'calendar':
-      return <CalendarDays aria-hidden="true" size={14} strokeWidth={1.8} />
-    case 'quadrant':
-      return <Grid2X2 aria-hidden="true" size={14} strokeWidth={1.8} />
-  }
+  const Icon = viewIcons[view]
+  return <Icon aria-hidden="true" size={14} strokeWidth={1.8} />
 }
 
 function TodoStatus({

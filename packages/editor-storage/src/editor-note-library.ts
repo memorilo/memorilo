@@ -16,7 +16,7 @@ import type {
   SetNoteFavoriteInput,
   StoredNote,
 } from './editor-storage-contracts'
-import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import {
   journals,
   learningCards,
@@ -93,20 +93,12 @@ function resolveNoteOrderBy(
 ): { direction: 'asc' | 'desc', field: NoteSortField } {
   const sortBy = sortByInput ?? 'updatedAt'
   const sortDirection = sortDirectionInput ?? (sortBy === 'title' ? 'asc' : 'desc')
-  const direction = (() => {
-    switch (sortDirection) {
-      case 'asc':
-        return 'asc' as const
-      case 'desc':
-        return 'desc' as const
-      default:
-        throw new TypeError(`Unknown Note sort direction: ${String(sortDirection)}`)
-    }
-  })()
+  if (sortDirection !== 'asc' && sortDirection !== 'desc')
+    throw new TypeError(`Unknown Note sort direction: ${String(sortDirection)}`)
 
   if (sortBy !== 'createdAt' && sortBy !== 'title' && sortBy !== 'updatedAt')
     throw new TypeError(`Unknown Note sort field: ${String(sortBy)}`)
-  return { direction, field: sortBy }
+  return { direction: sortDirection, field: sortBy }
 }
 
 function visibleJournalWhere(today: string | null) {
@@ -204,25 +196,29 @@ export class EditorNoteLibrary {
     const note = this.#orm.select({ row_id: notes.rowId }).from(notes).where(eq(notes.id, noteId)).get()
     if (!note)
       throw new Error(`Unknown Note: ${noteId}`)
-    const [topicCount, topicBlockCount, cardCount, assetReferences] = await Promise.all([
-      Promise.resolve(this.#orm.select({ count: sql<number>`count(*)` }).from(topics).where(eq(topics.noteRowId, note.row_id)).get()),
-      Promise.resolve(this.#orm.select({ count: sql<number>`count(*)` }).from(topicBlocks).where(eq(topicBlocks.noteRowId, note.row_id)).get()),
-      Promise.resolve(this.#orm.select({ count: sql<number>`count(*)` }).from(learningCards).where(eq(learningCards.noteId, noteId)).get()),
-      Promise.resolve(this.#orm.select({ asset_file_name: noteAssetReferences.assetFileName, note_row_id: noteAssetReferences.noteRowId, reference_count: noteAssetReferences.referenceCount }).from(noteAssetReferences).all()),
-    ])
+    const topicCount = this.#orm.select({ count: sql<number>`count(*)` }).from(topics).where(eq(topics.noteRowId, note.row_id)).get()
+    const topicBlockCount = this.#orm.select({ count: sql<number>`count(*)` }).from(topicBlocks).where(eq(topicBlocks.noteRowId, note.row_id)).get()
+    const cardCount = this.#orm.select({ count: sql<number>`count(*)` }).from(learningCards).where(eq(learningCards.noteId, noteId)).get()
+    const ownAssetReferences = this.#orm.select({ asset_file_name: noteAssetReferences.assetFileName, reference_count: noteAssetReferences.referenceCount })
+      .from(noteAssetReferences)
+      .where(eq(noteAssetReferences.noteRowId, note.row_id))
+      .all()
     if (!topicCount || !topicBlockCount || !cardCount)
       throw new Error(`Failed to inspect Note ${noteId} deletion impact`)
-    const assetRowsByName = new Map<string, typeof assetReferences>()
-    for (const reference of assetReferences) {
-      const rows = assetRowsByName.get(reference.asset_file_name) ?? []
-      rows.push(reference)
-      assetRowsByName.set(reference.asset_file_name, rows)
-    }
-    const uniqueAssets = [...assetRowsByName.values()].filter(rows => rows.every(row => row.note_row_id === note.row_id)).length
-    const ownReferences = assetReferences.filter(reference => reference.note_row_id === note.row_id)
+    const assetNames = ownAssetReferences.map(reference => reference.asset_file_name)
+    const sharedAssetNames = assetNames.length === 0
+      ? new Set<string>()
+      : new Set(this.#orm.select({ asset_file_name: noteAssetReferences.assetFileName })
+          .from(noteAssetReferences)
+          .where(and(
+            ne(noteAssetReferences.noteRowId, note.row_id),
+            inArray(noteAssetReferences.assetFileName, assetNames),
+          ))
+          .all()
+          .map(reference => reference.asset_file_name))
     return {
-      assetCount: uniqueAssets,
-      assetReferenceCount: ownReferences.reduce((sum, reference) => sum + reference.reference_count, 0),
+      assetCount: ownAssetReferences.filter(reference => !sharedAssetNames.has(reference.asset_file_name)).length,
+      assetReferenceCount: ownAssetReferences.reduce((sum, reference) => sum + reference.reference_count, 0),
       cardCount: cardCount.count,
       noteId,
       topicBlockCount: topicBlockCount.count,
@@ -282,31 +278,22 @@ export class EditorNoteLibrary {
       throw new RangeError('Page offset exceeds the safe integer range')
 
     return this.#options.runOperation(async () => {
-      const [countRow, rows] = await Promise.all([
-        Promise.resolve(this.#orm.select({ count: sql<number>`count(*)` }).from(notes).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(visibleJournalWhere(today)).get()),
-        Promise.resolve((() => {
-          const query = this.#orm.select({
-            id: notes.id,
-            title: notes.title,
-            created_at: notes.createdAt,
-            updated_at: notes.updatedAt,
-            journal_date: journals.journalDate,
-            favorite: noteFavorites.noteRowId,
-          }).from(notes).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).leftJoin(noteFavorites, eq(noteFavorites.noteRowId, notes.rowId)).where(visibleJournalWhere(today))
-          const ordered = orderBy.direction === 'asc'
-            ? orderBy.field === 'createdAt'
-              ? query.orderBy(asc(notes.createdAt), asc(notes.id))
-              : orderBy.field === 'title'
-                ? query.orderBy(asc(sql`lower(${notes.title})`), asc(notes.id))
-                : query.orderBy(asc(notes.updatedAt), asc(notes.id))
-            : orderBy.field === 'createdAt'
-              ? query.orderBy(desc(notes.createdAt), desc(notes.id))
-              : orderBy.field === 'title'
-                ? query.orderBy(desc(sql`lower(${notes.title})`), desc(notes.id))
-                : query.orderBy(desc(notes.updatedAt), desc(notes.id))
-          return ordered.limit(pageSize).offset(offset).all() as NoteSummaryRow[]
-        })()),
-      ])
+      const countRow = this.#orm.select({ count: sql<number>`count(*)` }).from(notes).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).where(visibleJournalWhere(today)).get()
+      const query = this.#orm.select({
+        id: notes.id,
+        title: notes.title,
+        created_at: notes.createdAt,
+        updated_at: notes.updatedAt,
+        journal_date: journals.journalDate,
+        favorite: noteFavorites.noteRowId,
+      }).from(notes).leftJoin(journals, eq(journals.noteRowId, notes.rowId)).leftJoin(noteFavorites, eq(noteFavorites.noteRowId, notes.rowId)).where(visibleJournalWhere(today))
+      const order = orderBy.direction === 'asc' ? asc : desc
+      const ordered = orderBy.field === 'createdAt'
+        ? query.orderBy(order(notes.createdAt), order(notes.id))
+        : orderBy.field === 'title'
+          ? query.orderBy(order(sql`lower(${notes.title})`), order(notes.id))
+          : query.orderBy(order(notes.updatedAt), order(notes.id))
+      const rows = ordered.limit(pageSize).offset(offset).all() as NoteSummaryRow[]
       if (!countRow)
         throw new Error('Failed to count Notes')
       return {

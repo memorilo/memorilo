@@ -6,14 +6,11 @@ import { LockKeyhole, Minus, Plus, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../shared/desktop-requests'
+import { errorMessage } from '../shared/error-message'
 import { loadTodoCalendarSnapshot, reloadTodoCalendarSnapshot } from '../shared/todo-calendar-cache'
 import { todoCalendarColor } from '../shared/todo-calendar-color'
 import { calendarSettingsStyles as styles } from './calendar-settings.stylex'
 import { settingsShellStyles } from './settings-shell.stylex'
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function AddCalendarDialog({
   error,

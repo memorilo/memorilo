@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { desktopRequests } from '../../shared/desktop-requests'
+import { errorMessage } from '../../shared/error-message'
 import {
   desktopEditorAdapters,
   useEditorNoteSession,
@@ -67,7 +68,7 @@ function TodoDetailEditorLoaded({
             }
             catch (error) {
               toast.error(t('cardTopicResyncFailed', {
-                message: error instanceof Error ? error.message : String(error),
+                message: errorMessage(error),
               }))
             }
           }}

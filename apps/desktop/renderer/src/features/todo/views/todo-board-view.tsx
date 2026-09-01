@@ -1,33 +1,16 @@
 import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, DesktopTodoTask, DesktopTodoTaskStatus, UpdateDesktopTodoTaskInput } from '@memorilo/desktop-api'
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
-import { Circle, CircleCheck, CircleDotDashed } from 'lucide-react'
-import { formatTaskDuration, groupTodoTasks, taskElapsedMs, todoStatuses, todoTaskKey } from '../todo-model'
+import { formatTaskDuration, groupTodoTasks, taskElapsedMs, todoStatuses, todoStatusLabelKeys, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskMetadata } from '../todo-task-metadata'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
+import { todoTaskStatusIcons } from '../todo-task-status'
 import { todoBoardViewStyles as styles } from './todo-board-view.stylex'
 
-function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
-  switch (status) {
-    case 'todo':
-      return t('statusTodo')
-    case 'doing':
-      return t('statusDoing')
-    case 'done':
-      return t('statusDone')
-  }
-}
-
 function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
-  switch (status) {
-    case 'todo':
-      return <Circle {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.7} />
-    case 'doing':
-      return <CircleDotDashed {...stylex.props(styles.statusIcon, styles.statusDoing)} aria-hidden="true" strokeWidth={1.8} />
-    case 'done':
-      return <CircleCheck {...stylex.props(styles.statusIcon, styles.statusDone)} aria-hidden="true" strokeWidth={1.8} />
-  }
+  const Icon = todoTaskStatusIcons[status]
+  return <Icon {...stylex.props(styles.statusIcon, status === 'doing' && styles.statusDoing, status === 'done' && styles.statusDone)} aria-hidden="true" strokeWidth={status === 'todo' ? 1.7 : 1.8} />
 }
 
 export function TodoBoardView({
@@ -68,12 +51,12 @@ export function TodoBoardView({
                 status === 'doing' && styles.columnDoing,
                 status === 'done' && styles.columnDone,
               )}
-              aria-label={statusLabel(status, t)}
+              aria-label={t(todoStatusLabelKeys[status])}
             >
               <header {...stylex.props(styles.columnHeader)}>
                 <span {...stylex.props(styles.columnTitle)}>
                   <TaskStatusIcon status={status} />
-                  {statusLabel(status, t)}
+                  {t(todoStatusLabelKeys[status])}
                 </span>
                 <span {...stylex.props(styles.columnCount)}>{columnTasks.length}</span>
               </header>

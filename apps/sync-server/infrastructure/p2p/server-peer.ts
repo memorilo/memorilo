@@ -4,6 +4,7 @@ import type { SyncPeerMetricsRecorder } from '../metrics'
 import { createHash, randomUUID } from 'node:crypto'
 import { mergeAuthoritativeNoteSnapshot, objectKeyFor } from '@memorilo/sync'
 import { createP2pApplication, maxDeviceSignatureClockSkewMs, verifySyncHelloSignature, verifySyncObjectRequestSignature } from '@memorilo/sync/node'
+import { Effect, Queue, Stream } from 'effect'
 import { compareLearningEntityOrder } from '../database/shared'
 import { withDatabaseFailureMetrics, withObjectStoreFailureMetrics } from '../metrics'
 
@@ -248,65 +249,38 @@ interface RelayBytePipe {
 }
 
 export function createRelayBytePipe(): RelayBytePipe {
-  const queue: Uint8Array[] = []
-  const readers: Array<() => void> = []
-  const writers: Array<() => void> = []
-  let ended = false
   let stopped = false
-  let failure: unknown = null
-  const wake = (waiters: Array<() => void>): void => {
-    for (const waiter of waiters.splice(0))
-      waiter()
-  }
-  const waitForCapacity = async (): Promise<void> => {
-    if (queue.length < 1 || failure !== null || ended || stopped)
-      return
-    await new Promise<void>(resolve => writers.push(resolve))
-    await waitForCapacity()
-  }
+  const queue = Effect.runSync(Queue.bounded<Uint8Array, unknown>(1))
+  const stream = Stream.toAsyncIterable(Stream.fromQueue(queue))
   return {
     body: (async function* () {
-      while (true) {
-        if (failure !== null)
-          throw failure
-        if (stopped)
-          return
-        const chunk = queue.shift()
-        if (chunk !== undefined) {
-          wake(writers)
+      try {
+        for await (const chunk of stream)
           yield chunk
-          continue
-        }
-        if (ended)
-          return
-        await new Promise<void>(resolve => readers.push(resolve))
+      }
+      catch (error) {
+        if (!stopped)
+          throw error
       }
     })(),
-    end: () => {
-      ended = true
-      wake(readers)
-    },
-    fail: (error) => {
-      failure = error
-      wake(readers)
-      wake(writers)
-    },
+    end: () => Effect.runSync(Queue.end(queue)),
+    fail: error => Effect.runSync(Queue.fail(queue, error)),
     push: async (chunk) => {
-      await waitForCapacity()
-      if (failure !== null)
-        throw failure
       if (stopped)
         return
-      if (ended)
-        throw new Error('Relay destination closed before transfer completed')
-      queue.push(chunk)
-      wake(readers)
+      try {
+        const accepted = await Effect.runPromise(Queue.offer(queue, chunk))
+        if (!accepted && !stopped)
+          throw new Error('Relay destination closed before transfer completed')
+      }
+      catch (error) {
+        if (!stopped)
+          throw error
+      }
     },
     stop: () => {
       stopped = true
-      queue.splice(0)
-      wake(readers)
-      wake(writers)
+      Effect.runSync(Queue.shutdown(queue))
     },
   }
 }
@@ -562,7 +536,7 @@ function accountProvider(
   }
   return {
     applyChanges: async () => undefined,
-    applyChangesAsync: async (namespace, changes, peer, remoteMembershipEpoch) => {
+    applyChangesAsync: async (namespace, changes, _peer, remoteMembershipEpoch) => {
       let current = await refreshAuthorization(remoteMembershipEpoch)
       if (readOnly && changes.length > 0)
         throw new Error('server-read-only')
@@ -579,7 +553,6 @@ function accountProvider(
       }
       if (current.enabledModes.includes('relay'))
         relay.publish(namespace, changes)
-      void peer
     },
     getChanges: async () => [],
     getChangesAsync: async (namespace, since) => {

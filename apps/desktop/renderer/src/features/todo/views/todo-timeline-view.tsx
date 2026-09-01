@@ -6,6 +6,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { formatTodoMonth } from '../todo-date-format'
 import { groupTodoTasksByDate, taskPlanningDate, todoTaskKey } from '../todo-model'
 import { TodoCalendarEventItem } from './todo-calendar-event'
 import { TodoPlanningTask } from './todo-planning-task'
@@ -29,10 +30,6 @@ interface ScheduleGroupData {
 function formatScheduleDate(date: Dayjs, locale: string): { day: string, weekday: string } {
   const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' })
   return { day: `${date.date()}`, weekday: formatter.format(date.toDate()) }
-}
-
-function formatMonth(date: Dayjs, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date.toDate())
 }
 
 function formatTime(minutes: number): string {
@@ -285,7 +282,7 @@ export function TodoTimelineView({
         <div {...stylex.props(planningStyles.toolbarActions)}>
           <div {...stylex.props(planningStyles.periodControl)}>
             <PeriodButton direction="previous" label={t('previousMonth')} onClick={() => setActiveMonth(current => current.subtract(1, 'month'))} />
-            <span {...stylex.props(planningStyles.periodLabel)}>{formatMonth(activeMonth, locale)}</span>
+            <span {...stylex.props(planningStyles.periodLabel)}>{formatTodoMonth(activeMonth, locale)}</span>
             <PeriodButton direction="next" label={t('nextMonth')} onClick={() => setActiveMonth(current => current.add(1, 'month'))} />
           </div>
           <button {...stylex.props(planningStyles.todayButton)} type="button" onClick={() => setActiveMonth(today.startOf('month'))}>{t('today')}</button>

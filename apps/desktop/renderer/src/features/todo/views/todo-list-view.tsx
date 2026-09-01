@@ -3,41 +3,24 @@ import type { TFunction } from 'i18next'
 import type { CSSProperties } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleDotDashed, LoaderCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { todoCalendarColor } from '../../../shared/todo-calendar-color'
-import { buildTodoTaskTree, flattenTodoTaskTree, formatTaskDuration, taskElapsedMs, todoTaskKey } from '../todo-model'
+import { buildTodoTaskTree, flattenTodoTaskTree, formatTaskDuration, taskElapsedMs, todoStatusLabelKeys, todoTaskKey } from '../todo-model'
 import { TodoTaskActions } from '../todo-task-actions'
 import { TodoTaskMetadata } from '../todo-task-metadata'
 import { TodoTaskOccurrenceActions } from '../todo-task-occurrence-actions'
+import { todoTaskStatusIcons } from '../todo-task-status'
 import { todoListViewStyles as styles } from './todo-list-view.stylex'
 
 const rowHeight = 58
-
 function estimateRowSize() {
   return rowHeight
 }
 
-function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
-  switch (status) {
-    case 'todo':
-      return t('statusTodo')
-    case 'doing':
-      return t('statusDoing')
-    case 'done':
-      return t('statusDone')
-  }
-}
-
 function TaskStatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
-  switch (status) {
-    case 'todo':
-      return <Circle {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.7} />
-    case 'doing':
-      return <CircleDotDashed {...stylex.props(styles.statusIcon, styles.statusDoing)} aria-hidden="true" strokeWidth={1.8} />
-    case 'done':
-      return <CircleCheck {...stylex.props(styles.statusIcon, styles.statusDone)} aria-hidden="true" strokeWidth={1.8} />
-  }
+  const Icon = todoTaskStatusIcons[status]
+  return <Icon {...stylex.props(styles.statusIcon, status === 'doing' && styles.statusDoing, status === 'done' && styles.statusDone)} aria-hidden="true" strokeWidth={status === 'todo' ? 1.7 : 1.8} />
 }
 
 function CalendarEventRow({ event, transform }: { event: DesktopTodoCalendarEvent, transform: string }) {
@@ -246,7 +229,7 @@ export function TodoListView({
                       onUpdateTask={onUpdateTask}
                       t={t}
                       task={task}
-                      triggerContent={<span title={statusLabel(task.status, t)}><TaskStatusIcon status={task.status} /></span>}
+                      triggerContent={<span title={t(todoStatusLabelKeys[task.status])}><TaskStatusIcon status={task.status} /></span>}
                     />
                     <span {...stylex.props(styles.taskContent)}>
                       <span {...stylex.props(styles.taskText, task.status === 'done' && styles.taskDone)}>

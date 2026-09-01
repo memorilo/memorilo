@@ -10,16 +10,13 @@ import { useTranslation } from 'react-i18next'
 
 import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
+import { errorMessage } from '../../../shared/error-message'
 import * as LearningActivity from '../components/learning-activity'
 import { learningQueryKeys } from '../query-keys'
 import { learningNotesStyles as styles } from './learning-notes.stylex'
 
 type LearningNote = Awaited<ReturnType<DesktopLearningApi['listNotesWithCards']>>[number]
 type LearningOptimizer = Awaited<ReturnType<DesktopLearningApi['listOptimizers']>>[number]
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function LearningNoteRow({
   index,

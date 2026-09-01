@@ -35,20 +35,18 @@ export class LearningMaintenanceRepository {
   }
 
   async #estimate(): Promise<LearningMaintenanceEstimate> {
-    const [cards, targets, events, optimizers] = await Promise.all([
-      this.#orm.select({ count: sql<number>`count(*)` }).from(learningCards).where(eq(learningCards.active, 0)).get(),
-      this.#orm.select({ count: sql<number>`count(*)` }).from(learningTargets).where(eq(learningTargets.active, 0)).get(),
-      this.#orm.select({ count: sql<number>`count(*)` })
-        .from(learningReviewEvents)
-        .where(inArray(
-          learningReviewEvents.targetId,
-          this.#orm.select({ targetId: learningTargets.targetId })
-            .from(learningTargets)
-            .where(eq(learningTargets.active, 0)),
-        ))
-        .get(),
-      this.#orm.select({ count: sql<number>`count(*)` }).from(learningOptimizers).where(eq(learningOptimizers.status, 'archived')).get(),
-    ])
+    const cards = this.#orm.select({ count: sql<number>`count(*)` }).from(learningCards).where(eq(learningCards.active, 0)).get()
+    const targets = this.#orm.select({ count: sql<number>`count(*)` }).from(learningTargets).where(eq(learningTargets.active, 0)).get()
+    const events = this.#orm.select({ count: sql<number>`count(*)` })
+      .from(learningReviewEvents)
+      .where(inArray(
+        learningReviewEvents.targetId,
+        this.#orm.select({ targetId: learningTargets.targetId })
+          .from(learningTargets)
+          .where(eq(learningTargets.active, 0)),
+      ))
+      .get()
+    const optimizers = this.#orm.select({ count: sql<number>`count(*)` }).from(learningOptimizers).where(eq(learningOptimizers.status, 'archived')).get()
     if (!cards || !targets || !events || !optimizers)
       throw new Error('Failed to count learning database maintenance scope')
     return {

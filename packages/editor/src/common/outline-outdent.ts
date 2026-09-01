@@ -100,19 +100,14 @@ function restoreOutlineSelection(
 }
 
 export function outlineOutdentBlockedMessage(reason: OutdentBlockedReason): string {
-  switch (reason) {
-    case 'empty_selection':
-      return 'Select a block before using Outdent.'
-    case 'unknown_selected_block':
-      return 'The selected block is no longer in the document.'
-    case 'already_at_root':
-      return 'Top-level blocks cannot be outdented.'
-    case 'crosses_focus_root':
-      return 'This block cannot move outside the current Focus view.'
-    case 'traditional_requires_same_parent':
-    case 'traditional_requires_contiguous_siblings':
-      return TRADITIONAL_SELECTION_MESSAGE
-  }
+  return ({
+    empty_selection: 'Select a block before using Outdent.',
+    unknown_selected_block: 'The selected block is no longer in the document.',
+    already_at_root: 'Top-level blocks cannot be outdented.',
+    crosses_focus_root: 'This block cannot move outside the current Focus view.',
+    traditional_requires_same_parent: TRADITIONAL_SELECTION_MESSAGE,
+    traditional_requires_contiguous_siblings: TRADITIONAL_SELECTION_MESSAGE,
+  } as const)[reason]
 }
 
 function currentBlockId(state: EditorState): string | null {

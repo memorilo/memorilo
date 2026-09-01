@@ -19,8 +19,9 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 import { desktopRequests } from '../../shared/desktop-requests'
-
 import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
+
+import { errorMessage } from '../../shared/error-message'
 import { createEditorNoteSessionCache } from '../notes/note-runtime'
 import { useFlushNotePersistence } from '../notes/persistence/note-persistence-hooks'
 import { noteQueryKeys } from '../notes/query-keys'
@@ -38,10 +39,6 @@ import { journalQueryKeys } from './query-keys'
 
 const journalPageSize = 20
 const journalSessionCacheCapacity = 8
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 export function JournalsPage({
   requestedDate,

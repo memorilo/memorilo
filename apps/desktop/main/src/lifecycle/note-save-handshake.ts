@@ -33,10 +33,6 @@ export interface FlushRendererNotesOptions {
   timeoutMs?: number
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 function withCleanupFailures(
   outcome: RendererNoteSaveOutcome,
   cleanupFailures: readonly unknown[],
@@ -51,7 +47,7 @@ function withCleanupFailures(
         ...cleanupFailures,
       ]
   return {
-    message: errorMessage(combineLifecycleFailures(failures, 'Renderer Note save handshake cleanup failed')),
+    message: toError(combineLifecycleFailures(failures, 'Renderer Note save handshake cleanup failed')).message,
     status: 'failed',
   }
 }
@@ -142,7 +138,7 @@ export async function flushRendererNotes({
     }))
   })).pipe(
     Effect.catchEager(error => Effect.succeed({
-      message: errorMessage(error),
+      message: toError(error).message,
       status: 'failed',
     } as const)),
   )

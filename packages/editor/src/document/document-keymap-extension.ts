@@ -125,9 +125,7 @@ function createDocumentIndentCommand(runtime: OutlineRuntime): Command {
       return true
     }
 
-    const blockNode = state.doc.nodeAt(block.position)
-    if (!blockNode || !isListNode(blockNode))
-      throw new Error('The current Document selection is outside its resolved list block')
+    const blockNode = block.node
     createIndentListCommand({
       from: block.position + 1,
       to: block.position + blockNode.nodeSize - 1,
@@ -156,9 +154,7 @@ function createDocumentDedentCommand(runtime: OutlineRuntime): Command {
     if (!block.nested) {
       if (block.kind !== 'bullet')
         return true
-      const node = state.doc.nodeAt(block.position)
-      if (!node)
-        throw new Error(`Document list block is missing at position ${block.position}`)
+      const node = block.node
       let ownsChildBlock = false
       node.forEach((child) => {
         if (isListNode(child))
@@ -167,9 +163,7 @@ function createDocumentDedentCommand(runtime: OutlineRuntime): Command {
       return ownsChildBlock ? true : convertDocumentBlockToOrdinary(state, dispatch, block.position)
     }
 
-    const blockNode = state.doc.nodeAt(block.position)
-    if (!blockNode || !isListNode(blockNode))
-      throw new Error('The current Document selection is outside its resolved list block')
+    const blockNode = block.node
     createDedentListCommand({
       from: block.position + 1,
       to: block.position + blockNode.nodeSize - 1,
@@ -203,9 +197,7 @@ function createDocumentEnterCommand(runtime: OutlineRuntime): Command {
     if (block.kind !== OUTLINE_LIST_KIND)
       return false
 
-    const node = state.doc.nodeAt(block.position)
-    if (!node)
-      throw new Error(`Document list block is missing at position ${block.position}`)
+    const node = block.node
     return insertBlockSiblingAfter(state, dispatch, {
       node,
       pos: block.position,

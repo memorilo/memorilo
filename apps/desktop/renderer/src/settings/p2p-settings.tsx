@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../shared/configuration'
 import { desktopRequests } from '../shared/desktop-requests'
+import { errorMessage } from '../shared/error-message'
 import { p2pSettingsStyles as styles } from './p2p-settings.stylex'
 
 function peerIdSummary(peerId: string): string {
@@ -75,7 +76,7 @@ export function P2pSettings() {
       await reload()
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -103,7 +104,7 @@ export function P2pSettings() {
         setServerStatus(next)
     }).catch((error) => {
       if (active)
-        setMessage(error instanceof Error ? error.message : String(error))
+        setMessage(errorMessage(error))
     })
     return () => {
       active = false
@@ -118,7 +119,7 @@ export function P2pSettings() {
       await reload()
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -128,7 +129,7 @@ export function P2pSettings() {
       setMessage(t('p2pPairingRequested'))
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -139,7 +140,7 @@ export function P2pSettings() {
       setMessage(t('p2pEmojiCheck'))
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -163,7 +164,7 @@ export function P2pSettings() {
       await reload()
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -183,7 +184,7 @@ export function P2pSettings() {
       setMessage(t('syncServerPairingResponseReady'))
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -202,7 +203,7 @@ export function P2pSettings() {
       setMessage(t('syncServerPairingCompleted'))
     }
     catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(errorMessage(error))
     }
   }
 
@@ -216,19 +217,20 @@ export function P2pSettings() {
   const pairingPeerIds = new Set(requests.map(request => request.peerId))
   const unpairedPeers = peers.filter(peer => !pairingPeerIds.has(peer.peerId))
   const nearbyDeviceCount = requests.length + unpairedPeers.length
-  const serverStateLabel = (() => {
-    switch (serverStatus?.state) {
-      case 'disabled': return t('syncServerStateDisabled')
-      case 'setup-required': return t('syncServerStateSetupRequired')
-      case 'restart-required': return t('syncServerStateRestartRequired')
-      case 'connecting': return t('syncServerStateConnecting')
-      case 'syncing': return t('syncServerStateSyncing')
-      case 'synced': return t('syncServerStateSynced')
-      case 'offline': return t('syncServerStateOffline')
-      case 'error': return t('syncServerStateError')
-      default: return t('syncServerStateLoading')
-    }
-  })()
+  const serverStateLabelKeys = {
+    'disabled': 'syncServerStateDisabled',
+    'setup-required': 'syncServerStateSetupRequired',
+    'restart-required': 'syncServerStateRestartRequired',
+    'connecting': 'syncServerStateConnecting',
+    'syncing': 'syncServerStateSyncing',
+    'synced': 'syncServerStateSynced',
+    'offline': 'syncServerStateOffline',
+    'error': 'syncServerStateError',
+  } as const
+  const serverStateKey = serverStatus?.state === undefined
+    ? 'syncServerStateLoading'
+    : serverStateLabelKeys[serverStatus.state]
+  const serverStateLabel = t(serverStateKey)
   const serverModeDescription = serverStatus?.modes.includes('relay')
     ? t('syncServerRelayWarning')
     : serverStatus?.modes.includes('authoritative')

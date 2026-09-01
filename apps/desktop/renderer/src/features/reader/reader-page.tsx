@@ -13,6 +13,7 @@ import { toast } from 'react-toastify/unstyled'
 import { useDesktopConfiguration } from '../../shared/configuration'
 
 import { desktopRequests } from '../../shared/desktop-requests'
+import { errorMessage } from '../../shared/error-message'
 import { useOwnedResource } from '../../shared/lifecycle/owned-resource'
 import { usePageTitlebar } from '../../shared/page-titlebar'
 import { useFlushNotePersistence } from '../notes/persistence/note-persistence-hooks'
@@ -36,10 +37,6 @@ interface RequestedBookContext {
 export type ShelfReaderSearch
   = | RequestedBookContext
     | { noteId?: undefined, topicId?: undefined }
-
-function publicError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function ShelfReaderSession({
   readingId,
@@ -172,7 +169,7 @@ function ShelfReaderSession({
     catch (error) {
       setContextChoiceResolved(true)
       setCreateOpen(false)
-      toast.error(publicError(error))
+      toast.error(errorMessage(error))
     }
     finally {
       finish()
@@ -257,7 +254,7 @@ function ShelfReaderSession({
       toast.warning(t('reader.contextRebound'))
     }
     catch (error) {
-      toast.error(publicError(error))
+      toast.error(errorMessage(error))
     }
     finally {
       finish()
@@ -301,7 +298,7 @@ function ShelfReaderSession({
               <section {...stylex.props(readerPageStyles.routeStatus)} role="alert">
                 <AlertCircle {...stylex.props(readerPageStyles.statusIcon)} aria-hidden="true" size={30} strokeWidth={1.5} />
                 <h1 {...stylex.props(readerPageStyles.statusTitle)}>{t('reader.couldNotOpen')}</h1>
-                <p {...stylex.props(readerPageStyles.statusDetail)}>{publicError(statusError)}</p>
+                <p {...stylex.props(readerPageStyles.statusDetail)}>{errorMessage(statusError)}</p>
                 <Link {...stylex.props(readerPageStyles.openButton, readerPageStyles.backLink)} search={{}} to="/shelf">
                   <BookOpen aria-hidden="true" size={15} strokeWidth={1.8} />
                   {t('reader.shelf')}
@@ -343,7 +340,7 @@ function ShelfReaderSession({
                           contexts={contextsQuery.data}
                           creating={creating}
                           onCreate={() => void createContext({ noteTitle: fallbackTitle, topicTitle: fallbackTitle })}
-                          onSelect={summary => void selectContext(summary).catch(error => toast.error(publicError(error)))}
+                          onSelect={summary => void selectContext(summary).catch(error => toast.error(errorMessage(error)))}
                         />
                       )
                     : null}

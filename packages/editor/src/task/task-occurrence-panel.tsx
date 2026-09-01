@@ -1,8 +1,10 @@
 import type { TFunction } from 'i18next'
 import type { CSSProperties, Ref } from 'react'
+import type { TaskRepeatRule } from '../schema/task-schema'
 import type { TaskActionUpdate } from './task-action-model'
 import type { TaskActionTask } from './task-action-panel'
 import type { TaskCalendarEvent } from './task-calendar'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Button, Surface, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
@@ -21,6 +23,12 @@ export interface TaskOccurrencePanelProps {
   visible?: boolean
   onUpdate: (input: TaskActionUpdate) => Promise<void> | void
   onUpdated?: () => void
+}
+
+function requireRepeatRule(task: TaskActionTask, message: string): TaskRepeatRule {
+  if (!task.repeatRule)
+    throw new Error(message)
+  return task.repeatRule
 }
 
 export function TaskOccurrencePanel({
@@ -47,7 +55,7 @@ export function TaskOccurrencePanel({
       onUpdated?.()
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(toError(cause).message)
     }
     finally {
       setUpdating(false)
@@ -59,18 +67,17 @@ export function TaskOccurrencePanel({
       void update(action())
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(toError(cause).message)
     }
   }
 
   const skip = () => run(() => {
-    if (!task.repeatRule)
-      throw new Error('Skipping an occurrence requires a repeat rule')
-    const nextDate = nextTaskOccurrenceDate(task.occurrenceDate, task.repeatRule, calendarEvents)
-    return taskRepeatContinuesOn(nextDate, task.repeatRule)
+    const repeatRule = requireRepeatRule(task, 'Skipping an occurrence requires a repeat rule')
+    const nextDate = nextTaskOccurrenceDate(task.occurrenceDate, repeatRule, calendarEvents)
+    return taskRepeatContinuesOn(nextDate, repeatRule)
       ? {
           dueDate: nextDate,
-          repeatRule: task.repeatRule,
+          repeatRule,
         }
       : {
           repeatRule: null,
@@ -79,14 +86,13 @@ export function TaskOccurrencePanel({
   })
 
   const onlyThis = () => run(() => {
-    if (!task.repeatRule)
-      throw new Error('Editing one occurrence requires a repeat rule')
+    const repeatRule = requireRepeatRule(task, 'Editing one occurrence requires a repeat rule')
     return {
       dueDate: task.dueDate ?? task.occurrenceDate,
       allDay: task.allDay,
       dueTime: task.dueTime,
       endAt: task.endAt,
-      nextDueDate: nextTaskOccurrenceDate(task.occurrenceDate, task.repeatRule, calendarEvents),
+      nextDueDate: nextTaskOccurrenceDate(task.occurrenceDate, repeatRule, calendarEvents),
       onlyThis: true,
       reminderMinutes: task.reminderMinutes,
       reminders: task.reminders,
@@ -96,12 +102,11 @@ export function TaskOccurrencePanel({
   })
 
   const complete = () => run(() => {
-    if (!task.repeatRule)
-      throw new Error('Completing an occurrence requires a repeat rule')
+    const repeatRule = requireRepeatRule(task, 'Completing an occurrence requires a repeat rule')
     const completedOn = dayjs().format('YYYY-MM-DD')
-    const baseDate = taskRepeatBaseDate(task.occurrenceDate, task.repeatRule, completedOn)
-    const nextDate = nextTaskOccurrenceDate(baseDate, task.repeatRule, calendarEvents)
-    return taskRepeatContinuesOn(nextDate, task.repeatRule)
+    const baseDate = taskRepeatBaseDate(task.occurrenceDate, repeatRule, completedOn)
+    const nextDate = nextTaskOccurrenceDate(baseDate, repeatRule, calendarEvents)
+    return taskRepeatContinuesOn(nextDate, repeatRule)
       ? { nextDueDate: nextDate, status: 'done' }
       : { repeatRule: null, status: 'done' }
   })

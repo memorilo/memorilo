@@ -23,18 +23,17 @@ export const noteLibraryPageSize = 100
 export const noteLibraryColumnIds = ['title', 'createdAt', 'updatedAt'] as const
 export type NoteLibraryColumnId = typeof noteLibraryColumnIds[number]
 
+const noteLibraryColumnLabelKeys: Readonly<Record<NoteLibraryColumnId, string>> = {
+  createdAt: 'createdColumn',
+  title: 'titleColumn',
+  updatedAt: 'modifiedColumn',
+}
+
 export function noteLibraryColumnLabel(
   columnId: NoteLibraryColumnId,
   t: TFunction,
 ): string {
-  switch (columnId) {
-    case 'createdAt':
-      return t('createdColumn')
-    case 'title':
-      return t('titleColumn')
-    case 'updatedAt':
-      return t('modifiedColumn')
-  }
+  return t(noteLibraryColumnLabelKeys[columnId])
 }
 
 export function resolveNoteLibrarySort(sorting: SortingState): {
@@ -44,14 +43,9 @@ export function resolveNoteLibrarySort(sorting: SortingState): {
   const active = sorting[0]
   if (!active)
     throw new Error('Note library table must always have one active sort column')
-  switch (active.id) {
-    case 'createdAt':
-    case 'title':
-    case 'updatedAt':
-      return { sortBy: active.id, sortDirection: active.desc ? 'desc' : 'asc' }
-    default:
-      throw new Error(`Unknown Note library sort column: ${active.id}`)
-  }
+  if (!(noteLibraryColumnIds as readonly string[]).includes(active.id))
+    throw new Error(`Unknown Note library sort column: ${active.id}`)
+  return { sortBy: active.id as DesktopNoteSortField, sortDirection: active.desc ? 'desc' : 'asc' }
 }
 
 export function noteLibraryQueryOptions(

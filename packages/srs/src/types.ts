@@ -4,6 +4,13 @@ export type LearningQueueKind = 'interday-learning' | 'intraday-learning' | 'new
 export type LearningQueueMode = 'mixed' | 'new' | 'review'
 export type ReviewRating = 'again' | 'easy' | 'good' | 'hard'
 
+export const reviewRatingRanks: Readonly<Record<ReviewRating, number>> = {
+  again: 1,
+  easy: 4,
+  good: 3,
+  hard: 2,
+}
+
 export interface FsrsOptimizerConfiguration {
   desiredRetention: number
   enableFuzz: boolean

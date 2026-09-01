@@ -185,9 +185,7 @@ export function Editor(props: EditorProps) {
   useEffect(() => {
     if (!controlledOutdentBehaviorProvided)
       return
-    if (controlledOutdentBehavior === undefined)
-      throw new TypeError('Controlled Outline outdent behavior cannot be undefined')
-    session.outlineRuntime.setOutdentBehavior(controlledOutdentBehavior)
+    session.outlineRuntime.setOutdentBehavior(controlledOutdentBehavior!)
   }, [controlledOutdentBehavior, controlledOutdentBehaviorProvided, session])
 
   useLayoutEffect(() => {

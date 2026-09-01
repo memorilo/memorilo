@@ -28,47 +28,35 @@ export interface TaskActionPlan {
 }
 
 function taskDate(value: string | null, name: string): string | null {
-  if (value === null)
-    return null
-  const parsed = parseTaskDueDate(value)
-  if (parsed === null)
-    throw new TypeError(`${name} must use YYYY-MM-DD format`)
-  return parsed
+  return parseTaskValue(value, parseTaskDueDate, `${name} must use YYYY-MM-DD format`)
 }
 
 function taskTime(value: string | null, name: string): string | null {
-  if (value === null)
-    return null
-  const parsed = parseTaskTime(value)
-  if (parsed === null)
-    throw new TypeError(`${name} must use HH:mm format`)
-  return parsed
+  return parseTaskValue(value, parseTaskTime, `${name} must use HH:mm format`)
 }
 
 function taskDateTime(value: string | null, name: string): string | null {
-  if (value === null)
-    return null
-  const parsed = parseTaskDateTime(value)
-  if (parsed === null)
-    throw new TypeError(`${name} must use YYYY-MM-DDTHH:mm format`)
-  return parsed
+  return parseTaskValue(value, parseTaskDateTime, `${name} must use YYYY-MM-DDTHH:mm format`)
 }
 
 function taskReminderMinutes(value: number | null): number | null {
-  if (value === null)
-    return null
-  const parsed = parseTaskReminderMinutes(value)
-  if (parsed === null)
-    throw new TypeError('Task reminder must be an integer from 0 to 10080 minutes')
-  return parsed
+  return parseTaskValue(value, parseTaskReminderMinutes, 'Task reminder must be an integer from 0 to 10080 minutes')
 }
 
 function taskReminders(value: readonly TaskReminder[] | null): readonly TaskReminder[] | null {
+  return parseTaskValue(value, parseTaskReminders, 'Task reminders must contain at most 8 valid unique reminders')
+}
+
+function parseTaskValue<Input, Output>(
+  value: Input | null,
+  parse: (value: Input) => Output | null,
+  message: string,
+): Output | null {
   if (value === null)
     return null
-  const parsed = parseTaskReminders(value)
+  const parsed = parse(value)
   if (parsed === null)
-    throw new TypeError('Task reminders must contain at most 8 valid unique reminders')
+    throw new TypeError(message)
   return parsed
 }
 

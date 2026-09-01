@@ -6,6 +6,12 @@ import type {
 } from '@memorilo/shelf'
 import { matchesShelfPublication } from '@memorilo/shelf'
 
+const shelfBrowseIssueTranslationKeys: Record<Exclude<ShelfBrowseIssue['kind'], 'response'>, 'shelfSourceAuthenticationRequired' | 'shelfSourceInvalidCatalog' | 'shelfSourceUnavailable'> = {
+  authentication: 'shelfSourceAuthenticationRequired',
+  network: 'shelfSourceUnavailable',
+  parse: 'shelfSourceInvalidCatalog',
+} as const
+
 export function formatShelfPublicationAuthors(publication: ShelfPublication, unknownAuthor = 'Unknown author'): string {
   return publication.authors.length === 0 ? unknownAuthor : publication.authors.join(', ')
 }
@@ -14,36 +20,27 @@ export function shelfBrowseIssueTranslation(issue: ShelfBrowseIssue): {
   key: 'shelfSourceAuthenticationRequired' | 'shelfSourceInvalidCatalog' | 'shelfSourceRequestFailed' | 'shelfSourceUnavailable'
   options?: { status: number }
 } {
-  switch (issue.kind) {
-    case 'authentication':
-      return { key: 'shelfSourceAuthenticationRequired' }
-    case 'network':
-      return { key: 'shelfSourceUnavailable' }
-    case 'parse':
-      return { key: 'shelfSourceInvalidCatalog' }
-    case 'response':
-      return { key: 'shelfSourceRequestFailed', options: { status: issue.status } }
-  }
+  if (issue.kind === 'response')
+    return { key: 'shelfSourceRequestFailed', options: { status: issue.status } }
+  return { key: shelfBrowseIssueTranslationKeys[issue.kind] }
+}
+
+const shelfFormatNames: Readonly<Record<string, string>> = {
+  'application/epub+zip': 'EPUB',
+  'application/pdf': 'PDF',
+  'application/vnd.comicbook+zip': 'CBZ',
+  'application/vnd.comicbook-rar': 'CBR',
+  'application/vnd.rar': 'CBR',
+  'application/x-cbr': 'CBR',
+  'application/x-cbz': 'CBZ',
+  'application/x-rar-compressed': 'CBR',
+  'text/plain': 'TXT',
 }
 
 export function shelfFormatName(type: string | null): string {
-  if (type === 'application/epub+zip')
-    return 'EPUB'
-  if (type === 'application/pdf')
-    return 'PDF'
-  if (type === 'text/plain')
-    return 'TXT'
-  if (type === 'application/vnd.comicbook+zip' || type === 'application/x-cbz')
-    return 'CBZ'
-  if (type === 'application/vnd.comicbook-rar'
-    || type === 'application/x-cbr'
-    || type === 'application/vnd.rar'
-    || type === 'application/x-rar-compressed') {
-    return 'CBR'
-  }
   if (type === null)
     return 'Book'
-  return type.split('/').at(-1)?.toLocaleUpperCase() ?? type.toLocaleUpperCase()
+  return shelfFormatNames[type] ?? type.split('/').at(-1)?.toLocaleUpperCase() ?? type.toLocaleUpperCase()
 }
 
 export function matchingShelfPublications(
@@ -107,9 +104,7 @@ export function latestShelfBrowseIssue(
   sourceId: string,
 ): ShelfBrowseGroup['issue'] {
   for (let index = results.length - 1; index >= 0; index -= 1) {
-    const result = results[index]
-    if (!result)
-      throw new RangeError(`Shelf result ${index} is outside the horizontal query`)
+    const result = results[index]!
     const issue = groupFromResult(result, sourceId).issue
     if (issue)
       return issue
