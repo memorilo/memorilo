@@ -2,14 +2,16 @@ import type { DesktopTodoCalendarEvent, DesktopTodoCalendarSubscription, Desktop
 import type { TFunction } from 'i18next'
 import * as stylex from '@stylexjs/stylex'
 import { Link } from '@tanstack/react-router'
-import { CalendarDays, Circle, CircleCheck, CircleDotDashed, FileText, X } from 'lucide-react'
+import { CalendarDays, FileText, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
+import { errorMessage } from '../../shared/error-message'
 import { todoDetailSidebarStyles as styles } from './todo-detail-sidebar.stylex'
-import { formatTaskDueDate } from './todo-model'
+import { formatTaskDueDate, nextTodoStatus, todoStatusLabelKeys } from './todo-model'
 import { TodoTaskActions } from './todo-task-actions'
+import { todoTaskStatusIcons } from './todo-task-status'
 
 const TodoDetailEditor = lazy(async () => {
   const module = await import('./todo-detail-editor')
@@ -22,37 +24,9 @@ const sidebarSpring = {
   visualDuration: 0.3,
 } as const
 
-function statusLabel(status: DesktopTodoTaskStatus, t: TFunction): string {
-  switch (status) {
-    case 'todo':
-      return t('statusTodo')
-    case 'doing':
-      return t('statusDoing')
-    case 'done':
-      return t('statusDone')
-  }
-}
-
-function nextStatus(status: DesktopTodoTaskStatus): DesktopTodoTaskStatus {
-  switch (status) {
-    case 'todo':
-      return 'doing'
-    case 'doing':
-      return 'done'
-    case 'done':
-      return 'todo'
-  }
-}
-
 function StatusIcon({ status }: { status: DesktopTodoTaskStatus }) {
-  switch (status) {
-    case 'todo':
-      return <Circle {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.8} />
-    case 'doing':
-      return <CircleDotDashed {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.8} />
-    case 'done':
-      return <CircleCheck {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.8} />
-  }
+  const Icon = todoTaskStatusIcons[status]
+  return <Icon {...stylex.props(styles.statusIcon)} aria-hidden="true" strokeWidth={1.8} />
 }
 
 function scheduleLabel(task: DesktopTodoTask, locale: string, t: TFunction): string {
@@ -105,13 +79,13 @@ export function TodoDetailSidebar({
       await onUpdateTask({
         blockId: current.blockId,
         noteId: current.noteId,
-        status: nextStatus(current.status),
+        status: nextTodoStatus(current.status),
         topicId: current.topicId,
       })
     }
     catch (error) {
       toast.error(t('couldNotUpdateTask', {
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error),
       }))
     }
     finally {
@@ -145,11 +119,11 @@ export function TodoDetailSidebar({
                       task.status === 'done' && styles.statusDone,
                     )}
                     aria-label={t('changeTaskStatus', {
-                      current: statusLabel(task.status, t),
-                      next: statusLabel(nextStatus(task.status), t),
+                      current: t(todoStatusLabelKeys[task.status]),
+                      next: t(todoStatusLabelKeys[nextTodoStatus(task.status)]),
                     })}
                     disabled={statusUpdating}
-                    title={statusLabel(task.status, t)}
+                    title={t(todoStatusLabelKeys[task.status])}
                     type="button"
                     onClick={() => void changeStatus(task)}
                   >

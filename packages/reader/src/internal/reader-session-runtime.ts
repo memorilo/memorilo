@@ -104,9 +104,7 @@ export function createReaderSessionRuntime(
   lifecycle.own({ close: adapterResources.close, name: 'reader adapters' })
   lifecycle.commit()
 
-  const emit = (event: ReaderSessionEvent): void => {
-    if (!active)
-      return
+  const notify = (event: ReaderSessionEvent): void => {
     try {
       options.onEvent(event)
     }
@@ -116,13 +114,13 @@ export function createReaderSessionRuntime(
     }
   }
 
+  const emit = (event: ReaderSessionEvent): void => {
+    if (active)
+      notify(event)
+  }
+
   const emitReset = (): void => {
-    try {
-      options.onEvent({ type: 'reset' })
-    }
-    catch {
-      // Reset is observational and must not bypass resource cleanup.
-    }
+    notify({ type: 'reset' })
   }
 
   const reportError = (value: unknown): void => {
@@ -134,11 +132,9 @@ export function createReaderSessionRuntime(
     if (!active || !current)
       return false
 
-    const result = commands.run((signal) => {
-      return Promise.resolve().then(() => {
-        signal.throwIfAborted()
-        return operation(current, signal)
-      })
+    const result = commands.run(async (signal) => {
+      signal.throwIfAborted()
+      return operation(current, signal)
     })
     void result.then(
       () => undefined,

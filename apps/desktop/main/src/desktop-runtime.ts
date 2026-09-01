@@ -380,6 +380,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       close: server => server.close(),
       name: 'MCP server',
     })).resource
+    const initialSyncServerConfiguration = configurationStore.getSnapshot().syncServer
     const p2p = (await scope.acquire({
       acquire: () => createP2pApplication({
         deviceName: process.env.MEMORILO_DEVICE_NAME ?? hostname(),
@@ -391,9 +392,9 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         statePath: join(userDataPath, 'p2p', 'identity.json'),
         signingKeyStore: new ElectronDeviceSigningKeyStore(join(userDataPath, 'p2p', 'device-signing-key.enc')),
         ...(assetSync === null ? {} : { objectStore: assetSync.objectStore }),
-        ...(configurationStore.getSnapshot().syncServer.enabled && configurationStore.getSnapshot().syncServer.url.length > 0
+        ...(initialSyncServerConfiguration.enabled && initialSyncServerConfiguration.url.length > 0
           ? {
-              dialTargets: new Map([[configurationStore.getSnapshot().syncServer.peerId, syncServerDialTarget(configurationStore.getSnapshot().syncServer.url)]]),
+              dialTargets: new Map([[initialSyncServerConfiguration.peerId, syncServerDialTarget(initialSyncServerConfiguration.url)]]),
               server: () => {
                 const server = configurationStore.getSnapshot().syncServer
                 return server.enabled

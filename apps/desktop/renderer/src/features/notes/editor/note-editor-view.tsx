@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 import { useCommandPaletteCommands } from '../../../shared/command-palette'
 import { useDesktopConfiguration } from '../../../shared/configuration'
+import { errorMessage } from '../../../shared/error-message'
 import { matchesKeyboardShortcut } from '../../../shared/keyboard-shortcut'
 import { usePageTitlebar } from '../../../shared/page-titlebar'
 import { projectVisibleNoteEntries, selectAdjacentVisibleId } from '../note-entry-tree'
@@ -305,7 +306,7 @@ export function NoteEditorView({
             }
             catch (error) {
               toast.error(t('cardTopicResyncFailed', {
-                message: error instanceof Error ? error.message : String(error),
+                message: errorMessage(error),
               }))
             }
           }}
@@ -498,7 +499,7 @@ export function NoteEditorView({
             setRenamingEntryId(null)
           }
           catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error))
+            toast.error(errorMessage(error))
           }
         }}
         open={inspectorVisible}

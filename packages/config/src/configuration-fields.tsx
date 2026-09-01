@@ -1,6 +1,7 @@
 import type { ChangeEvent, KeyboardEvent } from 'react'
 import type { ConfigurationField } from './configuration-definition'
 import type { ConfigurationStore } from './configuration-store'
+import { toError } from '@memorilo/effect-lifecycle'
 import { SegmentedControl, Switch, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useState, useSyncExternalStore } from 'react'
@@ -8,10 +9,6 @@ import { useCallback, useState, useSyncExternalStore } from 'react'
 import { configurationFieldStyles } from './configuration-fields.stylex'
 import { getConfigurationValue } from './configuration-path'
 import { ShortcutInput } from './shortcut-input'
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function formatTime(minutes: number): string {
   const hour = Math.floor(minutes / 60)
@@ -37,7 +34,7 @@ function FieldControl<T extends object>({
       await store.setValue(field.path, next)
     }
     catch (cause) {
-      setError(errorMessage(cause))
+      setError(toError(cause).message)
     }
     finally {
       setPending(false)

@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
 import { desktopEffect, desktopEffectQuery } from '../../../shared/effect-query'
+import { errorMessage } from '../../../shared/error-message'
 import { noteEditorDialogStyles } from './note-editor-dialogs.stylex'
 
 export interface ShelfBookOption {
@@ -126,7 +127,7 @@ export function BookTopicPickerDialog({
       await onCreate(selectedOption, activeFormat)
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(errorMessage(cause))
     }
     finally {
       setSubmitting(false)
@@ -298,7 +299,7 @@ export function EntryCreationDialog({
       onCreate(normalized)
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(errorMessage(cause))
     }
   }
 
@@ -395,7 +396,7 @@ export function EntryDeleteDialog({
                     onDelete()
                   }
                   catch (cause) {
-                    setError(cause instanceof Error ? cause.message : String(cause))
+                    setError(errorMessage(cause))
                   }
                 }}
               >

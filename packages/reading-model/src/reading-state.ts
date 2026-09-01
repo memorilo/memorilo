@@ -1,4 +1,5 @@
 import type { ReadingAnnotation, ReadingEpubLocator } from './annotations'
+import { isRecord } from './validation'
 
 export interface ReadingEpubPosition {
   format: 'epub'
@@ -27,10 +28,6 @@ export type ReadingPosition = ReadingComicPosition | ReadingEpubPosition | Readi
 export interface BookReadingState {
   annotations: readonly ReadingAnnotation[]
   position: ReadingPosition | null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function assertFixedPagePosition(value: Record<string, unknown>, label: string): void {

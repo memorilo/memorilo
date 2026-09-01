@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, FileText, Folder } from 'lucide-react'
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../../shared/desktop-requests'
+import { errorMessage } from '../../../shared/error-message'
 
 import { useEditorNoteSession } from '../../notes/editor/note-editor-session'
 import { projectVisibleNoteEntries } from '../../notes/note-entry-tree'
@@ -125,7 +126,7 @@ function EditorLearningReviewSource({
       setActiveTopicId(topicId)
     }
     catch (error) {
-      setNavigationError(error instanceof Error ? error.message : String(error))
+      setNavigationError(errorMessage(error))
     }
   }
 

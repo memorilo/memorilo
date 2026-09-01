@@ -11,7 +11,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
-import { objectKeyFor } from '@memorilo/sync'
+import { assertMetadata, ensureAccountKey, sameMetadata } from './metadata'
 
 export interface S3ObjectStoreOptions {
   readonly bucket: string
@@ -35,19 +35,6 @@ function isMissing(error: unknown): boolean {
 
 function isPreconditionFailure(error: unknown): boolean {
   return statusCode(error) === 412
-}
-
-function ensureAccountKey(accountId: string, key: string): void {
-  if (!accountId || !key.startsWith(`tenants/${accountId}/`))
-    throw new Error('Object key does not belong to the requested account')
-}
-
-function assertMetadata(metadata: SyncObjectMetadata): void {
-  const expectedKey = objectKeyFor(metadata.accountId, metadata.generation, metadata.contentHash)
-  if (metadata.namespace !== 'assets' || metadata.key !== expectedKey)
-    throw new TypeError('Object metadata does not match its content-addressed key')
-  if (!Number.isSafeInteger(metadata.contentLength) || metadata.contentLength < 0)
-    throw new TypeError('Object content length must be a non-negative safe integer')
 }
 
 function metadataHeaders(metadata: SyncObjectMetadata): Record<string, string> {
@@ -85,15 +72,6 @@ function metadataFromHead(
     key,
     namespace: 'assets',
   }
-}
-
-function sameMetadata(left: SyncObjectMetadata, right: SyncObjectMetadata): boolean {
-  return left.accountId === right.accountId
-    && left.generation === right.generation
-    && left.key === right.key
-    && left.contentHash === right.contentHash
-    && left.contentLength === right.contentLength
-    && left.contentType === right.contentType
 }
 
 export function createS3ObjectStore(options: S3ObjectStoreOptions): SyncObjectStore {

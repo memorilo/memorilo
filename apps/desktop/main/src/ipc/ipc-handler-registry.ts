@@ -79,14 +79,14 @@ export function withIpcContext<Arguments extends readonly unknown[], Result>(
   return { invoke }
 }
 
-function invokeHandler(
+async function invokeHandler(
   handler: RuntimeHandler,
   context: IpcInvocationContext,
   args: unknown[],
-): unknown {
+): Promise<unknown> {
   return typeof handler === 'function'
-    ? handler(...args)
-    : handler.invoke(context, ...args)
+    ? await handler(...args)
+    : await handler.invoke(context, ...args)
 }
 
 export async function createIpcHandlerRegistry(
@@ -111,9 +111,7 @@ export async function createIpcHandlerRegistry(
           throw new Error(`Missing IPC handler for ${groupName}.${methodName}`)
         options.host.handle(channel, async (event, ...args) => {
           try {
-            const result = await admission.run(() => Promise.resolve(
-              invokeHandler(handler, { sender: event.sender }, args),
-            ))
+            const result = await admission.run(() => invokeHandler(handler, { sender: event.sender }, args))
             return desktopIpcSuccess(result)
           }
           catch (error) {

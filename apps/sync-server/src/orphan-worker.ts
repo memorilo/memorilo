@@ -1,6 +1,7 @@
 import type { SyncObjectStore, SyncRepository } from '@memorilo/sync'
-import { createOperationSupervisor, toError } from '@memorilo/effect-lifecycle'
-import { Duration, Effect } from 'effect'
+import { toError } from '@memorilo/effect-lifecycle'
+import { Effect } from 'effect'
+import { createPeriodicWorker } from './periodic-worker'
 
 export interface OrphanWorker {
   readonly close: () => Promise<void>
@@ -17,12 +18,10 @@ export interface OrphanWorkerOptions {
 
 export function createOrphanWorker(options: OrphanWorkerOptions): OrphanWorker {
   const now = options.now ?? Date.now
-  const supervisor = createOperationSupervisor('Sync orphan reconciliation worker', { concurrency: 'unbounded', shutdown: 'interrupt' })
-  let activeRun: Promise<void> | null = null
 
-  const reconcileAccount = (accountId: string, generation: number, cutoff: number): Effect.Effect<void, Error> => {
+  const reconcileAccount = (accountId: string, generation: number, cutoff: number, isClosed: () => boolean): Effect.Effect<void, Error> => {
     const reconcileMetadata = (cursor?: string): Effect.Effect<void, Error> => Effect.gen(function* () {
-      if (supervisor.isClosed())
+      if (isClosed())
         return
       const batch = yield* Effect.tryPromise({ catch: toError, try: () => options.repository.listObjectMetadata(accountId, generation, 100, cursor) })
       if (batch.length === 0)
@@ -45,7 +44,7 @@ export function createOrphanWorker(options: OrphanWorkerOptions): OrphanWorker {
         yield* reconcileMetadata(batch.at(-1)?.key)
     })
     const reconcileObjects = (cursor?: string): Effect.Effect<void, Error> => Effect.gen(function* () {
-      if (supervisor.isClosed())
+      if (isClosed())
         return
       const page = yield* Effect.tryPromise({ catch: toError, try: () => options.objectStore.list(accountId, cursor, 100) })
       yield* Effect.forEach(page.items, object => Effect.gen(function* () {
@@ -64,46 +63,14 @@ export function createOrphanWorker(options: OrphanWorkerOptions): OrphanWorker {
     })
   }
 
-  const run = (): Effect.Effect<void, Error> => Effect.gen(function* () {
+  const run = (isClosed: () => boolean): Effect.Effect<void, Error> => Effect.gen(function* () {
     const cutoff = now() - options.graceMs
     const accounts = yield* Effect.tryPromise({ catch: toError, try: () => options.repository.listAccountStates() })
-    yield* Effect.forEach(accounts, account => reconcileAccount(account.accountId, account.generation, cutoff), { concurrency: 1 })
+    yield* Effect.forEach(accounts, account => reconcileAccount(account.accountId, account.generation, cutoff, isClosed), { concurrency: 1 })
   })
-  const runNow = (): Promise<void> => {
-    if (supervisor.isClosed())
-      return Promise.resolve()
-    if (activeRun !== null)
-      return activeRun
-    const operation = supervisor.runEffectSingleFlight(run()).then(result => result.status === 'accepted' ? result.value : undefined)
-    activeRun = operation
-    void operation.then(
-      () => {
-        if (activeRun === operation)
-          activeRun = null
-      },
-      () => {
-        if (activeRun === operation)
-          activeRun = null
-      },
-    )
-    return operation
-  }
-  const periodic = Effect.forever(
-    Effect.sync(() => {
-      void runNow().catch(error => console.error('Sync orphan reconciliation failed', error))
-    }).pipe(
-      Effect.andThen(Effect.sleep(Duration.millis(options.intervalMs))),
-    ),
-  )
-  void supervisor.runEffect(periodic).catch((error) => {
-    if (!supervisor.isClosed())
-      console.error('Sync orphan reconciliation failed', error)
+  return createPeriodicWorker({
+    intervalMs: options.intervalMs,
+    name: 'Sync orphan reconciliation worker',
+    run,
   })
-
-  return {
-    close: async () => {
-      await supervisor.close()
-    },
-    runNow,
-  }
 }

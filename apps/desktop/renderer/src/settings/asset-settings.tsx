@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { desktopRequests } from '../shared/desktop-requests'
+import { errorMessage } from '../shared/error-message'
 import { assetSettingsStyles as settingsStyles } from './asset-settings.stylex'
 import { settingsShellStyles } from './settings-shell.stylex'
 
@@ -44,7 +45,7 @@ export function AssetSettings() {
       setSelected(new Set(next.candidates.map(candidate => candidate.fileName)))
     }
     catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error))
+      setStatus(errorMessage(error))
     }
     finally {
       setPending(null)
@@ -79,7 +80,7 @@ export function AssetSettings() {
         : t('assetsReclaimed', { count: reclaimed.reclaimedFileNames.length }))
     }
     catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = errorMessage(error)
       try {
         const next = await desktopRequests.checkAssets()
         setResult(next)

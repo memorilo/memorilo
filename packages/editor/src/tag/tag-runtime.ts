@@ -3,6 +3,7 @@ import type { TagLabelError } from './tag-label'
 import {
   createLatestOperationSupervisor,
   createResourceScope,
+  toError,
 } from '@memorilo/effect-lifecycle'
 import { getTagLabelError, normalizeTagLabel } from './tag-label'
 
@@ -50,7 +51,7 @@ function requireValidTag(tag: EditorTag) {
 function operationError(error: unknown): TagOperationError {
   if (error instanceof InvalidStoredTagError)
     return { tagLabelError: error.reason }
-  return error instanceof Error ? error.message : String(error)
+  return toError(error).message
 }
 
 export class TagRuntime {

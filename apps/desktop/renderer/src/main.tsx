@@ -14,6 +14,7 @@ import { router } from './app/router'
 import { NotePersistenceManager } from './features/notes/persistence/note-persistence-manager'
 import { NotePersistenceProvider } from './features/notes/persistence/note-persistence-provider'
 import { desktopRequests } from './shared/desktop-requests'
+import { errorMessage } from './shared/error-message'
 import './styles/renderer-global.stylex'
 
 const rootElement = document.querySelector('#root')
@@ -68,5 +69,5 @@ void bootstrapRenderer(
     }
     return dispose
   },
-  error => root.render(<main role="alert">{error instanceof Error ? error.message : String(error)}</main>),
+  error => root.render(<main role="alert">{errorMessage(error)}</main>),
 )

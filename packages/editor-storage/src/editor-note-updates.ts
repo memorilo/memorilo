@@ -15,7 +15,7 @@ import type { LearningCardReconciliationPlanner } from './learning/learning-card
 import type { ReadingItemProjection } from './learning/types'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { journals, noteEntries, notes, noteUpdateReceipts, noteUpdates, topicBlockEmbeddingState, topicBlocks, topics } from './drizzle-schema'
 import { validateAssetFileName } from './editor-asset-repository'
 import { planUpdatedNoteProjection } from './editor-note-projection-plan'
@@ -125,22 +125,23 @@ export function saveNoteUpdates(
       saved.spreadsheets ?? [],
     )
 
-    const [existingEntries, existingTopics, existingBlocksByTopic] = await Promise.all([
-      saved.entries
-        ? Promise.resolve(orm.select({ entry_id: noteEntries.entryId }).from(noteEntries).where(eq(noteEntries.noteRowId, note.row_id)).all() as ExistingEntryRow[])
-        : Promise.resolve([]),
-      saved.entries
-        ? Promise.resolve(orm.select({ topic_id: topics.topicId }).from(topics).where(eq(topics.noteRowId, note.row_id)).all() as ExistingTopicRow[])
-        : Promise.resolve([]),
-      Promise.all(saved.topics.map(topic => Promise.resolve(orm.select({
+    const existingEntries = saved.entries
+      ? orm.select({ entry_id: noteEntries.entryId }).from(noteEntries).where(eq(noteEntries.noteRowId, note.row_id)).all() as ExistingEntryRow[]
+      : []
+    const existingTopics = saved.entries
+      ? orm.select({ topic_id: topics.topicId }).from(topics).where(eq(topics.noteRowId, note.row_id)).all() as ExistingTopicRow[]
+      : []
+    const existingBlocks = saved.topics.length === 0
+      ? []
+      : orm.select({
         row_id: topicBlocks.rowId,
         topic_id: topicBlocks.topicId,
         block_id: topicBlocks.blockId,
         content_hash: topicBlocks.contentHash,
-      }).from(topicBlocks).where(and(eq(topicBlocks.noteRowId, note.row_id), eq(topicBlocks.topicId, topic.topicId))).all() as ExistingBlockRow[]))),
-    ])
-
-    const existingBlocks = existingBlocksByTopic.flat()
+      }).from(topicBlocks).where(and(
+        eq(topicBlocks.noteRowId, note.row_id),
+        inArray(topicBlocks.topicId, saved.topics.map(topic => topic.topicId)),
+      )).all() as ExistingBlockRow[]
 
     const commands: DatabaseCommand[] = []
     for (const existing of existingBlocks) {

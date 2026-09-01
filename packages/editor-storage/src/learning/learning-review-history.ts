@@ -101,8 +101,8 @@ export class LearningReviewHistory {
     this.#orm = database.drizzle
   }
 
-  events(targetId: string): Promise<readonly ReviewEventRow[]> {
-    return Promise.resolve(this.#orm.select({
+  async events(targetId: string): Promise<readonly ReviewEventRow[]> {
+    return this.#orm.select({
       event_id: learningReviewEvents.eventId,
       event_kind: learningReviewEvents.eventKind,
       rating: learningReviewEvents.rating,
@@ -110,7 +110,7 @@ export class LearningReviewHistory {
       base_event_id: learningReviewEvents.baseEventId,
       undoes_event_id: learningReviewEvents.undoesEventId,
       reset_epoch: learningReviewEvents.resetEpoch,
-    }).from(learningReviewEvents).where(eq(learningReviewEvents.targetId, targetId)).orderBy(asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as ReviewEventRow[])
+    }).from(learningReviewEvents).where(eq(learningReviewEvents.targetId, targetId)).orderBy(asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as ReviewEventRow[]
   }
 
   eventById(eventId: string): (ReviewEventRow & { target_id: string }) | undefined {

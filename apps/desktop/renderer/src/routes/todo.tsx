@@ -2,7 +2,7 @@ import type { DesktopTodoTaskStatus } from '@memorilo/desktop-api'
 import type { TodoListScopeId, TodoListSelection, TodoView } from '../features/todo/todo-model'
 import { createFileRoute } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
-import { isTodoListScopeId } from '../features/todo/todo-model'
+import { isTodoListScopeId, isTodoStatus, isTodoView } from '../features/todo/todo-model'
 import { useDesktopConfiguration } from '../shared/configuration'
 
 const TodoPage = lazy(async () => {
@@ -18,19 +18,10 @@ interface TodoSearch {
 }
 
 function validateTodoSearch(search: Record<string, unknown>): TodoSearch {
-  if (search.status !== undefined
-    && search.status !== 'todo'
-    && search.status !== 'doing'
-    && search.status !== 'done') {
+  if (search.status !== undefined && !isTodoStatus(search.status)) {
     throw new TypeError('Todo status must be todo, doing, or done')
   }
-  if (search.view !== undefined
-    && search.view !== 'list'
-    && search.view !== 'board'
-    && search.view !== 'agenda'
-    && search.view !== 'timeline'
-    && search.view !== 'calendar'
-    && search.view !== 'quadrant') {
+  if (search.view !== undefined && !isTodoView(search.view)) {
     throw new TypeError('Todo view must be list, board, agenda, timeline, calendar, or quadrant')
   }
   if (search.scope !== undefined && !isTodoListScopeId(search.scope))

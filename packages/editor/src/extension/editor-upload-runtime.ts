@@ -1,7 +1,7 @@
 import type { Uploader } from 'prosekit/extensions/file'
 import type { EditorAdapters } from '../adapters/editor-adapters'
 import type { EditorStore } from '../state/editor-store'
-import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { createOperationSupervisor, toError } from '@memorilo/effect-lifecycle'
 import { uploadErrorAtom, uploadStatusAtom } from '../state/editor-atoms'
 
 export class EditorUploadRuntimeClosedError extends Error {
@@ -39,7 +39,7 @@ export class EditorUploadRuntime {
     }
     catch (error) {
       if (!this.#operations.isClosed())
-        this.#store.set(uploadErrorAtom, error instanceof Error ? error.message : String(error))
+        this.#store.set(uploadErrorAtom, toError(error).message)
       throw error
     }
     finally {

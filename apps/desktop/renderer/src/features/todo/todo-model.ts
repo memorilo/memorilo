@@ -8,7 +8,8 @@ import { desktopEffect, desktopEffectQuery } from '../../shared/effect-query'
 import { loadTodoCalendarSnapshot, todoCalendarAutoRefreshIntervalMs } from '../../shared/todo-calendar-cache'
 import { todoQueryKeys } from './query-keys'
 
-export type TodoView = 'list' | 'board' | 'agenda' | 'timeline' | 'calendar' | 'quadrant'
+export const todoViews = ['list', 'board', 'agenda', 'timeline', 'calendar', 'quadrant'] as const
+export type TodoView = typeof todoViews[number]
 
 export const todoListScopeIds = ['all', 'today', 'tomorrow', 'overdue', 'next7', 'undated', 'todo', 'doing', 'done'] as const
 
@@ -38,6 +39,22 @@ export interface TodoTaskTreeNode {
 }
 
 export const todoStatuses: readonly DesktopTodoTaskStatus[] = ['todo', 'doing', 'done']
+
+export const todoStatusLabelKeys: Readonly<Record<DesktopTodoTaskStatus, string>> = {
+  doing: 'statusDoing',
+  done: 'statusDone',
+  todo: 'statusTodo',
+}
+
+const nextTodoStatusByStatus: Readonly<Record<DesktopTodoTaskStatus, DesktopTodoTaskStatus>> = {
+  doing: 'done',
+  done: 'todo',
+  todo: 'doing',
+}
+
+export function nextTodoStatus(status: DesktopTodoTaskStatus): DesktopTodoTaskStatus {
+  return nextTodoStatusByStatus[status]
+}
 
 export const todoTaskPageSize = 100
 
@@ -118,6 +135,14 @@ export function todoTaskQueryOptions() {
 
 export function isTodoListScopeId(value: unknown): value is TodoListScopeId {
   return typeof value === 'string' && (todoListScopeIds as readonly string[]).includes(value)
+}
+
+export function isTodoStatus(value: unknown): value is DesktopTodoTaskStatus {
+  return typeof value === 'string' && (todoStatuses as readonly string[]).includes(value)
+}
+
+export function isTodoView(value: unknown): value is TodoView {
+  return typeof value === 'string' && (todoViews as readonly string[]).includes(value)
 }
 
 export function todoListSelectionKey(selection: TodoListSelection): string {

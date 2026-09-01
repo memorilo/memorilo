@@ -38,13 +38,13 @@ export class LearningOptimizerRescheduler {
     this.#resolveOptimizer = dependencies.resolveOptimizer
   }
 
-  listTargets(optimizerId: string): Promise<readonly OptimizerTargetRow[]> {
-    return Promise.resolve(this.#orm.select({
+  async listTargets(optimizerId: string): Promise<readonly OptimizerTargetRow[]> {
+    return this.#orm.select({
       target_id: learningTargets.targetId,
       created_at: learningTargets.createdAt,
       note_id: learningCards.noteId,
       target_kind: learningTargets.targetKind,
-    }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).leftJoin(learningNoteOptimizerAssignments, eq(learningNoteOptimizerAssignments.noteId, learningCards.noteId)).where(sql`COALESCE(${learningNoteOptimizerAssignments.optimizerId}, ${GLOBAL_OPTIMIZER_ID}) = ${optimizerId}`).all() as OptimizerTargetRow[])
+    }).from(learningTargets).innerJoin(learningCards, eq(learningCards.cardId, learningTargets.cardId)).leftJoin(learningNoteOptimizerAssignments, eq(learningNoteOptimizerAssignments.noteId, learningCards.noteId)).where(sql`COALESCE(${learningNoteOptimizerAssignments.optimizerId}, ${GLOBAL_OPTIMIZER_ID}) = ${optimizerId}`).all() as OptimizerTargetRow[]
   }
 
   async commandsForRevision(

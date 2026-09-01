@@ -1,5 +1,6 @@
 import type { TopicBlockEdit } from '@memorilo/editor/note'
 import type { NoteApplicationService } from '../notes/note-application-service'
+import { toError } from '@memorilo/effect-lifecycle'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import * as z from 'zod/v4'
 import { NoteRevisionConflictError } from '../notes/note-application-service'
@@ -88,7 +89,7 @@ function toolResult(value: unknown) {
 function toolError(error: unknown) {
   const value = error instanceof NoteRevisionConflictError
     ? { code: 'revision-conflict', currentRevision: error.currentRevision, message: error.message }
-    : { code: 'operation-failed', message: error instanceof Error ? error.message : String(error) }
+    : { code: 'operation-failed', message: toError(error).message }
   return {
     content: [{ text: JSON.stringify(value, null, 2), type: 'text' as const }],
     isError: true,

@@ -8,6 +8,7 @@ import {
 import {
   DesktopConfigurationEnvironment,
 } from '../app/configuration/configuration-environment'
+import { errorMessage } from '../shared/error-message'
 import { Settings } from './settings'
 import { settingsShellStyles as settingsStyles } from './settings-shell.stylex'
 import '../styles/renderer-global.stylex'
@@ -32,7 +33,7 @@ void bootstrapRenderer(
   },
   error => root.render(
     <main {...stylex.props(settingsStyles.status)} role="alert">
-      {error instanceof Error ? error.message : String(error)}
+      {errorMessage(error)}
     </main>,
   ),
 )

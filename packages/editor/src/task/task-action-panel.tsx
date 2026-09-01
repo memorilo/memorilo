@@ -5,6 +5,7 @@ import type { TaskActionUpdate } from './task-action-model'
 import type { TaskCalendarEvent, TaskCalendarSubscription } from './task-calendar'
 import type { TaskRepeatPickerMode } from './task-repeat-picker'
 import { autoUpdate, flip, FloatingPortal, offset, shift, size, useFloating } from '@floating-ui/react'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Button, Surface, TextField } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import dayjs from 'dayjs'
@@ -167,7 +168,7 @@ export function TaskActionPanel({
       onUpdated?.()
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(toError(cause).message)
     }
     finally {
       setUpdating(false)
@@ -228,7 +229,7 @@ export function TaskActionPanel({
       void update({ ...schedule, repeatRule: repeat })
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(toError(cause).message)
     }
   }
 

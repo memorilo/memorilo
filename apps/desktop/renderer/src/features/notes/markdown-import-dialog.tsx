@@ -7,6 +7,7 @@ import { FileUp, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { desktopRequests } from '../../shared/desktop-requests'
+import { errorMessage } from '../../shared/error-message'
 import { noteEditorDialogStyles } from './editor/note-editor-dialogs.stylex'
 
 export interface MarkdownImportValues {
@@ -42,7 +43,7 @@ async function importNetworkImages(
     catch (error) {
       diagnostics.push({
         line: 1,
-        message: `Image could not be imported: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Image could not be imported: ${errorMessage(error)}`,
         severity: 'warning',
       })
     }
@@ -85,7 +86,7 @@ export function MarkdownImportDialog({ fileName, onClose, onConfirm, source, tar
       })
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(errorMessage(cause))
     }
     finally {
       setSubmitting(false)

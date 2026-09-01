@@ -60,14 +60,6 @@ export interface PairingGrant {
   readonly signingPublicKey: string
 }
 
-function unsignedInvitation(invitation: Omit<PairingInvitation, 'signature'>): Omit<PairingInvitation, 'signature'> {
-  return invitation
-}
-
-function unsignedResponse(response: Omit<PairingResponse, 'signature'>): Omit<PairingResponse, 'signature'> {
-  return response
-}
-
 export function verifyPairingInvitation(invitation: PairingInvitation): boolean {
   const { signature, ...unsigned } = invitation
   return verifyDevicePayload(invitation.signingPublicKey, 'pairing-invitation', unsigned, signature)
@@ -144,7 +136,7 @@ export class PairingManager {
     if (!Number.isSafeInteger(membershipEpoch) || membershipEpoch < 1)
       throw new RangeError('Pairing membership epoch must be positive')
     const now = this.now()
-    const unsigned = unsignedInvitation({
+    const unsigned: Omit<PairingInvitation, 'signature'> = {
       version: 1,
       pairingId: randomUUID(),
       deviceId: this.identity.deviceId,
@@ -156,7 +148,7 @@ export class PairingManager {
       membershipEpoch,
       createdAt: now,
       expiresAt: now + ttlMs,
-    })
+    }
     const invitation: PairingInvitation = {
       ...unsigned,
       signature: signDevicePayload(this.signer, 'pairing-invitation', unsigned),
@@ -172,7 +164,7 @@ export class PairingManager {
       throw new TypeError('Pairing invitation is incomplete')
     const device = this.makeDevice(invitation.pairingId, invitation.deviceId, invitation.deviceName, invitation.peerId, invitation.role, invitation.sharedSecret, invitation.signingPublicKey)
     await this.upsert(device)
-    const unsigned = unsignedResponse({
+    const unsigned: Omit<PairingResponse, 'signature'> = {
       version: 1,
       pairingId: invitation.pairingId,
       deviceId: this.identity.deviceId,
@@ -182,7 +174,7 @@ export class PairingManager {
       sharedSecret: invitation.sharedSecret,
       signingPublicKey: this.signer.publicKey,
       membershipEpoch: Math.max(invitation.membershipEpoch, validMembershipEpoch(this.identity.membershipEpoch)),
-    })
+    }
     const response: PairingResponse = {
       ...unsigned,
       signature: signDevicePayload(this.signer, 'pairing-response', unsigned),

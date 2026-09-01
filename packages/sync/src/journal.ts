@@ -184,10 +184,12 @@ export class JsonSyncJournal {
     return this.#enqueue(async () => {
       this.#assertLoaded()
       let acceptedNewChange = false
+      const knownChangeIds = new Set(this.#state.changes.map(change => change.id))
       for (const change of changes) {
         assertSequence(change.sequence, 'Received P2P sync change sequence')
-        if (!this.#state.changes.some(current => current.id === change.id)) {
+        if (!knownChangeIds.has(change.id)) {
           this.#state.changes.push({ ...change })
+          knownChangeIds.add(change.id)
           acceptedNewChange = true
         }
         const cursor = this.#state.receivedVersionVector[change.deviceId] ?? 0

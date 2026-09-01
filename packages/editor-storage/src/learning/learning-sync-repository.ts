@@ -332,14 +332,13 @@ export class LearningSyncRepository {
     })
   }
 
-  #recordReceived(input: ApplyLearningSyncChangeInput, receivedAt: number): Promise<void> {
+  async #recordReceived(input: ApplyLearningSyncChangeInput, receivedAt: number): Promise<void> {
     this.#orm.insert(learningSyncReceivedMutations).values({
       mutationId: input.mutationId,
       receivedAt,
       sourceDeviceId: input.sourceDeviceId,
       sourceSequence: input.sourceSequence,
     }).run()
-    return Promise.resolve()
   }
 
   acknowledge(input: AcknowledgeLearningSyncInput): Promise<void> {

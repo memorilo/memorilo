@@ -194,7 +194,7 @@ class PdfAdapter implements ReaderAdapter {
     })
   }
 
-  async goBackward(entryEdge: ReaderPageEdge) {
+  goBackward(entryEdge: ReaderPageEdge) {
     return this.operations.run(async (signal) => {
       const mount = this.mounted
       if (!mount || this.pageNumber <= 1)
@@ -209,7 +209,7 @@ class PdfAdapter implements ReaderAdapter {
     })
   }
 
-  async goForward(entryEdge: ReaderPageEdge) {
+  goForward(entryEdge: ReaderPageEdge) {
     return this.operations.run(async (signal) => {
       const mount = this.mounted
       if (!mount || this.pageNumber >= mount.numPages)
@@ -224,7 +224,7 @@ class PdfAdapter implements ReaderAdapter {
     })
   }
 
-  async goToAnnotation(annotationId: string) {
+  goToAnnotation(annotationId: string) {
     return this.operations.run(async (signal) => {
       const annotation = this.annotations.find(item => item.id === annotationId)
       const anchor = annotation?.anchors[0]
@@ -242,7 +242,7 @@ class PdfAdapter implements ReaderAdapter {
     })
   }
 
-  async goToOutlineItem(outlineItemId: string) {
+  goToOutlineItem(outlineItemId: string) {
     return this.operations.run(async (signal) => {
       const mount = this.mounted
       if (!mount)
@@ -274,7 +274,7 @@ class PdfAdapter implements ReaderAdapter {
     this.mounted?.setRegionSelectionEnabled(enabled)
   }
 
-  async setScale(scale: number) {
+  setScale(scale: number) {
     return this.operations.run(async (signal) => {
       const nextScale = clampReaderScale(scale)
       if (nextScale === this.scale)

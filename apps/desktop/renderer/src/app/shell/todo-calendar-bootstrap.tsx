@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-toastify/unstyled'
 import { useDesktopConfiguration } from '../../shared/configuration'
+import { errorMessage } from '../../shared/error-message'
 import {
   hasTodoCalendarSnapshot,
   loadTodoCalendarSnapshot,
@@ -40,7 +41,7 @@ export function TodoCalendarBootstrap() {
           closeButton: true,
           isLoading: false,
           render: t('couldNotLoadCalendars', {
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: errorMessage(cause),
           }),
           type: 'error',
         })

@@ -54,39 +54,39 @@ export function isDatabaseInfrastructureFailure(error: unknown): boolean {
 }
 
 /** Counts provider faults while leaving rejected domain operations out of infrastructure health metrics. */
-export function withDatabaseFailureMetrics<Service extends object>(service: Service, recorder?: SyncPeerMetricsRecorder): Service {
-  if (recorder === undefined)
-    return service
+function withFailureMetrics<Service extends object>(
+  service: Service,
+  onFailure: (error: unknown) => void,
+): Service {
   return new Proxy(service, {
     get(target, property, receiver) {
       const member = Reflect.get(target, property, receiver)
       if (typeof member !== 'function')
         return member
-      return (...args: readonly unknown[]) => Promise.resolve()
-        .then(() => Reflect.apply(member, target, args))
-        .catch((error: unknown) => {
-          if (isDatabaseInfrastructureFailure(error))
-            recorder.databaseFailure()
+      return async (...args: readonly unknown[]) => {
+        try {
+          return await Reflect.apply(member, target, args)
+        }
+        catch (error) {
+          onFailure(error)
           throw error
-        })
+        }
+      }
     },
+  })
+}
+
+export function withDatabaseFailureMetrics<Service extends object>(service: Service, recorder?: SyncPeerMetricsRecorder): Service {
+  if (recorder === undefined)
+    return service
+  return withFailureMetrics(service, (error) => {
+    if (isDatabaseInfrastructureFailure(error))
+      recorder.databaseFailure()
   })
 }
 
 export function withObjectStoreFailureMetrics<Service extends object>(service: Service, recorder?: SyncPeerMetricsRecorder): Service {
   if (recorder === undefined)
     return service
-  return new Proxy(service, {
-    get(target, property, receiver) {
-      const member = Reflect.get(target, property, receiver)
-      if (typeof member !== 'function')
-        return member
-      return (...args: readonly unknown[]) => Promise.resolve()
-        .then(() => Reflect.apply(member, target, args))
-        .catch((error: unknown) => {
-          recorder.objectStoreFailure()
-          throw error
-        })
-    },
-  })
+  return withFailureMetrics(service, () => recorder.objectStoreFailure())
 }

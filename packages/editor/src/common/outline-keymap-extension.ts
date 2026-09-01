@@ -81,9 +81,7 @@ function createOutlineIndentCommand(runtime: OutlineRuntime): Command {
     if (!block?.hasPreviousSiblingBlock)
       return true
 
-    const blockNode = state.doc.nodeAt(block.position)
-    if (!blockNode || !isListNode(blockNode))
-      throw new Error('The current Outline selection is outside its resolved list block')
+    const blockNode = block.node
     return createIndentListCommand({
       from: block.position + 1,
       to: block.position + blockNode.nodeSize - 1,

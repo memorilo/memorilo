@@ -1,3 +1,5 @@
+import { isRecord } from './validation'
+
 export type ReadingAnnotationColor = 'blue' | 'green' | 'pink' | 'purple' | 'yellow'
 export type ReadingAnnotationStyle = 'highlight' | 'underline'
 
@@ -118,10 +120,6 @@ export type ReadingNote = ReadingAnnotation & { annotationTopicId: string }
 const annotationColors = new Set<ReadingAnnotationColor>(['blue', 'green', 'pink', 'purple', 'yellow'])
 const annotationStyles = new Set<ReadingAnnotationStyle>(['highlight', 'underline'])
 const readingFormats = new Set<ReadingAnchor['format']>(['cbr', 'cbz', 'epub', 'pdf', 'txt'])
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function assertNonNegativeInteger(value: unknown, label: string): void {
   if (!Number.isSafeInteger(value) || (value as number) < 0)

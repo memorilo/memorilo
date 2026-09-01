@@ -1,4 +1,5 @@
 import type { ReviewRating } from './types'
+import { reviewRatingRanks } from './types'
 
 export interface MultiLineItemSchedule {
   dueAt: number
@@ -18,18 +19,10 @@ export interface MultiLinePresentation {
 }
 
 function ratingRank(rating: ReviewRating): number {
-  switch (rating) {
-    case 'again':
-      return 1
-    case 'hard':
-      return 2
-    case 'good':
-      return 3
-    case 'easy':
-      return 4
-    default:
-      throw new TypeError(`Unsupported multi-line Rating: ${String(rating)}`)
-  }
+  const rank = reviewRatingRanks[rating]
+  if (rank === undefined)
+    throw new TypeError(`Unsupported multi-line Rating: ${String(rating)}`)
+  return rank
 }
 
 function strugglingScore(ratings: readonly ReviewRating[]): number | null {

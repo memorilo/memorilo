@@ -39,30 +39,27 @@ export function studyDayBounds(now: number, startHour: number): StudyDayBounds {
   }
 }
 
+const queueRanks: Readonly<Record<LearningQueueKind, number>> = {
+  'interday-learning': 1,
+  'intraday-learning': 0,
+  'new': 3,
+  'review': 2,
+}
+
 function queueRank(queue: LearningQueueKind): number {
-  switch (queue) {
-    case 'intraday-learning':
-      return 0
-    case 'interday-learning':
-      return 1
-    case 'review':
-      return 2
-    case 'new':
-      return 3
-  }
+  return queueRanks[queue]
+}
+
+type BuryPolicyKey = 'buryInterdayLearningSiblings' | 'buryNewSiblings' | 'buryReviewSiblings'
+
+const buryPolicyByQueue: Readonly<Record<Exclude<LearningQueueKind, 'intraday-learning'>, BuryPolicyKey>> = {
+  'interday-learning': 'buryInterdayLearningSiblings',
+  'new': 'buryNewSiblings',
+  'review': 'buryReviewSiblings',
 }
 
 function buryEnabled(queue: LearningQueueKind, policy: LearningQueuePolicy): boolean {
-  switch (queue) {
-    case 'intraday-learning':
-      return false
-    case 'interday-learning':
-      return policy.buryInterdayLearningSiblings
-    case 'review':
-      return policy.buryReviewSiblings
-    case 'new':
-      return policy.buryNewSiblings
-  }
+  return queue === 'intraday-learning' ? false : policy[buryPolicyByQueue[queue]]
 }
 
 function siblingKey(noteId: string, sourceBlockId: string): string {
@@ -184,18 +181,15 @@ export function selectLearningQueue<Value>(
   const eligibleCandidates = candidatesForMode.filter(entry => entry.eligibility !== 'future-intraday')
   const dueCandidates = eligibleCandidates.filter(entry => entry.eligibility === 'due')
   const presentationRank = (entry: typeof candidates[number]): number => {
-    switch (entry.queue) {
-      case 'intraday-learning':
-        return 0
-      case 'interday-learning':
-        return input.policy.interdayOrder === 'before-reviews'
-          ? 10
-          : input.policy.interdayOrder === 'after-reviews' ? 30 : 20
-      case 'review':
-        return 20
-      case 'new':
-        return 40
-    }
+    if (entry.queue === 'intraday-learning')
+      return 0
+    if (entry.queue === 'new')
+      return 40
+    if (entry.queue === 'review')
+      return 20
+    return input.policy.interdayOrder === 'before-reviews'
+      ? 10
+      : input.policy.interdayOrder === 'after-reviews' ? 30 : 20
   }
   return (dueCandidates.length > 0 ? dueCandidates : eligibleCandidates)
     .sort((left, right) => presentationRank(left) - presentationRank(right) || compareWithinQueue(left, right))

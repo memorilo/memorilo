@@ -25,6 +25,7 @@ import {
   clampReaderScale,
   readerZoomScaleCapability,
   runSingleMount,
+  toReaderError,
 } from '../reader-adapter'
 import { ReaderOutlineProjection } from '../reader-outline'
 import { openComicArchive } from './comic-archive'
@@ -90,6 +91,7 @@ class ComicAdapter implements ReaderAdapter {
   }
 
   private async mountReader(container: HTMLElement, signal: AbortSignal): Promise<void> {
+    const reportError = (error: unknown): void => this.callbacks.onError(toReaderError(error))
     if (this.pageMode === 'continuous') {
       const mount = await ComicContinuousReaderMount.open(container, this.archive, {
         annotations: this.annotations,
@@ -112,7 +114,7 @@ class ComicAdapter implements ReaderAdapter {
             this.publishRegionSelection(pageNumber - 1, selection)
           }
           catch (error) {
-            this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+            reportError(error)
           }
         },
         scale: this.scale,
@@ -146,7 +148,7 @@ class ComicAdapter implements ReaderAdapter {
           this.publishRegionSelection(this.pageIndex, selection)
         }
         catch (error) {
-          this.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+          reportError(error)
         }
       },
     })
@@ -197,7 +199,7 @@ class ComicAdapter implements ReaderAdapter {
     })
   }
 
-  async goBackward(entryEdge: ReaderPageEdge): Promise<void> {
+  goBackward(entryEdge: ReaderPageEdge): Promise<void> {
     return this.operations.run(async (signal) => {
       if (this.destroyed || this.pageIndex === 0)
         return
@@ -205,7 +207,7 @@ class ComicAdapter implements ReaderAdapter {
     })
   }
 
-  async goForward(entryEdge: ReaderPageEdge): Promise<void> {
+  goForward(entryEdge: ReaderPageEdge): Promise<void> {
     return this.operations.run(async (signal) => {
       if (this.destroyed || this.pageIndex >= this.archive.pages.length - 1)
         return
@@ -213,7 +215,7 @@ class ComicAdapter implements ReaderAdapter {
     })
   }
 
-  async goToAnnotation(annotationId: string): Promise<void> {
+  goToAnnotation(annotationId: string): Promise<void> {
     return this.operations.run(async (signal) => {
       const annotation = this.annotations.find(item => item.id === annotationId)
       const anchor = annotation?.anchors[0]
@@ -227,7 +229,7 @@ class ComicAdapter implements ReaderAdapter {
     })
   }
 
-  async goToOutlineItem(outlineItemId: string): Promise<void> {
+  goToOutlineItem(outlineItemId: string): Promise<void> {
     return this.operations.run(async (signal) => {
       const index = this.outline.requireTarget(outlineItemId)
       if (this.destroyed)
@@ -253,7 +255,7 @@ class ComicAdapter implements ReaderAdapter {
     this.pageView?.setRegionSelectionEnabled(enabled)
   }
 
-  async setScale(scale: number): Promise<void> {
+  setScale(scale: number): Promise<void> {
     return this.operations.run(async () => {
       if (this.destroyed)
         return

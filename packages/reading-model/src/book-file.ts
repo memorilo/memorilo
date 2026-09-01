@@ -1,5 +1,6 @@
 import type { ReadingFormat } from './format'
 import { assertReadingFormat } from './format'
+import { isRecord } from './validation'
 
 export interface BookMetadataSnapshot {
   authors: readonly string[]
@@ -36,10 +37,6 @@ export interface BookFileBinding {
 export interface BookFileBindingValidationOptions {
   requireRetrievalHint?: boolean
   requireShelfRetrievalHint?: boolean
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function assertNonEmptyBindingString(value: unknown, description: string): asserts value is string {

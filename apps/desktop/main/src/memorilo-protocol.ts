@@ -5,6 +5,7 @@ import {
   memoriloProtocol,
 } from '@memorilo/desktop-api/transport'
 import { createOperationSupervisor } from '@memorilo/effect-lifecycle'
+import { Match } from 'effect'
 import { createAssetProtocolHandler } from './asset-protocol'
 import { registerProtocol } from './protocol-registration'
 import { createRendererProtocolHandler } from './renderer-protocol'
@@ -45,25 +46,21 @@ function parseRequestUrl(request: Request): URL | Response {
   return url
 }
 
-export function createMemoriloProtocolHandler(options: RegisterMemoriloProtocolOptions) {
+export function createMemoriloProtocolHandler(options: RegisterMemoriloProtocolOptions): (request: Request) => Promise<Response> {
   const appHandler = createRendererProtocolHandler(options.rendererDirectory)
   const assetHandler = createAssetProtocolHandler(options.assetDirectory)
 
-  return (request: Request): Promise<Response> | Response => {
+  return async (request: Request): Promise<Response> => {
     const parsed = parseRequestUrl(request)
     if (parsed instanceof Response)
       return parsed
 
-    switch (parsed.host) {
-      case memoriloApiHost:
-        return options.apiHandler(request)
-      case memoriloAppHost:
-        return appHandler(request)
-      case memoriloAssetHost:
-        return assetHandler(request)
-      default:
-        return new Response(null, { status: 404 })
-    }
+    return await Match.value(parsed.host).pipe(
+      Match.when(memoriloApiHost, () => options.apiHandler(request)),
+      Match.when(memoriloAppHost, () => appHandler(request)),
+      Match.when(memoriloAssetHost, () => assetHandler(request)),
+      Match.orElse(() => new Response(null, { status: 404 })),
+    )
   }
 }
 
@@ -79,7 +76,7 @@ export async function registerMemoriloProtocol(
   try {
     registration = await registerProtocol(memoriloProtocol, async (request) => {
       try {
-        return await admission.run(() => Promise.resolve(dispatch(request)))
+        return await admission.run(() => dispatch(request))
       }
       catch (error) {
         if (error instanceof MemoriloProtocolClosingError)

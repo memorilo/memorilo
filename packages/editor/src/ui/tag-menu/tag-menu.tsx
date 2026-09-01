@@ -4,6 +4,7 @@ import type { BasicExtension } from 'prosekit/basic'
 import type { Union } from 'prosekit/core'
 import type { TagExtension } from '../../extension/tag-extension'
 import type { TagRuntime } from '../../tag/tag-runtime'
+import { toError } from '@memorilo/effect-lifecycle'
 import { Surface } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { canUseRegexLookbehind } from 'prosekit/core'
@@ -63,7 +64,7 @@ export default function TagMenu(props: { runtime: TagRuntime }) {
         setTags([])
         setError(searchError instanceof InvalidStoredTagError
           ? t(TAG_LABEL_ERROR_TRANSLATION_KEYS[searchError.reason], { count: 64 })
-          : searchError instanceof Error ? searchError.message : String(searchError))
+          : toError(searchError).message)
         setLoading(false)
       },
     )

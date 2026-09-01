@@ -1,5 +1,6 @@
 import type { Attrs } from 'prosekit/pm/model'
 import type { TaskHistory, TaskStatus, TaskTimingAttrs } from '../../schema/task-schema'
+import { Match } from 'effect'
 import { readTaskStatus, transitionTaskAttrs } from '../../schema/task-schema'
 
 export type { TaskHistory, TaskStatus } from '../../schema/task-schema'
@@ -13,14 +14,12 @@ export function effectiveStatus(attrs: Attrs): TaskStatus {
 
 /** The next status when the control is clicked (cycles without leaving the task). */
 export function nextClickStatus(status: TaskStatus): TaskStatus {
-  switch (status) {
-    case 'todo':
-      return 'doing'
-    case 'doing':
-      return 'done'
-    case 'done':
-      return 'todo'
-  }
+  return Match.value(status).pipe(
+    Match.when('todo', () => 'doing' as const),
+    Match.when('doing', () => 'done' as const),
+    Match.when('done', () => 'todo' as const),
+    Match.exhaustive,
+  )
 }
 
 export type { TaskTimingAttrs } from '../../schema/task-schema'

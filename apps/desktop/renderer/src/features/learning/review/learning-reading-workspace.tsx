@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktopConfiguration } from '../../../shared/configuration'
 import { desktopRequests } from '../../../shared/desktop-requests'
+import { errorMessage } from '../../../shared/error-message'
 import { desktopEditorAdapters, useEditorNoteSession } from '../../notes/editor/note-editor-session'
 import { projectVisibleNoteEntries } from '../../notes/note-entry-tree'
 import { useFlushNotePersistence } from '../../notes/persistence/note-persistence-hooks'
@@ -47,7 +48,7 @@ export function LearningReadingWorkspace({ item, onNext }: {
       setError(null)
     }
     catch (cause) {
-      setError(t('readingActionFailed', { message: cause instanceof Error ? cause.message : String(cause) }))
+      setError(t('readingActionFailed', { message: errorMessage(cause) }))
     }
     finally {
       semanticActionInFlightRef.current = false
@@ -83,7 +84,7 @@ export function LearningReadingWorkspace({ item, onNext }: {
       setActiveTopicId(topicId)
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(errorMessage(cause))
     }
   }
   const next = async (): Promise<void> => {
@@ -94,7 +95,7 @@ export function LearningReadingWorkspace({ item, onNext }: {
       setError(null)
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(errorMessage(cause))
     }
     finally {
       setPending(false)
@@ -115,7 +116,7 @@ export function LearningReadingWorkspace({ item, onNext }: {
       setError(null)
     }
     catch (cause) {
-      setError(t('cardGenerationFailed', { message: cause instanceof Error ? cause.message : String(cause) }))
+      setError(t('cardGenerationFailed', { message: errorMessage(cause) }))
     }
     finally {
       setPending(false)

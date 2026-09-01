@@ -13,7 +13,7 @@ import {
   createResourceScope,
 } from '@memorilo/effect-lifecycle'
 import { AnnotationActivationOwner } from '../annotations'
-import { readerFontSizeScaleCapability } from '../reader-adapter'
+import { readerFontSizeScaleCapability, toReaderError } from '../reader-adapter'
 import { RegionSelectionController } from '../region-selection'
 import { regionSelectionClassNames } from '../region-selection.stylex'
 import { createTxtDocumentProjection } from './txt-document-projection'
@@ -193,7 +193,7 @@ export class TxtReaderMount {
             mount?.publishRegionSelection(selection)
           }
           catch (error) {
-            options.callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+            options.callbacks.onError(toReaderError(error))
           }
         },
       })

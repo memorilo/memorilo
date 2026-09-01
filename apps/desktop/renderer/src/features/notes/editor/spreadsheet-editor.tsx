@@ -10,6 +10,7 @@ import { SpreadsheetWorkspace } from '@memorilo/spreadsheet'
 import * as stylex from '@stylexjs/stylex'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { errorMessage } from '../../../shared/error-message'
 import { spreadsheetEditorStyles as styles } from './spreadsheet-editor.stylex'
 
 const localSpreadsheetLock: SpreadsheetLock = {
@@ -135,7 +136,7 @@ export function SpreadsheetEditor({
       setError(null)
     }
     catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError(errorMessage(cause))
     }
   }, [])
 

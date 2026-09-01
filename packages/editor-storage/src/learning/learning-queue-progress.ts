@@ -31,10 +31,10 @@ export interface FirstReviewRow {
   first_reviewed_at: number
 }
 
-export function readFirstReviewTimes(
+export async function readFirstReviewTimes(
   database: EditorStorageDatabase,
 ): Promise<readonly FirstReviewRow[]> {
-  return Promise.resolve(database.drizzle.select({ card_id: learningCardIntroductions.cardId, first_reviewed_at: learningCardIntroductions.introducedAt }).from(learningCardIntroductions).orderBy(asc(learningCardIntroductions.cardId)).all() as FirstReviewRow[])
+  return database.drizzle.select({ card_id: learningCardIntroductions.cardId, first_reviewed_at: learningCardIntroductions.introducedAt }).from(learningCardIntroductions).orderBy(asc(learningCardIntroductions.cardId)).all() as FirstReviewRow[]
 }
 
 interface LearningQueueProgressDependencies {
@@ -187,8 +187,8 @@ export class LearningQueueProgressReader {
     }
   }
 
-  #ratings(from: number, through: number): Promise<readonly ActivityRatingRow[]> {
-    return Promise.resolve(this.#orm.select({
+  async #ratings(from: number, through: number): Promise<readonly ActivityRatingRow[]> {
+    return this.#orm.select({
       card_id: learningReviewEvents.cardId,
       rating: learningReviewEvents.rating,
       occurred_at: learningReviewEvents.occurredAt,
@@ -203,16 +203,16 @@ export class LearningQueueProgressReader {
           eq(undoneReviewEvents.eventKind, 'undo'),
           eq(undoneReviewEvents.undoesEventId, learningReviewEvents.eventId),
         ))),
-    )).orderBy(asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as ActivityRatingRow[])
+    )).orderBy(asc(learningReviewEvents.occurredAt), asc(learningReviewEvents.eventId)).all() as ActivityRatingRow[]
   }
 
-  #dueCards(before: number): Promise<readonly CardIdRow[]> {
-    return Promise.resolve(this.#orm.selectDistinct({ card_id: learningCards.cardId })
+  async #dueCards(before: number): Promise<readonly CardIdRow[]> {
+    return this.#orm.selectDistinct({ card_id: learningCards.cardId })
       .from(learningCards)
       .innerJoin(learningTargets, eq(learningTargets.cardId, learningCards.cardId))
       .innerJoin(learningStates, eq(learningStates.targetId, learningTargets.targetId))
       .where(and(eq(learningCards.active, 1), eq(learningTargets.active, 1), ne(learningStates.phase, 'new'), lt(learningStates.dueAt, before)))
       .orderBy(asc(learningCards.cardId))
-      .all() as CardIdRow[])
+      .all() as CardIdRow[]
   }
 }
