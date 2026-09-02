@@ -16,7 +16,6 @@ import { Duration, Effect, Schedule } from 'effect'
 interface RunningServer {
   readonly diagnostics: () => string
   readonly httpUrl: string
-  readonly peerPort: number
   readonly port: number
   readonly process: ChildProcess
 }
@@ -103,10 +102,10 @@ function stopProcess(child: ChildProcess): Effect.Effect<ProcessExit> {
 function startSyncServer(
   dataDirectory: string,
   registration: 'disabled' | 'invite-only' | 'public',
-  ports?: { readonly peerPort: number, readonly port: number },
+  ports?: { readonly port: number },
 ): Effect.Effect<RunningServer, Error> {
   return Effect.gen(function* () {
-    const selectedPorts = ports ?? (yield* Effect.all({ peerPort: reservePort(), port: reservePort() }, { concurrency: 2 }))
+    const selectedPorts = ports ?? { port: yield* reservePort() }
     const spawned = yield* spawnSyncServer(dataDirectory, registration, selectedPorts)
     const child = spawned.process
     const httpUrl = `http://127.0.0.1:${selectedPorts.port}`
@@ -134,7 +133,6 @@ function startSyncServer(
     return {
       diagnostics: spawned.diagnostics,
       httpUrl,
-      peerPort: selectedPorts.peerPort,
       port: selectedPorts.port,
       process: child,
     }
@@ -144,7 +142,7 @@ function startSyncServer(
 function spawnSyncServer(
   dataDirectory: string,
   registration: 'disabled' | 'invite-only' | 'public',
-  ports: { readonly peerPort: number, readonly port: number },
+  ports: { readonly port: number },
 ): Effect.Effect<{ readonly diagnostics: () => string, readonly process: ChildProcess }> {
   return Effect.sync(() => {
     const child = spawn(process.execPath, [tsxEntry, syncServerEntry], {
@@ -153,7 +151,6 @@ function spawnSyncServer(
         ...process.env,
         MEMORILO_SYNC_SERVER_DATA_DIR: dataDirectory,
         MEMORILO_SYNC_SERVER_HOST: '127.0.0.1',
-        MEMORILO_SYNC_SERVER_PEER_PORT: String(ports.peerPort),
         MEMORILO_SYNC_SERVER_PORT: String(ports.port),
         MEMORILO_SYNC_SERVER_REGISTRATION: registration,
       },
@@ -190,24 +187,20 @@ async function createOwner(page: import('@playwright/test').Page, url: string): 
   await expect(page.locator('#management-navigation')).toBeAttached()
 }
 
-test('the server process exits cleanly on SIGTERM and releases both listeners', async () => {
+test('the server process exits cleanly on SIGTERM and releases its listener', async () => {
   await withSyncServer('disabled', async (server) => {
     const exit = await Effect.runPromise(stopProcess(server.process))
     expect(exit, server.diagnostics()).toEqual({ code: 0, signal: null })
-    await Effect.runPromise(Effect.all([
-      Effect.scoped(listenTcpServer(server.port)).pipe(Effect.asVoid),
-      Effect.scoped(listenTcpServer(server.peerPort)).pipe(Effect.asVoid),
-    ], { concurrency: 2 }))
+    await Effect.runPromise(Effect.scoped(listenTcpServer(server.port)).pipe(Effect.asVoid))
   })
 })
 
-test('a public-port collision rolls back the internal peer listener', async () => {
+test('a public-port collision rejects startup', async () => {
   await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
     const directory = yield* temporaryDirectory('memorilo-sync-server-port-collision-')
     const occupied = yield* listenTcpServer()
-    const peerPort = yield* reservePort()
     const spawned = yield* Effect.acquireRelease(
-      spawnSyncServer(directory, 'disabled', { peerPort, port: occupied.port }),
+      spawnSyncServer(directory, 'disabled', { port: occupied.port }),
       current => stopProcess(current.process).pipe(Effect.asVoid, Effect.orDie),
     )
     const exit = yield* awaitProcessExit(spawned.process).pipe(
@@ -218,7 +211,6 @@ test('a public-port collision rolls back the internal peer listener', async () =
     )
     expect(exit, spawned.diagnostics()).toEqual({ code: 1, signal: null })
     expect(spawned.diagnostics()).toContain('Memorilo Sync Server failed')
-    yield* listenTcpServer(peerPort)
   })))
 })
 

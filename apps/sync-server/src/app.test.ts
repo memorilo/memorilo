@@ -25,7 +25,6 @@ const configs = {
   orphanGraceMs: 15 * 60 * 1000,
   orphanIntervalMs: 60_000,
   port: 6000,
-  peerPort: 6001,
   registration: 'disabled' as const,
   s3ForcePathStyle: false,
   s3Region: 'us-east-1',

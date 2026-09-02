@@ -1,5 +1,6 @@
 import type { Libp2p, PeerId, PrivateKey } from '@libp2p/interface'
 import type { Multiaddr } from '@multiformats/multiaddr'
+import type { Server } from 'node:http'
 import type { DeviceSigningKeyStore } from './device-signing'
 import type { DeviceId, PairedDevice, PairingInvitation, PairingMessage, PairingResponse, SyncAssetManifest, SyncChange, SyncDataNamespace, SyncError, SyncFrontiers, SyncHello, SyncMessage, SyncMode, SyncPeerRole, VersionVector } from './model'
 import type { PairingManager } from './pairing'
@@ -20,6 +21,7 @@ import { createLibp2p } from 'libp2p'
 import { JsonDeviceSigningKeyStore, loadOrCreateDeviceSigner, signDevicePayload, verifyDevicePayload, withoutDeviceSignature } from './device-signing'
 import { decodeAssetManifest, decodeMessage, decodePairingMessage, encodeMessage, encodePairingMessage, maxSyncFrameBytes, validateAssetManifest } from './model'
 import { decodePairingPayload, JsonPairingStore, pairingEmojiForSecret, PairingManager as PairingManagerClass } from './pairing'
+import { sharedServerWebSockets } from './shared-server-websockets'
 
 export type { DeviceSigner, DeviceSigningKeyStore } from './device-signing'
 export { createDeviceSigner, generateDeviceSigningPrivateKey, JsonDeviceSigningKeyStore, loadOrCreateDeviceSigner, signDevicePayload, verifyDevicePayload } from './device-signing'
@@ -145,6 +147,7 @@ export interface P2pNodeOptions {
   readonly dialTargets?: ReadonlyMap<string, unknown>
   /** Selects the transport set; desktop defaults to direct TCP, server peers use WebSocket. */
   readonly transport?: 'tcp' | 'websocket' | 'both'
+  readonly sharedWebSocketServer?: Server
   readonly discovery?: boolean
   readonly now?: () => number
   readonly pairingAvailability?: () => number | null
@@ -214,6 +217,7 @@ export interface P2pApplicationOptions {
   readonly onStatus?: (status: P2pNodeStatus) => void
   readonly listenAddresses?: readonly string[]
   readonly transport?: P2pNodeOptions['transport']
+  readonly sharedWebSocketServer?: Server
   readonly discovery?: boolean
   readonly dialTargets?: ReadonlyMap<string, unknown>
   readonly authorizeIncomingSync?: P2pNodeOptions['authorizeIncomingSync']
@@ -698,7 +702,9 @@ export async function createP2pNode(options: P2pNodeOptions): Promise<P2pNodeHan
   const transportMode = options.transport ?? 'tcp'
   const transports = [
     ...(transportMode === 'tcp' || transportMode === 'both' ? [tcp()] : []),
-    ...(transportMode === 'websocket' || transportMode === 'both' ? [webSockets()] : []),
+    ...(transportMode === 'websocket' || transportMode === 'both'
+      ? [options.sharedWebSocketServer === undefined ? webSockets() : sharedServerWebSockets(options.sharedWebSocketServer)]
+      : []),
   ]
   const node = await createLibp2p({
     ...(options.privateKey === undefined ? {} : { privateKey: options.privateKey }),
@@ -1619,6 +1625,7 @@ export async function createP2pApplication(options: P2pApplicationOptions): Prom
     provider: options.provider,
     listenAddresses: options.listenAddresses,
     transport: options.transport,
+    sharedWebSocketServer: options.sharedWebSocketServer,
     discovery: options.discovery,
     dialTargets,
     authorizeIncomingSync: options.authorizeIncomingSync,

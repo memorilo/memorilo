@@ -1,7 +1,8 @@
+import type { Server } from 'node:http'
 import process from 'node:process'
 import { toError } from '@memorilo/effect-lifecycle'
 import { Effect } from 'effect'
-import { createSinglePortServer } from '../infrastructure/http/single-port-server'
+import { createSyncServerHttpServer } from '../infrastructure/http/server'
 import { loadSyncServerConfig } from './config'
 import { createSyncServerRuntime } from './runtime'
 
@@ -17,20 +18,16 @@ const waitForShutdownSignal = Effect.callback<void>((resume) => {
 
 const program = Effect.scoped(Effect.gen(function* () {
   const config = yield* Effect.tryPromise({ catch: toError, try: () => loadSyncServerConfig() })
-  const runtime = yield* Effect.acquireRelease(
-    Effect.tryPromise({ catch: toError, try: () => createSyncServerRuntime(config) }),
-    current => Effect.tryPromise({ catch: toError, try: current.close }).pipe(Effect.orDie),
-  )
-  const server = createSinglePortServer({
-    fetch: runtime.app.fetch,
-    host: config.host,
-    peerPort: runtime.peerPort,
-    port: config.port,
-  })
+  const server = createSyncServerHttpServer({ host: config.host, port: config.port })
   const port = yield* Effect.acquireRelease(
     Effect.tryPromise({ catch: toError, try: server.listen }),
     () => Effect.tryPromise({ catch: toError, try: server.close }).pipe(Effect.orDie),
   )
+  const runtime = yield* Effect.acquireRelease(
+    Effect.tryPromise({ catch: toError, try: () => createSyncServerRuntime(config, { httpServer: server.server as Server, port }) }),
+    current => Effect.tryPromise({ catch: toError, try: current.close }).pipe(Effect.orDie),
+  )
+  yield* Effect.sync(() => server.setFetch(runtime.app.fetch))
   yield* Effect.sync(() => process.stderr.write(`Memorilo Sync Server listening on http://${config.host}:${port}\n`))
   yield* waitForShutdownSignal
   yield* Effect.tryPromise({ catch: toError, try: runtime.beginDrain })

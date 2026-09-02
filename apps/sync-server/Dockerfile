@@ -22,8 +22,7 @@ FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production \
   MEMORILO_SYNC_SERVER_DATA_DIR=/var/lib/memorilo-sync \
   MEMORILO_SYNC_SERVER_HOST=0.0.0.0 \
-  MEMORILO_SYNC_SERVER_PORT=6000 \
-  MEMORILO_SYNC_SERVER_PEER_PORT=6001
+  MEMORILO_SYNC_SERVER_PORT=6000
 
 WORKDIR /app
 COPY --from=build /runtime/ ./

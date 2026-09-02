@@ -1,5 +1,6 @@
 import type { PairedDevice, SyncAccountState, SyncAssetManifest, SyncAuthStore, SyncChange, SyncDataNamespace, SyncDeviceCredential, SyncHello, SyncLearningEntityKind, SyncLearningEntityRecord, SyncObjectMetadata, SyncObjectStore, SyncRepository } from '@memorilo/sync'
 import type { P2pApplication, SyncObjectPutRequest, SyncObjectTransferStore, SyncStateProvider } from '@memorilo/sync/node'
+import type { Server } from 'node:http'
 import type { SyncPeerMetricsRecorder } from '../metrics'
 import { createHash, randomUUID } from 'node:crypto'
 import { mergeAuthoritativeNoteSnapshot, objectKeyFor } from '@memorilo/sync'
@@ -12,6 +13,7 @@ export interface SyncServerPeerOptions {
   readonly enabledModes?: readonly ('relay' | 'authoritative')[]
   readonly statePath: string
   readonly listenAddress: string
+  readonly sharedWebSocketServer?: Server
   readonly auth: SyncAuthStore
   readonly objectStore: SyncObjectStore
   readonly repository: SyncRepository
@@ -911,6 +913,7 @@ export async function createSyncServerPeer(options: SyncServerPeerOptions): Prom
     deviceName: 'Memorilo Sync Server',
     discovery: false,
     listenAddresses: [options.listenAddress],
+    sharedWebSocketServer: options.sharedWebSocketServer,
     now,
     onStatus: (status) => {
       if (status.state === 'error')
