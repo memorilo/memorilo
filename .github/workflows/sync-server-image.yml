@@ -50,6 +50,18 @@ jobs:
         if: steps.tag.outputs.valid == 'true'
         uses: actions/checkout@v4
 
+      - name: Read package description
+        if: steps.tag.outputs.valid == 'true'
+        id: package
+        shell: bash
+        run: |
+          description="$(awk '/<!-- ghcr-description -->/{getline; print; exit}' apps/sync-server/README.md)"
+          if [[ -z "$description" || ${#description} -gt 512 ]]; then
+            echo 'GHCR description must contain 1-512 characters.' >&2
+            exit 1
+          fi
+          printf 'description=%s\n' "$description" >> "$GITHUB_OUTPUT"
+
       - name: Set up pnpm
         if: steps.tag.outputs.valid == 'true'
         uses: pnpm/action-setup@v4
@@ -92,6 +104,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/memorilo-sync-server
+          labels: |
+            org.opencontainers.image.title=Memorilo Sync Server
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=${{ steps.package.outputs.description }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
           tags: |
             type=raw,value=${{ steps.tag.outputs.docker_version }}
             type=raw,value=v${{ steps.tag.outputs.docker_version }}

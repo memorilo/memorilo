@@ -21,7 +21,6 @@ const serverConfigSchema = z.object({
   maxAuthAttemptsPerMinute: z.coerce.number().int().min(1).max(10_000).default(10),
   maintenanceMode: z.enum(['off', 'read-only']).default('off'),
   port: z.coerce.number().int().min(0).max(65535).default(6000),
-  peerPort: z.coerce.number().int().min(1).max(65535).default(6001),
   metadataDatabase: z.enum(['sqlite', 'postgres']).default('sqlite'),
   postgresUrl: z.string().min(1).optional(),
   objectStore: z.enum(['filesystem', 's3']).default('filesystem'),
@@ -55,7 +54,6 @@ function environmentOverrides(env: NodeJS.ProcessEnv): Record<string, string> {
     ['maxAuthAttemptsPerMinute', env.MEMORILO_SYNC_SERVER_MAX_AUTH_ATTEMPTS_PER_MINUTE],
     ['maintenanceMode', env.MEMORILO_SYNC_SERVER_MAINTENANCE_MODE],
     ['port', env.MEMORILO_SYNC_SERVER_PORT],
-    ['peerPort', env.MEMORILO_SYNC_SERVER_PEER_PORT],
     ['metadataDatabase', env.MEMORILO_SYNC_SERVER_METADATA_DATABASE],
     ['postgresUrl', env.MEMORILO_SYNC_SERVER_POSTGRES_URL],
     ['objectStore', env.MEMORILO_SYNC_SERVER_OBJECT_STORE],
@@ -91,8 +89,6 @@ export function parseSyncServerConfig(env: NodeJS.ProcessEnv = process.env, file
     ...fileConfig,
     ...environmentOverrides(env),
   })
-  if (config.port === config.peerPort)
-    throw new Error('Sync server HTTP port and internal peer port must be different')
   if (config.metadataDatabase === 'postgres' && config.postgresUrl === undefined)
     throw new Error('PostgreSQL metadata provider requires MEMORILO_SYNC_SERVER_POSTGRES_URL')
   if (config.objectStore === 's3' && config.s3Bucket === undefined)

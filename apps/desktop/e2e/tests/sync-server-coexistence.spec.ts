@@ -89,14 +89,13 @@ async function waitForServer(url: string, child: ChildProcess, diagnostics: () =
   }, { message: 'Sync Server did not become ready', timeout: 20_000 }).toBe(200)
 }
 
-async function startSyncServer(dataDirectory: string, port: number, peerPort: number): Promise<RunningServer> {
+async function startSyncServer(dataDirectory: string, port: number): Promise<RunningServer> {
   const child = spawn(process.execPath, [tsxEntry, syncServerEntry], {
     cwd: repositoryRoot,
     env: {
       ...process.env,
       MEMORILO_SYNC_SERVER_DATA_DIR: dataDirectory,
       MEMORILO_SYNC_SERVER_HOST: '127.0.0.1',
-      MEMORILO_SYNC_SERVER_PEER_PORT: String(peerPort),
       MEMORILO_SYNC_SERVER_PORT: String(port),
       MEMORILO_SYNC_SERVER_REGISTRATION: 'disabled',
     },
@@ -154,12 +153,12 @@ function launchPeer(databasePath: string, deviceName: string, userDataDirectory:
 }
 
 async function createSyncServerController(dataDirectory: string): Promise<SyncServerController> {
-  const [port, peerPort] = await Promise.all([reservePort(), reservePort()])
+  const port = await reservePort()
   let server: RunningServer | null = null
   const start = async (): Promise<void> => {
     if (server !== null)
       return
-    server = await startSyncServer(dataDirectory, port, peerPort)
+    server = await startSyncServer(dataDirectory, port)
   }
   const stop = async (): Promise<void> => {
     const current = server

@@ -34,9 +34,9 @@ describe('sync server configuration', () => {
     })
   })
 
-  it('rejects unknown file keys and colliding listener ports', () => {
+  it('rejects unknown file keys including the removed peer port', () => {
     expect(() => parseSyncServerConfig({}, { unknownOption: true })).toThrow()
-    expect(() => parseSyncServerConfig({}, { peerPort: 6000, port: 6000 })).toThrow('must be different')
+    expect(() => parseSyncServerConfig({}, { peerPort: 6001 })).toThrow()
     expect(() => parseSyncServerConfig({}, { sessionIdleTimeoutMs: 2_000, sessionTotalTimeoutMs: 1_000 })).toThrow('must not be shorter')
   })
 })

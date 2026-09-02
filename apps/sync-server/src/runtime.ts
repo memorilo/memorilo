@@ -1,4 +1,5 @@
 import type { SyncObjectStore, SyncRepository } from '@memorilo/sync'
+import type { Server } from 'node:http'
 import type { SyncServerPeer } from '../infrastructure/p2p/server-peer'
 import type { SyncServerConfig } from './config'
 import { mkdir } from 'node:fs/promises'
@@ -21,7 +22,6 @@ export interface SyncServerRuntime {
   readonly objectStore: SyncObjectStore
   readonly repository: SyncRepository
   readonly peer: SyncServerPeer
-  readonly peerPort: number
   readonly beginDrain: () => Promise<void>
   readonly close: () => Promise<void>
 }
@@ -32,7 +32,7 @@ function requireConfigured(value: string | undefined, message: string): string {
   return value
 }
 
-export async function createSyncServerRuntime(config: SyncServerConfig): Promise<SyncServerRuntime> {
+export async function createSyncServerRuntime(config: SyncServerConfig, options: { readonly httpServer: Server, readonly port: number }): Promise<SyncServerRuntime> {
   const scope = createResourceScope('Sync server')
   let ready = false
   let stopWorkers: (() => Promise<void>) | null = null
@@ -91,8 +91,8 @@ export async function createSyncServerRuntime(config: SyncServerConfig): Promise
     const peer = (await scope.acquire({
       acquire: () => createSyncServerPeer({
         auth: database.auth,
-        // Keep the libp2p listener loopback-only; the public HTTP listener proxies Upgrade requests to it.
-        listenAddress: `/ip4/127.0.0.1/tcp/${config.peerPort}/ws`,
+        listenAddress: `/ip4/127.0.0.1/tcp/${options.port}/ws`,
+        sharedWebSocketServer: options.httpServer,
         enabledModes: config.enabledModes,
         isAccepting: () => ready,
         maxObjectTransfersPerAccount: config.maxObjectTransfersPerAccount,
@@ -137,7 +137,6 @@ export async function createSyncServerRuntime(config: SyncServerConfig): Promise
       close: scope.close,
       objectStore,
       peer,
-      peerPort: config.peerPort,
       repository: database.repository,
     }
   }
