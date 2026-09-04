@@ -32,7 +32,7 @@ Make the expanded firmware observable and prevent feature growth from silently r
 - 2026-09-04: Added the deliberate Settings long-press diagnostics page,
   cross-platform runtime snapshots, serial `DIAG` records, staged acceptance
   budgets, and partition-aware artifact checks. All 50 host tests pass and the
-  `real-display` ESP-IDF release target builds. Re-generating the image exposed
+  `hardware-display` ESP-IDF release target builds. Re-generating the image exposed
   that the earlier 793,520-byte provisioning measurement was a stale `.bin`:
   the current image is 1,193,200 bytes (SHA-256
   `651739a994bbc4597c20394ab8171a66c6d13bc6155a0c7781f4a48646d3124a`).

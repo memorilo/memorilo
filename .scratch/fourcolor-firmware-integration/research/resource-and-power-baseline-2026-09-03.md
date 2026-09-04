@@ -8,7 +8,7 @@ Measured on 2026-09-03 (Asia/Shanghai) on the connected ESP32-S3 N16R8 target.
 | --- | --- |
 | Git revision | `ecb96fb51fb48d8904dc1dad326a7f11484452db` plus the uncommitted diagnostic changes described by this report |
 | Cargo profile | `release` |
-| Cargo features | `--no-default-features --features real-display` |
+| Cargo features | `--no-default-features --features hardware-display` |
 | Rust target | `xtensa-esp32s3-espidf` |
 | ESP-IDF | `v5.5.2` |
 | Application image | 474,592 bytes |
@@ -50,9 +50,9 @@ From `apps/note4c-firmware`:
 
 ```powershell
 cargo +stable test --target x86_64-pc-windows-msvc
-.\tools\flash-firmware.ps1 -Port COM3 -Variant real -WhatIf
-.\tools\measure-firmware.ps1 -Variant real
-.\tools\flash-firmware.ps1 -Port COM3 -Variant real -SkipBuild
+.\tools\flash-firmware.ps1 -Port COM3 -Variant hardware -WhatIf
+.\tools\measure-firmware.ps1 -Variant hardware
+.\tools\flash-firmware.ps1 -Port COM3 -Variant hardware -SkipBuild
 .\tools\monitor-firmware.ps1 -Port COM3
 ```
 

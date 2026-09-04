@@ -28,7 +28,7 @@ Record the baseline that every service-bearing feature must preserve or intentio
 
 - 2026-09-03: Added repeatable image and runtime diagnostics, corrected the
   Windows build target default used by the flash/monitor workflow, passed host
-  tests, built and flashed the real-display firmware, and captured heap, PSRAM,
+  tests, built and flashed the hardware-display firmware, and captured heap, PSRAM,
   stack, boot, and refresh baselines. Results and reproduction steps are in
   [the baseline report](../research/resource-and-power-baseline-2026-09-03.md).
   Idle, refresh-average/peak, and post-refresh current still require readings
