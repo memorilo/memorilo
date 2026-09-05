@@ -13,6 +13,7 @@ Implement the authenticated, short-lived provisioning peripheral in Rust with Ni
 - Generate and display a six-digit passkey after UP+DOWN long press.
 - Start advertising only after the passkey frame has physically completed.
 - Expose authenticated GATT characteristics and apply validated configuration atomically.
+- Apply the TODO-sync configuration patch atomically while keeping TODO contents and task actions out of BLE.
 - Stop advertising after success, cancellation, disconnect policy, or five-minute timeout.
 
 ## Acceptance criteria

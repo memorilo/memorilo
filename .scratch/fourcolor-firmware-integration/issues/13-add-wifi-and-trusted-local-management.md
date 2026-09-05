@@ -12,6 +12,7 @@ Use BLE-provisioned credentials to establish a power-aware Wi-Fi connection and 
 - Add cancellable Wi-Fi connection/reconnect state and SNTP synchronization.
 - Integrate radio activity with sleep blockers and resource budgets.
 - Expose bounded local endpoints for status and approved device commands.
+- Keep authenticated read-only TODO export on HTTP and leave MQTT to update notifications rather than bulk management.
 - Require authentication; do not copy the upstream open provisioning AP, fixed password, or unauthenticated control endpoints.
 
 ## Acceptance criteria
@@ -19,6 +20,7 @@ Use BLE-provisioned credentials to establish a power-aware Wi-Fi connection and 
 - Wrong credentials produce a recoverable status and can be replaced over BLE.
 - Network failures do not block buttons, display scheduling, or sleep indefinitely.
 - Mutating local requests are authenticated, bounded, serialized through `Application`, and audited in logs without secrets.
+- TODO export is read-only; MQTT notification connectivity and sync status are available through redacted status data.
 
 ## Comments
 

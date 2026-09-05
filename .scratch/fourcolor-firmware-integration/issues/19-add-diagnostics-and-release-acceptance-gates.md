@@ -9,7 +9,7 @@ Make the expanded firmware observable and prevent feature growth from silently r
 
 ## Scope
 
-- Add a hidden diagnostics page for build identity, heap/PSRAM, task stacks, battery, RTC, buttons, display state, BLE/Wi-Fi state, and last error.
+- Add a hidden diagnostics page for build identity, heap/PSRAM, task stacks, battery, RTC, buttons, display state, BLE/Wi-Fi/MQTT state, TODO sync source/revision, and last error.
 - Retain the explicit color-bar build variant.
 - Define feature-by-feature resource and real-device acceptance budgets.
 - Keep unused peripherals powered down and omit unrelated upstream factory-test plumbing.

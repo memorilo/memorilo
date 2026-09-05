@@ -9,7 +9,7 @@ Create a Rust UI system inspired by upstream RawDraw without porting its C++ man
 
 ## Scope
 
-- Semantic four-color tokens and reusable text, list, status, dialog, checkbox, progress, and selection primitives.
+- Semantic four-color tokens and reusable text, list, status, dialog, checkbox, progress, and pagination primitives.
 - Unicode-capable bitmap font lookup with bounded flash/RAM use.
 - Text measurement, wrapping, clipping, pagination, and viewport behavior.
 - Pure page rendering from application snapshots into the packed 2bpp framebuffer.
@@ -17,8 +17,8 @@ Create a Rust UI system inspired by upstream RawDraw without porting its C++ man
 ## Acceptance criteria
 
 - Chinese and English TODO text render without placeholder glyphs.
-- Long content wraps or paginates deterministically without corrupting selection mapping.
-- UI tests cover color encoding, clipping, selection, wrapping, and pagination.
+- Long content wraps or paginates deterministically without introducing row-selection state.
+- UI tests cover color encoding, clipping, wrapping, and pagination.
 - C remains unaware of widgets, fonts, and page semantics.
 
 ## Comments

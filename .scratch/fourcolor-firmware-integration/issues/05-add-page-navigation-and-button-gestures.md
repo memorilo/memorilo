@@ -13,6 +13,7 @@ Allow the three physical buttons to navigate read-only content pages and enter c
 - Map raw gestures to contextual application commands.
 - Long-press UP/DOWN to move to the previous/next content page.
 - Keep TODO read-only and omit device Settings from the normal page loop.
+- TODO Up/Down short presses change the list page only; they never identify a current row or dispatch a task action.
 - Reserve UP+DOWN long press for BLE configuration mode.
 - Avoid double-click initially because it delays single-click feedback.
 
@@ -21,6 +22,7 @@ Allow the three physical buttons to navigate read-only content pages and enter c
 - Gesture precedence and timing are host tested with a fake clock.
 - A held or chorded button emits one intended command rather than repeated accidental actions.
 - Page navigation remains accepted during an in-flight display refresh.
+- A TODO page shows at most six rows and clamps its page index after a snapshot update.
 
 ## Comments
 

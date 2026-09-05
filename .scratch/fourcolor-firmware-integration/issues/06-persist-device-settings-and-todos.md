@@ -17,7 +17,7 @@ Make device configuration and TODO state survive reboot, sleep, and interrupted 
 
 ## Acceptance criteria
 
-- Completion, selection policy, device name, Wi-Fi settings, timezone, and sleep timeout survive reboot.
+- TODO snapshot, page index, device name, Wi-Fi settings, timezone, and sleep timeout survive reboot; no task-action or row-selection state is persisted.
 - Corrupt or unsupported data produces an explicit recovery state without boot loops.
 - Unit tests cover migration, truncation, invalid fields, interrupted/corrupt data, and secret redaction.
 

@@ -10,7 +10,7 @@ Coordinate persistence, display completion, BLE/network activity, battery latch 
 ## Scope
 
 - Add inactivity timeout, manual sleep command, blocker leases, and GPIO0 wake.
-- Prevent sleep during refresh, configuration commit, provisioning, OTA, or other critical work.
+- Prevent sleep during refresh, configuration commit, provisioning, or other critical work.
 - Persist required state before sleep and restore a coherent page after wake.
 - Keep the status LED off except for separately approved short error/acknowledgement signals.
 
