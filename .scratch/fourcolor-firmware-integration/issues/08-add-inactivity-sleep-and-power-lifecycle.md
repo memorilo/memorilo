@@ -1,6 +1,6 @@
 # Add inactivity sleep and power lifecycle
 
-Status: resolved
+Status: in-progress
 Blocked by: 03, 05, 06, 07
 
 ## Goal
@@ -23,3 +23,8 @@ Coordinate persistence, display completion, BLE/network activity, battery latch 
 ## Comments
 
 - 2026-09-04: Power coordinator implements inactivity/manual sleep, expiring leases, persistence-before-sleep, GPIO0 wake, and LED-off normal behavior; physical current/wake validation remains tracked separately.
+- 2026-09-05: Hardware diagnosis found that inactivity sleep while attached over
+  native USB leaves Windows showing a non-responsive COM port that cannot accept
+  the automatic download reset. Inactivity sleep is now blocked while external
+  power is detected; physical sleep, wake, and post-idle flashing still require
+  device verification.
