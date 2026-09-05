@@ -5,11 +5,11 @@ Blocked by: 04, 06, 08, 13
 
 ## Goal
 
-Add the proven upstream photo workflow as a separate application feature without coupling it to the TODO model.
+Add the proven upstream photo workflow on the official `assets` storage contract as a separate application feature without coupling it to the TODO model.
 
 ## Scope
 
-- Add a bounded filesystem partition and versioned image index.
+- Use the official approximately 8 MiB SPIFFS `assets` partition and a versioned image index.
 - Store exact 400x300 2bpp BWRY assets with metadata and recovery behavior.
 - Add gallery, full-screen image, delete/reorder, and optional slideshow pages.
 - Perform resize and BWRY quantization in the Memorilo/browser client before upload.
@@ -21,6 +21,7 @@ Add the proven upstream photo workflow as a separate application feature without
 - Uploads are authenticated, size checked, and committed safely.
 - Displayed raw assets use the existing verified full-frame path.
 - Storage limits, refresh cost, and slideshow power policy are visible to the user.
+- Upgrades may clear the legacy custom gallery area but preserve TODO, Wi-Fi, BLE, and device configuration.
 
 ## Comments
 

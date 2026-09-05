@@ -11,6 +11,7 @@ Freeze the cross-platform protocol used by Memorilo to pair with and configure t
 
 - Define stable service and characteristic UUIDs for device info, redacted configuration, configuration apply, and status notifications.
 - Define versioned JSON envelopes, chunk framing, request IDs, revisions, bounds, checksums, errors, and timeouts.
+- Include an optional TODO-sync patch for HTTPS URL, device read token, MQTT notification settings, enable flag, interval, and view; the patch carries no TODO items or task actions.
 - Require LE Secure Connections, MITM protection, bonding, and authenticated characteristics.
 - Require physical entry into a time-limited configuration mode.
 

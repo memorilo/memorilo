@@ -24,7 +24,6 @@ Evolve the existing embedded TODO prototype into a multifunction Rust + ESP-IDF 
 - Weather, calendar, annual progress, almanac, and life-progress views.
 - Audio, voice, chat, and TTS after their service/privacy contract is specified.
 - NFC after an end-user workflow is specified.
-- Secure OTA after signing, rollback, and update-authority decisions are specified.
 - Lightweight diagnostics and measurable resource/power acceptance gates.
 
 ## Excluded capabilities

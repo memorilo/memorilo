@@ -15,6 +15,7 @@ Add a first-class Device category to the Memorilo settings window for BLE pairin
 - Handle PIN pairing through the Electron session on Windows/Linux and the system pairing flow on macOS.
 - Expose only narrow, typed main/preload contracts; do not add a native BLE dependency.
 - Add aligned English and Chinese locale keys.
+- Add controls for the TODO HTTPS URL, read token, MQTT notification settings, enable flag, polling interval, and `today/all` view with redaction.
 
 ## Acceptance criteria
 
