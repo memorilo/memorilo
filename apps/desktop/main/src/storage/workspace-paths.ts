@@ -10,6 +10,10 @@ export function mainDatabasePath(userDataPath: string): string {
   return configured
 }
 
+export function applicationDataDirectory(userDataPath: string, developmentDirectory: string, packaged: boolean): string {
+  return packaged ? userDataPath : developmentDirectory
+}
+
 export function workspaceDirectory(databasePath: string): string | null {
   if (databasePath === ':memory:')
     return null
