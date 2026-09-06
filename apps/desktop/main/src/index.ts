@@ -1,6 +1,6 @@
 import type { MessageBoxOptions, Rectangle } from 'electron'
 import type { DesktopRuntime } from './desktop-runtime'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -16,7 +16,7 @@ import {
   rendererIndexUrl,
 } from './renderer-protocol'
 import { acquireSingleInstance, showPrimaryWindow } from './single-instance'
-import { mainDatabasePath } from './storage/workspace-paths'
+import { applicationDataDirectory, mainDatabasePath } from './storage/workspace-paths'
 import { initialPanelToggleState, panelBlur, settleTrayInteraction, trayClick, trayMouseDown } from './tray/panel-toggle-state'
 import { createTrayController } from './tray/tray-controller'
 
@@ -273,7 +273,8 @@ function openMainWindow(): void {
 }
 
 async function startApplication(): Promise<void> {
-  const database = mainDatabasePath(app.getPath('userData'))
+  const dataDirectory = applicationDataDirectory(app.getPath('userData'), resolve(mainDirectory, '../../../../.dev'), app.isPackaged)
+  const database = mainDatabasePath(dataDirectory)
   const restore = await applyPendingRestore(database)
   try {
     trayController = createTrayController({

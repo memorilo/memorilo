@@ -48,6 +48,7 @@ import { ElectronSyncServerCredentialStore } from './storage/electron-sync-serve
 import { openCurrentMainDatabase } from './storage/main-database'
 import { TransformersEmbeddingModel } from './storage/transformers-embedding-model'
 import {
+  applicationDataDirectory,
   assetDirectory,
   mainDatabasePath,
   shelfLibraryDirectory,
@@ -119,12 +120,12 @@ async function reportInvalidConfiguration(configurationPath: string, phase: 'rel
     await dialog.showMessageBox(options)
 }
 
-async function createDesktopConfigurationStore(userDataPath: string): Promise<ConfigurationStore<DesktopConfiguration>> {
-  const configurationPath = join(userDataPath, 'configuration.json')
+async function createDesktopConfigurationStore(dataDirectory: string): Promise<ConfigurationStore<DesktopConfiguration>> {
+  const configurationPath = join(dataDirectory, 'configuration.json')
   try {
     return await createConfigurationStore(
       desktopConfigurationDefinition,
-      createDesktopConfigurationAdapter(userDataPath),
+      createDesktopConfigurationAdapter(dataDirectory),
       {
         onError: () => void reportInvalidConfiguration(configurationPath, 'reload'),
       },
@@ -136,13 +137,15 @@ async function createDesktopConfigurationStore(userDataPath: string): Promise<Co
   }
 }
 
-function shelfImageCacheDatabasePath(): string {
+function shelfImageCacheDatabasePath(dataDirectory: string): string {
   const configured = process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH
   if (configured !== undefined) {
     if (configured.length === 0)
       throw new TypeError('MEMORILO_SHELF_IMAGE_CACHE_PATH must not be empty')
     return configured
   }
+  if (!app.isPackaged)
+    return join(dataDirectory, 'shelf-images.sqlite')
   const homePath = app.getPath('home')
   const cacheDirectory = process.platform === 'darwin'
     ? join(homePath, 'Library', 'Caches', 'Memorilo')
@@ -153,7 +156,7 @@ function shelfImageCacheDatabasePath(): string {
   return join(cacheDirectory, 'shelf-images.sqlite')
 }
 
-function shelfBookCacheDirectory(userDataPath: string): string {
+function shelfBookCacheDirectory(dataDirectory: string): string {
   const configured = process.env.MEMORILO_SHELF_BOOK_CACHE_PATH
   if (configured !== undefined) {
     if (configured.length === 0)
@@ -161,7 +164,7 @@ function shelfBookCacheDirectory(userDataPath: string): string {
     return configured
   }
   if (process.env.MEMORILO_SHELF_IMAGE_CACHE_PATH === ':memory:')
-    return join(userDataPath, 'shelf-book-cache')
+    return join(dataDirectory, 'shelf-book-cache')
   const homePath = app.getPath('home')
   return process.platform === 'darwin'
     ? join(homePath, 'Library', 'Caches', 'Memorilo', 'shelf-books')
@@ -211,17 +214,19 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   const scope = createResourceScope('Application', { closeMode: 'dependent' })
   try {
     const userDataPath = app.getPath('userData')
-    const database = mainDatabasePath(userDataPath)
+    const dataDirectory = applicationDataDirectory(userDataPath, resolve(options.mainDirectory, '../../../../.dev'), app.isPackaged)
+    mkdirSync(dataDirectory, { recursive: true })
+    const database = mainDatabasePath(dataDirectory)
     const assets = assetDirectory(database)
     const configuration = await scope.acquire({
-      acquire: () => createDesktopConfigurationStore(userDataPath),
+      acquire: () => createDesktopConfigurationStore(dataDirectory),
       close: store => store.close(),
       name: 'configuration store',
     })
     const configurationStore = configuration.resource
-    const syncServerCredentialStore = new ElectronSyncServerCredentialStore(join(userDataPath, 'sync-server', 'device-credential.enc'))
+    const syncServerCredentialStore = new ElectronSyncServerCredentialStore(join(dataDirectory, 'sync-server', 'device-credential.enc'))
     const localManagementCredentialStore = new ElectronLocalManagementCredentialStore(
-      join(userDataPath, 'devices', 'local-management'),
+      join(dataDirectory, 'devices', 'local-management'),
     )
     let storedSyncServerCredential = (await syncServerCredentialStore.load()) ?? ''
     const loadedSyncServerCredential = storedSyncServerCredential.length === 0
@@ -270,7 +275,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     })
     const editorStorage = editor.resource
     const todoDevicePushClient = new DeviceLocalManagementClient(localManagementCredentialStore)
-    const todoDeviceTargetStore = createTodoDeviceTargetStore(join(userDataPath, 'devices', 'todo-targets.json'))
+    const todoDeviceTargetStore = createTodoDeviceTargetStore(join(dataDirectory, 'devices', 'todo-targets.json'))
     const persistedTodoDeviceTargets = await todoDeviceTargetStore.load()
     const todoDevicePush = (await scope.acquire({
       acquire: () => createTodoDevicePushService({
@@ -308,7 +313,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           deviceId: () => requireP2pApplication().pairing.identity.deviceId,
           notifyChangesAvailable: () => requireP2pApplication().notifyChangesAvailable(),
         })
-    const syncJournal = new JsonSyncJournal(join(userDataPath, 'p2p', 'sync-journal.json'))
+    const syncJournal = new JsonSyncJournal(join(dataDirectory, 'p2p', 'sync-journal.json'))
     await syncJournal.load()
     const pendingJournalWrites = new Set<Promise<void>>()
     const pendingLocalNoteUpdates: Array<{ noteId: string, update: Uint8Array }> = []
@@ -363,7 +368,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'Shelf storage',
     })).resource
     const imageCacheDatabase = await scope.acquire({
-      acquire: () => new BetterSqliteDatabase(shelfImageCacheDatabasePath(), {
+      acquire: () => new BetterSqliteDatabase(shelfImageCacheDatabasePath(dataDirectory), {
         loadVectorExtension: false,
       }),
       close: current => current.close(),
@@ -376,8 +381,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     })).resource
     const shelfReadingFiles = (await scope.acquire({
       acquire: () => ShelfReadingFileStore.open({
-        cacheDirectory: shelfBookCacheDirectory(userDataPath),
-        libraryDirectory: shelfLibraryDirectory(database, userDataPath),
+        cacheDirectory: shelfBookCacheDirectory(dataDirectory),
+        libraryDirectory: shelfLibraryDirectory(database, dataDirectory),
       }),
       close: files => files.close(),
       name: 'Shelf reading files',
@@ -625,7 +630,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         databasePath: database,
         flushRenderer: options.flushRenderer,
         requestRestart: options.requestRestart,
-        shelfDirectory: shelfLibraryDirectory(database, userDataPath),
+        shelfDirectory: shelfLibraryDirectory(database, dataDirectory),
       }),
       close: application => application.close(),
       name: 'database backup',
