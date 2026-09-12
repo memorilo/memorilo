@@ -15,6 +15,15 @@ playwright-report/
 **/__screenshots__/
 output/playwright/
 
+# Local scratch artifacts; keep issue/spec Markdown and prototypes trackable
+/.scratch/**
+!/.scratch/**/
+!/.scratch/**/*.md
+!/.scratch/**/prototype/**
+!/.scratch/**/prototypes/**
+/apps/desktop/e2e/capture-*.cjs
+/apps/desktop/e2e/capture-*.mjs
+
 *.log
 *.tsbuildinfo
 .DS_Store
