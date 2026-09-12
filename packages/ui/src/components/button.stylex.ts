@@ -108,6 +108,11 @@ export const buttonStyles = stylex.create({
       'default': uiColors.surfaceTranslucent,
       ':hover': uiColors.controlHover,
       ':active': uiColors.controlPressed,
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
+    },
+    backdropFilter: {
+      'default': uiColors.materialFilter,
+      '@media (prefers-reduced-transparency: reduce)': 'none',
     },
     color: uiColors.text,
     fontSize: 13,

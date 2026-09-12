@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./theme.stylex": "./src/theme.stylex.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

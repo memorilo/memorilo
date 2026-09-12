@@ -54,15 +54,15 @@ export const todoBoardViewStyles = stylex.create({
   },
   columnTodo: {
     borderTopColor: colors.accent,
-    backgroundImage: 'linear-gradient(180deg, rgba(0, 122, 255, 0.075), rgba(0, 122, 255, 0.018) 180px, transparent 420px)',
+    backgroundImage: 'var(--ui-surface-background-image, none)',
   },
   columnDoing: {
     borderTopColor: 'rgb(255, 149, 0)',
-    backgroundImage: 'linear-gradient(180deg, rgba(255, 149, 0, 0.085), rgba(255, 149, 0, 0.018) 180px, transparent 420px)',
+    backgroundImage: 'var(--ui-surface-background-image, none)',
   },
   columnDone: {
     borderTopColor: 'rgb(52, 199, 89)',
-    backgroundImage: 'linear-gradient(180deg, rgba(52, 199, 89, 0.08), rgba(52, 199, 89, 0.016) 180px, transparent 420px)',
+    backgroundImage: 'var(--ui-surface-background-image, none)',
   },
   columnHeader: {
     display: 'flex',
@@ -144,7 +144,7 @@ export const todoBoardViewStyles = stylex.create({
       ':hover': colors.controlHover,
       ':active': colors.controlPressed,
     },
-    backgroundImage: 'var(--todo-card-background-image, linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28)))',
+    backgroundImage: 'var(--ui-surface-background-image, none)',
     color: colors.text,
     cursor: 'default',
     outline: 'none',

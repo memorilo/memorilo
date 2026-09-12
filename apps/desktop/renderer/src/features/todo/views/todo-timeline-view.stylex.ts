@@ -156,7 +156,7 @@ export const todoTimelineViewStyles = stylex.create({
     paddingRight: 12,
     paddingLeft: 12,
     backgroundColor: colors.accent,
-    backgroundImage: 'var(--todo-accent-background-image, linear-gradient(180deg, rgb(34, 144, 255), rgb(0, 122, 255)))',
+    backgroundImage: 'var(--ui-accent-background-image, none)',
     color: colors.onAccent,
     cursor: 'default',
     fontSize: 11,

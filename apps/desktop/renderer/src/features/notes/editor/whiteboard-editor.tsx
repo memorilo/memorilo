@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { whiteboardEditorStyles } from './whiteboard-editor.stylex'
 import { whiteboardLibraryPersistenceAdapter } from './whiteboard-library-storage'
+import './whiteboard-editor.global'
 import '@excalidraw/excalidraw/index.css'
 
 const editorEmbedKind = 'topic-editor'
