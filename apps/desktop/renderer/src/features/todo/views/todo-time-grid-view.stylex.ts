@@ -113,7 +113,7 @@ export const todoTimeGridViewStyles = stylex.create({
     paddingRight: 2,
     paddingLeft: 2,
     backgroundColor: colors.panel,
-    backgroundImage: 'var(--todo-control-background-image, linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.36) 62%, rgba(174, 215, 255, 0.16)))',
+    backgroundImage: 'var(--ui-control-background-image, none)',
     boxShadow: 'var(--ui-control-shadow, 0 7px 20px rgba(28, 28, 30, 0.13))',
   },
   navigationButton: {
@@ -166,7 +166,7 @@ export const todoTimeGridViewStyles = stylex.create({
     'borderRadius': 'var(--ui-control-radius, 16px)',
     'padding': 2,
     'backgroundColor': colors.panel,
-    'backgroundImage': 'var(--todo-control-background-image, linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.36) 62%, rgba(174, 215, 255, 0.16)))',
+    'backgroundImage': 'var(--ui-control-background-image, none)',
     'boxShadow': 'var(--ui-control-shadow, 0 7px 20px rgba(28, 28, 30, 0.13))',
     '@media (max-width: 900px)': {
       flex: 1,
@@ -209,7 +209,7 @@ export const todoTimeGridViewStyles = stylex.create({
   },
   rangeButtonSelected: {
     backgroundColor: colors.accent,
-    backgroundImage: 'var(--todo-accent-background-image, linear-gradient(180deg, rgb(34, 144, 255), rgb(0, 122, 255)))',
+    backgroundImage: 'var(--ui-accent-background-image, none)',
     boxShadow: 'var(--ui-control-shadow, 0 4px 10px rgba(0, 92, 196, 0.3))',
     color: colors.onAccent,
   },

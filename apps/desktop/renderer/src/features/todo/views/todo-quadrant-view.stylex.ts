@@ -18,7 +18,7 @@ export const todoQuadrantViewStyles = stylex.create({
     flex: 1,
     gridTemplateColumns: 'repeat(2, minmax(320px, 1fr))',
     gridTemplateRows: 'repeat(2, minmax(220px, 1fr))',
-    gap: 'var(--todo-quadrant-grid-gap, 1px)',
+    gap: 'var(--ui-surface-stroke, 1px)',
     overflow: 'hidden',
     backgroundColor: colors.border,
     boxShadow: 'none',

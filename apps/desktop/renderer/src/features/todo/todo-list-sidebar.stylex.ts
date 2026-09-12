@@ -22,14 +22,18 @@ export const todoListSidebarStyles = stylex.create({
     overscrollBehavior: 'contain',
     borderRightColor: 'var(--ui-divider, rgba(60, 60, 67, 0.12))',
     borderRightStyle: 'solid',
-    borderRightWidth: 1,
+    borderRightWidth: 'var(--ui-sidebar-border-right-width, 1px)',
     paddingTop: 10,
     paddingRight: 8,
     paddingBottom: 18,
     paddingLeft: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: 'var(--ui-sidebar-background, rgba(244, 246, 249, 0.5))',
     backgroundImage: 'none',
-    boxShadow: 'none',
+    backdropFilter: {
+      'default': 'var(--ui-material-filter, blur(20px) saturate(170%))',
+      '@media (prefers-reduced-transparency: reduce)': 'none',
+    },
+    boxShadow: 'var(--ui-sidebar-shadow, none)',
   },
   section: {
     marginBottom: 15,
@@ -60,7 +64,7 @@ export const todoListSidebarStyles = stylex.create({
   },
   sectionHeaderInteractive: {
     cursor: 'pointer',
-    borderRadius: 8,
+    borderRadius: 'var(--ui-control-radius, 8px)',
     backgroundColor: {
       'default': 'transparent',
       ':hover': colors.controlHover,
@@ -100,8 +104,9 @@ export const todoListSidebarStyles = stylex.create({
     gap: 7,
     borderColor: 'transparent',
     borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 6,
+    borderWidth: 'var(--ui-control-stroke, 1px)',
+    borderLeftWidth: 'var(--ui-nav-selected-indicator-width, 0px)',
+    borderRadius: 'var(--ui-control-radius, 6px)',
     paddingRight: 9,
     paddingLeft: 8,
     backgroundColor: {
@@ -133,12 +138,12 @@ export const todoListSidebarStyles = stylex.create({
     transitionTimingFunction: 'ease-out',
   },
   itemActive: {
-    borderColor: 'transparent',
-    backgroundColor: colors.controlSelected,
+    borderLeftColor: 'var(--ui-nav-selected-indicator, transparent)',
+    backgroundColor: 'var(--ui-nav-selected-background, rgba(118, 118, 128, 0.12))',
     backgroundImage: 'none',
-    color: colors.text,
+    color: 'var(--ui-control-selected-text, rgba(28, 28, 30, 0.94))',
     fontWeight: 590,
-    boxShadow: 'none',
+    boxShadow: 'var(--ui-control-shadow, none)',
   },
   icon: {
     display: 'grid',
@@ -148,7 +153,7 @@ export const todoListSidebarStyles = stylex.create({
     color: colors.textMuted,
   },
   iconActive: {
-    color: colors.accent,
+    color: 'var(--ui-control-selected-text, var(--ui-accent))',
   },
   label: {
     minWidth: 0,

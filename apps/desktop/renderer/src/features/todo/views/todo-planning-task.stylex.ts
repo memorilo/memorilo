@@ -40,7 +40,7 @@ export const todoPlanningTaskStyles = stylex.create({
       ':hover': colors.controlHover,
       ':active': colors.controlPressed,
     },
-    backgroundImage: 'var(--todo-card-background-image, linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28)))',
+    backgroundImage: 'var(--ui-surface-background-image, none)',
     color: colors.text,
     cursor: 'default',
     outline: 'none',

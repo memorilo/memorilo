@@ -13,7 +13,7 @@ export const dialogStyles = stylex.create({
   defaultOverlay: {
     backgroundColor: {
       'default': uiColors.overlay,
-      '@media (prefers-reduced-transparency: reduce)': 'rgba(28, 31, 38, 0.28)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.overlayStrong,
     },
     backdropFilter: {
       'default': 'saturate(115%) brightness(0.98)',
@@ -55,15 +55,15 @@ export const dialogStyles = stylex.create({
     flexDirection: 'column',
     borderColor: {
       'default': uiColors.fieldBorder,
-      '@media (prefers-contrast: more)': 'rgba(46, 51, 59, 0.5)',
+      '@media (prefers-contrast: more)': uiColors.borderStrong,
     },
     borderStyle: 'solid',
     borderWidth: uiColors.surfaceStroke,
     borderRadius: uiColors.surfaceRadius,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 250, 251)',
-      '@media (prefers-contrast: more)': 'rgb(255, 255, 255)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
+      '@media (prefers-contrast: more)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -85,7 +85,7 @@ export const dialogStyles = stylex.create({
     flexDirection: 'column',
     borderColor: uiColors.fieldBorder,
     borderStyle: 'solid',
-    borderWidth: 1,
+    borderWidth: uiColors.surfaceStroke,
     borderRadius: uiColors.surfaceRadius,
     paddingTop: 25,
     paddingRight: 25,
@@ -93,7 +93,7 @@ export const dialogStyles = stylex.create({
     paddingLeft: 25,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(249, 249, 250)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -109,8 +109,8 @@ export const dialogStyles = stylex.create({
     borderRadius: uiColors.surfaceRadius,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(248, 248, 249)',
-      '@media (prefers-contrast: more)': 'rgb(252, 252, 253)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
+      '@media (prefers-contrast: more)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -119,39 +119,39 @@ export const dialogStyles = stylex.create({
     boxShadow: uiColors.overlayShadow,
   },
   compactContent: {
-    borderColor: 'rgba(50, 55, 64, 0.18)',
+    borderColor: uiColors.fieldBorder,
     borderStyle: 'solid',
-    borderWidth: 1,
+    borderWidth: uiColors.surfaceStroke,
     borderRadius: uiColors.surfaceRadius,
     backgroundColor: {
       'default': uiColors.surfaceRaised,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 253)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     boxShadow: uiColors.overlayShadow,
   },
   wideContent: {
-    borderColor: 'rgba(50, 55, 64, 0.18)',
+    borderColor: uiColors.fieldBorder,
     borderStyle: 'solid',
-    borderWidth: 1,
+    borderWidth: uiColors.surfaceStroke,
     borderRadius: uiColors.surfaceRadius,
     backgroundColor: {
       'default': uiColors.surfaceRaised,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 253)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     boxShadow: uiColors.overlayShadow,
   },
   sheetContent: {
     borderColor: {
-      'default': 'rgba(255, 255, 255, 0.78)',
-      '@media (prefers-contrast: more)': 'rgba(33, 37, 44, 0.64)',
+      'default': uiColors.fieldBorder,
+      '@media (prefers-contrast: more)': uiColors.borderStrong,
     },
     borderStyle: 'solid',
-    borderWidth: 1,
+    borderWidth: uiColors.surfaceStroke,
     borderRadius: uiColors.surfaceRadius,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
-      '@media (prefers-contrast: more)': 'rgba(249, 249, 250, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(249, 249, 250)',
+      '@media (prefers-contrast: more)': uiColors.surfaceOpaque,
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -224,9 +224,9 @@ export const dialogStyles = stylex.create({
     borderRadius: uiColors.controlRadius,
     padding: 0,
     backgroundColor: {
-      'default': 'rgba(67, 72, 81, 0.07)',
-      ':hover': 'rgba(67, 72, 81, 0.12)',
-      ':active': 'rgba(67, 72, 81, 0.17)',
+      'default': uiColors.controlHover,
+      ':hover': uiColors.controlPressed,
+      ':active': uiColors.controlSelected,
     },
     color: uiColors.textMuted,
     cursor: 'default',

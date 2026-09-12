@@ -14,7 +14,7 @@ const sharedSidebarSurface = {
   marginLeft: uiColors.sidebarInsetInlineStart,
   borderColor: {
     'default': uiColors.fieldBorder,
-    '@media (prefers-contrast: more)': 'rgba(0, 0, 0, 0.42)',
+    '@media (prefers-contrast: more)': uiColors.borderStrong,
   },
   borderStyle: 'solid',
   borderTopWidth: uiColors.sidebarBorderTopWidth,
@@ -24,8 +24,8 @@ const sharedSidebarSurface = {
   borderRadius: uiColors.sidebarRadius,
   backgroundColor: {
     'default': uiColors.sidebarBackground,
-    '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
-    '@media (prefers-contrast: more)': 'rgba(248, 249, 251, 0.96)',
+    '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
+    '@media (prefers-contrast: more)': uiColors.surfaceOpaque,
   },
   backdropFilter: {
     'default': uiColors.materialFilter,
@@ -130,10 +130,6 @@ export const sidebarStyles = stylex.create({
       'default': 'transparent',
       ':is([data-state="active"])': uiColors.navSelectedIndicator,
     },
-    borderColor: {
-      'default': 'transparent',
-      ':is([data-state="active"])': uiColors.navSelectedIndicator,
-    },
     color: {
       'default': uiColors.text,
       ':is([data-state="active"])': uiColors.controlSelectedText,
@@ -165,7 +161,7 @@ export const sidebarStyles = stylex.create({
       ':is([data-state="active"]):hover': uiColors.controlSelectedHover,
       ':is([data-state="active"]):active': uiColors.controlSelectedPressed,
     },
-    borderColor: {
+    borderLeftColor: {
       'default': 'transparent',
       ':is([data-state="active"])': uiColors.navSelectedIndicator,
     },

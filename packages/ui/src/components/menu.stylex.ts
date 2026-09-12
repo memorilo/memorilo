@@ -21,14 +21,14 @@ export const menuStyles = stylex.create({
     minWidth: 180,
     borderColor: {
       'default': uiColors.fieldBorder,
-      '@media (prefers-contrast: more)': 'rgba(35, 39, 46, 0.62)',
+      '@media (prefers-contrast: more)': uiColors.borderStrong,
     },
     borderRadius: uiColors.surfaceRadius,
     padding: 5,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
-      '@media (prefers-contrast: more)': 'rgba(250, 250, 251, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(248, 249, 251)',
+      '@media (prefers-contrast: more)': uiColors.surfaceOpaque,
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -55,12 +55,12 @@ export const menuStyles = stylex.create({
     boxShadow: uiColors.overlayShadow,
   },
   noteContent: {
-    borderColor: 'rgba(48, 51, 58, 0.16)',
+    borderColor: uiColors.fieldBorder,
     borderRadius: uiColors.controlRadius,
     padding: 4,
     backgroundColor: {
       'default': uiColors.surfaceRaised,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(250, 251, 253)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -92,7 +92,7 @@ export const menuStyles = stylex.create({
     color: {
       'default': uiColors.text,
       ':disabled': uiColors.textQuiet,
-      ':is([data-state="checked"])': 'rgb(0, 94, 190)',
+      ':is([data-state="checked"])': uiColors.accent,
     },
     cursor: 'default',
     fontSize: 13,

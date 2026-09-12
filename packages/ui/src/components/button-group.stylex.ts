@@ -11,15 +11,15 @@ export const buttonGroupStyles = stylex.create({
     padding: 1,
     borderColor: {
       'default': uiColors.fieldBorder,
-      '@media (prefers-contrast: more)': 'rgba(35, 39, 46, 0.82)',
+      '@media (prefers-contrast: more)': uiColors.borderStrong,
     },
     borderStyle: 'solid',
     borderWidth: uiColors.controlStroke,
     borderRadius: uiColors.pillRadius,
     backgroundColor: {
       'default': uiColors.surfaceTranslucent,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(240, 242, 246)',
-      '@media (prefers-contrast: more)': 'rgb(248, 249, 251)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
+      '@media (prefers-contrast: more)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,
@@ -27,7 +27,7 @@ export const buttonGroupStyles = stylex.create({
     },
     boxShadow: {
       'default': uiColors.shadowSubtle,
-      '@media (prefers-contrast: more)': '0 4px 12px rgba(22, 27, 35, 0.16)',
+      '@media (prefers-contrast: more)': uiColors.controlShadow,
     },
   },
   toolbar: {

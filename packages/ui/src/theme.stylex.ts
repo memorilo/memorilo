@@ -5,7 +5,10 @@ export const uiColors = stylex.defineVars({
   accentHover: 'rgb(0, 105, 211)',
   accentPressed: 'rgb(0, 91, 187)',
   accentSoft: 'rgba(0, 113, 227, 0.1)',
+  accentBackgroundImage: 'linear-gradient(180deg, rgb(34, 144, 255), rgb(0, 113, 227))',
   canvas: 'rgb(250, 250, 249)',
+  controlBackground: 'transparent',
+  controlBackgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.36) 62%, rgba(174, 215, 255, 0.16))',
   controlHover: 'rgba(76, 84, 96, 0.07)',
   controlPressed: 'rgba(80, 91, 108, 0.14)',
   controlSelected: 'rgba(0, 113, 227, 0.9)',
@@ -28,6 +31,7 @@ export const uiColors = stylex.defineVars({
   border: 'rgba(71, 76, 86, 0.2)',
   borderStrong: 'rgba(46, 51, 59, 0.5)',
   materialFilter: 'blur(20px) saturate(170%)',
+  materialDecorationOpacity: '1',
   overlay: 'rgba(28, 31, 38, 0.2)',
   overlayStrong: 'rgba(28, 31, 38, 0.28)',
   overlayShadow: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1)',
@@ -38,6 +42,8 @@ export const uiColors = stylex.defineVars({
   placeholder: 'rgba(55, 57, 63, 0.46)',
   shadowRaised: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1)',
   shadowSubtle: '0 4px 12px rgba(24, 30, 40, 0.1)',
+  scrollEdgeMask: 'linear-gradient(to bottom, #000 0 72%, transparent 100%)',
+  scrollEdgeShadow: 'none',
   sidebarBackground: 'rgba(244, 246, 249, 0.5)',
   sidebarBorderBottomWidth: '1px',
   sidebarBorderLeftWidth: '1px',
@@ -49,6 +55,8 @@ export const uiColors = stylex.defineVars({
   sidebarShadow: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1)',
   statusSuccess: 'rgb(55, 92, 64)',
   surface: 'rgba(250, 250, 251, 0.9)',
+  surfaceBackgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28))',
+  surfaceOpaque: 'rgb(250, 251, 253)',
   surfaceRaised: 'rgba(250, 251, 253, 0.96)',
   surfaceSunken: 'rgba(229, 233, 240, 0.58)',
   surfaceTranslucent: 'rgba(244, 246, 249, 0.5)',
@@ -67,10 +75,13 @@ export const uiColors = stylex.defineVars({
 
 interface ThemeValues {
   accent: string
+  accentBackgroundImage: string
   accentHover: string
   accentPressed: string
   accentSoft: string
   canvas: string
+  controlBackground: string
+  controlBackgroundImage: string
   controlHover: string
   controlPressed: string
   controlSelected: string
@@ -93,6 +104,7 @@ interface ThemeValues {
   border: string
   borderStrong: string
   materialFilter: string
+  materialDecorationOpacity: string
   overlay: string
   overlayStrong: string
   overlayShadow: string
@@ -103,6 +115,8 @@ interface ThemeValues {
   placeholder: string
   shadowRaised: string
   shadowSubtle: string
+  scrollEdgeMask: string
+  scrollEdgeShadow: string
   sidebarBackground: string
   sidebarBorderBottomWidth: string
   sidebarBorderLeftWidth: string
@@ -114,6 +128,8 @@ interface ThemeValues {
   sidebarShadow: string
   statusSuccess: string
   surface: string
+  surfaceBackgroundImage: string
+  surfaceOpaque: string
   surfaceRaised: string
   surfaceSunken: string
   surfaceTranslucent: string
@@ -132,10 +148,13 @@ interface ThemeValues {
 
 const liquidLight: ThemeValues = {
   accent: 'rgb(0, 113, 227)',
+  accentBackgroundImage: 'linear-gradient(180deg, rgb(34, 144, 255), rgb(0, 113, 227))',
   accentHover: 'rgb(0, 105, 211)',
   accentPressed: 'rgb(0, 91, 187)',
   accentSoft: 'rgba(0, 113, 227, 0.1)',
   canvas: 'rgb(250, 250, 249)',
+  controlBackground: 'transparent',
+  controlBackgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.36) 62%, rgba(174, 215, 255, 0.16))',
   controlHover: 'rgba(76, 84, 96, 0.07)',
   controlPressed: 'rgba(80, 91, 108, 0.14)',
   controlSelected: 'rgba(0, 113, 227, 0.9)',
@@ -158,6 +177,7 @@ const liquidLight: ThemeValues = {
   border: 'rgba(71, 76, 86, 0.2)',
   borderStrong: 'rgba(46, 51, 59, 0.5)',
   materialFilter: 'blur(20px) saturate(170%)',
+  materialDecorationOpacity: '1',
   overlay: 'rgba(28, 31, 38, 0.2)',
   overlayStrong: 'rgba(28, 31, 38, 0.28)',
   overlayShadow: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1)',
@@ -168,6 +188,8 @@ const liquidLight: ThemeValues = {
   placeholder: 'rgba(55, 57, 63, 0.46)',
   shadowRaised: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1)',
   shadowSubtle: '0 4px 12px rgba(24, 30, 40, 0.1)',
+  scrollEdgeMask: 'linear-gradient(to bottom, #000 0 72%, transparent 100%)',
+  scrollEdgeShadow: 'none',
   sidebarBackground: 'rgba(244, 246, 249, 0.5)',
   sidebarBorderBottomWidth: '1px',
   sidebarBorderLeftWidth: '1px',
@@ -179,6 +201,8 @@ const liquidLight: ThemeValues = {
   sidebarShadow: '0 20px 48px rgba(26, 32, 42, 0.22), 0 4px 12px rgba(26, 32, 42, 0.1)',
   statusSuccess: 'rgb(55, 92, 64)',
   surface: 'rgba(250, 250, 251, 0.9)',
+  surfaceBackgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 252, 0.28))',
+  surfaceOpaque: 'rgb(250, 251, 253)',
   surfaceRaised: 'rgba(250, 251, 253, 0.96)',
   surfaceSunken: 'rgba(229, 233, 240, 0.58)',
   surfaceTranslucent: 'rgba(244, 246, 249, 0.5)',
@@ -195,15 +219,15 @@ const liquidLight: ThemeValues = {
   material: 'translucent',
 }
 
-const liquidDark: ThemeValues = { ...liquidLight, accent: 'rgb(112, 181, 255)', accentHover: 'rgb(139, 198, 255)', accentPressed: 'rgb(80, 151, 232)', accentSoft: 'rgba(112, 181, 255, 0.18)', border: 'rgba(255, 255, 255, 0.18)', borderStrong: 'rgba(255, 255, 255, 0.42)', canvas: 'rgb(18, 21, 27)', controlHover: 'rgba(255, 255, 255, 0.08)', controlPressed: 'rgba(255, 255, 255, 0.14)', controlSelected: 'rgba(112, 181, 255, 0.86)', controlShadow: 'inset 0 1px rgba(255, 255, 255, 0.12), 0 1px 3px rgba(0, 0, 0, 0.24)', danger: 'rgb(255, 134, 134)', divider: 'rgba(255, 255, 255, 0.12)', fieldBackground: 'rgba(255, 255, 255, 0.09)', fieldBackgroundCompact: 'rgba(255, 255, 255, 0.12)', fieldBorder: 'rgba(255, 255, 255, 0.18)', focus: 'rgba(139, 198, 255, 0.96)', overlay: 'rgba(0, 0, 0, 0.42)', overlayStrong: 'rgba(0, 0, 0, 0.58)', overlayShadow: '0 24px 64px rgba(0, 0, 0, 0.42), 0 4px 16px rgba(0, 0, 0, 0.28)', onAccent: 'rgb(14, 25, 40)', onDanger: 'rgb(28, 12, 12)', onSuccess: 'rgb(10, 28, 15)', placeholder: 'rgba(193, 202, 217, 0.54)', shadowRaised: '0 24px 64px rgba(0, 0, 0, 0.42), 0 4px 16px rgba(0, 0, 0, 0.28)', shadowSubtle: '0 4px 14px rgba(0, 0, 0, 0.28)', sidebarBackground: 'rgba(33, 39, 49, 0.78)', sidebarShadow: '0 24px 64px rgba(0, 0, 0, 0.42), 0 4px 16px rgba(0, 0, 0, 0.28)', statusSuccess: 'rgb(139, 221, 159)', surface: 'rgba(30, 35, 44, 0.94)', surfaceRaised: 'rgba(38, 44, 55, 0.98)', surfaceSunken: 'rgba(12, 15, 20, 0.52)', surfaceTranslucent: 'rgba(33, 39, 49, 0.78)', text: 'rgba(245, 247, 251, 0.94)', textMuted: 'rgba(218, 224, 235, 0.72)', textQuiet: 'rgba(193, 202, 217, 0.54)', warning: 'rgb(255, 194, 92)' }
+const liquidDark: ThemeValues = { ...liquidLight, accent: 'rgb(112, 181, 255)', accentBackgroundImage: 'linear-gradient(180deg, rgb(112, 181, 255), rgb(80, 151, 232))', accentHover: 'rgb(139, 198, 255)', accentPressed: 'rgb(80, 151, 232)', accentSoft: 'rgba(112, 181, 255, 0.18)', border: 'rgba(255, 255, 255, 0.18)', borderStrong: 'rgba(255, 255, 255, 0.42)', canvas: 'rgb(18, 21, 27)', controlBackgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))', controlHover: 'rgba(255, 255, 255, 0.08)', controlPressed: 'rgba(255, 255, 255, 0.14)', controlSelected: 'rgba(112, 181, 255, 0.86)', controlShadow: 'inset 0 1px rgba(255, 255, 255, 0.12), 0 1px 3px rgba(0, 0, 0, 0.24)', danger: 'rgb(255, 134, 134)', divider: 'rgba(255, 255, 255, 0.12)', fieldBackground: 'rgba(255, 255, 255, 0.09)', fieldBackgroundCompact: 'rgba(255, 255, 255, 0.12)', fieldBorder: 'rgba(255, 255, 255, 0.18)', focus: 'rgba(139, 198, 255, 0.96)', overlay: 'rgba(0, 0, 0, 0.42)', overlayStrong: 'rgba(0, 0, 0, 0.58)', overlayShadow: '0 24px 64px rgba(0, 0, 0, 0.42), 0 4px 16px rgba(0, 0, 0, 0.28)', onAccent: 'rgb(14, 25, 40)', onDanger: 'rgb(28, 12, 12)', onSuccess: 'rgb(10, 28, 15)', placeholder: 'rgba(193, 202, 217, 0.54)', shadowRaised: '0 24px 64px rgba(0, 0, 0, 0.42), 0 4px 16px rgba(0, 0, 0, 0.28)', shadowSubtle: '0 4px 14px rgba(0, 0, 0, 0.28)', sidebarBackground: 'rgba(33, 39, 49, 0.78)', sidebarShadow: '0 24px 64px rgba(0, 0, 0, 0.42), 0 4px 16px rgba(0, 0, 0, 0.28)', statusSuccess: 'rgb(139, 221, 159)', surface: 'rgba(30, 35, 44, 0.94)', surfaceBackgroundImage: 'linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02))', surfaceOpaque: 'rgb(38, 44, 55)', surfaceRaised: 'rgba(38, 44, 55, 0.98)', surfaceSunken: 'rgba(12, 15, 20, 0.52)', surfaceTranslucent: 'rgba(33, 39, 49, 0.78)', text: 'rgba(245, 247, 251, 0.94)', textMuted: 'rgba(218, 224, 235, 0.72)', textQuiet: 'rgba(193, 202, 217, 0.54)', warning: 'rgb(255, 194, 92)' }
 
-const fluentLightBase: ThemeValues = { ...liquidLight, accent: 'rgb(15, 108, 189)', accentHover: 'rgb(17, 94, 163)', accentPressed: 'rgb(12, 78, 136)', accentSoft: 'rgb(235, 243, 252)', border: 'rgb(138, 136, 134)', borderStrong: 'rgb(96, 94, 92)', canvas: 'rgb(250, 250, 250)', controlHover: 'rgba(0, 0, 0, 0.045)', controlPressed: 'rgba(0, 0, 0, 0.09)', controlSelected: 'rgb(235, 243, 252)', controlSelectedHover: 'rgb(225, 238, 252)', controlSelectedPressed: 'rgb(214, 231, 249)', controlSelectedText: 'rgb(36, 36, 36)', controlShadow: '0 1px 2px rgba(0, 0, 0, 0.08)', divider: 'rgb(225, 225, 225)', fieldBackground: 'rgb(255, 255, 255)', fieldBackgroundCompact: 'rgb(255, 255, 255)', fieldBorder: 'rgb(198, 198, 198)', focus: 'rgb(15, 108, 189)', materialFilter: 'none', overlayShadow: '0 8px 20px rgba(0, 0, 0, 0.14)', shadowRaised: '0 2px 4px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.08)', shadowSubtle: '0 1px 2px rgba(0, 0, 0, 0.1)', sidebarBackground: 'rgb(243, 243, 243)', sidebarBorderBottomWidth: '0px', sidebarBorderLeftWidth: '0px', sidebarBorderRightWidth: '1px', sidebarBorderTopWidth: '0px', sidebarInsetBlock: '0px', sidebarInsetInlineStart: '0px', sidebarRadius: '0px', sidebarShadow: 'none', surface: 'rgb(255, 255, 255)', surfaceRaised: 'rgb(255, 255, 255)', surfaceSunken: 'rgb(243, 243, 243)', surfaceTranslucent: 'rgb(255, 255, 255)', text: 'rgb(36, 36, 36)', textMuted: 'rgb(80, 80, 80)', textQuiet: 'rgb(110, 110, 110)', onAccent: 'rgb(255, 255, 255)', controlRadius: '4px', pillRadius: '999px', surfaceRadius: '8px', controlStroke: '1px', surfaceStroke: '1px', material: 'solid' }
+const fluentLightBase: ThemeValues = { ...liquidLight, accent: 'rgb(15, 108, 189)', accentBackgroundImage: 'none', accentHover: 'rgb(17, 94, 163)', accentPressed: 'rgb(12, 78, 136)', accentSoft: 'rgb(235, 243, 252)', border: 'rgb(138, 136, 134)', borderStrong: 'rgb(96, 94, 92)', canvas: 'rgb(250, 250, 250)', controlBackground: 'rgb(255, 255, 255)', controlBackgroundImage: 'none', controlHover: 'rgba(0, 0, 0, 0.045)', controlPressed: 'rgba(0, 0, 0, 0.09)', controlSelected: 'rgb(235, 243, 252)', controlSelectedHover: 'rgb(225, 238, 252)', controlSelectedPressed: 'rgb(214, 231, 249)', controlSelectedText: 'rgb(36, 36, 36)', controlShadow: '0 1px 2px rgba(0, 0, 0, 0.08)', divider: 'rgb(225, 225, 225)', fieldBackground: 'rgb(255, 255, 255)', fieldBackgroundCompact: 'rgb(255, 255, 255)', fieldBorder: 'rgb(198, 198, 198)', focus: 'rgb(15, 108, 189)', materialDecorationOpacity: '0', materialFilter: 'none', overlayShadow: '0 8px 20px rgba(0, 0, 0, 0.14)', scrollEdgeMask: 'none', scrollEdgeShadow: '0 1px 2px rgba(0, 0, 0, 0.1)', shadowRaised: '0 2px 4px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.08)', shadowSubtle: '0 1px 2px rgba(0, 0, 0, 0.1)', sidebarBackground: 'rgb(243, 243, 243)', sidebarBorderBottomWidth: '0px', sidebarBorderLeftWidth: '0px', sidebarBorderRightWidth: '1px', sidebarBorderTopWidth: '0px', sidebarInsetBlock: '0px', sidebarInsetInlineStart: '0px', sidebarRadius: '0px', sidebarShadow: 'none', surface: 'rgb(255, 255, 255)', surfaceBackgroundImage: 'none', surfaceOpaque: 'rgb(255, 255, 255)', surfaceRaised: 'rgb(255, 255, 255)', surfaceSunken: 'rgb(243, 243, 243)', surfaceTranslucent: 'rgb(255, 255, 255)', text: 'rgb(36, 36, 36)', textMuted: 'rgb(80, 80, 80)', textQuiet: 'rgb(110, 110, 110)', onAccent: 'rgb(255, 255, 255)', controlRadius: '4px', pillRadius: '999px', surfaceRadius: '8px', controlStroke: '1px', surfaceStroke: '1px', material: 'solid' }
 const fluentLight: ThemeValues = { ...fluentLightBase, controlSelected: 'rgb(234, 234, 234)', controlSelectedHover: 'rgb(226, 226, 226)', controlSelectedPressed: 'rgb(216, 216, 216)', navSelectedBackground: 'rgb(234, 234, 234)', navSelectedIndicator: 'rgb(15, 108, 189)', navSelectedIndicatorWidth: '2px', chromeBackground: 'rgb(255, 255, 255)', chromeBorder: 'rgb(225, 225, 225)', chromeBorderWidth: '1px', pillRadius: '4px', fontFamily: '"Segoe UI", system-ui, sans-serif' }
-const fluentDarkBase: ThemeValues = { ...fluentLight, accent: 'rgb(76, 194, 255)', accentHover: 'rgb(97, 205, 255)', accentPressed: 'rgb(43, 169, 230)', accentSoft: 'rgb(39, 51, 60)', border: 'rgb(119, 119, 119)', borderStrong: 'rgb(154, 154, 154)', canvas: 'rgb(32, 32, 32)', controlHover: 'rgba(255, 255, 255, 0.06)', controlPressed: 'rgba(255, 255, 255, 0.1)', controlSelected: 'rgb(39, 51, 60)', controlSelectedHover: 'rgb(44, 60, 72)', controlSelectedPressed: 'rgb(49, 68, 82)', controlSelectedText: 'rgb(255, 255, 255)', controlShadow: '0 1px 2px rgba(0, 0, 0, 0.3)', divider: 'rgba(255, 255, 255, 0.13)', fieldBackground: 'rgb(41, 41, 41)', fieldBackgroundCompact: 'rgb(48, 48, 48)', fieldBorder: 'rgb(96, 96, 96)', focus: 'rgb(76, 194, 255)', overlay: 'rgba(0, 0, 0, 0.42)', overlayStrong: 'rgba(0, 0, 0, 0.58)', overlayShadow: '0 8px 22px rgba(0, 0, 0, 0.42)', placeholder: 'rgb(170, 170, 170)', shadowRaised: '0 8px 22px rgba(0, 0, 0, 0.42)', shadowSubtle: '0 2px 7px rgba(0, 0, 0, 0.3)', sidebarBackground: 'rgb(37, 37, 37)', surface: 'rgb(41, 41, 41)', surfaceRaised: 'rgb(50, 50, 50)', surfaceSunken: 'rgb(28, 28, 28)', surfaceTranslucent: 'rgb(50, 50, 50)', text: 'rgb(255, 255, 255)', textMuted: 'rgb(210, 210, 210)', textQuiet: 'rgb(170, 170, 170)', onAccent: 'rgb(20, 20, 20)' }
+const fluentDarkBase: ThemeValues = { ...fluentLight, accent: 'rgb(76, 194, 255)', accentHover: 'rgb(97, 205, 255)', accentPressed: 'rgb(43, 169, 230)', accentSoft: 'rgb(39, 51, 60)', border: 'rgb(119, 119, 119)', borderStrong: 'rgb(154, 154, 154)', canvas: 'rgb(32, 32, 32)', controlBackground: 'rgb(41, 41, 41)', controlHover: 'rgba(255, 255, 255, 0.06)', controlPressed: 'rgba(255, 255, 255, 0.1)', controlSelected: 'rgb(39, 51, 60)', controlSelectedHover: 'rgb(44, 60, 72)', controlSelectedPressed: 'rgb(49, 68, 82)', controlSelectedText: 'rgb(255, 255, 255)', controlShadow: '0 1px 2px rgba(0, 0, 0, 0.3)', divider: 'rgba(255, 255, 255, 0.13)', fieldBackground: 'rgb(41, 41, 41)', fieldBackgroundCompact: 'rgb(48, 48, 48)', fieldBorder: 'rgb(96, 96, 96)', focus: 'rgb(76, 194, 255)', overlay: 'rgba(0, 0, 0, 0.42)', overlayStrong: 'rgba(0, 0, 0, 0.58)', overlayShadow: '0 8px 22px rgba(0, 0, 0, 0.42)', placeholder: 'rgb(170, 170, 170)', scrollEdgeShadow: '0 2px 7px rgba(0, 0, 0, 0.3)', shadowRaised: '0 8px 22px rgba(0, 0, 0, 0.42)', shadowSubtle: '0 2px 7px rgba(0, 0, 0, 0.3)', sidebarBackground: 'rgb(37, 37, 37)', surface: 'rgb(41, 41, 41)', surfaceOpaque: 'rgb(50, 50, 50)', surfaceRaised: 'rgb(50, 50, 50)', surfaceSunken: 'rgb(28, 28, 28)', surfaceTranslucent: 'rgb(50, 50, 50)', text: 'rgb(255, 255, 255)', textMuted: 'rgb(210, 210, 210)', textQuiet: 'rgb(170, 170, 170)', onAccent: 'rgb(20, 20, 20)' }
 const fluentDark: ThemeValues = { ...fluentDarkBase, controlSelected: 'rgb(50, 50, 50)', controlSelectedHover: 'rgb(58, 58, 58)', controlSelectedPressed: 'rgb(66, 66, 66)', navSelectedBackground: 'rgb(50, 50, 50)', navSelectedIndicator: 'rgb(76, 194, 255)', navSelectedIndicatorWidth: '2px', chromeBackground: 'rgb(32, 32, 32)', chromeBorder: 'rgb(64, 64, 64)', chromeBorderWidth: '1px' }
 
-const neoLight: ThemeValues = { ...fluentLight, accent: 'rgb(255, 225, 53)', accentHover: 'rgb(255, 213, 32)', accentPressed: 'rgb(225, 185, 0)', accentSoft: 'rgb(255, 239, 176)', border: 'rgb(18, 18, 18)', borderStrong: 'rgb(18, 18, 18)', canvas: 'rgb(255, 248, 234)', controlHover: 'rgb(255, 239, 176)', controlPressed: 'rgb(255, 222, 116)', controlSelected: 'rgb(255, 225, 53)', controlSelectedHover: 'rgb(255, 213, 32)', controlSelectedPressed: 'rgb(225, 185, 0)', controlSelectedText: 'rgb(18, 18, 18)', controlShadow: '2px 2px 0 rgb(18, 18, 18)', divider: 'rgb(18, 18, 18)', fieldBackground: 'rgb(255, 255, 255)', fieldBackgroundCompact: 'rgb(255, 255, 255)', fieldBorder: 'rgb(18, 18, 18)', focus: 'rgb(18, 18, 18)', materialFilter: 'none', onAccent: 'rgb(18, 18, 18)', overlayShadow: '4px 4px 0 rgb(18, 18, 18)', shadowRaised: '4px 4px 0 rgb(18, 18, 18)', shadowSubtle: '3px 3px 0 rgb(18, 18, 18)', sidebarBackground: 'rgb(255, 255, 255)', sidebarBorderBottomWidth: '0px', sidebarBorderLeftWidth: '0px', sidebarBorderRightWidth: '3px', sidebarBorderTopWidth: '0px', sidebarInsetBlock: '0px', sidebarInsetInlineStart: '0px', sidebarShadow: 'none', surface: 'rgb(255, 255, 255)', surfaceRaised: 'rgb(255, 255, 255)', surfaceSunken: 'rgb(255, 239, 176)', surfaceTranslucent: 'rgb(255, 255, 255)', text: 'rgb(18, 18, 18)', textMuted: 'rgb(58, 58, 58)', textQuiet: 'rgb(96, 96, 96)', warning: 'rgb(132, 75, 0)', controlRadius: '0px', pillRadius: '0px', surfaceRadius: '0px', controlStroke: '2px', surfaceStroke: '2px', material: 'hard-flat' }
-const neoDark: ThemeValues = { ...neoLight, accent: 'rgb(255, 225, 53)', accentHover: 'rgb(255, 237, 115)', accentPressed: 'rgb(224, 191, 0)', accentSoft: 'rgb(65, 65, 65)', border: 'rgb(255, 255, 255)', borderStrong: 'rgb(255, 255, 255)', canvas: 'rgb(28, 28, 28)', controlHover: 'rgb(65, 65, 65)', controlPressed: 'rgb(88, 88, 88)', controlShadow: '2px 2px 0 rgb(255, 255, 255)', divider: 'rgb(255, 255, 255)', fieldBackground: 'rgb(42, 42, 42)', fieldBackgroundCompact: 'rgb(42, 42, 42)', fieldBorder: 'rgb(255, 255, 255)', focus: 'rgb(255, 225, 53)', overlayShadow: '4px 4px 0 rgb(255, 255, 255)', placeholder: 'rgb(175, 175, 175)', shadowRaised: '4px 4px 0 rgb(255, 255, 255)', shadowSubtle: '3px 3px 0 rgb(255, 255, 255)', sidebarBackground: 'rgb(42, 42, 42)', surface: 'rgb(42, 42, 42)', surfaceRaised: 'rgb(52, 52, 52)', surfaceSunken: 'rgb(22, 22, 22)', surfaceTranslucent: 'rgb(42, 42, 42)', text: 'rgb(255, 255, 255)', textMuted: 'rgb(224, 224, 224)', textQuiet: 'rgb(175, 175, 175)', warning: 'rgb(255, 225, 53)' }
+const neoLight: ThemeValues = { ...fluentLight, accent: 'rgb(255, 225, 53)', accentHover: 'rgb(255, 213, 32)', accentPressed: 'rgb(225, 185, 0)', accentSoft: 'rgb(255, 239, 176)', border: 'rgb(18, 18, 18)', borderStrong: 'rgb(18, 18, 18)', canvas: 'rgb(255, 248, 234)', controlHover: 'rgb(255, 239, 176)', controlPressed: 'rgb(255, 222, 116)', controlSelected: 'rgb(255, 225, 53)', controlSelectedHover: 'rgb(255, 213, 32)', controlSelectedPressed: 'rgb(225, 185, 0)', controlSelectedText: 'rgb(18, 18, 18)', controlShadow: '2px 2px 0 rgb(18, 18, 18)', divider: 'rgb(18, 18, 18)', fieldBackground: 'rgb(255, 255, 255)', fieldBackgroundCompact: 'rgb(255, 255, 255)', fieldBorder: 'rgb(18, 18, 18)', focus: 'rgb(18, 18, 18)', materialFilter: 'none', onAccent: 'rgb(18, 18, 18)', overlayShadow: '4px 4px 0 rgb(18, 18, 18)', scrollEdgeShadow: 'none', shadowRaised: '4px 4px 0 rgb(18, 18, 18)', shadowSubtle: '3px 3px 0 rgb(18, 18, 18)', sidebarBackground: 'rgb(255, 255, 255)', sidebarBorderBottomWidth: '0px', sidebarBorderLeftWidth: '0px', sidebarBorderRightWidth: '3px', sidebarBorderTopWidth: '0px', sidebarInsetBlock: '0px', sidebarInsetInlineStart: '0px', sidebarShadow: 'none', surface: 'rgb(255, 255, 255)', surfaceOpaque: 'rgb(255, 255, 255)', surfaceRaised: 'rgb(255, 255, 255)', surfaceSunken: 'rgb(255, 239, 176)', surfaceTranslucent: 'rgb(255, 255, 255)', text: 'rgb(18, 18, 18)', textMuted: 'rgb(58, 58, 58)', textQuiet: 'rgb(96, 96, 96)', warning: 'rgb(132, 75, 0)', controlRadius: '0px', pillRadius: '0px', surfaceRadius: '0px', controlStroke: '2px', surfaceStroke: '2px', material: 'hard-flat' }
+const neoDark: ThemeValues = { ...neoLight, accent: 'rgb(255, 225, 53)', accentHover: 'rgb(255, 237, 115)', accentPressed: 'rgb(224, 191, 0)', accentSoft: 'rgb(65, 65, 65)', border: 'rgb(255, 255, 255)', borderStrong: 'rgb(255, 255, 255)', canvas: 'rgb(28, 28, 28)', controlBackground: 'rgb(42, 42, 42)', controlHover: 'rgb(65, 65, 65)', controlPressed: 'rgb(88, 88, 88)', controlShadow: '2px 2px 0 rgb(255, 255, 255)', divider: 'rgb(255, 255, 255)', fieldBackground: 'rgb(42, 42, 42)', fieldBackgroundCompact: 'rgb(42, 42, 42)', fieldBorder: 'rgb(255, 255, 255)', focus: 'rgb(255, 225, 53)', overlayShadow: '4px 4px 0 rgb(255, 255, 255)', placeholder: 'rgb(175, 175, 175)', shadowRaised: '4px 4px 0 rgb(255, 255, 255)', shadowSubtle: '3px 3px 0 rgb(255, 255, 255)', sidebarBackground: 'rgb(42, 42, 42)', surface: 'rgb(42, 42, 42)', surfaceOpaque: 'rgb(52, 52, 52)', surfaceRaised: 'rgb(52, 52, 52)', surfaceSunken: 'rgb(22, 22, 22)', surfaceTranslucent: 'rgb(42, 42, 42)', text: 'rgb(255, 255, 255)', textMuted: 'rgb(224, 224, 224)', textQuiet: 'rgb(175, 175, 175)', warning: 'rgb(255, 225, 53)' }
 
 const neoLightThemeValues: ThemeValues = { ...neoLight, accent: 'rgb(255, 210, 63)', accentHover: 'rgb(255, 198, 42)', accentPressed: 'rgb(231, 172, 0)', accentSoft: 'rgb(255, 236, 158)', border: 'rgb(0, 0, 0)', borderStrong: 'rgb(0, 0, 0)', canvas: 'rgb(255, 253, 245)', controlHover: 'rgb(255, 236, 158)', controlPressed: 'rgb(255, 220, 105)', controlSelected: 'rgb(255, 210, 63)', controlSelectedHover: 'rgb(255, 198, 42)', controlSelectedPressed: 'rgb(231, 172, 0)', controlSelectedText: 'rgb(0, 0, 0)', controlShadow: '5px 5px 0 rgb(0, 0, 0)', divider: 'rgb(0, 0, 0)', fieldBorder: 'rgb(0, 0, 0)', focus: 'rgb(0, 0, 0)', overlayShadow: '8px 8px 0 rgb(0, 0, 0)', shadowRaised: '8px 8px 0 rgb(0, 0, 0)', shadowSubtle: '3px 3px 0 rgb(0, 0, 0)', sidebarBackground: 'rgb(255, 255, 255)', text: 'rgb(0, 0, 0)', textMuted: 'rgb(47, 47, 47)', textQuiet: 'rgb(89, 89, 89)', warning: 'rgb(132, 75, 0)', navSelectedBackground: 'rgb(255, 210, 63)', navSelectedIndicator: 'rgb(0, 0, 0)', navSelectedIndicatorWidth: '0px', chromeBackground: 'rgb(255, 255, 255)', chromeBorder: 'rgb(0, 0, 0)', chromeBorderWidth: '3px', controlRadius: '0px', pillRadius: '0px', surfaceRadius: '0px', controlStroke: '3px', surfaceStroke: '3px', fontFamily: 'ui-sans-serif, system-ui, sans-serif', material: 'hard-flat' }
 const neoDarkThemeValues: ThemeValues = { ...neoDark, accent: 'rgb(255, 210, 63)', accentHover: 'rgb(255, 224, 102)', accentPressed: 'rgb(226, 170, 0)', controlSelected: 'rgb(255, 210, 63)', controlSelectedHover: 'rgb(255, 224, 102)', controlSelectedPressed: 'rgb(226, 170, 0)', controlSelectedText: 'rgb(0, 0, 0)', controlShadow: '5px 5px 0 rgb(255, 255, 255)', focus: 'rgb(255, 210, 63)', overlayShadow: '8px 8px 0 rgb(255, 255, 255)', shadowRaised: '8px 8px 0 rgb(255, 255, 255)', navSelectedBackground: 'rgb(255, 210, 63)', navSelectedIndicator: 'rgb(255, 255, 255)', navSelectedIndicatorWidth: '0px', chromeBackground: 'rgb(28, 28, 28)', chromeBorder: 'rgb(255, 255, 255)', chromeBorderWidth: '3px', controlRadius: '0px', pillRadius: '0px', surfaceRadius: '0px', controlStroke: '3px', surfaceStroke: '3px', material: 'hard-flat' }
@@ -236,6 +260,7 @@ export interface UiThemeDefinition<Id extends string = string> {
 function themeCssVariables(values: ThemeValues): Readonly<Record<string, string>> {
   return {
     '--ui-accent': values.accent,
+    '--ui-accent-background-image': values.accentBackgroundImage,
     '--ui-accent-foreground': values.material === 'hard-flat' ? values.text : values.accent,
     '--ui-accent-hover': values.accentHover,
     '--ui-accent-pressed': values.accentPressed,
@@ -243,6 +268,8 @@ function themeCssVariables(values: ThemeValues): Readonly<Record<string, string>
     '--ui-border': values.border,
     '--ui-border-strong': values.borderStrong,
     '--ui-canvas': values.canvas,
+    '--ui-control-background': values.controlBackground,
+    '--ui-control-background-image': values.controlBackgroundImage,
     '--ui-control-hover': values.controlHover,
     '--ui-control-pressed': values.controlPressed,
     '--ui-control-radius': values.controlRadius,
@@ -265,6 +292,7 @@ function themeCssVariables(values: ThemeValues): Readonly<Record<string, string>
     '--ui-field-border': values.fieldBorder,
     '--ui-focus': values.focus,
     '--ui-material-filter': values.materialFilter,
+    '--ui-material-decoration-opacity': values.materialDecorationOpacity,
     '--ui-on-accent': values.onAccent,
     '--ui-on-danger': values.onDanger,
     '--ui-on-success': values.onSuccess,
@@ -276,6 +304,8 @@ function themeCssVariables(values: ThemeValues): Readonly<Record<string, string>
     '--ui-pill-radius': values.pillRadius,
     '--ui-shadow-raised': values.shadowRaised,
     '--ui-shadow-subtle': values.shadowSubtle,
+    '--ui-scroll-edge-mask': values.scrollEdgeMask,
+    '--ui-scroll-edge-shadow': values.scrollEdgeShadow,
     '--ui-sidebar-background': values.sidebarBackground,
     '--ui-sidebar-border-bottom-width': values.sidebarBorderBottomWidth,
     '--ui-sidebar-border-left-width': values.sidebarBorderLeftWidth,
@@ -286,6 +316,8 @@ function themeCssVariables(values: ThemeValues): Readonly<Record<string, string>
     '--ui-sidebar-radius': values.sidebarRadius,
     '--ui-sidebar-shadow': values.sidebarShadow,
     '--ui-surface': values.surface,
+    '--ui-surface-background-image': values.surfaceBackgroundImage,
+    '--ui-surface-opaque': values.surfaceOpaque,
     '--ui-surface-raised': values.surfaceRaised,
     '--ui-surface-radius': values.surfaceRadius,
     '--ui-surface-stroke': values.surfaceStroke,

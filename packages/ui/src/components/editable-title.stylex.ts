@@ -47,7 +47,7 @@ export const editableTitleStyles = stylex.create({
     width: 12,
     height: 12,
     flex: '0 0 12px',
-    color: 'rgba(48, 46, 51, 0.42)',
+    color: uiColors.textQuiet,
   },
   input: {
     width: 'clamp(160px, 28vw, 320px)',
@@ -55,16 +55,16 @@ export const editableTitleStyles = stylex.create({
     borderColor: {
       'default': uiColors.fieldBorder,
       ':focus': uiColors.focus,
-      ':invalid': 'rgba(184, 62, 62, 0.74)',
+      ':invalid': uiColors.danger,
     },
     borderStyle: 'solid',
-    borderWidth: 1,
+    borderWidth: uiColors.controlStroke,
     borderRadius: uiColors.controlRadius,
     paddingRight: 10,
     paddingLeft: 10,
     backgroundColor: {
       'default': uiColors.fieldBackground,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(255, 255, 255)',
+      '@media (prefers-reduced-transparency: reduce)': uiColors.surfaceOpaque,
     },
     backdropFilter: {
       'default': uiColors.materialFilter,

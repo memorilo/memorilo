@@ -60,8 +60,8 @@ export const shelfPageStyles = stylex.create({
       'default': shelfTheme.surfaceTranslucent,
       ':hover': shelfTheme.controlHover,
       ':active': shelfTheme.controlPressed,
-      '@media (prefers-contrast: more)': 'rgba(250, 250, 251, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(245, 246, 248)',
+      '@media (prefers-contrast: more)': shelfTheme.surfaceOpaque,
+      '@media (prefers-reduced-transparency: reduce)': shelfTheme.surfaceOpaque,
     },
     backdropFilter: {
       'default': shelfTheme.materialFilter,
@@ -120,8 +120,8 @@ export const shelfPageStyles = stylex.create({
     backgroundColor: {
       'default': shelfTheme.surfaceTranslucent,
       ':focus-within': shelfTheme.surfaceRaised,
-      '@media (prefers-contrast: more)': 'rgba(250, 250, 251, 0.96)',
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(239, 240, 243)',
+      '@media (prefers-contrast: more)': shelfTheme.surfaceOpaque,
+      '@media (prefers-reduced-transparency: reduce)': shelfTheme.surfaceOpaque,
     },
     backdropFilter: {
       'default': shelfTheme.materialFilter,

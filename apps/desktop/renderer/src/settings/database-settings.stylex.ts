@@ -1,3 +1,4 @@
+import { uiColors } from '@memorilo/ui/theme.stylex'
 import * as stylex from '@stylexjs/stylex'
 
 export const databaseSettingsStyles = stylex.create({
@@ -12,19 +13,21 @@ export const databaseSettingsStyles = stylex.create({
     minHeight: 32,
     alignItems: 'center',
     gap: 7,
-    borderColor: 'rgba(80, 87, 98, 0.2)',
+    borderColor: uiColors.border,
     borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 7,
+    borderWidth: uiColors.controlStroke,
+    borderRadius: uiColors.controlRadius,
     paddingRight: 11,
     paddingLeft: 11,
     backgroundColor: {
-      'default': 'rgba(255, 255, 255, 0.7)',
-      ':hover': 'rgba(255, 255, 255, 0.94)',
-      ':active': 'rgba(236, 240, 247, 0.9)',
-      ':disabled': 'rgba(220, 224, 231, 0.55)',
+      'default': uiColors.controlBackground,
+      ':hover': uiColors.controlHover,
+      ':active': uiColors.controlPressed,
+      ':disabled': uiColors.surfaceSunken,
     },
-    color: 'rgba(26, 28, 32, 0.9)',
+    backgroundImage: uiColors.controlBackgroundImage,
+    color: uiColors.text,
+    boxShadow: uiColors.controlShadow,
     fontSize: 12,
     fontWeight: 600,
     letterSpacing: 0,
@@ -38,7 +41,7 @@ export const databaseSettingsStyles = stylex.create({
     marginRight: 14,
     marginBottom: 12,
     marginLeft: 14,
-    color: 'rgba(42, 45, 52, 0.68)',
+    color: uiColors.textMuted,
     fontSize: 11,
     letterSpacing: 0,
     lineHeight: '16px',

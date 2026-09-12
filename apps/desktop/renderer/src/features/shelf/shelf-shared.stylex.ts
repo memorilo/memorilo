@@ -20,6 +20,7 @@ export const shelfTheme = {
   shadowRaised: 'var(--ui-shadow-raised, 0 8px 20px rgba(0, 0, 0, 0.14))',
   shadowSubtle: 'var(--ui-shadow-subtle, 0 2px 6px rgba(0, 0, 0, 0.1))',
   surface: 'var(--ui-surface, rgb(255, 255, 255))',
+  surfaceOpaque: 'var(--ui-surface-opaque, rgb(250, 251, 253))',
   surfaceRaised: 'var(--ui-surface-raised, rgb(255, 255, 255))',
   surfaceTranslucent: 'var(--ui-surface-translucent, rgba(244, 246, 249, 0.5))',
   text: 'var(--ui-text, rgba(27, 28, 31, 0.92))',
@@ -49,7 +50,7 @@ export const shelfSharedStyles = stylex.create({
       ':hover': shelfTheme.controlHover,
       ':active': shelfTheme.controlPressed,
       ':disabled': shelfTheme.surfaceTranslucent,
-      '@media (prefers-reduced-transparency: reduce)': 'rgb(245, 246, 248)',
+      '@media (prefers-reduced-transparency: reduce)': shelfTheme.surfaceOpaque,
     },
     backdropFilter: {
       'default': shelfTheme.materialFilter,

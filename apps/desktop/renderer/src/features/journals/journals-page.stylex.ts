@@ -38,7 +38,9 @@ export const journalsPageStyles = stylex.create({
       'default': 'var(--ui-material-filter, blur(14px) saturate(150%))',
       '@media (prefers-reduced-transparency: reduce)': 'none',
     },
-    boxShadow: 'var(--ui-shadow-subtle, 0 12px 18px 6px rgba(255, 255, 255, 0.94))',
+    boxShadow: 'var(--ui-scroll-edge-shadow, none)',
+    maskImage: 'var(--ui-scroll-edge-mask, none)',
+    WebkitMaskImage: 'var(--ui-scroll-edge-mask, none)',
   },
   viewport: {
     width: '100%',
@@ -124,7 +126,7 @@ export const journalsPageStyles = stylex.create({
   },
   todayLabel: {
     display: 'inline-block',
-    marginInlineStart: 8,
+    marginInlineStart: 10,
     color: colors.secondaryText,
     fontSize: 12,
     fontWeight: 600,

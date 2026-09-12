@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { todoTimeGridViewStyles as styles } from './todo-time-grid-view.stylex'
+import './todo-time-grid-view.global'
 
 const storageKeys = {
   multiDay: 'memorilo.todo.timeline.multiDay',

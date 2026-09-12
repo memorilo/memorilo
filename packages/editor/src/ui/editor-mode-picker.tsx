@@ -1,4 +1,5 @@
 import type { EditorSession } from '../common/editor-session'
+import { Button } from '@memorilo/ui'
 import * as stylex from '@stylexjs/stylex'
 import { AlignLeft, ListTree } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -26,11 +27,11 @@ export function EditorModePicker({
         role="group"
       >
         {options.map(({ icon: Icon, label, mode: optionMode }) => (
-          <button
+          <Button
             key={optionMode}
-            {...stylex.props(editorModePickerStyles.button)}
             title={label}
-            type="button"
+            variant="secondary"
+            xstyle={editorModePickerStyles.button}
             onClick={() => {
               onActivate()
               session.topicDocument.setMode(optionMode)
@@ -39,7 +40,7 @@ export function EditorModePicker({
           >
             <Icon {...stylex.props(editorModePickerStyles.icon)} aria-hidden="true" strokeWidth={1.7} />
             <span {...stylex.props(editorModePickerStyles.label)}>{label}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </div>
