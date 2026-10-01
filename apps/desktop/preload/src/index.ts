@@ -23,6 +23,16 @@ function subscribeConfiguration(listener: (configuration: DesktopConfiguration) 
 }
 
 const noteSaveCoordinator = createNoteSaveCoordinator(result => ipcRenderer.send(noteSaveResultChannel, result))
+// Sandboxed preloads expose process.platform but cannot require node:process.
+// eslint-disable-next-line node/prefer-global/process
+const nativePlatform = process.platform
+const platform = nativePlatform === 'darwin'
+  ? 'macos'
+  : nativePlatform === 'win32'
+    ? 'windows'
+    : nativePlatform === 'linux'
+      ? 'linux'
+      : 'other'
 ipcRenderer.on(noteSaveRequestChannel, async (_event, request: NoteSaveRequest) => {
   await noteSaveCoordinator.handle(request.requestId)
 })
@@ -68,6 +78,7 @@ function subscribeSyncServerEvents(listener: Parameters<DesktopApi['subscribeSyn
 contextBridge.exposeInMainWorld(
   'desktop',
   createDesktopApi(
+    platform,
     services,
     subscribeConfiguration,
     subscribeNoteSaveRequests,

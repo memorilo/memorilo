@@ -8,6 +8,7 @@ import { CommandPaletteCommandsContext } from '../../shared/command-palette'
 import { useDesktopConfiguration } from '../../shared/configuration'
 import { matchesKeyboardShortcut } from '../../shared/keyboard-shortcut'
 import { PageTitlebarContext } from '../../shared/page-titlebar'
+import { isMacOS } from '../../shared/platform'
 import { CommandPalette } from '../command-palette/command-palette'
 import { router } from '../router'
 import { appShellStyles } from './app-shell.stylex'
@@ -44,8 +45,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', handleKeyDown, true)
   }, [configuration.shortcuts.back, configuration.shortcuts.forward])
   const compactCanvasTitlebar = pageTitlebar?.titleVisibility === 'hidden'
+  const readerLeadingOffset = sidebarVisible
+    ? 270
+    : compactCanvasTitlebar
+      ? 55
+      : isMacOS()
+        ? 120
+        : 55
   const shellStyle = {
-    '--reader-leading-offset': sidebarVisible ? '270px' : '120px',
+    '--reader-leading-offset': `${readerLeadingOffset}px`,
   } as CSSProperties
   const shellProps = stylex.props(appShellStyles.shell)
 

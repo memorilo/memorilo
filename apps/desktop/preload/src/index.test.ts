@@ -1,4 +1,5 @@
 import type { DesktopApi, DesktopNoteExternalUpdate, DesktopSyncServerEvent } from './contract'
+import process from 'node:process'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -35,6 +36,17 @@ beforeEach(() => {
 })
 
 describe('preload IPC bridge', () => {
+  it('exposes the native host platform through the isolated bridge', () => {
+    const expected = process.platform === 'darwin'
+      ? 'macos'
+      : process.platform === 'win32'
+        ? 'windows'
+        : process.platform === 'linux'
+          ? 'linux'
+          : 'other'
+    expect(exposedApi().platform).toBe(expected)
+  })
+
   it('invokes the stable application-owned Fetch channel with the original request', async () => {
     const request = {
       body: '{"args":[]}',

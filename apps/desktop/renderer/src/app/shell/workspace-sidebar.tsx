@@ -31,6 +31,7 @@ import {
   desktopEffect,
   desktopEffectQuery,
 } from '../../shared/effect-query'
+import { isMacOS } from '../../shared/platform'
 import { P2pSidebarStatus } from './p2p-sidebar-status'
 import { p2pSidebarStatusStyles } from './p2p-sidebar-status.stylex'
 import { workspaceSidebarStyles } from './workspace-sidebar.stylex'
@@ -42,9 +43,9 @@ const sidebarSpring = {
 } as const
 
 const sidebarToggleSpring = {
-  bounce: 0,
+  bounce: 0.12,
   type: 'spring',
-  visualDuration: 0.42,
+  visualDuration: 0.3,
 } as const
 
 const disclosureSpring = {
@@ -288,6 +289,7 @@ function SourceGroup({
 }
 
 export function WorkspaceSidebarMotion({
+  compactCollapsed,
   children,
   onToggle,
   visible,
@@ -330,7 +332,15 @@ export function WorkspaceSidebarMotion({
         : null}
       <motion.button
         {...stylex.props(workspaceSidebarStyles.toggle)}
-        animate={{ left: visible ? 217 : 120 }}
+        animate={{
+          left: visible
+            ? 217
+            : compactCollapsed
+              ? 14
+              : isMacOS()
+                ? 120
+                : 14,
+        }}
         aria-label={visible ? t('hideSidebar') : t('showSidebar')}
         data-sidebar-toggle=""
         data-window-no-drag=""

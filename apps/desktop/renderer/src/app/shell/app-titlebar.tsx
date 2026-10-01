@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { useTranslation } from 'react-i18next'
 import { PageTitlebarButton } from '../../shared/page-titlebar-button'
+import { isMacOS } from '../../shared/platform'
 import { router } from '../router'
 import { appTitlebarStyles } from './app-titlebar.stylex'
 
@@ -53,10 +54,17 @@ export function AppTitlebar({
 
   const canGoBack = historyPosition.index > 0
   const canGoForward = historyPosition.index < historyPosition.maxIndex
-  // Keep the app controls clear of the native traffic-light region even when
-  // the primary workspace rail is collapsed. The rail toggle occupies the
-  // first slot after that reserved area, so history navigation starts after it.
-  const navigationOffset = sidebarVisible ? 270 : 164
+  const compactCanvasTitlebar = page?.titleVisibility === 'hidden'
+  // macOS reserves the upper-left corner for the native traffic lights. Keep
+  // that extra inset only on macOS; Windows and Linux have no renderer-side
+  // traffic-light area to reserve.
+  const navigationOffset = sidebarVisible
+    ? 270
+    : compactCanvasTitlebar
+      ? 55
+      : isMacOS()
+        ? 164
+        : 55
   const leadingOffset = navigationOffset + 76
 
   return (

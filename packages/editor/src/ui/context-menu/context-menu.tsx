@@ -4,6 +4,7 @@ import type { BasicExtension } from 'prosekit/basic'
 import type { Editor } from 'prosekit/core'
 import type { Uploader } from 'prosekit/extensions/file'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { EditorPlatform } from '../../common/editor-platform'
 import type { OutlineRuntime } from '../../common/outline-runtime'
 import type { EditorAction } from '../editor-actions/index.ts'
 import type { ContextMenuPoint } from './context-menu-interactions'
@@ -47,7 +48,7 @@ function runAction(editor: Editor<BasicExtension>, action: EditorAction, close: 
   editor.focus()
 }
 
-export default function ContextMenu({ outlineRuntime, uploader }: { outlineRuntime: OutlineRuntime, uploader: Uploader<string> }) {
+export default function ContextMenu({ outlineRuntime, platform = 'other', uploader }: { outlineRuntime: OutlineRuntime, platform?: EditorPlatform, uploader: Uploader<string> }) {
   const editor = useEditor<BasicExtension>()
   const actions = useEditorDerivedValue(getEditorActions)
   const { t } = useTranslation('editor')
@@ -111,7 +112,7 @@ export default function ContextMenu({ outlineRuntime, uploader }: { outlineRunti
   const canReadClipboard = typeof navigator.clipboard?.read === 'function'
   const canWriteClipboard = typeof navigator.clipboard?.write === 'function'
     && typeof ClipboardItem !== 'undefined'
-  const primaryModifier = navigator.userAgent.includes('Macintosh') ? '⌘' : 'Ctrl+'
+  const primaryModifier = platform === 'macos' ? '⌘' : 'Ctrl+'
   const outlineSnapshot = useSyncExternalStore(
     outlineRuntime.subscribe,
     outlineRuntime.getSnapshot,
