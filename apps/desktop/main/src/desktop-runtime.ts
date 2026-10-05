@@ -7,6 +7,7 @@ import type { TodoDevicePushTarget } from './todo/todo-device-push-service'
 import { Buffer } from 'node:buffer'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
+import { rename } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -41,6 +42,7 @@ import { installJournalRollover } from './lifecycle/journal-rollover'
 import { createMcpServerController } from './mcp/mcp-server-controller'
 import { createNoteApplicationService } from './notes/note-application-service'
 import { ensureNoteP2pBaselines } from './notes/note-p2p-baselines'
+import { NoteTransferApplication } from './notes/note-transfer-application'
 import { createActiveReadingRegistry } from './reading/active-reading-registry'
 import { BetterSqliteDatabase } from './storage/better-sqlite-database'
 import { ElectronDeviceSigningKeyStore } from './storage/electron-device-signing-key-store'
@@ -113,6 +115,22 @@ async function reportInvalidConfiguration(configurationPath: string, phase: 'rel
     message: 'Invalid Memorilo Configuration',
     noLink: true,
     type: 'error',
+  }
+  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  if (owner)
+    await dialog.showMessageBox(owner, options)
+  else
+    await dialog.showMessageBox(options)
+}
+
+async function reportP2pJournalRecovery(backupPath: string): Promise<void> {
+  const options: MessageBoxOptions = {
+    buttons: ['OK'],
+    defaultId: 0,
+    detail: `The previous sync journal belonged to a different local device identity. Memorilo backed it up to:\n\n${backupPath}\n\nA new sync journal was created from the current local database. Existing Notes and pending learning changes are preserved and will synchronize again.`,
+    message: 'P2P Sync Journal Rebuilt',
+    noLink: true,
+    type: 'warning',
   }
   const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   if (owner)
@@ -328,7 +346,10 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           deviceId: () => requireP2pApplication().pairing.identity.deviceId,
           notifyChangesAvailable: () => requireP2pApplication().notifyChangesAvailable(),
         })
-    const syncJournal = new ProtobufSyncJournal(join(dataDirectory, 'p2p', 'sync-journal.bin'))
+    // Development worktrees keep identity, pairing, signing keys, and journal in .dev.
+    const p2pStatePath = join(dataDirectory, 'p2p', 'identity.json')
+    const syncJournalPath = join(dataDirectory, 'p2p', 'sync-journal.bin')
+    let syncJournal = new ProtobufSyncJournal(syncJournalPath)
     await syncJournal.load()
     const pendingJournalWrites = new Set<Promise<void>>()
     const pendingLocalNoteUpdates: Array<{ noteId: string, update: Uint8Array }> = []
@@ -456,8 +477,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
             window.webContents.send('memorilo:p2p-status', status)
           syncServerStatus.updateP2pStatus(status)
         },
-        statePath: join(userDataPath, 'p2p', 'identity.json'),
-        signingKeyStore: new ElectronDeviceSigningKeyStore(join(userDataPath, 'p2p', 'device-signing-key.enc')),
+        statePath: p2pStatePath,
+        signingKeyStore: new ElectronDeviceSigningKeyStore(join(dataDirectory, 'p2p', 'device-signing-key.enc')),
         ...(assetSync === null ? {} : { objectStore: assetSync.objectStore }),
         ...(initialSyncServerConfiguration.enabled && initialSyncServerConfiguration.url.length > 0
           ? {
@@ -606,6 +627,13 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     p2pApplication = p2p
     try {
       const deviceId = p2pApplication.pairing.identity.deviceId
+      if (syncJournal.deviceId !== null && syncJournal.deviceId !== deviceId) {
+        const backupPath = `${syncJournal.path}.backup-${Date.now()}-${randomBytes(6).toString('hex')}`
+        await rename(syncJournal.path, backupPath)
+        syncJournal = new ProtobufSyncJournal(syncJournal.path)
+        await syncJournal.load()
+        await reportP2pJournalRecovery(backupPath)
+      }
       await syncJournal.setDeviceId(deviceId)
       await ensureNoteP2pBaselines({
         defaultNoteLearningEnabled: () => configurationStore.getSnapshot().defaultNoteLearningEnabled,
@@ -642,9 +670,26 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       close: application => application.close(),
       name: 'database backup',
     })).resource
+    const transfer = new NoteTransferApplication({
+      appVersion: app.getVersion(),
+      assetDirectory: assets,
+      flushRenderer: options.flushRenderer,
+      notes,
+      shelfReadingFiles,
+      storage: editorStorage,
+      typstFontDirectories: [app.isPackaged
+        ? join(process.resourcesPath, 'typst-fonts', 'Xiaolai')
+        : resolve(options.mainDirectory, '../../../../packages/excalidraw/excalidraw/fonts/Xiaolai')],
+    })
+    await scope.acquire({
+      acquire: () => transfer,
+      close: application => application.close(),
+      name: 'note transfer',
+    })
     await scope.acquire({
       acquire: () => createDesktopServices(
         notes,
+        transfer,
         editorStorage,
         backup,
         shelfStorage,
