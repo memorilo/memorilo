@@ -2,6 +2,8 @@ use std::time::Duration;
 
 #[cfg(target_os = "espidf")]
 use serde::Deserialize;
+#[cfg(target_os = "espidf")]
+use prost::Message;
 use serde::Serialize;
 
 use crate::framebuffer::FRAME_BYTES;
@@ -1225,7 +1227,7 @@ pub mod runtime {
         let authorization = format!("Bearer {token}");
         let mut headers = vec![
             ("Authorization", authorization.as_str()),
-            ("Accept", "application/json"),
+            ("Accept", "application/x-protobuf"),
         ];
         if let Some(etag) = etag {
             headers.push(("If-None-Match", etag));
@@ -1691,13 +1693,7 @@ pub mod runtime {
                             respond_invalid_body(request, event_tx, audit)?;
                             return Ok(());
                         }
-                        let snapshot =
-                            serde_json::from_slice::<crate::todo_sync::TodoSnapshot>(&body);
-                        if snapshot.as_ref().is_err()
-                            || snapshot.as_ref().is_ok_and(|value| {
-                                crate::todo_sync::validate_snapshot(value).is_err()
-                            })
-                        {
+                        if crate::todo_sync::decode_protobuf_snapshot(&body).is_err() {
                             respond_invalid_body(request, event_tx, audit)?;
                             return Ok(());
                         }
@@ -1713,12 +1709,16 @@ pub mod runtime {
                 let _ = event_tx.try_send(NetworkRuntimeEvent::Audit(management_queue_audit(
                     audit, queued,
                 )));
-                let mut response = request.into_status_response(if queued { 202 } else { 503 })?;
-                response.write_all(if queued {
-                    br#"{"accepted":true}"#
-                } else {
-                    br#"{"accepted":false}"#
-                })?;
+                let body = crate::proto::memorilo::sync::v1::TodoSyncResponse {
+                    operation: "todo.sync".into(),
+                    request_id: String::new(),
+                    status: if queued { "accepted" } else { "rejected" }.into(),
+                    error: (!queued).then(|| "capacity-exceeded".into()),
+                }
+                .encode_to_vec();
+                request
+                    .into_status_response(if queued { 202 } else { 503 })?
+                    .write_all(&body)?;
             }
             Ok((_, audit)) => {
                 let _ = event_tx.try_send(NetworkRuntimeEvent::Audit(ManagementAudit {

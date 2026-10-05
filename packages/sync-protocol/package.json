@@ -1,19 +1,19 @@
 {
-  "name": "@memorilo/device-provisioning",
+  "name": "@memorilo/sync-protocol",
   "type": "module",
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./proto": "./proto/memorilo.proto"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@memorilo/sync-protocol": "workspace:*",
     "protobufjs": "7.6.5"
   },
   "devDependencies": {
