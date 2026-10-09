@@ -35,6 +35,7 @@ export function createDesktopApi(
     subscribePairing: () => () => undefined,
     uploadGalleryAsset: async () => undefined,
   },
+  customTitlebarEnabled = false,
 ): DesktopApi {
   const p2p = services.p2p ?? {
     approvePairing: async () => { throw new Error('P2P sync is unavailable') },
@@ -55,6 +56,7 @@ export function createDesktopApi(
     updateDeviceName: async () => { throw new Error('P2P sync is unavailable') },
   }
   return {
+    customTitlebarEnabled: customTitlebarEnabled && (platform === 'windows' || platform === 'linux'),
     deviceProvisioning,
     loadWhiteboardLibrary: () => services.whiteboardLibrary.load(),
     platform,

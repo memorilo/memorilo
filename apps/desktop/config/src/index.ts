@@ -143,6 +143,7 @@ export const DesktopConfigurationSchema = Schema.Struct({
   readerAnnotationCopyFormat: Schema.Literals(['text', 'text-book', 'text-book-location']),
   readerEpubPresentationMode: Schema.Literals(['publisher', 'reader']),
   readerPageMode: Schema.Literals(['continuous', 'single-page']),
+  redrawTitlebar: Schema.Boolean,
   reduceMotion: Schema.Boolean,
   shortcuts: Schema.Struct({
     addBasicCard: Schema.String,
@@ -236,6 +237,7 @@ export const desktopConfigurationDefinition = defineConfiguration({
     readerAnnotationCopyFormat: 'text' as const,
     readerEpubPresentationMode: 'publisher' as const,
     readerPageMode: 'continuous' as const,
+    redrawTitlebar: true,
     reduceMotion: false,
     shortcuts: defaultShortcutConfiguration,
     syncServer: {
@@ -287,6 +289,12 @@ export const desktopConfigurationDefinition = defineConfiguration({
         control: 'toggle',
         label: 'Reduce motion',
         path: 'reduceMotion',
+      },
+      {
+        control: 'toggle',
+        description: 'Place the application menus beside Memorilo. Turn off to use the system title bar. Takes effect after restarting the app.',
+        label: 'Enable redrawn title bar',
+        path: 'redrawTitlebar',
       },
       {
         control: 'select',
@@ -783,6 +791,9 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const withPanel = Object.hasOwn(record, 'panel')
     ? withTheme
     : { ...withTheme, panel: desktopConfigurationDefinition.defaults.panel }
+  const withTitlebar = Object.hasOwn(record, 'redrawTitlebar')
+    ? withPanel
+    : { ...withPanel, redrawTitlebar: desktopConfigurationDefinition.defaults.redrawTitlebar }
   const storedShortcuts = record.shortcuts
   const shortcuts = typeof storedShortcuts === 'object' && storedShortcuts !== null && !Array.isArray(storedShortcuts)
     ? storedShortcuts as Record<string, unknown>
@@ -790,8 +801,8 @@ export function migrateDesktopConfiguration(configuration: unknown): unknown {
   const defaultShortcuts = desktopConfigurationDefinition.defaults.shortcuts
   const withShortcuts = shortcuts !== undefined
     && Object.keys(defaultShortcuts).every(key => typeof shortcuts[key] === 'string')
-    ? withPanel
-    : { ...withPanel, shortcuts: { ...defaultShortcuts, ...shortcuts } }
+    ? withTitlebar
+    : { ...withTitlebar, shortcuts: { ...defaultShortcuts, ...shortcuts } }
   const storedEditor = record.editor
   const editor = typeof storedEditor === 'object' && storedEditor !== null && !Array.isArray(storedEditor)
     ? storedEditor as Record<string, unknown>
