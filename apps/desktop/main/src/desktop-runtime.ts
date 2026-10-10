@@ -56,6 +56,7 @@ import {
   shelfLibraryDirectory,
 } from './storage/workspace-paths'
 import { createSyncServerStatusController } from './sync-server-status'
+import { createTodoCalendarFeedService, ElectronTodoCalendarFeedTokenStore } from './todo/todo-calendar-feed-service'
 import { createTodoDevicePushService } from './todo/todo-device-push-service'
 import { createTodoDeviceTargetStore, loadTodoDeviceTargetsForStartup } from './todo/todo-device-target-store'
 import { createTodoReminderScheduler } from './todo/todo-reminder-scheduler'
@@ -68,7 +69,7 @@ export interface DesktopRuntime {
 
 interface DesktopRuntimeOptions {
   allowTestClock: boolean
-  createWindow: () => void
+  createWindow: (redrawTitlebar: boolean) => void
   flushRenderer: () => Promise<boolean>
   mainDirectory: string
   requestRestart: () => void
@@ -631,6 +632,18 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       name: 'P2P sync',
     })).resource
     p2pApplication = p2p
+    const calendarFeedService = createTodoCalendarFeedService({
+      deviceName: () => p2p.localDevice().deviceName,
+      feedConfiguration: () => configurationStore.getSnapshot().todo,
+      serverConfiguration: () => configurationStore.getSnapshot().syncServer,
+      serverCredential: () => syncServerCredential,
+      store: new ElectronTodoCalendarFeedTokenStore(join(dataDirectory, 'sync-server', 'todo-calendar-token.enc')),
+    })
+    const todoCalendarFeed = {
+      get: calendarFeedService.get,
+      issue: calendarFeedService.issue,
+      revoke: calendarFeedService.revoke,
+    }
     try {
       const deviceId = p2pApplication.pairing.identity.deviceId
       if (syncJournal.deviceId !== null && syncJournal.deviceId !== deviceId) {
@@ -753,6 +766,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           syncServerStatus.publishRemoteStateChange(previousServer, nextServer)
           void p2p.notifyChangesAvailable().catch(error => console.warn('Failed to reconnect after installing Sync Server credential', error))
         },
+        todoCalendarFeed,
         assetSync ?? undefined,
       ),
       close: handle => handle.close(),
@@ -787,10 +801,10 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       close: remove => remove(),
       name: 'application menu',
     })
-    options.createWindow()
+    options.createWindow(configurationStore.getSnapshot().redrawTitlebar)
     const handleActivate = (): void => {
       if (BrowserWindow.getAllWindows().length === 0)
-        options.createWindow()
+        options.createWindow(configurationStore.getSnapshot().redrawTitlebar)
     }
     await scope.acquire({
       acquire: () => {
